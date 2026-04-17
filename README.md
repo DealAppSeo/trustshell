@@ -94,9 +94,10 @@ HAL Dissonance Score:
 **Production evidence:**
 ```
 2,600 constitutional evaluations (SOPHIA agent, April 2026)
+SOPHIA RepID: 10,000 — AUTONOMOUS tier (cap reached, 19,157 earned)
 2,585 REFUSED  — veto held during elevated dissonance
    15 APPROVED — only during Extreme Fear market conditions
-  714 capital protection events logged to RepID
+  714 capital protection events logged to RepID credential
 ```
 
 ---
@@ -141,7 +142,7 @@ if (result.approved) {
 |---------|----------------|----------|
 | `conservative` | > 0.95 | High-stakes financial, medical |
 | `balanced` | > 0.88 | General autonomous agents |
-| `aggressive` | > 0.80 | Research, sandboxed environments |
+| `pro` | > 0.80 | Research, sandboxed environments |
 
 All three profiles enforce the five blocked action classes unconditionally.
 
@@ -259,6 +260,46 @@ Every veto generates a compliance receipt:
 
 ---
 
+## Live On Testnet
+
+| Chain | What's Deployed |
+|-------|----------------|
+| Base Sepolia | ERC-8004 IdentityRegistry · ReputationRegistry · 4 agent tokens (SOPHIA #3747, RAVEN #3748, ATLAS #3749, GUARDIAN #3750) |
+| HashKey Chain | 122 ZK proof events via repid-engine |
+
+```
+IdentityRegistry:    0x8004A818BFB912233c491871b3d84c89A494BD9e
+ReputationRegistry:  0x8004B663056A597Dffe9eCcC1965A193B7388713
+Trinity Deployer:    0xdf6b8215D193b11B4903d223729c3CF7A6de271d
+```
+
+Mainnet deployment: Q2 2026 post-Plonky3 circuit completion.
+
+---
+
+## Roadmap
+
+| Quarter | Milestone |
+|---------|-----------|
+| Q2 2026 | `@hyperdag/trustshell` npm package published |
+| Q2 2026 | Plonky3 Postcard-tier ZKP — ~50ms, no trusted setup, WASM browser verification |
+| Q2 2026 | Tau-bench continuous benchmarking via Trinity Symphony swarm |
+| Q3 2026 | x402 agent-to-agent payment gating |
+| Q3 2026 | Google A2A + CrewAI + AutoGen interop |
+| Q3 2026 | Full Sponsor-Guardian recursive ZKP (Plonky3 nested circuits) |
+| Q4 2026 | Rust core via WASM bindings (10-100x throughput) |
+| Q4 2026 | ISO 20022 compliance receipt export for enterprise reporting |
+
+**Why Plonky3 and not Groth16:**
+- No trusted setup ceremony required
+- Recursive composition — 4FA PoL proof nests inside Sponsor-Guardian proof
+- WASM compilation for browser-side Postcard verification < 100ms
+- Postcard tier proves in ~50ms — lighter than a round-trip to most APIs
+
+Full deep technical Q&A: [trustshell.dev/why](https://trustshell.dev/why) *(coming Q2 2026)*
+
+---
+
 ## Status
 
 | Component | Status |
@@ -267,8 +308,8 @@ Every veto generates a compliance receipt:
 | `VetoEngine` (Python) | ✅ Production |
 | `ComplianceReceipt` | ✅ Production |
 | `KYAValidator` | ✅ Production |
-| `ZKPAttestation` | 🔄 Stubs live, full proofs pending |
-| npm package `@hyperdag/trustshell` | 🔄 Publishing |
+| `ZKPAttestation` | 🔄 Testnet live (Base Sepolia · HashKey Chain) — Plonky3 mainnet Q2 2026 |
+| npm package `@hyperdag/trustshell` | 🔄 Publishing Q2 2026 |
 | HITL Telegram bridge | ✅ Wired |
 
 ---
