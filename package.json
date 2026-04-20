@@ -1,7 +1,6 @@
 {
   "name": "@hyperdag/trustshell",
   "version": "0.1.0",
-  "description": "The trust gate for the agentic economy. ZKP-verified RepID scoring.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -12,21 +11,8 @@
     "build": "tsc",
     "prepublishOnly": "npm run build"
   },
-  "keywords": [
-    "hyperdag",
-    "repid",
-    "zkp",
-    "trust",
-    "agents",
-    "erc-8004"
-  ],
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/DealAppSeo/trustshell"
-  },
-  "type": "commonjs",
   "devDependencies": {
-    "typescript": "^6.0.2"
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
   }
 }

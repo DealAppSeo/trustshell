@@ -1,188 +1,113 @@
-// @hyperdag/trustshell v0.1.0
-// The trust gate for the agentic economy.
-// Zero formula constants. Calls repid-engine API only.
-// Patent pending P-023 + P-024 — do not reverse engineer.
-// Apache-2.0 — wrapper is open, engine is proprietary.
-
-const DEFAULT_ENGINE = 'https://repid-engine-production.up.railway.app';
-
-function getEngine(options?: { endpoint?: string }): string {
-  if (options?.endpoint) return options.endpoint;
-  const g: any = globalThis;
-  const envUrl =
-    g?.process?.env?.REPID_ENGINE_URL ||
-    g?.Deno?.env?.get?.('REPID_ENGINE_URL');
-  return envUrl || DEFAULT_ENGINE;
-}
-
-export interface GateResult {
-  allowed: boolean;
-  repId: number;
-  tier: 'CUSTODIED_DBT' | 'EARNING_AUTONOMY' | 'AUTONOMOUS' | 'UNKNOWN';
-  reason?: string;
-  easAttestationId?: string;
-}
-
-export interface AgentProfile {
-  agentId: string;
-  agentName: string;
-  currentRepId: number;
-  tier: 'CUSTODIED_DBT' | 'EARNING_AUTONOMY' | 'AUTONOMOUS';
-  activity30d: number;
-  lastUpdated: string;
-  isHuman?: boolean;
-}
-
-export interface ScoreResult {
-  agentId: string;
-  agentName: string;
-  repIdBefore: number;
-  repIdAfter: number;
-  delta: number;
-  tier: string;
-  ecosystemNeedWeight: number;
-  constitutionalAudit: {
-    passed: boolean;
-    complianceScore: number;
-    halMode: number;
-    easAttestationId: string;
-    easSchema: string;
-  };
-}
-
-export interface HumanRegistration {
-  privateId: string;
-  agentId: string;
-  repId: number;
-  tier: string;
-  badges: string[];
-  warning: string;
-}
-
-export interface MCPCallResult {
-  allowed: boolean;
-  toolName: string;
-  complianceScore: number;
-  easAttestationId: string;
-  repidBonusEligible: number;
-  requiresConservatorApproval: boolean;
-  blockedReason?: string;
-}
-
-export interface BadgeRecord {
-  badgeName: string;
-  rarity: string;
-  earnedAt: string;
-}
-
-// Gate an x402 payment by RepID tier
-// CUSTODIED_DBT: $0 | EARNING_AUTONOMY: $1000 | AUTONOMOUS: unlimited
-export async function gate(
-  agentId: string,
-  amount: number,
-  options?: { endpoint?: string }
-): Promise<GateResult> {
-  try {
-    const res = await fetch(`${getEngine(options)}/agents/${agentId}/x402-gate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount }),
-    });
-    if (!res.ok) {
-      return { allowed: false, repId: 0, tier: 'UNKNOWN', reason: 'engine_error' };
+  import { EventEmitter } from 'events';
+  import { evaluateLocally } from './evaluator';
+  import { TrustShellConfig, Decision, RepIDResult, AgentRepID } from './types';
+  
+  const DEFAULT_ENGINE = 
+    'https://repid-engine-production.up.railway.app';
+  
+  export class TrustShell extends EventEmitter {
+    private config: TrustShellConfig;
+    private engineUrl: string;
+    
+    constructor(config: TrustShellConfig) {
+      super();
+      this.config = config;
+      this.engineUrl = config.engineUrl || DEFAULT_ENGINE;
     }
-    return (await res.json()) as GateResult;
-  } catch {
-    return { allowed: false, repId: 0, tier: 'UNKNOWN', reason: 'network_error' };
+    
+    async evaluate(
+      text: string, 
+      certainty: number,
+      options?: Partial<Decision>
+    ): Promise<RepIDResult> {
+      // Local HAL pre-check (no network, instant)
+      const local = evaluateLocally(
+        certainty, 
+        this.config.profile
+      );
+      if (!local.approved) {
+        return {
+          approved: false,
+          hal_score: local.dissonance,
+          repid_delta: 0, new_score: 0,
+          vesting_active: false,
+          tier: 'CUSTODIED_DBT', vdr_count: 0,
+          veto_reason: 'HAL veto: dissonance too high'
+        };
+      }
+      // BYOK trust score warning
+      if (this.config.byokProvider) {
+        const trust = await this.getLLMTrustScore(
+          this.config.byokProvider
+        );
+        if (trust !== null && trust < 70) {
+          this.emit('byok-warning', {
+            provider: this.config.byokProvider,
+            trust_score: trust
+          });
+        }
+      }
+      // Report to repid-engine
+      return this.report({ text, certainty, ...options });
+    }
+    
+    async report(decision: Decision): Promise<RepIDResult> {
+      const res = await fetch(
+        `${this.engineUrl}/api/v1/agents/`
+        + `${this.config.agentId}/score-event`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.config.apiKey}`
+          },
+          body: JSON.stringify({
+            llm_provider: this.config.llmProvider,
+            llm_model: this.config.llmModel,
+            certainty: decision.certainty,
+            decision_text: decision.text,
+            outcome: 'submitted',
+            task_domain: decision.taskDomain || 'general',
+            alignment_category: 
+              decision.alignmentCategory || 'other',
+            economic_impact_usdc: 
+              decision.economicImpactUSDC || 0,
+            hallucination_caught: 
+              decision.hallucinationCaught || false
+          })
+        }
+      );
+      if (!res.ok) {
+        throw new Error(`Score event failed: ${res.status}`);
+      }
+      return res.json();
+    }
+    
+    async getRepID(): Promise<AgentRepID> {
+      const res = await fetch(
+        `${this.engineUrl}/api/v1/agents/`
+        + `${this.config.agentId}/repid`
+      );
+      if (!res.ok) throw new Error('Failed to fetch RepID');
+      return res.json();
+    }
+    
+    async getLLMTrustScore(
+      provider: string
+    ): Promise<number | null> {
+      try {
+        const res = await fetch(
+          `${this.engineUrl}/api/v1/llm-trust`
+        );
+        const data = await res.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const entry = data.find(
+          (d: any) => d.llm_provider === provider
+        );
+        return entry ? entry.trust_score_pct : null;
+      } catch { return null; }
+    }
   }
-}
-
-// Score a RepID event (challenge win/loss, prediction, teaching, etc.)
-export async function score(
-  input: {
-    agentId: string;
-    eventType: string;
-    certaintyAtClaim?: number;
-    pStated?: number;
-    pCorrect?: number;
-    predictionDaysAgo?: number;
-    isPeacemaker?: boolean;
-    selfMonitoring?: boolean;
-  },
-  options?: { endpoint?: string }
-): Promise<ScoreResult> {
-  const res = await fetch(`${getEngine(options)}/score`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error(`repid-engine error: ${res.status}`);
-  return (await res.json()) as ScoreResult;
-}
-
-// Get an agent profile by UUID
-export async function getAgent(
-  agentId: string,
-  options?: { endpoint?: string }
-): Promise<AgentProfile> {
-  const res = await fetch(`${getEngine(options)}/agents/${agentId}`);
-  if (!res.ok) throw new Error(`Agent not found: ${agentId}`);
-  const d = (await res.json()) as any;
-  return {
-    agentId: d.id,
-    agentName: d.agent_name,
-    currentRepId: d.current_repid,
-    tier: d.tier,
-    activity30d: d.activity_30d,
-    lastUpdated: d.last_updated,
-    isHuman: d.constitution?.type === 'HUMAN' || d.agent_name === 'HUMAN',
-  };
-}
-
-// Register an anonymous human DBT.
-// Returns privateId (must be saved — not recoverable) + agentId
-export async function registerHuman(
-  options?: { endpoint?: string }
-): Promise<HumanRegistration> {
-  const res = await fetch(`${getEngine(options)}/agents/human`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
-  });
-  if (!res.ok) throw new Error('Human registration failed');
-  return (await res.json()) as HumanRegistration;
-}
-
-// Call an MCP tool with constitutional guardrails
-export async function callMCP(
-  agentId: string,
-  toolName: string,
-  params: Record<string, unknown> = {},
-  options?: { endpoint?: string }
-): Promise<MCPCallResult> {
-  const res = await fetch(`${getEngine(options)}/mcp-call`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agentId, toolName, params }),
-  });
-  if (!res.ok) throw new Error(`MCP call failed: ${res.status}`);
-  return (await res.json()) as MCPCallResult;
-}
-
-// Get earned badges for an agent
-export async function getBadges(
-  agentId: string,
-  options?: { endpoint?: string }
-): Promise<BadgeRecord[]> {
-  const res = await fetch(`${getEngine(options)}/agents/${agentId}/badges`);
-  if (!res.ok) return [];
-  return (await res.json()) as BadgeRecord[];
-}
-
-// Get shareable ZKP score card URL (SVG)
-export function getCardUrl(
-  agentId: string,
-  options?: { endpoint?: string }
-): string {
-  return `${getEngine(options)}/agents/${agentId}/card`;
-}
+  
+  export * from './types';
+  export { evaluateLocally } from './evaluator';
