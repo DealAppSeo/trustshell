@@ -1,5 +1,5 @@
   import { EventEmitter } from 'events';
-  import { evaluateLocally } from './evaluator';
+  // evaluateLocally removed in v0.2.0
   import { TrustShellConfig, Decision, RepIDResult, AgentRepID } from './types';
   
   const DEFAULT_ENGINE = 
@@ -20,21 +20,7 @@
       certainty: number,
       options?: Partial<Decision>
     ): Promise<RepIDResult> {
-      // Local HAL pre-check (no network, instant)
-      const local = evaluateLocally(
-        certainty, 
-        this.config.profile
-      );
-      if (!local.approved) {
-        return {
-          approved: false,
-          hal_score: local.dissonance,
-          repid_delta: 0, new_score: 0,
-          vesting_active: false,
-          tier: 'CUSTODIED_DBT', vdr_count: 0,
-          veto_reason: 'HAL veto: dissonance too high'
-        };
-      }
+      // Removed local HAL pre-check: trustshell v0.2 relies on repid-engine's 5-signal extractor.
       // BYOK trust score warning
       if (this.config.byokProvider) {
         const trust = await this.getLLMTrustScore(
@@ -80,7 +66,18 @@
       if (!res.ok) {
         throw new Error(`Score event failed: ${res.status}`);
       }
-      return res.json();
+      const data = await res.json();
+      return {
+        approved: data.hal_approved,
+        hal_score: data.hal_score,
+        repid_delta: data.delta,
+        new_score: data.new_score,
+        vested_repid: data.vested_repid,
+        vesting_active: data.vesting_active,
+        tier: data.tier,
+        vdr_count: data.vdr_count,
+        veto_reason: data.hal_approved ? undefined : 'HAL veto: dissonance too high'
+      };
     }
     
     async getRepID(): Promise<AgentRepID> {
@@ -110,4 +107,3 @@
   }
   
   export * from './types';
-  export { evaluateLocally } from './evaluator';
