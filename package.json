@@ -1,12 +1,41 @@
 {
   "name": "@hyperdag/trustshell",
   "version": "0.2.0",
+  "description": "Drop-in HAL (Hallucination Assessment Layer) constitutional protection for any agent",
+  "keywords": [
+    "hal",
+    "hallucination",
+    "ai-safety",
+    "agent",
+    "constitutional-ai",
+    "hyperdag",
+    "repid"
+  ],
+  "homepage": "https://trustshell.dev",
+  "bugs": {
+    "url": "https://github.com/DealAppSeo/trustshell/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DealAppSeo/trustshell.git"
+  },
+  "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build"
