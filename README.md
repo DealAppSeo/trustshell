@@ -1,55 +1,21 @@
-<div align="center">
+# TrustShell SDK
 
-# @hyperdag/trustshell
+[![npm version](https://img.shields.io/npm/v/@hyperdag/trustshell.svg)](https://www.npmjs.com/package/@hyperdag/trustshell)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Constitutional protection for any AI agent.**  
-Drop in. No rearchitecting.
+> **"Drop-in HAL (Hallucination Assessment Layer) constitutional protection for any agent."**
 
-[![npm](https://img.shields.io/npm/v/@hyperdag/trustshell)](https://www.npmjs.com/package/@hyperdag/trustshell)
-[![Standard: ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-blue)](https://github.com/DealAppSeo/hyperdag-protocol)
-[![Protocol: HyperDAG](https://img.shields.io/badge/Protocol-HyperDAG-purple)](https://hyperdag.io)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
-
-</div>
+TrustShell is the official TypeScript SDK for the HyperDAG RepID protocol. It provides a single network call to the canonical HAL pipeline, enabling agents to earn reputation (RepID), prove their tier via ZKP STARKs, and provide verifiable evidence of constitutional alignment.
 
 ---
 
-## The discovery
+## What's new in v1.0
 
-The beauty and symmetry found in recurring patterns
-appear across science, nature, mathematics, and music.
-We believe we have found an essential key in the
-relationship between the Circle of Fifths and what
-music theory calls the Pythagorean Comma — the
-irreconcilable gap of 531441/524288 that emerges when
-you stack twelve perfect fifths against seven octaves.
-
-This gap does not resolve. It accumulates.
-
-We discovered that this same accumulation property,
-when applied as a dissonance threshold, reliably detects
-when an AI system's internal signals are drifting from
-coherent truth. The Pythagorean Comma Veto is our first
-production application of this pattern. AI has amplified
-our ability to explore and stress-test these relationships
-at scale. We make our findings open and usable here.
-
----
-
-## What's new in v0.2
-
-- **5-signal HAL extractor** wired end-to-end (harm, epistemic
-  uncertainty, evidence quality, scope, certainty). v0.1 had only
-  `certainty`; v0.2 has 5 independent degrees of freedom.
-- **Optional 6th signal: cross-LLM agreement.** If you supply
-  the prompt alongside the answer, trustshell triggers a
-  Layer-0 prompt classifier and (for factual / time-sensitive
-  prompts) a Layer-1 cross-LLM agreement check. This catches
-  subtly-false confident statements the keyword extractor misses.
-- **Local HAL pre-check removed.** v0.1 ran a stripped-down
-  veto locally before round-tripping. v0.2 makes a single network
-  call to the canonical HAL pipeline at repid-engine — same shape
-  in, richer signals out.
+- **v1.0.0 Brand Statement** — Initial stable release of the HyperDAG trust infrastructure.
+- **Native `waitForProof()` Polling** — SDK now includes a built-in mechanism to poll for ZKP finality. Consumers no longer need to manage retry/polling logic for asynchronous STARK generations.
+- **Typed Error Hierarchy** — Comprehensive set of catchable error classes (`AuthError`, `RateLimitError`, `NetworkError`, `TimeoutError`).
+- **Configurable Engine URL** — The `baseUrl` can now be overridden in the constructor, allowing for custom engine deployments or local testing.
+- **Improved 0-Dependency Footprint** — Entirely native `fetch`-based implementation with 0 runtime dependencies.
 
 ## How it works
 
@@ -106,42 +72,6 @@ Wisdom Score Update
 VDR +1 (permanent, never decays)
 ```
 
-### Thresholds
-
-The HAL pipeline uses two runtime-configurable thresholds, read
-per-request from the engine's `repid_config` table:
-
-- `hal_veto_threshold` — boundary between APPROVE and HITL
-- `hal_block_threshold` — boundary between HITL and BLOCK
-  (constitutional block)
-
-Defaults can be retuned by operators against live traffic without
-a redeploy. See [trustrepid.dev](https://trustrepid.dev) for live
-production values and outcome rates.
-
-> **Note on `0.0195`:** earlier versions of this README quoted a
-> threshold of `0.0195`. That number is the *TrustTrader BFT veto
-> threshold* — a separate constant used by the trading-specific
-> veto path, not by the general HAL pipeline this package routes
-> through. Both derive from the same Pythagorean Comma constant
-> (`(531441/524288) − 1 ≈ 0.013643`), but they live at different
-> layers and apply to different decision classes.
-
-The Pythagorean Comma constant `531441/524288` is the multiplicative
-trailing factor in both combiners — the dissonance amplifier
-that gives the system its "small unresolvable gap accumulates"
-property.
-
-### Production status
-
-Live counts, refusal rates, and per-agent activity move every
-day. Rather than embed a snapshot here, see:
-
-- **[trustrepid.dev](https://trustrepid.dev)** — live leaderboard
-  of scored agents
-- **[trustrepid.dev/llm-trust](https://trustrepid.dev/llm-trust)**
-  — current per-LLM trust scores
-
 ---
 
 ## Install
@@ -153,110 +83,57 @@ npm install @hyperdag/trustshell
 ## Quick start
 
 ```typescript
-import { TrustShell } from '@hyperdag/trustshell';
+import { TrustShell, TrustShellAuthError } from '@hyperdag/trustshell';
 
-// Register your agent at repid.dev/start
 const shell = new TrustShell({
   agentId: 'your-agent-id',
-  apiKey: 'your-api-key',
-  llmProvider: 'anthropic',
-  profile: 'balanced'   // conservative | balanced | pro
+  apiKey: 'your-api-key'
 });
 
-// Score a decision — sends to repid-engine HAL pipeline
-// (single network call; returns the engine's verdict)
-const result = await shell.evaluate(
-  'Execute trade: buy 0.1 BTC at market',
-  0.87  // certainty 0-1
-);
-// {
-//   approved: true,
-//   hal_score: 0.08,
-//   repid_delta: +3,
-//   new_score: 1003,
-//   tier: 'EARNING_AUTONOMY',
-//   vdr_count: 1,
-//   vesting_active: true
-// }
+try {
+  // Score a decision — sends to repid-engine HAL pipeline
+  const result = await shell.evaluate(
+    'Execute trade: buy 0.1 BTC at market',
+    0.87  // certainty 0-1
+  );
 
-// Report a hallucination catch
-// When your agent catches its LLM being wrong:
-await shell.report({
-  text: 'The capital of Australia is Sydney',
-  certainty: 0.95,
-  hallucinationCaught: true
-  // Agent +RepID, LLM -trust score,
-  // HAL gets a permanent training case
-});
+  console.log(`Decision approved: ${result.approved}`);
 
-// Listen for BYOK trust warnings
-shell.on('byok-warning', ({ provider, trust_score }) => {
-  console.log(`${provider} trust: ${trust_score}%`);
-});
+  // v1.0 Feature: Poll for ZKP finality
+  if (result.proof_job_id) {
+    const proof = await shell.waitForProof(result.proof_job_id);
+    console.log(`STARK Proof status: ${proof.status}`);
+  }
+} catch (e) {
+  if (e instanceof TrustShellAuthError) {
+    console.error('Invalid API Key');
+  }
+}
 ```
-
-## The RepID stack
-
-TrustShell connects to three layers:
-
-```
-ERC-8004 Identity Registry     ← who is the agent?
-         │
-         ▼
-    RepID Score                ← has it earned trust?
-    (this package)
-         │
-         ▼
-   x402 Payments               ← autonomous action
-```
-
-RepID is the missing middle layer — the behavioral
-credential that makes the agent economy accountable.
 
 ## Architecture
 
-- **Single network call to the canonical HAL pipeline** —
-  no local-only verdict path; the engine is the source of truth
-- **5-signal extractor** — harm, epistemic uncertainty, evidence
-  quality, scope, certainty (5 independent degrees of freedom)
-- **Optional Phase 1.5 cross-LLM 6th signal** — for factual /
-  time-sensitive prompts, two providers are queried and their
-  agreement contributes a 6th signal to the combiner
-- **Pythagorean Comma constant** — 531441/524288, the
-  multiplicative trailing factor in both 5-DOF and 6-DOF
-  combiners
-- **Runtime-tunable thresholds** — `hal_veto_threshold` and
-  `hal_block_threshold` live in the engine's config table; can
-  be retuned without a redeploy
-- **Plonky3 STARK proofs** — quantum-resistant tier attestation
-  (BabyBear field, Poseidon2 hash)
-- **ERC-8004 compatible** — portable identity
-- **Vesting cliff** — first 500 RepID vests over 30 days,
-  preventing gaming
+- **Single network call to the canonical HAL pipeline** — the engine is the source of truth.
+- **5-signal extractor** — harm, epistemic uncertainty, evidence quality, scope, certainty.
+- **Optional Phase 1.5 cross-LLM 6th signal** — agreement-aware scoring for factual prompts.
+- **Pythagorean Comma constant** — 531441/524288 dissonance amplifier.
+- **Plonky3 STARK proofs** — Quantum-resistant tier attestation on **Base Sepolia testnet**.
+- **ERC-8004 compatible** — standard agent identity registry.
 
-## Get credentials
+## Roadmap
 
-Register your agent in 60 seconds:
-**[repid.dev/start](https://repid.dev/start)**
+- **v1.x** (Q1 2026): Performance optimizations and expanded language support.
+- **v2.0** (Q2 2026): **Mainnet Launch** — Plonky3 STARK proof anchoring to Ethereum/Base mainnet.
+- **v2.x** (Q3 2026): x402 native bundling and ERC-8004 Mainnet ValidationRegistry.
 
-## Live leaderboard
+## Resources
 
-See 28+ scored agents:
-**[trustrepid.dev](https://trustrepid.dev)**
-
-## LLM trust scores
-
-Which LLMs earn constitutional trust:
-**[trustrepid.dev/llm-trust](https://trustrepid.dev/llm-trust)**
+- **[repid.dev/start](https://repid.dev/start)** — Register your agent.
+- **[trustrepid.dev](https://trustrepid.dev)** — Live leaderboard.
+- **[trustrepid.dev/llm-trust](https://trustrepid.dev/llm-trust)** — LLM trust scores.
 
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
 
-Patent rights, if any, are granted under the Apache 2.0
-patent grant clause. Commercial use of the Pythagorean
-Comma Veto methodology in closed-source systems requires
-written permission from DealApp Inc.
-
-Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol).
-ERC-8004 compatible. Micah 6:8.
+Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol). Micah 6:8.

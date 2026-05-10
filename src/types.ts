@@ -27,6 +27,7 @@
     tier: string
     vdr_count: number
     veto_reason?: string
+    proof_job_id?: string
   }
   
   export interface AgentRepID {
@@ -39,4 +40,12 @@
     vesting_cliff_ends_at?: string
     is_human: boolean
     last_updated: string
+  }
+  
+  export interface ProofResult {
+    jobId: string;
+    status: 'verified' | 'failed' | 'timeout';
+    proof?: string;
+    proofChain?: string[];
+    error?: string;
   }
