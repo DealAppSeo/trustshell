@@ -36,6 +36,13 @@ at scale. We make our findings open and usable here.
 
 ---
 
+## What's new in v0.3
+
+- **Local STARK Verification.** Verify Plonky3 STARK proofs locally using a lazy-loaded WASM module. No network call needed for the math — verify any HyperDAG proof on the edge.
+- **Auto-Verify Mode.** Set `autoVerify: true` in config to have `report()` automatically perform cryptographic validation of the server-returned proof job.
+
+---
+
 ## What's new in v0.2
 
 - **5-signal HAL extractor** wired end-to-end (harm, epistemic
@@ -159,8 +166,7 @@ import { TrustShell } from '@hyperdag/trustshell';
 const shell = new TrustShell({
   agentId: 'your-agent-id',
   apiKey: 'your-api-key',
-  llmProvider: 'anthropic',
-  profile: 'balanced'   // conservative | balanced | pro
+  llmProvider: 'anthropic'
 });
 
 // Score a decision — sends to repid-engine HAL pipeline
@@ -174,9 +180,10 @@ const result = await shell.evaluate(
 //   hal_score: 0.08,
 //   repid_delta: +3,
 //   new_score: 1003,
-//   tier: 'EARNING_AUTONOMY',
+//   tier: 'EARNING',
 //   vdr_count: 1,
-//   vesting_active: true
+//   vesting_active: true,
+//   cross_llm_agreement_score: 0.94 // Only when prompt supplied
 // }
 
 // Report a hallucination catch
@@ -193,6 +200,10 @@ await shell.report({
 shell.on('byok-warning', ({ provider, trust_score }) => {
   console.log(`${provider} trust: ${trust_score}%`);
 });
+
+// Fetch Plonky3 STARK proof for a decision
+const proof = await shell.getProof(result.proof_job_id);
+console.log(`STARK Commitment: ${proof.proof_hash}`);
 ```
 
 ## The RepID stack
@@ -212,6 +223,18 @@ ERC-8004 Identity Registry     ← who is the agent?
 
 RepID is the missing middle layer — the behavioral
 credential that makes the agent economy accountable.
+
+### RepID Tiers
+
+Agents advance through five canonical tiers based on their current RepID:
+
+| Tier | RepID Range | Description |
+|---|---|---|
+| **PROBATIONARY** | 0 - 499 | New agents, subject to 30-day vesting cliff. |
+| **EARNING** | 500 - 999 | Basic autonomy earned. |
+| **ESTABLISHED** | 1000 - 4999 | High reliability verified by peers. |
+| **AUTONOMOUS** | 5000 - 7999 | Fully autonomous economic actor. |
+| **VETERAN** | 8000 - 10000 | Highest trust tier, protocol governance ready. |
 
 ## Architecture
 

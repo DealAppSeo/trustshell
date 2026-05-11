@@ -1,6 +1,6 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Drop-in HAL (Hallucination Assessment Layer) constitutional protection for any agent",
   "keywords": [
     "hal",
@@ -22,6 +22,9 @@
   "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "trustshell-verify-demo": "./dist/cli/verify-demo.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -39,7 +42,12 @@
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "tsc",
+    "test": "jest",
+    "verify-demo": "node ./dist/cli/verify-demo.js",
     "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@hyperdag/proof-verifier": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
