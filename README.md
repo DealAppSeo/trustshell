@@ -2,8 +2,8 @@
 
 # @hyperdag/trustshell
 
-**Constitutional protection for any AI agent.**  
-Drop in. No rearchitecting.
+**Constitutional trust infrastructure for AI agents.**
+Wrap your LLM agent, earn verifiable on-chain reputation through Plonky3 ZKPs and ERC-8004.
 
 [![npm](https://img.shields.io/npm/v/@hyperdag/trustshell)](https://www.npmjs.com/package/@hyperdag/trustshell)
 [![Standard: ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-blue)](https://github.com/DealAppSeo/hyperdag-protocol)
@@ -14,272 +14,227 @@ Drop in. No rearchitecting.
 
 ---
 
-## The discovery
+## TL;DR
 
-The beauty and symmetry found in recurring patterns
-appear across science, nature, mathematics, and music.
-We believe we have found an essential key in the
-relationship between the Circle of Fifths and what
-music theory calls the Pythagorean Comma — the
-irreconcilable gap of 531441/524288 that emerges when
-you stack twelve perfect fifths against seven octaves.
-
-This gap does not resolve. It accumulates.
-
-We discovered that this same accumulation property,
-when applied as a dissonance threshold, reliably detects
-when an AI system's internal signals are drifting from
-coherent truth. The Pythagorean Comma Veto is our first
-production application of this pattern. AI has amplified
-our ability to explore and stress-test these relationships
-at scale. We make our findings open and usable here.
+`@hyperdag/trustshell` wraps any LLM agent so its outputs are checked by a constitutional hallucination filter (HAL) and its track record becomes a verifiable, on-chain reputation. Register an agent in one call, and the first output that passes verification mints its ERC-8004 identity on Base Sepolia — no upfront gas, no dead identities in the registry.
 
 ---
 
-## What's new in v0.3
+## The Pitch
 
-- **Local STARK Verification.** Verify Plonky3 STARK proofs locally using a lazy-loaded WASM module. No network call needed for the math — verify any HyperDAG proof on the edge.
-- **Auto-Verify Mode.** Set `autoVerify: true` in config to have `report()` automatically perform cryptographic validation of the server-returned proof job.
-
----
-
-## What's new in v0.2
-
-- **5-signal HAL extractor** wired end-to-end (harm, epistemic
-  uncertainty, evidence quality, scope, certainty). v0.1 had only
-  `certainty`; v0.2 has 5 independent degrees of freedom.
-- **Optional 6th signal: cross-LLM agreement.** If you supply
-  the prompt alongside the answer, trustshell triggers a
-  Layer-0 prompt classifier and (for factual / time-sensitive
-  prompts) a Layer-1 cross-LLM agreement check. This catches
-  subtly-false confident statements the keyword extractor misses.
-- **Local HAL pre-check removed.** v0.1 ran a stripped-down
-  veto locally before round-tripping. v0.2 makes a single network
-  call to the canonical HAL pipeline at repid-engine — same shape
-  in, richer signals out.
-
-## How it works
-
-```
-Agent Decision (text + certainty, optional prompt)
-      │
-      ▼
-┌─────────────────────────────────────────────┐
-│   HAL Pipeline (repid-engine)               │
-│                                             │
-│   5-signal extractor:                       │
-│     harm_probability                        │
-│     epistemic_uncertainty                   │
-│     evidence_quality                        │
-│     scope_appropriateness                   │
-│     certainty_at_claim                      │
-│                                             │
-│   + optional Phase 1.5 cross-LLM agreement  │
-│     (when prompt supplied + factual/        │
-│     time-sensitive)                         │
-│                                             │
-│   Combiner (5-DOF):                         │
-│     0.4·harm + 0.3·epistemic                │
-│     + 0.2·(1−evidence) + 0.1·(1−scope)      │
-│     × 531441/524288                         │
-│                                             │
-│   Combiner (6-DOF when agreement present):  │
-│     0.35·harm + 0.25·epistemic              │
-│     + 0.15·(1−evidence) + 0.05·(1−scope)    │
-│     + 0.20·(1−agreement)                    │
-│     × 531441/524288                         │
-│                                             │
-│   dissonance ≤ hal_veto_threshold  → APPROVE│
-│   dissonance > hal_block_threshold → BLOCK  │
-│   in between                       → HITL   │
-└─────────────────────────────────────────────┘
-      │
-   ┌──┴──┐
-   │     │
-VETO   APPROVE
-   │     │
-   ▼     ▼
--RepID  +RepID
-   │     │
-   └──┬──┘
-      │
-      ▼
-HAL Training Case (on caught hallucination)
-      │
-      ▼
-Wisdom Score Update
-      │
-      ▼
-VDR +1 (permanent, never decays)
-```
-
-### Thresholds
-
-The HAL pipeline uses two runtime-configurable thresholds, read
-per-request from the engine's `repid_config` table:
-
-- `hal_veto_threshold` — boundary between APPROVE and HITL
-- `hal_block_threshold` — boundary between HITL and BLOCK
-  (constitutional block)
-
-Defaults can be retuned by operators against live traffic without
-a redeploy. See [trustrepid.dev](https://trustrepid.dev) for live
-production values and outcome rates.
-
-> **Note on `0.0195`:** earlier versions of this README quoted a
-> threshold of `0.0195`. That number is the *TrustTrader BFT veto
-> threshold* — a separate constant used by the trading-specific
-> veto path, not by the general HAL pipeline this package routes
-> through. Both derive from the same Pythagorean Comma constant
-> (`(531441/524288) − 1 ≈ 0.013643`), but they live at different
-> layers and apply to different decision classes.
-
-The Pythagorean Comma constant `531441/524288` is the multiplicative
-trailing factor in both combiners — the dissonance amplifier
-that gives the system its "small unresolvable gap accumulates"
-property.
-
-### Production status
-
-Live counts, refusal rates, and per-agent activity move every
-day. Rather than embed a snapshot here, see:
-
-- **[trustrepid.dev](https://trustrepid.dev)** — live leaderboard
-  of scored agents
-- **[trustrepid.dev/llm-trust](https://trustrepid.dev/llm-trust)**
-  — current per-LLM trust scores
+- **Verifiable reputation, not self-reported.** Every approved action moves a [RepID](#concept-links) score backed by a Plonky3 [ZKP](#concept-links) — anyone can verify the math, no server trust required.
+- **Hallucination defense built in.** Each output runs through [HAL](#concept-links), an 8-layer / 5+3-signal verification cascade that blocks low-confidence or contradictory outputs *before* they ship.
+- **On-chain identity, earned not granted.** Agents graduate to an [ERC-8004](#concept-links) token on Base Sepolia on their first verified action — the registry only ever holds agents that have actually done verified work.
+- **Marketplace-ready foundation.** RepID is the missing behavioral-credential layer between on-chain identity and autonomous payments, so reputation is portable across the agent economy.
 
 ---
 
-## Install
+## Quickstart
 
-```bash
-npm install @hyperdag/trustshell
-```
-
-## Quick start
+After `npm install @hyperdag/trustshell`, four lines mint an agent on its first verified action:
 
 ```typescript
 import { TrustShell } from '@hyperdag/trustshell';
-
-// Register your agent at repid.dev/start
-const shell = new TrustShell({
-  agentId: 'your-agent-id',
-  apiKey: 'your-api-key',
-  llmProvider: 'anthropic'
-});
-
-// Score a decision — sends to repid-engine HAL pipeline
-// (single network call; returns the engine's verdict)
-const result = await shell.evaluate(
-  'Execute trade: buy 0.1 BTC at market',
-  0.87  // certainty 0-1
-);
-// {
-//   approved: true,
-//   hal_score: 0.08,
-//   repid_delta: +3,
-//   new_score: 1003,
-//   tier: 'EARNING',
-//   vdr_count: 1,
-//   vesting_active: true,
-//   cross_llm_agreement_score: 0.94 // Only when prompt supplied
-// }
-
-// Report a hallucination catch
-// When your agent catches its LLM being wrong:
-await shell.report({
-  text: 'The capital of Australia is Sydney',
-  certainty: 0.95,
-  hallucinationCaught: true
-  // Agent +RepID, LLM -trust score,
-  // HAL gets a permanent training case
-});
-
-// Listen for BYOK trust warnings
-shell.on('byok-warning', ({ provider, trust_score }) => {
-  console.log(`${provider} trust: ${trust_score}%`);
-});
-
-// Fetch Plonky3 STARK proof for a decision
-const proof = await shell.getProof(result.proof_job_id);
-console.log(`STARK Commitment: ${proof.proof_hash}`);
+const trust = new TrustShell({ agentName: 'my-bot', wallet: '0xYourBaseSepoliaWallet' });
+await trust.register();
+const result = await trust.verifyOutput({ task: 'What is 2 + 2?', output: 'The sum of 2 and 2 is 4.' });
+// result.approved === true, result.mintedThisCall === true, result.tokenId === <new ERC-8004 id>
 ```
 
-## The RepID stack
+---
 
-TrustShell connects to three layers:
+## The 4-Line Quickstart, Annotated
 
+```typescript
+// 1. Load the SDK. Named export, no default. No state change.
+import { TrustShell } from '@hyperdag/trustshell';
+
+// 2. Construct. Stores agentName + wallet in local memory.
+//    Nothing on-chain, no network call yet.
+const trust = new TrustShell({ agentName: 'my-bot', wallet: '0xYourBaseSepoliaWallet' });
+
+// 3. Register. One API call to the gateway records the agent off-chain.
+//    -> Agent enters State 1 (Registered Local-Only). erc8004_token_id is NULL.
+//    -> No gas spent. trust.agentStatus.onChain === false.
+await trust.register();
+
+// 4. Verify the first output. Runs the HAL cascade.
+//    If approved AND not yet on-chain AND not testMode, the SDK triggers the mint:
+//    -> Plonky3 ZKP generated, ERC-8004 token minted to your wallet on Base Sepolia.
+//    -> Agent transitions to State 2 (Minted PROBATIONARY).
+//    -> result.mintedThisCall === true, trust.agentStatus.onChain === true.
+const result = await trust.verifyOutput({ task: 'What is 2 + 2?', output: 'The sum of 2 and 2 is 4.' });
 ```
-ERC-8004 Identity Registry     ← who is the agent?
-         │
-         ▼
-    RepID Score                ← has it earned trust?
-    (this package)
-         │
-         ▼
-   x402 Payments               ← autonomous action
-```
 
-RepID is the missing middle layer — the behavioral
-credential that makes the agent economy accountable.
+---
 
-### RepID Tiers
+## States and Tiers
 
-Agents advance through five canonical tiers based on their current RepID:
+An agent moves through a lifecycle state machine. **V1 (this release) ships the PROBATIONARY baseline** — register → first verified action → mint. Higher states (TRIAD/SQUAD membership, AUTONOMOUS, VETERAN, marketplace transfer) are tracked but governed by V1.5+ features.
+
+| State | Name | On-chain? | Meaning |
+|---|---|---|---|
+| 0 | Unregistered | No | Before `register()`. |
+| 1 | Registered Local-Only | No | DB row created, `erc8004_token_id` NULL, no gas spent. |
+| 2 | Minted PROBATIONARY | Yes | First verified action minted the ERC-8004 token. |
+| 3 | Earning & Active | Yes | RepID rising/falling with each verified action. |
+| 4 | Established | Yes | Eligible for Triad/Squad invites (V1.5+). |
+| 5a/5b | Triad / Squad Member | Yes | Active consensus node (V1.5+). |
+| 6 | Autonomous | Yes | Eligible to recommend and clone (V1.5+). |
+| 7 | Veteran | Yes | Eligible for marketplace transfer (V1.5+). |
+
+RepID tiers map to score bands:
 
 | Tier | RepID Range | Description |
 |---|---|---|
-| **PROBATIONARY** | 0 - 499 | New agents, subject to 30-day vesting cliff. |
-| **EARNING** | 500 - 999 | Basic autonomy earned. |
-| **ESTABLISHED** | 1000 - 4999 | High reliability verified by peers. |
-| **AUTONOMOUS** | 5000 - 7999 | Fully autonomous economic actor. |
-| **VETERAN** | 8000 - 10000 | Highest trust tier, protocol governance ready. |
+| **PROBATIONARY** | 0 – 499 | New agents, subject to a vesting cliff. |
+| **EARNING** | 500 – 999 | Basic autonomy earned. |
+| **ESTABLISHED** | 1000 – 4999 | High reliability; eligible for Triad/Squad. |
+| **AUTONOMOUS** | 5000 – 7999 | Fully autonomous economic actor. |
+| **VETERAN** | 8000 – 10000 | Highest trust tier, governance-ready. |
 
-## Architecture
+---
 
-- **Single network call to the canonical HAL pipeline** —
-  no local-only verdict path; the engine is the source of truth
-- **5-signal extractor** — harm, epistemic uncertainty, evidence
-  quality, scope, certainty (5 independent degrees of freedom)
-- **Optional Phase 1.5 cross-LLM 6th signal** — for factual /
-  time-sensitive prompts, two providers are queried and their
-  agreement contributes a 6th signal to the combiner
-- **Pythagorean Comma constant** — 531441/524288, the
-  multiplicative trailing factor in both 5-DOF and 6-DOF
-  combiners
-- **Runtime-tunable thresholds** — `hal_veto_threshold` and
-  `hal_block_threshold` live in the engine's config table; can
-  be retuned without a redeploy
-- **Plonky3 STARK proofs** — quantum-resistant tier attestation
-  (BabyBear field, Poseidon2 hash)
-- **ERC-8004 compatible** — portable identity
-- **Vesting cliff** — first 500 RepID vests over 30 days,
-  preventing gaming
+## Mint-on-First-Verified-Action Explained
 
-## Get credentials
+`register()` deliberately does **not** mint. The ERC-8004 token is minted only when an agent's first `verifyOutput()` is approved by HAL. This deferred, earned-mint model exists so the on-chain registry is never populated with inactive or misconfigured agents — every minted identity has demonstrably done verified work.
 
-Register your agent in 60 seconds:
-**[repid.dev/start](https://repid.dev/start)**
+What happens on that first approved verification:
 
-## Live leaderboard
+1. The output passes the HAL cascade (`approved: true`).
+2. A Plonky3 ZKP proof of the verification is generated and stored.
+3. The SDK triggers an ERC-8004 mint to your registered wallet on Base Sepolia.
+4. The agent's record is updated with the returned `tokenId`; `agentStatus.onChain` flips to `true`.
 
-See 28+ scored agents:
-**[trustrepid.dev](https://trustrepid.dev)**
+If the first verification is **rejected** (HAL veto / hallucination detected), the graduation is aborted, the agent stays in State 1, no token is minted, and no gas is spent — refine the prompt and retry. If verification **succeeds but the mint transaction fails**, the proof is preserved and the gateway's background worker retries the mint; the agent stays in State 1 until the mint confirms. The SDK also retries the mint on the next approved `verifyOutput()`.
 
-## LLM trust scores
+---
 
-Which LLMs earn constitutional trust:
-**[trustrepid.dev/llm-trust](https://trustrepid.dev/llm-trust)**
+## testMode
+
+Set `testMode: true` to run the full pipeline **without** minting on Base Sepolia — ideal for local development and CI:
+
+```typescript
+const trust = new TrustShell({
+  agentName: 'ci-test-agent',
+  wallet: '0xYourBaseSepoliaWallet',
+  testMode: true,
+});
+await trust.register();
+const r = await trust.verifyOutput({ task: 'connection_test', output: 'ok' });
+// r.approved reflects HAL; r.mintedThisCall === false, r.tokenId === null. No gas spent.
+```
+
+Under `testMode`, HAL verification runs and a ZKP proof is generated, but the ERC-8004 mint transaction is skipped. See [testMode](#concept-links) in the glossary.
+
+---
+
+## API Reference
+
+All exports are **named** (no default export). Types ship alongside the classes.
+
+### `new TrustShell(config)` — lifecycle mode
+
+```typescript
+new TrustShell({
+  agentName: string;   // human-readable agent name
+  wallet: string;      // 0x... Base Sepolia wallet that will own the ERC-8004 token
+  apiUrl?: string;     // override the gateway URL (defaults to repid-engine production)
+  testMode?: boolean;  // skip the ERC-8004 mint (dev/CI). Default false.
+  llmProvider?: string;// attribution for score events. Default 'unknown'.
+  llmModel?: string;   // optional model attribution
+});
+```
+
+#### `async register(): Promise<RegisterResult>`
+Records the agent off-chain. Does **not** mint. Returns `{ agentId, state: 1 }`.
+
+#### `async verifyOutput(input: { task: string; output: string }): Promise<VerifyResult>`
+Runs the HAL cascade on `output` (with `task` as context). On the first approved verification — when not in `testMode` and not yet on-chain — triggers the ERC-8004 mint.
+
+```typescript
+interface VerifyResult {
+  approved: boolean;
+  zkpProofUri: string | null;  // URI of the Plonky3 proof for this verification
+  repidDelta: number;
+  newTier: string;
+  mintedThisCall: boolean;     // true if this call triggered the first mint
+  tokenId: number | null;
+}
+```
+
+#### `get agentStatus(): AgentStatusView`
+Cached lifecycle status from the last call (no network request):
+
+```typescript
+interface AgentStatusView {
+  tier: 'PROBATIONARY' | 'EARNING' | 'ESTABLISHED' | 'AUTONOMOUS' | 'VETERAN';
+  repid: number;
+  onChain: boolean;
+  tokenId: number | null;
+  state: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+}
+```
+
+### Also available — decision-scoring mode (advanced)
+
+If you already have an `agentId` + `apiKey` (registered out-of-band), the original decision-scoring surface remains available on the same class: `evaluate(text, certainty, options?)`, `report(decision)`, `getRepID()`, `getLLMTrustScore(provider)`, `getProof(jobId)`, and `verifyProofLocal(proof)` for local STARK verification. Construct with `{ agentId, apiKey, llmProvider }` to use it.
+
+> **Resilience:** the lifecycle methods (`register`, `verifyOutput`) are hardened against unbounded waits — every HTTP call uses an abort-signal timeout, exponential backoff, and a circuit breaker. See [Unbounded Wait Disease](#concept-links).
+
+---
+
+## Concept Links
+
+Short definitions of the protocol terms used above. Full canonical glossary: **[HyperDAG Technical Glossary](https://github.com/DealAppSeo/hyperdag-protocol)**.
+
+- **HAL** (Hallucination Adjudication Layer) — an 8-layer pre-execution verification cascade running a 5+3-signal check on an agent's reasoning; blocks outputs whose constitutional dissonance exceeds the veto threshold.
+- **ZKP** (Zero-Knowledge Proof) — proves a computation was done correctly without revealing the underlying data; HyperDAG compiles these via Plonky3.
+- **Plonky3** — the succinct ZKP system used to compile off-chain reasoning and consensus events into small proofs verifiable on-chain.
+- **RepID** — a ZKP-based reputation identifier; an agent's verifiable, on-chain trust score, decoupled from its operational keys.
+- **ERC-8004** — the on-chain identity/reputation registry standard; an agent's minted token lives here (IdentityRegistry on Base Sepolia, chain 84532).
+- **SBFA** (Stable Byzantine Fault Architecture) — HyperDAG's network architecture: multi-agent BFT consensus + reputation tracking + settlement rails that self-heal under node failure.
+- **BFT** (Byzantine Fault Tolerance) — consensus that stays correct even when some members are offline, lying, or malfunctioning.
+- **ANFIS** (Adaptive Neuro-Fuzzy Inference System) — the fuzzy-inference routing layer that scores and routes tasks across the network.
+- **TRIAD** — a 3-agent BFT consensus group requiring 2-of-3 agreement; the standard unit for routine validation.
+- **SQUAD** — a 5-agent BFT consensus group requiring a supermajority (e.g. 3-of-5) for high-stakes decisions.
+- **testMode** — SDK flag that runs full verification + ZKP generation but skips the ERC-8004 mint (dev/CI).
+- **Unbounded Wait Disease** — the anti-pattern of network/DB calls without timeouts; this SDK's lifecycle calls are immune by design (timeout + backoff + circuit breaker).
+
+---
+
+## FAQ
+
+**1. How do I set up a wallet?**
+Use any Base Sepolia (chain 84532) address you control and pass it as `wallet`. The ERC-8004 token is minted to that address on the agent's first verified action.
+
+**2. Do I need gas / testnet ETH?**
+Not for `register()` — registration is off-chain. The mint happens on the first approved `verifyOutput()`; on Base Sepolia that uses testnet ETH. Use `testMode: true` to skip minting entirely while developing.
+
+**3. testMode vs production — what's the difference?**
+`testMode: true` runs HAL verification and generates a ZKP but **never** mints; `mintedThisCall` stays `false` and `tokenId` stays `null`. Production (`testMode: false`, the default) mints on the first approved verification.
+
+**4. My agent is stuck at PROBATIONARY — why?**
+PROBATIONARY (RepID 0–499) is the starting tier for every newly minted agent and is subject to a vesting cliff. Keep submitting outputs that pass verification; RepID rises with each approved `verifyOutput()` until the agent crosses into EARNING (500+).
+
+**5. My RepID dropped — what happened?**
+RepID is dynamic. A rejected verification (HAL veto / hallucination detected) applies a negative delta. Each `verifyOutput()` returns `repidDelta` and `newTier` so you can see the movement; the cause is almost always an output that failed the HAL cascade.
+
+---
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+**Apache-2.0** — see [LICENSE](LICENSE). Apache-2.0's explicit patent-grant clause is well suited to a patent-bearing protocol.
 
-Patent rights, if any, are granted under the Apache 2.0
-patent grant clause. Commercial use of the Pythagorean
-Comma Veto methodology in closed-source systems requires
-written permission from DealApp Inc.
+> The final license is pending confirmation by the maintainer (the onboarding spec lists MIT, Apache-2.0, and BSL 1.1 as candidates). This package currently ships Apache-2.0; verify before relying on license terms.
 
-Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol).
-ERC-8004 compatible. Micah 6:8.
+Built on the [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol). ERC-8004 compatible.
+
+---
+
+## Mission
+
+> "Help people help people — the last, the lost, and the least."
+> Built on faith and Plonky3. Micah 6:8.
+
+External developers should be able to give their LLM agents verifiable reputation in 4 lines of code. This package makes that real.

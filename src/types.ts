@@ -70,3 +70,63 @@
     is_human: boolean
     last_updated: string
   }
+
+  // --- v0.4.0 lifecycle API (additive; coexists with the decision-scoring API above) ---
+
+  export type AgentTier =
+    | 'PROBATIONARY'
+    | 'EARNING'
+    | 'ESTABLISHED'
+    | 'AUTONOMOUS'
+    | 'VETERAN'
+
+  /**
+   * Agent lifecycle state (1-7). 1 = locally registered (off-chain).
+   * Higher states track on-chain identity + earned standing. V0.4.0 ships
+   * the PROBATIONARY baseline: register → first verified action → mint.
+   */
+  export type AgentLifecycleState = 1 | 2 | 3 | 4 | 5 | 6 | 7
+
+  /**
+   * Config for the lifecycle API (register / verifyOutput / agentStatus).
+   * Wallet-keyed, in-band registration — no prior repid.dev/start step needed.
+   */
+  export interface LifecycleConfig {
+    /** Human-readable agent name. */
+    agentName: string
+    /** 0x... Base Sepolia wallet that will own the ERC-8004 token. */
+    wallet: string
+    /** Override the engine URL. Defaults to repid-engine production. */
+    apiUrl?: string
+    /** Skip the ERC-8004 mint (dev/CI). mintedThisCall stays false; no gas spent. */
+    testMode?: boolean
+    /** LLM provider attribution for score events. Defaults to 'unknown'. */
+    llmProvider?: string
+    /** LLM model attribution. */
+    llmModel?: string
+  }
+
+  export interface RegisterResult {
+    agentId: string
+    /** 1 = locally registered, not on-chain yet. */
+    state: 1
+  }
+
+  export interface VerifyResult {
+    approved: boolean
+    /** R2/HTTP URI of the Plonky3 ZKP proof for this verification, if generated. */
+    zkpProofUri: string | null
+    repidDelta: number
+    newTier: string
+    /** true if this call triggered the agent's first ERC-8004 mint. */
+    mintedThisCall: boolean
+    tokenId: number | null
+  }
+
+  export interface AgentStatusView {
+    tier: AgentTier
+    repid: number
+    onChain: boolean
+    tokenId: number | null
+    state: AgentLifecycleState
+  }

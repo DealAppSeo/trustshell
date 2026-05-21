@@ -1,0 +1,11 @@
+src/
+tests/
+.github/
+.gitignore
+tsconfig.json
+tsconfig.tsbuildinfo
+*.test.ts
+output.txt
+tmp/
+CHANGELOG.md
+.git/
