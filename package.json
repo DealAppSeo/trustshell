@@ -1,6 +1,9 @@
 {
   "name": "@hyperdag/trustshell",
   "version": "0.4.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Constitutional trust infrastructure for AI agents. Wrap your LLM agent, earn verifiable on-chain reputation through Plonky3 ZKPs and ERC-8004.",
   "keywords": [
     "ai-agents",
@@ -30,7 +33,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "trustshell-verify-demo": "./dist/cli/verify-demo.js"
+    "trustshell-verify-demo": "dist/cli/verify-demo.js"
   },
   "exports": {
     ".": {
@@ -57,7 +60,10 @@
     "@hyperdag/proof-verifier": "^0.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5.0.0"
   }
 }

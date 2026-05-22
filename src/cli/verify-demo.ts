@@ -9,11 +9,17 @@ const AGENTS: Record<string, string> = {
 
 async function main() {
   const args = process.argv.slice(2);
-  const agentArg = args.find(a => a.startsWith('--agent'))?.split('=')[1] || args[args.indexOf('--agent') + 1];
-  const jobId = args.find(a => a.startsWith('--job'))?.split('=')[1] || args[args.indexOf('--job') + 1];
+  const agentIdx = args.indexOf('--agent');
+  const agentArg = agentIdx >= 0 ? args[agentIdx + 1] : undefined;
+  
+  const jobIdx = args.indexOf('--job');
+  const jobId = jobIdx >= 0 ? args[jobIdx + 1] : undefined;
+
+  const engineIdx = args.indexOf('--engine');
+  const engineArg = engineIdx >= 0 ? args[engineIdx + 1] : undefined;
 
   if (!agentArg) {
-    console.log('Usage: trustshell-verify-demo --agent <NAME|ID> [--job <ID>]');
+    console.log('Usage: trustshell-verify-demo --agent <NAME|ID> [--job <ID>] [--engine <URL>]');
     process.exit(1);
   }
 
@@ -21,7 +27,8 @@ async function main() {
   const shell = new TrustShell({
     agentId,
     apiKey: 'demo', // Public routes don't need real API key
-    llmProvider: 'demo'
+    llmProvider: 'demo',
+    engineUrl: engineArg
   });
 
   console.log(`\n🔍 HyperDAG Trust Verification Demo`);
@@ -48,7 +55,8 @@ async function main() {
   
   try {
     const proof = await shell.getProof(finalJobId);
-    console.log(`Proof received (${Math.round(proof.proof_bytes.length / 1024)} KB)`);
+    console.log('Proof Response Object:', JSON.stringify(proof, null, 2));
+    console.log(`Proof received (${Math.round((proof.proof_bytes?.length || 0) / 1024)} KB)`);
     console.log(`Statement: Score ${proof.statement.repid_score} > ${proof.statement.threshold} (${proof.statement.tier})`);
 
     console.log(`\n🛠️  Running Local WASM Verification...`);

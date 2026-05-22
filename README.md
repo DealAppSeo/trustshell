@@ -226,8 +226,6 @@ RepID is dynamic. A rejected verification (HAL veto / hallucination detected) ap
 
 **Apache-2.0** — see [LICENSE](LICENSE). Apache-2.0's explicit patent-grant clause is well suited to a patent-bearing protocol.
 
-> The final license is pending confirmation by the maintainer (the onboarding spec lists MIT, Apache-2.0, and BSL 1.1 as candidates). This package currently ships Apache-2.0; verify before relying on license terms.
-
 Built on the [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol). ERC-8004 compatible.
 
 ---
