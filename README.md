@@ -286,6 +286,34 @@ console.log(`Attested Score: ${attestation.value}`);
 console.log(`Metadata URI: ${attestation.feedbackURI}`);
 ```
 
+## Command Line Interface (CLI)
+
+TrustShell ships with a built-in terminal companion allowing developers to invoke verification and payment APIs directly:
+
+```bash
+# Install globally
+npm install -g @hyperdag/trustshell
+
+# Initialize in project root
+trustshell init
+
+# Verify a claim with the HAL fact checker
+export REPID_API_KEY="your-api-key"
+trustshell verify "The transaction is fully settled."
+
+# Query reputation details
+trustshell whois 5863
+
+# Inspect on-chain attestation
+trustshell attestation 0xa6938437b084c84998d16914eaa3168042428cdf61aba96c7e1a04ee1901e632
+
+# Execute x402 payment escrow construction
+export TRUSTSHELL_KEY="0x_private_key"
+trustshell pay contract-7762
+```
+
+For more options, examples, and detailed output descriptions, check out the [CLI Walkthrough](examples/cli-walkthrough.md).
+
 ## The RepID stack
 
 TrustShell connects to three layers:
