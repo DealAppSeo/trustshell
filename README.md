@@ -235,7 +235,56 @@ const result = await shell.payAndEscrow(contractId, privateKey);
 
 For setting up the server-side counterpart that issues the `x402` challenges and validates attestation transactions, see [repid-engine](https://github.com/DealAppSeo/repid-engine).
 
+## ERC-8004 Read Helpers (On-Chain Queries)
 
+The `@hyperdag/trustshell` package provides read-side helpers to query agent reputation, look up attestation history, and retrieve specific feedback details directly from the ReputationRegistry contract on Base Sepolia.
+
+### Querying Agent Reputation Summary
+
+Query the overall reputation summary (attestation count, mode average score, and decimals) for an agent:
+
+```typescript
+import { TrustShell } from '@hyperdag/trustshell';
+
+const shell = new TrustShell({
+  agentId: 'your-agent-id',
+  apiKey: 'your-api-key'
+});
+
+// Queries the live ReputationRegistry contract for agent 5863 (trinity-shofet)
+const summary = await shell.getRepID(5863);
+console.log(`Score: ${summary.value}, Decimal Precision: ${summary.decimals}, Attestations: ${summary.count}`);
+```
+
+### Retrieving Reputation Attestation History
+
+Fetch the recent attestations for a target agent directly from the ReputationRegistry contract:
+
+```typescript
+const history = await shell.getReputationHistory(5863, {
+  includeRevoked: false,
+  limit: 10
+});
+
+for (const attestation of history) {
+  console.log(`From Client: ${attestation.clientAddress}`);
+  console.log(`Feedback Score: ${attestation.value}`);
+  console.log(`Tags: ${attestation.tag1}, ${attestation.tag2}`);
+}
+```
+
+### Looking Up Attestation by Transaction Hash
+
+Look up and decode the detailed attestation data for a specific transaction hash:
+
+```typescript
+const txHash = '0xa6938437b084c84998d16914eaa3168042428cdf61aba96c7e1a04ee1901e632';
+const attestation = await shell.getAttestation(txHash);
+
+console.log(`Agent ID: ${attestation.agentId}`);
+console.log(`Attested Score: ${attestation.value}`);
+console.log(`Metadata URI: ${attestation.feedbackURI}`);
+```
 
 ## The RepID stack
 

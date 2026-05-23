@@ -2,6 +2,16 @@
   // evaluateLocally removed in v0.2.0
   import { TrustShellConfig, Decision, RepIDResult, AgentRepID } from './types';
 import { escrowWithPaymentFlow } from './x402/client';
+import {
+  getRepID,
+  getReputationHistory,
+  getAttestation,
+  ReadOptions,
+  HistoryOptions,
+  RepIDSummary,
+  FeedbackItem,
+  AttestationDetails
+} from './reputation';
   
   const DEFAULT_ENGINE = 
     'https://repid-engine-production.up.railway.app';
@@ -81,7 +91,11 @@ import { escrowWithPaymentFlow } from './x402/client';
       };
     }
     
-    async getRepID(): Promise<AgentRepID> {
+    async getRepID(agentAddressOrId?: string | number | bigint, options?: ReadOptions): Promise<AgentRepID | RepIDSummary> {
+      if (agentAddressOrId !== undefined || options !== undefined) {
+        const target = agentAddressOrId !== undefined ? agentAddressOrId : this.config.agentId;
+        return getRepID(target, { engineUrl: this.engineUrl, ...options });
+      }
       const res = await fetch(
         `${this.engineUrl}/api/v1/agents/`
         + `${this.config.agentId}/repid`
@@ -109,6 +123,16 @@ import { escrowWithPaymentFlow } from './x402/client';
     async payAndEscrow(contractId: string, privateKey: string): Promise<any> {
       return escrowWithPaymentFlow({ contractId, privateKey, engineUrl: this.engineUrl });
     }
+
+
+    async getReputationHistory(agentAddressOrId?: string | number | bigint, options?: HistoryOptions): Promise<FeedbackItem[]> {
+      const target = agentAddressOrId !== undefined ? agentAddressOrId : this.config.agentId;
+      return getReputationHistory(target, { engineUrl: this.engineUrl, ...options });
+    }
+
+    async getAttestation(txHash: string, options?: ReadOptions): Promise<AttestationDetails> {
+      return getAttestation(txHash, { engineUrl: this.engineUrl, ...options });
+    }
   }
   
   export * from './types';
@@ -116,3 +140,4 @@ import { escrowWithPaymentFlow } from './x402/client';
   export * from './x402/types';
   export * from './x402/errors';
   export * from './x402/payment';
+  export * from './reputation';
