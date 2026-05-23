@@ -107,3 +107,7 @@
   }
   
   export * from './types';
+  export * from './x402/client';
+  export * from './x402/types';
+  export * from './x402/errors';
+  export * from './x402/payment';

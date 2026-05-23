@@ -195,6 +195,33 @@ shell.on('byok-warning', ({ provider, trust_score }) => {
 });
 ```
 
+## X402 Client SDK (Scaffold)
+
+The `@hyperdag/trustshell` package contains a client-side SDK for consuming services that require `x402` payment attestation. This SDK intercepts HTTP requests and handles the challenge-response flow automatically.
+
+### Usage Example
+
+```typescript
+import { X402Client } from '@hyperdag/trustshell';
+
+const client = new X402Client({
+  walletPrivateKey: '0x...', // Agent's private key
+  rpcUrl: 'https://...'      // RPC provider URL
+});
+
+// Perform an auto-paying fetch
+const response = await client.fetch('https://api.example.com/protected-resource');
+const data = await response.json();
+```
+
+> [!NOTE]
+> In version `0.5.0`, the actual on-chain transaction signing and settlement is stubbed and will throw an error pointing to `ROADMAP.md`. The full payment flow will be implemented in the upcoming V1 release.
+
+### Link to Server-side RepID Engine
+
+For setting up the server-side counterpart that issues the `x402` challenges and validates attestation transactions, see [repid-engine](https://github.com/DealAppSeo/repid-engine).
+
+
 ## The RepID stack
 
 TrustShell connects to three layers:
