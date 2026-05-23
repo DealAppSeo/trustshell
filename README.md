@@ -195,11 +195,11 @@ shell.on('byok-warning', ({ provider, trust_score }) => {
 });
 ```
 
-## X402 Client SDK (Scaffold)
+## X402 Client SDK (V1 Production-Grade)
 
 The `@hyperdag/trustshell` package contains a client-side SDK for consuming services that require `x402` payment attestation. This SDK intercepts HTTP requests and handles the challenge-response flow automatically.
 
-### Usage Example
+### Usage Example (Fetch Interceptor)
 
 ```typescript
 import { X402Client } from '@hyperdag/trustshell';
@@ -214,12 +214,27 @@ const response = await client.fetch('https://api.example.com/protected-resource'
 const data = await response.json();
 ```
 
-> [!NOTE]
-> In version `0.5.0`, the actual on-chain transaction signing and settlement is stubbed and will throw an error pointing to `ROADMAP.md`. The full payment flow will be implemented in the upcoming V1 release.
+### Usage Example (Escrow Helper)
+
+Alternatively, you can use the top-level helpers or instance methods on `TrustShell` to pay for and escrow service contracts directly:
+
+```typescript
+import { TrustShell } from '@hyperdag/trustshell';
+
+const shell = new TrustShell({
+  agentId: 'your-agent-id',
+  apiKey: 'your-api-key'
+});
+
+// Performs the 402 challenge-handshake, signs the payload,
+// and submits the settled escrow back to the engine
+const result = await shell.payAndEscrow(contractId, privateKey);
+```
 
 ### Link to Server-side RepID Engine
 
 For setting up the server-side counterpart that issues the `x402` challenges and validates attestation transactions, see [repid-engine](https://github.com/DealAppSeo/repid-engine).
+
 
 
 ## The RepID stack

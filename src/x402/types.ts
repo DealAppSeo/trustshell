@@ -2,10 +2,11 @@ export interface X402Accepts {
   scheme: string;
   network: string;
   asset: string;
-  amount: string;
+  amount?: string;
+  maxAmountRequired?: string;
   payTo: string;
   resource: string;
-  description: string;
+  description?: string;
 }
 
 export interface X402Challenge {
@@ -21,4 +22,13 @@ export interface X402Payment {
   tip_id?: string;
   amount?: number | string;
   is_simulated?: boolean;
+  v?: number;
+  r?: string;
+  s?: string;
+  from?: string;
+  to?: string;
+  value?: string;
+  validAfter?: string;
+  validBefore?: string;
+  nonce?: string;
 }

@@ -1,6 +1,7 @@
   import { EventEmitter } from 'events';
   // evaluateLocally removed in v0.2.0
   import { TrustShellConfig, Decision, RepIDResult, AgentRepID } from './types';
+import { escrowWithPaymentFlow } from './x402/client';
   
   const DEFAULT_ENGINE = 
     'https://repid-engine-production.up.railway.app';
@@ -103,6 +104,10 @@
         );
         return entry ? entry.trust_score_pct : null;
       } catch { return null; }
+    }
+
+    async payAndEscrow(contractId: string, privateKey: string): Promise<any> {
+      return escrowWithPaymentFlow({ contractId, privateKey, engineUrl: this.engineUrl });
     }
   }
   

@@ -40,3 +40,65 @@ export class X402Client {
     return constructPaymentAndSign(challenge, this.walletPrivateKey, this.rpcUrl);
   }
 }
+
+export interface PayAndEscrowOptions {
+  contractId: string;
+  privateKey: string;
+  facilitatorChallenge: X402Challenge;
+  engineUrl?: string;
+  rpcUrl?: string;
+}
+
+export async function payAndEscrow(opts: PayAndEscrowOptions): Promise<any> {
+  const payment = await constructPaymentAndSign(opts.facilitatorChallenge, opts.privateKey, opts.rpcUrl);
+  const xPaymentHeader = Buffer.from(JSON.stringify(payment)).toString('base64');
+  const engineUrl = opts.engineUrl || 'https://repid-engine-production.up.railway.app';
+
+  const response = await fetch(`${engineUrl}/api/v1/contracts/${opts.contractId}/escrow`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-PAYMENT': xPaymentHeader,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let errorJson;
+    try {
+      errorJson = JSON.parse(text);
+    } catch {
+      throw new Error(`Escrow failed with status ${response.status}: ${text}`);
+    }
+    throw new Error(errorJson.message || errorJson.error || `Escrow failed: ${text}`);
+  }
+
+  return response.json();
+}
+
+export async function escrowWithPaymentFlow(opts: {
+  contractId: string;
+  privateKey: string;
+  engineUrl?: string;
+  rpcUrl?: string;
+}): Promise<any> {
+  const engineUrl = opts.engineUrl || 'https://repid-engine-production.up.railway.app';
+  const challengeRes = await fetch(`${engineUrl}/api/v1/contracts/${opts.contractId}/escrow`, {
+    method: 'POST',
+  });
+
+  if (challengeRes.status !== 402) {
+    if (challengeRes.ok) return challengeRes.json();
+    const text = await challengeRes.text();
+    throw new Error(`Unexpected status ${challengeRes.status}: ${text}`);
+  }
+
+  const challenge = await challengeRes.json() as X402Challenge;
+  return payAndEscrow({
+    contractId: opts.contractId,
+    privateKey: opts.privateKey,
+    facilitatorChallenge: challenge,
+    engineUrl,
+    rpcUrl: opts.rpcUrl
+  });
+}
