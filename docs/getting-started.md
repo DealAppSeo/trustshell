@@ -53,9 +53,7 @@ turnaround is **within 24 hours**. Pick whichever path you prefer:
 
 **Option B — GitHub Issue:** [open an API-key request](https://github.com/DealAppSeo/trustshell/issues/new?template=api_key_request.yml)
 
-**Option C — Email:** keys@hyperdag.dev (include your use case)
-
-**Option D — Direct API** (for scripts):
+**Option C — Direct API** (for scripts):
 ```bash
 curl -X POST https://repid-engine-production.up.railway.app/api/v1/api-key-requests/request \
   -H "Content-Type: application/json" \

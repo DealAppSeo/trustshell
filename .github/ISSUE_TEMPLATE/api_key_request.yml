@@ -7,8 +7,7 @@ body:
     attributes:
       value: |
         Testnet keys are free and currently early access. Expected turnaround: within 24 hours.
-        Prefer not to post publicly? Email **keys@hyperdag.dev** or use the form at
-        [trustshell.dev/get-api-key](https://trustshell.dev/get-api-key).
+        Prefer a web form? Use [trustshell.dev/get-api-key](https://trustshell.dev/get-api-key).
   - type: input
     id: email
     attributes:
