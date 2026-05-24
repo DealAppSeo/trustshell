@@ -1,6 +1,7 @@
 # Architecture Overview
 
-For developers who want to understand TrustShell before integrating.
+For developers who want to understand TrustShell before integrating. New to the terms (RepID, HAL, x402,
+ERC-8004, Cascade)? See the [glossary](./glossary.md).
 
 ## The three primitives
 
