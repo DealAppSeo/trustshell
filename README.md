@@ -278,7 +278,7 @@ for (const attestation of history) {
 Look up and decode the detailed attestation data for a specific transaction hash:
 
 ```typescript
-const txHash = '0xa6938437b084c84998d16914eaa3168042428cdf61aba96c7e1a04ee1901e632';
+const txHash = '0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f';
 const attestation = await shell.getAttestation(txHash);
 
 console.log(`Agent ID: ${attestation.agentId}`);
@@ -305,7 +305,7 @@ trustshell verify "The transaction is fully settled."
 trustshell whois 5863
 
 # Inspect on-chain attestation
-trustshell attestation 0xa6938437b084c84998d16914eaa3168042428cdf61aba96c7e1a04ee1901e632
+trustshell attestation 0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f
 
 # Execute x402 payment escrow construction
 export TRUSTSHELL_KEY="0x_private_key"
