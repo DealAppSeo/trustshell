@@ -6,6 +6,7 @@
 Drop in. No rearchitecting.
 
 [![npm](https://img.shields.io/npm/v/@hyperdag/trustshell)](https://www.npmjs.com/package/@hyperdag/trustshell)
+[![npm downloads](https://img.shields.io/npm/dm/@hyperdag/trustshell.svg)](https://www.npmjs.com/package/@hyperdag/trustshell)
 [![Standard: ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-blue)](https://github.com/DealAppSeo/hyperdag-protocol)
 [![Protocol: HyperDAG](https://img.shields.io/badge/Protocol-HyperDAG-purple)](https://hyperdag.io)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
@@ -288,29 +289,89 @@ console.log(`Metadata URI: ${attestation.feedbackURI}`);
 
 ## Command Line Interface (CLI)
 
-TrustShell ships with a built-in terminal companion allowing developers to invoke verification and payment APIs directly:
+TrustShell ships with a built-in terminal companion allowing developers to invoke verification and payment APIs directly.
 
+### Install Globally
 ```bash
-# Install globally
 npm install -g @hyperdag/trustshell
-
-# Initialize in project root
-trustshell init
-
-# Verify a claim with the HAL fact checker
-export REPID_API_KEY="your-api-key"
-trustshell verify "The transaction is fully settled."
-
-# Query reputation details
-trustshell whois 5863
-
-# Inspect on-chain attestation
-trustshell attestation 0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f
-
-# Execute x402 payment escrow construction
-export TRUSTSHELL_KEY="0x_private_key"
-trustshell pay contract-7762
 ```
+
+### Initialize in Project Root
+```bash
+$ trustshell init
+✓ Initialized TrustShell in current directory
+  Created: .trustshell.json
+  Network: Base Sepolia
+  Run `trustshell --help` for available commands
+```
+
+### Verify Claims (HAL Fact Checker)
+Set your RepID API key, then run verification on claim text:
+```bash
+$ export REPID_API_KEY="test-key-123"
+
+$ trustshell verify "The Eiffel Tower is in Paris"
+🔍 HAL Evaluation
+  Evaluating: "The Eiffel Tower is in Paris"
+  Strictness: 2
+
+  Decision: clean ✓
+  Score: 0.00
+  Providers: N/A/N/A
+  Latency: 400ms
+
+$ trustshell verify "The Eiffel Tower is in Tokyo"
+🔍 HAL Evaluation
+  Evaluating: "The Eiffel Tower is in Tokyo"
+  Strictness: 2
+
+  Decision: vetoed ✗
+  Score: 1.00
+  Providers: N/A/N/A
+  Latency: 318ms
+```
+
+### Query Agent Reputation (ERC-8004 Registry)
+Inspect an agent's on-chain token details:
+```bash
+$ trustshell whois 5863
+🪪 Agent Reputation (ERC-8004 Base Sepolia)
+  Identifier: 5863
+
+  Token ID: 5863
+  Recent attestations: 15
+  Average score: 28 / 100
+  Tier: ESTABLISHED
+```
+
+### Inspect On-Chain Attestation Details
+Retrieve decoded log metadata for a specific attestation transaction:
+```bash
+$ trustshell attestation 0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f
+📜 Attestation Details
+  Tx Hash: 0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f
+
+  Block: 41899065
+  From client: 0xf6eE1768868c3266868edcA78bC41C50309cb22A
+  To agent ID: 5863
+  Score: 2980
+  Tags: hyperdag_repid, tier:ESTABLISHED
+  Feedback URI: https://trustrepid.dev/api/v1/agents/32e0e809-c1c4-4405-913f-135c8a2d6626/reputation/payload.json
+  Feedback Hash: 0x0000000000000000000000000000000000000000000000000000000000000000
+```
+
+### Construct x402 Payments & Escrows
+```bash
+# Set your private key (Base Sepolia)
+$ export TRUSTSHELL_KEY="0x_private_key"
+
+$ trustshell pay contract-7762
+💳 x402 Payment Flow
+  Contract: contract-7762
+  Settlement ID: 8872-bb2f-901a
+  Status: escrowed
+```
+*(Note: Live payment commands require active wallet funds and are typically managed by the payment coordinator integration tests; dry-run/documented output above shows standard signature generation flow.)*
 
 For more options, examples, and detailed output descriptions, check out the [CLI Walkthrough](examples/cli-walkthrough.md).
 
