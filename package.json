@@ -1,6 +1,6 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Drop-in HAL (Hallucination Assessment Layer) constitutional protection for any agent",
   "keywords": [
     "hal",
