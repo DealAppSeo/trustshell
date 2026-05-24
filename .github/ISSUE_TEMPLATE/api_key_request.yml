@@ -1,0 +1,39 @@
+name: API Key Request
+description: Request a free testnet API key for TrustShell (HAL fact-check + RepID)
+title: "[API Key Request] "
+labels: ["api-key-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Testnet keys are free and currently early access. Expected turnaround: within 24 hours.
+        Prefer not to post publicly? Email **keys@hyperdag.dev** or use the form at
+        [trustshell.dev/get-api-key](https://trustshell.dev/get-api-key).
+  - type: input
+    id: email
+    attributes:
+      label: Email
+      description: Where should we send your API key?
+      placeholder: you@example.com
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What are you building? (helps us understand your needs — 50–500 chars)
+      placeholder: e.g. "Gating my trading agent's outputs through HAL before execution."
+    validations:
+      required: true
+  - type: input
+    id: organization
+    attributes:
+      label: Organization (optional)
+    validations:
+      required: false
+  - type: input
+    id: source
+    attributes:
+      label: How did you find us? (optional)
+    validations:
+      required: false

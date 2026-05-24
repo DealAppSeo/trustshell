@@ -1,7 +1,7 @@
 # API Reference
 
 `@hyperdag/trustshell` v0.6.0. Default engine: `https://repid-engine-production.up.railway.app`
-(override with `engineUrl` in the constructor).
+(override with `engineUrl` in the constructor). Unfamiliar terms? See the [glossary](./glossary.md).
 
 ## SDK
 
