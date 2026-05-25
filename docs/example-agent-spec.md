@@ -1,7 +1,10 @@
 # Example Agent — Specification
 
-A minimal, end-to-end reference agent that uses TrustShell to gate its actions. **This is a spec; the
-runnable implementation lands in V1.5** (`examples/minimal-agent/`).
+A minimal, end-to-end reference agent that uses TrustShell to gate its actions.
+
+> ✅ **Working implementation shipped:** [github.com/DealAppSeo/example-agent](https://github.com/DealAppSeo/example-agent)
+> — clone, `npm install && npm start`, runs **keyless** (public HAL fact-check) out of the box, with an
+> optional SDK mode (full HAL + RepID loop) when you set an API key. This doc is the design spec it follows.
 
 ## Description
 A tiny "guarded executor": it takes a proposed action + the agent's certainty, runs it through HAL via
