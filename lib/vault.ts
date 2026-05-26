@@ -29,8 +29,12 @@ async function getCryptoKey(passphrase: string, salt: Uint8Array): Promise<Crypt
     false,
     ['deriveKey']
   );
+  // CC1 2026-05-26: cast salt to BufferSource. TS 5.x lib.dom tightened the
+  // signature so `Uint8Array<ArrayBufferLike>` no longer satisfies BufferSource
+  // — this has been blocking every Vercel deploy on main for 20+ builds.
+  // Behavior unchanged; only the type assertion is widened.
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations: 250000, hash: 'SHA-256' },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
