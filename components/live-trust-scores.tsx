@@ -97,7 +97,7 @@ export function LiveTrustScores() {
               <div key={score.llm_provider} className="p-5 bg-card rounded-xl border border-border">
                 <p className="text-sm text-muted mb-1 font-mono uppercase">{score.llm_provider}</p>
                 <p className="text-3xl font-bold text-foreground mb-2">
-                  {score.trust_score_pct != null && !isNaN(score.trust_score_pct) 
+                  {typeof score.trust_score_pct === 'number' 
                     ? `${score.trust_score_pct}%` 
                     : 'N/A'}
                 </p>
