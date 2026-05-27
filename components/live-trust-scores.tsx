@@ -65,6 +65,7 @@ const TIER_MAP: Record<string, TierKey> = {
   // Tier 0a — High-Speed Inference (free commercial)
   cerebras: '0a',
   cohere: '0a',
+  deepinfra: '0a', // CC2 added to CANONICAL_LLM_PROVIDERS in repid-engine PR #67
   deepseek: '0a',
   gemini: '0a',
   groq: '0a',
@@ -111,7 +112,7 @@ const TIER_SECTIONS: ReadonlyArray<{
   },
 ];
 
-const CATALOG_SIZE = Object.keys(TIER_MAP).length; // 13
+const CATALOG_SIZE = Object.keys(TIER_MAP).length; // 14 (anthropic, openai, cerebras, cohere, deepinfra, deepseek, gemini, groq, llama-3-2-1b, gemma-3-2b, phi-4, fingpt, meditron-7b, saul-lm-7b)
 
 const API_BASE =
   'https://repid-engine-production.up.railway.app/api/v1/llm-trust';
