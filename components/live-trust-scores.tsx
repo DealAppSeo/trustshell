@@ -38,7 +38,9 @@ export function LiveTrustScores() {
   }, []);
 
   const formatRelativeTime = (dateString: string) => {
+    if (!dateString) return 'recently';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'recently';
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -90,7 +92,9 @@ export function LiveTrustScores() {
               <div key={score.provider} className="p-5 bg-card rounded-xl border border-border">
                 <p className="text-sm text-muted mb-1 font-mono lowercase">{score.provider}</p>
                 <p className="text-3xl font-bold text-foreground mb-2">
-                  {(score.trust_score * 100).toFixed(1)}%
+                  {score.trust_score != null && !isNaN(score.trust_score) 
+                    ? `${(score.trust_score * 100).toFixed(1)}%` 
+                    : 'N/A'}
                 </p>
                 <div className="flex justify-between text-xs text-muted">
                   <span>{score.total_decisions.toLocaleString()} decisions</span>
