@@ -52,7 +52,7 @@ export function Hero() {
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
           <a
-            href="#"
+            href="https://trustshell.dev/connect"
             className="px-6 py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-lg transition-colors duration-200 inline-flex items-center gap-2"
           >
             Try the live app

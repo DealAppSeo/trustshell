@@ -19,7 +19,7 @@ export function GlassBox() {
         <div className="relative w-full aspect-[16/9] md:aspect-[2/1] rounded-xl overflow-hidden bg-[#0a0a0a]">
           <Image
             id="glass-box-visual"
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Gemini_Generated_Image_ylzp53ylzp53ylzp.jfif-ZB4NHWRDGi5cVv1yO5YfxA8IqoIX5s.jpeg"
+            src="/glass-box.png"
             alt="Black Box to Glass Box transformation - showing an opaque black cube with a question mark transforming into a transparent glass cube revealing internal HAL stack layers, flowcharts, and hexagonal patterns. This represents TrustShell making AI decision-making transparent to its owner."
             fill
             className="object-contain"
