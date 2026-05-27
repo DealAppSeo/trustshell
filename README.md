@@ -434,6 +434,12 @@ Which LLMs earn constitutional trust:
 - [Glossary](docs/glossary.md) — plain-language definitions
 - [Support](docs/SUPPORT.md) — help, bug reports, API keys
 
+## Governance
+
+HyperDAG Protocol — the trust layer TrustShell builds on — is moving toward community governance. See the [Governance Roadmap](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/GOVERNANCE_ROADMAP.md) for the path from V1 (maintained) to V3 (DAO).
+
+Contribute to the live RepID formula discussion at [trustshell.dev/repid](https://trustshell.dev/repid).
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
