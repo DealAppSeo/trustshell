@@ -1,72 +1,137 @@
 # Getting Started with TrustShell
 
-A 5-minute path from zero to your first verified claim.
+A frictionless first hour: install, run a real claim through HAL, see the verdict, verify the on-chain trail.
 
-## What is TrustShell? (30 sec)
+## 1. What is TrustShell
 
-`@hyperdag/trustshell` is a small client that gives any AI agent a **constitutional check** before it
-acts and a **portable reputation** (RepID) it earns over time. You send a decision (text + how certain
-your agent is); the HAL pipeline scores it for hallucination/risk and returns an APPROVE / HITL / BLOCK
-verdict plus a RepID delta. One network call to the canonical engine — no local-only verdict path.
+`@hyperdag/trustshell` is the open-source npm client for the HyperDAG trust layer. You send an AI agent decision (a string + a 0–1 certainty); the **HAL** (Hallucination Auditor Layer) scores it across multiple LLM providers and returns an `APPROVE` / `HITL` / `BLOCK` verdict plus a delta on the agent's portable reputation (**RepID**). Every score change is auditable; every reputation update is anchored on the canonical **ERC-8004 ReputationRegistry** on Base Sepolia.
 
-Three primitives: **RepID** (behavioral reputation), **HAL** (hallucination assessment), **x402**
-(agent-to-agent payments). See [architecture-overview.md](./architecture-overview.md). New to the terms?
-The [glossary](./glossary.md) defines everything in plain language.
+Three primitives: **RepID** (reputation), **HAL** (hallucination defense), **x402** (agent-to-agent payments). All Apache 2.0. The reputation algorithm itself is also open — see [trustshell.dev/repid](https://trustshell.dev/repid). New to the terms? The [glossary](./glossary.md) covers each in plain language.
 
-## 5-minute quickstart
+## 2. Prerequisites
 
-### 1. Install
+| Requirement | Minimum | Notes |
+|---|---|---|
+| **Node.js** | `>=18.0.0` | The CLI bin uses Node 18+ runtime features. |
+| **npm** | bundled with Node 18 | Yarn / pnpm should work but aren't tested. |
+| **Base Sepolia ETH** (testnet) | optional, only for on-chain writes | You **do not** need any ETH to (a) run HAL evaluation, (b) look up a RepID, or (c) read on-chain history. ETH is only needed if you plan to *write* reputation attestations yourself, which is rare for SDK consumers — most users let the engine handle on-chain writes. |
+| **An API key (free, testnet)** | required for HAL | See §4 below. |
+| **`curl` + `jq` (optional)** | nice-to-have | Used by the verification snippets below. |
+
+That's it. No Docker, no Postgres, no local services to stand up.
+
+## 3. Installation
+
 ```bash
-npm install -g @hyperdag/trustshell   # CLI
-# or, for the SDK in your project:
+# As a project dependency (SDK):
 npm install @hyperdag/trustshell
+
+# As a global CLI:
+npm install -g @hyperdag/trustshell
 ```
 
-### 2. Initialize (CLI)
+Verify the install:
+
 ```bash
-trustshell init
+trustshell --version
+# → @hyperdag/trustshell vX.Y.Z
 ```
-Creates `.trustshell.json` (network, chainId, contract addresses, engine endpoint):
+
+## 4. 60-second quickstart
+
+A copy-paste flow that takes you from zero to a verified on-chain RepID reference in about a minute.
+
+### Step 1 — Look up an existing on-chain agent (no key, no install, just `curl`)
+
+Verify the engine is live and the canonical ERC-8004 contracts are taking real traffic:
+
+```bash
+# Trinity-shofet, tokenId 5863, the most-recently-updated active agent:
+curl https://repid-engine-production.up.railway.app/api/v1/repid/32e0e809-c1c4-4405-913f-135c8a2d6626
+```
+
+Expected response (RepID changes as the agent operates):
+
 ```json
 {
-  "version": "0.6.0",
-  "network": "base-sepolia",
-  "chainId": 84532,
-  "contracts": {
-    "identityRegistry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
-    "reputationRegistry": "0x8004B663056A597Dffe9eCcC1965A193B7388713"
-  },
-  "api": { "endpoint": "https://repid-engine-production.up.railway.app" }
+  "agent_id": "32e0e809-c1c4-4405-913f-135c8a2d6626",
+  "repid_score": 3120,
+  "tier": "ESTABLISHED",
+  "last_updated": "2026-05-24T15:39:03+00:00",
+  "source": "cached"
 }
 ```
 
-### 3. Look up an existing agent (no key needed)
+The full economic loop receipt (a real $0.10 USDC settlement → real on-chain reputation attestation):
+
 ```bash
-trustshell whois 5863      # trinity-shofet
+curl https://repid-engine-production.up.railway.app/api/v1/receipts/hero
 ```
 
-### 4. Get an API key
-HAL evaluation needs a testnet key. Testnet keys are **free** and currently **early access**; expected
-turnaround is **within 24 hours**. Pick whichever path you prefer:
+Every `tx` field in the response is clickable on basescan:
+[`0x2a7ac151…`](https://sepolia.basescan.org/tx/0x2a7ac151c23983f59564fc3da5c7ea74fdbe390f9e97fcbf70c79be27089967a) (USDC) →
+[`0xd362c1b0…`](https://sepolia.basescan.org/tx/0xd362c1b0c819e2e1ee7bce601531afb0be1eef20c1be4ab8dc643e524d19e917) (reputation).
 
-**Option A — Web form:** [trustshell.dev/get-api-key](https://trustshell.dev/get-api-key)
+### Step 2 — Get a free testnet API key
 
-**Option B — GitHub Issue:** [open an API-key request](https://github.com/DealAppSeo/trustshell/issues/new?template=api_key_request.yml)
+HAL evaluation against a real model fleet requires an API key. Keys are free for testnet and currently early-access.
 
-**Option C — Direct API** (for scripts):
-```bash
-curl -X POST https://repid-engine-production.up.railway.app/api/v1/api-key-requests/request \
-  -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","use_case":"Verifying my trading agent'\''s outputs before execution"}'
-# → { "request_id": 123, "status": "pending", ... }   (1 request per email per hour)
+- **Web form (fastest):** [trustshell.dev/get-api-key](https://trustshell.dev/get-api-key)
+- **GitHub issue:** [open an API key request](https://github.com/DealAppSeo/trustshell/issues/new?template=api_key_request.yml)
+- **Direct API:**
+  ```bash
+  curl -X POST https://repid-engine-production.up.railway.app/api/v1/api-key-requests/request \
+    -H "Content-Type: application/json" \
+    -d '{"email":"you@example.com","use_case":"Verifying my trading agent before execution"}'
+  ```
+
+Turnaround target: within 24 hours. You'll receive a key in the form `ts_live_...`.
+
+### Step 3 — Run your first HAL evaluation (SDK)
+
+Drop the SDK into any TypeScript or JavaScript project:
+
+```typescript
+import { TrustShell } from '@hyperdag/trustshell';
+
+const shell = new TrustShell({
+  agentId: 'your-agent-id',                  // any string id you choose
+  apiKey: process.env.REPID_API_KEY!,        // ts_live_...
+  llmProvider: 'anthropic',                  // optional, enables BYOK trust warnings
+  profile: 'balanced',                       // 'conservative' | 'balanced' | 'pro'
+});
+
+const result = await shell.evaluate(
+  'Execute trade: buy 0.1 BTC at market',   // the decision to check
+  0.87,                                       // your agent's certainty (0–1)
+);
+
+console.log(result);
+// {
+//   approved: true,
+//   hal_score: 0.08,
+//   repid_delta: +3,
+//   new_score: 1003,
+//   tier: 'EARNING',
+//   vdr_count: 1,
+//   vesting_active: true
+// }
+
+if (!result.approved) {
+  console.warn('HAL vetoed — do not act:', result.veto_reason);
+  // Halt your agent's execution here.
+}
 ```
-A testnet key (`ts_live_…`) is emailed after review. (Self-service auto-provision is on the roadmap.)
 
-### 5. Verify your first claim
+### Step 4 — Run your first HAL evaluation (CLI alternative)
+
+If you'd rather verify a claim without writing code:
+
 ```bash
 export REPID_API_KEY="ts_live_your_key_here"
 trustshell verify "The transaction is fully settled."
 ```
+
 ```text
 🔍 HAL Evaluation
   Evaluating: "The transaction is fully settled."
@@ -78,44 +143,150 @@ trustshell verify "The transaction is fully settled."
   Latency: 412ms
 ```
 
-## What just happened?
+### Step 5 — Verify the on-chain trail
 
-Your claim was sent to the HAL pipeline, scored across multiple providers for hallucination/risk, and
-returned a decision (`clean` / `flagged` / `vetoed`) with a 0–1 score and the provider quorum. No data
-was stored against your agent unless you submit it as a scored decision via the SDK (`evaluate`).
+Every score change against your agent is appended to the ERC-8004 ReputationRegistry on Base Sepolia. Sample real attestation:
 
-## Integrate into your agent (SDK)
+[`0xb2ab22b536abb7dc08d19a030b6e491face37387834dd361fba0d705accaed09`](https://sepolia.basescan.org/tx/0xb2ab22b536abb7dc08d19a030b6e491face37387834dd361fba0d705accaed09) — trinity-shofet, RepID 3120, ~134,661 gas, ReputationRegistry [`0x8004B663…`](https://sepolia.basescan.org/address/0x8004B663056A597Dffe9eCcC1965A193B7388713).
+
+That's the full loop: decision → HAL verdict → RepID delta → on-chain attestation.
+
+## 5. Architecture overview
+
+A 30-second mental model:
+
+```
+Your agent ── shell.evaluate(text, certainty) ──▶ HAL pipeline (multi-LLM cross-check)
+                                                   │
+                                                   ├─▶ veto / pass verdict (returned to you)
+                                                   │
+                                                   ├─▶ RepID update (open formula, see /repid)
+                                                   │
+                                                   └─▶ on-chain attestation on Base Sepolia
+                                                       ReputationRegistry 0x8004B663…
+```
+
+Full diagram + design choices: [`architecture-overview.md`](./architecture-overview.md). The protocol spec + reference contracts live at [`DealAppSeo/hyperdag-protocol`](https://github.com/DealAppSeo/hyperdag-protocol). The score-computation rules are public and community-shapeable at [trustshell.dev/repid](https://trustshell.dev/repid).
+
+## 6. Configuration reference
+
+Every option you can pass to `new TrustShell(...)`, with defaults:
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `agentId` | `string` | **required** | Your agent's identifier. Anything stable across runs. |
+| `apiKey` | `string` | **required** | Your `ts_live_...` testnet key. |
+| `llmProvider` | `string` | `undefined` | E.g. `'anthropic'`, `'openai'`, `'groq'`. When set, the SDK emits a `byok-warning` event if that provider's live trust score drops below 70 (subscribe via `shell.on('byok-warning', ...)`). |
+| `llmModel` | `string` | `undefined` | E.g. `'claude-sonnet-4-6'`. Informational; surfaces in per-model trust telemetry. |
+| `profile` | `'conservative' \| 'balanced' \| 'pro'` | `'balanced'` | HAL strictness preset. `conservative` = veto on borderline; `balanced` = veto on clearly hallucinated; `pro` = only veto on hard-fail signals. |
+| `engineUrl` | `string` | `'https://repid-engine-production.up.railway.app'` | Override for testing or self-hosted engines. |
+
+Environment variables the CLI reads:
+
+| Env var | Used by | Description |
+|---|---|---|
+| `REPID_API_KEY` | `trustshell verify`, SDK | The testnet API key. |
+| `TRUSTSHELL_KEY` | `trustshell pay` | A signing private key (only needed if you initiate x402 escrows yourself). |
+| `TRUSTSHELL_ENDPOINT` | both | Override `engineUrl` from the environment. |
+
+The `trustshell init` command writes a project-local `.trustshell.json` with the canonical network + contract addresses pinned:
+
+```json
+{
+  "version": "0.6.x",
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "contracts": {
+    "identityRegistry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "reputationRegistry": "0x8004B663056A597Dffe9eCcC1965A193B7388713"
+  },
+  "api": { "endpoint": "https://repid-engine-production.up.railway.app" }
+}
+```
+
+## 7. Error handling patterns
+
+### SDK methods throw on non-2xx engine responses
+
+Wrap every call in try/catch in production code. The engine returns typed JSON errors; the SDK preserves status + message.
 
 ```typescript
 import { TrustShell } from '@hyperdag/trustshell';
 
-const shell = new TrustShell({
-  agentId: 'your-agent-id',
-  apiKey: process.env.REPID_API_KEY,
-  llmProvider: 'anthropic',
-  profile: 'balanced'        // conservative | balanced | pro
-});
-
-const result = await shell.evaluate('Execute trade: buy 0.1 BTC at market', 0.87);
-if (!result.approved) {
-  // HAL vetoed — do not act
-  console.warn('blocked:', result.veto_reason);
+try {
+  const result = await shell.evaluate(text, certainty);
+  if (!result.approved) {
+    // HAL vetoed — your agent should NOT act on this output.
+    log.warn('hal_veto', { reason: result.veto_reason, hal_score: result.hal_score });
+    return { ok: false, blocked: true };
+  }
+  return { ok: true, repid: result.new_score, tier: result.tier };
+} catch (err: any) {
+  // Network or non-2xx engine response.
+  if (err.status === 401) throw new Error('REPID_API_KEY missing or invalid');
+  if (err.status === 403) throw new Error('REPID_API_KEY revoked');
+  if (err.status === 429) {
+    log.warn('rate_limited', { retry_after: err.retryAfter });
+    // Back off and retry, or fail open if your use case is non-critical.
+  }
+  throw err;
 }
 ```
 
-## How do I know it's working?
-The engine exposes a public, no-auth metrics endpoint with live counts:
-```bash
-curl https://repid-engine-production.up.railway.app/api/v1/metrics
+### Common HTTP statuses you'll see
+
+| Status | Where | What it means | What to do |
+|---|---|---|---|
+| `200` | Any GET | OK | continue |
+| `201` | SDK score-event | RepID delta accepted | continue |
+| `400` | API key request | Validation failed (missing email, invalid use_case) | fix the body, retry |
+| `401` | Authed routes | `REPID_API_KEY` missing or wrong header | re-check `Authorization: Bearer <key>` or `x-api-key: <key>` |
+| `403` | Authed routes | Key revoked / wrong tier | request a new key |
+| `429` | Score-event, API key request | Rate limit (1 key-request per email per hour) | back off, retry later |
+| `500` | Any | Engine error or stale dependency | retry once; if persistent, [open an issue](https://github.com/DealAppSeo/trustshell/issues) |
+
+### Graceful degradation (recommended)
+
+Treat HAL as a circuit breaker, not a single point of failure. The recommended fail-open pattern for non-safety-critical agents:
+
+```typescript
+async function checkedExecute(decision: string, certainty: number) {
+  try {
+    const r = await shell.evaluate(decision, certainty);
+    if (!r.approved) return { halted: true, reason: r.veto_reason };
+    return { ok: true };
+  } catch {
+    // Engine unreachable — fail open with a clearly logged warning.
+    // Safety-critical agents should fail CLOSED here instead.
+    log.warn('hal_unreachable_fail_open');
+    return { ok: true, hal_degraded: true };
+  }
+}
 ```
-Per-LLM trust scores are also public at `/api/v1/llm-trust`. (Live counts move daily; see
-[trustrepid.dev](https://trustrepid.dev) for the leaderboard.)
 
-## Next steps
-- [glossary.md](./glossary.md) — plain-language definitions of every term
-- [architecture-overview.md](./architecture-overview.md) — how RepID + HAL + x402 fit together
-- [api-reference.md](./api-reference.md) — every SDK method + CLI command
-- [example-agent-spec.md](./example-agent-spec.md) — a minimal end-to-end agent
-- [SUPPORT.md](./SUPPORT.md) — where to get help / report bugs / request keys
+For safety-critical agents (anything with real economic impact), invert the catch: fail closed and halt.
 
-> Testnet (Base Sepolia) today. See the architecture overview for the mainnet roadmap.
+### CORS
+
+The public endpoints allow `trustrepid.dev`, `trustshell.dev`, `www.trustshell.dev`, and `localhost:3000`/`3001`. If you're embedding the public read API in a different domain you'll need to proxy server-side.
+
+## 8. Where to get help
+
+| Channel | When | Link |
+|---|---|---|
+| **GitHub Issues** | Bugs, surprising behavior, anything reproducible | [`DealAppSeo/trustshell/issues`](https://github.com/DealAppSeo/trustshell/issues) |
+| **GitHub Discussions** | Open-ended questions, design feedback, integration help | [`DealAppSeo/hyperdag-protocol/discussions`](https://github.com/DealAppSeo/hyperdag-protocol/discussions) |
+| **`/repid` governance** | Suggestions for the RepID algorithm itself (weights, signals, edge cases) | [trustshell.dev/repid](https://trustshell.dev/repid) — public suggestion form |
+| **Security disclosures** | Anything with potential attack surface (RepID gaming, HAL bypasses, on-chain) | Use GitHub Security Advisory on the affected repo |
+| **`SUPPORT.md`** | Quick reference for the above | [`docs/SUPPORT.md`](./SUPPORT.md) |
+
+---
+
+**Next steps:**
+
+- [`api-reference.md`](./api-reference.md) — full SDK method + public REST endpoint reference
+- [`architecture-overview.md`](./architecture-overview.md) — how the three primitives fit together
+- [`example-agent-spec.md`](./example-agent-spec.md) — a minimal end-to-end guarded executor
+- [`glossary.md`](./glossary.md) — plain-language definitions
+
+> Testnet (Base Sepolia, chain ID 84532) today. The mainnet roadmap is on the [HyperDAG Protocol README](https://github.com/DealAppSeo/hyperdag-protocol).
