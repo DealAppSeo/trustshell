@@ -48,7 +48,7 @@ export function GlassBox() {
             <div>
               <h3 className="font-semibold text-foreground mb-1">Peer verification on uncertainty</h3>
               <p className="text-sm text-muted leading-relaxed">
-                Low-confidence decisions automatically queue for cross-LLM verification. The audit chain is queryable: 31 entries pending right now.
+                Low-confidence decisions automatically queue for cross-LLM verification. The audit chain is queryable in real time.
               </p>
             </div>
           </div>
