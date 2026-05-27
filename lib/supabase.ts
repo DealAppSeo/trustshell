@@ -1,8 +1,15 @@
-// Minimal Supabase REST helpers — server-side only.
-// Avoids adding @supabase/supabase-js as a dependency for the small number of
-// read/write paths we currently need (governance suggestions, future waitlist).
-// All calls require SUPABASE_SERVICE_ROLE_KEY in the server env.
+// Supabase client helpers for both server and browser.
+import { createBrowserClient } from '@supabase/ssr'
 
+// Browser client for client-side operations (waitlist forms, etc.)
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+
+// Server-side REST helpers
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
