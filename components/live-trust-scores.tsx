@@ -4,10 +4,15 @@ import { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 
 interface LLMTrust {
-  provider: string;
-  trust_score: number;
+  llm_provider: string;
+  llm_model: string | null;
   total_decisions: number;
-  last_updated: string;
+  hallucinations_caught: number;
+  hallucination_rate_pct: number;
+  trust_score_pct: number;
+  avg_certainty: number;
+  agents_using: number;
+  last_decision: string;
 }
 
 export function LiveTrustScores() {
@@ -89,16 +94,16 @@ export function LiveTrustScores() {
         {!loading && !error && scores.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {scores.map((score) => (
-              <div key={score.provider} className="p-5 bg-card rounded-xl border border-border">
-                <p className="text-sm text-muted mb-1 font-mono lowercase">{score.provider}</p>
+              <div key={score.llm_provider} className="p-5 bg-card rounded-xl border border-border">
+                <p className="text-sm text-muted mb-1 font-mono uppercase">{score.llm_provider}</p>
                 <p className="text-3xl font-bold text-foreground mb-2">
-                  {score.trust_score != null && !isNaN(score.trust_score) 
-                    ? `${(score.trust_score * 100).toFixed(1)}%` 
+                  {score.trust_score_pct != null && !isNaN(score.trust_score_pct) 
+                    ? `${score.trust_score_pct}%` 
                     : 'N/A'}
                 </p>
                 <div className="flex justify-between text-xs text-muted">
                   <span>{score.total_decisions.toLocaleString()} decisions</span>
-                  <span>{formatRelativeTime(score.last_updated)}</span>
+                  <span>{formatRelativeTime(score.last_decision)}</span>
                 </div>
               </div>
             ))}
