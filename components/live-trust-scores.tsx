@@ -3,11 +3,17 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 
+// Field names per the live repid-engine /api/v1/llm-trust response:
+//   { llm_provider, llm_model, total_decisions, hallucinations_caught,
+//     hallucination_rate_pct, trust_score_pct, avg_certainty,
+//     agents_using, last_decision }
+// trust_score_pct is already a percentage (e.g. 54.55), not a fraction.
 interface LLMTrust {
-  provider: string;
-  trust_score: number;
+  llm_provider: string;
+  llm_model: string | null;
+  trust_score_pct: number;
   total_decisions: number;
-  last_updated: string;
+  last_decision: string;
 }
 
 export function LiveTrustScores() {
@@ -46,11 +52,15 @@ export function LiveTrustScores() {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
 
     if (diffMins < 1) return 'just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffWeeks < 5) return `${diffWeeks} week${diffWeeks === 1 ? '' : 's'} ago`;
+    return `${diffMonths} month${diffMonths === 1 ? '' : 's'} ago`;
   };
 
   return (
@@ -88,17 +98,20 @@ export function LiveTrustScores() {
 
         {!loading && !error && scores.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {scores.map((score) => (
-              <div key={score.provider} className="p-5 bg-card rounded-xl border border-border">
-                <p className="text-sm text-muted mb-1 font-mono lowercase">{score.provider}</p>
+            {scores.map((score, i) => (
+              <div
+                key={`${score.llm_provider}-${score.llm_model ?? 'any'}-${i}`}
+                className="p-5 bg-card rounded-xl border border-border"
+              >
+                <p className="text-sm text-muted mb-1 font-mono uppercase">{score.llm_provider}</p>
                 <p className="text-3xl font-bold text-foreground mb-2">
-                  {score.trust_score != null && !isNaN(score.trust_score) 
-                    ? `${(score.trust_score * 100).toFixed(1)}%` 
+                  {score.trust_score_pct != null && !isNaN(score.trust_score_pct)
+                    ? `${score.trust_score_pct.toFixed(2)}%`
                     : 'N/A'}
                 </p>
                 <div className="flex justify-between text-xs text-muted">
                   <span>{score.total_decisions.toLocaleString()} decisions</span>
-                  <span>{formatRelativeTime(score.last_updated)}</span>
+                  <span>{formatRelativeTime(score.last_decision)}</span>
                 </div>
               </div>
             ))}
