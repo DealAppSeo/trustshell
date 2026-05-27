@@ -8,6 +8,7 @@ import { ExternalLink } from 'lucide-react';
 //     hallucination_rate_pct, trust_score_pct, avg_certainty,
 //     agents_using, last_decision }
 // trust_score_pct is already a percentage (e.g. 54.55), not a fraction.
+// llm_model is null for headline-per-provider rows (the API merges models).
 interface LLMTrust {
   llm_provider: string;
   llm_model: string | null;
@@ -24,15 +25,17 @@ export function LiveTrustScores() {
   useEffect(() => {
     const fetchScores = async () => {
       try {
-        const response = await fetch('https://repid-engine-production.up.railway.app/api/v1/llm-trust', {
-          signal: AbortSignal.timeout(5000),
-        });
+        const response = await fetch(
+          'https://repid-engine-production.up.railway.app/api/v1/llm-trust',
+          { signal: AbortSignal.timeout(5000) }
+        );
         if (!response.ok) throw new Error('Failed to fetch');
         const data = await response.json();
         setScores(data);
         setLoading(false);
       } catch {
-        // Wait 2 seconds before showing error fallback
+        // Wait 2 seconds before showing error fallback so transient blips
+        // don't flash the failure state.
         setTimeout(() => {
           setLoading(false);
           setError(true);
@@ -43,24 +46,17 @@ export function LiveTrustScores() {
     fetchScores();
   }, []);
 
-  const formatRelativeTime = (dateString: string) => {
-    if (!dateString) return 'recently';
+  // Absolute "Mon DD, YYYY" date — honest about staleness rather than papering
+  // over it with a relative-time fudge ("2 weeks ago" reads as drift).
+  const formatLastDecision = (dateString: string) => {
+    if (!dateString) return '—';
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'recently';
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-    const diffWeeks = Math.floor(diffDays / 7);
-    const diffMonths = Math.floor(diffDays / 30);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffWeeks < 5) return `${diffWeeks} week${diffWeeks === 1 ? '' : 's'} ago`;
-    return `${diffMonths} month${diffMonths === 1 ? '' : 's'} ago`;
+    if (isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
   return (
@@ -68,22 +64,22 @@ export function LiveTrustScores() {
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Live trust scores.
+            LLM trust leaderboard.
           </h2>
           <p className="text-muted">
-            Real LLM trust scores from the production HAL pipeline. Updates as agents make decisions. No mockups.
+            Trust scores accumulated from agent decisions, scored via the production HAL pipeline. Verifiable on-chain. No mockups.
           </p>
         </div>
 
         {loading && (
           <div className="text-center py-12 text-muted">
-            Loading live data...
+            Loading…
           </div>
         )}
 
         {error && !loading && (
           <div className="text-center py-12">
-            <p className="text-muted mb-2">Live data temporarily unavailable</p>
+            <p className="text-muted mb-2">Leaderboard temporarily unavailable</p>
             <a
               href="https://trustrepid.dev"
               target="_blank"
@@ -97,25 +93,33 @@ export function LiveTrustScores() {
         )}
 
         {!loading && !error && scores.length > 0 && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {scores.map((score, i) => (
-              <div
-                key={`${score.llm_provider}-${score.llm_model ?? 'any'}-${i}`}
-                className="p-5 bg-card rounded-xl border border-border"
-              >
-                <p className="text-sm text-muted mb-1 font-mono uppercase">{score.llm_provider}</p>
-                <p className="text-3xl font-bold text-foreground mb-2">
-                  {score.trust_score_pct != null && !isNaN(score.trust_score_pct)
-                    ? `${score.trust_score_pct.toFixed(2)}%`
-                    : 'N/A'}
-                </p>
-                <div className="flex justify-between text-xs text-muted">
-                  <span>{score.total_decisions.toLocaleString()} decisions</span>
-                  <span>{formatRelativeTime(score.last_decision)}</span>
+          <>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {scores.map((score, i) => (
+                <div
+                  key={`${score.llm_provider}-${i}`}
+                  className="p-5 bg-card rounded-xl border border-border"
+                >
+                  <p className="text-sm text-muted mb-1 font-mono uppercase">
+                    {score.llm_provider}
+                  </p>
+                  <p className="text-3xl font-bold text-foreground mb-2">
+                    {score.trust_score_pct != null && !isNaN(score.trust_score_pct)
+                      ? `${score.trust_score_pct.toFixed(2)}%`
+                      : 'N/A'}
+                  </p>
+                  <div className="flex justify-between text-xs text-muted">
+                    <span>{score.total_decisions.toLocaleString()} decisions</span>
+                    <span>Last: {formatLastDecision(score.last_decision)}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted/60 max-w-3xl">
+              Provider activity reflects real agent usage. Underrepresented providers indicate the system is newly accumulating decisions for that vendor.
+            </p>
+          </>
         )}
 
         <a
