@@ -1,39 +1,58 @@
-import Link from 'next/link';
+import { Hero } from '@/components/hero';
+import { GlassBox } from '@/components/glass-box';
+import { EarnedTrust } from '@/components/earned-trust';
+import { DefenseGrid } from '@/components/defense-grid';
+import { LiveTrustScores } from '@/components/live-trust-scores';
+import { LiveOnChain } from '@/components/live-on-chain';
+import { HowItWorks } from '@/components/how-it-works';
+import { RoadmapV15 } from '@/components/roadmap-v15';
+import { RepidGovernance } from '@/components/repid-governance';
+import { PrivacyPosture } from '@/components/privacy-posture';
+import { Ecosystem } from '@/components/ecosystem';
+import { BuilderWaitlist } from '@/components/builder-waitlist';
+import { Footer } from '@/components/footer';
 
 export default function Home() {
   return (
-    <div className="max-w-5xl mx-auto space-y-16 py-12">
-      <header className="text-center space-y-6">
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white">
-          TrustShell. <span className="text-amber-500">AI agents that earn your trust.</span>
-        </h1>
-        <p className="text-xl text-[#94a3b8] max-w-3xl mx-auto leading-relaxed">
-          Free Groq + Gemini + Cerebras. Bring your own paid keys when you need premium models. Your keys never leave your browser.
-        </p>
-        <div className="pt-8">
-          <Link href="/connect" className="px-8 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-colors text-lg inline-block">
-            Get Started
-          </Link>
-        </div>
-      </header>
-
-      <div className="grid md:grid-cols-3 gap-8 pt-12 border-t border-[#1e293b]">
-        <div className="space-y-4">
-          <div className="w-12 h-12 bg-[#1e293b] rounded-lg flex items-center justify-center text-2xl">⚡</div>
-          <h3 className="text-xl font-bold text-white">Free first</h3>
-          <p className="text-[#94a3b8]">Start immediately with our free tier router pointing to the best open models on Groq, Cerebras, and Gemini Flash. No credit card required.</p>
-        </div>
-        <div className="space-y-4">
-          <div className="w-12 h-12 bg-[#1e293b] rounded-lg flex items-center justify-center text-2xl">🔐</div>
-          <h3 className="text-xl font-bold text-white">Your keys, your control</h3>
-          <p className="text-[#94a3b8]">When you need OpenAI or Anthropic, your keys are AES-GCM encrypted in your browser vault. They are only sent in memory during the request.</p>
-        </div>
-        <div className="space-y-4">
-          <div className="w-12 h-12 bg-[#1e293b] rounded-lg flex items-center justify-center text-2xl">📊</div>
-          <h3 className="text-xl font-bold text-white">Real reputation</h3>
-          <p className="text-[#94a3b8]">Every decision your agent makes is scored and verified by the RepID protocol. Track your agent's trust score transparently over time.</p>
-        </div>
-      </div>
-    </div>
+    <main className="min-h-screen bg-background">
+      {/* Section 1: Hero */}
+      <Hero />
+      
+      {/* Section 2: Black Box, Meet Glass Box */}
+      <GlassBox />
+      
+      {/* Section 3: Earned Trust, Autonomous Payment */}
+      <EarnedTrust />
+      
+      {/* Section 4: What It Defends Against */}
+      <DefenseGrid />
+      
+      {/* Section 5: Live Trust Scores */}
+      <LiveTrustScores />
+      
+      {/* Section 6: Live On Base Sepolia */}
+      <LiveOnChain />
+      
+      {/* Section 7: How It Works */}
+      <HowItWorks />
+      
+      {/* Section 8: V1.5 Roadmap */}
+      <RoadmapV15 />
+      
+      {/* Section 9: RepID Governance */}
+      <RepidGovernance />
+      
+      {/* Section 10: Privacy Posture */}
+      <PrivacyPosture />
+      
+      {/* Section 11: Ecosystem */}
+      <Ecosystem />
+      
+      {/* Section 12: Builder Waitlist */}
+      <BuilderWaitlist />
+      
+      {/* Section 13: Footer */}
+      <Footer />
+    </main>
   );
 }
