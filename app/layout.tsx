@@ -14,19 +14,19 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'TrustShell - AI Agents That Earn Your Trust',
-  description: 'The open-source trust layer for ERC-8004 agents. Hallucination defense, earned reputation, and x402 payment gating. Transparent decisioning, on-chain proof.',
-  keywords: ['AI agents', 'ERC-8004', 'trust layer', 'blockchain', 'reputation', 'x402', 'hallucination defense'],
+  description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
+  keywords: ['AI agents', 'ERC-8004', 'trust layer', 'blockchain', 'reputation', 'x402', 'hallucination defense', 'LangChain', 'LlamaIndex', 'HuggingFace', 'agent framework'],
   authors: [{ name: 'HyperDAG' }],
   openGraph: {
     title: 'TrustShell - AI Agents That Earn Your Trust',
-    description: 'The open-source trust layer for ERC-8004 agents. Hallucination defense, earned reputation, and x402 payment gating.',
+    description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
     type: 'website',
     url: 'https://trustshell.dev',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TrustShell - AI Agents That Earn Your Trust',
-    description: 'The open-source trust layer for ERC-8004 agents.',
+    description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
   },
 };
 

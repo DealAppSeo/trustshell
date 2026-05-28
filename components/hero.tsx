@@ -27,7 +27,7 @@ export function Hero() {
 
         {/* Subhead */}
         <p className="text-lg md:text-xl text-muted max-w-3xl mx-auto leading-relaxed text-pretty">
-          The open-source trust layer for ERC-8004 agents. Hallucination defense + earned reputation + x402 payment gating. Transparent decisioning, on-chain proof. Apache 2.0.
+          The open-source trust layer for AI agents — any framework, any model, any chain. Hallucination defense, earned on-chain ERC-8004 RepID, and x402 payment gating. Visible to owners. Opaque to everyone else. Apache 2.0.
         </p>
 
         {/* Badge row */}
