@@ -1,4 +1,5 @@
 import { Hero } from '@/components/hero';
+import { CompatibilityInfo } from '@/components/compatibility-info';
 import { GlassBox } from '@/components/glass-box';
 import { EarnedTrust } from '@/components/earned-trust';
 import { DefenseGrid } from '@/components/defense-grid';
@@ -17,6 +18,9 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       {/* Section 1: Hero */}
       <Hero />
+
+      {/* Section 1.5: Compatibility & Signals Info */}
+      <CompatibilityInfo />
       
       {/* Section 2: Black Box, Meet Glass Box */}
       <GlassBox />
