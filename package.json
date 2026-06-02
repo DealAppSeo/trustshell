@@ -1,12 +1,18 @@
 {
-  "name": "trustshell-app",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@hyperdag/trustshell",
+  "version": "0.3.0",
+  "description": "Trust scoring SDK for AI — add HAL evaluation to any LLM app in 3 lines. Includes TypeScript + Python clients, CLI, and framework integrations.",
+  "private": false,
+  "main": "src/lib/index.ts",
+  "types": "src/lib/index.ts",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && echo 'Next app built. For SDK: tsc -p tsconfig.sdk.json (if configured)'",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sdk:build": "tsc --project tsconfig.sdk.json",
+    "sdk:test": "jest --testPathPattern=trustshell",
+    "prepublishOnly": "npm run sdk:build && npm run sdk:test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

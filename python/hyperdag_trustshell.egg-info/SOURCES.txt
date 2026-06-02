@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+setup.py
+hyperdag_trustshell.egg-info/PKG-INFO
+hyperdag_trustshell.egg-info/SOURCES.txt
+hyperdag_trustshell.egg-info/dependency_links.txt
+hyperdag_trustshell.egg-info/requires.txt
+hyperdag_trustshell.egg-info/top_level.txt
+tests/test_client.py
+trustshell/__init__.py
+trustshell/client.py
