@@ -26,100 +26,39 @@ const footerLinks = {
 
 export function Footer() {
   return (
-    <footer className="px-4 py-16 md:py-20 border-t border-border">
-      <div className="max-w-5xl mx-auto space-y-12">
-        {/* Mission line */}
-        <div className="text-center">
-          <p className="text-muted italic">
-            &quot;Help people help people — the last, the lost, and the least.&quot;
-          </p>
-          <p className="text-sm text-muted/60 mt-1">Micah 6:8</p>
+    <footer className="border-t border-slate-900 py-12 mt-16 bg-slate-950 w-full text-center">
+      <div className="max-w-4xl mx-auto px-6 flex flex-col items-center gap-6">
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">
+          ━━━ HyperDAG Trust Layer ━━━
         </div>
 
-        {/* Link grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">Project</h3>
-            <ul className="space-y-2">
-              {footerLinks.project.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
-                  >
-                    {link.name}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">Ecosystem</h3>
-            <ul className="space-y-2">
-              {footerLinks.ecosystem.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
-                    target={link.internal ? undefined : '_blank'}
-                    rel={link.internal ? undefined : 'noopener noreferrer'}
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
-                  >
-                    {link.name}
-                    {!link.internal && <ExternalLink className="w-3 h-3" />}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">Standards</h3>
-            <ul className="space-y-2">
-              {footerLinks.standards.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
-                  >
-                    {link.name}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">On-chain</h3>
-            <ul className="space-y-2">
-              {footerLinks.onChain.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
-                  >
-                    {link.name}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-6 text-[13px] text-slate-400 font-semibold">
+          <a href="https://trustchat.dev" className="hover:text-indigo-400 transition-colors duration-200">TrustChat</a>
+          <span className="text-slate-800">&middot;</span>
+          <a href="/" className="hover:text-indigo-400 transition-colors duration-200">TrustShell</a>
+          <span className="text-slate-800">&middot;</span>
+          <a href="https://trustrepid.dev" className="hover:text-indigo-400 transition-colors duration-200">TrustRepID</a>
+          <span className="text-slate-800">&middot;</span>
+          <a href="https://trustchat.dev/leaderboard" className="hover:text-indigo-400 transition-colors duration-200">Leaderboard</a>
         </div>
 
-        {/* Bottom line */}
-        <div className="text-center">
-          <p className="text-xs text-muted/60">
-            &copy; 2026 HyperDAG. Built on ERC-8004 + x402. Apache 2.0 licensed.
-          </p>
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 font-medium">
+          <span>Coming Soon:</span>
+          <a href="https://trustrails.dev" className="hover:text-slate-400 transition-colors">TrustRails</a>
+          <span>&middot;</span>
+          <a href="https://trustmarket.dev" className="hover:text-slate-400 transition-colors">TrustMarket</a>
+          <span>&middot;</span>
+          <a href="https://trustcre.dev" className="hover:text-slate-400 transition-colors">TrustCRE</a>
+          <span>&middot;</span>
+          <a href="https://hyperdag.org" className="hover:text-slate-400 transition-colors">HyperDAG.org</a>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 font-mono">
+          <span>Powered by HAL &middot; ERC-8004 &middot; Apache-2.0</span>
+          <span>&middot;</span>
+          <a href="https://github.com/DealAppSeo" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">github.com/DealAppSeo</a>
+          <span>&middot;</span>
+          <span className="italic">Micah 6:8</span>
         </div>
       </div>
     </footer>
