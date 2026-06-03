@@ -46,4 +46,3 @@ export declare function resolveAgentId(agentAddressOrId: string | number | bigin
 export declare function getRepID(agentAddressOrId: string | number | bigint, options?: ReadOptions): Promise<RepIDSummary>;
 export declare function getReputationHistory(agentAddressOrId: string | number | bigint, options?: HistoryOptions): Promise<FeedbackItem[]>;
 export declare function getAttestation(txHash: string, options?: ReadOptions): Promise<AttestationDetails>;
-//# sourceMappingURL=reputation.d.ts.map
