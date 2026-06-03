@@ -16,5 +16,8 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = void 0;
 __exportStar(require("./trustshell"), exports);
+__exportStar(require("./reputation"), exports);
+__exportStar(require("./x402-payment"), exports);
+__exportStar(require("./x402-client"), exports);
 var trustshell_1 = require("./trustshell");
 Object.defineProperty(exports, "default", { enumerable: true, get: function () { return trustshell_1.TrustShell; } });
