@@ -233,7 +233,7 @@ const result = await shell.payAndEscrow(contractId, privateKey);
 
 ### Link to Server-side RepID Engine
 
-For setting up the server-side counterpart that issues the `x402` challenges and validates attestation transactions, see [repid-engine](https://github.com/DealAppSeo/repid-engine).
+For setting up the server-side counterpart that issues the `x402` challenges and validates attestation transactions, see [repid-engine (private)](https://github.com/DealAppSeo/repid-engine).
 
 ## ERC-8004 Read Helpers (On-Chain Queries)
 
@@ -407,11 +407,12 @@ credential that makes the agent economy accountable.
 - **Runtime-tunable thresholds** — `hal_veto_threshold` and
   `hal_block_threshold` live in the engine's config table; can
   be retuned without a redeploy
-- **Plonky3 STARK proofs** — quantum-resistant tier attestation
-  (BabyBear field, Poseidon2 hash)
+- **ZKP Layer** — Fast Groth16 proofs for high-frequency RepID credentials; Plonky3 STARK proofs (BabyBear field, Poseidon2 hash) for low-frequency, high-stakes HIPAA/financial data
 - **ERC-8004 compatible** — portable identity
 - **Vesting cliff** — first 500 RepID vests over 30 days,
   preventing gaming
+- **Framework Support** — LangChain support is a basic callback wrapper stub (`TrustShellCallback`), while CrewAI is queued for a future release
+- **DragonflyDB Caching** — Supports high-speed DragonflyDB caching (at the engine layer) for sub-millisecond leaderboard, rate-limiting, and cached proof retrieval
 
 ## Get credentials
 

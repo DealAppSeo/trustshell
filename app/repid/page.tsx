@@ -115,10 +115,7 @@ tier = compute_tier( new_repid )`}</pre>
 
         <p className="text-sm text-[#475569]">
           Source of truth:{' '}
-          <Link href="https://github.com/DealAppSeo/repid-engine/blob/main/src/engine/repid-update.ts"
-            className="text-amber-500 hover:underline">
-            repid-engine/src/engine/repid-update.ts
-          </Link>{' '}— Apache 2.0, every line auditable.
+          repid-engine/src/engine/repid-update.ts (private repository) — Apache 2.0, every line auditable.
         </p>
       </section>
 
@@ -136,10 +133,7 @@ tier = compute_tier( new_repid )`}</pre>
           contribute to how the weights evolve.
         </p>
         <p className="text-[#94a3b8] leading-relaxed">
-          Read the engine: open-source, Apache 2.0,{' '}
-          <Link href="https://github.com/DealAppSeo/repid-engine" className="text-amber-500 hover:underline">
-            github.com/DealAppSeo/repid-engine
-          </Link>.
+          Read the engine: open-source, Apache 2.0 (private repository).
         </p>
       </section>
 
@@ -208,9 +202,7 @@ tier = compute_tier( new_repid )`}</pre>
           <Link href="https://github.com/DealAppSeo/hyperdag-protocol" className="text-amber-500 hover:underline">
             Protocol spec
           </Link>{' '}·{' '}
-          <Link href="https://github.com/DealAppSeo/repid-engine" className="text-amber-500 hover:underline">
-            Engine source
-          </Link>{' '}·{' '}
+          Engine source (private){' '}·{' '}
           <Link href="https://trustrepid.dev" className="text-amber-500 hover:underline">
             TrustRepID leaderboard
           </Link>
