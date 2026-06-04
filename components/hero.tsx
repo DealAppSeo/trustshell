@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Check, Copy } from 'lucide-react';
 
 export function Hero() {
@@ -13,16 +14,21 @@ export function Hero() {
   };
 
   return (
-    <section className="relative px-6 py-20 md:py-32 bg-slate-950 text-white overflow-hidden">
+    <section className="relative px-6 py-24 md:py-36 bg-slate-950 text-white overflow-hidden">
       {/* Background Glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_70%)] pointer-events-none" />
 
-      {/* Header bar with Navigation Logo */}
-      <div className="absolute top-6 left-6 flex items-center gap-2">
-        <span className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
+      {/* Header bar with Navigation Logo & Links */}
+      <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-20">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg text-white hover:opacity-85">
           <span className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-xs">⚡</span>
-          TrustShell
-        </span>
+          <span>TrustShell</span>
+        </Link>
+        <div className="flex items-center gap-4 text-xs md:text-sm font-semibold text-slate-300">
+          <Link href="/dashboard" className="hover:text-accent transition-colors">Dashboard</Link>
+          <Link href="/verify" className="hover:text-accent transition-colors">Verify</Link>
+          <Link href="/dev" className="hover:text-accent transition-colors text-accent">Developers</Link>
+        </div>
       </div>
 
       <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
@@ -54,19 +60,19 @@ export function Hero() {
             </span>
           </button>
           <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : 'npm package v0.6.1'}
+            {copied ? 'Copied to clipboard!' : 'npm package v1.0.0'}
           </span>
         </div>
 
         {/* CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-          <a
-            href="https://trustchat.dev"
+          <Link
+            href="/dev"
             className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center gap-2 text-sm"
           >
             Get Started
             <span aria-hidden="true">&rarr;</span>
-          </a>
+          </Link>
           <a
             href="https://www.npmjs.com/package/@hyperdag/trustshell"
             target="_blank"
@@ -76,7 +82,7 @@ export function Hero() {
             npm
           </a>
           <a
-            href="https://github.com/DealAppSeo/hyperdag-protocol"
+            href="https://github.com/DealAppSeo/trustshell"
             target="_blank"
             rel="noopener noreferrer"
             className="px-6 py-3 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-semibold rounded-xl transition-all duration-200 text-sm"

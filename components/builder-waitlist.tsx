@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase';
+import { submitLead } from '@/app/actions/leads';
 
 export function BuilderWaitlist() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [github, setGithub] = useState('');
   const [building, setBuilding] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'duplicate'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,22 +16,17 @@ export function BuilderWaitlist() {
     setStatus('loading');
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from('waitlist').insert({
+      const result = await submitLead({
         email,
-        name: name || null,
-        github_username: github || null,
-        what_building: building || null,
+        github: github || undefined,
+        interest: `Name: ${name || 'N/A'}. Building: ${building || 'N/A'}`,
+        role: 'builder',
         source: 'trustshell.dev/builder-form',
       });
 
-      if (error) {
-        if (error.code === '23505') {
-          setStatus('duplicate');
-        } else {
-          setStatus('error');
-          setErrorMessage(error.message);
-        }
+      if (!result.success) {
+        setStatus('error');
+        setErrorMessage(result.error || 'Failed to submit waitlist.');
         return;
       }
 
@@ -57,10 +52,6 @@ export function BuilderWaitlist() {
         {status === 'success' ? (
           <div className="p-4 bg-card rounded-xl border border-border text-center">
             <p className="text-foreground">Thanks. We&apos;ll be in touch.</p>
-          </div>
-        ) : status === 'duplicate' ? (
-          <div className="p-4 bg-card rounded-xl border border-border text-center">
-            <p className="text-foreground">You&apos;re already on the list!</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
