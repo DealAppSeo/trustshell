@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Activity, Shield, Zap, Coins, ArrowRight, RefreshCw, 
   CheckCircle, AlertCircle, ExternalLink, Lock, Unlock,
-  HelpCircle, ChevronRight, Play
+  HelpCircle, ChevronRight, Play, ShieldAlert
 } from 'lucide-react';
 
 interface Agent {
@@ -100,6 +100,8 @@ export default function Dashboard() {
     tasks: Task[];
     stakes: Stake[];
     sponsorships: Sponsorship[];
+    providerCaps?: any[];
+    hallucinationLogs?: any[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -405,6 +407,98 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </section>
+
+        {/* Constitutional & Cost Observability Section */}
+        <section className="bg-card border border-border rounded-3xl p-6 md:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+                <ShieldAlert className="w-6 h-6 text-amber-500" />
+                Constitutional & Cost Observability
+              </h2>
+              <p className="text-muted text-xs md:text-sm mt-1">Real-time model spend caps, constitutional checks, and validator catch rates.</p>
+            </div>
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs px-3 py-1.5 rounded-xl font-mono">
+              CC Integration Active
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Cost Caps Column */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-foreground/90 uppercase tracking-wider font-mono">LLM Provider Spend</h3>
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                {data?.providerCaps && data.providerCaps.length > 0 ? (
+                  data.providerCaps.map((cap: any) => (
+                    <div key={cap.id} className="bg-background border border-border/80 rounded-xl p-3 space-y-1.5 text-xs font-mono">
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold uppercase text-foreground">{cap.provider}</span>
+                        <span className="text-[10px] text-muted">Tier {cap.tier}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                        <span>Spent: ${Number(cap.current_month_spent_usd).toFixed(4)}</span>
+                        <span>Limit: {Number(cap.monthly_limit_usd) > 0 ? `$${cap.monthly_limit_usd}` : 'BYOK'}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted text-xs">No provider spend caps recorded.</div>
+                )}
+              </div>
+            </div>
+
+            {/* Hallucination Catch Rate Column */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-foreground/90 uppercase tracking-wider font-mono">Hallucination Catch-Rate</h3>
+              <div className="bg-background border border-border/80 rounded-2xl p-6 text-center space-y-4 flex flex-col justify-center items-center h-[calc(100%-2rem)] min-h-[200px]">
+                <ShieldAlert className="w-10 h-10 text-amber-500 animate-pulse" />
+                <div className="space-y-1">
+                  <div className="text-3xl font-extrabold text-foreground font-mono">—</div>
+                  <div className="text-[10px] text-amber-500 font-mono bg-amber-500/10 px-2 py-0.5 rounded-full inline-block">
+                    Pending CC Scorer
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted max-w-[180px] leading-relaxed">
+                  The catch-rate metric measures hallucination rate per 10k model queries, updating once CC Scorer runs.
+                </p>
+              </div>
+            </div>
+
+            {/* Veto Log Column */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-foreground/90 uppercase tracking-wider font-mono">Constitutional Veto Feed</h3>
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                {data?.hallucinationLogs && data.hallucinationLogs.length > 0 ? (
+                  data.hallucinationLogs.slice(0, 3).map((log: any) => (
+                    <div key={log.id} className="bg-background border border-border/80 rounded-xl p-3.5 space-y-2 text-xs font-mono">
+                      <div className="flex justify-between items-center">
+                        <span className="text-red-400 font-bold uppercase">{log.agent_id} Vetoed</span>
+                        <span className="text-muted/60 text-[10px]">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-muted leading-relaxed break-words">
+                        {log.veto_reason}
+                      </div>
+                      {log.proof_hash && (
+                        <div className="flex justify-end pt-1">
+                          <Link 
+                            href={`/verify?hash=${log.proof_hash}`}
+                            className="text-accent hover:underline flex items-center gap-0.5 text-[9px]"
+                          >
+                            Verify Veto <ChevronRight className="w-2.5 h-2.5" />
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted text-xs">No vetoes logged in this session.</div>
+                )}
+              </div>
             </div>
           </div>
         </section>
