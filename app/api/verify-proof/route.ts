@@ -60,11 +60,30 @@ export async function GET(request: Request) {
       if (isUuid) {
         const p1 = await sbSelect<any>('repid_zkp_proofs', {
           filter: `agent_id=eq.${agent}`,
+          orderBy: 'created_at.desc',
           limit: 1
         });
         if (p1 && p1.length > 0) {
           foundProof = p1[0];
           sourceTable = 'repid_zkp_proofs';
+        }
+      } else {
+        // Resolve agent name to UUID using repid_agents table
+        const matchingAgents = await sbSelect<any>('repid_agents', {
+          filter: `agent_name=eq.${agent}`,
+          limit: 1
+        });
+        if (matchingAgents && matchingAgents.length > 0) {
+          const agentId = matchingAgents[0].id;
+          const p1 = await sbSelect<any>('repid_zkp_proofs', {
+            filter: `agent_id=eq.${agentId}`,
+            orderBy: 'created_at.desc',
+            limit: 1
+          });
+          if (p1 && p1.length > 0) {
+            foundProof = p1[0];
+            sourceTable = 'repid_zkp_proofs';
+          }
         }
       }
 
@@ -87,14 +106,21 @@ export async function GET(request: Request) {
       }, { status: 404 });
     }
 
-    // Return the proof in a standardized format, ensuring null-safety for eas_attestation_uid
+    // Return the proof in a standardized format, ensuring null-safety for eas_attestation_uid (R4: until eas_anchored>0 from XC, then real on-chain EAS explorer links)
+    // Wires to repid_zkp_proofs + eas uid (see ga4 /demo/proofs + health.ts for backend equiv). Explorer: base-sepolia.easscan.org
     if (sourceTable === 'repid_zkp_proofs') {
+      const agents = await sbSelect<any>('repid_agents', {
+        filter: `id=eq.${foundProof.agent_id}`,
+        limit: 1
+      });
+      const agentName = agents && agents.length > 0 ? agents[0].agent_name : null;
       return NextResponse.json({
         success: true,
         source: 'repid_zkp_proofs',
         proof: {
           id: foundProof.id,
           agent_id: foundProof.agent_id,
+          agent_name: agentName,
           proof_type: foundProof.proof_type,
           tier_proven: foundProof.tier_proven,
           merkle_root: foundProof.merkle_root,

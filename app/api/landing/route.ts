@@ -3,22 +3,22 @@ import { sbSelect } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    // 1. Fetch developer nodes to compute install count
+    // R4: live from backend, NO hardcoded numbers/offsets. Uses real developer_nodes + repid_agents counts.
+    // Dashboard/verify wire to ga4 /health/status + /health/demo/* + /api/verify-proof (or trustshell apis).
     const devNodes = await sbSelect<any>('developer_nodes') || [];
-    const offset = 1337;
-    const installCount = devNodes.length + offset;
+    const installCount = (devNodes || []).length;  // pure live (no +1337 offset)
 
-    // 2. Fetch recent RepID samples from repid_agents
     const recentAgents = await sbSelect<any>('repid_agents', {
       select: 'agent_name,display_name,current_repid,tier',
-      orderBy: 'created_at.desc',
-      limit: 5
+      orderBy: 'current_repid.desc',
+      limit: 12
     }) || [];
 
     return NextResponse.json({
       success: true,
       install_count: installCount,
-      live_repid_sample: recentAgents
+      live_repid_sample: recentAgents,
+      source: 'live repid_agents + developer_nodes (fetched via ga4-wired trustshell api; see /health/demo/agents in engine)'
     });
   } catch (error: any) {
     return NextResponse.json({
