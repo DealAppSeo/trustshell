@@ -102,6 +102,7 @@ export default function Dashboard() {
     sponsorships: Sponsorship[];
     providerCaps?: any[];
     hallucinationLogs?: any[];
+    totalVetoCount?: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -421,19 +422,23 @@ export default function Dashboard() {
               </h2>
               <p className="text-muted text-xs md:text-sm mt-1">Real-time model spend caps, constitutional checks, and validator catch rates.</p>
             </div>
-            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs px-3 py-1.5 rounded-xl font-mono">
-              CC Integration Active
+            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs px-3 py-1.5 rounded-xl font-mono">
+              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+              <span>CC Integration: Active</span>
             </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {/* Cost Caps Column */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-foreground/90 uppercase tracking-wider font-mono">LLM Provider Spend</h3>
+            <div className="space-y-4 bg-background/30 border border-border/40 p-5 rounded-2xl">
+              <h3 className="text-xs font-bold text-foreground/90 uppercase tracking-wider font-mono flex justify-between">
+                <span>LLM Provider Spend</span>
+                <span className="text-accent text-[10px] font-normal lowercase">live caps</span>
+              </h3>
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 {data?.providerCaps && data.providerCaps.length > 0 ? (
                   data.providerCaps.map((cap: any) => (
-                    <div key={cap.id} className="bg-background border border-border/80 rounded-xl p-3 space-y-1.5 text-xs font-mono">
+                    <div key={cap.id} className="bg-card border border-border/80 rounded-xl p-3 space-y-1.5 text-xs font-mono">
                       <div className="flex justify-between items-center">
                         <span className="font-extrabold uppercase text-foreground">{cap.provider}</span>
                         <span className="text-[10px] text-muted">Tier {cap.tier}</span>
@@ -450,30 +455,66 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Hallucination Catch Rate Column */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-foreground/90 uppercase tracking-wider font-mono">Hallucination Catch-Rate</h3>
-              <div className="bg-background border border-border/80 rounded-2xl p-6 text-center space-y-4 flex flex-col justify-center items-center h-[calc(100%-2rem)] min-h-[200px]">
-                <ShieldAlert className="w-10 h-10 text-amber-500 animate-pulse" />
-                <div className="space-y-1">
-                  <div className="text-3xl font-extrabold text-foreground font-mono">—</div>
-                  <div className="text-[10px] text-amber-500 font-mono bg-amber-500/10 px-2 py-0.5 rounded-full inline-block">
-                    Pending CC Scorer
+            {/* Hallucination Catch Rate & Quorum Stats Column */}
+            <div className="space-y-4 bg-background/30 border border-border/40 p-5 rounded-2xl">
+              <h3 className="text-xs font-bold text-foreground/90 uppercase tracking-wider font-mono">Swarm Quorum & F1 Scorer</h3>
+              <div className="space-y-4">
+                {/* Quorum Stats */}
+                <div className="bg-card border border-border/80 rounded-xl p-4 space-y-2">
+                  <span className="text-[10px] font-mono uppercase text-muted">BFT Swarm Quorum</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold font-mono">
+                      {onlineAgents} / {totalAgents} Active
+                    </span>
+                    <span className={`text-[9px] font-mono px-2 py-0.5 rounded ${
+                      onlineAgents >= 9 
+                        ? 'bg-emerald-500/15 text-emerald-400' 
+                        : 'bg-amber-500/15 text-amber-500'
+                    }`}>
+                      {onlineAgents >= 9 ? 'Supermajority Secured' : 'Partial Consensus'}
+                    </span>
+                  </div>
+                  <div className="w-full bg-background h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        onlineAgents >= 9 ? 'bg-emerald-500' : 'bg-amber-500'
+                      }`}
+                      style={{ width: `${(onlineAgents / totalAgents) * 100}%` }}
+                    ></div>
                   </div>
                 </div>
-                <p className="text-[10px] text-muted max-w-[180px] leading-relaxed">
-                  The catch-rate metric measures hallucination rate per 10k model queries, updating once CC Scorer runs.
-                </p>
+
+                {/* Catch Rate Slot */}
+                <div className="bg-card border border-border/80 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-mono uppercase text-muted">F1 Scorer / Catch-Rate</span>
+                    <span className="text-[9px] text-amber-500 font-mono bg-amber-500/10 px-2 py-0.5 rounded-full font-bold">
+                      Pending CC Scorer
+                    </span>
+                  </div>
+                  <div className="text-2xl font-extrabold text-foreground font-mono">&mdash;</div>
+                  
+                  {/* F1 Hold Rationale Documentation */}
+                  <div className="text-[9px] text-muted-foreground bg-background border border-border/80 p-3 rounded-lg leading-relaxed space-y-1">
+                    <strong className="text-amber-500">Hold Notice:</strong>
+                    <p>
+                      Recalculation of the Swarm F1 score is held pending (a) CC Phase 1 honest-HAL scorer landing and (b) T12 corpus growth (currently 109, target ~270) to prevent misleading stats.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Veto Log Column */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-foreground/90 uppercase tracking-wider font-mono">Constitutional Veto Feed</h3>
+            <div className="space-y-4 bg-background/30 border border-border/40 p-5 rounded-2xl">
+              <h3 className="text-xs font-bold text-foreground/90 uppercase tracking-wider font-mono flex justify-between">
+                <span>Constitutional Vetoes</span>
+                <span className="text-accent font-mono text-[10px]">Total: {data?.totalVetoCount ?? 0}</span>
+              </h3>
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 {data?.hallucinationLogs && data.hallucinationLogs.length > 0 ? (
                   data.hallucinationLogs.slice(0, 3).map((log: any) => (
-                    <div key={log.id} className="bg-background border border-border/80 rounded-xl p-3.5 space-y-2 text-xs font-mono">
+                    <div key={log.id} className="bg-card border border-border/80 rounded-xl p-3.5 space-y-2 text-xs font-mono">
                       <div className="flex justify-between items-center">
                         <span className="text-red-400 font-bold uppercase">{log.agent_id} Vetoed</span>
                         <span className="text-muted/60 text-[10px]">

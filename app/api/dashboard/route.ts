@@ -24,7 +24,7 @@ export async function GET() {
       engineStatus = s; engineAgents = a; engineProofs = p; engineLoop = l;
     } catch {}
 
-    const [agents, heartbeats, proofs, events, tasks, stakes, sponsorships, providerCaps, hallucinationLogs] = await Promise.all([
+    const [agents, heartbeats, proofs, events, tasks, stakes, sponsorships, providerCaps, hallucinationLogs, totalVetoCountRes] = await Promise.all([
       sbSelect<any>('repid_agents', { orderBy: 'current_repid.desc' }),
       sbSelect<any>('agent_heartbeat'),
       sbSelect<any>('repid_zkp_proofs', { orderBy: 'created_at.desc', limit: 20 }),
@@ -34,7 +34,10 @@ export async function GET() {
       sbSelect<any>('sponsorship_records', { filter: 'status=eq.active' }),
       sbSelect<any>('llm_provider_caps'),
       sbSelect<any>('trinity_hallucination_logs', { orderBy: 'timestamp.desc', limit: 10 }),
+      sbSelect<any>('trinity_hallucination_logs', { select: 'id' }),
     ]);
+
+    const totalVetoes = totalVetoCountRes ? totalVetoCountRes.length : 0;
 
     return NextResponse.json({
       success: true,
@@ -53,6 +56,7 @@ export async function GET() {
       sponsorships: sponsorships || [],
       providerCaps: providerCaps || [],
       hallucinationLogs: hallucinationLogs || [],
+      totalVetoCount: totalVetoes,
       timestamp: new Date().toISOString(),
       note: 'Data live-fetched. Agents/tiers/RepID from /health/demo/agents + /status (ga4 real endpoints). Proofs from /demo/proofs (eas null-safe + explorer). Economy from record* calls. No hardcodes. See trustshell-ga4/app/dashboard + ga4 health.ts edits.',
     });

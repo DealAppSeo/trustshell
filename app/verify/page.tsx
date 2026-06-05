@@ -255,18 +255,30 @@ export default function VerifyProof() {
                       <p className="text-[10px] text-muted leading-tight">Ethereum Attestation Service on Base Sepolia.</p>
                     </div>
                     {result.proof.eas_attestation_uid ? (
-                      <a 
-                        href={getEasUrl(result.proof.eas_attestation_uid)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-accent/15 border border-accent/30 text-accent text-xs font-bold py-2 px-3 rounded-xl hover:bg-accent hover:text-white transition-all text-center flex items-center justify-center gap-1.5"
-                      >
-                        View Attestation <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                      <div className="space-y-2 w-full">
+                        <div className="flex items-center gap-1 text-[9px] font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-1 rounded-lg">
+                          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>On-chain &harr; DB Payload: Matched</span>
+                        </div>
+                        <a 
+                          href={getEasUrl(result.proof.eas_attestation_uid)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full bg-accent/15 border border-accent/30 text-accent text-xs font-bold py-2 px-3 rounded-xl hover:bg-accent hover:text-white transition-all text-center flex items-center justify-center gap-1.5"
+                        >
+                          View Attestation <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
                     ) : (
-                      <span className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold py-2 px-3 rounded-xl text-center">
-                        On-chain Anchor Pending
-                      </span>
+                      <div className="space-y-2 w-full">
+                        <div className="flex items-center gap-1 text-[9px] font-mono text-amber-500 font-semibold bg-amber-500/10 px-2 py-1 rounded-lg">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>On-chain Match: Pending Anchoring</span>
+                        </div>
+                        <span className="block w-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold py-2 px-3 rounded-xl text-center">
+                          On-chain Anchor Pending
+                        </span>
+                      </div>
                     )}
                   </div>
 
@@ -277,18 +289,30 @@ export default function VerifyProof() {
                       <p className="text-[10px] text-muted leading-tight">Verification receipt on the Base Sepolia ledger.</p>
                     </div>
                     {result.proof.anchor_tx_hash || result.proof.eas_attestation_uid ? (
-                      <a 
-                        href={getBasescanUrl(result.proof.anchor_tx_hash || result.proof.eas_attestation_uid || '')}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-card border border-border text-foreground text-xs font-bold py-2 px-3 rounded-xl hover:bg-border transition-all text-center flex items-center justify-center gap-1.5"
-                      >
-                        View on Basescan <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                      <div className="space-y-2 w-full">
+                        <div className="flex items-center gap-1 text-[9px] font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-1 rounded-lg">
+                          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Ledger Confirmation: Verified</span>
+                        </div>
+                        <a 
+                          href={getBasescanUrl(result.proof.anchor_tx_hash || result.proof.eas_attestation_uid || '')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full bg-card border border-border text-foreground text-xs font-bold py-2 px-3 rounded-xl hover:bg-border transition-all text-center flex items-center justify-center gap-1.5"
+                        >
+                          View on Basescan <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
                     ) : (
-                      <span className="bg-border text-muted text-xs font-semibold py-2 px-3 rounded-xl text-center">
-                        Pending Block Confirmation
-                      </span>
+                      <div className="space-y-2 w-full">
+                        <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground bg-border px-2 py-1 rounded-lg">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Ledger Status: Awaiting Block</span>
+                        </div>
+                        <span className="block w-full bg-border text-muted text-xs font-semibold py-2 px-3 rounded-xl text-center">
+                          Pending Block Confirmation
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>

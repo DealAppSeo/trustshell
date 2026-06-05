@@ -5,6 +5,8 @@ import { sbInsert } from '@/lib/supabase';
 export async function submitLead(formData: {
   email: string;
   github?: string;
+  linkedin?: string;
+  preferred_ecosystem?: string;
   interest?: string;
   role?: string;
   source: string;
@@ -17,6 +19,8 @@ export async function submitLead(formData: {
     await sbInsert('trinity_leads', {
       email: formData.email.trim(),
       github_handle: formData.github?.trim() || null,
+      linkedin_handle: formData.linkedin?.trim() || null,
+      preferred_ecosystem: formData.preferred_ecosystem?.trim() || null,
       interest: formData.interest?.trim() || null,
       role: formData.role?.trim() || null,
       status: 'new',
@@ -30,3 +34,4 @@ export async function submitLead(formData: {
     return { success: false, error: error.message || 'Server error' };
   }
 }
+

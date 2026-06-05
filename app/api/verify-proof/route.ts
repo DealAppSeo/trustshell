@@ -127,6 +127,7 @@ export async function GET(request: Request) {
           zk_commitment: foundProof.zk_commitment,
           eas_schema: foundProof.eas_schema,
           eas_attestation_uid: foundProof.eas_attestation_uid ?? null, // Null-safety check
+          eas_anchored: foundProof.eas_attestation_uid ? 1 : 0, // Computed field based on active anchoring status
           created_at: foundProof.created_at,
           expires_at: foundProof.expires_at ?? null,
           verified: true
@@ -144,6 +145,7 @@ export async function GET(request: Request) {
           merkle_root: foundProof.merkle_root,
           anchor_tx_hash: foundProof.anchor_tx_hash,
           eas_attestation_uid: null, // Null-safety check
+          eas_anchored: 0, // Computed field based on active anchoring status
           computed_at: foundProof.computed_at,
           expires_at: foundProof.expires_at ?? null,
           status: foundProof.status,
