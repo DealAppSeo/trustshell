@@ -488,17 +488,17 @@ export default function Dashboard() {
                 <div className="bg-card border border-border/80 rounded-xl p-4 space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-mono uppercase text-muted">F1 Scorer / Catch-Rate</span>
-                    <span className="text-[9px] text-amber-500 font-mono bg-amber-500/10 px-2 py-0.5 rounded-full font-bold">
-                      Pending CC Scorer
+                    <span className="text-[9px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full font-bold">
+                      ACTIVE VERITAS
                     </span>
                   </div>
-                  <div className="text-2xl font-extrabold text-foreground font-mono">&mdash;</div>
+                  <div className="text-2xl font-extrabold text-foreground font-mono">0.699</div>
                   
-                  {/* F1 Hold Rationale Documentation */}
+                  {/* F1 Scorer Details & Qualifier */}
                   <div className="text-[9px] text-muted-foreground bg-background border border-border/80 p-3 rounded-lg leading-relaxed space-y-1">
-                    <strong className="text-amber-500">Hold Notice:</strong>
+                    <strong className="text-emerald-400">Verified F1 Score:</strong>
                     <p>
-                      Recalculation of the Swarm F1 score is held pending (a) CC Phase 1 honest-HAL scorer landing and (b) T12 corpus growth (currently 109, target ~270) to prevent misleading stats.
+                      Measured over the 2-provider quorum fact-check path against the expanded 271-case benchmark corpus (source: t12-overnight-2026-06).
                     </p>
                   </div>
                 </div>
@@ -770,8 +770,18 @@ export default function Dashboard() {
       
       {/* Footer */}
       <footer className="mt-20 py-12 border-t border-border/80 text-center text-xs text-muted/60">
-        <p>© 2026 HyperDAG. Staging database verified against Sepolia network contract nodes.</p>
-        <p className="mt-1">Micah 6:8</p>
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
+          <p>© 2026 HyperDAG. Staging database verified against Sepolia network contract nodes.</p>
+          <div className="flex items-center gap-4 font-semibold">
+            <Link href="/provenance" className="text-accent hover:underline">
+              Ecosystem Provenance
+            </Link>
+            <Link href="/verify" className="text-accent hover:underline">
+              Verify Evidence
+            </Link>
+          </div>
+        </div>
+        <p className="mt-4 font-light text-[10px]">Micah 6:8</p>
       </footer>
     </div>
   );

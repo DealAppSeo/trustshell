@@ -350,7 +350,7 @@ export default function VerifyProof() {
                   Ecosystem Cryptographic Evidence
                 </h2>
                 <p className="text-xs text-muted max-w-lg mx-auto leading-relaxed">
-                  All network settlements, identity writes, and quorum decisions are real and verified directly against Base Sepolia.
+                  All {summaryData?.total_proofs ?? '—'} ZK proofs, reputation updates, and {summaryData?.total_eas_attestations ?? '—'} Base Sepolia EAS attestations are real and verified directly on-chain.
                 </p>
               </div>
 
@@ -405,7 +405,7 @@ export default function VerifyProof() {
                 <div className="bg-card/45 border border-border/80 rounded-3xl p-6 backdrop-blur-sm space-y-4">
                   <div className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wider font-mono">
                     <Key className="w-4 h-4 text-amber-500" />
-                    <span>x402 Settlement (Testnet)</span>
+                    <span>x402 Settlement (Testnet/Simulated)</span>
                   </div>
 
                   <div className="space-y-3 text-xs">
@@ -556,9 +556,14 @@ export default function VerifyProof() {
       <footer className="py-8 border-t border-border/80 text-center text-xs text-muted/60">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
           <p>© 2026 HyperDAG. All verifications are performed cryptographically.</p>
-          <Link href="/dashboard" className="text-accent hover:underline">
-            Back to Network Monitor
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/provenance" className="text-accent hover:underline">
+              Ecosystem Provenance
+            </Link>
+            <Link href="/dashboard" className="text-accent hover:underline">
+              Dashboard
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

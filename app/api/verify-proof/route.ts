@@ -8,14 +8,16 @@ export async function GET(request: Request) {
     const agent = searchParams.get('agent');
 
     if (!hash && !agent) {
-      const [anchoredProofs, latestHallucination] = await Promise.all([
+      const [allProofs, anchoredProofsAll, latestHallucination, anchoredProofs] = await Promise.all([
+        sbSelect<any>('repid_zkp_proofs', { select: 'id' }),
+        sbSelect<any>('repid_zkp_proofs', { select: 'id', filter: 'eas_attestation_uid=not.is.null' }),
+        sbSelect<any>('trinity_hallucination_logs', {
+          orderBy: 'timestamp.desc',
+          limit: 1
+        }),
         sbSelect<any>('repid_zkp_proofs', {
           filter: 'eas_attestation_uid=not.is.null',
           orderBy: 'created_at.desc',
-          limit: 1
-        }),
-        sbSelect<any>('trinity_hallucination_logs', {
-          orderBy: 'timestamp.desc',
           limit: 1
         })
       ]);
@@ -32,6 +34,8 @@ export async function GET(request: Request) {
           x402SettlementTx: '0xmock3c511d52795541779bc7e5968e9bf65f'
         },
         eas_anchored: eas_anchored ? 1 : 0,
+        total_proofs: allProofs.length,
+        total_eas_attestations: anchoredProofsAll.length,
         latest_anchored: anchoredProofs && anchoredProofs.length > 0 ? anchoredProofs[0] : null,
         latest_hallucination: latestHallucination && latestHallucination.length > 0 ? latestHallucination[0] : null
       });
