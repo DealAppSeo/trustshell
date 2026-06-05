@@ -163,10 +163,10 @@ export default function ProvenanceOnePager() {
               <div className="space-y-1 bg-background/50 border border-border p-3 rounded-xl">
                 <h3 className="font-bold text-foreground flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  Disagreement/Divergence Gate Damping
+                  Two-sided Comma Gate Damping
                 </h3>
                 <p className="text-muted-foreground text-[10px] leading-relaxed">
-                  Mathematical damping to prevent unbounded reputation inflation during high-disagreement runs (`[Dormant]`) is scheduled for activation once the active agent corpus exceeds 270 nodes.
+                  Mathematical damping (the Comma) to prevent gaming during high-disagreement runs (`[Dormant]`) is scheduled for activation once the active agent corpus exceeds 270 nodes.
                 </p>
               </div>
 

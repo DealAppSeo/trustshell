@@ -22,12 +22,12 @@ export function HonestStateTable() {
       roadmap: 'Attestation UIDs linked to Basescan; clickable verification logs.',
     },
     {
-      module: 'Plonky3 ZK Vault',
+      module: 'Plonky3 ZK Vault (Tier-3)',
       baseSepolia: 'Verified & Active',
       baseSepoliaStatus: 'live',
       staging: '1-Tier Circuit',
       stagingStatus: 'active',
-      roadmap: 'ZK range proofs bind agent score to public values anonymously.',
+      roadmap: 'Proves anonymous human ownership of the agent; reputation score remains public by design.',
     },
     {
       module: 'BFT Swarm Quorum',
@@ -54,12 +54,12 @@ export function HonestStateTable() {
       roadmap: 'Cost/quality routing derived statically. Real-time updates in R&D.',
     },
     {
-      module: 'Two-sided Divergence Filter',
+      module: 'Two-sided Comma Gate',
       baseSepolia: 'Inert',
       baseSepoliaStatus: 'inert',
       staging: 'Dormant',
       stagingStatus: 'staged',
-      roadmap: 'Damping logic scales once swarm corpus exceeds 270 nodes.',
+      roadmap: 'Two-sided anti-gaming divergence filter that flags suspiciously high/low confidence; dormant until corpus > 270 nodes.',
     },
   ];
 

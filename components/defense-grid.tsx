@@ -48,7 +48,7 @@ const defenses = [
     icon: Scale,
     name: 'Reputation manipulation',
     description:
-      "RepID earned through real decisions, not assigned. Two-sided anti-gaming divergence filter [Dormant]. On-chain. Auditable. Can't be bought.",
+      "RepID earned through real decisions, not assigned. Two-sided anti-gaming Comma gate [Dormant]. On-chain. Auditable. Can't be bought.",
   },
   {
     icon: GitBranch,

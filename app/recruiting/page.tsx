@@ -150,10 +150,10 @@ export default function RecruitingPage() {
                   <td className="p-4 text-muted-foreground">Clickable verifications on-chain</td>
                 </tr>
                 <tr>
-                  <td className="p-4 font-bold text-foreground">Plonky3 ZK Vault</td>
+                  <td className="p-4 font-bold text-foreground">Plonky3 ZK Vault (Tier-3)</td>
                   <td className="p-4 text-emerald-400 font-semibold">Verified &amp; Active</td>
                   <td className="p-4 text-muted">1-Tier Circuit</td>
-                  <td className="p-4 text-muted-foreground">ZK Vault proves anonymous human ownership of the agent.</td>
+                  <td className="p-4 text-muted-foreground">Proves anonymous human ownership of the agent; reputation remains public by design.</td>
                 </tr>
                 <tr>
                   <td className="p-4 font-bold text-foreground">BFT Swarm Quorum</td>
@@ -174,7 +174,7 @@ export default function RecruitingPage() {
                   <td className="p-4 text-indigo-400 font-semibold">Roadmap Upgrade</td>
                 </tr>
                 <tr>
-                  <td className="p-4 font-bold text-foreground">Divergence Gate Damping</td>
+                  <td className="p-4 font-bold text-foreground">Two-sided Comma Gate</td>
                   <td className="p-4 text-muted-foreground">Inert</td>
                   <td className="p-4 text-muted-foreground">Dormant</td>
                   <td className="p-4 text-indigo-400 font-semibold">Roadmap (270+ agents)</td>
