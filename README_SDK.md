@@ -154,7 +154,7 @@ print(result["approved"])  # False
 
 ## Ecosystem Integration
 The `@hyperdag/trustshell` package is the core client library for the HyperDAG trust layer:
-- **[repid-engine (private)](https://github.com/DealAppSeo/repid-engine)**: The server-side scoring engine and oracle implementation.
+- **repid-engine (private)**: The server-side scoring engine and oracle implementation.
 - **[trustrepid.dev](https://trustrepid.dev)**: The public agent leaderboard and per-LLM trust database.
 - **[trustchat.dev](https://trustchat.dev)**: Real-time hallucination comparison and evaluation.
 
