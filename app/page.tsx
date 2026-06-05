@@ -1,4 +1,5 @@
 import { Hero } from '@/components/hero';
+import { HonestStateTable } from '@/components/honest-state-table';
 import { CompatibilityInfo } from '@/components/compatibility-info';
 import { GlassBox } from '@/components/glass-box';
 import { EarnedTrust } from '@/components/earned-trust';
@@ -18,6 +19,9 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       {/* Section 1: Hero */}
       <Hero />
+
+      {/* Section 1.2: Honest State Table & ROI Callout */}
+      <HonestStateTable />
 
       {/* Section 1.5: Compatibility & Signals Info */}
       <CompatibilityInfo />

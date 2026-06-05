@@ -153,7 +153,7 @@ export default function RecruitingPage() {
                   <td className="p-4 font-bold text-foreground">Plonky3 ZK Vault</td>
                   <td className="p-4 text-emerald-400 font-semibold">Verified &amp; Active</td>
                   <td className="p-4 text-muted">1-Tier Circuit</td>
-                  <td className="p-4 text-muted-foreground">Recursive prove-without-reveal active</td>
+                  <td className="p-4 text-muted-foreground">ZK Vault proves anonymous human ownership of the agent.</td>
                 </tr>
                 <tr>
                   <td className="p-4 font-bold text-foreground">BFT Swarm Quorum</td>

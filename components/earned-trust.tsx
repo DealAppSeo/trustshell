@@ -25,7 +25,7 @@ export function EarnedTrust() {
             </div>
             <h3 className="font-semibold text-foreground mb-2">Earned, not assigned</h3>
             <p className="text-sm text-muted leading-relaxed">
-              RepID grows with honest behavior. The weighted formula is public (see /repid). Disagreement/divergence gate damping (531441/524288) [Dormant]. Designed to incentivize positive behavior across the ecosystem.
+              RepID grows with honest behavior. The weighted formula is public (see /repid). Two-sided anti-gaming divergence filter [Dormant]. Designed to incentivize positive behavior across the ecosystem.
             </p>
           </div>
 

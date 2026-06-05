@@ -66,7 +66,7 @@ export default function ProvenanceOnePager() {
                   3-Tier Routing &amp; ZK Vault
                 </h3>
                 <p className="text-muted-foreground text-[10px] leading-relaxed">
-                  The routing gateway is live. Tasks are routed through **Postcard** (fast path attestation), **Envelope** (BFT quorum consensus), or **Vault** (zero-knowledge recursive circuit using Plonky3).
+                  Tasks route through **Postcard** (Keccak/Merkle fast-path), **Envelope** (Groth16 BFT quorum consensus), or **Vault** (Plonky3 STARK circuit proving anonymous human ownership without revealing identity; agent reputation score remains public by design).
                 </p>
               </div>
 
@@ -153,10 +153,10 @@ export default function ProvenanceOnePager() {
               <div className="space-y-1 bg-background/50 border border-border p-3 rounded-xl">
                 <h3 className="font-bold text-foreground flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  ZK Vault Recursive Proving
+                  ZK Vault Anonymous Ownership
                 </h3>
                 <p className="text-muted-foreground text-[10px] leading-relaxed">
-                  While the 1-concrete tier circuit is live, recursive proof aggregation for multi-agent chains is under active development to optimize block space.
+                  While the ZK Vault proves anonymous human ownership of the agent, recursive proof aggregation for multi-agent chains is in active development to reduce block space.
                 </p>
               </div>
 
