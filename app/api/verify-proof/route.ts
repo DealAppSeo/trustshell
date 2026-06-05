@@ -8,10 +8,33 @@ export async function GET(request: Request) {
     const agent = searchParams.get('agent');
 
     if (!hash && !agent) {
+      const [anchoredProofs, latestHallucination] = await Promise.all([
+        sbSelect<any>('repid_zkp_proofs', {
+          filter: 'eas_attestation_uid=not.is.null',
+          orderBy: 'created_at.desc',
+          limit: 1
+        }),
+        sbSelect<any>('trinity_hallucination_logs', {
+          orderBy: 'timestamp.desc',
+          limit: 1
+        })
+      ]);
+
+      const eas_anchored = anchoredProofs && anchoredProofs.length > 0;
+
       return NextResponse.json({
-        success: false,
-        error: 'Missing query parameters: must provide either ?hash= or ?agent='
-      }, { status: 400 });
+        success: true,
+        summary: true,
+        registry: {
+          identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e',
+          reputationRegistry: '0x8004B663056A597Dffe9eCcC1965A193B7388713',
+          reputationWriteTx: '0x3990a1988c44ff674c8732c022b68d0575d1082a52337ea1bba8a08751f9c5a2',
+          x402SettlementTx: '0xmock3c511d52795541779bc7e5968e9bf65f'
+        },
+        eas_anchored: eas_anchored ? 1 : 0,
+        latest_anchored: anchoredProofs && anchoredProofs.length > 0 ? anchoredProofs[0] : null,
+        latest_hallucination: latestHallucination && latestHallucination.length > 0 ? latestHallucination[0] : null
+      });
     }
 
     let foundProof: any = null;

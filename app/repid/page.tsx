@@ -94,7 +94,7 @@ tier = compute_tier( new_repid )`}</pre>
           </li>
           <li>
             <strong className="text-white">Constitutional audit</strong> — LASSO rule selection +
-            ANFIS fuzzy scoring + mirror test + EAS attestation gate every score-changing event. Code:{' '}
+            static cost/quality routing (ANFIS-derived) + mirror test + EAS attestation gate every score-changing event. Code:{' '}
             <code className="text-amber-500">src/layers/constitutional-audit.ts</code>.
           </li>
           <li>

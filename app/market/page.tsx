@@ -61,8 +61,8 @@ const SERVICE_TYPE_COPY: Record<string, { name: string; description: string }> =
     description: 'Store + retrieve verifiable agent artefacts off-chain with on-chain commitments.',
   },
   anfis_routing: {
-    name: 'ANFIS routing',
-    description: 'Sub-second routing recommendation: which model tier should handle this query based on cost, latency, and required expertise.',
+    name: 'Static ANFIS routing',
+    description: 'Static cost/quality routing (ANFIS-derived): which model tier should handle this query based on cost, latency, and required expertise (non-adaptive).',
   },
 };
 

@@ -36,7 +36,7 @@ const defenses = [
     icon: EyeOff,
     name: 'Data exfiltration',
     description:
-      "ZKP commitments via Plonky3 (quantum-resistant). Sensitive parameters never leave the user's browser. Keys stay in encrypted IndexedDB. Owner-only audit trail.",
+      "ZKP commitments via Plonky3 [Roadmap]. Sensitive parameters never leave the user's browser. Keys stay in encrypted IndexedDB. Owner-only audit trail.",
   },
   {
     icon: Fingerprint,
@@ -48,7 +48,7 @@ const defenses = [
     icon: Scale,
     name: 'Reputation manipulation',
     description:
-      "RepID earned through real decisions, not assigned. Pythagorean Comma damping (531441/524288) prevents inflation. On-chain. Auditable. Can't be bought.",
+      "RepID earned through real decisions, not assigned. Pythagorean Comma damping (531441/524288) [Dormant]. On-chain. Auditable. Can't be bought.",
   },
   {
     icon: GitBranch,
