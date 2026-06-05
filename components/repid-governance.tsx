@@ -15,7 +15,7 @@ export function RepidGovernance() {
   + 0.30 × (1 − epistemic_uncertainty)  
   + 0.20 × evidence_quality
   + 0.10 × scope_appropriateness
-  × 531441/524288  (Pythagorean Comma damping) [Dormant]`}</code>
+  × 531441/524288  (Disagreement/divergence gate damping) [Dormant]`}</code>
         </pre>
 
         <a

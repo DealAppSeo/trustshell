@@ -43,4 +43,4 @@ We are committed to honest claims on our developer surface. Here is the active v
 | **ERC-8004 Registry** | **LIVE & ACTIVE** | Keyless read queries run directly against the Base Sepolia Reputation Registry contract (`0x8004B663056A597Dffe9eCcC1965A193B7388713`). |
 | **x402 Escrow Settle** | **Wired (Gated)** | The client-side EIP-3009 transfer signature logic is complete. However, contract escrows on the production engine require authenticated developer API keys (returning `403 Forbidden` for public `test-key` values). |
 | **SBFA / BFT Weighting** | **Dormant / Roadmap** | Heartbeat weights are currently computed uniformly. Adaptive weight scoring is not active in the current SDK release. |
-| **Pythagorean Comma** | **Dormant / Roadmap** | Damping math is currently inert in the trigger; reputation deltas are computed using the primary weights. |
+| **Disagreement/Divergence Gate** | **Dormant / Roadmap** | Damping math is currently inert in the trigger; reputation deltas are computed using the primary weights. |

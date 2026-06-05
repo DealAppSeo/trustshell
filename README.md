@@ -19,18 +19,11 @@ Drop in. No rearchitecting.
 
 The beauty and symmetry found in recurring patterns
 appear across science, nature, mathematics, and music.
-This project builds on the relationship between the
-Circle of Fifths and what music theory calls the
-Pythagorean Comma — the irreconcilable gap of
-531441/524288 that emerges when you stack twelve
-perfect fifths against seven octaves.
-
-This gap does not resolve. It accumulates.
-
-We apply that same accumulation property as a dissonance
-threshold: a signal for when an AI system's internal
-signals are drifting from coherent truth. The Pythagorean
-Comma Veto is the first production application of this
+This project uses a disagreement/divergence gate —
+representing the irreconcilable gap of
+531441/524288 that emerges as a dissonance threshold
+to prevent drifts in truth. The Disagreement/Divergence
+Gate Veto is the first production application of this
 pattern. The methodology and findings are open and usable
 here.
 
@@ -123,11 +116,11 @@ production values and outcome rates.
 > threshold of `0.0195`. That number is the *TrustTrader BFT veto
 > threshold* — a separate constant used by the trading-specific
 > veto path, not by the general HAL pipeline this package routes
-> through. Both derive from the same Pythagorean Comma constant
+> through. Both derive from the same divergence gate constant
 > (`(531441/524288) − 1 ≈ 0.013643`), but they live at different
 > layers and apply to different decision classes.
 
-The Pythagorean Comma constant `531441/524288` is the multiplicative
+The divergence gate constant `531441/524288` is the multiplicative
 trailing factor in both combiners — the dissonance amplifier
 that gives the system its "small unresolvable gap accumulates"
 property.
@@ -401,7 +394,7 @@ credential that makes the agent economy accountable.
 - **Optional Phase 1.5 cross-LLM 6th signal** — for factual /
   time-sensitive prompts, two providers are queried and their
   agreement contributes a 6th signal to the combiner
-- **Pythagorean Comma constant** — 531441/524288, the
+- **Divergence gate constant** — 531441/524288, the
   multiplicative trailing factor in both 5-DOF and 6-DOF
   combiners
 - **Runtime-tunable thresholds** — `hal_veto_threshold` and
@@ -445,8 +438,8 @@ Contribute to the live RepID formula discussion at [trustshell.dev/repid](https:
 Apache 2.0 — see [LICENSE](LICENSE).
 
 Patent rights, if any, are granted under the Apache 2.0
-patent grant clause. Commercial use of the Pythagorean
-Comma Veto methodology in closed-source systems requires
+patent grant clause. Commercial use of the Disagreement/Divergence
+Gate Veto methodology in closed-source systems requires
 written permission from DealApp Inc.
 
 Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol).

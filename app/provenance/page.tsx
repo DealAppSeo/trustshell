@@ -56,7 +56,17 @@ export default function ProvenanceOnePager() {
                   HAL Quorum Verdicts
                 </h3>
                 <p className="text-muted-foreground text-[10px] leading-relaxed">
-                  Fact-check evaluations are run live against Groq and Cerebras using a 2-provider family quorum, with a measured **F1 score of 0.699** over 271 benchmark cases.
+                  Fact-check evaluations are run live against Groq and Cerebras using a 2-provider family quorum, with a measured **F1 score of 0.83** on a self-generated labeled set (currently re-validating on independent real hallucinations).
+                </p>
+              </div>
+
+              <div className="space-y-1 bg-background/50 border border-border p-3 rounded-xl">
+                <h3 className="font-bold text-foreground flex items-center gap-1.5">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  3-Tier Routing &amp; ZK Vault
+                </h3>
+                <p className="text-muted-foreground text-[10px] leading-relaxed">
+                  The routing gateway is live. Tasks are routed through **Postcard** (fast path attestation), **Envelope** (BFT quorum consensus), or **Vault** (zero-knowledge recursive circuit using Plonky3).
                 </p>
               </div>
 
@@ -143,20 +153,20 @@ export default function ProvenanceOnePager() {
               <div className="space-y-1 bg-background/50 border border-border p-3 rounded-xl">
                 <h3 className="font-bold text-foreground flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  Plonky3 ZK Prover
+                  ZK Vault Recursive Proving
                 </h3>
                 <p className="text-muted-foreground text-[10px] leading-relaxed">
-                  Fast cryptographic ZK-SNARK proving for sub-second validator consensus is currently in active development (`[Roadmap]`) and will replace staged mock signatures.
+                  While the 1-concrete tier circuit is live, recursive proof aggregation for multi-agent chains is under active development to optimize block space.
                 </p>
               </div>
 
               <div className="space-y-1 bg-background/50 border border-border p-3 rounded-xl">
                 <h3 className="font-bold text-foreground flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  Pythagorean Comma Damping
+                  Disagreement/Divergence Gate Damping
                 </h3>
                 <p className="text-muted-foreground text-[10px] leading-relaxed">
-                  Mathematical damping to prevent unbounded reputation inflation (`[Dormant]`) is scheduled for activation once the active agent corpus exceeds 270 nodes.
+                  Mathematical damping to prevent unbounded reputation inflation during high-disagreement runs (`[Dormant]`) is scheduled for activation once the active agent corpus exceeds 270 nodes.
                 </p>
               </div>
 

@@ -8,9 +8,13 @@ export async function GET(request: Request) {
     const agent = searchParams.get('agent');
 
     if (!hash && !agent) {
-      const [allProofs, anchoredProofsAll, latestHallucination, anchoredProofs] = await Promise.all([
+      const [allProofs, anchoredProofsAll, latestHallucination, anchoredProofs, allAgents] = await Promise.all([
         sbSelect<any>('repid_zkp_proofs', { select: 'id' }),
-        sbSelect<any>('repid_zkp_proofs', { select: 'id', filter: 'eas_attestation_uid=not.is.null' }),
+        sbSelect<any>('repid_zkp_proofs', {
+          select: 'id,agent_id,proof_type,tier_proven,merkle_root,zk_commitment,eas_schema,eas_attestation_uid,created_at',
+          filter: 'eas_attestation_uid=not.is.null',
+          orderBy: 'created_at.desc'
+        }),
         sbSelect<any>('trinity_hallucination_logs', {
           orderBy: 'timestamp.desc',
           limit: 1
@@ -19,10 +23,31 @@ export async function GET(request: Request) {
           filter: 'eas_attestation_uid=not.is.null',
           orderBy: 'created_at.desc',
           limit: 1
-        })
+        }),
+        sbSelect<any>('repid_agents', { select: 'id,agent_name' })
       ]);
 
       const eas_anchored = anchoredProofs && anchoredProofs.length > 0;
+
+      const agentMap = new Map<string, string>();
+      if (allAgents) {
+        allAgents.forEach((a: any) => {
+          if (a.id && a.agent_name) agentMap.set(a.id, a.agent_name);
+        });
+      }
+
+      const mappedReceipts = (anchoredProofsAll || []).map((p: any) => ({
+        id: p.id,
+        agent_id: p.agent_id,
+        agent_name: agentMap.get(p.agent_id) || 'Unknown Agent',
+        proof_type: p.proof_type,
+        tier_proven: p.tier_proven,
+        merkle_root: p.merkle_root,
+        zk_commitment: p.zk_commitment,
+        eas_schema: p.eas_schema,
+        eas_attestation_uid: p.eas_attestation_uid,
+        created_at: p.created_at
+      }));
 
       return NextResponse.json({
         success: true,
@@ -37,7 +62,8 @@ export async function GET(request: Request) {
         total_proofs: allProofs.length,
         total_eas_attestations: anchoredProofsAll.length,
         latest_anchored: anchoredProofs && anchoredProofs.length > 0 ? anchoredProofs[0] : null,
-        latest_hallucination: latestHallucination && latestHallucination.length > 0 ? latestHallucination[0] : null
+        latest_hallucination: latestHallucination && latestHallucination.length > 0 ? latestHallucination[0] : null,
+        eas_receipts: mappedReceipts
       });
     }
 

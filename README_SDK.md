@@ -163,6 +163,6 @@ The `@hyperdag/trustshell` package is the core client library for the HyperDAG t
 ## License
 Apache 2.0 — see [LICENSE](LICENSE).
 
-Patent rights, if any, are granted under the Apache 2.0 patent grant clause. Commercial use of the Pythagorean Comma Veto methodology in closed-source systems requires written permission from DealApp Inc.
+Patent rights, if any, are granted under the Apache 2.0 patent grant clause. Commercial use of the Disagreement/Divergence Gate Veto methodology in closed-source systems requires written permission from DealApp Inc.
 
 Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol). ERC-8004 compatible. Micah 6:8.
