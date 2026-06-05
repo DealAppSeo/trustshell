@@ -28,6 +28,11 @@ export const metadata: Metadata = {
     title: 'TrustShell - AI Agents That Earn Your Trust',
     description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'TrustShell PWA',
+  },
 };
 
 export const viewport: Viewport = {

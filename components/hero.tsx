@@ -25,6 +25,7 @@ export function Hero() {
           <span>TrustShell</span>
         </Link>
         <div className="flex items-center gap-4 text-xs md:text-sm font-semibold text-slate-300">
+          <Link href="/pwa" className="hover:text-accent transition-colors text-emerald-400">PWA Hub</Link>
           <Link href="/dashboard" className="hover:text-accent transition-colors">Dashboard</Link>
           <Link href="/verify" className="hover:text-accent transition-colors">Verify</Link>
           <Link href="/dev" className="hover:text-accent transition-colors text-accent">Developers</Link>
@@ -66,6 +67,13 @@ export function Hero() {
 
         {/* CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
+          <Link
+            href="/pwa"
+            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center gap-2 text-sm"
+          >
+            Join Agentic Economy (PWA)
+            <span aria-hidden="true">&rarr;</span>
+          </Link>
           <Link
             href="/dev"
             className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center gap-2 text-sm"
