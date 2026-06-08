@@ -1,6 +1,6 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Trust scoring SDK for AI — add HAL evaluation to any LLM app in 3 lines. Includes TypeScript + Python clients, CLI, and framework integrations.",
   "private": false,
   "main": "src/lib/index.ts",
@@ -23,6 +23,9 @@
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
+  },
+  "optionalDependencies": {
+    "@hyperdag/proof-verifier": "^0.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

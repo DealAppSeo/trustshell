@@ -50,6 +50,46 @@ export interface AuditResult {
   verifiedAt: string;
 }
 
+export interface VerifyOutputResult {
+  /** true when HAL did not hard-veto the output (PASS or soft FLAG). */
+  ok: boolean;
+  verdict: 'PASS' | 'FLAG' | 'VETO';
+  trustScore: number; // 0-100
+  halScore: number; // 0-1
+  /** present when HAL soft-flagged rather than vetoed (e.g. opinion/time-sensitive). */
+  soft: boolean;
+  signals: ScoreResult['signals'];
+}
+
+export interface RepIDResult {
+  agentId: string;
+  repid: number;
+  tier: string;
+  lastAnchorTx: string | null;
+  latestProofHash: string | null;
+}
+
+/** A RepID range proof + its public statement, ready for client-side WASM verification. */
+export interface ProofPresentation {
+  agentId: string;
+  /** base64-encoded Plonky3 proof bytes (empty for legacy sha256 stubs). */
+  proofBytes: string;
+  scheme: string | null; // 'plonky3_range_check' for real proofs
+  statement: {
+    agent_id: string;
+    repid_score: number;
+    threshold: number;
+    tier: string;
+  } | null;
+  createdAt: string | null;
+  /** populated by presentProof({ verify: true }) — client-side WASM verification result. */
+  verification?: {
+    verified: boolean;
+    error: string | null;
+    verifierVersion: string;
+  };
+}
+
 export class TrustShellError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -159,6 +199,93 @@ export class TrustShell {
       latestProofHash: data.latest_proof_hash || null,
       provenanceChain: data.provenance || [],
     };
+  }
+
+  /**
+   * Verify an agent output through HAL and return a simple ok/verdict.
+   * `ok` is true unless HAL hard-vetoed (so a category-aware soft FLAG still passes).
+   */
+  async verifyOutput(output: string, options: ScoreOptions = {}): Promise<VerifyOutputResult> {
+    const r = await this.score(output, options);
+    return {
+      ok: r.verdict !== 'VETO',
+      verdict: r.verdict,
+      trustScore: r.trustScore,
+      halScore: r.halScore,
+      soft: r.verdict === 'FLAG',
+      signals: r.signals,
+    };
+  }
+
+  /** Fetch an agent's current RepID + tier (public read; no API key required). */
+  async getRepID(agentId: string): Promise<RepIDResult> {
+    const v = await this.verify(agentId);
+    return {
+      agentId,
+      repid: v.repid,
+      tier: v.tier,
+      lastAnchorTx: v.lastAnchorTx,
+      latestProofHash: v.latestProofHash,
+    };
+  }
+
+  /**
+   * Fetch an agent's latest RepID range proof and (optionally) verify it client-side
+   * with the bundled WASM verifier — "trust math, not the server."
+   *
+   * Client-side verification requires @hyperdag/proof-verifier (peer dependency); the
+   * proof statement is the agent-bound tuple {agent_id, threshold, repid_score}.
+   */
+  async presentProof(
+    agentId: string,
+    opts: { verify?: boolean } = {},
+  ): Promise<ProofPresentation> {
+    const url = `${this.baseUrl}/api/v1/repid/${encodeURIComponent(agentId)}/proof`;
+    const res = await fetch(url, { headers: this.getHeaders() });
+    if (!res.ok) {
+      throw new TrustShellError(`Proof lookup failed: ${res.status}`, res.status);
+    }
+    const data = await res.json();
+    const presentation: ProofPresentation = {
+      agentId,
+      proofBytes: data.proof_bytes || '',
+      scheme: data.scheme ?? null,
+      statement: data.statement ?? null,
+      createdAt: data.created_at ?? null,
+    };
+
+    if (opts.verify && presentation.proofBytes && presentation.statement) {
+      presentation.verification = await this.verifyProofLocally(
+        presentation.proofBytes,
+        presentation.statement,
+      );
+    }
+    return presentation;
+  }
+
+  /** Client-side WASM verification of a proof against its statement. */
+  private async verifyProofLocally(
+    proofBytes: string,
+    statement: ProofPresentation['statement'],
+  ): Promise<NonNullable<ProofPresentation['verification']>> {
+    try {
+      // Dynamic import via a variable specifier so the SDK type-checks and loads even when
+      // the optional verifier isn't installed (it ships as an optionalDependency).
+      const verifierPkg = '@hyperdag/proof-verifier';
+      const mod: any = await import(/* @vite-ignore */ verifierPkg);
+      const result = await mod.verify(proofBytes, statement);
+      return {
+        verified: !!result.verified,
+        error: result.error ?? null,
+        verifierVersion: result.verifier_version ?? 'unknown',
+      };
+    } catch (err: any) {
+      return {
+        verified: false,
+        error: `verifier unavailable: ${err?.message ?? String(err)}`,
+        verifierVersion: 'unavailable',
+      };
+    }
   }
 
   async audit(table: string = 'hal_classifications'): Promise<AuditResult> {
