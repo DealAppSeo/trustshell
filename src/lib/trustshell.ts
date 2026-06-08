@@ -33,6 +33,11 @@ export interface ScoreResult {
   model: string;
   proofHash?: string;
   sessionId?: string;
+  // Quorum (strictness-2) metadata, present on the real fact-check path.
+  mode?: string;
+  providersUsed?: number;
+  familiesUsed?: number;
+  agreement?: number;
 }
 
 export interface VerifyResult {
@@ -123,11 +128,12 @@ export class TrustShell {
   async score(response: string, options: ScoreOptions = {}): Promise<ScoreResult> {
     const url = `${this.baseUrl}/api/v1/hal/evaluate`;
 
-    const body = {
-      response,
-      prompt: options.prompt,
-      provider: options.provider || 'unknown',
-      model: options.model,
+    // The live /api/v1/hal/evaluate contract takes { text, context?, strictness? } — NOT
+    // { response, ... }. strictness 2 selects the cross-provider fact-check quorum (the real
+    // HAL), not the style-only extractor. (Fixes the prior 400 "text is required".)
+    const body: Record<string, unknown> = {
+      text: response,
+      strictness: 2,
     };
 
     const controller = new AbortController();
@@ -153,24 +159,40 @@ export class TrustShell {
 
       const data = await res.json();
 
-      const trustScore = Math.round((1 - (data.hal_score || 0)) * 100);
+      const halScore = typeof data.hal_score === 'number' ? data.hal_score : 0;
+      const trustScore = Math.round((1 - halScore) * 100);
+
+      // Real contract returns decision: 'vetoed' | 'flagged' | 'clean' (legacy: hal_verdict).
+      const decision: string | undefined = data.decision ?? data.hal_verdict;
+      const verdict: 'PASS' | 'FLAG' | 'VETO' =
+        decision === 'vetoed' || decision === 'VETO' ? 'VETO'
+        : decision === 'flagged' || decision === 'FLAG' ? 'FLAG'
+        : 'PASS';
+
+      // Quorum (strictness-2) returns `signals` with provider/family info; the style-only
+      // extractor returns harm/epistemic fields. Read both shapes defensively.
+      const sig = data.signals ?? data.hal_signals ?? {};
 
       return {
         trustScore,
-        halScore: data.hal_score,
+        halScore,
         signals: {
-          harmProbability: data.hal_signals?.harm_probability ?? 0,
-          epistemicUncertainty: data.hal_signals?.epistemic_uncertainty ?? 0,
-          evidenceQuality: data.hal_signals?.evidence_quality ?? 0,
-          scopeAppropriateness: data.hal_signals?.scope_appropriateness ?? 0,
-          certaintyAtClaim: data.hal_signals?.certainty_at_claim ?? 0,
+          harmProbability: sig.harm_probability ?? 0,
+          epistemicUncertainty: sig.epistemic_uncertainty ?? 0,
+          evidenceQuality: sig.evidence_quality ?? 0,
+          scopeAppropriateness: sig.scope_appropriateness ?? 0,
+          certaintyAtClaim: sig.certainty_at_claim ?? 0,
         },
-        verdict: data.hal_verdict || 'PASS',
-        flaggedHallucination: !!data.hal_flagged_hallucination,
-        provider: data.provider_used || options.provider || 'unknown',
-        model: data.model_used || options.model || 'unknown',
+        verdict,
+        flaggedHallucination: verdict === 'VETO',
+        provider: Array.isArray(sig.families) ? sig.families.join('+') : (data.provider_used || options.provider || 'quorum'),
+        model: data.mode || data.model_used || 'fact-check',
         proofHash: data.proof_hash,
         sessionId: data.session_id,
+        mode: data.mode,
+        providersUsed: sig.providers_used,
+        familiesUsed: sig.families_used,
+        agreement: sig.agreement,
       };
     } catch (err: any) {
       if (err instanceof TrustShellError) throw err;
