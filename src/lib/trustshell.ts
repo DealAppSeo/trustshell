@@ -5,10 +5,24 @@
  * From S-SDK1 spec + S-BUILD implementation.
  */
 
+import { LocalHalProvider, type HalProvider } from './hal-local';
+
+export type HalMode = 'remote' | 'local-first' | 'local-only';
+
 export interface TrustShellConfig {
   apiKey?: string;
   apiUrl?: string;
   timeout?: number;
+  /**
+   * Scoring mode (D-017). Default 'remote' preserves the existing SDK behavior.
+   * - 'remote'      : hosted repid-engine quorum HAL only (original behavior).
+   * - 'local-first' : score locally (PRIMARY); fall back to repid-engine only if
+   *                   the local provider is unavailable/throws.
+   * - 'local-only'  : never touch the network.
+   */
+  mode?: HalMode;
+  /** Override the local HAL provider (defaults to the built-in heuristic). */
+  localProvider?: HalProvider;
 }
 
 export interface ScoreOptions {
@@ -62,12 +76,16 @@ export class TrustShellError extends Error {
 export class TrustShell {
   private config: TrustShellConfig;
   private baseUrl: string;
+  private mode: HalMode;
+  private local: HalProvider;
 
   constructor(config: TrustShellConfig = {}) {
     this.config = config;
     this.baseUrl = config.apiUrl ||
       (typeof process !== 'undefined' ? process.env?.TRUSTSHELL_API_URL : undefined) ||
       'https://repid-engine-production.up.railway.app';
+    this.mode = config.mode || 'remote';
+    this.local = config.localProvider || new LocalHalProvider();
   }
 
   private getHeaders(): Record<string, string> {
@@ -80,7 +98,34 @@ export class TrustShell {
     return headers;
   }
 
+  /**
+   * Score a response. Dispatches by `mode` (D-017):
+   * - 'remote'      → hosted repid-engine quorum HAL (default; original behavior).
+   * - 'local-only'  → local heuristic, never touches the network.
+   * - 'local-first' → local PRIMARY; falls back to repid-engine only if the
+   *                   local provider is unavailable/throws.
+   */
   async score(response: string, options: ScoreOptions = {}): Promise<ScoreResult> {
+    if (this.mode === 'local-only') {
+      return this.local.score(response, options);
+    }
+    if (this.mode === 'local-first') {
+      try {
+        return await this.local.score(response, options);
+      } catch {
+        return this.scoreRemote(response, options); // fallback only if local unavailable
+      }
+    }
+    return this.scoreRemote(response, options);
+  }
+
+  /** Score locally, in-process, with no network call (D-017 local PRIMARY). */
+  async scoreLocal(response: string, options: ScoreOptions = {}): Promise<ScoreResult> {
+    return this.local.score(response, options);
+  }
+
+  /** Score via the hosted repid-engine quorum HAL. */
+  async scoreRemote(response: string, options: ScoreOptions = {}): Promise<ScoreResult> {
     const url = `${this.baseUrl}/api/v1/hal/evaluate`;
 
     const body = {
@@ -178,5 +223,23 @@ export class TrustShell {
     };
   }
 }
+
+/**
+ * createHDP — the D-017 HAL Decision Provider slot: a TrustShell wired
+ * **local-PRIMARY, repid-engine-FALLBACK**. Use this when you want fast,
+ * offline-capable scoring that only reaches the network if the local scorer
+ * is unavailable.
+ *
+ * ```ts
+ * const hdp = createHDP();                 // local primary, remote fallback
+ * const r = await hdp.score('...');        // no network unless local fails
+ * ```
+ */
+export function createHDP(config: TrustShellConfig = {}): TrustShell {
+  return new TrustShell({ ...config, mode: config.mode || 'local-first' });
+}
+
+export { LocalHalProvider, localHeuristicScore } from './hal-local';
+export type { HalProvider } from './hal-local';
 
 export default TrustShell;

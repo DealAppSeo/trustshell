@@ -12,6 +12,7 @@
     "lint": "eslint",
     "sdk:build": "tsc --project tsconfig.sdk.json",
     "sdk:test": "jest --testPathPattern=trustshell",
+    "sdk:verify-local": "tsc --project tsconfig.sdk.json && node scripts/verify-local-hal.cjs",
     "prepublishOnly": "npm run sdk:build && npm run sdk:test"
   },
   "dependencies": {
