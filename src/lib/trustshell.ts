@@ -38,6 +38,10 @@ export interface ScoreResult {
   providersUsed?: number;
   familiesUsed?: number;
   agreement?: number;
+  /** Human-readable reason for the verdict (quorum + threshold summary). */
+  decisionReason: string;
+  /** Per-provider evidence — "provider:VERDICT (note)" — the WHY behind the verdict. */
+  evidence: string[];
 }
 
 export interface VerifyResult {
@@ -64,6 +68,10 @@ export interface VerifyOutputResult {
   /** present when HAL soft-flagged rather than vetoed (e.g. opinion/time-sensitive). */
   soft: boolean;
   signals: ScoreResult['signals'];
+  /** Human-readable reason for the verdict. */
+  decisionReason: string;
+  /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
+  evidence: string[];
 }
 
 export interface RepIDResult {
@@ -74,9 +82,14 @@ export interface RepIDResult {
   latestProofHash: string | null;
 }
 
+/** Reveal tiers (ZKP_REVEAL_TIERS). `postcard` is production-real; others are capability-gated. */
+export type ProofTier = 'postcard' | 'envelope' | 'letter' | 'package';
+
 /** A RepID range proof + its public statement, ready for client-side WASM verification. */
 export interface ProofPresentation {
   agentId: string;
+  /** Which reveal tier produced this proof. */
+  tier: ProofTier;
   /** base64-encoded Plonky3 proof bytes (empty for legacy sha256 stubs). */
   proofBytes: string;
   scheme: string | null; // 'plonky3_range_check' for real proofs
@@ -107,12 +120,48 @@ export class TrustShellError extends Error {
 export class TrustShell {
   private config: TrustShellConfig;
   private baseUrl: string;
+  private listeners: Record<string, Array<(payload: any) => void>> = {};
 
   constructor(config: TrustShellConfig = {}) {
     this.config = config;
     this.baseUrl = config.apiUrl ||
       (typeof process !== 'undefined' ? process.env?.TRUSTSHELL_API_URL : undefined) ||
       'https://repid-engine-production.up.railway.app';
+  }
+
+  /**
+   * Construct a TrustShell and confirm the backend is reachable (real connectivity check, not a
+   * stub). Returns the client; `health` reflects the live `/health` probe so callers can fail fast.
+   */
+  static async init(config: TrustShellConfig = {}): Promise<{ client: TrustShell; health: { ok: boolean; status?: string; error?: string } }> {
+    const client = new TrustShell(config);
+    let health: { ok: boolean; status?: string; error?: string };
+    try {
+      const res = await fetch(`${client.baseUrl}/health`, { headers: client.getHeaders() });
+      const data: any = res.ok ? await res.json().catch(() => ({})) : {};
+      health = { ok: res.ok, status: data.status };
+    } catch (err: any) {
+      health = { ok: false, error: err?.message ?? String(err) };
+    }
+    return { client, health };
+  }
+
+  /**
+   * Subscribe to client-side lifecycle events emitted when SDK calls complete. Real (not faked):
+   * the SDK has no server push channel, so these fire locally on `verdict` (after verifyOutput) and
+   * `proof` (after presentProof). Returns an unsubscribe fn. Server-streamed events are a roadmap item.
+   */
+  subscribe(event: 'verdict' | 'proof', handler: (payload: any) => void): () => void {
+    (this.listeners[event] ??= []).push(handler);
+    return () => {
+      this.listeners[event] = (this.listeners[event] ?? []).filter((h) => h !== handler);
+    };
+  }
+
+  private emit(event: string, payload: any): void {
+    for (const h of this.listeners[event] ?? []) {
+      try { h(payload); } catch { /* a listener throwing must not break the SDK call */ }
+    }
   }
 
   private getHeaders(): Record<string, string> {
@@ -173,6 +222,16 @@ export class TrustShell {
       // extractor returns harm/epistemic fields. Read both shapes defensively.
       const sig = data.signals ?? data.hal_signals ?? {};
 
+      // Evidence = each non-errored provider's verdict + note. `provider_responses` is a
+      // top-level field on the fact-check response (NOT nested under `signals`).
+      const providerResponses: any[] = Array.isArray(data.provider_responses) ? data.provider_responses : [];
+      const evidence: string[] = providerResponses
+        .filter((p) => p && p.verdict && p.verdict !== 'ERROR')
+        .map((p) => `${p.provider}:${p.verdict}${p.note ? ` (${p.note})` : ''}`);
+      const quorum = sig.quorum ?? (typeof sig.providers_used === 'number' ? `${sig.providers_used} providers` : 'unknown');
+      const decisionReason = data.quorum_note
+        ?? `${verdict} — hal_score ${halScore} via ${data.mode || 'fact-check'} (${quorum} quorum)`;
+
       return {
         trustScore,
         halScore,
@@ -193,6 +252,8 @@ export class TrustShell {
         providersUsed: sig.providers_used,
         familiesUsed: sig.families_used,
         agreement: sig.agreement,
+        decisionReason,
+        evidence,
       };
     } catch (err: any) {
       if (err instanceof TrustShellError) throw err;
@@ -215,7 +276,8 @@ export class TrustShell {
 
     const data = await res.json();
     return {
-      repid: data.repid || data.current_repid,
+      // The live /api/v1/repid/:id returns `repid_score` (cached read); keep the legacy fallbacks.
+      repid: data.repid_score ?? data.repid ?? data.current_repid,
       tier: data.tier,
       lastAnchorTx: data.last_anchor_tx || null,
       latestProofHash: data.latest_proof_hash || null,
@@ -229,14 +291,18 @@ export class TrustShell {
    */
   async verifyOutput(output: string, options: ScoreOptions = {}): Promise<VerifyOutputResult> {
     const r = await this.score(output, options);
-    return {
+    const result: VerifyOutputResult = {
       ok: r.verdict !== 'VETO',
       verdict: r.verdict,
       trustScore: r.trustScore,
       halScore: r.halScore,
       soft: r.verdict === 'FLAG',
       signals: r.signals,
+      decisionReason: r.decisionReason,
+      evidence: r.evidence,
     };
+    this.emit('verdict', result);
+    return result;
   }
 
   /** Fetch an agent's current RepID + tier (public read; no API key required). */
@@ -260,8 +326,19 @@ export class TrustShell {
    */
   async presentProof(
     agentId: string,
-    opts: { verify?: boolean } = {},
+    opts: { verify?: boolean; tier?: ProofTier; allowExperimentalTiers?: boolean } = {},
   ): Promise<ProofPresentation> {
+    const tier: ProofTier = opts.tier ?? 'postcard';
+    // Only `postcard` has a production-real proof endpoint today. Other tiers (envelope/letter/
+    // package) are implemented in the prover but not yet exposed as a live API — expose them behind
+    // a capability flag, default OFF, and FLAG rather than fake (no stub in a shipped path).
+    if (tier !== 'postcard' && !opts.allowExperimentalTiers) {
+      throw new TrustShellError(
+        `Proof tier '${tier}' is not yet production-exposed. Pass { allowExperimentalTiers: true } ` +
+        `to opt in once the live endpoint ships; today only 'postcard' returns a real proof.`,
+        501,
+      );
+    }
     const url = `${this.baseUrl}/api/v1/repid/${encodeURIComponent(agentId)}/proof`;
     const res = await fetch(url, { headers: this.getHeaders() });
     if (!res.ok) {
@@ -270,6 +347,7 @@ export class TrustShell {
     const data = await res.json();
     const presentation: ProofPresentation = {
       agentId,
+      tier,
       proofBytes: data.proof_bytes || '',
       scheme: data.scheme ?? null,
       statement: data.statement ?? null,
@@ -282,6 +360,7 @@ export class TrustShell {
         presentation.statement,
       );
     }
+    this.emit('proof', presentation);
     return presentation;
   }
 

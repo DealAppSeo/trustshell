@@ -5,6 +5,39 @@
  *
  * From S-SDK1 spec + S-BUILD implementation.
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrustShell = exports.TrustShellError = void 0;
 class TrustShellError extends Error {
@@ -17,10 +50,48 @@ class TrustShellError extends Error {
 exports.TrustShellError = TrustShellError;
 class TrustShell {
     constructor(config = {}) {
+        this.listeners = {};
         this.config = config;
         this.baseUrl = config.apiUrl ||
             (typeof process !== 'undefined' ? process.env?.TRUSTSHELL_API_URL : undefined) ||
             'https://repid-engine-production.up.railway.app';
+    }
+    /**
+     * Construct a TrustShell and confirm the backend is reachable (real connectivity check, not a
+     * stub). Returns the client; `health` reflects the live `/health` probe so callers can fail fast.
+     */
+    static async init(config = {}) {
+        const client = new TrustShell(config);
+        let health;
+        try {
+            const res = await fetch(`${client.baseUrl}/health`, { headers: client.getHeaders() });
+            const data = res.ok ? await res.json().catch(() => ({})) : {};
+            health = { ok: res.ok, status: data.status };
+        }
+        catch (err) {
+            health = { ok: false, error: err?.message ?? String(err) };
+        }
+        return { client, health };
+    }
+    /**
+     * Subscribe to client-side lifecycle events emitted when SDK calls complete. Real (not faked):
+     * the SDK has no server push channel, so these fire locally on `verdict` (after verifyOutput) and
+     * `proof` (after presentProof). Returns an unsubscribe fn. Server-streamed events are a roadmap item.
+     */
+    subscribe(event, handler) {
+        var _a;
+        ((_a = this.listeners)[event] ?? (_a[event] = [])).push(handler);
+        return () => {
+            this.listeners[event] = (this.listeners[event] ?? []).filter((h) => h !== handler);
+        };
+    }
+    emit(event, payload) {
+        for (const h of this.listeners[event] ?? []) {
+            try {
+                h(payload);
+            }
+            catch { /* a listener throwing must not break the SDK call */ }
+        }
     }
     getHeaders() {
         const headers = {
@@ -33,11 +104,12 @@ class TrustShell {
     }
     async score(response, options = {}) {
         const url = `${this.baseUrl}/api/v1/hal/evaluate`;
+        // The live /api/v1/hal/evaluate contract takes { text, context?, strictness? } — NOT
+        // { response, ... }. strictness 2 selects the cross-provider fact-check quorum (the real
+        // HAL), not the style-only extractor. (Fixes the prior 400 "text is required".)
         const body = {
-            response,
-            prompt: options.prompt,
-            provider: options.provider || 'unknown',
-            model: options.model,
+            text: response,
+            strictness: 2,
         };
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.config.timeout || 30000);
@@ -52,23 +124,47 @@ class TrustShell {
                 throw new TrustShellError(`HAL evaluation failed: ${res.status} ${res.statusText}`, res.status);
             }
             const data = await res.json();
-            const trustScore = Math.round((1 - (data.hal_score || 0)) * 100);
+            const halScore = typeof data.hal_score === 'number' ? data.hal_score : 0;
+            const trustScore = Math.round((1 - halScore) * 100);
+            // Real contract returns decision: 'vetoed' | 'flagged' | 'clean' (legacy: hal_verdict).
+            const decision = data.decision ?? data.hal_verdict;
+            const verdict = decision === 'vetoed' || decision === 'VETO' ? 'VETO'
+                : decision === 'flagged' || decision === 'FLAG' ? 'FLAG'
+                    : 'PASS';
+            // Quorum (strictness-2) returns `signals` with provider/family info; the style-only
+            // extractor returns harm/epistemic fields. Read both shapes defensively.
+            const sig = data.signals ?? data.hal_signals ?? {};
+            // Evidence = each non-errored provider's verdict + note. `provider_responses` is a
+            // top-level field on the fact-check response (NOT nested under `signals`).
+            const providerResponses = Array.isArray(data.provider_responses) ? data.provider_responses : [];
+            const evidence = providerResponses
+                .filter((p) => p && p.verdict && p.verdict !== 'ERROR')
+                .map((p) => `${p.provider}:${p.verdict}${p.note ? ` (${p.note})` : ''}`);
+            const quorum = sig.quorum ?? (typeof sig.providers_used === 'number' ? `${sig.providers_used} providers` : 'unknown');
+            const decisionReason = data.quorum_note
+                ?? `${verdict} — hal_score ${halScore} via ${data.mode || 'fact-check'} (${quorum} quorum)`;
             return {
                 trustScore,
-                halScore: data.hal_score,
+                halScore,
                 signals: {
-                    harmProbability: data.hal_signals?.harm_probability ?? 0,
-                    epistemicUncertainty: data.hal_signals?.epistemic_uncertainty ?? 0,
-                    evidenceQuality: data.hal_signals?.evidence_quality ?? 0,
-                    scopeAppropriateness: data.hal_signals?.scope_appropriateness ?? 0,
-                    certaintyAtClaim: data.hal_signals?.certainty_at_claim ?? 0,
+                    harmProbability: sig.harm_probability ?? 0,
+                    epistemicUncertainty: sig.epistemic_uncertainty ?? 0,
+                    evidenceQuality: sig.evidence_quality ?? 0,
+                    scopeAppropriateness: sig.scope_appropriateness ?? 0,
+                    certaintyAtClaim: sig.certainty_at_claim ?? 0,
                 },
-                verdict: data.hal_verdict || 'PASS',
-                flaggedHallucination: !!data.hal_flagged_hallucination,
-                provider: data.provider_used || options.provider || 'unknown',
-                model: data.model_used || options.model || 'unknown',
+                verdict,
+                flaggedHallucination: verdict === 'VETO',
+                provider: Array.isArray(sig.families) ? sig.families.join('+') : (data.provider_used || options.provider || 'quorum'),
+                model: data.mode || data.model_used || 'fact-check',
                 proofHash: data.proof_hash,
                 sessionId: data.session_id,
+                mode: data.mode,
+                providersUsed: sig.providers_used,
+                familiesUsed: sig.families_used,
+                agreement: sig.agreement,
+                decisionReason,
+                evidence,
             };
         }
         catch (err) {
@@ -91,12 +187,101 @@ class TrustShell {
         }
         const data = await res.json();
         return {
-            repid: data.repid || data.current_repid,
+            // The live /api/v1/repid/:id returns `repid_score` (cached read); keep the legacy fallbacks.
+            repid: data.repid_score ?? data.repid ?? data.current_repid,
             tier: data.tier,
             lastAnchorTx: data.last_anchor_tx || null,
             latestProofHash: data.latest_proof_hash || null,
             provenanceChain: data.provenance || [],
         };
+    }
+    /**
+     * Verify an agent output through HAL and return a simple ok/verdict.
+     * `ok` is true unless HAL hard-vetoed (so a category-aware soft FLAG still passes).
+     */
+    async verifyOutput(output, options = {}) {
+        const r = await this.score(output, options);
+        const result = {
+            ok: r.verdict !== 'VETO',
+            verdict: r.verdict,
+            trustScore: r.trustScore,
+            halScore: r.halScore,
+            soft: r.verdict === 'FLAG',
+            signals: r.signals,
+            decisionReason: r.decisionReason,
+            evidence: r.evidence,
+        };
+        this.emit('verdict', result);
+        return result;
+    }
+    /** Fetch an agent's current RepID + tier (public read; no API key required). */
+    async getRepID(agentId) {
+        const v = await this.verify(agentId);
+        return {
+            agentId,
+            repid: v.repid,
+            tier: v.tier,
+            lastAnchorTx: v.lastAnchorTx,
+            latestProofHash: v.latestProofHash,
+        };
+    }
+    /**
+     * Fetch an agent's latest RepID range proof and (optionally) verify it client-side
+     * with the bundled WASM verifier — "trust math, not the server."
+     *
+     * Client-side verification requires @hyperdag/proof-verifier (peer dependency); the
+     * proof statement is the agent-bound tuple {agent_id, threshold, repid_score}.
+     */
+    async presentProof(agentId, opts = {}) {
+        const tier = opts.tier ?? 'postcard';
+        // Only `postcard` has a production-real proof endpoint today. Other tiers (envelope/letter/
+        // package) are implemented in the prover but not yet exposed as a live API — expose them behind
+        // a capability flag, default OFF, and FLAG rather than fake (no stub in a shipped path).
+        if (tier !== 'postcard' && !opts.allowExperimentalTiers) {
+            throw new TrustShellError(`Proof tier '${tier}' is not yet production-exposed. Pass { allowExperimentalTiers: true } ` +
+                `to opt in once the live endpoint ships; today only 'postcard' returns a real proof.`, 501);
+        }
+        const url = `${this.baseUrl}/api/v1/repid/${encodeURIComponent(agentId)}/proof`;
+        const res = await fetch(url, { headers: this.getHeaders() });
+        if (!res.ok) {
+            throw new TrustShellError(`Proof lookup failed: ${res.status}`, res.status);
+        }
+        const data = await res.json();
+        const presentation = {
+            agentId,
+            tier,
+            proofBytes: data.proof_bytes || '',
+            scheme: data.scheme ?? null,
+            statement: data.statement ?? null,
+            createdAt: data.created_at ?? null,
+        };
+        if (opts.verify && presentation.proofBytes && presentation.statement) {
+            presentation.verification = await this.verifyProofLocally(presentation.proofBytes, presentation.statement);
+        }
+        this.emit('proof', presentation);
+        return presentation;
+    }
+    /** Client-side WASM verification of a proof against its statement. */
+    async verifyProofLocally(proofBytes, statement) {
+        try {
+            // Dynamic import via a variable specifier so the SDK type-checks and loads even when
+            // the optional verifier isn't installed (it ships as an optionalDependency).
+            const verifierPkg = '@hyperdag/proof-verifier';
+            const mod = await Promise.resolve(`${verifierPkg}`).then(s => __importStar(require(s)));
+            const result = await mod.verify(proofBytes, statement);
+            return {
+                verified: !!result.verified,
+                error: result.error ?? null,
+                verifierVersion: result.verifier_version ?? 'unknown',
+            };
+        }
+        catch (err) {
+            return {
+                verified: false,
+                error: `verifier unavailable: ${err?.message ?? String(err)}`,
+                verifierVersion: 'unavailable',
+            };
+        }
     }
     async audit(table = 'hal_classifications') {
         const url = `${this.baseUrl}/api/v1/audit/verify?table=${encodeURIComponent(table)}`;
