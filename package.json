@@ -1,14 +1,35 @@
 {
-  "name": "trustshell-app",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@hyperdag/trustshell",
+  "version": "0.4.1",
+  "description": "Trust scoring SDK for AI — add HAL evaluation to any LLM app in 3 lines.",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sdk:build": "tsc --project tsconfig.sdk.json",
+    "sdk:test": "jest --testPathPattern=trustshell --passWithNoTests",
+    "prepublishOnly": "npm run sdk:build && npm run sdk:test"
   },
   "dependencies": {
+    "@hyperdag/proof-verifier": "^0.2.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "idb-keyval": "^6.2.2",
@@ -20,12 +41,15 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^29",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
+    "jest": "^29",
     "tailwindcss": "^4",
+    "ts-jest": "^29",
     "typescript": "^5"
   }
 }
