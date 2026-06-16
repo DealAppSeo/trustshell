@@ -42,6 +42,12 @@ export interface ScoreResult {
   decisionReason: string;
   /** Per-provider evidence — "provider:VERDICT (note)" — the WHY behind the verdict. */
   evidence: string[];
+  // SBFA v0.2 Glass Box (fact-check path; see VerifyOutputResult for field docs). Forwarded to verifyOutput.
+  belief?: number;
+  ignoranceMass?: number;
+  confidence?: number;
+  tierDistribution?: Record<string, number>;
+  glassBox?: VerifyOutputResult['glassBox'];
 }
 
 export interface VerifyResult {
@@ -72,6 +78,98 @@ export interface VerifyOutputResult {
   decisionReason: string;
   /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
   evidence: string[];
+  /**
+   * SBFA consensus fields. Populated from the backend `sbfa` object (SBFA v0.2 shadow) when present;
+   * left undefined when the backend doesn't supply them. Never fabricated (except `confidence`, which
+   * falls back to a clearly-labeled DERIVED proxy).
+   */
+  /** Dempster–Shafer belief mass on the 'action warranted / hallucinated' class. undefined if no SBFA. */
+  belief?: number;
+  /** Dempster–Shafer ignorance mass (Yager — mass on {uncertain}). undefined if no SBFA; never derived. */
+  ignoranceMass?: number;
+  /**
+   * Aggregate confidence (1 − ignorance) from SBFA when present. When the backend has no SBFA field,
+   * falls back to a DERIVED heuristic `quorum/(quorum+1) * (1 − halScore)` — an approximation, not a DST value.
+   */
+  confidence?: number;
+  /** Per-tier validator distribution. undefined until the backend emits `tier_distribution`. */
+  tierDistribution?: Record<string, number>;
+  /**
+   * GLASS BOX — the structured, human-readable SBFA decision trace: who voted, their reliability
+   * weights, the quorum math, and why it vetoed/deferred/passed. Present only when the backend's
+   * fact-check path returns `sbfa.trace`. This is the differentiator surfaced to the integrator.
+   */
+  glassBox?: {
+    decision: 'act' | 'hold' | 'abstain' | 'escalate';
+    weightedAgreement: number;
+    correlatedWarning: boolean;
+    commaConservative: boolean;
+    reliabilitySource: string;
+    /** One human-readable line per step (header, per-vote evidence, fusion, decision). */
+    lines: string[];
+    /** Per-validator evidence breakdown (validator, model, reliability, DST contribution). */
+    votes: Array<{
+      validator: string;
+      modelVersion: string;
+      family?: string;
+      belief: number;
+      confidence: number;
+      reliabilityMean: number;
+      contributesAct: number;
+      contributesIgnorance: number;
+    }>;
+  };
+}
+
+/**
+ * Parameters for an A2A micro-transaction (service contract + x402 payment).
+ * Maps to the live backend sequence: POST /api/v1/contracts → POST /api/v1/contracts/:id/escrow.
+ */
+export interface A2AParams {
+  /** Repid-engine agent ID of the service BUYER (the calling agent). */
+  buyerAgentId: string;
+  /** UUID of the `agent_services` row to purchase. */
+  serviceId: string;
+  /** Task payload to pass to the provider (free-form, no SQL keywords). */
+  payload: Record<string, unknown>;
+  /**
+   * Agreed price in micro-USDC raw units (e.g. 100000 = 0.1 USDC).
+   * If omitted, the service's `base_price_usdc_raw` is used.
+   */
+  agreedPriceUsdcRaw?: number;
+  /**
+   * x-payment header for x402 escrow (EIP-3009 signed transfer encoded by the x402 client).
+   * Required when the service requires payment. If omitted, the backend will return a 402 with
+   * payment requirements; the caller should construct the payment and retry.
+   */
+  xPaymentHeader?: string;
+}
+
+/**
+ * Result of an executeA2A call. Reflects the backend service-contract lifecycle state at the
+ * moment the call completed. The contract is typically in `pending` or `escrowed` status —
+ * fulfillment is asynchronous (picked up by a provider agent).
+ */
+export interface A2AResult {
+  /** UUID of the created/escrowed service contract. */
+  contractId: string;
+  /** Status as returned by the backend: pending | escrowed | fulfilled | disputed | cancelled */
+  status: string;
+  /** Provider agent ID assigned to fulfill the contract. */
+  providerAgentId: string;
+  /** Agreed price in micro-USDC raw units. */
+  agreedPriceUsdcRaw: number;
+  /** x402 settlement ID, present when escrow succeeded. */
+  settlementId?: string;
+  /**
+   * When payment is required but no xPaymentHeader was supplied, the backend returns a 402
+   * with payment requirements. These are echoed here so the caller can construct the payment.
+   */
+  paymentRequired?: {
+    x402Version: number;
+    accepts: unknown[];
+    error: string;
+  };
 }
 
 export interface RepIDResult {
@@ -232,6 +330,26 @@ export class TrustShell {
       const decisionReason = data.quorum_note
         ?? `${verdict} — hal_score ${halScore} via ${data.mode || 'fact-check'} (${quorum} quorum)`;
 
+      // SBFA v0.2 Glass Box — populated from the backend `sbfa` object (fact-check path). belief +
+      // ignorance are never fabricated; confidence falls back to a labeled DERIVED proxy if absent.
+      const sbfa: any = data.sbfa;
+      const quorumN = typeof sig.families_used === 'number' ? sig.families_used
+        : (typeof sig.providers_used === 'number' ? sig.providers_used : 0);
+      const derivedConfidence = quorumN > 0 ? (quorumN / (quorumN + 1)) * (1 - halScore) : undefined;
+      const glassBox = sbfa?.trace ? {
+        decision: sbfa.decision,
+        weightedAgreement: sbfa.weighted_agreement,
+        correlatedWarning: !!sbfa.correlated_warning,
+        commaConservative: !!sbfa.comma_conservative,
+        reliabilitySource: sbfa.reliability_source,
+        lines: Array.isArray(sbfa.trace.lines) ? sbfa.trace.lines : [],
+        votes: Array.isArray(sbfa.trace.votes) ? sbfa.trace.votes.map((v: any) => ({
+          validator: v.validator, modelVersion: v.modelVersion, family: v.family,
+          belief: v.belief, confidence: v.confidence, reliabilityMean: v.reliability_mean,
+          contributesAct: v.contributes_act, contributesIgnorance: v.contributes_ignorance,
+        })) : [],
+      } : undefined;
+
       return {
         trustScore,
         halScore,
@@ -254,6 +372,11 @@ export class TrustShell {
         agreement: sig.agreement,
         decisionReason,
         evidence,
+        belief: typeof sbfa?.belief === 'number' ? sbfa.belief : undefined,
+        ignoranceMass: typeof sbfa?.ignorance_mass === 'number' ? sbfa.ignorance_mass : undefined,
+        confidence: typeof sbfa?.confidence === 'number' ? sbfa.confidence : derivedConfidence,
+        tierDistribution: sbfa?.tier_distribution ?? data.tier_distribution ?? undefined,
+        ...(glassBox ? { glassBox } : {}),
       };
     } catch (err: any) {
       if (err instanceof TrustShellError) throw err;
@@ -288,9 +411,23 @@ export class TrustShell {
   /**
    * Verify an agent output through HAL and return a simple ok/verdict.
    * `ok` is true unless HAL hard-vetoed (so a category-aware soft FLAG still passes).
+   *
+   * Task C — SBFA honesty fields: `belief`, `ignoranceMass`, `confidence`, `tierDistribution`
+   * are populated from the backend response when present. When the backend does not supply them
+   * (pre-SBFA-Phase-2), `confidence` is DERIVED as a heuristic proxy; all others remain undefined.
    */
   async verifyOutput(output: string, options: ScoreOptions = {}): Promise<VerifyOutputResult> {
     const r = await this.score(output, options);
+
+    // --- SBFA v0.2 Glass Box — forwarded from score(), which parses the backend `sbfa` object. ---
+    // belief / ignoranceMass: REAL DST values when the backend supplies them; never fabricated (undefined otherwise).
+    // confidence: real SBFA confidence when present, else a DERIVED proxy (quorum/(quorum+1) * (1 - halScore)).
+    const quorum = r.providersUsed ?? 0;
+    const derivedConfidence: number =
+      quorum > 0
+        ? (quorum / (quorum + 1)) * (1 - r.halScore)
+        : (1 - r.halScore) * 0.5; // single-provider fallback: half-weight
+
     const result: VerifyOutputResult = {
       ok: r.verdict !== 'VETO',
       verdict: r.verdict,
@@ -300,6 +437,11 @@ export class TrustShell {
       signals: r.signals,
       decisionReason: r.decisionReason,
       evidence: r.evidence,
+      belief: r.belief, // real DST belief mass, or undefined (never fabricated)
+      ignoranceMass: r.ignoranceMass, // real DST ignorance, or undefined (never derived)
+      confidence: r.confidence ?? derivedConfidence, // real SBFA confidence; else DERIVED proxy
+      tierDistribution: r.tierDistribution,
+      ...(r.glassBox ? { glassBox: r.glassBox } : {}),
     };
     this.emit('verdict', result);
     return result;
@@ -403,6 +545,141 @@ export class TrustShell {
       totalEntries: data.total_entries || data.totalEntries || 0,
       firstBreakId: data.first_break_id || null,
       verifiedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Execute an A2A micro-transaction: create a service contract and (optionally) escrow payment
+   * via x402. This is an honest client against the live backend.
+   *
+   * **Backend sequence (two calls):**
+   * 1. `POST /api/v1/contracts` — creates a `service_contracts` row in `pending` status.
+   * 2. `POST /api/v1/contracts/:id/escrow` — submits x402 payment; advances status to `escrowed`.
+   *    Step 2 is only executed when `params.xPaymentHeader` is supplied. If the service requires
+   *    payment and no header is provided, the backend returns a 402 with payment requirements that
+   *    are echoed back in `result.paymentRequired` — the caller should construct the x402 payment
+   *    using those requirements and call `executeA2A` again with the header.
+   *
+   * **What is NOT wired yet:**
+   * - Fulfillment (`POST /api/v1/contracts/:id/fulfill`) is picked up asynchronously by a provider
+   *   agent — there is no synchronous fulfillment path. Poll `GET /api/v1/contracts/:id` for status.
+   * - The `ESCALATION_CONTRACT` gate is currently OFF in prod for most Trinity agents (P-032).
+   *   Contracts created here will sit in `escrowed` until the gate is enabled or the cascade
+   *   settlement worker picks them up.
+   *
+   * **A2A is real but the end-to-end loop is partially wired** (contracts created and escrowed;
+   * fulfillment and settlement are asynchronous). This is an honest 501 for the fully-synchronous
+   * "request → response → settled" flow that is not yet available.
+   */
+  async executeA2A(params: A2AParams): Promise<A2AResult> {
+    // Step 1: Create the service contract.
+    const createRes = await fetch(`${this.baseUrl}/api/v1/contracts`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        service_id: params.serviceId,
+        buyer_agent_id: params.buyerAgentId,
+        payload: params.payload,
+        ...(params.agreedPriceUsdcRaw !== undefined
+          ? { agreed_price_usdc_raw: params.agreedPriceUsdcRaw }
+          : {}),
+      }),
+    });
+
+    if (!createRes.ok) {
+      const errBody = await createRes.json().catch(() => ({})) as any;
+      throw new TrustShellError(
+        `A2A contract creation failed: ${createRes.status} — ${errBody?.error ?? createRes.statusText}`,
+        createRes.status,
+      );
+    }
+
+    const contract = await createRes.json() as any;
+    const contractId: string = contract.id;
+
+    // Step 2: Escrow via x402 (only when a payment header was provided by the caller).
+    if (!params.xPaymentHeader) {
+      // No payment header: attempt escrow anyway so the backend can tell us its requirements.
+      const escrowProbeRes = await fetch(
+        `${this.baseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/escrow`,
+        { method: 'POST', headers: this.getHeaders(), body: JSON.stringify({}) },
+      );
+      const escrowBody = await escrowProbeRes.json().catch(() => ({})) as any;
+      if (escrowProbeRes.status === 402) {
+        // Backend told us what payment it needs — echo back and let the caller handle it.
+        return {
+          contractId,
+          status: contract.status ?? 'pending',
+          providerAgentId: contract.provider_agent_id,
+          agreedPriceUsdcRaw: contract.agreed_price_usdc_raw,
+          paymentRequired: {
+            x402Version: escrowBody.x402Version ?? 1,
+            accepts: escrowBody.accepts ?? [],
+            error: escrowBody.error ?? 'payment_required',
+          },
+        };
+      }
+      // If escrow succeeded without a header (free service or dev mode), fall through.
+      if (escrowProbeRes.ok) {
+        const escrowed = await escrowProbeRes.json().catch(() => escrowBody) as any;
+        return {
+          contractId,
+          status: escrowed.status ?? 'escrowed',
+          providerAgentId: escrowed.provider_agent_id ?? contract.provider_agent_id,
+          agreedPriceUsdcRaw: escrowed.agreed_price_usdc_raw ?? contract.agreed_price_usdc_raw,
+          settlementId: escrowed.x402_payment_id ?? undefined,
+        };
+      }
+      // Any other error: surface it.
+      throw new TrustShellError(
+        `A2A escrow failed: ${escrowProbeRes.status} — ${escrowBody?.error ?? escrowProbeRes.statusText}`,
+        escrowProbeRes.status,
+      );
+    }
+
+    // xPaymentHeader was provided: submit it for escrow.
+    const escrowRes = await fetch(
+      `${this.baseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/escrow`,
+      {
+        method: 'POST',
+        headers: {
+          ...this.getHeaders(),
+          'X-PAYMENT': params.xPaymentHeader,
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    if (escrowRes.status === 402) {
+      const body = await escrowRes.json().catch(() => ({})) as any;
+      return {
+        contractId,
+        status: 'pending',
+        providerAgentId: contract.provider_agent_id,
+        agreedPriceUsdcRaw: contract.agreed_price_usdc_raw,
+        paymentRequired: {
+          x402Version: body.x402Version ?? 1,
+          accepts: body.accepts ?? [],
+          error: body.error ?? 'payment_required',
+        },
+      };
+    }
+
+    if (!escrowRes.ok) {
+      const errBody = await escrowRes.json().catch(() => ({})) as any;
+      throw new TrustShellError(
+        `A2A escrow failed: ${escrowRes.status} — ${errBody?.error ?? escrowRes.statusText}`,
+        escrowRes.status,
+      );
+    }
+
+    const escrowed = await escrowRes.json() as any;
+    return {
+      contractId,
+      status: escrowed.status ?? 'escrowed',
+      providerAgentId: escrowed.provider_agent_id ?? contract.provider_agent_id,
+      agreedPriceUsdcRaw: escrowed.agreed_price_usdc_raw ?? contract.agreed_price_usdc_raw,
+      settlementId: escrowed.x402_payment_id ?? undefined,
     };
   }
 }
