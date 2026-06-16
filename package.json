@@ -28,18 +28,13 @@
     "sdk:test": "jest --testPathPattern=trustshell --passWithNoTests",
     "prepublishOnly": "npm run sdk:build && npm run sdk:test"
   },
+  "comment:deps": "DEPENDENCY DIET 2026-06-15: the SDK (src/lib/) imports NONE of next/react/supabase/lucide/idb — they are Next.js-APP baggage that SDK consumers were inheriting (puppeteer/sharp/googleapis arrive transitively via next, ~1898 pkgs / ~7min install). The published package ships only dist/ (files[]), so the only true SDK runtime dep is @hyperdag/proof-verifier (dynamically imported, fails gracefully). App-runtime deps moved to devDependencies → they are still installed for `next build`/dev (full install), but `npm install @hyperdag/trustshell` no longer pulls the Next.js tree. NOTE: this confirms the SDK should ultimately be its OWN package (also resolves the merge-base caveat) — flagged for Sean.",
   "dependencies": {
-    "@hyperdag/proof-verifier": "^0.2.0",
-    "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "^2.106.2",
-    "idb-keyval": "^6.2.2",
-    "lucide-react": "^1.14.0",
-    "next": "16.2.5",
-    "next-themes": "^0.4.6",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "@hyperdag/proof-verifier": "^0.2.0"
   },
   "devDependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.2",
     "@tailwindcss/postcss": "^4",
     "@types/jest": "^29",
     "@types/node": "^20",
@@ -47,7 +42,13 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
+    "idb-keyval": "^6.2.2",
     "jest": "^29",
+    "lucide-react": "^1.14.0",
+    "next": "16.2.5",
+    "next-themes": "^0.4.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "tailwindcss": "^4",
     "ts-jest": "^29",
     "typescript": "^5"

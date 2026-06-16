@@ -42,6 +42,12 @@ export interface ScoreResult {
   decisionReason: string;
   /** Per-provider evidence — "provider:VERDICT (note)" — the WHY behind the verdict. */
   evidence: string[];
+  // SBFA v0.2 Glass Box (fact-check path; see VerifyOutputResult for field docs). Forwarded to verifyOutput.
+  belief?: number;
+  ignoranceMass?: number;
+  confidence?: number;
+  tierDistribution?: Record<string, number>;
+  glassBox?: VerifyOutputResult['glassBox'];
 }
 
 export interface VerifyResult {
@@ -73,27 +79,46 @@ export interface VerifyOutputResult {
   /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
   evidence: string[];
   /**
-   * Task C — SBFA consensus fields. All four are optional because the live /api/v1/hal/evaluate
-   * response does NOT yet emit them (SBFA Phase 2, not yet deployed). They will be populated
-   * automatically when the backend starts returning them. Do NOT fabricate: left undefined when
-   * the backend doesn't supply them, except `confidence` which is DERIVED (see comment).
+   * SBFA consensus fields. Populated from the backend `sbfa` object (SBFA v0.2 shadow) when present;
+   * left undefined when the backend doesn't supply them. Never fabricated (except `confidence`, which
+   * falls back to a clearly-labeled DERIVED proxy).
    */
-  /** Dempster–Shafer belief mass assigned to 'hallucinated' class. undefined until SBFA Phase 2. */
+  /** Dempster–Shafer belief mass on the 'action warranted / hallucinated' class. undefined if no SBFA. */
   belief?: number;
-  /** Dempster–Shafer ignorance mass (1 − belief − disbelief). undefined until SBFA Phase 2;
-   *  never derived — left undefined when the backend doesn't supply it. */
+  /** Dempster–Shafer ignorance mass (Yager — mass on {uncertain}). undefined if no SBFA; never derived. */
   ignoranceMass?: number;
   /**
-   * DERIVED when not supplied by backend: `quorum / (quorum + 1) * (1 − halScore)`.
-   * This is a heuristic proxy (higher quorum + lower halScore → higher confidence), NOT a real
-   * DST value. Clearly tagged DERIVED so callers know it is an approximation.
+   * Aggregate confidence (1 − ignorance) from SBFA when present. When the backend has no SBFA field,
+   * falls back to a DERIVED heuristic `quorum/(quorum+1) * (1 − halScore)` — an approximation, not a DST value.
    */
   confidence?: number;
-  /**
-   * Per-tier validator distribution (e.g. { tier0: 3, tier1: 1 }). undefined until
-   * SBFA Phase 2 supplies it in the backend response.
-   */
+  /** Per-tier validator distribution. undefined until the backend emits `tier_distribution`. */
   tierDistribution?: Record<string, number>;
+  /**
+   * GLASS BOX — the structured, human-readable SBFA decision trace: who voted, their reliability
+   * weights, the quorum math, and why it vetoed/deferred/passed. Present only when the backend's
+   * fact-check path returns `sbfa.trace`. This is the differentiator surfaced to the integrator.
+   */
+  glassBox?: {
+    decision: 'act' | 'hold' | 'abstain' | 'escalate';
+    weightedAgreement: number;
+    correlatedWarning: boolean;
+    commaConservative: boolean;
+    reliabilitySource: string;
+    /** One human-readable line per step (header, per-vote evidence, fusion, decision). */
+    lines: string[];
+    /** Per-validator evidence breakdown (validator, model, reliability, DST contribution). */
+    votes: Array<{
+      validator: string;
+      modelVersion: string;
+      family?: string;
+      belief: number;
+      confidence: number;
+      reliabilityMean: number;
+      contributesAct: number;
+      contributesIgnorance: number;
+    }>;
+  };
 }
 
 /**
@@ -305,6 +330,26 @@ export class TrustShell {
       const decisionReason = data.quorum_note
         ?? `${verdict} — hal_score ${halScore} via ${data.mode || 'fact-check'} (${quorum} quorum)`;
 
+      // SBFA v0.2 Glass Box — populated from the backend `sbfa` object (fact-check path). belief +
+      // ignorance are never fabricated; confidence falls back to a labeled DERIVED proxy if absent.
+      const sbfa: any = data.sbfa;
+      const quorumN = typeof sig.families_used === 'number' ? sig.families_used
+        : (typeof sig.providers_used === 'number' ? sig.providers_used : 0);
+      const derivedConfidence = quorumN > 0 ? (quorumN / (quorumN + 1)) * (1 - halScore) : undefined;
+      const glassBox = sbfa?.trace ? {
+        decision: sbfa.decision,
+        weightedAgreement: sbfa.weighted_agreement,
+        correlatedWarning: !!sbfa.correlated_warning,
+        commaConservative: !!sbfa.comma_conservative,
+        reliabilitySource: sbfa.reliability_source,
+        lines: Array.isArray(sbfa.trace.lines) ? sbfa.trace.lines : [],
+        votes: Array.isArray(sbfa.trace.votes) ? sbfa.trace.votes.map((v: any) => ({
+          validator: v.validator, modelVersion: v.modelVersion, family: v.family,
+          belief: v.belief, confidence: v.confidence, reliabilityMean: v.reliability_mean,
+          contributesAct: v.contributes_act, contributesIgnorance: v.contributes_ignorance,
+        })) : [],
+      } : undefined;
+
       return {
         trustScore,
         halScore,
@@ -327,6 +372,11 @@ export class TrustShell {
         agreement: sig.agreement,
         decisionReason,
         evidence,
+        belief: typeof sbfa?.belief === 'number' ? sbfa.belief : undefined,
+        ignoranceMass: typeof sbfa?.ignorance_mass === 'number' ? sbfa.ignorance_mass : undefined,
+        confidence: typeof sbfa?.confidence === 'number' ? sbfa.confidence : derivedConfidence,
+        tierDistribution: sbfa?.tier_distribution ?? data.tier_distribution ?? undefined,
+        ...(glassBox ? { glassBox } : {}),
       };
     } catch (err: any) {
       if (err instanceof TrustShellError) throw err;
@@ -369,12 +419,9 @@ export class TrustShell {
   async verifyOutput(output: string, options: ScoreOptions = {}): Promise<VerifyOutputResult> {
     const r = await this.score(output, options);
 
-    // --- Task C: map SBFA fields from the raw backend response (stored on ScoreResult) ---
-    // The raw response is not currently surfaced on ScoreResult; we carry only what we need.
-    // belief / ignoranceMass: leave undefined — do NOT fabricate DST values.
-    // confidence: DERIVED heuristic when not supplied by backend.
-    //   Formula: (providersUsed / (providersUsed + 1)) * (1 - halScore)
-    //   Higher quorum completion + lower hal_score → higher confidence. Tagged DERIVED.
+    // --- SBFA v0.2 Glass Box — forwarded from score(), which parses the backend `sbfa` object. ---
+    // belief / ignoranceMass: REAL DST values when the backend supplies them; never fabricated (undefined otherwise).
+    // confidence: real SBFA confidence when present, else a DERIVED proxy (quorum/(quorum+1) * (1 - halScore)).
     const quorum = r.providersUsed ?? 0;
     const derivedConfidence: number =
       quorum > 0
@@ -390,11 +437,11 @@ export class TrustShell {
       signals: r.signals,
       decisionReason: r.decisionReason,
       evidence: r.evidence,
-      // SBFA Phase 2 fields — undefined until backend emits them:
-      belief: undefined,       // not derivable without DST model
-      ignoranceMass: undefined, // never derived — only real DST value counts
-      confidence: derivedConfidence, // DERIVED (see above); real value supersedes when backend emits it
-      tierDistribution: undefined, // undefined until backend emits tier_distribution
+      belief: r.belief, // real DST belief mass, or undefined (never fabricated)
+      ignoranceMass: r.ignoranceMass, // real DST ignorance, or undefined (never derived)
+      confidence: r.confidence ?? derivedConfidence, // real SBFA confidence; else DERIVED proxy
+      tierDistribution: r.tierDistribution,
+      ...(r.glassBox ? { glassBox: r.glassBox } : {}),
     };
     this.emit('verdict', result);
     return result;
