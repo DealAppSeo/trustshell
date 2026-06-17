@@ -18,3 +18,18 @@ export async function verify(
   const mod: any = await import(/* @vite-ignore */ verifierPkg);
   return mod.verify(proofBytes, statement);
 }
+
+// ─── ERC-8004 on-chain reputation reads (Task 3) ────────────────────────────
+//
+// Re-exported from `dist/reputation` so callers can use the first-class import:
+//   import { getRepID, getReputationHistory, getAttestation } from '@hyperdag/trustshell';
+//
+// These functions read directly from the ERC-8004 IdentityRegistry / ReputationRegistry on-chain
+// (Base Sepolia: 0x8004A818…, 0x8004B663…). They require `ethers` at runtime.
+//
+// `ethers` is declared as an optional peer dependency — it is NOT bundled. If ethers is not
+// installed in the consumer's project, these functions throw a clear TrustShellError(424).
+// For ethers-free environments, use client.getRepID(agentId) (backend API read via HTTP).
+//
+// Peer install: npm install ethers@^6
+export { getRepID, getReputationHistory, getAttestation } from './reputation';

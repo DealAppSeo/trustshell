@@ -141,7 +141,7 @@ import {
   getRepID,
   getReputationHistory,
   getAttestation,
-} from '@hyperdag/trustshell/dist/reputation'; // direct module import
+} from '@hyperdag/trustshell'; // first-class exports (ethers@^6 peer dep required)
 
 const options = {
   rpcUrl: 'https://sepolia.base.org',

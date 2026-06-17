@@ -1,23 +1,86 @@
 "use strict";
+/**
+ * ERC-8004 on-chain reputation reads.
+ *
+ * These functions read directly from the deployed IdentityRegistry / ReputationRegistry contracts
+ * (Base Sepolia chain 84532). They require the `ethers` package at runtime.
+ *
+ * `ethers` is an OPTIONAL PEER DEPENDENCY — it is not bundled. Install it separately:
+ *   npm install ethers@^6
+ *
+ * For ethers-free environments use client.getRepID(agentId) (HTTP-based read via the backend).
+ *
+ * Re-exported through src/lib/index.ts so the first-class import works:
+ *   import { getRepID, getReputationHistory, getAttestation } from '@hyperdag/trustshell';
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.REPUTATION_REGISTRY_ABI = exports.IDENTITY_REGISTRY_ABI = void 0;
-exports.resolveAgentId = resolveAgentId;
 exports.getRepID = getRepID;
 exports.getReputationHistory = getReputationHistory;
 exports.getAttestation = getAttestation;
-const ethers_1 = require("ethers");
+const trustshell_1 = require("./trustshell");
 exports.IDENTITY_REGISTRY_ABI = [
-    "function ownerOf(uint256 tokenId) view returns (address)",
-    "function getAgentWallet(uint256 agentId) view returns (address)",
-    "function getMetadata(uint256 agentId, string memory metadataKey) view returns (bytes)"
+    'function ownerOf(uint256 tokenId) view returns (address)',
+    'function getAgentWallet(uint256 agentId) view returns (address)',
+    'function getMetadata(uint256 agentId, string memory metadataKey) view returns (bytes)',
 ];
 exports.REPUTATION_REGISTRY_ABI = [
-    "function getSummary(uint256 agentId, address[] calldata clientAddresses, string calldata tag1, string calldata tag2) view returns (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)",
-    "function readAllFeedback(uint256 agentId, address[] calldata clientAddresses, string calldata tag1, string calldata tag2, bool includeRevoked) view returns (address[] memory clients, uint64[] memory feedbackIndexes, int128[] memory values, uint8[] memory valueDecimals, string[] memory tag1s, string[] memory tag2s, bool[] memory revokedStatuses)",
-    "function readFeedback(uint256 agentId, address clientAddress, uint64 feedbackIndex) view returns (int128 value, uint8 valueDecimals, string memory tag1, string memory tag2, bool isRevoked)",
-    "function getClients(uint256 agentId) view returns (address[] memory)",
-    "event NewFeedback(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex, int128 value, uint8 valueDecimals, string indexed indexedTag1, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)"
+    'function getSummary(uint256 agentId, address[] calldata clientAddresses, string calldata tag1, string calldata tag2) view returns (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)',
+    'function readAllFeedback(uint256 agentId, address[] calldata clientAddresses, string calldata tag1, string calldata tag2, bool includeRevoked) view returns (address[] memory clients, uint64[] memory feedbackIndexes, int128[] memory values, uint8[] memory valueDecimals, string[] memory tag1s, string[] memory tag2s, bool[] memory revokedStatuses)',
+    'function readFeedback(uint256 agentId, address clientAddress, uint64 feedbackIndex) view returns (int128 value, uint8 valueDecimals, string memory tag1, string memory tag2, bool isRevoked)',
+    'function getClients(uint256 agentId) view returns (address[] memory)',
+    'event NewFeedback(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex, int128 value, uint8 valueDecimals, string indexed indexedTag1, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)',
 ];
+/**
+ * Load ethers lazily so the SDK loads cleanly when ethers is not installed.
+ * Throws TrustShellError(424) with an actionable install instruction if absent.
+ */
+async function requireEthers() {
+    try {
+        // Variable-specifier dynamic import avoids bundler static analysis of 'ethers'.
+        const ethersPkg = 'ethers';
+        const mod = await Promise.resolve(`${ethersPkg}`).then(s => __importStar(require(s)));
+        return mod.ethers ?? mod;
+    }
+    catch {
+        throw new trustshell_1.TrustShellError('ethers is not installed. The on-chain reputation helpers (getRepID, getReputationHistory, ' +
+            'getAttestation) require ethers@^6. Install it: npm install ethers@^6\n' +
+            'For ethers-free environments use client.getRepID(agentId) (HTTP-based read).', 424);
+    }
+}
 async function resolveAgentId(agentAddressOrId, provider, options) {
     if (typeof agentAddressOrId === 'number' || typeof agentAddressOrId === 'bigint') {
         return BigInt(agentAddressOrId);
@@ -26,7 +89,6 @@ async function resolveAgentId(agentAddressOrId, provider, options) {
         return BigInt(agentAddressOrId);
     }
     const address = String(agentAddressOrId).toLowerCase();
-    // Try to query the backend to resolve the address/UUID to token ID
     const engineUrl = options?.engineUrl || 'https://repid-engine-production.up.railway.app';
     try {
         const res = await fetch(`${engineUrl}/api/v1/agents`);
@@ -39,8 +101,8 @@ async function resolveAgentId(agentAddressOrId, provider, options) {
             }
         }
     }
-    catch (e) {
-        // Fallback on error
+    catch {
+        // fall through
     }
     try {
         return BigInt(agentAddressOrId);
@@ -49,34 +111,48 @@ async function resolveAgentId(agentAddressOrId, provider, options) {
         throw new Error(`Could not resolve agent address/ID: ${agentAddressOrId}`);
     }
 }
+/**
+ * Query the on-chain ReputationRegistry for an agent's RepID summary (count + weighted score).
+ *
+ * Requires `ethers@^6` — install separately. For HTTP-based reads use `client.getRepID(agentId)`.
+ *
+ * @param agentAddressOrId - ERC-8004 token ID (number/bigint/numeric-string) or agent wallet address.
+ * @param options - RPC, registry addresses, optional pre-built provider.
+ */
 async function getRepID(agentAddressOrId, options) {
-    const provider = options?.provider || new ethers_1.ethers.JsonRpcProvider(options?.rpcUrl || 'https://sepolia.base.org');
+    const ethers = await requireEthers();
+    const provider = options?.provider || new ethers.JsonRpcProvider(options?.rpcUrl || 'https://sepolia.base.org');
     const agentId = await resolveAgentId(agentAddressOrId, provider, options);
     const reputationAddress = options?.reputationRegistryAddress || '0x8004B663056A597Dffe9eCcC1965A193B7388713';
-    const contract = new ethers_1.ethers.Contract(reputationAddress, exports.REPUTATION_REGISTRY_ABI, provider);
+    const contract = new ethers.Contract(reputationAddress, exports.REPUTATION_REGISTRY_ABI, provider);
     let clients = [];
     try {
         clients = await contract.getClients(agentId);
     }
-    catch (e) {
-        // ignore
+    catch {
+        // ignore — no clients yet
     }
     if (clients.length === 0) {
         return { count: 0, value: 0n, decimals: 0 };
     }
-    const clientsList = [...clients];
-    const result = await contract.getSummary(agentId, clientsList, 'hyperdag_repid', '');
+    const result = await contract.getSummary(agentId, [...clients], 'hyperdag_repid', '');
     return {
         count: Number(result[0]),
         value: BigInt(result[1]),
-        decimals: Number(result[2])
+        decimals: Number(result[2]),
     };
 }
+/**
+ * Fetch paginated on-chain reputation history for an agent.
+ *
+ * Requires `ethers@^6` — install separately.
+ */
 async function getReputationHistory(agentAddressOrId, options) {
-    const provider = options?.provider || new ethers_1.ethers.JsonRpcProvider(options?.rpcUrl || 'https://sepolia.base.org');
+    const ethers = await requireEthers();
+    const provider = options?.provider || new ethers.JsonRpcProvider(options?.rpcUrl || 'https://sepolia.base.org');
     const agentId = await resolveAgentId(agentAddressOrId, provider, options);
     const reputationAddress = options?.reputationRegistryAddress || '0x8004B663056A597Dffe9eCcC1965A193B7388713';
-    const contract = new ethers_1.ethers.Contract(reputationAddress, exports.REPUTATION_REGISTRY_ABI, provider);
+    const contract = new ethers.Contract(reputationAddress, exports.REPUTATION_REGISTRY_ABI, provider);
     const clientsFilter = options?.clientAddresses ? [...options.clientAddresses] : [];
     const tag1 = options?.tag1 || '';
     const tag2 = options?.tag2 || '';
@@ -93,7 +169,7 @@ async function getReputationHistory(agentAddressOrId, options) {
             decimals: Number(valueDecimals[i]),
             tag1: tag1s[i],
             tag2: tag2s[i],
-            isRevoked: revokedStatuses[i]
+            isRevoked: revokedStatuses[i],
         });
     }
     if (options?.limit && options.limit > 0) {
@@ -101,20 +177,23 @@ async function getReputationHistory(agentAddressOrId, options) {
     }
     return list;
 }
+/**
+ * Decode a specific ERC-8004 ReputationRegistry attestation from a tx hash.
+ *
+ * Requires `ethers@^6` — install separately.
+ */
 async function getAttestation(txHash, options) {
-    const provider = options?.provider || new ethers_1.ethers.JsonRpcProvider(options?.rpcUrl || 'https://sepolia.base.org');
+    const ethers = await requireEthers();
+    const provider = options?.provider || new ethers.JsonRpcProvider(options?.rpcUrl || 'https://sepolia.base.org');
     const receipt = await provider.getTransactionReceipt(txHash);
     if (!receipt) {
         throw new Error(`Transaction receipt not found for hash: ${txHash}`);
     }
-    const reputationInterface = new ethers_1.ethers.Interface(exports.REPUTATION_REGISTRY_ABI);
+    const reputationInterface = new ethers.Interface(exports.REPUTATION_REGISTRY_ABI);
     const newFeedbackTopic = reputationInterface.getEvent('NewFeedback').topicHash;
     for (const log of receipt.logs) {
         if (log.topics[0] === newFeedbackTopic) {
-            const parsedLog = reputationInterface.parseLog({
-                topics: log.topics,
-                data: log.data
-            });
+            const parsedLog = reputationInterface.parseLog({ topics: log.topics, data: log.data });
             if (parsedLog) {
                 return {
                     txHash,
@@ -128,7 +207,7 @@ async function getAttestation(txHash, options) {
                     tag2: parsedLog.args.tag2,
                     endpoint: parsedLog.args.endpoint,
                     feedbackURI: parsedLog.args.feedbackURI,
-                    feedbackHash: parsedLog.args.feedbackHash
+                    feedbackHash: parsedLog.args.feedbackHash,
                 };
             }
         }

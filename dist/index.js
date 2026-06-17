@@ -36,7 +36,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = void 0;
+exports.getAttestation = exports.getReputationHistory = exports.getRepID = exports.default = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
 var trustshell_1 = require("./trustshell");
@@ -55,3 +55,21 @@ async function verify(proofBytes, statement) {
     const mod = await Promise.resolve(`${verifierPkg}`).then(s => __importStar(require(s)));
     return mod.verify(proofBytes, statement);
 }
+// ─── ERC-8004 on-chain reputation reads (Task 3) ────────────────────────────
+//
+// Re-exported from `dist/reputation` so callers can use the first-class import:
+//   import { getRepID, getReputationHistory, getAttestation } from '@hyperdag/trustshell';
+//
+// These functions read directly from the ERC-8004 IdentityRegistry / ReputationRegistry on-chain
+// (Base Sepolia: 0x8004A818…, 0x8004B663…). They require `ethers` at runtime.
+//
+// `ethers` is declared as an optional peer dependency — it is NOT bundled. If ethers is not
+// installed in the consumer's project, these functions throw a clear TrustShellError(424).
+// For ethers-free environments, use client.getRepID(agentId) (backend API read via HTTP).
+//
+// Peer install: npm install ethers@^6
+var reputation_1 = require("./reputation");
+Object.defineProperty(exports, "getRepID", { enumerable: true, get: function () { return reputation_1.getRepID; } });
+Object.defineProperty(exports, "getReputationHistory", { enumerable: true, get: function () { return reputation_1.getReputationHistory; } });
+Object.defineProperty(exports, "getAttestation", { enumerable: true, get: function () { return reputation_1.getAttestation; } });
+//# sourceMappingURL=index.js.map

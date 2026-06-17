@@ -275,3 +275,4 @@ export declare class TrustShell {
     executeA2A(params: A2AParams): Promise<A2AResult>;
 }
 export default TrustShell;
+//# sourceMappingURL=trustshell.d.ts.map

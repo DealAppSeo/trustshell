@@ -19,3 +19,5 @@ export declare function verify(proofBytes: string, statement: {
     error: string | null;
     verifier_version: string;
 }>;
+export { getRepID, getReputationHistory, getAttestation } from './reputation';
+//# sourceMappingURL=index.d.ts.map

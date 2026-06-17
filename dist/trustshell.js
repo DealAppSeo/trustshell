@@ -452,3 +452,4 @@ class TrustShell {
 }
 exports.TrustShell = TrustShell;
 exports.default = TrustShell;
+//# sourceMappingURL=trustshell.js.map
