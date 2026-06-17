@@ -1,0 +1,19 @@
+{
+  "name": "hyperdag-mini-agent",
+  "version": "1.0.0",
+  "description": "Zero-to-one trust-wrapped AI agent using @hyperdag/trustshell.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "start": "node agent.mjs",
+    "start:mock": "node agent.mjs"
+  },
+  "dependencies": {
+    "@hyperdag/proof-verifier": "0.2.0",
+    "@hyperdag/trustshell": "file:../.."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "_comment": "When running inside the trustshell monorepo worktree, agent.mjs loads ../../dist/index.js (branch build). When installed standalone via npm install, it loads the published package from node_modules."
+}
