@@ -41,6 +41,28 @@ That single command:
 **BYOK (optional):** bring your own provider key — `BYOK_PROVIDER=anthropic npx @hyperdag/trustshell init`.
 Point at your own backend with `REPID_API_URL`.
 
+### Start now, claim later (no other web3 onboarding does this)
+
+`init` requires **nothing** — no wallet, no email, no signup. You get an anonymous **holder DID** + a
+privacy **nullifier** (a one-way commitment — never your raw identity), and your agent earns RepID
+immediately. When you're ready, bind **one** handle so you can return and claim the agent + its XP:
+
+```bash
+npx @hyperdag/trustshell claim --email you@example.com   # or --wallet 0x… or --2fa <code>
+npx @hyperdag/trustshell whoami                          # DID + nullifier + RepID + per-vertical
+npx @hyperdag/trustshell credential                      # full credential (commitment, never raw)
+```
+
+The handle is **hashed locally** (only a preview is stored); your raw identity never lands on disk.
+Identity binding is performed by the protocol's identity service — the SDK never writes identity
+tables directly.
+
+> ⚠️ **Early stage — here be dragons.** This is pre-1.0. Your value is saved **locally** in
+> `~/.trustshell/` and earns RepID now; claiming binds it so it survives a new machine. On-chain
+> anchoring is a preview (a handful anchored so far), the learned router is shadow-only, and the
+> identity-claim endpoint is still landing. We **under-claim and over-deliver** — every trust signal
+> is shown as evidence (per-provider verdicts + a WASM-verifiable proof), never as a bare claim.
+
 ### Use it in code (thin client over repid-engine)
 
 ```ts

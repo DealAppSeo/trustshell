@@ -526,6 +526,30 @@ export class TrustShell {
   }
 
   /**
+   * Bind a claim handle (email | wallet | 2fa) to an anonymous holder DID so a guest can return and
+   * claim their agent + accrued RepID. THIN client over repid-engine `POST /api/v1/identity/claim`
+   * — identity writes are owned by the identity lane (GA); this never writes identity tables directly.
+   * The endpoint may not be live yet: a 404 surfaces as TrustShellError(404) so the CLI can stage the
+   * claim locally and flag GA. Privacy: the raw handle goes only to the endpoint (which hashes it);
+   * the SDK never persists it.
+   */
+  async claimIdentity(opts: { holderDid: string; handleType: 'email' | 'wallet' | '2fa'; handle: string }): Promise<any> {
+    if (!opts.holderDid) throw new TrustShellError('holderDid is required', 400);
+    if (!opts.handle) throw new TrustShellError('handle is required', 400);
+    const url = `${this.baseUrl}/api/v1/identity/claim`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ holder_did: opts.holderDid, handle_type: opts.handleType, handle: opts.handle }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new TrustShellError(`claim failed: ${res.status} ${detail}`.trim(), res.status);
+    }
+    return res.json();
+  }
+
+  /**
    * x402 micropayment hook. Payments are owned by the x402 / ERC-8004 lane — this is a THIN
    * pass-through to repid-engine's `/api/v1/x402` path so the SDK surface is complete. The exact
    * `action` + body shape are defined by the x402 service; this method does not implement payment logic.
