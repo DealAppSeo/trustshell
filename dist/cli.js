@@ -205,6 +205,29 @@ async function runWhoami(full) {
     console.log('  ────────────────────────────────────────────');
     console.log('');
 }
+/** Glass box (M4) — show WHY a verdict happened: per-provider evidence + signals, so a user can
+ *  tweak the prompt/guardrails and re-run (the seed of bilateral learning). */
+async function runExplain() {
+    const shell = new trustshell_1.TrustShell({ apiUrl: API_URL, apiKey: process.env.REPID_API_KEY });
+    const text = args.slice(1).join(' ') || 'The Eiffel Tower is in Berlin.';
+    const r = await shell.halCheck(text);
+    const s = r.signals;
+    console.log('');
+    console.log('  🔍 Glass Box — why this verdict');
+    console.log('  ────────────────────────────────────────────');
+    console.log(`  Claim      "${text.length > 80 ? text.slice(0, 80) + '…' : text}"`);
+    console.log(`  Verdict    ${r.verdict}   trust ${r.trustScore}/100   → ${r.ok ? 'ALLOWED' : 'BLOCKED'}${r.soft ? ' (soft flag)' : ''}`);
+    console.log(`  Reason     ${r.decisionReason}`);
+    if (r.evidence?.length) {
+        console.log('  Evidence (independent providers — the "why"):');
+        for (const e of r.evidence)
+            console.log(`    • ${e}`);
+    }
+    console.log(`  Signals    harm ${s.harmProbability} · uncertainty ${s.epistemicUncertainty} · evidence ${s.evidenceQuality} · scope ${s.scopeAppropriateness}`);
+    console.log('  ────────────────────────────────────────────');
+    console.log('  ↻ Tweak the prompt/guardrails and re-run to train the agent (bilateral learning).');
+    console.log('');
+}
 async function main() {
     if (cmd === 'init')
         return runInit();
@@ -214,6 +237,8 @@ async function main() {
         return runWhoami(false);
     if (cmd === 'credential')
         return runWhoami(true);
+    if (cmd === 'explain')
+        return runExplain();
     const shell = new trustshell_1.TrustShell({ apiUrl: API_URL, apiKey: process.env.REPID_API_KEY });
     if (cmd === 'score') {
         console.log(JSON.stringify(await shell.halCheck(args[1] || 'The capital of France is Paris.'), null, 2));
@@ -232,6 +257,7 @@ async function main() {
     console.log('  claim --email|--wallet|--2fa <x> bind a handle to claim your agent + XP later');
     console.log('  whoami                           DID + nullifier + RepID + per-vertical');
     console.log('  credential                       full credential view (commitment, never raw)');
+    console.log('  explain <text>                   glass box — WHY a verdict happened (evidence + signals)');
     console.log('  score <text>                     HAL-check on free models');
     console.log('  verify <agentId>                 RepID + proof lookup');
 }
