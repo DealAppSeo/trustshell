@@ -108,6 +108,44 @@ export interface ProofPresentation {
   };
 }
 
+/** Onboarding (custodian + agent). Web3 is DEFERRED: the human custodian is identified by a
+ *  custodial address; a real wallet attaches later via BYOK (wallet_address + byok_provider). */
+export interface OnboardOptions {
+  agentName: string;
+  /** the human custodian's address (custodial/embedded by default; a real EVM wallet via BYOK later). */
+  conservatorAddress: string;
+  /** the AGENT row's is_human (default false — the custodian is the human, the agent is not). */
+  isHuman?: boolean;
+  /** the agent's embedded/custodial wallet address; null until BYOK attaches a real one. */
+  walletAddress?: string | null;
+  /** default = free OSS via the LiteLLM gateway (no key needed). */
+  llmProvider?: string;
+  llmModel?: string;
+  /** BYOK — set when the custodian brings their own provider key. */
+  byokProvider?: string;
+}
+export interface OnboardResult {
+  agentId: string;
+  /** shown ONCE — save it; the SDK uses it for submitOutcome. */
+  apiKey: string;
+  conservatorAddress: string;
+  repid: number;
+  tier: string;
+  repidUrl?: string;
+}
+export interface SubmitOutcomeOptions {
+  llmProvider: string;
+  /** the agent's certainty at decision time, in [0,1]. */
+  certainty: number;
+  decisionText: string;
+  /** e.g. 'success' | 'failure' | 'fulfilled'. */
+  outcome: string;
+  taskDomain: string;
+  llmModel?: string;
+  prompt?: string;
+  hallucinationCaught?: boolean;
+}
+
 export class TrustShellError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -404,6 +442,103 @@ export class TrustShell {
       firstBreakId: data.first_break_id || null,
       verifiedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * HAL-check any text through the cross-provider quorum (the real fact-check path).
+   * Clean product name for `verifyOutput`; returns ok/verdict/trustScore + per-provider evidence.
+   * No API key required (public read). Default providers are free OSS via the LiteLLM gateway.
+   */
+  async halCheck(text: string, options: ScoreOptions = {}): Promise<VerifyOutputResult> {
+    return this.verifyOutput(text, options);
+  }
+
+  /**
+   * Onboard a custodian + agent in one call — a thin client over repid-engine `POST /api/v1/agents/register`.
+   * No API key required to call. Web3 is DEFERRED: pass the custodian's custodial `conservatorAddress`
+   * now and attach a real wallet later via BYOK (`byokProvider` / `walletAddress`). Default model =
+   * free OSS via the LiteLLM gateway. Returns the new `agentId` + a ONE-TIME `apiKey` (save it —
+   * the SDK uses it for `submitOutcome`).
+   */
+  async onboard(opts: OnboardOptions): Promise<OnboardResult> {
+    if (!opts.agentName) throw new TrustShellError('agentName is required', 400);
+    if (!opts.conservatorAddress) throw new TrustShellError('conservatorAddress (the human custodian) is required', 400);
+    const url = `${this.baseUrl}/api/v1/agents/register`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        agent_name: opts.agentName,
+        conservator_address: opts.conservatorAddress,
+        is_human: opts.isHuman ?? false,
+        wallet_address: opts.walletAddress ?? null,
+        llm_provider: opts.llmProvider ?? 'litellm-free',
+        llm_model: opts.llmModel ?? null,
+        byok_provider: opts.byokProvider ?? null,
+      }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new TrustShellError(`onboard failed: ${res.status} ${detail}`.trim(), res.status);
+    }
+    const data: any = await res.json();
+    return {
+      agentId: data.agent_id,
+      apiKey: data.api_key ?? data.key,
+      conservatorAddress: opts.conservatorAddress,
+      repid: data.repid ?? data.starting_score ?? 200,
+      tier: data.tier ?? 'PROBATIONARY',
+      repidUrl: data.repid_url,
+    };
+  }
+
+  /**
+   * Submit a task outcome → emits a `repid_score_events` row (the DB trigger applies the RepID
+   * delta server-side). Requires the agent's API key — set `config.apiKey` from `onboard`.
+   */
+  async submitOutcome(agentId: string, opts: SubmitOutcomeOptions): Promise<any> {
+    if (!this.config.apiKey) {
+      throw new TrustShellError('submitOutcome requires the agent API key (set config.apiKey from onboard)', 401);
+    }
+    if (typeof opts.certainty !== 'number' || opts.certainty < 0 || opts.certainty > 1) {
+      throw new TrustShellError('certainty must be a number in [0,1]', 400);
+    }
+    const url = `${this.baseUrl}/api/v1/agents/${encodeURIComponent(agentId)}/score-event`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        llm_provider: opts.llmProvider,
+        llm_model: opts.llmModel ?? null,
+        certainty: opts.certainty,
+        decision_text: opts.decisionText,
+        outcome: opts.outcome,
+        task_domain: opts.taskDomain,
+        prompt: opts.prompt ?? null,
+        hallucination_caught: opts.hallucinationCaught ?? null,
+      }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new TrustShellError(`submitOutcome failed: ${res.status} ${detail}`.trim(), res.status);
+    }
+    return res.json();
+  }
+
+  /**
+   * x402 micropayment hook. Payments are owned by the x402 / ERC-8004 lane — this is a THIN
+   * pass-through to repid-engine's `/api/v1/x402` path so the SDK surface is complete. The exact
+   * `action` + body shape are defined by the x402 service; this method does not implement payment logic.
+   */
+  async x402Pay(opts: { action?: string; [k: string]: unknown }): Promise<any> {
+    const action = (opts.action as string) ?? 'settle';
+    const url = `${this.baseUrl}/api/v1/x402/${encodeURIComponent(action)}`;
+    const res = await fetch(url, { method: 'POST', headers: this.getHeaders(), body: JSON.stringify(opts) });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new TrustShellError(`x402Pay (${action}) failed: ${res.status} ${detail}`.trim(), res.status);
+    }
+    return res.json();
   }
 }
 

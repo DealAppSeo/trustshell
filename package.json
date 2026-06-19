@@ -5,6 +5,14 @@
   "private": false,
   "main": "src/lib/index.ts",
   "types": "src/lib/index.ts",
+  "bin": {
+    "trustshell": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src/lib",
+    "README.md"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build && echo 'Next app built. For SDK: tsc -p tsconfig.sdk.json (if configured)'",

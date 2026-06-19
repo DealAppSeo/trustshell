@@ -15,6 +15,65 @@ Drop in. No rearchitecting.
 
 ---
 
+## Quickstart (≈60 seconds)
+
+Onboard a custodian + agent on free, open-source models — **no API key, no wallet, no config**:
+
+```bash
+npx @hyperdag/trustshell init
+```
+
+That single command:
+1. generates a **custodial identity** for you (web3 is deferred — the private key stays local; attach a real wallet later via BYOK),
+2. **onboards a custodian + agent** (a `repid_agents` row: `conservator_address` = you, the agent's `is_human=false`),
+3. runs a **HAL-checked call on a free model** (the cross-provider quorum — free OSS via the LiteLLM gateway, no key), and
+4. prints the agent's **RepID**.
+
+```
+  ✓ TrustShell onboarded
+  Custodian (human)  0x9f…c2  (custodial — attach a wallet later)
+  Agent ID           7b1f…   ·  Model  free OSS (LiteLLM gateway)
+  HAL check (free)   PASS (trustScore 100/100) — mistral:TRUE; cerebras:TRUE
+  RepID              200  (PROBATIONARY)
+  Saved → ~/.trustshell/config.json
+```
+
+**BYOK (optional):** bring your own provider key — `BYOK_PROVIDER=anthropic npx @hyperdag/trustshell init`.
+Point at your own backend with `REPID_API_URL`.
+
+### Use it in code (thin client over repid-engine)
+
+```ts
+import { TrustShell } from '@hyperdag/trustshell';
+
+const ts = new TrustShell({ apiKey: process.env.REPID_API_KEY });
+
+// 1. HAL-check any output on free models
+const check = await ts.halCheck('The Eiffel Tower is in Berlin.');
+//    → { ok:false, verdict:'VETO', trustScore, evidence:['mistral:FALSE (…in Paris)'] }
+
+// 2. read an agent's RepID (public, no key)
+const rep = await ts.getRepID(agentId);          // { repid, tier, … }
+
+// 3. submit a task outcome → emits a score event (the DB trigger applies the RepID delta)
+await ts.submitOutcome(agentId, {
+  llmProvider: 'litellm-free', certainty: 0.9,
+  decisionText: '…', outcome: 'success', taskDomain: 'research',
+});
+
+// 4. x402 micropayment hook (delegates to the x402 service)
+await ts.x402Pay({ action: 'settle', /* … */ });
+
+// onboard programmatically
+const { agentId, apiKey } = await ts.onboard({
+  agentName: 'my-agent', conservatorAddress: '0x…', // BYOK optional via byokProvider
+});
+```
+
+**Defaults:** free OSS models by default; BYOK optional; no API key required to onboard or to read RepID. Trust is delivered as **evidence** (per-provider verdicts + verifiable ZKP RepID), not a claim.
+
+---
+
 ## The approach
 
 The beauty and symmetry found in recurring patterns
