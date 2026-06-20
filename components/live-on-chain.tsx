@@ -35,9 +35,9 @@ const contracts = [
 
 // Static numbers verified against production DB at edit time. See block comment
 // above for the rationale. Update on the same cadence as the static landing copy.
-const STATIC_AGENTS_MINTED = 4;
-const STATIC_LIFETIME_REAL_WRITES = 32;
-const STATIC_FROZEN_AT = '2026-05-24'; // last real on-chain write date
+const STATIC_AGENTS_MINTED = 12;
+const STATIC_LIFETIME_REAL_WRITES = 45;
+const STATIC_FROZEN_AT = '2026-06-03'; // last real on-chain write date
 
 const LIVE_REFRESH_MS = 60_000;
 

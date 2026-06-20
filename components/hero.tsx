@@ -28,7 +28,7 @@ export function Hero() {
       <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
         {/* H1 */}
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white text-balance leading-tight">
-          Add trust scoring to any AI app in 3 lines
+          Add trust scoring to any AI agent or app in 3 lines
         </h1>
 
         {/* Code Snippet Box */}
@@ -54,14 +54,14 @@ export function Hero() {
             </span>
           </button>
           <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : 'npm package v0.6.1'}
+            {copied ? 'Copied to clipboard!' : 'npm package v0.7.0'}
           </span>
         </div>
 
         {/* CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
           <a
-            href="https://trustchat.dev"
+            href="/start"
             className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center gap-2 text-sm"
           >
             Get Started

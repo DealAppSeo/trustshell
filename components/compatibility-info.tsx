@@ -1,8 +1,8 @@
 'use client';
 
 export function CompatibilityInfo() {
-  const llms = ['OpenAI', 'Claude', 'Gemini', 'Llama', 'Mistral', 'Custom'];
-  const frameworks = ['LangChain', 'CrewAI', 'AutoGen', 'Custom'];
+  const llms = ['OpenAI', 'Claude', 'Gemini', 'Llama', 'Mistral', 'Grok', 'Qwen', 'Hermes', 'Cerebras', 'Custom'];
+  const frameworks = ['LangChain', 'CrewAI', 'AutoGen', 'LlamaIndex', 'Semantic Kernel', 'Haystack', 'Custom'];
   
   const signals = [
     { name: 'Evidence Quality', desc: 'Cross-verifies claims against search indices and retrieval logs to catch groundless fabrications.', value: 94 },
@@ -17,7 +17,7 @@ export function CompatibilityInfo() {
       {/* Works with Every LLM & Framework */}
       <section className="max-w-5xl mx-auto px-6 grid md:grid-cols-2 gap-12">
         <div className="space-y-6">
-          <h2 className="text-3xl font-bold tracking-tight text-white">Works with every LLM</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Works with almost every LLM</h2>
           <p className="text-slate-400 text-sm leading-relaxed">
             Integrates natively with proprietary API endpoints, open-weights models, and custom routing setups.
           </p>
