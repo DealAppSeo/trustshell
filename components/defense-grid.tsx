@@ -48,7 +48,7 @@ const defenses = [
     icon: Scale,
     name: 'Reputation manipulation',
     description:
-      "RepID earned through real decisions, not assigned. Pythagorean Comma damping (531441/524288) prevents inflation. On-chain. Auditable. Can't be bought.",
+      "RepID earned through real decisions, not assigned. Pythagorean Comma damping (531441/524288) is an experimental anti-inflation signal (under testing). On-chain. Auditable. Can't be bought.",
   },
   {
     icon: GitBranch,
