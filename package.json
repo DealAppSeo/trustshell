@@ -23,7 +23,8 @@
     "prepublishOnly": "npm run sdk:build && npm run sdk:test"
   },
   "dependencies": {
-    "@hyperdag/proof-verifier": "0.2.0"
+    "@hyperdag/proof-verifier": "0.2.0",
+    "ethers": "^6.14.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
