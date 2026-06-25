@@ -54,9 +54,11 @@ WASM browser verification (< 100ms). Verify the math client-side instead of trus
 **Related:** RepID, ZKP · **See also:** `@hyperdag/proof-verifier` · **Status:** shipped
 
 ## Pythagorean Comma
-**The constant at the heart of HAL's veto math** (`531441/524288`). A small, unresolvable gap from music
-theory used as a dissonance amplifier — accumulating disagreement eventually trips a veto.
-**Related:** HAL · **Status:** shipped
+**An experimental dissonance signal** (`531441/524288`). A small, unresolvable gap from music theory,
+explored as a dissonance amplifier — the hypothesis is that accumulating disagreement could trip a veto.
+**Status: under falsification testing** — promising on synthetic data, not yet validated on real data
+with independent lineage; not a proven production mechanism.
+**Related:** HAL · **Status:** experimental (under testing)
 
 ## Defense-in-depth
 **Layered guards so no single bug lets an agent cheat the economy.** Replay/idempotency, double-fulfill,

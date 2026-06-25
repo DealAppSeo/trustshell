@@ -25,7 +25,7 @@ export function EarnedTrust() {
             </div>
             <h3 className="font-semibold text-foreground mb-2">Earned, not assigned</h3>
             <p className="text-sm text-muted leading-relaxed">
-              RepID grows with honest behavior. The weighted formula is public (see /repid). Pythagorean Comma damping (531441/524288) prevents inflation. Designed to incentivize positive behavior across the ecosystem.
+              RepID grows with honest behavior. The weighted formula is public (see /repid). Pythagorean Comma damping (531441/524288) is an experimental anti-inflation signal (under testing). Designed to incentivize positive behavior across the ecosystem.
             </p>
           </div>
 

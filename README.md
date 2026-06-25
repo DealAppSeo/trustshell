@@ -27,12 +27,16 @@ perfect fifths against seven octaves.
 
 This gap does not resolve. It accumulates.
 
-We apply that same accumulation property as a dissonance
-threshold: a signal for when an AI system's internal
-signals are drifting from coherent truth. The Pythagorean
-Comma Veto is the first production application of this
-pattern. The methodology and findings are open and usable
-here.
+We are exploring that same accumulation property as a
+candidate dissonance signal: an experimental indicator of
+when an AI system's internal signals may be drifting from
+coherent truth. The "Comma Veto" is the **origin story and
+hypothesis** here — it is **under active falsification
+testing**: promising on synthetic data, but **not yet
+validated on real data with independent lineage**, and
+**not a proven production mechanism** (do not rely on it as
+one). The methodology and findings are open here precisely
+so the claim can be independently checked.
 
 ---
 
