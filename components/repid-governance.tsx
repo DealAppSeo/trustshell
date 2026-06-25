@@ -15,8 +15,15 @@ export function RepidGovernance() {
   + 0.30 × (1 − epistemic_uncertainty)  
   + 0.20 × evidence_quality
   + 0.10 × scope_appropriateness
-  × 531441/524288  (Pythagorean Comma damping)`}</code>
+  × 531441/524288  (Pythagorean Comma damping*)`}</code>
         </pre>
+
+        <p className="text-xs text-muted leading-relaxed max-w-2xl">
+          * The Pythagorean Comma damping term (531441/524288) is <strong>experimental — under
+          falsification testing</strong>. It is promising on synthetic data but not yet validated
+          on real data with independent lineage, and is not a proven production mechanism. The
+          weighted signals above are the load-bearing part of the formula.
+        </p>
 
         <a
           href="/repid"

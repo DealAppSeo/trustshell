@@ -110,6 +110,10 @@ Wisdom Score Update
 VDR +1 (permanent, never decays)
 ```
 
+> *Note: the `× 531441/524288` (Pythagorean Comma) term shown in the combiners
+> above is **experimental — under falsification testing**, not a proven production
+> mechanism. The weighted signals are the load-bearing part of the combiner.*
+
 ### Thresholds
 
 The HAL pipeline uses two runtime-configurable thresholds, read
@@ -131,10 +135,14 @@ production values and outcome rates.
 > (`(531441/524288) − 1 ≈ 0.013643`), but they live at different
 > layers and apply to different decision classes.
 
-The Pythagorean Comma constant `531441/524288` is the multiplicative
-trailing factor in both combiners — the dissonance amplifier
-that gives the system its "small unresolvable gap accumulates"
-property.
+The Pythagorean Comma constant `531441/524288` appears as an
+**experimental** multiplicative trailing factor in both combiners —
+the intended "dissonance amplifier" behind the "small unresolvable gap
+accumulates" idea. **This term is under active falsification testing**
+(promising on synthetic data, not yet validated on real data with
+independent lineage); it is **not a proven production mechanism**. The
+weighted signals are the load-bearing part of the combiner; the `×`
+comma factor is the hypothesis being tested.
 
 ### Production status
 
@@ -405,9 +413,10 @@ credential that makes the agent economy accountable.
 - **Optional Phase 1.5 cross-LLM 6th signal** — for factual /
   time-sensitive prompts, two providers are queried and their
   agreement contributes a 6th signal to the combiner
-- **Pythagorean Comma constant** — 531441/524288, the
-  multiplicative trailing factor in both 5-DOF and 6-DOF
-  combiners
+- **Pythagorean Comma constant** — 531441/524288, an
+  **experimental** multiplicative trailing factor in both 5-DOF
+  and 6-DOF combiners (*under falsification testing — not a proven
+  production mechanism*)
 - **Runtime-tunable thresholds** — `hal_veto_threshold` and
   `hal_block_threshold` live in the engine's config table; can
   be retuned without a redeploy
@@ -449,9 +458,9 @@ Contribute to the live RepID formula discussion at [trustshell.dev/repid](https:
 Apache 2.0 — see [LICENSE](LICENSE).
 
 Patent rights, if any, are granted under the Apache 2.0
-patent grant clause. Commercial use of the Pythagorean
-Comma Veto methodology in closed-source systems requires
-written permission from DealApp Inc.
+patent grant clause. Commercial use of the (experimental)
+Pythagorean Comma Veto methodology in closed-source systems
+requires written permission from DealApp Inc.
 
 Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol).
 ERC-8004 compatible. Micah 6:8.
