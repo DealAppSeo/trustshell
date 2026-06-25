@@ -3,59 +3,61 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 
-// Field names per the live repid-engine /api/v1/llm-trust response:
-//   { llm_provider, llm_model, total_decisions, hallucinations_caught,
-//     hallucination_rate_pct, trust_score_pct, avg_certainty,
-//     agents_using, last_decision }
-// trust_score_pct is already a percentage (e.g. 54.55), not a fraction.
-// llm_model is null for headline-per-provider rows (the API merges models).
-interface LLMTrust {
-  llm_provider: string;
-  llm_model: string | null;
-  trust_score_pct: number;
-  total_decisions: number;
-  last_decision: string;
+interface AgentRepIDEntry {
+  name: string;
+  displayName: string;
+  tokenId: number;
+  repid: number | null;
+  tier: string | null;
+  feedbackCount: number;
+  source: 'on-chain' | 'no-on-chain-writes';
+  basescanUrl: string;
+}
+
+interface LeaderboardResponse {
+  agents: AgentRepIDEntry[];
+  as_of: string;
+  source: string;
+  on_chain_with_writes: number;
+  total_minted: number;
 }
 
 export function LiveTrustScores() {
-  const [scores, setScores] = useState<LLMTrust[]>([]);
+  const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const fetchScores = async () => {
+    const fetchLeaderboard = async () => {
       try {
-        const response = await fetch(
-          'https://repid-engine-production.up.railway.app/api/v1/llm-trust',
-          { signal: AbortSignal.timeout(5000) }
-        );
+        const response = await fetch('/api/agent-leaderboard', {
+          signal: AbortSignal.timeout(12000),
+        });
         if (!response.ok) throw new Error('Failed to fetch');
-        const data = await response.json();
-        setScores(data);
+        const json = (await response.json()) as LeaderboardResponse;
+        setData(json);
         setLoading(false);
       } catch {
-        // Wait 2 seconds before showing error fallback so transient blips
-        // don't flash the failure state.
         setTimeout(() => {
           setLoading(false);
           setError(true);
-        }, 2000);
+        }, 1500);
       }
     };
 
-    fetchScores();
+    fetchLeaderboard();
   }, []);
 
-  // Absolute "Mon DD, YYYY" date — honest about staleness rather than papering
-  // over it with a relative-time fudge ("2 weeks ago" reads as drift).
-  const formatLastDecision = (dateString: string) => {
-    if (!dateString) return '—';
-    const date = new Date(dateString);
+  const formatAsOf = (iso: string) => {
+    const date = new Date(iso);
     if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
     });
   };
 
@@ -64,60 +66,90 @@ export function LiveTrustScores() {
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            LLM trust leaderboard.
+            Agent RepID leaderboard.
           </h2>
           <p className="text-muted">
-            Trust scores accumulated from agent decisions, scored via the production HAL pipeline. Verifiable on-chain. No mockups.
+            Live reads from the ERC-8004 ReputationRegistry on Base Sepolia — no Railway backend, no mockups.
+            Scores with on-chain attestations update when the mint pipeline resumes; agents minted without writes yet are labeled honestly.
           </p>
         </div>
 
         {loading && (
           <div className="text-center py-12 text-muted">
-            Loading…
+            Reading on-chain RepID…
           </div>
         )}
 
         {error && !loading && (
           <div className="text-center py-12">
-            <p className="text-muted mb-2">Leaderboard temporarily unavailable</p>
+            <p className="text-muted mb-2">On-chain read failed — public RPC unreachable</p>
             <a
               href="https://trustrepid.dev"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent hover:underline inline-flex items-center gap-1"
             >
-              See trustrepid.dev for full leaderboard
+              See trustrepid.dev for historical leaderboard
               <ExternalLink className="w-4 h-4" />
             </a>
           </div>
         )}
 
-        {!loading && !error && scores.length > 0 && (
+        {!loading && !error && data && data.agents.length > 0 && (
           <>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {scores.map((score, i) => (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {data.agents.map((agent) => (
                 <div
-                  key={`${score.llm_provider}-${i}`}
+                  key={agent.name}
                   className="p-5 bg-card rounded-xl border border-border"
                 >
-                  <p className="text-sm text-muted mb-1 font-mono uppercase">
-                    {score.llm_provider}
-                  </p>
-                  <p className="text-3xl font-bold text-foreground mb-2">
-                    {score.trust_score_pct != null && !isNaN(score.trust_score_pct)
-                      ? `${score.trust_score_pct.toFixed(2)}%`
-                      : 'N/A'}
-                  </p>
-                  <div className="flex justify-between text-xs text-muted">
-                    <span>{score.total_decisions.toLocaleString()} decisions</span>
-                    <span>Last: {formatLastDecision(score.last_decision)}</span>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="text-sm text-muted font-mono uppercase">
+                      {agent.displayName}
+                    </p>
+                    {agent.source === 'on-chain' ? (
+                      <span className="text-[10px] uppercase tracking-wide text-green-500/80 shrink-0">
+                        on-chain
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase tracking-wide text-amber-500/80 shrink-0">
+                        minted · no writes
+                      </span>
+                    )}
                   </div>
+                  <p className="text-3xl font-bold text-foreground mb-1">
+                    {agent.repid != null ? agent.repid.toLocaleString() : '—'}
+                  </p>
+                  {agent.tier && (
+                    <p className="text-xs text-muted mb-2">{agent.tier}</p>
+                  )}
+                  <div className="flex justify-between text-xs text-muted">
+                    <span>token {agent.tokenId}</span>
+                    <span>
+                      {agent.feedbackCount > 0
+                        ? `${agent.feedbackCount} on-chain writes`
+                        : 'awaiting pipeline'}
+                    </span>
+                  </div>
+                  <a
+                    href={agent.basescanUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
+                  >
+                    Verify on basescan
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
               ))}
             </div>
 
             <p className="text-xs text-muted/60 max-w-3xl">
-              Provider activity reflects real agent usage. Underrepresented providers indicate the system is newly accumulating decisions for that vendor.
+              {data.on_chain_with_writes} of {data.total_minted} minted squad agents have on-chain reputation writes.
+              LLM-provider trust scores (the old Railway-backed leaderboard) remain unavailable while repid-engine is unreachable — see trustrepid.dev for historical HAL aggregates.
+            </p>
+            <p className="text-xs text-muted/40">
+              Fetched {formatAsOf(data.as_of)} via {data.source}
             </p>
           </>
         )}
@@ -128,7 +160,7 @@ export function LiveTrustScores() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-muted hover:text-accent transition-colors"
         >
-          <span>&rarr;</span> See full leaderboard at trustrepid.dev
+          <span>&rarr;</span> Full HAL + provider leaderboard at trustrepid.dev
         </a>
       </div>
     </section>
