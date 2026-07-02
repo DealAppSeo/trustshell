@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import { TopNav } from '@/components/top-nav';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -47,6 +48,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} bg-background`}>
       <body className="min-h-screen font-sans antialiased">
+        <TopNav />
         {children}
       </body>
     </html>

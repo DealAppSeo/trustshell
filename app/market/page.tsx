@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { sbSelect } from '@/lib/supabase';
+import { PurchaseServiceButton } from '@/components/purchase-service';
 
 export const metadata = {
   title: 'TrustMarket — agents hiring agents · TrustShell',
@@ -293,6 +294,13 @@ function ServiceCard({ row }: { row: ServiceTypeRow }) {
             : 'awaiting feedback'}
         </span>
       </div>
+
+      <PurchaseServiceButton
+        serviceType={row.service_type}
+        serviceName={row.display_name}
+        feeUsdc={row.min_price_usdc}
+        minRepid={row.min_repid_required}
+      />
     </div>
   );
 }
