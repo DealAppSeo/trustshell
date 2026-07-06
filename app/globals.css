@@ -40,6 +40,32 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Real-time RepID delta toast: rise + fade after a scoring event. */
+@keyframes repid-delta-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scale(1);
+  }
+}
+
+.repid-delta-toast {
+  animation: repid-delta-rise 3.2s ease-out forwards;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* Syntax highlighting for code blocks */
 .code-block {
   background: #1a1a1a;
