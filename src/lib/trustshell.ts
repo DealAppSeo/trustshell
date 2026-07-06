@@ -206,6 +206,148 @@ export interface ProofPresentation {
   };
 }
 
+/**
+ * Params for `register()` — public agent onboarding.
+ * Maps to the live backend `POST /api/v1/agents/register`.
+ */
+export interface RegisterParams {
+  /** Human-readable agent name (the only required field). */
+  agentName: string;
+  /** Optional short description (max 200 chars, sanitized server-side). */
+  description?: string;
+  /** LLM provider the agent uses (e.g. 'anthropic', 'openai', 'groq'). Optional. */
+  llmProvider?: string;
+  /** LLM model id (e.g. 'claude-sonnet-4-6'). Optional. */
+  llmModel?: string;
+  /** On-chain wallet address to bind (defaults to a generated `external:<uuid>` id). */
+  walletAddress?: string;
+  /** true → register as an anonymous HUMAN rather than an EXTERNAL_AGENT. */
+  isHuman?: boolean;
+}
+
+/**
+ * Result of `register()`.
+ *
+ * ⚠ `apiKey` is returned exactly ONCE by the backend — it is NOT recoverable later.
+ * Persist it immediately (env var / secret store); a lost key means re-registering the agent.
+ */
+export interface RegisterResult {
+  /** UUID of the newly-created agent (use as buyerAgentId / for getRepID). */
+  agentId: string;
+  /** The scoped API key — SHOWN ONCE. Save it now; it cannot be retrieved again. */
+  apiKey: string;
+  /** Starting RepID (200 for new external agents). */
+  repid: number;
+  /** Derived tier (PROBATIONARY for new agents). */
+  tier: string;
+  /** ERC-8004 token id if minted, else null. */
+  erc8004TokenId?: string | number | null;
+}
+
+/**
+ * Result of `registerHuman()` — anonymous ZKP human DBT registration.
+ *
+ * ⚠ `privateId` is the human's ONLY credential and is NOT stored server-side — save it now.
+ */
+export interface RegisterHumanResult {
+  /** UUID of the created human agent record. */
+  agentId: string;
+  /** The anonymous private credential — SHOWN ONCE, never stored server-side. Save it now. */
+  privateId: string;
+  /** Starting RepID (200). */
+  repId: number;
+  /** Derived tier (PROBATIONARY). */
+  tier: string;
+}
+
+/** A marketplace service listing from the `agent_services` catalog. */
+export interface ServiceListing {
+  /** UUID of the service (pass as `serviceId` to executeA2A). */
+  id: string;
+  /** Provider agent UUID that fulfills this service. */
+  providerAgentId: string;
+  /** Category, e.g. 'verification', 'cross_validation', 'anfis_routing'. */
+  serviceType: string;
+  /** Display name of the service. */
+  serviceName: string;
+  /** Free-form description, or null. */
+  description: string | null;
+  /** List price in micro-USDC raw units (e.g. 100000 = 0.10 USDC). */
+  basePriceUsdcRaw: number;
+  /** Minimum buyer RepID required to purchase. */
+  minRepidToPurchase: number;
+  /** Whether the listing is active. */
+  active: boolean;
+}
+
+/** Page of service listings from `listServices()`. */
+export interface ServiceListPage {
+  services: ServiceListing[];
+  /** Total matching count (across pages). */
+  count: number;
+  limit: number;
+  offset: number;
+  /** min / max base price across the returned page (raw micro-USDC), for quick range display. */
+  priceRangeUsdcRaw: { min: number; max: number } | null;
+}
+
+/** Optional filters for `listServices()`. */
+export interface ListServicesOptions {
+  /** Filter by service_type (e.g. 'verification'). */
+  type?: string;
+  /** Filter by provider agent UUID. */
+  provider?: string;
+  /** Only services with base price >= this (raw micro-USDC). */
+  minPriceUsdcRaw?: number;
+  /** Only services with base price <= this (raw micro-USDC). */
+  maxPriceUsdcRaw?: number;
+  /** Include inactive services too (default: active only). */
+  includeInactive?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+/** Params for `buildX402Payment()` — construct + sign an EIP-3009 x402 payment header. */
+export interface BuildX402PaymentParams {
+  /**
+   * Payer's private key (0x-prefixed). Used only to sign locally with ethers; NEVER logged,
+   * NEVER transmitted. The signed authorization — not the key — is what goes on the wire.
+   */
+  privateKey: string;
+  /** Recipient wallet address (the provider's payTo, from the 402 payment requirements). */
+  to: string;
+  /** Amount in micro-USDC raw units (e.g. 100000 = 0.10 USDC). Accepts number | bigint | string. */
+  amount: number | bigint | string;
+  /**
+   * USDC (or other EIP-3009 token) contract address = the EIP-712 `verifyingContract`.
+   * Defaults to Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
+   */
+  asset?: string;
+  /** EIP-712 chainId. Defaults to 84532 (Base Sepolia). */
+  chainId?: number;
+  /** EIP-712 token domain name. Defaults to 'USDC'. */
+  tokenName?: string;
+  /** EIP-712 token domain version. Defaults to '2' (Circle USDC). */
+  tokenVersion?: string;
+  /** Seconds the authorization is valid for, from now. Defaults to 3600 (1h). */
+  validForSeconds?: number;
+  /** 32-byte hex nonce. Defaults to a random one. */
+  nonce?: string;
+}
+
+/** Options for `pollUntilSettled()`. */
+export interface PollOptions {
+  /** Poll interval in ms (default 3000). */
+  intervalMs?: number;
+  /** Max total wait in ms before giving up (default 120000). */
+  timeoutMs?: number;
+  /**
+   * Contract statuses that count as terminal (stop polling). Default: settled/fulfilled/
+   * satisfied/resolved/disputed/cancelled — i.e. anything past `escrowed`.
+   */
+  terminalStatuses?: string[];
+}
+
 export class TrustShellError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -682,6 +824,280 @@ export class TrustShell {
       settlementId: escrowed.x402_payment_id ?? undefined,
     };
   }
+
+  /**
+   * Register a new agent (public onboarding). Wraps `POST /api/v1/agents/register` so devs don't
+   * have to hand-roll the HTTP call.
+   *
+   * ⚠ The returned `apiKey` is shown exactly ONCE by the backend and cannot be retrieved again —
+   * persist it immediately (env var / secret store). A lost key means re-registering the agent.
+   */
+  async register(params: RegisterParams): Promise<RegisterResult> {
+    const url = `${this.baseUrl}/api/v1/agents/register`;
+    const body: Record<string, unknown> = {
+      agent_name: params.agentName,
+      ...(params.description !== undefined ? { description: params.description } : {}),
+      ...(params.llmProvider !== undefined ? { llm_provider: params.llmProvider } : {}),
+      ...(params.llmModel !== undefined ? { llm_model: params.llmModel } : {}),
+      ...(params.walletAddress !== undefined ? { wallet_address: params.walletAddress } : {}),
+      ...(params.isHuman !== undefined ? { is_human: params.isHuman } : {}),
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({})) as any;
+      throw new TrustShellError(
+        `Agent registration failed: ${res.status} — ${errBody?.error ?? res.statusText}`,
+        res.status,
+      );
+    }
+
+    const data = await res.json() as any;
+    return {
+      agentId: data.agent_id,
+      apiKey: data.api_key, // SHOWN ONCE — caller must persist immediately.
+      repid: data.repid ?? data.starting_score ?? 200,
+      tier: data.tier ?? 'PROBATIONARY',
+      erc8004TokenId: data.erc8004_token_id ?? null,
+    };
+  }
+
+  /**
+   * Register an anonymous HUMAN (ZKP DBT) via `POST /api/v1/agents/human`. No name, no PII —
+   * the backend stores only a ZKP commitment.
+   *
+   * ⚠ The returned `privateId` is the human's ONLY credential and is NOT stored server-side.
+   * Save it now; it cannot be recovered.
+   */
+  async registerHuman(opts: { commitment?: string; role?: string } = {}): Promise<RegisterHumanResult> {
+    const url = `${this.baseUrl}/api/v1/agents/human`;
+    const body: Record<string, unknown> = {
+      ...(opts.commitment !== undefined ? { commitment: opts.commitment } : {}),
+      ...(opts.role !== undefined ? { role: opts.role } : {}),
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({})) as any;
+      throw new TrustShellError(
+        `Human registration failed: ${res.status} — ${errBody?.error ?? res.statusText}`,
+        res.status,
+      );
+    }
+
+    const data = await res.json() as any;
+    return {
+      agentId: data.agentId,
+      privateId: data.privateId, // SHOWN ONCE — not stored server-side.
+      repId: data.repId ?? 200,
+      tier: data.tier ?? 'PROBATIONARY',
+    };
+  }
+
+  /**
+   * List marketplace services from the `agent_services` catalog (`GET /api/v1/services`).
+   * Public read. Returns the page plus a quick base-price range so a dev can pick what to buy,
+   * then pass a listing's `id` as `serviceId` to `executeA2A`.
+   */
+  async listServices(options: ListServicesOptions = {}): Promise<ServiceListPage> {
+    const qs = new URLSearchParams();
+    if (options.type !== undefined) qs.set('type', options.type);
+    if (options.provider !== undefined) qs.set('provider', options.provider);
+    if (options.minPriceUsdcRaw !== undefined) qs.set('min_price', String(options.minPriceUsdcRaw));
+    if (options.maxPriceUsdcRaw !== undefined) qs.set('max_price', String(options.maxPriceUsdcRaw));
+    if (options.includeInactive) qs.set('active_only', 'false');
+    if (options.limit !== undefined) qs.set('limit', String(options.limit));
+    if (options.offset !== undefined) qs.set('offset', String(options.offset));
+
+    const url = `${this.baseUrl}/api/v1/services${qs.toString() ? `?${qs.toString()}` : ''}`;
+    const res = await fetch(url, { headers: this.getHeaders() });
+    if (!res.ok) {
+      throw new TrustShellError(`Service listing failed: ${res.status} ${res.statusText}`, res.status);
+    }
+
+    const body = await res.json() as any;
+    const rows: any[] = Array.isArray(body.data) ? body.data : [];
+    const services = rows.map(mapServiceRow);
+    const prices = services.map((s) => s.basePriceUsdcRaw).filter((n) => Number.isFinite(n));
+    return {
+      services,
+      count: typeof body.count === 'number' ? body.count : services.length,
+      limit: typeof body.limit === 'number' ? body.limit : (options.limit ?? 50),
+      offset: typeof body.offset === 'number' ? body.offset : (options.offset ?? 0),
+      priceRangeUsdcRaw: prices.length
+        ? { min: Math.min(...prices), max: Math.max(...prices) }
+        : null,
+    };
+  }
+
+  /** Fetch a single marketplace service by UUID (`GET /api/v1/services/:id`). Public read. */
+  async getService(serviceId: string): Promise<ServiceListing> {
+    const url = `${this.baseUrl}/api/v1/services/${encodeURIComponent(serviceId)}`;
+    const res = await fetch(url, { headers: this.getHeaders() });
+    if (res.status === 404) {
+      throw new TrustShellError(`Service not found: ${serviceId}`, 404);
+    }
+    if (!res.ok) {
+      throw new TrustShellError(`Service lookup failed: ${res.status} ${res.statusText}`, res.status);
+    }
+    return mapServiceRow(await res.json());
+  }
+
+  /**
+   * Read the current state of a service contract (`GET /api/v1/contracts/:id`). Use after
+   * `executeA2A` to observe async fulfillment. Returns the same shape as `A2AResult` fields plus
+   * the raw `result` payload once a provider fulfills it.
+   */
+  async getContractStatus(contractId: string): Promise<{
+    contractId: string;
+    status: string;
+    providerAgentId: string;
+    buyerAgentId: string;
+    agreedPriceUsdcRaw: number;
+    settlementId?: string;
+    result?: unknown;
+  }> {
+    const url = `${this.baseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}`;
+    const res = await fetch(url, { headers: this.getHeaders() });
+    if (res.status === 404) {
+      throw new TrustShellError(`Contract not found: ${contractId}`, 404);
+    }
+    if (!res.ok) {
+      throw new TrustShellError(`Contract status lookup failed: ${res.status} ${res.statusText}`, res.status);
+    }
+    const c = await res.json() as any;
+    return {
+      contractId: c.id ?? contractId,
+      status: c.status,
+      providerAgentId: c.provider_agent_id,
+      buyerAgentId: c.buyer_agent_id,
+      agreedPriceUsdcRaw: c.agreed_price_usdc_raw,
+      settlementId: c.x402_payment_id ?? undefined,
+      result: c.result ?? undefined,
+    };
+  }
+
+  /**
+   * Poll `getContractStatus` until the contract reaches a terminal status (past `escrowed`) or the
+   * timeout elapses. Async fulfillment is done by a provider agent / the cascade settlement worker,
+   * so this is how a caller awaits the end of the A2A loop.
+   *
+   * Resolves with the final contract state. Throws `TrustShellError(408)` on timeout.
+   */
+  async pollUntilSettled(
+    contractId: string,
+    opts: PollOptions = {},
+  ): Promise<Awaited<ReturnType<TrustShell['getContractStatus']>>> {
+    const intervalMs = opts.intervalMs ?? 3000;
+    const timeoutMs = opts.timeoutMs ?? 120_000;
+    const terminal = new Set(
+      opts.terminalStatuses ?? [
+        'settled', 'fulfilled', 'satisfied', 'resolved', 'disputed', 'cancelled',
+      ],
+    );
+
+    const deadline = Date.now() + timeoutMs;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const state = await this.getContractStatus(contractId);
+      if (terminal.has(state.status)) return state;
+      if (Date.now() + intervalMs > deadline) {
+        throw new TrustShellError(
+          `pollUntilSettled timed out after ${timeoutMs}ms — contract ${contractId} last status: ${state.status}`,
+          408,
+        );
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
+}
+
+/** Internal — normalize an `agent_services` row (snake_case backend) to a ServiceListing. */
+function mapServiceRow(row: any): ServiceListing {
+  return {
+    id: row.id,
+    providerAgentId: row.provider_agent_id,
+    serviceType: row.service_type,
+    serviceName: row.service_name,
+    description: row.description ?? null,
+    basePriceUsdcRaw: Number(row.base_price_usdc_raw),
+    minRepidToPurchase: Number(row.min_repid_to_purchase ?? 0),
+    active: row.active !== false,
+  };
+}
+
+/**
+ * Build a base64 X-PAYMENT header — a signed EIP-3009 `TransferWithAuthorization` — for the x402
+ * escrow leg of `executeA2A`. Tree-shakeable standalone helper (imports `ethers` lazily so apps that
+ * never pay don't pull it into their bundle at module-eval time).
+ *
+ * The private key is used ONLY to sign locally; it is never logged and never leaves the process —
+ * only the resulting signed authorization travels on the wire.
+ *
+ * Returns the base64 header string to pass as `A2AParams.xPaymentHeader`.
+ */
+export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
+  // Lazy import keeps ethers out of the module graph for consumers that never call this.
+  const { Wallet, getAddress } = await import('ethers');
+
+  const chainId = params.chainId ?? 84532; // Base Sepolia
+  // EIP-712 verifyingContract must be a checksummed address; normalize whatever the caller passes.
+  const asset = getAddress(params.asset ?? '0x036CbD53842c5426634e7929541eC2318f3dCF7e'); // Base Sepolia USDC
+  const tokenName = params.tokenName ?? 'USDC';
+  const tokenVersion = params.tokenVersion ?? '2';
+  const validForSeconds = params.validForSeconds ?? 3600;
+
+  const wallet = new Wallet(params.privateKey);
+  const from = wallet.address;
+  const to = getAddress(params.to);
+  const value = BigInt(params.amount).toString();
+
+  const now = Math.floor(Date.now() / 1000);
+  const validAfter = 0;
+  const validBefore = now + validForSeconds;
+  // 32-byte random nonce unless the caller pins one.
+  const nonce =
+    params.nonce ??
+    '0x' +
+      Array.from({ length: 32 }, () =>
+        Math.floor(Math.random() * 256).toString(16).padStart(2, '0'),
+      ).join('');
+
+  const domain = { name: tokenName, version: tokenVersion, chainId, verifyingContract: asset };
+  const types = {
+    TransferWithAuthorization: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'validAfter', type: 'uint256' },
+      { name: 'validBefore', type: 'uint256' },
+      { name: 'nonce', type: 'bytes32' },
+    ],
+  };
+  const message = { from, to, value, validAfter, validBefore, nonce };
+
+  // ethers v6: signTypedData produces the EIP-712 signature over the domain/type/message.
+  const signature = await wallet.signTypedData(domain, types, message);
+
+  // The facilitator decodes the header as JSON: { from, to, value, validAfter, validBefore, nonce, signature }.
+  const payload = { from, to, value, validAfter, validBefore, nonce, signature };
+  // Buffer in Node; btoa fallback for browser bundles.
+  const json = JSON.stringify(payload);
+  const base64 =
+    typeof Buffer !== 'undefined'
+      ? Buffer.from(json, 'utf8').toString('base64')
+      : btoa(unescape(encodeURIComponent(json)));
+  return base64;
 }
 
 export default TrustShell;
