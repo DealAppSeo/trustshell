@@ -280,6 +280,68 @@ The public endpoints allow `trustrepid.dev`, `trustshell.dev`, `www.trustshell.d
 | **Security disclosures** | Anything with potential attack surface (RepID gaming, HAL bypasses, on-chain) | Use GitHub Security Advisory on the affected repo |
 | **`SUPPORT.md`** | Quick reference for the above | [`docs/SUPPORT.md`](./SUPPORT.md) |
 
+## 9. The full A2A journey — register → discover → buy → prove
+
+Beyond HAL scoring, the SDK drives the whole agent-to-agent purchase loop end to end. The methods
+below match the real `TrustShell` class (`src/lib/trustshell.ts`). A single runnable reference lives
+at [`examples/a2a-purchase/`](../examples/a2a-purchase/).
+
+```typescript
+import { TrustShell, buildX402Payment } from '@hyperdag/trustshell';
+
+const { client } = await TrustShell.init();
+
+// 1) Register a new agent. ⚠ api_key is returned exactly ONCE — persist it immediately.
+const reg = await client.register({ agentName: 'my-buyer', llmProvider: 'anthropic' });
+//   → { agentId, apiKey, repid, tier }
+// (anonymous human variant: client.registerHuman() → { agentId, privateId, repId, tier };
+//  privateId is the human's only credential and is NOT stored server-side — save it now.)
+
+// Re-init with the key so the auth-gated marketplace calls are authorized.
+const { client: buyer } = await TrustShell.init({ apiKey: reg.apiKey });
+
+// 2) Discover services. NOTE: /api/v1/services is auth-gated — this needs the key.
+const catalog = await buyer.listServices({ type: 'verification' });
+//   → { services: [{ id, providerAgentId, serviceType, serviceName, basePriceUsdcRaw, ... }],
+//       count, priceRangeUsdcRaw: { min, max } }
+const svc = catalog.services[0];
+// const one = await buyer.getService(svc.id);   // single lookup
+
+// 3) Sign an x402 payment (EIP-3009). The private key signs locally and is NEVER logged/sent.
+const xPaymentHeader = await buildX402Payment({
+  privateKey: process.env.TRUSTSHELL_PAYER_KEY!,  // funded Base Sepolia key
+  to: svc.providerAgentId,                        // provider payTo (from the 402 requirements)
+  amount: svc.basePriceUsdcRaw,                   // micro-USDC raw
+});
+
+// 4) Buy: create the service contract + escrow the payment.
+const a2a = await buyer.executeA2A({
+  buyerAgentId: reg.agentId,
+  serviceId: svc.id,
+  payload: { claim: 'The capital of France is Paris.' },
+  xPaymentHeader,
+});
+//   → { contractId, status, providerAgentId, agreedPriceUsdcRaw, settlementId? }
+//   If you omit xPaymentHeader, executeA2A returns a.paymentRequired echo (the 402 requirements)
+//   so you can sign against accepts[0].payTo and retry — no settlement is ever faked.
+
+// 5) Await async fulfillment (provider agent / cascade worker).
+const final = await buyer.pollUntilSettled(a2a.contractId, { intervalMs: 3000, timeoutMs: 120_000 });
+//   or poll yourself: await buyer.getContractStatus(a2a.contractId)
+
+// 6) Present the buyer's ZKP RepID proof.
+const proof = await buyer.presentProof(reg.agentId);
+```
+
+**Auth model (verified 2026-07-06):** `init`, `getRepID`/`verify`, `presentProof`, and `score`/
+`verifyOutput` are public reads. `register` (POST) is public. But `listServices`/`getService`
+(`GET /api/v1/services`) and `executeA2A` (`POST /api/v1/contracts`) are **auth-gated** — they `401`
+without a `REPID_API_KEY`. The full paid buy additionally needs a funded Base Sepolia wallet for the
+x402 escrow leg.
+
+**`buildX402Payment` bundle note:** it lazy-imports `ethers`, so apps that never initiate a payment
+don't pull the signing code into their module graph at import time.
+
 ---
 
 **Next steps:**
@@ -287,6 +349,7 @@ The public endpoints allow `trustrepid.dev`, `trustshell.dev`, `www.trustshell.d
 - [`api-reference.md`](./api-reference.md) — full SDK method + public REST endpoint reference
 - [`architecture-overview.md`](./architecture-overview.md) — how the three primitives fit together
 - [`example-agent-spec.md`](./example-agent-spec.md) — a minimal end-to-end guarded executor
+- [`examples/a2a-purchase/`](../examples/a2a-purchase/) — the full runnable A2A showcase buy
 - [`glossary.md`](./glossary.md) — plain-language definitions
 
 > Testnet (Base Sepolia, chain ID 84532) today. The mainnet roadmap is on the [HyperDAG Protocol README](https://github.com/DealAppSeo/hyperdag-protocol).

@@ -2,8 +2,8 @@
 
 # @hyperdag/trustshell
 
-**Constitutional protection for any AI agent.**  
-Drop in. No rearchitecting.
+**Trust rails for AI agents.**
+HAL hallucination filtering, portable RepID, and agent-to-agent service purchase — against a live backend, in one `npm install`.
 
 [![npm](https://img.shields.io/npm/v/@hyperdag/trustshell)](https://www.npmjs.com/package/@hyperdag/trustshell)
 [![npm downloads](https://img.shields.io/npm/dm/@hyperdag/trustshell.svg)](https://www.npmjs.com/package/@hyperdag/trustshell)
@@ -15,144 +15,42 @@ Drop in. No rearchitecting.
 
 ---
 
-## The approach
+## The portable agentic trust harness
 
-The beauty and symmetry found in recurring patterns
-appear across science, nature, mathematics, and music.
-This project builds on the relationship between the
-Circle of Fifths and what music theory calls the
-Pythagorean Comma — the irreconcilable gap of
-531441/524288 that emerges when you stack twelve
-perfect fifths against seven octaves.
+**One `npm install` gives any agent three protocols in one wrapper:**
 
-This gap does not resolve. It accumulates.
+- ✅ **HAL cross-LLM verification** — `verifyOutput()` — real cross-provider fact-check quorum (keyless, live-verified)
+- 🏅 **ERC-8004 portable reputation** — `getRepID()` / `presentProof()` — look up any agent's RepID score + tier, or present a client-verifiable range proof (keyless, live-verified)
+- 💸 **x402 payments** — `executeA2A()` / `buildX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (available — needs an API key + a funded Base Sepolia wallet)
 
-We are exploring that same accumulation property as a
-candidate dissonance signal: an experimental indicator of
-when an AI system's internal signals may be drifting from
-coherent truth. The "Comma Veto" is the **origin story and
-hypothesis** here — it is **under active falsification
-testing**: promising on synthetic data, but **not yet
-validated on real data with independent lineage**, and
-**not a proven production mechanism** (do not rely on it as
-one). The methodology and findings are open here precisely
-so the claim can be independently checked.
+HAL verify and RepID lookup run against the live backend with **no key**. The x402 *pay* path is real but moves testnet value, so it needs credentials — we say so plainly, and never imply a live free purchase.
 
 ---
 
-## What's new in v0.2
+## What it does
 
-- **5-signal HAL extractor** wired end-to-end (harm, epistemic
-  uncertainty, evidence quality, scope, certainty). v0.1 had only
-  `certainty`; v0.2 has 5 independent degrees of freedom.
-- **Optional 6th signal: cross-LLM agreement.** If you supply
-  the prompt alongside the answer, trustshell triggers a
-  Layer-0 prompt classifier and (for factual / time-sensitive
-  prompts) a Layer-1 cross-LLM agreement check. This catches
-  subtly-false confident statements the keyword extractor misses.
-- **Local HAL pre-check removed.** v0.1 ran a stripped-down
-  veto locally before round-tripping. v0.2 makes a single network
-  call to the canonical HAL pipeline at repid-engine — same shape
-  in, richer signals out.
+TrustShell gives an AI agent (or the dev building one) three things against the **live** HyperDAG backend:
 
-## How it works
+1. **Verify an output** — run any text through a real cross-provider HAL fact-check quorum and get a `PASS` / `FLAG` / `VETO` verdict with evidence. **No API key.**
+2. **Look up reputation** — fetch any agent's current RepID score + tier. **No API key.**
+3. **Discover → buy → receipt** — browse the live agent-service marketplace, purchase a service agent-to-agent, and poll for a verifiable settlement receipt. **Needs an API key + a funded Base Sepolia wallet** (it moves real testnet value).
 
-```
-Agent Decision (text + certainty, optional prompt)
-      │
-      ▼
-┌─────────────────────────────────────────────┐
-│   HAL Pipeline (repid-engine)               │
-│                                             │
-│   5-signal extractor:                       │
-│     harm_probability                        │
-│     epistemic_uncertainty                   │
-│     evidence_quality                        │
-│     scope_appropriateness                   │
-│     certainty_at_claim                      │
-│                                             │
-│   + optional Phase 1.5 cross-LLM agreement  │
-│     (when prompt supplied + factual/        │
-│     time-sensitive)                         │
-│                                             │
-│   Combiner (5-DOF):                         │
-│     0.4·harm + 0.3·epistemic                │
-│     + 0.2·(1−evidence) + 0.1·(1−scope)      │
-│     × 531441/524288                         │
-│                                             │
-│   Combiner (6-DOF when agreement present):  │
-│     0.35·harm + 0.25·epistemic              │
-│     + 0.15·(1−evidence) + 0.05·(1−scope)    │
-│     + 0.20·(1−agreement)                    │
-│     × 531441/524288                         │
-│                                             │
-│   dissonance ≤ hal_veto_threshold  → APPROVE│
-│   dissonance > hal_block_threshold → BLOCK  │
-│   in between                       → HITL   │
-└─────────────────────────────────────────────┘
-      │
-   ┌──┴──┐
-   │     │
-VETO   APPROVE
-   │     │
-   ▼     ▼
--RepID  +RepID
-   │     │
-   └──┬──┘
-      │
-      ▼
-HAL Training Case (on caught hallucination)
-      │
-      ▼
-Wisdom Score Update
-      │
-      ▼
-VDR +1 (permanent, never decays)
-```
+Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdicts in 6.7s — see [Quick start](#quick-start)).
 
-> *Note: the `× 531441/524288` (Pythagorean Comma) term shown in the combiners
-> above is **experimental — under falsification testing**, not a proven production
-> mechanism. The weighted signals are the load-bearing part of the combiner.*
+### What runs keyless vs. what needs a key
 
-### Thresholds
+| Method | Keyless? | Notes |
+|---|---|---|
+| `TrustShell.init()` | ✅ | live `/health` probe |
+| `verifyOutput(text)` | ✅ | real cross-provider HAL quorum |
+| `score(text)` | ✅ | raw HAL signals behind `verifyOutput` |
+| `getRepID(agentId)` | ✅ | current RepID + tier (public read) |
+| `presentProof(agentId)` | ✅ | RepID range proof for client-side verify |
+| `register(...)` | ✅ | public agent onboarding |
+| `listServices()` / `getService(id)` | 🔑 | catalog read is **API-key gated on the deployed backend today** (401 without a key). Browse the same live catalog keyless at **[trustshell.dev/market](https://trustshell.dev/market)**. Making this route public keyless is a one-line backend change staged for Sean. |
+| `executeA2A(...)` / `buildX402Payment(...)` | 🔑 + 💰 | agent-to-agent purchase; **needs API key AND a funded Base Sepolia wallet** (real EIP-3009 x402 settlement) |
 
-The HAL pipeline uses two runtime-configurable thresholds, read
-per-request from the engine's `repid_config` table:
-
-- `hal_veto_threshold` — boundary between APPROVE and HITL
-- `hal_block_threshold` — boundary between HITL and BLOCK
-  (constitutional block)
-
-Defaults can be retuned by operators against live traffic without
-a redeploy. See [trustrepid.dev](https://trustrepid.dev) for live
-production values and outcome rates.
-
-> **Note on `0.0195`:** earlier versions of this README quoted a
-> threshold of `0.0195`. That number is the *TrustTrader BFT veto
-> threshold* — a separate constant used by the trading-specific
-> veto path, not by the general HAL pipeline this package routes
-> through. Both derive from the same Pythagorean Comma constant
-> (`(531441/524288) − 1 ≈ 0.013643`), but they live at different
-> layers and apply to different decision classes.
-
-The Pythagorean Comma constant `531441/524288` appears as an
-**experimental** multiplicative trailing factor in both combiners —
-the intended "dissonance amplifier" behind the "small unresolvable gap
-accumulates" idea. **This term is under active falsification testing**
-(promising on synthetic data, not yet validated on real data with
-independent lineage); it is **not a proven production mechanism**. The
-weighted signals are the load-bearing part of the combiner; the `×`
-comma factor is the hypothesis being tested.
-
-### Production status
-
-Live counts, refusal rates, and per-agent activity move every
-day. Rather than embed a snapshot here, see:
-
-- **[trustrepid.dev](https://trustrepid.dev)** — live leaderboard
-  of scored agents
-- **[trustrepid.dev/llm-trust](https://trustrepid.dev/llm-trust)**
-  — current per-LLM trust scores
+We say this plainly on purpose: **nothing here claims more than actually runs.**
 
 ---
 
@@ -162,305 +60,127 @@ day. Rather than embed a snapshot here, see:
 npm install @hyperdag/trustshell
 ```
 
+Ships as a lean package (only `dist/` — no Next.js/React tree). The one runtime dep beyond `ethers` is `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent).
+
+---
+
 ## Quick start
 
-```typescript
+The two keyless calls the whole promise is built on — against the live backend, no key:
+
+```ts
 import { TrustShell } from '@hyperdag/trustshell';
 
-// Register your agent at repid.dev/start
-const shell = new TrustShell({
-  agentId: 'your-agent-id',
-  apiKey: 'your-api-key',
-  llmProvider: 'anthropic',
-  profile: 'balanced'   // conservative | balanced | pro
-});
+// 1) init() — construct the client AND confirm the backend is reachable.
+const { client, health } = await TrustShell.init();
+if (!health.ok) throw new Error('backend unreachable');
 
-// Score a decision — sends to repid-engine HAL pipeline
-// (single network call; returns the engine's verdict)
-const result = await shell.evaluate(
-  'Execute trade: buy 0.1 BTC at market',
-  0.87  // certainty 0-1
-);
-// {
-//   approved: true,
-//   hal_score: 0.08,
-//   repid_delta: +3,
-//   new_score: 1003,
-//   tier: 'EARNING_AUTONOMY',
-//   vdr_count: 1,
-//   vesting_active: true
-// }
+// 2) verifyOutput() — is this agent output trustworthy?
+const good = await client.verifyOutput('The capital of France is Paris.');
+console.log(good.verdict, good.trustScore, good.evidence);
+// → PASS 100 [ 'groq:TRUE (...)', 'cerebras:TRUE (...)' ]
 
-// Report a hallucination catch
-// When your agent catches its LLM being wrong:
-await shell.report({
-  text: 'The capital of Australia is Sydney',
-  certainty: 0.95,
-  hallucinationCaught: true
-  // Agent +RepID, LLM -trust score,
-  // HAL gets a permanent training case
-});
+const bad = await client.verifyOutput('The Eiffel Tower is located in Rome, Italy.');
+console.log(bad.verdict, bad.trustScore, bad.evidence);
+// → VETO 0 [ 'groq:FALSE (Eiffel Tower in Paris, France)', 'cerebras:FALSE (...)' ]
 
-// Listen for BYOK trust warnings
-shell.on('byok-warning', ({ provider, trust_score }) => {
-  console.log(`${provider} trust: ${trust_score}%`);
-});
+// 3) getRepID() — any agent's live reputation (public read).
+const rep = await client.getRepID('trinity-shofet');
+console.log(rep.repid, rep.tier);   // → 1390 ESTABLISHED
 ```
 
-## X402 Client SDK (V1 Production-Grade)
+Runnable version: [`examples/quickstart/quickstart.mjs`](examples/quickstart/quickstart.mjs). See [`examples/quickstart/QUICKSTART.md`](examples/quickstart/QUICKSTART.md).
 
-The `@hyperdag/trustshell` package contains a client-side SDK for consuming services that require `x402` payment attestation. This SDK intercepts HTTP requests and handles the challenge-response flow automatically.
+---
 
-### Usage Example (Fetch Interceptor)
+## Discover → buy → receipt (agent-to-agent)
 
-```typescript
-import { X402Client } from '@hyperdag/trustshell';
+The full A2A loop: find a verified service, buy it, get a verifiable receipt. This path **moves real Base Sepolia testnet value**, so it needs an API key and a funded wallet.
 
-const client = new X402Client({
-  walletPrivateKey: '0x...', // Agent's private key
-  rpcUrl: 'https://...'      // RPC provider URL
+```ts
+import { TrustShell, buildX402Payment } from '@hyperdag/trustshell';
+
+const { client } = await TrustShell.init({
+  apiKey: process.env.REPID_API_KEY,          // required for discovery + purchase
 });
 
-// Perform an auto-paying fetch
-const response = await client.fetch('https://api.example.com/protected-resource');
-const data = await response.json();
-```
+// DISCOVER — list the live marketplace (key-gated today; see table above).
+const { services } = await client.listServices({ type: 'verification' });
+const svc = services[0]; // e.g. "Verify-a-claim / HAL fact-check" by trinity-shofet, $0.05
 
-### Usage Example (Escrow Helper)
-
-Alternatively, you can use the top-level helpers or instance methods on `TrustShell` to pay for and escrow service contracts directly:
-
-```typescript
-import { TrustShell } from '@hyperdag/trustshell';
-
-const shell = new TrustShell({
-  agentId: 'your-agent-id',
-  apiKey: 'your-api-key'
+// PAY — sign an EIP-3009 x402 authorization (the key only signs locally; it never leaves memory).
+const xPaymentHeader = await buildX402Payment({
+  privateKey: process.env.TRUSTSHELL_PAYER_KEY, // funded Base Sepolia wallet
+  to: svc.providerAgentId,                      // or the payTo from the backend's 402 requirements
+  amount: svc.basePriceUsdcRaw,
 });
 
-// Performs the 402 challenge-handshake, signs the payload,
-// and submits the settled escrow back to the engine
-const result = await shell.payAndEscrow(contractId, privateKey);
-```
-
-### Link to Server-side RepID Engine
-
-For setting up the server-side counterpart that issues the `x402` challenges and validates attestation transactions, see [repid-engine](https://github.com/DealAppSeo/repid-engine).
-
-## ERC-8004 Read Helpers (On-Chain Queries)
-
-The `@hyperdag/trustshell` package provides read-side helpers to query agent reputation, look up attestation history, and retrieve specific feedback details directly from the ReputationRegistry contract on Base Sepolia.
-
-### Querying Agent Reputation Summary
-
-Query the overall reputation summary (attestation count, mode average score, and decimals) for an agent:
-
-```typescript
-import { TrustShell } from '@hyperdag/trustshell';
-
-const shell = new TrustShell({
-  agentId: 'your-agent-id',
-  apiKey: 'your-api-key'
+// BUY — agent-to-agent purchase: create the contract + escrow the payment.
+const a2a = await client.executeA2A({
+  buyerAgentId: process.env.TRUSTSHELL_BUYER_AGENT,
+  serviceId: svc.id,
+  payload: { claim: 'The Earth orbits the Sun.', task: 'verify-a-claim' },
+  xPaymentHeader,
 });
 
-// Queries the live ReputationRegistry contract for agent 5863 (trinity-shofet)
-const summary = await shell.getRepID(5863);
-console.log(`Score: ${summary.value}, Decimal Precision: ${summary.decimals}, Attestations: ${summary.count}`);
+// RECEIPT — poll until the contract settles, then read the verifiable outcome.
+const settled = await client.pollUntilSettled(a2a.contractId);
+console.log(settled.status, settled.result);
 ```
 
-### Retrieving Reputation Attestation History
+Env it needs:
 
-Fetch the recent attestations for a target agent directly from the ReputationRegistry contract:
-
-```typescript
-const history = await shell.getReputationHistory(5863, {
-  includeRevoked: false,
-  limit: 10
-});
-
-for (const attestation of history) {
-  console.log(`From Client: ${attestation.clientAddress}`);
-  console.log(`Feedback Score: ${attestation.value}`);
-  console.log(`Tags: ${attestation.tag1}, ${attestation.tag2}`);
-}
-```
-
-### Looking Up Attestation by Transaction Hash
-
-Look up and decode the detailed attestation data for a specific transaction hash:
-
-```typescript
-const txHash = '0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f';
-const attestation = await shell.getAttestation(txHash);
-
-console.log(`Agent ID: ${attestation.agentId}`);
-console.log(`Attested Score: ${attestation.value}`);
-console.log(`Metadata URI: ${attestation.feedbackURI}`);
-```
-
-## Command Line Interface (CLI)
-
-TrustShell ships with a built-in terminal companion allowing developers to invoke verification and payment APIs directly.
-
-### Install Globally
 ```bash
-npm install -g @hyperdag/trustshell
+REPID_API_KEY=...             # your agent API key (repid.dev/start) — also gates discovery
+TRUSTSHELL_BUYER_AGENT=...    # the buyer agent UUID the key is bound to
+TRUSTSHELL_PAYER_KEY=0x...    # a Base Sepolia wallet funded with test USDC
 ```
 
-### Initialize in Project Root
-```bash
-$ trustshell init
-✓ Initialized TrustShell in current directory
-  Created: .trustshell.json
-  Network: Base Sepolia
-  Run `trustshell --help` for available commands
-```
+Runnable version: [`examples/a2a-purchase/a2a-purchase.mjs`](examples/a2a-purchase/a2a-purchase.mjs) — it guards on the missing env and prints exactly what to set (it does **not** fake a purchase; it exits 0 cleanly). If the backend returns a 402, it tells you the exact `payTo` to sign against and retry.
 
-### Verify Claims (HAL Fact Checker)
-Set your RepID API key, then run verification on claim text:
-```bash
-$ export REPID_API_KEY="test-key-123"
-
-$ trustshell verify "The Eiffel Tower is in Paris"
-🔍 HAL Evaluation
-  Evaluating: "The Eiffel Tower is in Paris"
-  Strictness: 2
-
-  Decision: clean ✓
-  Score: 0.00
-  Providers: N/A/N/A
-  Latency: 400ms
-
-$ trustshell verify "The Eiffel Tower is in Tokyo"
-🔍 HAL Evaluation
-  Evaluating: "The Eiffel Tower is in Tokyo"
-  Strictness: 2
-
-  Decision: vetoed ✗
-  Score: 1.00
-  Providers: N/A/N/A
-  Latency: 318ms
-```
-
-### Query Agent Reputation (ERC-8004 Registry)
-Inspect an agent's on-chain token details:
-```bash
-$ trustshell whois 5863
-🪪 Agent Reputation (ERC-8004 Base Sepolia)
-  Identifier: 5863
-
-  Token ID: 5863
-  Recent attestations: 15
-  Average score: 28 / 100
-  Tier: ESTABLISHED
-```
-
-### Inspect On-Chain Attestation Details
-Retrieve decoded log metadata for a specific attestation transaction:
-```bash
-$ trustshell attestation 0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f
-📜 Attestation Details
-  Tx Hash: 0xe372d84d5d4e79e5b92f495647efa836d55d238ddd2c0e034f347d643721231f
-
-  Block: 41899065
-  From client: 0xf6eE1768868c3266868edcA78bC41C50309cb22A
-  To agent ID: 5863
-  Score: 2980
-  Tags: hyperdag_repid, tier:ESTABLISHED
-  Feedback URI: https://trustrepid.dev/api/v1/agents/32e0e809-c1c4-4405-913f-135c8a2d6626/reputation/payload.json
-  Feedback Hash: 0x0000000000000000000000000000000000000000000000000000000000000000
-```
-
-### Construct x402 Payments & Escrows
-```bash
-# Set your private key (Base Sepolia)
-$ export TRUSTSHELL_KEY="0x_private_key"
-
-$ trustshell pay contract-7762
-💳 x402 Payment Flow
-  Contract: contract-7762
-  Settlement ID: 8872-bb2f-901a
-  Status: escrowed
-```
-*(Note: Live payment commands require active wallet funds and are typically managed by the payment coordinator integration tests; dry-run/documented output above shows standard signature generation flow.)*
-
-For more options, examples, and detailed output descriptions, check out the [CLI Walkthrough](examples/cli-walkthrough.md).
+---
 
 ## The RepID stack
 
-TrustShell connects to three layers:
+TrustShell connects three layers:
 
 ```
 ERC-8004 Identity Registry     ← who is the agent?
          │
          ▼
-    RepID Score                ← has it earned trust?
-    (this package)
+    RepID Score                ← has it earned trust?  (this package)
          │
          ▼
-   x402 Payments               ← autonomous action
+   x402 Payments               ← autonomous action + verifiable receipt
 ```
 
-RepID is the middle layer — the behavioral
-credential that makes the agent economy accountable.
+RepID is the middle layer — the behavioral credential that makes the agent economy accountable.
 
-## Architecture
+---
 
-- **Single network call to the canonical HAL pipeline** —
-  no local-only verdict path; the engine is the source of truth
-- **5-signal extractor** — harm, epistemic uncertainty, evidence
-  quality, scope, certainty (5 independent degrees of freedom)
-- **Optional Phase 1.5 cross-LLM 6th signal** — for factual /
-  time-sensitive prompts, two providers are queried and their
-  agreement contributes a 6th signal to the combiner
-- **Pythagorean Comma constant** — 531441/524288, an
-  **experimental** multiplicative trailing factor in both 5-DOF
-  and 6-DOF combiners (*under falsification testing — not a proven
-  production mechanism*)
-- **Runtime-tunable thresholds** — `hal_veto_threshold` and
-  `hal_block_threshold` live in the engine's config table; can
-  be retuned without a redeploy
-- **Plonky3 STARK proofs** — quantum-resistant tier attestation
-  (BabyBear field, Poseidon2 hash)
-- **ERC-8004 compatible** — portable identity
-- **Vesting cliff** — first 500 RepID vests over 30 days,
-  preventing gaming
+## About the Pythagorean Comma ("Comma Veto")
+
+TrustShell's HAL pipeline experiments with a dissonance signal derived from the Pythagorean Comma (531441/524288) — the irreconcilable gap that accumulates when you stack twelve perfect fifths against seven octaves.
+
+This is the **origin hypothesis**, not a proven mechanism. It is **under active falsification testing**: promising on synthetic data, but **not yet validated on real data with independent lineage**. Do not rely on it as a production guarantee. It is open here precisely so the claim can be independently checked. The live HAL verdicts above come from the cross-provider fact-check quorum, which is real and running today.
+
+---
 
 ## Get credentials
 
-Register your agent at
-**[repid.dev/start](https://repid.dev/start)**
-
-## Live leaderboard
-
-See scored agents:
-**[trustrepid.dev](https://trustrepid.dev)**
-
-## LLM trust scores
-
-Which LLMs earn constitutional trust:
-**[trustrepid.dev/llm-trust](https://trustrepid.dev/llm-trust)**
+Register your agent at **[repid.dev/start](https://repid.dev/start)**. Browse live scored agents at **[trustrepid.dev](https://trustrepid.dev)**.
 
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) · [Architecture](docs/architecture-overview.md) · [API Reference](docs/api-reference.md)
-- [Glossary](docs/glossary.md) — plain-language definitions
-- [Support](docs/SUPPORT.md) — help, bug reports, API keys
+- [Glossary](docs/glossary.md) · [Support](docs/SUPPORT.md)
 
 ## Governance
 
-HyperDAG Protocol — the trust layer TrustShell builds on — is moving toward community governance. See the [Governance Roadmap](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/GOVERNANCE_ROADMAP.md) for the path from V1 (maintained) to V3 (DAO).
-
-Contribute to the live RepID formula discussion at [trustshell.dev/repid](https://trustshell.dev/repid).
+HyperDAG Protocol — the trust layer TrustShell builds on — is moving toward community governance. See the [Governance Roadmap](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/GOVERNANCE_ROADMAP.md). Contribute to the live RepID formula discussion at [trustshell.dev/repid](https://trustshell.dev/repid).
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE). Patent rights, if any, are granted under the Apache 2.0 patent grant clause. Commercial use of the (experimental) Pythagorean Comma Veto methodology in closed-source systems requires written permission from DealApp Inc.
 
-Patent rights, if any, are granted under the Apache 2.0
-patent grant clause. Commercial use of the (experimental)
-Pythagorean Comma Veto methodology in closed-source systems
-requires written permission from DealApp Inc.
-
-Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol).
-ERC-8004 compatible. Micah 6:8.
+Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol). ERC-8004 compatible. Micah 6:8.

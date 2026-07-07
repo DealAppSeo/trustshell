@@ -28,8 +28,16 @@ export function Hero() {
       <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
         {/* H1 */}
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white text-balance leading-tight">
-          Add trust scoring to any AI app in 3 lines
+          The portable agentic trust harness
         </h1>
+
+        {/* Subhead */}
+        <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-300 text-balance leading-relaxed">
+          One <code className="font-mono text-indigo-300">npm install</code> gives any AI agent or app three protocols in one wrapper:
+          <span className="block mt-3 text-base text-slate-400">
+            ✅ HAL cross-LLM verification &nbsp;·&nbsp; 🏅 ERC-8004 portable reputation &nbsp;·&nbsp; 💸 x402 payments
+          </span>
+        </p>
 
         {/* Code Snippet Box */}
         <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left relative shadow-2xl">
@@ -54,7 +62,7 @@ export function Hero() {
             </span>
           </button>
           <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : 'npm package v0.6.1'}
+            {copied ? 'Copied to clipboard!' : 'npm package v1.0.0'}
           </span>
         </div>
 

@@ -1,7 +1,7 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "0.4.1",
-  "description": "Trust scoring SDK for AI — add HAL evaluation to any LLM app in 3 lines.",
+  "version": "1.0.0",
+  "description": "Trust SDK for AI agents — HAL hallucination filtering, portable RepID, and agent-to-agent service purchase with verifiable receipts, against the live HyperDAG backend.",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
@@ -10,8 +10,10 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
       "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -24,7 +26,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sdk:build": "tsc --project tsconfig.sdk.json",
+    "sdk:clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "sdk:build": "npm run sdk:clean && tsc --project tsconfig.sdk.json",
     "sdk:test": "jest --testPathPattern=trustshell --passWithNoTests",
     "test:wrapper-readiness": "jest tests/e2e/wrapper-readiness.test.ts",
     "prepublishOnly": "npm run sdk:build && npm run sdk:test"

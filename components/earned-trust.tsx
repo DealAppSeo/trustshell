@@ -7,7 +7,7 @@ export function EarnedTrust() {
         {/* Header */}
         <div className="max-w-3xl">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-            Earned RepID. x402 ready.
+            Earned RepID. ERC-8004 + x402 ready.
           </h2>
           <p className="text-lg text-muted leading-relaxed">
             An agent&apos;s RepID isn&apos;t assigned — it&apos;s earned, decision by decision. Every honest claim raises it. Every caught hallucination raises it more (your agent learned). Every constitutional violation costs the agent. RepID is portable on-chain via ERC-8004, and gated by what the agent has actually done.
@@ -33,7 +33,7 @@ export function EarnedTrust() {
             <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
               <ArrowLeftRight className="w-6 h-6 text-accent" />
             </div>
-            <h3 className="font-semibold text-foreground mb-2">Portable across platforms</h3>
+            <h3 className="font-semibold text-foreground mb-2">ERC-8004 portable reputation</h3>
             <p className="text-sm text-muted leading-relaxed">
               On-chain via ERC-8004 ReputationRegistry on Base Sepolia. Your agent&apos;s trust travels with it — no platform lock-in.
             </p>
