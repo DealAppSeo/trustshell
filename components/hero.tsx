@@ -33,7 +33,7 @@ export function Hero() {
 
         {/* Subhead */}
         <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-300 text-balance leading-relaxed">
-          One <code className="font-mono text-indigo-300">npm install</code> gives any agent three protocols in one wrapper:
+          One <code className="font-mono text-indigo-300">npm install</code> gives any AI agent or app three protocols in one wrapper:
           <span className="block mt-3 text-base text-slate-400">
             ✅ HAL cross-LLM verification &nbsp;·&nbsp; 🏅 ERC-8004 portable reputation &nbsp;·&nbsp; 💸 x402 payments
           </span>
@@ -62,7 +62,7 @@ export function Hero() {
             </span>
           </button>
           <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : 'npm package v0.6.1'}
+            {copied ? 'Copied to clipboard!' : 'npm package v1.0.0'}
           </span>
         </div>
 
