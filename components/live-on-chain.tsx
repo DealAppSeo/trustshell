@@ -3,24 +3,31 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, ExternalLink } from 'lucide-react';
 
-// Field names per the live repid-engine /api/v1/hal/stats response.
-// Only TWO of the four "What we've built" numbers are exposed by the public
-// API today:
+// Two of the four "What we've built" numbers come from the live
+// /api/v1/hal/stats response:
 //   - audit_chain_length            (growing, HAL is actively auditing)
 //   - peer_verification_queue_size  (growing, peer-verification active)
-// The other two (agents minted on canonical IdentityRegistry; lifetime REAL
-// on-chain reputation writes) are not yet exposed via a public endpoint, so
-// they ship as constants verified directly against the production database
-// at edit time and refreshed when this component is touched. Both numbers
-// reflect a state that's currently frozen (no new mints since 2026-05-13;
-// no new on-chain writes since 2026-05-24 — see CC1 V2 monitoring design).
-// When repid-engine exposes /api/v1/observability/onchain-stats (next
-// sprint, gated behind Sean's pipeline-resume decision) wire those here.
+// The other two (agents minted on the canonical registry; lifetime REAL
+// on-chain reputation writes) now read from the public
+// /api/v1/observability/onchain-stats endpoint when it's live, and grow as
+// agents onboard. If that endpoint isn't deployed yet, they gracefully fall
+// back to the constants below (labeled "static") so the page never breaks.
 interface HALStats {
   audit_chain_length?: number;
   peer_verification_queue_size?: number;
   last_updated?: string;
 }
+
+// Shape of the public /api/v1/observability/onchain-stats response.
+interface OnchainStats {
+  agents_minted: number;
+  lifetime_onchain_writes: number;
+  as_of?: string;
+}
+
+const ENGINE_URL =
+  process.env.NEXT_PUBLIC_REPID_ENGINE_URL ??
+  'https://repid-engine-production.up.railway.app';
 
 const contracts = [
   {
@@ -59,6 +66,7 @@ function formatRelativeTime(iso: string | null | undefined): string {
 export function LiveOnChain() {
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [stats, setStats] = useState<HALStats | null>(null);
+  const [onchain, setOnchain] = useState<OnchainStats | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -66,7 +74,7 @@ export function LiveOnChain() {
 
     const fetchStats = async () => {
       try {
-        const response = await fetch('https://repid-engine-production.up.railway.app/api/v1/hal/stats', {
+        const response = await fetch(`${ENGINE_URL}/api/v1/hal/stats`, {
           signal: AbortSignal.timeout(5000),
         });
         if (response.ok && mounted) {
@@ -83,8 +91,37 @@ export function LiveOnChain() {
       }
     };
 
+    const fetchOnchain = async () => {
+      try {
+        const response = await fetch(`${ENGINE_URL}/api/v1/observability/onchain-stats`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (response.ok && mounted) {
+          const data = await response.json();
+          // Only accept the live values if both numbers are present & numeric.
+          if (
+            typeof data.agents_minted === 'number' &&
+            typeof data.lifetime_onchain_writes === 'number'
+          ) {
+            setOnchain({
+              agents_minted: data.agents_minted,
+              lifetime_onchain_writes: data.lifetime_onchain_writes,
+              as_of: data.as_of,
+            });
+          }
+        }
+        // Non-2xx (e.g. 404 not-deployed) → leave `onchain` null → static fallback.
+      } catch {
+        // Silent — falls back to the static constants below.
+      }
+    };
+
     fetchStats();
-    const interval = setInterval(fetchStats, LIVE_REFRESH_MS);
+    fetchOnchain();
+    const interval = setInterval(() => {
+      fetchStats();
+      fetchOnchain();
+    }, LIVE_REFRESH_MS);
     // Re-tick once a minute so the "X min ago" text refreshes between fetches.
     const tickInterval = setInterval(() => setTick((t) => t + 1), 30_000);
     return () => {
@@ -106,6 +143,12 @@ export function LiveOnChain() {
   const liveAuditChain = stats?.audit_chain_length;
   const livePeerQueue = stats?.peer_verification_queue_size;
   const liveAt = stats?.last_updated;
+
+  // Agents-minted + lifetime-writes: live from onchain-stats when available,
+  // else fall back to the static constants (labeled honestly).
+  const onchainLive = onchain != null;
+  const agentsMinted = onchain?.agents_minted ?? STATIC_AGENTS_MINTED;
+  const lifetimeWrites = onchain?.lifetime_onchain_writes ?? STATIC_LIFETIME_REAL_WRITES;
 
   return (
     <section className="px-4 py-20 md:py-28 border-t border-border">
@@ -168,14 +211,14 @@ export function LiveOnChain() {
             </h3>
             <div className="grid grid-cols-2 gap-6">
               <StatCard
-                value={STATIC_AGENTS_MINTED.toLocaleString()}
+                value={agentsMinted.toLocaleString()}
                 label="agents minted on canonical registry"
-                source="static"
+                source={onchainLive ? 'live' : 'static'}
               />
               <StatCard
-                value={STATIC_LIFETIME_REAL_WRITES.toLocaleString()}
+                value={lifetimeWrites.toLocaleString()}
                 label="lifetime on-chain reputation writes"
-                source="static"
+                source={onchainLive ? 'live' : 'static'}
               />
               <StatCard
                 value={livePeerQueue != null ? livePeerQueue.toLocaleString() : '—'}
@@ -198,7 +241,9 @@ export function LiveOnChain() {
                 <p className="text-xs text-muted/60">Loading live values…</p>
               )}
               <p className="text-xs text-muted/40">
-                Agents minted + lifetime writes are static (no new mints or writes since {STATIC_FROZEN_AT}; pipeline resume pending).
+                {onchainLive
+                  ? 'Agents minted + lifetime writes are live from the engine — they grow as agents onboard.'
+                  : `Agents minted + lifetime writes are static fallbacks (live stats endpoint unavailable; no new mints or writes since ${STATIC_FROZEN_AT}).`}
               </p>
             </div>
           </div>
