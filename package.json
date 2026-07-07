@@ -1,7 +1,7 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "0.4.1",
-  "description": "Trust scoring SDK for AI — add HAL evaluation to any LLM app in 3 lines.",
+  "version": "1.0.0",
+  "description": "Trust SDK for AI agents — HAL hallucination filtering, portable RepID, and agent-to-agent service purchase with verifiable receipts, against the live HyperDAG backend.",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"

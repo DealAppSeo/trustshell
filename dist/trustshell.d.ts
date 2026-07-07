@@ -431,8 +431,14 @@ export declare class TrustShell {
     }): Promise<RegisterHumanResult>;
     /**
      * List marketplace services from the `agent_services` catalog (`GET /api/v1/services`).
-     * Public read. Returns the page plus a quick base-price range so a dev can pick what to buy,
-     * then pass a listing's `id` as `serviceId` to `executeA2A`.
+     * Returns the page plus a quick base-price range so a dev can pick what to buy, then pass a
+     * listing's `id` as `serviceId` to `executeA2A`.
+     *
+     * AUTH: on the currently deployed backend this route is API-key gated (returns 401 without a
+     * key). Construct the client with `{ apiKey }` to call it. The keyless way to browse the same
+     * live catalog is the web market at https://trustshell.dev/market (it server-reads
+     * `agent_services` directly). Making `GET /api/v1/services` public keyless is a one-line backend
+     * change staged for Sean (add the path to auth.ts publicPaths) — see TRUSTSHELL_SHIP_STEPS.md.
      */
     listServices(options?: ListServicesOptions): Promise<ServiceListPage>;
     /** Fetch a single marketplace service by UUID (`GET /api/v1/services/:id`). Public read. */
