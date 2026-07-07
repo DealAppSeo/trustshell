@@ -13,6 +13,23 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  // Real-time RepID delta toast: set to the last non-zero delta so the change
+  // is visible on the card. Cleared after the animation window.
+  const [deltaToast, setDeltaToast] = useState<{ id: number; delta: number } | null>(null);
+  const [scorePulse, setScorePulse] = useState(false);
+
+  useEffect(() => {
+    if (!deltaToast) return;
+    const t = setTimeout(() => setDeltaToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [deltaToast]);
+
+  const flashDelta = (delta: number) => {
+    if (!delta) return;
+    setDeltaToast({ id: Date.now(), delta });
+    setScorePulse(true);
+    setTimeout(() => setScorePulse(false), 700);
+  };
 
   useEffect(() => {
     localDb.getAgents().then(agents => setAgent(agents.find(a => a.id === agentId) || null));
@@ -76,6 +93,7 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         const scoreData = await scoreRes.json();
         if (scoreData.delta) repidDelta = scoreData.delta;
         setRepid(prev => prev + repidDelta);
+        flashDelta(repidDelta);
       } catch (e) {
         console.error('Score event failed', e);
       }
@@ -116,9 +134,28 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
           <h2 className="text-3xl font-bold text-white">{agent.name}</h2>
           <p className="text-[#94a3b8] font-mono mt-1 text-sm">{agentId}</p>
         </div>
-        <div className="text-right">
+        <div className="text-right relative">
           <div className="text-sm text-[#94a3b8] font-bold uppercase tracking-wider">RepID Score</div>
-          <div className="text-4xl font-bold text-amber-500">{(repid || 0).toFixed(2)}</div>
+          <div
+            className={`text-4xl font-bold text-amber-500 transition-transform duration-300 ${
+              scorePulse ? 'scale-110' : 'scale-100'
+            }`}
+          >
+            {(repid || 0).toFixed(2)}
+          </div>
+
+          {/* Real-time RepID delta toast — rises + fades on each scoring event. */}
+          {deltaToast && (
+            <div
+              key={deltaToast.id}
+              className={`repid-delta-toast absolute -top-5 right-0 text-lg font-bold ${
+                deltaToast.delta >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}
+            >
+              {deltaToast.delta > 0 ? '+' : ''}
+              {deltaToast.delta.toFixed(2)} RepID
+            </div>
+          )}
         </div>
       </div>
 
