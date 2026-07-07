@@ -15,6 +15,18 @@ HAL hallucination filtering, portable RepID, and agent-to-agent service purchase
 
 ---
 
+## The portable agentic trust harness
+
+**One `npm install` gives any agent three protocols in one wrapper:**
+
+- ✅ **HAL cross-LLM verification** — `verifyOutput()` — real cross-provider fact-check quorum (keyless, live-verified)
+- 🏅 **ERC-8004 portable reputation** — `getRepID()` / `presentProof()` — look up any agent's RepID score + tier, or present a client-verifiable range proof (keyless, live-verified)
+- 💸 **x402 payments** — `executeA2A()` / `buildX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (available — needs an API key + a funded Base Sepolia wallet)
+
+HAL verify and RepID lookup run against the live backend with **no key**. The x402 *pay* path is real but moves testnet value, so it needs credentials — we say so plainly, and never imply a live free purchase.
+
+---
+
 ## What it does
 
 TrustShell gives an AI agent (or the dev building one) three things against the **live** HyperDAG backend:
