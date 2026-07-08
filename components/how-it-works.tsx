@@ -92,6 +92,28 @@ export function HowItWorks() {
           <span>&rarr;</span> See full SDK reference on GitHub
         </a>
 
+        <div className="text-sm text-muted/70 leading-relaxed max-w-2xl space-y-2">
+          <p className="font-semibold text-foreground">Which package do I install?</p>
+          <ul className="space-y-1.5">
+            <li>
+              Building an agent/app <span className="text-foreground">in code</span> —{' '}
+              <code className="font-mono text-accent">npm install @hyperdag/trustshell</code> (the SDK: HAL + ERC-8004 RepID + x402, in your TS/JS).
+            </li>
+            <li>
+              Using an <span className="text-foreground">AI tool</span> (Claude Desktop, Cursor, Windsurf), no code —{' '}
+              <code className="font-mono text-accent">npx @hyperdag/trustshell-mcp</code> (the same three protocols as AI-callable tools).
+            </li>
+            <li>
+              Only verifying <span className="text-foreground">ZK proofs</span> client-side —{' '}
+              <code className="font-mono text-accent">npm install @hyperdag/proof-verifier</code> (usually bundled with trustshell — rarely installed directly).
+            </li>
+          </ul>
+          <p className="text-muted/60">
+            Most people want <code className="font-mono">@hyperdag/trustshell</code> (building in code) or{' '}
+            <code className="font-mono">@hyperdag/trustshell-mcp</code> (adding trust to your AI, no code). <code className="font-mono">proof-verifier</code> is a building block that ships inside trustshell.
+          </p>
+        </div>
+
         <p className="text-sm text-muted/70 leading-relaxed max-w-2xl">
           <code className="font-mono text-accent">npm install @hyperdag/trustshell</code> is live today and delivers all three protocols — HAL, ERC-8004 RepID, and x402 — in one wrapper.
           {' '}There&apos;s now an AI-native install too — no terminal: the{' '}
