@@ -1,0 +1,46 @@
+{
+  "name": "@hyperdag/trustshell-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for HyperDAG TrustShell — add real cross-LLM trust verification, portable RepID, and ZK proofs to your AI agent in Claude Desktop / Cursor / Windsurf with zero code. Wraps @hyperdag/trustshell and exposes it as MCP tools.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "trustshell-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "smoke": "node dist/smoke.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "trustshell",
+    "hyperdag",
+    "hal",
+    "repid",
+    "zkp",
+    "claude-desktop",
+    "cursor",
+    "windsurf",
+    "ai-agent",
+    "trust"
+  ],
+  "dependencies": {
+    "@hyperdag/trustshell": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5"
+  }
+}
