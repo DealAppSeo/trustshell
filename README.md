@@ -177,6 +177,51 @@ Runnable version: [`examples/a2a-purchase/a2a-purchase.mjs`](examples/a2a-purcha
 
 ---
 
+## CLI — trust checks in your terminal + CI
+
+The same trust harness ships as a command, so it works with **no code** and slots into any
+CI / pre-commit pipeline. Installing the package puts a `trustshell` (and `hal`) bin on your PATH:
+
+```bash
+npm install -g @hyperdag/trustshell     # or: npx @hyperdag/trustshell verify "…"
+
+trustshell verify "The capital of France is Paris."
+# ✓ PASS  trust 100/100
+#   evidence:
+#     - groq:TRUE (Officially recognized capital of France)
+#     - cerebras:TRUE (Paris is the official capital of France.)
+
+trustshell repid trinity-shofet          # → RepID 1585  (ESTABLISHED)
+trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
+```
+
+**`verify` is a CI gate.** It exits **0** on `PASS`/`FLAG` and **non-zero (1)** on `VETO`, so you
+can fail a build the moment HAL vetoes a claim — no glue code:
+
+```bash
+# .github/workflows/*.yml  (or a pre-commit hook)
+# Fail the build if HAL vetoes a claim in the release notes.
+trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
+  echo "HAL vetoed a claim — not shipping."; exit 1;
+}
+```
+
+| Exit code | Meaning |
+|---|---|
+| `0` | HAL `PASS` (or soft `FLAG`) — safe to proceed |
+| `1` | HAL `VETO` — the claim did not pass; fail the build |
+| `2` | usage / bad arguments |
+| `3` | runtime error (network / backend / timeout) |
+
+Add `--json` to any command for machine-readable output. `verify` / `repid` / `proof` are all
+**keyless**; set `REPID_API_KEY` to attach a key and `TRUSTSHELL_API_URL` to point at another backend.
+Run `trustshell --help` for the full reference.
+
+> Three ways in, one trust layer: **SDK** (`import`) for code · **MCP**
+> (`@hyperdag/trustshell-mcp`) for AI agents · **CLI** (`trustshell`) for the terminal + CI.
+
+---
+
 ## The RepID stack
 
 TrustShell connects three layers:

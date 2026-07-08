@@ -1,19 +1,29 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Trust SDK for AI agents — HAL hallucination filtering, portable RepID, and agent-to-agent service purchase with verifiable receipts, against the live HyperDAG backend.",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/lib/index.js",
+  "types": "dist/lib/index.d.ts",
+  "bin": {
+    "trustshell": "dist/cli/index.js",
+    "hal": "dist/cli/index.js"
+  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js",
+      "require": "./dist/lib/index.js",
+      "default": "./dist/lib/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js",
+      "require": "./dist/cli/index.js",
+      "default": "./dist/cli/index.js"
     }
   },
   "files": [
