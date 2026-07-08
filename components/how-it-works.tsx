@@ -94,10 +94,21 @@ export function HowItWorks() {
 
         <p className="text-sm text-muted/70 leading-relaxed max-w-2xl">
           <code className="font-mono text-accent">npm install @hyperdag/trustshell</code> is live today and delivers all three protocols — HAL, ERC-8004 RepID, and x402 — in one wrapper.
-          {' '}Two more install paths are rolling out: a GitHub install and an{' '}
+          {' '}There&apos;s now an AI-native install too — no terminal: the{' '}
           <span className="text-foreground">MCP server</span> (
-          <code className="font-mono">@hyperdag/trustshell-mcp</code>) that exposes the same three protocols as AI tools in Claude Desktop and Cursor, no terminal.{' '}
-          <span className="text-muted/60">Both are built — publishing soon.</span>
+          <a
+            href="https://www.npmjs.com/package/@hyperdag/trustshell-mcp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-accent hover:underline"
+          >
+            @hyperdag/trustshell-mcp
+          </a>
+          ) is <span className="text-foreground">live on npm</span> and exposes the same three protocols as AI-callable tools in Claude Desktop and Cursor. Run{' '}
+          <code className="font-mono text-accent">npx @hyperdag/trustshell-mcp</code>, or add{' '}
+          <code className="font-mono">{'{"mcpServers":{"trustshell":{"command":"npx","args":["-y","@hyperdag/trustshell-mcp"]}}}'}</code>{' '}
+          to your Claude Desktop / Cursor config.{' '}
+          <span className="text-muted/60">A GitHub install (github:DealAppSeo/trustshell) is still coming.</span>
         </p>
       </div>
     </section>

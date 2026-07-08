@@ -57,7 +57,7 @@ We say this plainly on purpose: **nothing here claims more than actually runs.**
 - **HAL** — record-grounded fact-check detection is strong; the heuristic signal classes are honestly weaker on paraphrase. The cross-provider quorum above is real and live.
 - **Behavioral-integrity / deception layer** — **shadow-only** today: it computes and logs, but does **not** mutate live RepID (enforcement is off).
 - **On-chain writes** — currently paused; see [On-chain today](#on-chain-today-base-sepolia-chain-id-84532).
-- **Additional install paths** (GitHub, MCP server) — built but not yet published.
+- **GitHub install** (`github:DealAppSeo/trustshell`) — built but not yet published.
 
 ---
 
@@ -71,12 +71,23 @@ This is the one live, published install today. It delivers all three protocols i
 
 Ships as a lean package (only `dist/` — no Next.js/React tree). The one runtime dep beyond `ethers` is `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent).
 
-**More install paths rolling out (publishing soon — not live yet):**
+### AI-native install (no terminal) — LIVE
+
+The same three protocols — **HAL** verification, **ERC-8004** RepID, and **x402** payments — are now live as an MCP server that an AI (**Claude Desktop / Cursor**) can call directly as tools: **[`@hyperdag/trustshell-mcp`](https://www.npmjs.com/package/@hyperdag/trustshell-mcp)**.
+
+```bash
+npx @hyperdag/trustshell-mcp
+```
+
+Or add it to your Claude Desktop / Cursor config:
+
+```json
+{"mcpServers":{"trustshell":{"command":"npx","args":["-y","@hyperdag/trustshell-mcp"]}}}
+```
+
+**Still rolling out (coming — not live yet):**
 
 - **GitHub install** — the same SDK straight from `github:DealAppSeo/trustshell` (a second install point for resilience).
-- **MCP server** (`@hyperdag/trustshell-mcp`) — the same three protocols exposed as AI-callable tools for **Claude Desktop / Cursor**, with no terminal. Built and hardened; publish-gated.
-
-We only list `npm install @hyperdag/trustshell` as a command because it's the only one live today — the others go here the moment they publish.
 
 ---
 
