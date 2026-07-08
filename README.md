@@ -54,13 +54,51 @@ We say this plainly on purpose: **nothing here claims more than actually runs.**
 
 ---
 
-## Install
+## Install (choose one)
+
+Multiple install points so a single registry hiccup or overload isn't a single point of failure. All four resolve the **same** SDK (`dist/` only — no Next.js/React tree; the one runtime dep beyond `ethers` is `@hyperdag/proof-verifier`, dynamically imported and degrades gracefully if the optional WASM build is absent).
+
+| Install point | Command | Needs | Status |
+|---|---|---|---|
+| **public npm** (default) | `npm install @hyperdag/trustshell` | nothing | live |
+| **straight from GitHub** | `npm install github:DealAppSeo/trustshell` | git + a network path to GitHub | verified working |
+| **GitHub Packages** | see below | a one-time `.npmrc` line + a GitHub token | config staged — Sean cuts a Release to publish |
+| **use-this-template starter** | `examples/starter/` → `npm install && npm start` | nothing | runnable now |
+
+### Straight from GitHub
 
 ```bash
-npm install @hyperdag/trustshell
+npm install github:DealAppSeo/trustshell      # or:  npm install DealAppSeo/trustshell
+# pin to a tag/commit:  npm install github:DealAppSeo/trustshell#v1.0.0
 ```
 
-Ships as a lean package (only `dist/` — no Next.js/React tree). The one runtime dep beyond `ethers` is `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent).
+This works because the built `dist/` is committed to the repo, so a git install has a usable
+build with zero extra steps. As a safety net, a `prepare` script (`npm run sdk:build`) also
+rebuilds the SDK on install, so the git path self-heals even if the committed `dist/` ever
+drifts. Both were verified end-to-end (install from a git URL → `import { TrustShell }` resolves).
+
+### GitHub Packages (npm.pkg.github.com)
+
+GitHub Packages requires the scope to match the repo owner, so it hosts the SDK as
+**`@dealappseo/trustshell`** (the public-npm identity stays `@hyperdag/trustshell`). To consume it,
+add one line to your project's `.npmrc`:
+
+```ini
+@dealappseo:registry=https://npm.pkg.github.com
+```
+
+then `npm install @dealappseo/trustshell` (GitHub Packages requires an authenticated token even for
+public packages — a GitHub personal access token with `read:packages`). The publish side is staged
+in [`.github/workflows/publish-github-packages.yml`](.github/workflows/publish-github-packages.yml)
+and uses the per-run `GITHUB_TOKEN` — **no secret is committed**. **One manual step for Sean:** cut a
+GitHub Release (Releases → Draft a new release → Publish) to trigger the publish. Nothing is published
+until then.
+
+### Use-this-template starter
+
+The fastest way to a running app: [`examples/starter/`](examples/starter/) is a standalone keyless
+app — `npm install && npm start` runs a live HAL verification with no key. Make this repo a GitHub
+template (Sean: repo **Settings → Template repository**) to scaffold a copy in one click.
 
 ---
 

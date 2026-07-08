@@ -1,0 +1,70 @@
+name: Publish to GitHub Packages
+
+# Publishes the TrustShell SDK to GitHub's npm registry (npm.pkg.github.com)
+# as a SECOND install point alongside the public npm registry — so a public-npm
+# registry hiccup or overload is not a single point of failure.
+#
+# TRIGGER: runs only when a GitHub Release is published. It does NOT run on push.
+# Nothing here needs a committed secret: it uses the automatically-provided,
+# per-run ${{ secrets.GITHUB_TOKEN }} scoped to this repo.
+#
+# ── THE ONE MANUAL STEP SEAN NEEDS (no secret in the repo) ────────────────────
+# GitHub Packages requires the package scope to match the repository OWNER.
+# This repo is DealAppSeo/trustshell, so on GitHub Packages the SDK publishes as
+#   @dealappseo/trustshell   (NOT @hyperdag/trustshell — that scope stays on npmjs.org).
+# This workflow rewrites the name to @dealappseo/trustshell at publish time (in a
+# temp copy of package.json) so the source package.json — and the public-npm
+# identity @hyperdag/trustshell — are left untouched.
+#
+# To enable: just cut a GitHub Release (Releases → Draft a new release → Publish).
+# The default GITHUB_TOKEN already has `packages: write` via the permissions block
+# below. No PAT, no org secret, nothing to paste. If the first run 403s, confirm
+# Settings → Actions → Workflow permissions allows GITHUB_TOKEN write (default on).
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {} # allow a manual run from the Actions tab too
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-gpr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          # scope must match the repo owner for GitHub Packages
+          scope: '@dealappseo'
+
+      - name: Install (legacy-peer-deps; also builds dist via prepare)
+        run: npm install --legacy-peer-deps
+
+      - name: Build SDK (explicit; prepare already ran, this is a belt-and-suspenders)
+        run: npm run sdk:build
+
+      - name: Rewrite scope to @dealappseo for GitHub Packages
+        # GitHub Packages hosts the SDK under the repo-owner scope. We rewrite only
+        # a throwaway copy so the committed package.json (public-npm @hyperdag) is
+        # never mutated. publishConfig.registry pins the GPR registry for this run.
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+            p.name = '@dealappseo/trustshell';
+            p.publishConfig = { registry: 'https://npm.pkg.github.com' };
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
+            console.log('publishing as', p.name, 'to GitHub Packages');
+          "
+
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

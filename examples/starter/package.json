@@ -1,0 +1,13 @@
+{
+  "name": "trustshell-starter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One-click keyless starter for @hyperdag/trustshell — verify an agent output against the live HAL quorum, no API key.",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@hyperdag/trustshell": "^1.0.0"
+  }
+}
