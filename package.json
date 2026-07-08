@@ -6,14 +6,24 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/lib/index.js",
+  "types": "dist/lib/index.d.ts",
+  "bin": {
+    "trustshell": "dist/cli/index.js",
+    "hal": "dist/cli/index.js"
+  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js",
+      "require": "./dist/lib/index.js",
+      "default": "./dist/lib/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js",
+      "require": "./dist/cli/index.js",
+      "default": "./dist/cli/index.js"
     }
   },
   "files": [
