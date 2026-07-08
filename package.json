@@ -1,6 +1,6 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Trust SDK for AI agents — HAL hallucination filtering, portable RepID, and agent-to-agent service purchase with verifiable receipts, against the live HyperDAG backend.",
   "license": "Apache-2.0",
   "publishConfig": {
