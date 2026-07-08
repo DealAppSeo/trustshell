@@ -22,6 +22,8 @@
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { z } from 'zod';
 import { TrustShell, buildX402Payment, verify as verifyProofOffline } from '@hyperdag/trustshell';
 
@@ -29,10 +31,42 @@ const REPID_API_KEY = process.env.REPID_API_KEY?.trim() || undefined;
 const TRUSTSHELL_API_URL = process.env.TRUSTSHELL_API_URL?.trim() || undefined;
 const TRUSTSHELL_WALLET_KEY = process.env.TRUSTSHELL_WALLET_KEY?.trim() || undefined;
 
+/** SDK default backend when TRUSTSHELL_API_URL is unset — kept in sync with the SDK so the
+ *  MCP's own direct escrow-by-id fetch (see buy_service) hits the same origin the SDK uses. */
+const DEFAULT_API_URL = 'https://repid-engine-production.up.railway.app';
+
+/**
+ * Fail-fast validation of TRUSTSHELL_API_URL. An invalid override (e.g. a bare host, a typo,
+ * or a non-http(s) scheme) otherwise fails opaquely deep inside a per-call fetch. Returns the
+ * validated base URL (no trailing slash), or throws a clear message the operator can act on.
+ */
+export function resolveApiUrl(raw: string | undefined): string {
+  if (!raw) return DEFAULT_API_URL;
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error(
+      `TRUSTSHELL_API_URL is not a valid URL: ${JSON.stringify(raw)}. ` +
+        `Set it to a full http(s) origin (e.g. ${DEFAULT_API_URL}) or unset it to use the default.`,
+    );
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error(
+      `TRUSTSHELL_API_URL must use http/https, got ${JSON.stringify(u.protocol)} in ${JSON.stringify(raw)}.`,
+    );
+  }
+  return raw.replace(/\/+$/, '');
+}
+
+/** Validated backend origin. Throwing here fails the process at boot (fail-fast) rather than
+ *  surfacing an opaque error on every tool call. */
+const API_URL = resolveApiUrl(TRUSTSHELL_API_URL);
+
 /** One shared client. apiKey is only attached when present (keyless tools don't need it). */
 const shell = new TrustShell({
   apiKey: REPID_API_KEY,
-  apiUrl: TRUSTSHELL_API_URL,
+  apiUrl: API_URL,
 });
 
 /** MCP text-content helper. */
@@ -47,6 +81,86 @@ function err(message: string): {
   isError: true;
 } {
   return { content: [{ type: 'text', text: message }], isError: true };
+}
+
+/** A hex 0x…40 EVM address (case-insensitive). Used to sanity-check the 402 payTo before signing. */
+const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+/**
+ * Money-safety gate for buy_service: decide whether it is safe to SIGN a payment for the
+ * amount/recipient the backend asked for, given the authoritative marketplace listing.
+ *
+ * Conservative by design — reject on doubt, never sign above the listed price, never sign to a
+ * malformed/unexpected recipient. Pure + exported so it can be unit-tested without a network.
+ *
+ * @param listedPriceRaw  the listing's base_price_usdc_raw (authoritative ceiling)
+ * @param agreedPriceRaw  optional caller-agreed price (must itself be <= listed price)
+ * @param quotedAmountRaw the amount the 402 payment requirements ask us to pay
+ * @param payTo           the recipient address from the 402 payment requirements
+ */
+export function checkPaymentSafe(
+  listedPriceRaw: number,
+  agreedPriceRaw: number | undefined,
+  quotedAmountRaw: unknown,
+  payTo: unknown,
+): { ok: true } | { ok: false; reason: string } {
+  if (!Number.isFinite(listedPriceRaw) || listedPriceRaw < 0) {
+    return { ok: false, reason: `listing has no usable base price (got ${String(listedPriceRaw)})` };
+  }
+  // The price the buyer authorized: their agreed price if given, else the listing price.
+  // An agreed price ABOVE the listing is itself rejected (never authorize more than list).
+  if (agreedPriceRaw !== undefined) {
+    if (!Number.isFinite(agreedPriceRaw) || agreedPriceRaw <= 0) {
+      return { ok: false, reason: `agreed price is not a positive number (got ${String(agreedPriceRaw)})` };
+    }
+    if (agreedPriceRaw > listedPriceRaw) {
+      return {
+        ok: false,
+        reason: `agreed price ${agreedPriceRaw} exceeds the listed price ${listedPriceRaw} — refusing to authorize more than list`,
+      };
+    }
+  }
+  const ceiling = agreedPriceRaw ?? listedPriceRaw;
+
+  const amount = typeof quotedAmountRaw === 'string' ? Number(quotedAmountRaw) : quotedAmountRaw;
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, reason: `backend quoted a non-positive/unparseable amount (${String(quotedAmountRaw)})` };
+  }
+  if (amount > ceiling) {
+    return {
+      ok: false,
+      reason: `backend quoted ${amount} which exceeds the authorized price ${ceiling} (listed ${listedPriceRaw}) — refusing to sign`,
+    };
+  }
+  if (typeof payTo !== 'string' || !EVM_ADDRESS_RE.test(payTo)) {
+    return { ok: false, reason: `backend payTo is not a valid EVM address (${String(payTo)}) — refusing to sign` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Escrow an ALREADY-CREATED contract by id, reusing the single contract from the probe. The
+ * published SDK bundles create+escrow inside executeA2A and exposes no escrow-by-id method, so a
+ * second executeA2A would POST /contracts again and orphan the first contract (double-spend risk).
+ * This hits the same POST /api/v1/contracts/:id/escrow leg the SDK uses internally — one contract,
+ * one escrow. Uses the same origin + auth as the shared SDK client.
+ */
+async function escrowContractById(
+  contractId: string,
+  xPaymentHeader: string,
+): Promise<{ ok: boolean; status: number; body: any }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-PAYMENT': xPaymentHeader,
+  };
+  if (REPID_API_KEY) headers['Authorization'] = `Bearer ${REPID_API_KEY}`;
+  const res = await fetch(`${API_URL}/api/v1/contracts/${encodeURIComponent(contractId)}/escrow`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  });
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body };
 }
 
 const server = new McpServer({
@@ -77,9 +191,16 @@ server.registerTool(
   async ({ text: outputText }) => {
     try {
       const r = await shell.verifyOutput(outputText);
-      return text({
+      // HONESTY: only a PASS reads as "verified". The SDK's `ok` is true on a soft FLAG too
+      // (ok = verdict !== 'VETO'), which an AI reads as "verified/OK". Make the MCP result
+      // unambiguous: top-level `verified` is true ONLY on PASS, and FLAG/VETO come back as an
+      // MCP error (isError) so the model cannot mistake a flagged/vetoed claim for a clean one.
+      const verified = r.verdict === 'PASS';
+      const payload = {
+        verified,
         verdict: r.verdict,
-        ok: r.ok,
+        // keep the SDK's raw ok for transparency, but clearly subordinate to `verified`
+        sdkOk: r.ok,
         trustScore: r.trustScore,
         halScore: r.halScore,
         soft: r.soft,
@@ -87,7 +208,14 @@ server.registerTool(
         evidence: r.evidence,
         signals: r.signals,
         ...(r.glassBox ? { glassBox: r.glassBox } : {}),
-      });
+      };
+      if (!verified) {
+        return err(
+          `verify_output: NOT verified — verdict ${r.verdict} (${r.verdict === 'VETO' ? 'hard veto' : 'flagged, not clean'}). ` +
+            `Do NOT treat this output as verified. Details:\n${JSON.stringify(payload, null, 2)}`,
+        );
+      }
+      return text(payload);
     } catch (e: any) {
       // The keyless HAL endpoint is anti-abuse rate-limited per IP. Surface that honestly.
       if (e?.status === 429) {
@@ -151,8 +279,9 @@ server.registerTool(
   },
   async ({ agent_id, verify }) => {
     try {
-      const p = await shell.presentProof(agent_id, { verify: verify ?? true });
-      return text({
+      const doVerify = verify ?? true;
+      const p = await shell.presentProof(agent_id, { verify: doVerify });
+      const payload = {
         agentId: p.agentId,
         tier: p.tier,
         scheme: p.scheme,
@@ -163,7 +292,20 @@ server.registerTool(
         verification: p.verification ?? null,
         note:
           'proofBytes is base64-encoded Plonky3 proof bytes; use verify_proof to check it offline anywhere.',
-      });
+      };
+      // HONESTY: when local verification was requested, a proof that did NOT verify (failed check,
+      // or no verifier/proof present so verification is null) must NOT read as MCP success. An AI
+      // reading a success result will say "proof verified" — only a real verified===true earns that.
+      if (doVerify && p.verification?.verified !== true) {
+        const why = p.verification
+          ? `verification failed: ${p.verification.error ?? 'not verified'}`
+          : 'no client-side verification result (missing proof bytes/statement or the WASM verifier)';
+        return err(
+          `present_proof: proof was NOT verified (${why}). Do NOT claim the RepID proof is verified. ` +
+            `Details:\n${JSON.stringify(payload, null, 2)}`,
+        );
+      }
+      return text(payload);
     } catch (e: any) {
       return err(`present_proof failed: ${e?.message ?? String(e)}`);
     }
@@ -302,8 +444,26 @@ server.registerTool(
       );
     }
     try {
-      // Step 1: probe the contract to learn the exact price + payTo (the backend returns a 402 with
-      // payment requirements when payment is required and no header is supplied).
+      // Step 0: fetch the AUTHORITATIVE listing first, so we can sanity-check the backend's quoted
+      // price/recipient before ever signing a payment (never sign above list, never to a surprise
+      // address). This is a public read.
+      const listing = await shell.getService(service_id);
+      if (!listing.active) {
+        return err(
+          `buy_service: service ${service_id} is not active — refusing to create a contract or pay. No payment was made.`,
+        );
+      }
+      if (agreed_price_usdc_raw !== undefined && agreed_price_usdc_raw > listing.basePriceUsdcRaw) {
+        return err(
+          `buy_service: agreed price ${agreed_price_usdc_raw} exceeds the listed price ${listing.basePriceUsdcRaw} — ` +
+            `refusing to authorize more than list. No contract was created and no payment was made.`,
+        );
+      }
+
+      // Step 1: create EXACTLY ONE contract and learn the exact payment requirements. With no payment
+      // header the backend replies 402 with { accepts: [...] }; the SDK echoes them in paymentRequired
+      // and hands back the single contractId it created. We reuse THAT id below — we never call
+      // executeA2A a second time (which would POST /contracts again and orphan this one).
       const probe = await shell.executeA2A({
         buyerAgentId: buyer_agent_id,
         serviceId: service_id,
@@ -319,49 +479,66 @@ server.registerTool(
           providerAgentId: probe.providerAgentId,
           agreedPriceUsdcRaw: probe.agreedPriceUsdcRaw,
           settlementId: probe.settlementId ?? null,
-          note: 'Contract created. Fulfillment is asynchronous — poll getContractStatus / the backend for the result.',
+          note: 'Contract created (no payment required). Fulfillment is asynchronous — poll the backend for the result.',
         });
       }
 
-      // Step 2: payment is required. Extract the payTo + amount from the 402 requirements and sign an
-      // x402 header locally with the funded wallet, then retry the escrow leg.
+      // Step 2: payment IS required. Extract payTo + amount from the 402 requirements.
       const accept = (probe.paymentRequired.accepts?.[0] ?? {}) as Record<string, any>;
-      const payTo: string | undefined = accept.payTo ?? accept.to ?? accept.recipient;
+      const payTo: unknown = accept.payTo ?? accept.to ?? accept.recipient;
       const amount = accept.maxAmountRequired ?? accept.amount ?? probe.agreedPriceUsdcRaw;
       const asset: string | undefined = accept.asset ?? accept.token;
 
-      if (!payTo) {
+      // Step 3: MONEY-SAFETY GATE — verify the quoted amount/recipient against the authoritative
+      // listing BEFORE signing anything. Reject on any doubt; the created contract is left un-escrowed
+      // (no money moves). One contract exists; zero payments signed.
+      const safe = checkPaymentSafe(listing.basePriceUsdcRaw, agreed_price_usdc_raw, amount, payTo);
+      if (!safe.ok) {
         return err(
-          'buy_service: the backend returned a 402 but no payTo address could be resolved from the ' +
-            'payment requirements, so no payment was signed. Raw requirements: ' +
-            JSON.stringify(probe.paymentRequired),
+          `buy_service: refusing to sign the x402 payment — ${safe.reason}. ` +
+            `Contract ${probe.contractId} was created but left UN-ESCROWED (no payment was signed or made). ` +
+            `Backend 402 requirements: ${JSON.stringify(probe.paymentRequired)}`,
         );
       }
 
+      // Step 4: sign the x402 header locally, then escrow the SAME contract by id (one contract,
+      // one escrow — no second executeA2A / no second POST /contracts).
       const xPaymentHeader = await buildX402Payment({
         privateKey: TRUSTSHELL_WALLET_KEY,
-        to: payTo,
+        to: payTo as string,
         amount,
         ...(asset ? { asset } : {}),
       });
 
-      const escrowed = await shell.executeA2A({
-        buyerAgentId: buyer_agent_id,
-        serviceId: service_id,
-        payload: payload ?? {},
-        ...(agreed_price_usdc_raw ? { agreedPriceUsdcRaw: agreed_price_usdc_raw } : {}),
-        xPaymentHeader,
-      });
+      const escrow = await escrowContractById(probe.contractId, xPaymentHeader);
+      if (escrow.status === 401) {
+        return err(
+          `buy_service: backend rejected the API key (401) at escrow. Contract ${probe.contractId} exists but was NOT paid. ` +
+            `The payment authorization was signed but not accepted — no funds moved.`,
+        );
+      }
+      if (escrow.status === 402) {
+        return err(
+          `buy_service: backend still returned 402 at escrow for contract ${probe.contractId} — the signed payment was ` +
+            `not accepted, so no funds moved. Requirements: ${JSON.stringify(escrow.body)}`,
+        );
+      }
+      if (!escrow.ok) {
+        return err(
+          `buy_service: escrow failed (${escrow.status}) for contract ${probe.contractId} — ${escrow.body?.error ?? 'unknown error'}. ` +
+            `No second contract was created.`,
+        );
+      }
 
       return text({
-        status: escrowed.status,
-        contractId: escrowed.contractId,
-        providerAgentId: escrowed.providerAgentId,
-        agreedPriceUsdcRaw: escrowed.agreedPriceUsdcRaw,
-        settlementId: escrowed.settlementId ?? null,
+        status: escrow.body.status ?? 'escrowed',
+        contractId: probe.contractId,
+        providerAgentId: escrow.body.provider_agent_id ?? probe.providerAgentId,
+        agreedPriceUsdcRaw: escrow.body.agreed_price_usdc_raw ?? probe.agreedPriceUsdcRaw,
+        settlementId: escrow.body.x402_payment_id ?? null,
         note:
-          'Payment signed locally with your wallet and submitted for x402 escrow. Fulfillment is ' +
-          'asynchronous — poll the backend for the final result.',
+          'Payment signed locally with your wallet and submitted for x402 escrow against the single ' +
+          'contract created above. Fulfillment is asynchronous — poll the backend for the final result.',
       });
     } catch (e: any) {
       if (e?.status === 401) {
@@ -381,11 +558,30 @@ async function main() {
   await server.connect(transport);
   // NOTE: stdout is the MCP transport channel — never console.log there.
   // Diagnostics go to stderr.
-  const keyState = REPID_API_KEY ? 'REPID_API_KEY set (keyed tools enabled)' : 'no REPID_API_KEY (keyed tools guarded)';
-  process.stderr.write(`[trustshell-mcp] ready over stdio — 6 tools — ${keyState}\n`);
+  const keyState = REPID_API_KEY
+    ? 'REPID_API_KEY set (list_services enabled)'
+    : 'no REPID_API_KEY (list_services + buy_service guarded)';
+  const walletState = TRUSTSHELL_WALLET_KEY
+    ? 'TRUSTSHELL_WALLET_KEY set'
+    : 'no TRUSTSHELL_WALLET_KEY (buy_service guarded — a purchase ALSO needs a funded wallet key, not just REPID_API_KEY)';
+  process.stderr.write(`[trustshell-mcp] ready over stdio — 6 tools — backend ${API_URL} — ${keyState}; ${walletState}\n`);
 }
 
-main().catch((e) => {
-  process.stderr.write(`[trustshell-mcp] fatal: ${e?.stack ?? e}\n`);
-  process.exit(1);
-});
+// Boot ONLY when run as the entry point (not when imported by a test/consumer). This lets the
+// pure helpers above be unit-tested without spawning the stdio server.
+const isEntry = (() => {
+  try {
+    const argvPath = process.argv[1];
+    if (!argvPath) return false;
+    return fileURLToPath(import.meta.url) === resolve(argvPath);
+  } catch {
+    return false;
+  }
+})();
+
+if (isEntry) {
+  main().catch((e) => {
+    process.stderr.write(`[trustshell-mcp] fatal: ${e?.stack ?? e}\n`);
+    process.exit(1);
+  });
+}
