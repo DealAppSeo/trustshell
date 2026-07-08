@@ -57,7 +57,6 @@ We say this plainly on purpose: **nothing here claims more than actually runs.**
 - **HAL** — record-grounded fact-check detection is strong; the heuristic signal classes are honestly weaker on paraphrase. The cross-provider quorum above is real and live.
 - **Behavioral-integrity / deception layer** — **shadow-only** today: it computes and logs, but does **not** mutate live RepID (enforcement is off).
 - **On-chain writes** — currently paused; see [On-chain today](#on-chain-today-base-sepolia-chain-id-84532).
-- **GitHub install** (`github:DealAppSeo/trustshell`) — built but not yet published.
 
 ---
 
@@ -95,9 +94,17 @@ Or add it to your Claude Desktop / Cursor config:
 {"mcpServers":{"trustshell":{"command":"npx","args":["-y","@hyperdag/trustshell-mcp"]}}}
 ```
 
-**Still rolling out (coming — not live yet):**
+### Install straight from GitHub (no npm registry) — LIVE
 
-- **GitHub install** — the same SDK straight from `github:DealAppSeo/trustshell` (a second install point for resilience).
+The same SDK installs directly from the repo, so you can pull it before (or independently of) the npm publish — useful for pinning a commit or as a registry-independent fallback:
+
+```bash
+npm install github:DealAppSeo/trustshell
+# or pin a commit / branch:
+npm install github:DealAppSeo/trustshell#<commit-or-branch>
+```
+
+The package ships a committed `dist/`, so the GitHub install resolves the same `import` surface as the npm install — no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled).
 
 ---
 
