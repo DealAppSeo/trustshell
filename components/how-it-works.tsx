@@ -91,6 +91,14 @@ export function HowItWorks() {
         >
           <span>&rarr;</span> See full SDK reference on GitHub
         </a>
+
+        <p className="text-sm text-muted/70 leading-relaxed max-w-2xl">
+          <code className="font-mono text-accent">npm install @hyperdag/trustshell</code> is live today and delivers all three protocols — HAL, ERC-8004 RepID, and x402 — in one wrapper.
+          {' '}Two more install paths are rolling out: a GitHub install and an{' '}
+          <span className="text-foreground">MCP server</span> (
+          <code className="font-mono">@hyperdag/trustshell-mcp</code>) that exposes the same three protocols as AI tools in Claude Desktop and Cursor, no terminal.{' '}
+          <span className="text-muted/60">Both are built — publishing soon.</span>
+        </p>
       </div>
     </section>
   );

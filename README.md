@@ -52,6 +52,13 @@ Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdi
 
 We say this plainly on purpose: **nothing here claims more than actually runs.**
 
+### Honest limits
+
+- **HAL** — record-grounded fact-check detection is strong; the heuristic signal classes are honestly weaker on paraphrase. The cross-provider quorum above is real and live.
+- **Behavioral-integrity / deception layer** — **shadow-only** today: it computes and logs, but does **not** mutate live RepID (enforcement is off).
+- **On-chain writes** — currently paused; see [On-chain today](#on-chain-today-base-sepolia-chain-id-84532).
+- **Additional install paths** (GitHub, MCP server) — built but not yet published.
+
 ---
 
 ## Install
@@ -60,7 +67,16 @@ We say this plainly on purpose: **nothing here claims more than actually runs.**
 npm install @hyperdag/trustshell
 ```
 
+This is the one live, published install today. It delivers all three protocols in one wrapper — **HAL** verification, **ERC-8004** portable RepID, and **x402** agent-to-agent payments — against the live backend.
+
 Ships as a lean package (only `dist/` — no Next.js/React tree). The one runtime dep beyond `ethers` is `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent).
+
+**More install paths rolling out (publishing soon — not live yet):**
+
+- **GitHub install** — the same SDK straight from `github:DealAppSeo/trustshell` (a second install point for resilience).
+- **MCP server** (`@hyperdag/trustshell-mcp`) — the same three protocols exposed as AI-callable tools for **Claude Desktop / Cursor**, with no terminal. Built and hardened; publish-gated.
+
+We only list `npm install @hyperdag/trustshell` as a command because it's the only one live today — the others go here the moment they publish.
 
 ---
 
@@ -155,6 +171,15 @@ ERC-8004 Identity Registry     ← who is the agent?
 ```
 
 RepID is the middle layer — the behavioral credential that makes the agent economy accountable.
+
+### On-chain today (Base Sepolia, chain ID 84532)
+
+Verifiable on [basescan](https://sepolia.basescan.org):
+
+- **IdentityRegistry** — `0x8004A818BFB912233c491871b3d84c89A494BD9e`
+- **ReputationRegistry** — `0x8004B663056A597Dffe9eCcC1965A193B7388713`
+- **12 agents minted** on the IdentityRegistry (all core Trinity agents).
+- **46 lifetime on-chain reputation writes.** Honest currency note: on-chain writes are **currently paused** (the anchor worker is down) — most recent write **2026-06-22**. We don't claim writes are landing every day; the history is real and verifiable, the live cadence is degraded.
 
 ---
 

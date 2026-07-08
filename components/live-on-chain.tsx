@@ -40,11 +40,14 @@ const contracts = [
   },
 ];
 
-// Static numbers verified against production DB at edit time. See block comment
-// above for the rationale. Update on the same cadence as the static landing copy.
-const STATIC_AGENTS_MINTED = 4;
-const STATIC_LIFETIME_REAL_WRITES = 32;
-const STATIC_FROZEN_AT = '2026-05-24'; // last real on-chain write date
+// Static numbers verified against production DB + Base Sepolia at edit time. See
+// block comment above for the rationale. Update on the same cadence as the static
+// landing copy. Verified 2026-07-08: all 12 core Trinity agents minted on the
+// canonical IdentityRegistry; 46 lifetime on-chain reputation writes. Writes are
+// currently paused (drain/anchor worker down) — most recent write 2026-06-22.
+const STATIC_AGENTS_MINTED = 12;
+const STATIC_LIFETIME_REAL_WRITES = 46;
+const STATIC_FROZEN_AT = '2026-06-22'; // last real on-chain write date (writes currently paused)
 
 const LIVE_REFRESH_MS = 60_000;
 
@@ -243,7 +246,7 @@ export function LiveOnChain() {
               <p className="text-xs text-muted/40">
                 {onchainLive
                   ? 'Agents minted + lifetime writes are live from the engine — they grow as agents onboard.'
-                  : `Agents minted + lifetime writes are static fallbacks (live stats endpoint unavailable; no new mints or writes since ${STATIC_FROZEN_AT}).`}
+                  : `Agents minted + lifetime writes are static fallbacks (live stats endpoint unavailable). All 12 core agents are minted; on-chain writes are currently paused — most recent write ${STATIC_FROZEN_AT}.`}
               </p>
             </div>
           </div>
