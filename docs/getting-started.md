@@ -193,7 +193,7 @@ The `trustshell init` command writes a project-local `.trustshell.json` with the
 
 ```json
 {
-  "version": "0.6.x",
+  "version": "1.1.0",
   "network": "base-sepolia",
   "chainId": 84532,
   "contracts": {

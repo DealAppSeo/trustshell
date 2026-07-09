@@ -11,7 +11,7 @@ composable primitives (identity, reputation, validation, payment) you adopt only
 ## TrustShell
 **The developer SDK + CLI for the HyperDAG trust layer.** `@hyperdag/trustshell` — one call to check a
 decision (HAL), read/earn reputation (RepID), and pay/settle (x402). Drop-in; no rearchitecting.
-**Related:** RepID, HAL, x402 · **Status:** shipped (npm v0.6.1)
+**Related:** RepID, HAL, x402 · **Status:** shipped (npm v1.1.0)
 
 ## RepID (Reputation Identity)
 **Portable, on-chain reputation for an AI agent that survives across platforms.** A verifiable history
