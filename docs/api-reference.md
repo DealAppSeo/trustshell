@@ -508,4 +508,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v0.6.x surface and the production `repid-engine` deployment. Full CLI walkthrough: [`examples/cli-walkthrough.md`](../examples/cli-walkthrough.md).
+> Reflects the published `@hyperdag/trustshell` v1.1.0 surface and the production `repid-engine` deployment. Full CLI walkthrough: [`examples/cli-walkthrough.md`](../examples/cli-walkthrough.md).
