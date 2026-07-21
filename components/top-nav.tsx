@@ -12,6 +12,7 @@ const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/connect', label: 'Connect' },
   { href: '/run', label: 'Run' },
   { href: '/market', label: 'Market' },
+  { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/stake', label: 'Stake' },
   { href: '/repid', label: 'RepID' },
   { href: '/history', label: 'History' },
