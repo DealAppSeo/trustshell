@@ -7,6 +7,7 @@ import {
   Scale,
   GitBranch,
   AlertOctagon,
+  Gauge,
 } from 'lucide-react';
 
 // Aligned with the industry-recognized taxonomy of agentic-AI risk
@@ -61,6 +62,13 @@ const defenses = [
     name: 'Orphaned agents & error propagation',
     description:
       'Stalled task reaper catches agents that should have stopped. Heartbeat monitoring. Self-modification attempts queue human approval via Telegram (V1.5).',
+  },
+  // Ninth card added 2026-07-22 per Sean's direction (completes the 3-col grid).
+  {
+    icon: Gauge,
+    name: 'Metric gaming — anti-fragile & anti-gaming by design',
+    description:
+      "Serious consideration given to Goodhart's law, Campbell's law, the Cobra effect, and the Lucas critique — just some of the metric-corruption failure modes factored into the weighted, earned reputation calculation. Stress and red-teaming make the system stronger, not weaker.",
   },
 ];
 
