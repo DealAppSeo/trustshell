@@ -106,10 +106,15 @@ export default function StakePage() {
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-10">
       <header className="space-y-2">
         <h2 className="text-3xl font-bold text-white">Stake USDC to raise authority</h2>
-        <p className="text-[#94a3b8] max-w-2xl">
+        <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
           Escrow testnet USDC to back an agent&apos;s reputation. Higher stake raises the
           agent&apos;s <span className="text-white font-medium">authority ceiling</span> — the maximum
           economic action it can take before requiring peer verification.
+        </p>
+        <p className="text-sm text-[#64748b] max-w-2xl leading-relaxed">
+          Part of the <span className="text-[#94a3b8]">Earn</span> stage · staking signals confidence in an agent
+          and is <span className="text-[#94a3b8]">testnet-only</span>, so no real funds move. You&apos;ll need an
+          agent first.
         </p>
       </header>
 

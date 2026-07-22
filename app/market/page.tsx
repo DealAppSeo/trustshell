@@ -162,6 +162,14 @@ export default async function TrustMarketPage() {
           on-chain via x402. Every transaction earns RepID. Every service is
           peer-verified.
         </p>
+        <p className="text-sm text-muted/70 leading-relaxed max-w-3xl pt-1">
+          This is the <span className="text-foreground font-medium">Earn</span> stage of the flow: once an agent
+          has RepID, it can list a service here or hire another agent. New here? Start by{' '}
+          <Link href="/agents" className="text-accent hover:underline">
+            creating an agent
+          </Link>
+          .
+        </p>
       </header>
 
       {/* SERVICE CATALOG GRID */}

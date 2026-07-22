@@ -81,18 +81,47 @@ export default function ConnectPage() {
 
   if (!hasVault) {
     return (
-      <div className="max-w-md mx-auto mt-20 p-8 bg-[#0f172a] rounded-xl border border-[#1e293b]">
-        <h2 className="text-2xl font-bold mb-4">Create your Vault</h2>
-        <p className="text-[#94a3b8] mb-6 text-sm">There is no recovery. If you forget this passphrase, you wipe and start fresh.</p>
-        <form onSubmit={handleCreate} className="space-y-4">
-          <input type="password" required placeholder="Passphrase" value={passphrase} onChange={e=>setPassphrase(e.target.value)} className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white" />
-          <input type="password" required placeholder="Confirm Passphrase" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white" />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <label className="flex items-center gap-2 text-sm text-[#94a3b8]">
-            <input type="checkbox" required /> I understand there is no recovery
-          </label>
-          <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold p-3 rounded">Create Vault</button>
-        </form>
+      <div className="max-w-2xl mx-auto mt-12 space-y-6">
+        {/* Context BEFORE the warning: what a Vault is, why it exists, and reassurance. */}
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold">Create your Vault</h2>
+          <p className="text-[#94a3b8] max-w-xl leading-relaxed">
+            A <span className="text-white font-medium">Vault</span> is an encrypted, browser-only store for the
+            model API keys you&apos;ll connect next. It&apos;s locked with a passphrase only you know, and your keys{' '}
+            <span className="text-white font-medium">never leave your device</span> — they&apos;re never sent to a
+            server. That&apos;s how TrustShell lets you run your own models while keeping your keys private.
+          </p>
+
+          <ProgressStrip />
+
+          <div className="bg-[#0f172a] border border-[#1e293b] rounded-xl p-5 space-y-2">
+            <p className="text-sm text-[#e2e8f0] font-medium">You&apos;re not losing anything yet.</p>
+            <p className="text-sm text-[#94a3b8] leading-relaxed">
+              Nothing valuable is stored here yet — this step just sets the passphrase that will protect the keys
+              you add on the next screen. You can export and back up your Vault at any time from{' '}
+              <span className="text-[#94a3b8] underline decoration-dotted">Settings</span>.
+            </p>
+          </div>
+        </div>
+
+        <div className="max-w-md p-6 bg-[#0f172a] rounded-xl border border-[#1e293b]">
+          <h3 className="text-lg font-bold mb-1">Set your passphrase</h3>
+          <p className="text-[#94a3b8] mb-4 text-sm leading-relaxed">
+            <span className="text-amber-500 font-medium">Choose it carefully — there is no recovery.</span> Because
+            the Vault is encrypted on your device only, no one (not even us) can reset this passphrase. If you
+            forget it, you simply wipe and start fresh. That&apos;s the security guarantee: only you can ever unlock
+            your keys.
+          </p>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <input type="password" required placeholder="Passphrase" value={passphrase} onChange={e=>setPassphrase(e.target.value)} className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white" />
+            <input type="password" required placeholder="Confirm Passphrase" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white" />
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <label className="flex items-center gap-2 text-sm text-[#94a3b8]">
+              <input type="checkbox" required /> I understand there is no recovery
+            </label>
+            <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold p-3 rounded">Create Vault</button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -114,8 +143,15 @@ export default function ConnectPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <h2 className="text-3xl font-bold">Your API Keys</h2>
-      <p className="text-[#94a3b8]">Connect at least one LLM provider to start. Free tier works without any keys.</p>
+      <div className="space-y-2">
+        <p className="text-xs font-mono text-amber-400">STEP 2 OF 4 · CONNECT A MODEL</p>
+        <h2 className="text-3xl font-bold">Your API Keys</h2>
+        <p className="text-[#94a3b8] leading-relaxed">
+          Each key you add is encrypted straight into your Vault — stored only in this browser, never sent to a
+          server. Connect at least one LLM provider to run your own models, or skip it: the free tier works
+          without any keys. Next up: <span className="text-white font-medium">Run</span> a prompt.
+        </p>
+      </div>
       {error && <p className="text-red-500 text-sm bg-red-900/20 p-3 rounded border border-red-900">{error}</p>}
       
       <div className="space-y-4">
@@ -139,5 +175,33 @@ export default function ConnectPage() {
         <button onClick={saveKeys} className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded">Save and continue</button>
       </div>
     </div>
+  );
+}
+
+// The Create→Connect→Run→Earn journey strip, matching the treatment on /agents.
+// `current` highlights where the user is right now (Connect = step 2).
+function ProgressStrip({ current = 2 }: { current?: number }) {
+  const steps = [
+    { n: 1, t: 'Create an agent', d: 'Name a TrustShell-wrapped identity.' },
+    { n: 2, t: 'Connect a model', d: 'Add your keys to this Vault. You are here.' },
+    { n: 3, t: 'Run prompts', d: 'HAL scores every response in real time.' },
+    { n: 4, t: 'Earn RepID', d: 'Honest agents climb the leaderboard.' },
+  ];
+  return (
+    <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+      {steps.map((s) => {
+        const here = s.n === current;
+        return (
+          <li
+            key={s.n}
+            className={`p-4 rounded-xl border ${here ? 'border-amber-600/50 bg-amber-600/10' : 'border-[#1e293b] bg-[#0f172a]'}`}
+          >
+            <div className={`text-xs font-mono ${here ? 'text-amber-400' : 'text-[#475569]'}`}>STEP {s.n}</div>
+            <div className="font-semibold text-white mt-1">{s.t}</div>
+            <div className="text-xs text-[#94a3b8] mt-1 leading-snug">{s.d}</div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

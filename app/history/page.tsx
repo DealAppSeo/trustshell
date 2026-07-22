@@ -21,9 +21,16 @@ export default function HistoryPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-white">Decision History</h2>
-        <button onClick={handleExport} className="px-4 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
+      <div className="flex justify-between items-start gap-4">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-bold text-white">Decision History</h2>
+          <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
+            Your audit trail: every prompt you run is logged here with the model that answered, the HAL verdict,
+            and the resulting <span className="text-white font-medium">RepID</span> change. It&apos;s stored in
+            this browser only — export it any time.
+          </p>
+        </div>
+        <button onClick={handleExport} className="shrink-0 px-4 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
           Export to JSON
         </button>
       </div>

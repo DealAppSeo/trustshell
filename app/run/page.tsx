@@ -18,10 +18,13 @@ export default function RunIndexPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10 space-y-8">
-      <div>
+      <div className="space-y-2">
+        <p className="text-xs font-mono text-amber-400">STEP 3 OF 4 · RUN PROMPTS</p>
         <h2 className="text-3xl font-bold text-white">Run an agent</h2>
-        <p className="text-[#94a3b8] mt-2">
-          Pick an agent to send a prompt and earn RepID, or{' '}
+        <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
+          Send a prompt to one of your agents. Every response is{' '}
+          <span className="text-white font-medium">HAL-scored</span> for hallucination in real time, and honest
+          answers earn portable <span className="text-white font-medium">RepID</span>. Pick an agent below, or{' '}
           <Link href="/agents" className="text-amber-500 hover:underline">
             create one
           </Link>
