@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, use } from 'react';
+import Link from 'next/link';
 import { localDb, Agent, HistoryRow } from '@/lib/db';
 import { vault } from '@/lib/vault';
 
@@ -7,6 +8,7 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
   const unwrappedParams = use(params);
   const agentId = unwrappedParams.agentId;
   const [agent, setAgent] = useState<Agent | null>(null);
+  const [agentsLoaded, setAgentsLoaded] = useState(false);
   const [repid, setRepid] = useState<number>(0);
   const [prompt, setPrompt] = useState('');
   const [tierPref, setTierPref] = useState('auto');
@@ -32,7 +34,10 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
   };
 
   useEffect(() => {
-    localDb.getAgents().then(agents => setAgent(agents.find(a => a.id === agentId) || null));
+    localDb.getAgents().then(agents => {
+      setAgent(agents.find(a => a.id === agentId) || null);
+      setAgentsLoaded(true);
+    });
     localDb.getHistory().then(h => setHistory(h.filter(row => row.agentId === agentId)));
     fetch(`${process.env.NEXT_PUBLIC_REPID_ENGINE_URL}/api/v1/agents/${agentId}`)
       .then(res => res.json())
@@ -125,7 +130,24 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
     setLoading(false);
   };
 
-  if (!agent) return <div className="text-center mt-20">Agent not found</div>;
+  if (!agentsLoaded) {
+    return (
+      <div className="text-center mt-20 text-[#94a3b8]">Loading agent…</div>
+    );
+  }
+
+  if (!agent) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center space-y-3">
+        <p className="text-[#94a3b8]">
+          No agent with this ID in this browser — it may have been created on another device.
+        </p>
+        <Link href="/run" className="text-amber-500 hover:underline">
+          ← Back to your agents
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -160,7 +182,12 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
       </div>
 
       <form onSubmit={handleRun} className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-4">
-        {error && <div className="p-4 bg-red-900/20 border border-red-900 text-red-500 rounded">{error}</div>}
+        {error && (
+          <div className="p-4 bg-red-900/20 border border-red-900 rounded space-y-1">
+            <p className="text-sm font-semibold text-red-400">Couldn&apos;t run this prompt</p>
+            <p className="text-sm text-red-400/90">{error}</p>
+          </div>
+        )}
         <textarea
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
@@ -178,16 +205,16 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
             <option value="tier1_only">Paid only (Requires unlocked vault)</option>
           </select>
           <button type="submit" disabled={loading} className="px-8 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded">
-            {loading ? 'Running...' : 'Run Prompt'}
+            {loading ? 'Running…' : 'Run prompt'}
           </button>
         </div>
       </form>
 
       <div className="space-y-4">
-        <h3 className="text-xl font-bold text-white">Recent Decisions</h3>
+        <h3 className="text-xl font-bold text-white">Recent decisions</h3>
         {history.length === 0 ? (
           <div className="p-8 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl">
-            Run your first prompt to see decisions here.
+            No runs yet — run a prompt above to see HAL score it.
           </div>
         ) : (
           history.slice(0, 20).map(h => (

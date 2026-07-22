@@ -14,6 +14,7 @@ import { repidToTier } from '@/lib/onchain-repid';
 
 export default function StakePage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoaded, setAgentsLoaded] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [builderAddress, setBuilderAddress] = useState('');
   const [amount, setAmount] = useState('100');
@@ -30,6 +31,7 @@ export default function StakePage() {
     localDb.getAgents().then((a) => {
       setAgents(a);
       if (a.length > 0 && a[0]) setSelectedAgentId(a[0].id);
+      setAgentsLoaded(true);
     });
   }, []);
 
@@ -118,7 +120,11 @@ export default function StakePage() {
         </p>
       </header>
 
-      {agents.length === 0 ? (
+      {!agentsLoaded ? (
+        <div className="p-8 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl">
+          Loading your agents…
+        </div>
+      ) : agents.length === 0 ? (
         <div className="p-8 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl">
           You need an agent first.{' '}
           <Link href="/agents" className="text-amber-500 hover:underline">
@@ -171,8 +177,9 @@ export default function StakePage() {
           <section className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-4">
             <h3 className="text-xl font-bold text-white">Deposit stake</h3>
             {error && (
-              <div className="p-3 bg-red-900/20 border border-red-900 text-red-400 rounded text-sm">
-                {error}
+              <div className="p-3 bg-red-900/20 border border-red-900 text-red-400 rounded text-sm space-y-0.5">
+                <p className="font-semibold">Couldn&apos;t complete this stake</p>
+                <p className="text-red-400/90">{error}</p>
               </div>
             )}
             {success && (

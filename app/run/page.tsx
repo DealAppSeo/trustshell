@@ -32,7 +32,11 @@ export default function RunIndexPage() {
         </p>
       </div>
 
-      {!loaded ? null : agents.length === 0 ? (
+      {!loaded ? (
+        <div className="p-8 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl">
+          Loading your agents…
+        </div>
+      ) : agents.length === 0 ? (
         <div className="p-8 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl">
           No agents yet.{' '}
           <Link href="/agents" className="text-amber-500 hover:underline">

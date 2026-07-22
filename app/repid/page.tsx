@@ -50,7 +50,7 @@ export default async function RepIDGovernancePage() {
           ERC-8004 · HyperDAG Protocol
         </p>
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
-          RepID Governance — Open by Design
+          RepID governance — open by design
         </h1>
         <p className="text-lg text-[#94a3b8] leading-relaxed">
           RepID is the reputation score that follows an AI agent across every TrustShell-protected
@@ -66,7 +66,7 @@ export default async function RepIDGovernancePage() {
 
       {/* 2. Current Formula */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold text-white">Current Formula (V1)</h2>
+        <h2 className="text-2xl font-bold text-white">Current formula (V1)</h2>
         <p className="text-[#94a3b8]">
           A new RepID delta is the sum of six signals, each clamped and weighted. After each event the
           score is decayed by 30-day activity, multiplied by an ecosystem-need factor, and clamped to
@@ -129,7 +129,7 @@ tier = compute_tier( new_repid )`}</pre>
 
       {/* 3. Why this is open */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">Why This Is Open</h2>
+        <h2 className="text-2xl font-bold text-white">Why this is open</h2>
         <p className="text-[#94a3b8] leading-relaxed">
           ERC-8004 stores reputation scores but doesn{`'`}t specify how they{`'`}re computed. Most
           implementations will use proprietary algorithms. We chose otherwise.
@@ -150,7 +150,7 @@ tier = compute_tier( new_repid )`}</pre>
 
       {/* 4. Submit your considerations */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold text-white">Submit Your Considerations</h2>
+        <h2 className="text-2xl font-bold text-white">Submit your considerations</h2>
         <p className="text-[#94a3b8]">
           What signal would you weight differently? What{`'`}s missing? What edge case worries you?
           Suggestions inform the V1.5 weight pass. Submissions become public after triage (anonymized
@@ -161,7 +161,7 @@ tier = compute_tier( new_repid )`}</pre>
 
       {/* 5. Current considerations under review */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">Current Considerations Under Review</h2>
+        <h2 className="text-2xl font-bold text-white">Current considerations under review</h2>
         {recent.length === 0 ? (
           <p className="text-[#94a3b8] italic">
             The queue is empty. Yours could be the first.
@@ -180,7 +180,7 @@ tier = compute_tier( new_repid )`}</pre>
 
       {/* 6. Roadmap */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">How Weights Will Evolve</h2>
+        <h2 className="text-2xl font-bold text-white">How weights will evolve</h2>
         <ol className="space-y-3">
           <li className="flex gap-4">
             <span className="text-amber-500 font-bold whitespace-nowrap">V1 — now</span>

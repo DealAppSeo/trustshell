@@ -9,7 +9,7 @@ export default function SettingsPage() {
   const [msg, setMsg] = useState('');
 
   const handleWipe = async () => {
-    if (!window.confirm('Are you absolutely sure? This will delete all your encrypted keys from this browser.')) return;
+    if (!window.confirm("This deletes all your encrypted keys from this browser and can't be undone. Continue?")) return;
     await vault.wipe();
     router.push('/');
   };
@@ -24,7 +24,7 @@ export default function SettingsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError('Failed to export. Have you created a vault?');
+      setError("Couldn't export — you don't have a vault yet. Create one in /connect first.");
     }
   };
 
@@ -35,45 +35,58 @@ export default function SettingsPage() {
     if (!passphrase) return;
     try {
       await vault.import(file, passphrase);
-      setMsg('Vault imported successfully. Please unlock it in /connect.');
+      setMsg('Vault imported. Unlock it in /connect to start using it.');
     } catch (err) {
-      setError('Failed to import. Wrong passphrase or invalid file.');
+      setError("Couldn't import — check the passphrase and file, then try again.");
     }
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-12">
-      <h2 className="text-3xl font-bold text-white">Settings</h2>
+      <div className="space-y-2">
+        <h2 className="text-3xl font-bold text-white">Settings</h2>
+        <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
+          Manage the local vault that holds your model API keys — everything here stays in this
+          browser and never touches your on-chain RepID. Changes take effect immediately and are
+          always reversible except where noted below.
+        </p>
+      </div>
 
-      {error && <div className="p-4 bg-red-900/20 border border-red-900 text-red-500 rounded">{error}</div>}
-      {msg && <div className="p-4 bg-green-900/20 border border-green-900 text-green-400 rounded">{msg}</div>}
+      {error && <div className="p-4 bg-red-900/20 border border-red-900 text-red-400 rounded text-sm">{error}</div>}
+      {msg && <div className="p-4 bg-green-900/20 border border-green-900 text-green-400 rounded text-sm">{msg}</div>}
 
       <div className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-6">
-        <h3 className="text-xl font-bold text-white">Vault Management</h3>
+        <h3 className="text-xl font-bold text-white">Vault management</h3>
         <p className="text-[#94a3b8] text-sm">
-          Your keys are securely encrypted in your browser's IndexedDB using AES-GCM. 
-          Exporting downloads the encrypted blob (you still need the passphrase to use it).
+          Your keys are encrypted in your browser's IndexedDB using AES-GCM.
+          Exporting downloads the encrypted blob — you'll still need the passphrase to use it.
         </p>
 
         <div className="flex flex-wrap gap-4">
           <button onClick={handleExport} className="px-6 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
-            Export Encrypted Vault
+            Export encrypted vault
           </button>
-          
+
           <label className="px-6 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded cursor-pointer">
-            Import Vault
+            Import vault
             <input type="file" accept=".json" onChange={handleImport} className="hidden" />
           </label>
 
           <button onClick={() => router.push('/connect')} className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded">
-            Update Keys
+            Update keys
           </button>
         </div>
 
-        <div className="pt-8 border-t border-[#1e293b]">
-          <h4 className="text-red-500 font-bold mb-4">Danger Zone</h4>
+        <div className="pt-8 border-t border-[#1e293b] space-y-3">
+          <div>
+            <h4 className="text-red-500 font-bold">Danger zone</h4>
+            <p className="text-xs text-[#64748b] mt-1">
+              This deletes your encrypted keys from this browser and can&apos;t be undone. Export a
+              backup above first if you might need these keys again.
+            </p>
+          </div>
           <button onClick={handleWipe} className="px-6 py-2 bg-red-900/50 hover:bg-red-900 text-red-500 font-bold rounded border border-red-900">
-            Wipe Everything
+            Wipe everything
           </button>
         </div>
       </div>
