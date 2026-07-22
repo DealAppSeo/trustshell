@@ -4,9 +4,13 @@ import { localDb, HistoryRow } from '@/lib/db';
 
 export default function HistoryPage() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    localDb.getHistory().then(setHistory);
+    localDb.getHistory().then((h) => {
+      setHistory(h);
+      setLoaded(true);
+    });
   }, []);
 
   const handleExport = () => {
@@ -23,7 +27,7 @@ export default function HistoryPage() {
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex justify-between items-start gap-4">
         <div className="space-y-2">
-          <h2 className="text-3xl font-bold text-white">Decision History</h2>
+          <h2 className="text-3xl font-bold text-white">Decision history</h2>
           <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
             Your audit trail: every prompt you run is logged here with the model that answered, the HAL verdict,
             and the resulting <span className="text-white font-medium">RepID</span> change. It&apos;s stored in
@@ -36,9 +40,13 @@ export default function HistoryPage() {
       </div>
 
       <div className="bg-[#0f172a] rounded-xl border border-[#1e293b] overflow-hidden">
-        {history.length === 0 ? (
+        {!loaded ? (
           <div className="p-8 text-center text-[#94a3b8]">
-            Run your first prompt to see decisions here.
+            Loading your history…
+          </div>
+        ) : history.length === 0 ? (
+          <div className="p-8 text-center text-[#94a3b8]">
+            No runs yet — run a prompt to see decisions appear here.
           </div>
         ) : (
           <div className="overflow-x-auto">
