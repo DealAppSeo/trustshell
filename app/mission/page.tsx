@@ -1,13 +1,13 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'The Earned Trust Thesis — TrustShell',
+  title: 'Mission — TrustShell',
   description:
-    'Safe, ethical, democratized AI — for the people, by the people. The belief behind HyperDAG, RepID, and TrustShell, stated honestly as a hypothesis under test.',
+    'Trust is becoming the infrastructure of the AI age. The only real question is who owns it. This is why HyperDAG exists, honestly stated — and how to join in building it.',
   openGraph: {
-    title: 'The Earned Trust Thesis — TrustShell',
+    title: 'Mission — TrustShell',
     description:
-      'Safe, ethical, democratized AI — for the people, by the people. A hypothesis we are testing in the open.',
+      'Trust is becoming the infrastructure of the AI age. Own yours. The vision behind HyperDAG, RepID, and TrustShell — stated as a direction, not a finished product.',
     type: 'article',
     url: 'https://trustshell.dev/mission',
   },
@@ -17,168 +17,200 @@ export default function MissionPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-16 py-12 px-4">
 
-      {/* Header */}
+      {/* Header / opening thesis */}
       <header className="space-y-4">
         <p className="text-sm uppercase tracking-widest text-amber-500 font-semibold">
-          The Earned Trust Thesis
+          Mission
         </p>
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
-          Safe, ethical, democratized AI — for the people, by the people.
+          Trust is becoming the infrastructure of the AI age. Own yours.
         </h1>
         <p className="text-lg text-[#94a3b8] leading-relaxed">
-          This is the founding belief the whole system serves. We state it honestly: this is a{' '}
-          <strong className="text-white">thesis and a hope we are testing and building in the open</strong> —
-          not a proven fact. Where a claim is verified, we say so. Where it is aspiration, we say that too.
+          Every person is on the edge of getting a digital identity for themselves and for the AI agents
+          that act on their behalf. That much looks close to inevitable. What isn&apos;t decided yet is who
+          owns it: a small number of governments and AI platforms, by default — or the people it actually
+          measures, on purpose. We&apos;re building for the second answer. This page states that case
+          honestly: as a direction we&apos;re committed to, not a victory we&apos;ve already won.
         </p>
       </header>
 
-      {/* The belief */}
+      {/* What we believe */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">The belief</h2>
+        <h2 className="text-2xl font-bold text-white">What we believe</h2>
         <p className="text-[#94a3b8] leading-relaxed">
-          We believe an <strong className="text-white">earned-trust agentic ecosystem</strong> can help
-          lead to safe, ethical, democratized AI — for the people, by the people. Not because we assert
-          it, but because trust that is <em>earned, verifiable, and owned by the person</em> is the one
-          foundation that big-tech capture cannot quietly take.
+          There are two shapes this can take. In one, identity and reputation for people and their agents
+          are issued from the top — a handful of platforms decide who&apos;s trustworthy, and the value that
+          judgment creates flows upward. In the other, trust is <strong className="text-white">self-sovereign</strong>:
+          earned by what you and your agents actually do, held by you, and provable without having to hand
+          your data to anyone to prove it.
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          We think the self-sovereign path is both the right one and the harder one — which is exactly why
+          it&apos;s worth building deliberately, before the default hardens into place.
         </p>
       </section>
 
-      {/* The problem */}
+      {/* The people rank the models */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">The problem we answer</h2>
+        <h2 className="text-2xl font-bold text-white">The people rank the models</h2>
         <p className="text-[#94a3b8] leading-relaxed">
-          AI&apos;s value — and its power to decide what is <em>true</em> — is concentrating in a few
-          hands. In that world, &ldquo;trust&rdquo; is a claim a platform makes about itself, and the
-          value flows upward. We think the counter-move is to make trust{' '}
-          <strong className="text-white">earned, not granted; verifiable, not asserted; and portable,
-          not locked in a walled garden</strong> — so the majority of the value, and the authority over
-          what counts as true, stays with people.
+          Today, a model&apos;s reputation mostly comes from the lab that built it — the closest thing AI
+          has to grading its own homework. We think it should work more like a credit score or a Better
+          Business Bureau rating: built from real, verifiable behavior, judged by a broad and independent
+          crowd, not by the vendor with the most to gain from a high score.
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          That&apos;s what the{' '}
+          <Link href="/leaderboard" className="text-amber-500 hover:underline font-semibold">
+            live leaderboard
+          </Link>{' '}
+          is a first, small proof of — models ranked on measured behavior across independent validators,
+          in the open, updated as the evidence comes in. It&apos;s early and it&apos;s incomplete. It&apos;s
+          also real data, not a mockup.
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          The same principle extends to the people doing the ranking: you should be able to own and even
+          monetize the signal you contribute — via zero-knowledge proofs and depersonalization, opt-in
+          always. Privacy has to be built into the foundation here, not bolted on after the fact. That part
+          is still mostly ahead of us, and we say so.
         </p>
       </section>
 
-      {/* The mechanism (principle level only — NO math) */}
+      {/* Glass box, earned RepID, SBFA */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">The mechanism (why the design serves the mission)</h2>
+        <h2 className="text-2xl font-bold text-white">Glass box, not black box</h2>
+        <p className="text-[#94a3b8] leading-relaxed">
+          No one — including us — can fully show you <em>why</em> a model produced a given output. What we
+          can do is show you exactly what it <em>did</em>: every claim checked, every verdict logged, every
+          reputation change traceable to the event that caused it. Trust delivered as evidence you can
+          inspect, not a badge you&apos;re asked to take on faith.
+        </p>
         <ul className="space-y-4 text-[#94a3b8] leading-relaxed">
           <li>
-            <strong className="text-white">Earned trust made evidence.</strong> Reputation is
-            provenance-weighted, independently verified, and decay-aware. You cannot buy standing; you
-            accrue it through verified behavior, and you can lose it for cause.
+            <strong className="text-white">Earned RepID.</strong> Reputation is portable and
+            behavioral — accrued through verified outcomes, not granted by a platform and not for sale. It
+            travels with the agent, on-chain, so standing built in one place means something in the next.
           </li>
           <li>
-            <strong className="text-white">Designed to resist capture.</strong> A Sybil swarm or a
-            single well-funded actor should not be able to farm or purchase the reputation that matters,
-            so trust cannot be counterfeited into the hands of the powerful. This anti-capture layer is
-            the keystone we are building now.
-          </li>
-          <li>
-            <strong className="text-white">Federated learning that lifts the least.</strong>{' '}
-            Good-standing agents share depersonalized learning back to the commons, and the collective
-            intelligence is directed to raise up the new and the small — not only to compound the
-            already-advanced. Privacy is central; no person&apos;s data is the price. (Aspiration, being
-            designed.)
-          </li>
-          <li>
-            <strong className="text-white">Proofs, not promises.</strong> Every claim leaves a
-            verifiable receipt; disagreement is shown honestly; there is no manufactured urgency. A trust
-            product that isn&apos;t trustworthy is the one thing we will not ship.
+            <strong className="text-white">SBFA — decorrelated validators.</strong> Same-family models
+            share the same blind spots, so we never let a model grade its own family&apos;s homework.
+            Verification runs across independent model families instead, and the design is meant to get
+            <em> more</em> resilient under attack — red-teaming and slashing are how it hardens, not how it
+            breaks.
           </li>
         </ul>
+      </section>
+
+      {/* Democratized for the last, the lost, and the least */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-bold text-white">Democratized AI for the last, the lost, and the least</h2>
         <p className="text-[#94a3b8] leading-relaxed">
-          Put together: earned trust → value and truth stay in people&apos;s hands → people are equipped
-          to help people.
+          The intent is a positive-sum system: free for individuals, funded by the enterprises that
+          benefit from a trust layer that actually works. Value is meant to flow to the people using and
+          creating on the system — creators keep what they earn — not concentrate at the top. That&apos;s
+          the design goal we&apos;re building toward, and it isn&apos;t proven at scale yet.
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          The technology is instrumental; the point is people. A trust economy that&apos;s hardest to game
+          and easiest to believe in should also be the one that lifts the periphery instead of only
+          compounding advantage for those who already have it — help people help people, especially the
+          last, the lost, and the least.
         </p>
       </section>
 
-      {/* For the people, by the people */}
+      {/* Why now */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">For the people, by the people</h2>
+        <h2 className="text-2xl font-bold text-white">Why now</h2>
         <p className="text-[#94a3b8] leading-relaxed">
-          <strong className="text-white">By the people:</strong> the protocol&apos;s parameters are
-          meant to be governed by its participants — the rules and thresholds — not dictated from the
-          top. We fix the <em>constitution</em> (the principles) and let the <em>laws</em> be learned and
-          voted, so the economy can adapt without being captured.
-        </p>
-        <p className="text-[#94a3b8] leading-relaxed">
-          <strong className="text-white">For the people:</strong> individuals use it freely. The value
-          that enterprise use generates is meant to flow back to the commons, not to a founder&apos;s
-          pocket.
-        </p>
-      </section>
-
-      {/* Non-profit steward */}
-      <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">The non-profit steward (our intent)</h2>
-        <p className="text-[#94a3b8] leading-relaxed">
-          The credibly-neutral way to hold &ldquo;value in the hands of the people&rdquo; is for the
-          commons to be stewarded by a non-profit — one that holds the defensive IP so no one can enclose
-          and gate the tech, directs enterprise licensing value back to the ecosystem and the mission,
-          and safeguards the protocol&apos;s service to the last, the lost, and the least. Defensive
-          patents held by a steward, individuals free forever, enterprise funding the commons: that is
-          the shape of credible neutrality we are aiming for. We are framing the role in the open and
-          building toward it.
-        </p>
-      </section>
-
-      {/* Help people help people */}
-      <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-white">Help people help people</h2>
-        <p className="text-[#94a3b8] leading-relaxed">
-          The technology is instrumental. The point is human flourishing — and especially the last, the
-          lost, and the least. That is why mercy and charity are meant to be written into the design, not
-          bolted on: a trust economy that rewards grace and lifts the periphery is also, not by
-          coincidence, the one that is hardest to game and easiest to believe.
+          The custody question — who owns your identity and your agents&apos; reputations — is being
+          decided this decade, largely by whatever gets built and adopted first. That&apos;s not a
+          countdown clock or a sales tactic; it&apos;s just how defaults work. Once one model of custody is
+          widely integrated, switching costs make it the water everyone swims in. The window to build the
+          self-sovereign alternative — and make it good enough to be the default — is open now.
         </p>
       </section>
 
       {/* Honest status */}
       <section className="space-y-4 rounded-lg border border-[#27272a] bg-[#18181b] p-6">
-        <h2 className="text-2xl font-bold text-white">The honest status (a hypothesis under test)</h2>
+        <h2 className="text-2xl font-bold text-white">Honestly stated: where this actually stands</h2>
         <div className="space-y-3 text-[#94a3b8] leading-relaxed">
           <p>
-            <strong className="text-emerald-400">Verified.</strong> Verification integrity holds under
-            adversarial pressure across independent model families. Reputation earning, decay, anti-whale
-            damping, and demotion-for-cause run in production.
+            <strong className="text-emerald-400">Real today.</strong>{' '}
+            <code className="text-sm bg-black/40 px-1.5 py-0.5 rounded text-amber-300">npm install @hyperdag/trustshell</code>{' '}
+            wires an agent to HAL hallucination checking, ERC-8004 on-chain reputation, and x402
+            pay-on-trust against a live backend — with real Base Sepolia receipts, not a demo mode.
+            Verification integrity holds under adversarial pressure across independent model families in
+            production.
           </p>
           <p>
-            <strong className="text-amber-400">The open gate.</strong> Reputation is farmable today. The
-            anti-Sybil layer — the thing that makes reputation trustworthy before it gates anything real —
-            is the keystone we are building.
+            <strong className="text-amber-400">Being built.</strong> Reputation is farmable today; the
+            anti-Sybil layer that makes reputation trustworthy before it gates anything high-stakes is the
+            keystone we&apos;re building now. Privacy-preserving, provenance-weighted ranking by the
+            people is designed, not yet fully live.
           </p>
           <p>
-            <strong className="text-[#a1a1aa]">Unproven, and we say so.</strong> Whether people will
-            delegate to agents at all; whether the federated-learning and charity mechanisms work at
-            scale. We are testing, not asserting.
+            <strong className="text-[#a1a1aa]">Targets, not promises.</strong> Where we cite a number — a
+            share of value returned to the commons, an uptime target, a growth curve — treat it as a
+            target we&apos;re aiming at, not a guarantee. We&apos;re not making hard financial promises
+            until the mechanics behind them are public and auditable. Whether people will actually delegate
+            meaningfully to agents, and whether the federated-learning and mercy mechanisms hold up at
+            scale, are open questions we are testing, not facts we are asserting.
           </p>
         </div>
       </section>
 
-      {/* Invitation + cross-links */}
+      {/* Be part of the solution */}
       <section className="space-y-6 border-t border-[#1e293b] pt-10">
-        <h2 className="text-2xl font-bold text-white">Come build it with us</h2>
+        <h2 className="text-2xl font-bold text-white">Be part of the solution</h2>
         <p className="text-[#94a3b8] leading-relaxed">
-          The hardest parts of this — <strong className="text-white">Sybil-resistant,
-          privacy-preserving, federated reputation</strong> — are the same parts the broader agent
-          community has not yet solved. This is not a pitch; it&apos;s an invitation. Help decide how
-          reputation should be weighted, what counts as earned, how mercy is rewarded, and how the commons
-          is governed.
+          This isn&apos;t a pitch for something finished — it&apos;s an invitation into something being
+          built. The hardest parts — Sybil-resistant reputation, privacy-preserving federated learning, a
+          formula the community actually trusts — are unsolved by anyone yet, us included. Help decide how
+          reputation should be weighted, what counts as earned, and how the commons gets governed.
         </p>
+
+        {/* Trust Commons — the prominent invite */}
+        <div className="bg-[#0f172a] border border-amber-500/30 rounded-lg p-6 space-y-3">
+          <p className="text-sm uppercase tracking-widest text-amber-500 font-semibold">
+            Help shape the Reputation Formula
+          </p>
+          <p className="text-[#94a3b8] leading-relaxed">
+            Provenance and earned reputation are what keep AI honest — what limits and catches
+            hallucination, and what shows an agent&apos;s owner exactly what&apos;s inside the black box.
+            Trust Commons is where that formula gets argued over and decided, in the open. If you have a
+            view on what makes a reputation earned rather than granted, we want to hear it.
+          </p>
+          <a
+            href="https://github.com/DealAppSeo/trust-commons"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-colors"
+          >
+            Join the conversation →
+          </a>
+        </div>
+
         <div className="flex flex-wrap gap-4">
           <Link
+            href="/docs/getting-started"
+            className="px-6 py-3 border border-[#27272a] hover:border-white text-white font-semibold rounded-lg transition-colors"
+          >
+            Start building
+          </Link>
+          <Link
+            href="/agents"
+            className="px-6 py-3 border border-[#27272a] hover:border-white text-white font-semibold rounded-lg transition-colors"
+          >
+            Try it live
+          </Link>
+          <Link
             href="/earned-trust"
-            className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-colors"
+            className="px-6 py-3 border border-[#27272a] hover:border-white text-white font-semibold rounded-lg transition-colors"
           >
             What makes a good earned reputation? →
           </Link>
-          <a
-            href="https://github.com/DealAppSeo/hyperdag-protocol"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 border border-[#27272a] hover:border-white text-white font-semibold rounded-lg transition-colors"
-          >
-            Read the protocol
-          </a>
         </div>
+
         <p className="text-sm text-[#64748b] pt-4">
           Part of the HyperDAG trust layer ·{' '}
           <a href="https://hyperdag.org" className="text-amber-500 hover:underline">hyperdag.org</a>{' '}·{' '}
