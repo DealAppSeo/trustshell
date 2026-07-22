@@ -3,6 +3,8 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { localDb, Agent, HistoryRow } from '@/lib/db';
 import { vault } from '@/lib/vault';
+import { tokenHeader, fetchGateStatus, getGateEmail } from '@/lib/agent-gate';
+import { GateModal } from '@/components/gate-modal';
 
 export default function RunPage({ params }: { params: Promise<{ agentId: string }> }) {
   const unwrappedParams = use(params);
@@ -19,6 +21,16 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
   // is visible on the card. Cleared after the animation window.
   const [deltaToast, setDeltaToast] = useState<{ id: number; delta: number } | null>(null);
   const [scorePulse, setScorePulse] = useState(false);
+  // T0.5 gate: free anonymous taste of hosted runs, email-verified cap after.
+  const [showGate, setShowGate] = useState(false);
+  const [gateInfo, setGateInfo] = useState<{ verified: boolean; remaining: number; limit: number } | null>(null);
+
+  const refreshGate = () => {
+    fetchGateStatus().then((s) => {
+      if (s && s.enabled) setGateInfo({ verified: s.verified, remaining: s.remaining, limit: s.limit });
+    });
+  };
+  useEffect(refreshGate, []);
 
   useEffect(() => {
     if (!deltaToast) return;
@@ -69,7 +81,7 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_REPID_ENGINE_URL}/api/v1/llm/complete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...tokenHeader() },
         body: JSON.stringify({
           prompt,
           tier_preference: tierPref === 'auto' ? 'tier0_first' : tierPref,
@@ -77,9 +89,18 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         })
       });
       const data = await res.json();
-      
+
+      const tasteRemaining = res.headers.get('x-taste-remaining');
+      if (tasteRemaining !== null && gateInfo) {
+        setGateInfo({ ...gateInfo, remaining: Number(tasteRemaining) });
+      }
+
       if (!res.ok) {
-        if (data.error === 'Max routing attempts reached') {
+        if (data.error === 'verification_required') {
+          setShowGate(true);
+        } else if (data.error === 'daily_cap') {
+          setError(data.message || "You've reached today's run limit — it resets tomorrow.");
+        } else if (data.error === 'Max routing attempts reached') {
           setError('Free tier exhausted. Add a paid key in /connect or wait a minute.');
         } else {
           setError(data.error || 'Request failed');
@@ -151,6 +172,34 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
+      {showGate && (
+        <GateModal
+          onVerified={() => {
+            setShowGate(false);
+            setError('');
+            refreshGate();
+          }}
+          onClose={() => setShowGate(false)}
+        />
+      )}
+
+      {/* Run-allowance strip: honest, benefit-framed, never a surprise wall. */}
+      {gateInfo && !gateInfo.verified && (
+        <p className="text-xs text-[#64748b]">
+          {gateInfo.remaining > 0
+            ? `${gateInfo.remaining} of ${gateInfo.limit} free anonymous runs left today — add an email any time to save your agent and raise the limit.`
+            : `Today's free anonymous runs are used. Save your progress with an email to keep going free.`}{' '}
+          <button type="button" onClick={() => setShowGate(true)} className="underline decoration-dotted hover:text-[#94a3b8]">
+            Save my progress
+          </button>
+        </p>
+      )}
+      {gateInfo && gateInfo.verified && (
+        <p className="text-xs text-[#64748b]">
+          Progress saved{getGateEmail() ? ` for ${getGateEmail()}` : ''} · {gateInfo.remaining} runs left today.
+        </p>
+      )}
+
       <div className="flex justify-between items-center bg-[#0f172a] p-6 rounded-xl border border-[#1e293b]">
         <div>
           <h2 className="text-3xl font-bold text-white">{agent.name}</h2>

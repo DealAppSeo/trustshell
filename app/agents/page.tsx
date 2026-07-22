@@ -76,7 +76,7 @@ export default function AgentsPage() {
         </ol>
 
         <p className="text-xs text-[#64748b] pt-1">
-          Free · no email, no wallet · agents are stored locally in <span className="text-[#94a3b8]">this browser</span> until you choose to publish on-chain.
+          Free · no wallet · your first runs need no email — add one later to save your agent and raise the daily limit. Agents are stored locally in <span className="text-[#94a3b8]">this browser</span> until you choose to publish on-chain.
         </p>
       </div>
 
