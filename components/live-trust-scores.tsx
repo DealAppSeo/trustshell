@@ -1,168 +1,256 @@
 'use client';
 
+// Home-page leaderboard SNAPSHOT.
+//
+// Previously this component read the ERC-8004 ReputationRegistry directly over a
+// public Base Sepolia RPC, which is unreliable ("On-chain read failed — public
+// RPC unreachable"). It now reads the reliable public repid-engine endpoints —
+// the same source the full /leaderboard route uses. trustshell.dev is on the
+// engine's CORS allowlist, so we fetch client-side directly (no keys, read-only).
+//   /api/v1/leaderboard/models  → per-model board, two lenses (performance/value)
+//   /api/v1/leaderboard/agents  → the 12 Trinity agents by real 0–10,000 RepID
+//
+// The separate on-chain /repid page still reads the registry directly — this
+// change only stops the HOME from depending on the dead RPC.
 import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
-interface AgentRepIDEntry {
-  name: string;
-  displayName: string;
-  tokenId: number;
-  repid: number | null;
-  tier: string | null;
-  feedbackCount: number;
-  source: 'on-chain' | 'no-on-chain-writes';
-  basescanUrl: string;
+const REPID_ENGINE_URL =
+  process.env.NEXT_PUBLIC_REPID_ENGINE_URL ??
+  'https://repid-engine-production.up.railway.app';
+
+const TOP_N = 3;
+
+// --- Response shapes (verified against the live endpoints 2026-07-21) --------
+interface ModelRow {
+  rank: number;
+  model_id: string;
+  model: string;
+  class: string;
+  accuracy: number | null;
+  brier: number | null;
+  latency_ms: number | null;
+  cost_per_1m: number | null;
+  composite?: number | null;
+}
+interface Lens {
+  label: string;
+  ranked_by: string;
+  models: ModelRow[];
+}
+interface ModelsResponse {
+  metric: string;
+  last_updated: string;
+  lenses: { performance: Lens; value: Lens };
 }
 
-interface LeaderboardResponse {
-  agents: AgentRepIDEntry[];
-  as_of: string;
-  source: string;
-  on_chain_with_writes: number;
-  total_minted: number;
+interface AgentRow {
+  agent_id: string;
+  model: string | null;
+  repid_total: number;
+  rounds_scored: number;
+  avg_accuracy: number | null;
+  errors: number;
+  verified: boolean;
 }
+interface AgentsResponse {
+  agents: AgentRow[];
+  total_agents: number;
+  last_updated: string;
+}
+
+const fmtInt = (n: number | null | undefined) =>
+  n == null || Number.isNaN(n) ? '—' : Math.round(n).toLocaleString();
+const fmtPct = (n: number | null | undefined) =>
+  n == null || Number.isNaN(n) ? '—' : `${(n * 100).toFixed(0)}%`;
+const fmt = (n: number | null | undefined, d = 3) =>
+  n == null || Number.isNaN(n) ? '—' : n.toFixed(d);
 
 export function LiveTrustScores() {
-  const [data, setData] = useState<LeaderboardResponse | null>(null);
+  const [models, setModels] = useState<ModelsResponse | null>(null);
+  const [agents, setAgents] = useState<AgentsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
+    let cancelled = false;
+    const load = async () => {
       try {
-        const response = await fetch('/api/agent-leaderboard', {
-          signal: AbortSignal.timeout(12000),
-        });
-        if (!response.ok) throw new Error('Failed to fetch');
-        const json = (await response.json()) as LeaderboardResponse;
-        setData(json);
-        setLoading(false);
+        const [mRes, aRes] = await Promise.all([
+          fetch(`${REPID_ENGINE_URL}/api/v1/leaderboard/models`, {
+            signal: AbortSignal.timeout(12000),
+          }),
+          fetch(`${REPID_ENGINE_URL}/api/v1/leaderboard/agents`, {
+            signal: AbortSignal.timeout(12000),
+          }),
+        ]);
+        if (!mRes.ok || !aRes.ok) throw new Error('bad response');
+        const [mJson, aJson] = await Promise.all([mRes.json(), aRes.json()]);
+        if (cancelled) return;
+        setModels(mJson as ModelsResponse);
+        setAgents(aJson as AgentsResponse);
       } catch {
-        setTimeout(() => {
-          setLoading(false);
-          setError(true);
-        }, 1500);
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
-
-    fetchLeaderboard();
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const formatAsOf = (iso: string) => {
-    const date = new Date(iso);
-    if (isNaN(date.getTime())) return '—';
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    });
-  };
+  const valueModels = models?.lenses.value.models.slice(0, TOP_N) ?? [];
+  const perfModels = models?.lenses.performance.models.slice(0, TOP_N) ?? [];
+  const topAgents = agents?.agents.slice(0, TOP_N) ?? [];
 
   return (
     <section className="px-4 py-20 md:py-28 border-t border-border">
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Agent RepID leaderboard.
+            Trust leaderboard.
           </h2>
-          <p className="text-muted">
-            Live reads from the ERC-8004 ReputationRegistry on Base Sepolia — no Railway backend, no mockups.
-            Scores with on-chain attestations update when the mint pipeline resumes; agents minted without writes yet are labeled honestly.
+          <p className="text-muted max-w-3xl">
+            Live from the public repid-engine — models ranked on a code-review
+            discrimination task, agents ranked by real 0–10,000 RepID. No
+            mockups, no dead RPC.
           </p>
         </div>
 
         {loading && (
           <div className="text-center py-12 text-muted">
-            Reading on-chain RepID…
+            Loading live scores…
           </div>
         )}
 
         {error && !loading && (
-          <div className="text-center py-12">
-            <p className="text-muted mb-2">On-chain read failed — public RPC unreachable</p>
-            <a
-              href="https://trustrepid.dev"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline inline-flex items-center gap-1"
+          <div className="text-center py-12 space-y-2">
+            <p className="text-muted">
+              Couldn&apos;t reach the scoring engine right now.
+            </p>
+            <Link
+              href="/leaderboard"
+              className="text-accent hover:underline text-sm"
             >
-              See trustrepid.dev for historical leaderboard
-              <ExternalLink className="w-4 h-4" />
-            </a>
+              Try the full leaderboard →
+            </Link>
           </div>
         )}
 
-        {!loading && !error && data && data.agents.length > 0 && (
-          <>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {data.agents.map((agent) => (
-                <div
-                  key={agent.name}
-                  className="p-5 bg-card rounded-xl border border-border"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="text-sm text-muted font-mono uppercase">
-                      {agent.displayName}
-                    </p>
-                    {agent.source === 'on-chain' ? (
-                      <span className="text-[10px] uppercase tracking-wide text-green-500/80 shrink-0">
-                        on-chain
-                      </span>
-                    ) : (
-                      <span className="text-[10px] uppercase tracking-wide text-amber-500/80 shrink-0">
-                        minted · no writes
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-3xl font-bold text-foreground mb-1">
-                    {agent.repid != null ? agent.repid.toLocaleString() : '—'}
-                  </p>
-                  {agent.tier && (
-                    <p className="text-xs text-muted mb-2">{agent.tier}</p>
-                  )}
-                  <div className="flex justify-between text-xs text-muted">
-                    <span>token {agent.tokenId}</span>
-                    <span>
-                      {agent.feedbackCount > 0
-                        ? `${agent.feedbackCount} on-chain writes`
-                        : 'awaiting pipeline'}
-                    </span>
-                  </div>
-                  <a
-                    href={agent.basescanUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
-                  >
-                    Verify on basescan
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              ))}
-            </div>
-
-            <p className="text-xs text-muted/60 max-w-3xl">
-              {data.on_chain_with_writes} of {data.total_minted} minted squad agents have on-chain reputation writes.
-              LLM-provider trust scores (the old Railway-backed leaderboard) remain unavailable while repid-engine is unreachable — see trustrepid.dev for historical HAL aggregates.
-            </p>
-            <p className="text-xs text-muted/40">
-              Fetched {formatAsOf(data.as_of)} via {data.source}
-            </p>
-          </>
+        {!loading && !error && (models || agents) && (
+          <div className="grid md:grid-cols-3 gap-6">
+            <SnapshotCard
+              title="Top models · Value"
+              subtitle="best score per dollar"
+              rows={valueModels.map((m) => ({
+                key: m.model_id,
+                name: m.model_id,
+                badge: m.class,
+                metric: fmt(m.composite, 2),
+                metricLabel: 'value',
+              }))}
+            />
+            <SnapshotCard
+              title="Top models · Performance"
+              subtitle="money no object"
+              rows={perfModels.map((m) => ({
+                key: m.model_id,
+                name: m.model_id,
+                badge: m.class,
+                metric: fmtPct(m.accuracy),
+                metricLabel: 'acc',
+              }))}
+            />
+            <SnapshotCard
+              title="Top agents · RepID"
+              subtitle="earned reputation"
+              rows={topAgents.map((a) => ({
+                key: a.agent_id,
+                name: a.agent_id,
+                badge: a.verified ? 'verified' : undefined,
+                metric: fmtInt(a.repid_total),
+                metricLabel: 'RepID',
+              }))}
+            />
+          </div>
         )}
 
-        <a
-          href="https://trustrepid.dev"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-muted hover:text-accent transition-colors"
-        >
-          <span>&rarr;</span> Full HAL + provider leaderboard at trustrepid.dev
-        </a>
+        {!loading && !error && (
+          <p className="text-xs text-muted/50 max-w-3xl">
+            A narrow proxy, not general AI trustworthiness — early results, small
+            N, public methodology. Full standings, columns, and lens toggles on
+            the leaderboard.
+          </p>
+        )}
       </div>
     </section>
+  );
+}
+
+interface SnapshotRow {
+  key: string;
+  name: string;
+  badge?: string;
+  metric: string;
+  metricLabel: string;
+}
+
+function SnapshotCard({
+  title,
+  subtitle,
+  rows,
+}: {
+  title: string;
+  subtitle: string;
+  rows: SnapshotRow[];
+}) {
+  return (
+    <div className="p-5 bg-card rounded-xl border border-border flex flex-col">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <p className="text-xs text-muted/70">{subtitle}</p>
+      </div>
+
+      {rows.length > 0 ? (
+        <ol className="space-y-3 flex-1">
+          {rows.map((row, i) => (
+            <li key={row.key} className="flex items-center gap-3">
+              <span className="text-xs text-muted/60 tabular-nums w-4 shrink-0">
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-mono font-medium text-foreground truncate">
+                  {row.name}
+                </p>
+                {row.badge && (
+                  <span className="text-[10px] uppercase tracking-wide text-muted/70">
+                    {row.badge}
+                  </span>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-lg font-bold text-accent tabular-nums leading-none">
+                  {row.metric}
+                </p>
+                <p className="text-[10px] uppercase tracking-wide text-muted/60 mt-0.5">
+                  {row.metricLabel}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="flex-1 text-sm text-muted py-4">No results yet.</p>
+      )}
+
+      <Link
+        href="/leaderboard"
+        className="mt-4 inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
+      >
+        See full standings →
+      </Link>
+    </div>
   );
 }
