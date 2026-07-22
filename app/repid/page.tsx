@@ -148,6 +148,29 @@ tier = compute_tier( new_repid )`}</pre>
         </p>
       </section>
 
+      {/* 3.5. Trust Commons invitation */}
+      <section className="bg-[#0f172a] border border-amber-500/30 rounded-lg p-6 space-y-3">
+        <p className="text-sm uppercase tracking-widest text-amber-500 font-semibold">
+          Come join the conversation
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          Provenance and earned reputation are how we keep AI honest — they{`'`}re what limits and
+          catches hallucinations, and what reveals to an agent{`'`}s owner or custodian exactly what{`'`}s
+          inside the black box. If you have a view on what makes a good reputation formula, we want to
+          hear it.
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          <Link
+            href="https://github.com/DealAppSeo/trust-commons"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-500 hover:underline font-semibold"
+          >
+            Join the conversation at Trust Commons →
+          </Link>
+        </p>
+      </section>
+
       {/* 4. Submit your considerations */}
       <section className="space-y-6">
         <h2 className="text-2xl font-bold text-white">Submit your considerations</h2>
