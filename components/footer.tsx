@@ -9,6 +9,7 @@ const footerLinks = {
   ],
   ecosystem: [
     { name: 'TrustShell.dev', href: '/', internal: true },
+    { name: 'Mission', href: '/mission', internal: true },
     { name: 'TrustRepID.dev', href: 'https://trustrepid.dev' },
     { name: 'TrustChat.dev', href: 'https://trustchat.dev' },
     { name: 'HyperDAG Protocol', href: 'https://github.com/DealAppSeo/hyperdag-protocol' },

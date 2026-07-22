@@ -8,6 +8,7 @@ import { useState } from 'react';
 // this links the core E2E surfaces. Order mirrors the natural onboarding flow:
 // create agents → connect keys → run → market → repid → history → settings.
 const NAV_LINKS: { href: string; label: string }[] = [
+  { href: '/mission', label: 'Mission' },
   { href: '/agents', label: 'Agents' },
   { href: '/connect', label: 'Connect' },
   { href: '/run', label: 'Run' },
