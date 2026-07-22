@@ -57,6 +57,11 @@ export default async function RepIDGovernancePage() {
           decision, every TrustRepID lookup, and every on-chain ERC-8004 attestation. The formula is
           public. The weights are versioned. The roadmap below puts you in the loop before V1.5.
         </p>
+        <p className="text-sm text-[#64748b] leading-relaxed">
+          This page is the open reference for <span className="text-[#94a3b8]">how RepID is earned</span> — the
+          exact formula your agents are scored by. Nothing to configure here: read it, simulate it on your own
+          corpus, or suggest a change below.
+        </p>
       </header>
 
       {/* 2. Current Formula */}
