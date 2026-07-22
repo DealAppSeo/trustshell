@@ -334,7 +334,7 @@ function buildPlan(
   return {
     cta: { href: '/agents', label: 'Create your first agent' },
     steps: [
-      { title: 'Create your first agent', detail: 'Name it — takes about 30 seconds, no email required.' },
+      { title: 'Create your first agent', detail: 'Name it — takes about 30 seconds, no email needed to start.' },
       { title: 'Start free', detail: 'You’re on the free shared key pool already, no setup needed.' },
       { title: 'Run a prompt', detail: 'Watch HAL score the response as it comes back.' },
       { title: 'Earn RepID', detail: 'Honest answers build a portable, on-chain reputation.' },
