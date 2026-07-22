@@ -69,11 +69,17 @@ export function Hero() {
         {/* CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
           <a
-            href="https://trustchat.dev"
+            href="/docs/getting-started"
             className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center gap-2 text-sm"
           >
             Get Started
             <span aria-hidden="true">&rarr;</span>
+          </a>
+          <a
+            href="/agents"
+            className="px-6 py-3 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-semibold rounded-xl transition-all duration-200 text-sm"
+          >
+            Try it live
           </a>
           <a
             href="https://www.npmjs.com/package/@hyperdag/trustshell"
