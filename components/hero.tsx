@@ -66,6 +66,17 @@ export function Hero() {
           </span>
         </div>
 
+        {/* New here? Optional adaptive onboarding — never a forced redirect */}
+        <div className="pt-1">
+          <a
+            href="/start"
+            className="text-sm text-indigo-300 hover:text-indigo-200 transition-colors inline-flex items-center gap-1"
+          >
+            New here? Set up your fastest path
+            <span aria-hidden="true">&rarr;</span>
+          </a>
+        </div>
+
         {/* CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
           <a
