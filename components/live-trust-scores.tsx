@@ -80,19 +80,12 @@ export function LiveTrustScores() {
           </div>
         )}
 
-        {error && !loading && (
-          <div className="text-center py-12">
-            <p className="text-muted mb-2">On-chain read failed — public RPC unreachable</p>
-            <a
-              href="https://trustrepid.dev"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline inline-flex items-center gap-1"
-            >
-              See trustrepid.dev for historical leaderboard
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          </div>
+        {/* Graceful, honest state when the on-chain read can't complete (RPC
+            down) OR when the registry returns no minted agents yet. We keep the
+            on-chain stance — nothing is faked — and point visitors at the full
+            live board rather than surfacing a raw error string. */}
+        {!loading && (error || (data != null && data.agents.length === 0)) && (
+          <ResumingPanel />
         )}
 
         {!loading && !error && data && data.agents.length > 0 && (
@@ -164,5 +157,36 @@ export function LiveTrustScores() {
         </a>
       </div>
     </section>
+  );
+}
+
+/**
+ * Calm fallback shown when the direct on-chain read can't complete (public RPC
+ * unreachable) or the registry has no minted agents with writes yet. Holds the
+ * on-chain-purity stance — no backend swap, no mockups — and reassures the
+ * first-time visitor that this is a temporary "resuming" state, not a break.
+ */
+function ResumingPanel() {
+  return (
+    <div className="p-8 md:p-10 bg-card rounded-xl border border-border text-center space-y-3">
+      <p className="text-xs uppercase tracking-wide text-amber-500/80">Resuming</p>
+      <p className="text-lg font-medium text-foreground">
+        Live on-chain reads resume when the RPC / mint pipeline is back.
+      </p>
+      <p className="text-sm text-muted max-w-xl mx-auto">
+        This board reads the ERC-8004 ReputationRegistry directly on Base Sepolia, so it only ever
+        shows what&apos;s truly on-chain — nothing is mocked while the public RPC or mint pipeline
+        catches up. Meanwhile, see the full live board.
+      </p>
+      <a
+        href="https://trustrepid.dev"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-accent hover:underline inline-flex items-center gap-1"
+      >
+        See the full live board
+        <ExternalLink className="w-4 h-4" />
+      </a>
+    </div>
   );
 }
