@@ -62,7 +62,7 @@ export function Hero() {
             </span>
           </button>
           <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : 'npm package v1.0.0'}
+            {copied ? 'Copied to clipboard!' : 'npm package v1.1.0'}
           </span>
         </div>
 

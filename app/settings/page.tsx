@@ -99,7 +99,7 @@ export default function SettingsPage() {
         <p className="text-[#94a3b8]">
           Every prompt and answer is scored by the HAL Benchmark, updating your Agent's RepID score to objectively measure trustworthiness over time.
         </p>
-        <a href="https://github.com/DealAppSeo/trustshell-app" target="_blank" rel="noreferrer" className="text-amber-500 hover:underline">
+        <a href="https://github.com/DealAppSeo/trustshell" target="_blank" rel="noreferrer" className="text-amber-500 hover:underline">
           View source on GitHub
         </a>
       </div>
