@@ -329,6 +329,87 @@ export interface PollOptions {
      */
     terminalStatuses?: string[];
 }
+/** One model row on the two-lens model leaderboard. Shape mirrors the engine's view rows. */
+export interface LeaderboardModel {
+    /** Model id, e.g. 'anthropic/claude-sonnet-4-6'. */
+    model_id?: string;
+    /** Provider family, when the view supplies it. */
+    provider?: string;
+    /** Any additional view columns (accuracy, brier, cost, composite, …) are passed through. */
+    [key: string]: unknown;
+}
+/** One agent row on the RepID agent leaderboard (`GET /api/v1/leaderboard/agents`). */
+export interface LeaderboardAgent {
+    agentId: string;
+    model: string | null;
+    /** Real 0–10,000 RepID total. */
+    repidTotal: number;
+    roundsScored: number;
+    avgBrier: number | null;
+    avgAccuracy: number | null;
+    avgRaterReliability: number | null;
+    errors: number;
+    lastRound: string | null;
+    /** On-chain attestation of the delta (not yet wired → false today). */
+    verified: boolean;
+}
+/** Result of `getLeaderboard('agents')`. */
+export interface AgentLeaderboard {
+    kind: 'agents';
+    agents: LeaderboardAgent[];
+    totalAgents: number;
+    lastUpdated: string;
+}
+/** Result of `getLeaderboard('models')` — the two-lens (performance / value) model board. */
+export interface ModelLeaderboard {
+    kind: 'models';
+    /** Human-readable metric label, e.g. 'code-review discrimination (Brier-calibrated)'. */
+    metric: string;
+    /** Honesty disclaimer emitted by the engine (a narrow proxy, small N, public methodology). */
+    disclaimer: string;
+    lenses: {
+        performance: {
+            label: string;
+            rankedBy: string;
+            models: LeaderboardModel[];
+        };
+        value: {
+            label: string;
+            rankedBy: string;
+            models: LeaderboardModel[];
+        };
+    };
+    /** One-line current-story copy (single messaging source of truth). */
+    narrative: string;
+    lastUpdated: string;
+}
+/** Result of `getFactCheckCount()` — the public, source-tagged fact-check tally. */
+export interface FactCheckCount {
+    /** Total public fact-checks across all sources. */
+    total: number;
+    /** Per-source breakdown (the four allowed source tags). */
+    bySource: Record<string, number>;
+    lastUpdated: string;
+}
+/**
+ * Result of `getRepIDStake()` — the Proof-of-Authority (POA) staking read.
+ *
+ * ⚠ STUB: the public keyless POA stake-read path is not yet exposed by the backend. This method
+ * attempts the live `GET /api/v1/stake/authority/:agentId` endpoint; when it is unavailable
+ * (auth-gated / not deployed), it returns a clearly-labeled stub (`stubbed: true`) with zeroed
+ * figures rather than fabricating a stake. Never treat a `stubbed` result as a real balance.
+ */
+export interface RepIDStake {
+    agentId: string;
+    /** Total escrowed stake in raw micro-USDC. 0 when stubbed. */
+    stakeUsdcRaw: number;
+    /** Derived staking authority (raw units), or null when not computed. */
+    authority: number | null;
+    /** true when the value came from the live backend; false when this is the honest stub. */
+    stubbed: boolean;
+    /** Human-readable note (why stubbed, or the live basis). */
+    note: string;
+}
 export declare class TrustShellError extends Error {
     status: number;
     constructor(message: string, status: number);
@@ -371,6 +452,36 @@ export declare class TrustShell {
     verifyOutput(output: string, options?: ScoreOptions): Promise<VerifyOutputResult>;
     /** Fetch an agent's current RepID + tier (public read; no API key required). */
     getRepID(agentId: string): Promise<RepIDResult>;
+    /**
+     * Fetch a live leaderboard from the public repid-engine.
+     *
+     * - `getLeaderboard('agents')` → the RepID agent board (`GET /api/v1/leaderboard/agents`):
+     *   agents ranked by real 0–10,000 RepID.
+     * - `getLeaderboard('models')` → the two-lens model board (`GET /api/v1/leaderboard/models`):
+     *   a PERFORMANCE lens (accuracy / Brier) and a VALUE lens (accuracy·speed·cost composite),
+     *   plus the engine's honesty disclaimer + narrative. Labeled "code-review discrimination",
+     *   a narrow proxy — NOT general trustworthiness.
+     *
+     * Public read; no API key required. Overloaded so the return type is narrowed by the argument.
+     */
+    getLeaderboard(board: 'agents'): Promise<AgentLeaderboard>;
+    getLeaderboard(board: 'models'): Promise<ModelLeaderboard>;
+    /**
+     * Fetch the public, source-tagged fact-check tally (`GET /api/v1/hal/fact-check-count`).
+     * This counts entries in `hal_public_fact_checks` (the public counter), which is SEPARATE from
+     * the internal `hal_classifications` production classifier — the two are never merged. Keyless.
+     */
+    getFactCheckCount(): Promise<FactCheckCount>;
+    /**
+     * Read an agent's Proof-of-Authority (POA) stake.
+     *
+     * ⚠ STUB — the public keyless POA stake-read path is not yet exposed. This method attempts the
+     * live `GET /api/v1/stake/authority/:agentId` endpoint; when it is unavailable (auth-gated or not
+     * deployed) it returns an HONEST stub (`stubbed: true`, zeroed figures) rather than fabricating a
+     * balance. Wire the public read on the backend, then this method upgrades to real values with no
+     * SDK signature change. Never treat a `stubbed` result as a real stake.
+     */
+    getRepIDStake(agentId: string): Promise<RepIDStake>;
     /**
      * Fetch an agent's latest RepID range proof and (optionally) verify it client-side
      * with the bundled WASM verifier — "trust math, not the server."
