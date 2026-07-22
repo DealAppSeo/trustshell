@@ -1,6 +1,6 @@
 {
   "name": "@hyperdag/trustshell",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Trust SDK for AI agents — HAL hallucination filtering, portable RepID, and agent-to-agent service purchase with verifiable receipts, against the live HyperDAG backend.",
   "license": "Apache-2.0",
   "publishConfig": {
@@ -10,7 +10,8 @@
   "types": "dist/lib/index.d.ts",
   "bin": {
     "trustshell": "dist/cli/index.js",
-    "hal": "dist/cli/index.js"
+    "hal": "dist/cli/index.js",
+    "trustshell-mcp": "dist/mcp/index.js"
   },
   "exports": {
     ".": {
@@ -24,6 +25,12 @@
       "import": "./dist/cli/index.js",
       "require": "./dist/cli/index.js",
       "default": "./dist/cli/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js",
+      "require": "./dist/mcp/index.js",
+      "default": "./dist/mcp/index.js"
     }
   },
   "files": [
@@ -45,7 +52,9 @@
   "comment:deps": "DEPENDENCY DIET 2026-06-15: the SDK (src/lib/) imports NONE of next/react/supabase/lucide/idb — they are Next.js-APP baggage that SDK consumers were inheriting (puppeteer/sharp/googleapis arrive transitively via next, ~1898 pkgs / ~7min install). The published package ships only dist/ (files[]), so the only true SDK runtime dep is @hyperdag/proof-verifier (dynamically imported, fails gracefully). App-runtime deps moved to devDependencies → they are still installed for `next build`/dev (full install), but `npm install @hyperdag/trustshell` no longer pulls the Next.js tree. NOTE: this confirms the SDK should ultimately be its OWN package (also resolves the merge-base caveat) — flagged for Sean.",
   "dependencies": {
     "@hyperdag/proof-verifier": "^0.2.0",
-    "ethers": "^6.14.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "ethers": "^6.14.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@supabase/ssr": "^0.10.3",

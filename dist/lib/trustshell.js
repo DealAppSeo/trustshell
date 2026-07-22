@@ -266,6 +266,122 @@ class TrustShell {
             latestProofHash: v.latestProofHash,
         };
     }
+    async getLeaderboard(board) {
+        const url = `${this.baseUrl}/api/v1/leaderboard/${board}`;
+        const res = await fetch(url, { headers: this.getHeaders() });
+        if (!res.ok) {
+            throw new TrustShellError(`Leaderboard '${board}' fetch failed: ${res.status} ${res.statusText}`, res.status);
+        }
+        const data = await res.json();
+        if (board === 'agents') {
+            const rows = Array.isArray(data.agents) ? data.agents : [];
+            return {
+                kind: 'agents',
+                agents: rows.map((a) => ({
+                    agentId: a.agent_id,
+                    model: a.model ?? null,
+                    repidTotal: Number(a.repid_total ?? 0),
+                    roundsScored: Number(a.rounds_scored ?? 0),
+                    avgBrier: a.avg_brier ?? null,
+                    avgAccuracy: a.avg_accuracy ?? null,
+                    avgRaterReliability: a.avg_rater_reliability ?? null,
+                    errors: Number(a.errors ?? 0),
+                    lastRound: a.last_round ?? null,
+                    verified: a.verified === true,
+                })),
+                totalAgents: typeof data.total_agents === 'number' ? data.total_agents : rows.length,
+                lastUpdated: data.last_updated ?? new Date().toISOString(),
+            };
+        }
+        // board === 'models'
+        const lenses = data.lenses ?? {};
+        const perf = lenses.performance ?? {};
+        const val = lenses.value ?? {};
+        return {
+            kind: 'models',
+            metric: data.metric ?? 'code-review discrimination',
+            disclaimer: data.disclaimer ?? '',
+            lenses: {
+                performance: {
+                    label: perf.label ?? 'Performance',
+                    rankedBy: perf.ranked_by ?? '',
+                    models: Array.isArray(perf.models) ? perf.models : [],
+                },
+                value: {
+                    label: val.label ?? 'Value',
+                    rankedBy: val.ranked_by ?? '',
+                    models: Array.isArray(val.models) ? val.models : [],
+                },
+            },
+            narrative: data.narrative ?? '',
+            lastUpdated: data.last_updated ?? new Date().toISOString(),
+        };
+    }
+    /**
+     * Fetch the public, source-tagged fact-check tally (`GET /api/v1/hal/fact-check-count`).
+     * This counts entries in `hal_public_fact_checks` (the public counter), which is SEPARATE from
+     * the internal `hal_classifications` production classifier — the two are never merged. Keyless.
+     */
+    async getFactCheckCount() {
+        const url = `${this.baseUrl}/api/v1/hal/fact-check-count`;
+        const res = await fetch(url, { headers: this.getHeaders() });
+        if (!res.ok) {
+            throw new TrustShellError(`Fact-check count fetch failed: ${res.status} ${res.statusText}`, res.status);
+        }
+        const data = await res.json();
+        return {
+            total: Number(data.total ?? 0),
+            bySource: (data.by_source && typeof data.by_source === 'object') ? data.by_source : {},
+            lastUpdated: data.last_updated ?? new Date().toISOString(),
+        };
+    }
+    /**
+     * Read an agent's Proof-of-Authority (POA) stake.
+     *
+     * ⚠ STUB — the public keyless POA stake-read path is not yet exposed. This method attempts the
+     * live `GET /api/v1/stake/authority/:agentId` endpoint; when it is unavailable (auth-gated or not
+     * deployed) it returns an HONEST stub (`stubbed: true`, zeroed figures) rather than fabricating a
+     * balance. Wire the public read on the backend, then this method upgrades to real values with no
+     * SDK signature change. Never treat a `stubbed` result as a real stake.
+     */
+    async getRepIDStake(agentId) {
+        const url = `${this.baseUrl}/api/v1/stake/authority/${encodeURIComponent(agentId)}`;
+        try {
+            const res = await fetch(url, { headers: this.getHeaders() });
+            if (res.ok) {
+                const data = await res.json();
+                const stake = Number(data.stake_total ?? data.stake_total_usdc_raw ?? 0);
+                const authority = data.authority !== undefined && data.authority !== null
+                    ? Number(data.authority) : null;
+                return {
+                    agentId,
+                    stakeUsdcRaw: Number.isFinite(stake) ? stake : 0,
+                    authority: authority !== null && Number.isFinite(authority) ? authority : null,
+                    stubbed: false,
+                    note: `Live POA stake read (basis: ${data.basis ? JSON.stringify(data.basis) : 'authority endpoint'}).`,
+                };
+            }
+            // Non-200 (401 auth-gated / 404 not deployed): fall through to the honest stub.
+            return {
+                agentId,
+                stakeUsdcRaw: 0,
+                authority: null,
+                stubbed: true,
+                note: `POA stake read not publicly available yet (backend returned ${res.status}). ` +
+                    `Returning a stub, not a fabricated balance.`,
+            };
+        }
+        catch (err) {
+            // Network / backend error: still return an honest stub, never a fake number.
+            return {
+                agentId,
+                stakeUsdcRaw: 0,
+                authority: null,
+                stubbed: true,
+                note: `POA stake read unavailable (${err?.message ?? String(err)}). Returning a stub.`,
+            };
+        }
+    }
     /**
      * Fetch an agent's latest RepID range proof and (optionally) verify it client-side
      * with the bundled WASM verifier — "trust math, not the server."
