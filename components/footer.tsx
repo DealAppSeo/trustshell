@@ -26,6 +26,7 @@ const footerLinks = {
   community: [
     { name: 'Trust Commons', href: 'https://github.com/DealAppSeo/trust-commons' },
     { name: 'Shape the RepID formula', href: '/repid', internal: true },
+    { name: 'What makes a good reputation?', href: '/earned-trust', internal: true },
   ],
 };
 
