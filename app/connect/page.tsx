@@ -87,9 +87,10 @@ export default function ConnectPage() {
           <h2 className="text-3xl font-bold">Create your Vault</h2>
           <p className="text-[#94a3b8] max-w-xl leading-relaxed">
             A <span className="text-white font-medium">Vault</span> is an encrypted, browser-only store for the
-            model API keys you&apos;ll connect next. It&apos;s locked with a passphrase only you know, and your keys{' '}
-            <span className="text-white font-medium">never leave your device</span> — they&apos;re never sent to a
-            server. That&apos;s how TrustShell lets you run your own models while keeping your keys private.
+            model API keys you&apos;ll connect next. It&apos;s locked with a passphrase only you know, and it&apos;s{' '}
+            <span className="text-white font-medium">stored on your device — never on our servers</span>. Free-tier
+            prompts send no keys at all; when you run a paid model, your key rides along with that one request so
+            the engine can call the provider on your behalf — used in memory, never stored, redacted from logs.
           </p>
 
           <ProgressStrip />

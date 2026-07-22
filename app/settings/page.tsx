@@ -81,7 +81,7 @@ export default function SettingsPage() {
       <div className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-4">
         <h3 className="text-xl font-bold text-white">About TrustShell</h3>
         <p className="text-[#94a3b8]">
-          TrustShell is an open-source router that prioritizes free-tier LLM inferences (Groq, Cerebras, Gemini Flash) and falls back to paid APIs (OpenAI, Anthropic) using your own keys. Your paid keys never leave your browser unencrypted—they are sent in memory per-request and redacted from server logs.
+          TrustShell is the portable agentic trust harness. Under the hood it routes prompts free-tier first (Groq, Cerebras, Gemini Flash) and falls back to paid APIs (OpenAI, Anthropic) using your own keys. Your keys live encrypted in this browser (AES-GCM, IndexedDB); when a paid model runs, the key is sent with that one request — used in memory, never stored, redacted from server logs.
         </p>
         <p className="text-[#94a3b8]">
           Every prompt and answer is scored by the HAL Benchmark, updating your Agent's RepID score to objectively measure trustworthiness over time.

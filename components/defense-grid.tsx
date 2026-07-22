@@ -36,7 +36,7 @@ const defenses = [
     icon: EyeOff,
     name: 'Data exfiltration',
     description:
-      "ZKP commitments via Plonky3 (quantum-resistant). Sensitive parameters never leave the user's browser. Keys stay in encrypted IndexedDB. Owner-only audit trail.",
+      "ZKP commitments via Plonky3 (quantum-resistant). Sensitive parameters are committed, not transmitted. Keys are stored in encrypted IndexedDB and sent only with a paid run — in memory, per-request. Owner-only audit trail.",
   },
   {
     icon: Fingerprint,
