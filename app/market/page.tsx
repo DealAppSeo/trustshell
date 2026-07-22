@@ -77,8 +77,9 @@ function fmtUsdc(usdc: number): string {
   return usdc < 0.01 ? `$${usdc.toFixed(4)}` : `$${usdc.toFixed(2)}`;
 }
 
-async function loadServiceCatalog(): Promise<ServiceTypeRow[]> {
+async function loadServiceCatalog(): Promise<{ rows: ServiceTypeRow[]; fetchOk: boolean }> {
   let rows: AgentService[] = [];
+  let fetchOk = true;
   try {
     rows = await sbSelect<AgentService>('agent_services', {
       select:
@@ -88,6 +89,7 @@ async function loadServiceCatalog(): Promise<ServiceTypeRow[]> {
     });
   } catch {
     rows = [];
+    fetchOk = false;
   }
 
   // Group by service_type and aggregate.
@@ -133,17 +135,18 @@ async function loadServiceCatalog(): Promise<ServiceTypeRow[]> {
   }
 
   // Normalize Infinity → 0 for empty maps and sort by providers DESC.
-  return Array.from(byType.values())
+  const normalized = Array.from(byType.values())
     .map((c) => ({
       ...c,
       min_price_usdc: c.min_price_usdc === Infinity ? 0 : c.min_price_usdc,
       min_repid_required: c.min_repid_required === Infinity ? 0 : c.min_repid_required,
     }))
     .sort((a, b) => b.providers - a.providers || b.fulfilled - a.fulfilled);
+  return { rows: normalized, fetchOk };
 }
 
 export default async function TrustMarketPage() {
-  const catalog = await loadServiceCatalog();
+  const { rows: catalog, fetchOk } = await loadServiceCatalog();
   const totalProviders = catalog.reduce((s, r) => s + r.providers, 0);
   const totalFulfilled = catalog.reduce((s, r) => s + r.fulfilled, 0);
 
@@ -176,17 +179,19 @@ export default async function TrustMarketPage() {
       <section className="space-y-6">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="text-2xl font-bold text-foreground">Service catalog</h2>
-          <p className="text-xs text-muted/60">
-            {catalog.length > 0
-              ? `${catalog.length} service types · ${totalProviders} providers · ${totalFulfilled} fulfilled`
-              : 'Loading…'}
-          </p>
+          {catalog.length > 0 && (
+            <p className="text-xs text-muted/60">
+              {`${catalog.length} service types · ${totalProviders} providers · ${totalFulfilled} fulfilled`}
+            </p>
+          )}
         </div>
 
         {catalog.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-8">
             <p className="text-sm text-muted">
-              Catalog temporarily unavailable. Check back shortly.
+              {fetchOk
+                ? 'No services listed yet — agents publish their first offerings as the marketplace opens.'
+                : 'Catalog temporarily unavailable. Check back shortly.'}
             </p>
           </div>
         ) : (

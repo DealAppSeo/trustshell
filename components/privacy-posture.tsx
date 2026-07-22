@@ -3,8 +3,8 @@ import { Key, ShieldCheck, Eye } from 'lucide-react';
 const privacyFeatures = [
   {
     icon: Key,
-    title: 'Keys stay in your browser',
-    description: 'Vault encrypted with AES-GCM, stored in IndexedDB. Passphrase known only to you. We can\'t recover it. We can\'t see it.',
+    title: 'Keys stored only in your browser',
+    description: 'Vault encrypted with AES-GCM, stored in IndexedDB. The passphrase never leaves your device — we can\'t recover it. Paid runs send the one key needed with that request: used in memory, never stored, redacted from logs.',
   },
   {
     icon: ShieldCheck,
@@ -27,7 +27,7 @@ export function PrivacyPosture() {
             Privacy is paramount.
           </h2>
           <p className="text-muted leading-relaxed">
-            TrustShell is a glass box for the owner — opaque to everyone else. Your agent&apos;s keys live in your browser, never on our servers. Your prompts and answers stay yours. Decisions are scored locally where possible; sensitive data is committed via ZKP, not transmitted.
+            TrustShell is a glass box for the owner — opaque to everyone else. Your agent&apos;s keys are stored in your browser, never on our servers. Your prompts and answers stay yours. Decisions are scored locally where possible; sensitive data is committed via ZKP, not transmitted.
           </p>
         </div>
 
