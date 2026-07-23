@@ -1,8 +1,28 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
+const ENGINE_URL =
+  process.env.NEXT_PUBLIC_REPID_ENGINE_URL ??
+  'https://repid-engine-production.up.railway.app';
+
 export function CompatibilityInfo() {
   const llms = ['OpenAI', 'Claude', 'Gemini', 'Llama', 'Mistral', 'Custom'];
   const frameworks = ['LangChain', 'CrewAI', 'AutoGen', 'Custom'];
+
+  // Live quorum shape for the sixth card — real config from the engine,
+  // never a mocked number. Null until (unless) the fetch succeeds.
+  const [quorum, setQuorum] = useState<{ families: number; names: string[] } | null>(null);
+  useEffect(() => {
+    fetch(`${ENGINE_URL}/api/v1/hal/stats`, { signal: AbortSignal.timeout(6000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d.quorum_families === 'number' && d.quorum_families > 0) {
+          setQuorum({ families: d.quorum_families, names: d.quorum_family_names ?? [] });
+        }
+      })
+      .catch(() => {});
+  }, []);
   
   const signals = [
     { name: 'Evidence Quality', desc: 'Cross-verifies claims against search indices and retrieval logs to catch groundless fabrications.', value: 94 },
@@ -64,7 +84,8 @@ export function CompatibilityInfo() {
           <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Pipeline details</span>
           <h2 className="text-3xl font-bold text-white tracking-tight">How HAL Scores</h2>
           <p className="text-sm text-slate-400 max-w-lg">
-            HAL scores AI outputs on 5 mathematical metrics in real-time, verifying accuracy and protecting down-chain executors.
+            HAL scores AI outputs on 5 mathematical metrics in real-time — then cross-examines
+            claims across independent model families before they count.
           </p>
         </div>
 
@@ -100,6 +121,36 @@ export function CompatibilityInfo() {
               </div>
             );
           })}
+
+          {/* Sixth card — the SBFA differentiator. Number + families are read
+              live from the engine's quorum config; without them we show an
+              honest no-number fallback, never a mock. */}
+          <div className="bg-slate-900 border border-indigo-900/60 rounded-2xl p-6 space-y-4">
+            <h3 className="font-bold text-white text-base">Independent Cross-Examination</h3>
+            <p className="text-xs text-slate-400 leading-relaxed min-h-[48px]">
+              No model grades its own family&apos;s homework. Claims are cross-checked by a quorum of
+              decorrelated model families — a blind spot shared by one lineage gets caught by another
+              that fails differently. Suspiciously perfect consensus triggers a second look, not a
+              rubber stamp.
+            </p>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold">
+                <span className="text-slate-500">Signal Value</span>
+                <span className="text-indigo-300">
+                  {quorum ? `${quorum.families} model families (live)` : 'independent model families'}
+                </span>
+              </div>
+              {quorum && quorum.names.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {quorum.names.map((f) => (
+                    <span key={f} className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded text-[10px] font-mono text-slate-400">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
     </div>
