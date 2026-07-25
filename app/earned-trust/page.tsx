@@ -131,7 +131,7 @@ export default function EarnedTrustPage() {
         </p>
         <div className="flex flex-wrap gap-4">
           <a
-            href="https://github.com/DealAppSeo/hyperdag-protocol/discussions"
+            href="https://github.com/DealAppSeo/trust-commons/discussions"
             target="_blank"
             rel="noopener noreferrer"
             className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-colors"
