@@ -8,6 +8,14 @@ export type Agent = {
   createdAt: number;
   totalPrompts: number;
   lastUsedAt: number;
+  /**
+   * The agent's scoped API key from register() — returned ONCE by the backend
+   * and required as Bearer auth on /score-event. Agents created before
+   * 2026-07-30 don't have it stored (the key is unrecoverable; the run page
+   * shows an honest "recreate to enable scoring" notice instead of failing
+   * silently). Browser-local like everything else here — testnet demo scope.
+   */
+  apiKey?: string;
 };
 
 export type HistoryRow = {
@@ -23,6 +31,10 @@ export type HistoryRow = {
   cost: number;
   timestamp: number;
   repidDelta: number;
+  /** HAL verdict for this run ('clean' | 'flagged' | 'vetoed'), when scoring ran. */
+  halDecision?: string | null;
+  /** Honest failure note when the score event could not be recorded (never a fake Δ 0.00). */
+  scoreError?: string | null;
 };
 
 const AGENTS_KEY = 'trustshell_agents_v1';

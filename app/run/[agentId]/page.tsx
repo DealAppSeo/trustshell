@@ -109,19 +109,51 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         return;
       }
 
+      // HAL scoring — the Track-A decision-event contract (agents-external.ts
+      // requires llm_provider/certainty/decision_text/outcome/task_domain and
+      // Bearer auth with the agent's own key; supplying `prompt` engages the
+      // cross-LLM agreement path). The old {prompt, response} body 400'd and
+      // the catch swallowed it, rendering a fake "Δ 0.00" on every run.
       let repidDelta = 0;
-      try {
-        const scoreRes = await fetch(`${process.env.NEXT_PUBLIC_REPID_ENGINE_URL}/api/v1/agents/${agentId}/score-event`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, response: data.answer })
-        });
-        const scoreData = await scoreRes.json();
-        if (scoreData.delta) repidDelta = scoreData.delta;
-        setRepid(prev => prev + repidDelta);
-        flashDelta(repidDelta);
-      } catch (e) {
-        console.error('Score event failed', e);
+      let halDecision: string | null = null;
+      let scoreError: string | null = null;
+      if (!agent?.apiKey) {
+        scoreError =
+          'This agent has no stored API key (created before scoring auth landed) — recreate it on /agents to enable RepID scoring.';
+      } else {
+        try {
+          const scoreRes = await fetch(`${process.env.NEXT_PUBLIC_REPID_ENGINE_URL}/api/v1/agents/${agentId}/score-event`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${agent.apiKey}`,
+            },
+            body: JSON.stringify({
+              llm_provider: data.provider ?? 'unknown',
+              llm_model: data.model ?? null,
+              certainty: 0.85,
+              decision_text: data.answer,
+              outcome: 'success',
+              task_domain: 'general',
+              prompt,
+            })
+          });
+          const scoreData = await scoreRes.json();
+          if (scoreRes.ok) {
+            if (typeof scoreData.delta === 'number') repidDelta = scoreData.delta;
+            halDecision = scoreData.hal_decision ?? null;
+            setRepid(prev => prev + repidDelta);
+            flashDelta(repidDelta);
+          } else if (scoreRes.status === 403 && scoreData.error === 'Constitutional block') {
+            // HAL vetoed the response — that's the product working, show it.
+            halDecision = 'vetoed';
+          } else {
+            scoreError = scoreData.error || `scoring failed (${scoreRes.status})`;
+          }
+        } catch (e) {
+          scoreError = 'scoring unreachable — this run was NOT scored';
+          console.error('Score event failed', e);
+        }
       }
 
       const row: HistoryRow = {
@@ -136,7 +168,9 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         latencyMs: data.latency_ms,
         cost: data.cost_estimate_usd,
         timestamp: Date.now(),
-        repidDelta
+        repidDelta,
+        halDecision,
+        scoreError
       };
 
       await localDb.saveHistory(row);
@@ -197,6 +231,13 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
       {gateInfo && gateInfo.verified && (
         <p className="text-xs text-[#64748b]">
           Progress saved{getGateEmail() ? ` for ${getGateEmail()}` : ''} · {gateInfo.remaining} runs left today.
+        </p>
+      )}
+      {agent && !agent.apiKey && (
+        <p className="text-xs text-amber-400/90">
+          ⚠ This agent predates scoring auth and has no stored API key — runs will answer but can&apos;t
+          earn RepID. Recreate it on <Link href="/agents" className="underline">/agents</Link> (takes 30s)
+          to enable scoring.
         </p>
       )}
 
@@ -274,9 +315,22 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
                   <span>Provider: {h.provider} (Tier {h.tier})</span>
                   <span>{h.latencyMs}ms</span>
                   <span>Tokens: {h.tokensIn} in / {h.tokensOut} out</span>
-                  <span>RepID Δ: <span className={h.repidDelta >= 0 ? "text-green-500" : "text-red-500"}>{h.repidDelta > 0 ? '+' : ''}{h.repidDelta.toFixed(2)}</span></span>
+                  {h.halDecision && (
+                    <span>
+                      HAL:{' '}
+                      <span className={h.halDecision === 'vetoed' ? 'text-red-500' : h.halDecision === 'flagged' ? 'text-amber-400' : 'text-green-500'}>
+                        {h.halDecision.toUpperCase()}
+                      </span>
+                    </span>
+                  )}
+                  {!h.scoreError && (
+                    <span>RepID Δ: <span className={h.repidDelta >= 0 ? "text-green-500" : "text-red-500"}>{h.repidDelta > 0 ? '+' : ''}{h.repidDelta.toFixed(2)}</span></span>
+                  )}
                 </span>
               </div>
+              {h.scoreError && (
+                <p className="text-xs text-amber-400/90">⚠ Not scored: {h.scoreError}</p>
+              )}
               <div className="font-mono text-sm bg-[#0a0f1a] p-4 rounded text-gray-300">
                 {h.prompt}
               </div>
