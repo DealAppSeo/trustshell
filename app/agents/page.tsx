@@ -33,7 +33,11 @@ export default function AgentsPage() {
           constitution: consti,
           createdAt: Date.now(),
           totalPrompts: 0,
-          lastUsedAt: Date.now()
+          lastUsedAt: Date.now(),
+          // Shown ONCE by the backend — dropping it (the pre-2026-07-30
+          // behavior) left every browser agent unable to authenticate its
+          // score events, so HAL scoring silently failed as "Δ 0.00".
+          apiKey: typeof data.api_key === 'string' ? data.api_key : undefined
         };
         await localDb.saveAgent(newAgent);
         setAgents(await localDb.getAgents());
