@@ -35,32 +35,91 @@ export type StakeDepositResult = {
 };
 
 /**
- * Deposit a testnet USDC stake to back an agent's authority.
- * Wired to POST /api/v1/stake/deposit (v1.ts:373).
- * Contract: body { builder_address, amount, tx_hash? } — `amount` is raw
- * micro-USDC (the backend special-cases the literal "100" demo path).
+ * Fetch the exact text a wallet must sign to claim a real (on-chain) deposit.
+ *
+ * We ask the server rather than rebuilding the string here on purpose: if the
+ * two ever drift, the failure should be a rejected signature, not a subtly
+ * wrong sentence shown to someone in the moment they decide to sign.
+ */
+export async function fetchStakeSignMessage(input: {
+  builder_address: string;
+  amount_raw: string;
+  tx_hash: string;
+}): Promise<string | null> {
+  try {
+    const q = new URLSearchParams({
+      wallet: input.builder_address,
+      amount: input.amount_raw,
+      tx_hash: input.tx_hash,
+    });
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/stake/deposit/message?${q}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.message === 'string' ? data.message : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deposit a stake to back an agent's authority.
+ * Wired to POST /api/v1/stake/deposit.
+ *
+ * AUTHORIZATION SCALES WITH WHAT IS BEING CREDITED, and the client mirrors the
+ * server's ladder rather than guessing at it:
+ *   simulated (no tx_hash) — the account's own login token is enough, so a
+ *                            signed-in user clicks once and is done.
+ *   real (tx_hash present) — additionally a wallet signature over that exact
+ *                            wallet, amount and tx. A session proves an email
+ *                            login; a deposit credits value against a wallet.
+ *
+ * `signature` is passed straight through; obtaining it belongs to the page that
+ * owns the wallet prompt, so this module stays dependency-free.
  */
 export async function depositStake(input: {
   builder_address: string;
   amount_usdc: number;
   tx_hash?: string;
+  signature?: string;
+  /** Supply from lib/account.ts accountHeader(). */
+  authHeaders?: Record<string, string>;
 }): Promise<StakeDepositResult> {
   const res = await fetch(`${REPID_ENGINE_URL}/api/v1/stake/deposit`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(input.authHeaders ?? {}) },
     body: JSON.stringify({
       builder_address: input.builder_address,
       // Backend demo path keys off the literal "100"; otherwise send raw micro-USDC.
       amount: input.amount_usdc === 100 ? '100' : usdcToRaw(input.amount_usdc),
       tx_hash: input.tx_hash,
+      signature: input.signature,
     }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    return { ok: false, error: data?.error || `deposit failed (${res.status})`, ...data };
+    return {
+      ok: false,
+      error: data?.error || `deposit failed (${res.status})`,
+      message: data?.message,
+      status: res.status,
+    };
   }
   return { ok: true, ...data };
 }
+
+/**
+ * Plain language for each reason the backend declines to credit a deposit.
+ * A raw `not_your_account` on screen is exactly the dead end DESIGN_PRINCIPLES
+ * exists to prevent — every one of these says what to do next.
+ */
+export const STAKE_AUTH_ERRORS: Record<string, string> = {
+  no_credential: 'Verify your email first — that gives you the account this stake credits.',
+  invalid_session: 'Your session expired. Verify your email again to continue.',
+  not_your_account: 'That address belongs to a different account.',
+  account_not_found: 'No account is registered under that address yet.',
+  signature_required: 'Real deposits need a wallet signature — approve the prompt to continue.',
+  bad_signature: "That signature didn't match this deposit. Try signing again.",
+};
 
 /**
  * Read the current stake total + authority ceiling for a builder/agent.

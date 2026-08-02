@@ -7,6 +7,8 @@
  * we attach it to hosted runs via the x-agent-gate-token header.
  */
 
+import { saveAccount, clearAccount } from './account';
+
 const ENGINE_URL =
   process.env.NEXT_PUBLIC_REPID_ENGINE_URL ??
   'https://repid-engine-production.up.railway.app';
@@ -27,6 +29,10 @@ export function getGateEmail(): string | null {
 export function clearGate(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(EMAIL_KEY);
+  // Signing out of the inbox signs you out of the account it earned. Leaving a
+  // live login token behind after a visible "sign out" is the kind of thing
+  // people are right to be angry about.
+  clearAccount();
 }
 
 export interface GateStatus {
@@ -69,7 +75,10 @@ export async function requestCode(email: string): Promise<{ ok: boolean; error?:
   }
 }
 
-export async function verifyCode(email: string, code: string): Promise<{ ok: boolean; error?: string }> {
+export async function verifyCode(
+  email: string,
+  code: string,
+): Promise<{ ok: boolean; error?: string; gotAccount?: boolean; accountCreated?: boolean }> {
   try {
     const res = await fetch(`${ENGINE_URL}/api/v1/agent-gate/verify-otp`, {
       method: 'POST',
@@ -81,7 +90,21 @@ export async function verifyCode(email: string, code: string): Promise<{ ok: boo
     if (res.ok && data.token) {
       localStorage.setItem(TOKEN_KEY, data.token);
       localStorage.setItem(EMAIL_KEY, email.toLowerCase());
-      return { ok: true };
+
+      // The same code may also have earned an account (engine-side flag
+      // GATE_PROVISIONS_ACCOUNT). Feature-detected: its absence is the normal
+      // older-deployment case, not a failure, and never blocks the verified
+      // session the person just earned.
+      let gotAccount = false;
+      if (data.login_token && data.builder_id && data.builder_address) {
+        saveAccount(data.login_token, {
+          builder_id: data.builder_id,
+          builder_address: data.builder_address,
+          email: email.toLowerCase(),
+        });
+        gotAccount = true;
+      }
+      return { ok: true, gotAccount, accountCreated: data.account_created === true };
     }
     return { ok: false, error: data.error || 'verify_failed' };
   } catch {
