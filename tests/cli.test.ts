@@ -11,10 +11,13 @@ import {
   verdictExitCode,
   run,
   EXIT,
+  VERSION,
   type CliIO,
   type ParsedArgs,
 } from '../src/cli';
 import type { TrustShell } from '../src/lib/trustshell';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // A no-op IO sink that records what the CLI would print.
 function captureIO(): { io: CliIO; out: string[]; err: string[] } {
@@ -22,6 +25,40 @@ function captureIO(): { io: CliIO; out: string[]; err: string[] } {
   const err: string[] = [];
   return { io: { out: (s) => out.push(s), err: (s) => err.push(s) }, out, err };
 }
+
+/**
+ * The check that expires by itself.
+ *
+ * The old failure could not be caught by a test that hardcoded the expected
+ * version, because that test would have had to be edited on every release —
+ * i.e. it would have drifted in exactly the same way as the thing it guarded.
+ * This reads package.json independently and compares, so the NEXT version bump
+ * fails this test if the CLI ever stops tracking it.
+ */
+describe('reported version', () => {
+  const pkgVersion = (
+    JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as { version: string }
+  ).version;
+
+  it('matches package.json exactly', () => {
+    expect(VERSION).toBe(pkgVersion);
+  });
+
+  it('is never the literal that was hardcoded through two releases', () => {
+    // Guards the specific regression: 1.0.0 shipped on the 1.1.0 and 1.2.0 packages.
+    expect(VERSION).not.toBe('unknown');
+    expect(pkgVersion).not.toBe('1.0.0');
+  });
+
+  it('is printed by the version command', async () => {
+    const { io, out } = captureIO();
+    // Go through parseArgs so this also proves `--version` routes to the
+    // version command, not just that the constant is right.
+    const code = await run(parseArgs(['--version']), {} as unknown as TrustShell, io);
+    expect(code).toBe(EXIT.OK);
+    expect(out.join('\n')).toContain(pkgVersion);
+  });
+});
 
 describe('parseArgs', () => {
   it('routes `verify "<text>"` with the text as operand', () => {
