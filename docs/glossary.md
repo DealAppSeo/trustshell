@@ -16,12 +16,12 @@ decision (HAL), read/earn reputation (RepID), and pay/settle (x402). Drop-in; no
 ## RepID (Reputation Identity)
 **Portable, on-chain reputation for an AI agent that survives across platforms.** A verifiable history
 (token id + attestations) anchored on ERC-8004 contracts; updatable only via signed attestations.
-**Related:** ERC-8004, HAL, attestation · **See also:** `trustshell whois`, `getRepID()` · **Status:** shipped
+**Related:** ERC-8004, HAL, attestation · **See also:** `trustshell repid`, `getRepID()` · **Status:** shipped
 
 ## HAL (Hallucination Assessment Layer)
 **The fact-check / risk engine.** Scores a decision 0–1 for hallucination/risk across multiple providers
-and returns APPROVE / HITL (human-in-the-loop) / BLOCK. One network call to the canonical pipeline.
-**Related:** RepID, Pythagorean Comma · **See also:** `trustshell verify`, `evaluate()` · **Status:** shipped
+and returns PASS / FLAG (soft, proceed with caution) / VETO. One network call to the canonical pipeline.
+**Related:** RepID, Pythagorean Comma · **See also:** `trustshell verify`, `score()` · **Status:** shipped
 
 ## ERC-8004
 **The Ethereum standard for AI-agent identity + reputation.** Defines the IdentityRegistry and
@@ -31,7 +31,7 @@ ReputationRegistry contracts that RepID anchors to (Base Sepolia today).
 ## x402
 **An HTTP-native payment standard for agent-to-agent payments.** TrustShell's x402 client handles the
 402-challenge handshake, signs the authorization, and settles the escrow.
-**Related:** RepID, Cascade · **See also:** `payAndEscrow()`, `X402Client` · **Status:** shipped
+**Related:** RepID, Cascade · **See also:** `executeA2A()` · **Status:** shipped
 
 ## Cascade
 **The automatic settlement → fulfillment pipeline.** After payment, a contract moves escrowed → fulfilled

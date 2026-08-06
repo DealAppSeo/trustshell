@@ -21,14 +21,14 @@ examples/minimal-agent/
 ```
 
 ## Key code paths
-1. **Construct** `new TrustShell({ agentId, apiKey, llmProvider, profile: 'balanced' })`.
-2. **Propose → guard:** call `shell.evaluate(actionText, certainty)`.
-   - `result.approved === true` → execute the action.
-   - `false` → log `result.veto_reason`, skip (or route to a human).
-3. **Catch reporting:** if the agent detects its own LLM was wrong, call
-   `shell.report({ text, certainty, hallucinationCaught: true })`.
-4. **Status:** periodically `shell.getRepID()` to read the agent's current tier/score.
-5. **(Optional) pay:** `shell.payAndEscrow(contractId, privateKey)` to settle a service contract via x402.
+1. **Construct** `new TrustShell()` — keyless for the guard path.
+2. **Propose → guard:** call `shell.verifyOutput(actionText)`.
+   - `result.ok === true` → execute the action.
+   - `false` → log `result.decisionReason`, skip (or route to a human).
+3. **Detail:** use `shell.score(text)` when you want the signal breakdown and per-provider
+   `evidence[]` behind the verdict.
+4. **Status:** periodically `shell.getRepID(agentId)` to read the agent's current tier/score.
+5. **(Optional) A2A:** `shell.executeA2A(params)` to run a service contract (requires an API key).
 
 ## Expected behavior
 | Input | HAL decision | Agent behavior |
@@ -43,7 +43,7 @@ examples/minimal-agent/
 2. **Veto path** — a confident falsehood (e.g. "The capital of Australia is Sydney") → `approved: false`, `veto_reason` set.
 3. **Catch path** — `report({ hallucinationCaught: true })` → agent `+RepID`, `vdr_count` increments.
 4. **Auth failure** — missing/invalid key → 401/403 surfaced as a thrown error.
-5. **Idempotent pay** — calling `payAndEscrow` twice for one contract settles only once.
+5. **Idempotent settlement** — the engine settles a given contract only once.
 
 ## Acceptance criteria (for the V1.5 implementation)
 - Runs from a clean clone with only `REPID_API_KEY` + `AGENT_ID` set.
