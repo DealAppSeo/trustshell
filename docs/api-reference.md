@@ -13,13 +13,14 @@ All times below are illustrative — live counts increment continuously. Re-curl
 
 - [SDK](#sdk)
   - [`new TrustShell(config)`](#new-trustshellconfig)
-  - [`evaluate(text, certainty, options?)`](#evaluatetext-certainty-options--promiserepidresult)
-  - [`report(decision)`](#reportdecision--promiserepidresult)
-  - [`getRepID(idOrAddress?)`](#getrepidagentaddressorid-options--promiseagentrepid--repidsummary)
-  - [`getReputationHistory(idOrAddress?)`](#getreputationhistoryagentaddressorid-options--promisefeedbackitem)
-  - [`getAttestation(txHash)`](#getattestationtxhash-options--promiseattestationdetails)
-  - [`payAndEscrow(contractId, privateKey)`](#payandescrowcontractid-privatekey--promiseany)
-  - [`getLLMTrustScore(provider)`](#getllmtrustscoreprovider--promisenumber--null)
+  - [`TrustShell.init(config?)`](#trustshellinitconfig--promise-client-health-)
+  - [`score(response, options?)`](#scoreresponse-options--promisescoreresult)
+  - [`verifyOutput(output, options?)`](#verifyoutputoutput-options--promiseverifyoutputresult)
+  - [`getRepID(agentId)`](#getrepidagentid--promiserepidresult)
+  - [`presentProof(agentId, opts?)`](#presentproofagentid-opts--promiseproofpresentation)
+  - [`getLeaderboard(board)`](#getleaderboardboard--promiseleaderboard)
+  - [`subscribe(event, handler)`](#subscribeevent-handler---void)
+  - [Other methods](#other-methods)
 - [CLI](#cli)
 - [Public REST API](#public-rest-api)
   - [`GET /api/v1/status`](#get-apiv1status)
@@ -36,120 +37,165 @@ All times below are illustrative — live counts increment continuously. Re-curl
 
 ## SDK
 
-Default engine: `https://repid-engine-production.up.railway.app` (override with `engineUrl` in the constructor).
+Default engine: `https://repid-engine-production.up.railway.app` (override with `apiUrl` in the
+constructor, or the `TRUSTSHELL_API_URL` environment variable).
 
 ### `new TrustShell(config)`
 
 ```typescript
+import { TrustShell } from '@hyperdag/trustshell';
+
 const shell = new TrustShell({
-  agentId: string,          // your agent id
-  apiKey: string,           // ts_live_… (see getting-started)
-  llmProvider?: string,     // e.g. 'anthropic' — enables BYOK trust warnings
-  llmModel?: string,
-  profile?: 'conservative' | 'balanced' | 'pro',
-  engineUrl?: string        // defaults to the production engine
+  apiKey?: string,   // optional — score/verify/getRepID/presentProof are keyless
+  apiUrl?: string,   // defaults to the production engine
+  timeout?: number,  // ms
 });
 ```
 
-`TrustShell` extends `EventEmitter`. Listen for BYOK trust warnings:
+That is the whole config surface (`TrustShellConfig`). The read paths are **keyless**; a key is
+only needed for the write paths (`executeA2A`, `register`).
+
+### `TrustShell.init(config?) → Promise<{ client, health }>`
+
+Constructs a client and probes engine health in one call, so a caller can degrade deliberately
+instead of discovering the engine is down on its first real request.
 
 ```typescript
-shell.on('byok-warning', ({ provider, trust_score }) => { /* trust_score < 70 */ });
+const { client, health } = await TrustShell.init();
+if (!health.ok) { /* health.status / health.error */ }
 ```
 
-### `evaluate(text, certainty, options?) → Promise<RepIDResult>`
+### `score(response, options?) → Promise<ScoreResult>`
 
-Score a decision and record it against your agent. Emits `byok-warning` if your provider's trust < 70, then submits to the engine.
+Run text through the live HAL cross-provider quorum.
 
-- `text: string` — the decision/output to check.
-- `certainty: number` — 0–1, your agent's confidence.
-- `options?: Partial<Decision>` — `taskDomain`, `alignmentCategory`, `economicImpactUSDC`, `hallucinationCaught`.
-- **Returns** `RepIDResult`: `{ approved, hal_score, repid_delta, new_score, vested_repid, vesting_active, tier, vdr_count, veto_reason? }`.
-- **Throws** if the score-event request fails (non-2xx).
+- `response: string` — the text to evaluate.
+- `options?: ScoreOptions` — `{ prompt?, provider?, model? }`.
+
+Returns `ScoreResult`: `verdict` (`'PASS' | 'FLAG' | 'VETO'`), `trustScore` (0–100),
+`halScore` (0–1), the five `signals` (`harmProbability`, `epistemicUncertainty`,
+`evidenceQuality`, `scopeAppropriateness`, `certaintyAtClaim`), `decisionReason`, and
+`evidence[]` — one `"provider:VERDICT (note)"` line per provider, which is the *why* behind
+the verdict. On the quorum path it also carries `mode`, `providersUsed`, `familiesUsed`,
+`agreement`, and the SBFA fields (`belief`, `ignoranceMass`, `confidence`, `tierDistribution`,
+`glassBox`).
+
+### `verifyOutput(output, options?) → Promise<VerifyOutputResult>`
+
+Gate-shaped wrapper over `score`. Returns `{ ok, verdict, trustScore, halScore, soft, ... }`
+where `ok` is true for PASS **and** soft FLAG, false for VETO — the shape you want in an
+`if` around an agent action.
+
+### `getRepID(agentId) → Promise<RepIDResult>`
+
+Live RepID and tier for an agent. Keyless.
 
 ```typescript
-const r = await shell.evaluate('Execute trade: buy 0.1 BTC at market', 0.87);
-// { approved: true, hal_score: 0.08, repid_delta: +3, new_score: 1003,
-//   tier: 'EARNING', vdr_count: 1, vesting_active: true }
+await shell.getRepID('trinity-shofet');
+// { agentId: 'trinity-shofet', repid: 2070, tier: 'ESTABLISHED', ... }
 ```
 
-### `report(decision) → Promise<RepIDResult>`
+### `presentProof(agentId, opts?) → Promise<ProofPresentation>`
 
-Lower-level submit (called by `evaluate`). `decision: { text, certainty, taskDomain?, alignmentCategory?, economicImpactUSDC?, hallucinationCaught? }`. Use directly to log a caught hallucination:
+Fetch an agent's ZK RepID range proof. `opts: { verify?, tier?, allowExperimentalTiers? }`.
+
+Only the `postcard` tier has a live production endpoint. Other tiers exist in the prover but are
+not exposed as an API; requesting one without `allowExperimentalTiers` **flags rather than
+fabricates** — there is no stub on this path. With `{ verify: true }` the proof is checked
+client-side by the bundled WASM verifier.
+
+### `getLeaderboard(board) → Promise<Leaderboard>`
+
+`board: 'agents' | 'models'`. Overloaded — returns `AgentLeaderboard` or `ModelLeaderboard`.
+
+### `subscribe(event, handler) → () => void`
 
 ```typescript
-await shell.report({
-  text: 'The capital of Australia is Sydney',
-  certainty: 0.95,
-  hallucinationCaught: true,
-});
+const off = shell.subscribe('verdict', (payload) => { /* ... */ });
 ```
 
-### `getRepID(agentAddressOrId?, options?) → Promise<AgentRepID | RepIDSummary>`
+`event` is `'verdict' | 'proof'`. Returns an unsubscribe function.
 
-Read an agent's RepID. With no args, returns your own agent's RepID (engine read); with an id/address, queries the on-chain ReputationRegistry summary (count, mode score, decimals).
+> `TrustShell` does **not** extend `EventEmitter` and has no `.on()` method — use `subscribe`.
 
-```typescript
-const summary = await shell.getRepID(5863); // trinity-shofet
-```
+### Other methods
 
-### `getReputationHistory(agentAddressOrId?, options?) → Promise<FeedbackItem[]>`
-
-Recent attestations for a target agent from the ReputationRegistry. `options`: `{ includeRevoked?, limit? }`.
-
-### `getAttestation(txHash, options?) → Promise<AttestationDetails>`
-
-Decode a specific attestation by transaction hash → `{ agentId, value, feedbackURI, ... }`.
-
-### `payAndEscrow(contractId, privateKey) → Promise<any>`
-
-Runs the x402 402-challenge handshake, signs the EIP-3009 authorization, and submits the settled escrow to the engine. Also available as `X402Client` (fetch interceptor) — see the package README.
-
-### `getLLMTrustScore(provider) → Promise<number | null>`
-
-Current trust score (%) for an LLM provider, or `null` if unknown.
+Also available, same client: `verify(agentId)`, `getFactCheckCount()`, `getRepIDStake(agentId)`,
+`audit(table?)`, `executeA2A(params)`, `register(params)`, `registerHuman(opts?)`,
+`listServices(options?)`, `getService(serviceId)`, `getContractStatus(contractId)`,
+`pollUntilSettled(...)`.
 
 ---
 
 ## CLI
 
-Install: `npm install -g @hyperdag/trustshell`. Config: `trustshell init` → `.trustshell.json`.
-Env: `REPID_API_KEY` (HAL), `TRUSTSHELL_KEY` (x402 wallet key).
+```bash
+npm install -g @hyperdag/trustshell
+```
+
+Two binaries, same program: `trustshell` and `hal`.
+
+**Environment:** `REPID_API_KEY` (optional — `verify`/`repid`/`proof` are keyless),
+`TRUSTSHELL_API_URL` (override the backend origin). There is no config file.
+
+**Exit codes** — the reason this works as a CI gate:
+
+| code | meaning |
+|---|---|
+| `0` | HAL PASS, or soft FLAG — safe to proceed |
+| `1` | HAL VETO — fail the build |
+| `2` | usage / bad arguments |
+| `3` | runtime error (network / backend / timeout) |
 
 ### `trustshell verify "<claim>"`
 
-HAL evaluation of a claim. Options: `--strictness <1|2>` (default 2), `--endpoint <url>`, `--api-key <key>`.
+Runs the claim through the live HAL cross-provider quorum. Options: `--json`.
 
-```text
-🔍 HAL Evaluation
-  Evaluating: "The transaction is fully settled."
-  Strictness: 2
-
-  Decision: clean ✓
-  Score: 0.98
-  Providers: 3/3
-  Latency: 412ms
+```console
+$ trustshell verify "The Earth orbits the Sun."
+✓ PASS  trust 100/100
+  PASS — hal_score 0 via fact-check (full quorum)
+  evidence:
+    - groq:TRUE (Scientific consensus supported by astronomical observations)
+    - cerebras:TRUE (Fundamental astronomical fact.)
+    - gemini:TRUE (The Earth revolves around the Sun.)
+    - mistral:TRUE (Heliocentric model confirmed by astronomy)
+    - openrouter:TRUE (Earth orbits the Sun, established scientific fact.)
 ```
 
-### `trustshell whois <agentId|address>`
-
-Reputation summary for an agent (e.g. `trustshell whois 5863`).
-
-### `trustshell attestation <txHash>`
-
-Decode an on-chain attestation, e.g.:
+Use it as a gate:
 
 ```bash
-trustshell attestation 0xd362c1b0c819e2e1ee7bce601531afb0be1eef20c1be4ab8dc643e524d19e917
+trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || exit 1
 ```
 
-### `trustshell pay <contractId>`
+### `trustshell repid <agentIdOrSlug>`
 
-Construct + submit an x402 escrow. Requires `TRUSTSHELL_KEY`. (Live USDC fires are gated; dry-run/parse validated in the published build.)
+Print an agent's live RepID and tier. Keyless. Options: `--json`.
 
-### `trustshell init`
+```console
+$ trustshell repid trinity-shofet
+trinity-shofet
+  RepID 2070  (ESTABLISHED)
+```
 
-Writes `.trustshell.json` (network, chainId, contract addresses, engine endpoint).
+### `trustshell proof <agentIdOrSlug> [--verify]`
+
+Fetch the agent's ZK RepID range proof (postcard tier). With `--verify`, additionally verify it
+client-side with the bundled WASM verifier. Options: `--json`.
+
+```console
+$ trustshell proof trinity-shofet --verify
+trinity-shofet
+  tier      postcard
+  scheme    plonky3_range_check
+  statement repid_score=2070 threshold=999 tier=ESTABLISHED
+  verified  ✓ (client-side, 0.2.0)
+```
+
+### `trustshell --help` / `--version`
+
+`--version` reports the installed package version.
 
 ---
 

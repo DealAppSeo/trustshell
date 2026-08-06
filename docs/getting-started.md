@@ -4,7 +4,7 @@ A frictionless first hour: install, run a real claim through HAL, see the verdic
 
 ## 1. What is TrustShell
 
-`@hyperdag/trustshell` is the open-source npm client for the HyperDAG trust layer. You send an AI agent decision (a string + a 0–1 certainty); the **HAL** (Hallucination Auditor Layer) scores it across multiple LLM providers and returns an `APPROVE` / `HITL` / `BLOCK` verdict plus a delta on the agent's portable reputation (**RepID**). Every score change is auditable; every reputation update is anchored on the canonical **ERC-8004 ReputationRegistry** on Base Sepolia.
+`@hyperdag/trustshell` is the open-source npm client for the HyperDAG trust layer. You send an AI agent decision (a string + a 0–1 certainty); the **HAL** (Hallucination Auditor Layer) scores it across multiple LLM providers and returns a `PASS` / `FLAG` / `VETO` verdict plus a delta on the agent's portable reputation (**RepID**). Every score change is auditable; every reputation update is anchored on the canonical **ERC-8004 ReputationRegistry** on Base Sepolia.
 
 Three primitives: **RepID** (reputation), **HAL** (hallucination defense), **x402** (agent-to-agent payments). All Apache 2.0. The reputation algorithm itself is also open — see [trustshell.dev/repid](https://trustshell.dev/repid). New to the terms? The [glossary](./glossary.md) covers each in plain language.
 
@@ -15,7 +15,7 @@ Three primitives: **RepID** (reputation), **HAL** (hallucination defense), **x40
 | **Node.js** | `>=18.0.0` | The CLI bin uses Node 18+ runtime features. |
 | **npm** | bundled with Node 18 | Yarn / pnpm should work but aren't tested. |
 | **Base Sepolia ETH** (testnet) | optional, only for on-chain writes | You **do not** need any ETH to (a) run HAL evaluation, (b) look up a RepID, or (c) read on-chain history. ETH is only needed if you plan to *write* reputation attestations yourself, which is rare for SDK consumers — most users let the engine handle on-chain writes. |
-| **An API key (free, testnet)** | required for HAL | See §4 below. |
+| **An API key (free, testnet)** | *not* required for HAL | HAL scoring, RepID reads and proofs are keyless. A key is only needed for write paths (`executeA2A`, `register`). See §4. |
 | **`curl` + `jq` (optional)** | nice-to-have | Used by the verification snippets below. |
 
 That's it. No Docker, no Postgres, no local services to stand up.
@@ -34,7 +34,7 @@ Verify the install:
 
 ```bash
 trustshell --version
-# → @hyperdag/trustshell vX.Y.Z
+# → 1.2.0   (the installed package version)
 ```
 
 ## 4. 60-second quickstart
@@ -72,11 +72,14 @@ Every `tx` field in the response is clickable on basescan:
 [`0x2a7ac151…`](https://sepolia.basescan.org/tx/0x2a7ac151c23983f59564fc3da5c7ea74fdbe390f9e97fcbf70c79be27089967a) (USDC) →
 [`0xd362c1b0…`](https://sepolia.basescan.org/tx/0xd362c1b0c819e2e1ee7bce601531afb0be1eef20c1be4ab8dc643e524d19e917) (reputation).
 
-### Step 2 — Get a free testnet API key
+### Step 2 — (Optional) Get a testnet API key
 
-HAL evaluation against a real model fleet requires an API key. Keys are free for testnet and currently early-access.
+**You do not need a key to start.** HAL evaluation (`score` / `verifyOutput` / `trustshell verify`),
+RepID reads and proof presentation are all **keyless** against the public engine. Skip to Step 3
+and come back here when you need a write path (`executeA2A`, `register`).
 
-- **Web form (fastest):** [trustshell.dev/get-api-key](https://trustshell.dev/get-api-key)
+Keys are free for testnet and currently early-access.
+
 - **GitHub issue:** [open an API key request](https://github.com/DealAppSeo/trustshell/issues/new?template=api_key_request.yml)
 - **Direct API:**
   ```bash
@@ -94,53 +97,56 @@ Drop the SDK into any TypeScript or JavaScript project:
 ```typescript
 import { TrustShell } from '@hyperdag/trustshell';
 
-const shell = new TrustShell({
-  agentId: 'your-agent-id',                  // any string id you choose
-  apiKey: process.env.REPID_API_KEY!,        // ts_live_...
-  llmProvider: 'anthropic',                  // optional, enables BYOK trust warnings
-  profile: 'balanced',                       // 'conservative' | 'balanced' | 'pro'
-});
+// No key needed for this path.
+const shell = new TrustShell();
 
-const result = await shell.evaluate(
-  'Execute trade: buy 0.1 BTC at market',   // the decision to check
-  0.87,                                       // your agent's certainty (0–1)
-);
+const result = await shell.verifyOutput('Execute trade: buy 0.1 BTC at market');
 
-console.log(result);
-// {
-//   approved: true,
-//   hal_score: 0.08,
-//   repid_delta: +3,
-//   new_score: 1003,
-//   tier: 'EARNING',
-//   vdr_count: 1,
-//   vesting_active: true
-// }
+console.log(result.verdict);      // 'PASS' | 'FLAG' | 'VETO'
+console.log(result.trustScore);   // 0–100
+console.log(result.ok);           // true for PASS and soft FLAG, false for VETO
 
-if (!result.approved) {
-  console.warn('HAL vetoed — do not act:', result.veto_reason);
+if (!result.ok) {
+  console.warn('HAL vetoed — do not act:', result.decisionReason);
   // Halt your agent's execution here.
 }
+```
+
+Use `score()` instead when you want the full signal breakdown and the per-provider evidence:
+
+```typescript
+const s = await shell.score('The Earth orbits the Sun.');
+console.log(s.verdict, s.trustScore, s.familiesUsed);
+console.log(s.evidence);
+// [ 'groq:TRUE (Scientific consensus supported by astronomical observations)',
+//   'cerebras:TRUE (Fundamental astronomical fact.)', ... ]
 ```
 
 ### Step 4 — Run your first HAL evaluation (CLI alternative)
 
 If you'd rather verify a claim without writing code:
 
+No key required:
+
 ```bash
-export REPID_API_KEY="ts_live_your_key_here"
-trustshell verify "The transaction is fully settled."
+trustshell verify "The Earth orbits the Sun."
 ```
 
 ```text
-🔍 HAL Evaluation
-  Evaluating: "The transaction is fully settled."
-  Strictness: 2
+✓ PASS  trust 100/100
+  PASS — hal_score 0 via fact-check (full quorum)
+  evidence:
+    - groq:TRUE (Scientific consensus supported by astronomical observations)
+    - cerebras:TRUE (Fundamental astronomical fact.)
+    - gemini:TRUE (The Earth revolves around the Sun.)
+    - mistral:TRUE (Heliocentric model confirmed by astronomy)
+    - openrouter:TRUE (Earth orbits the Sun, established scientific fact.)
+```
 
-  Decision: clean ✓
-  Score: 0.98
-  Providers: 3/3
-  Latency: 412ms
+It exits `0` on PASS/FLAG and `1` on VETO, so it drops straight into CI:
+
+```bash
+trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || exit 1
 ```
 
 ### Step 5 — Verify the on-chain trail
@@ -156,7 +162,7 @@ That's the full loop: decision → HAL verdict → RepID delta → on-chain atte
 A 30-second mental model:
 
 ```
-Your agent ── shell.evaluate(text, certainty) ──▶ HAL pipeline (multi-LLM cross-check)
+Your agent ── shell.verifyOutput(text) ─────────▶ HAL pipeline (multi-LLM cross-check)
                                                    │
                                                    ├─▶ veto / pass verdict (returned to you)
                                                    │
@@ -170,39 +176,33 @@ Full diagram + design choices: [`architecture-overview.md`](./architecture-overv
 
 ## 6. Configuration reference
 
-Every option you can pass to `new TrustShell(...)`, with defaults:
+Every option you can pass to `new TrustShell(...)` — this is the complete `TrustShellConfig`:
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `agentId` | `string` | **required** | Your agent's identifier. Anything stable across runs. |
-| `apiKey` | `string` | **required** | Your `ts_live_...` testnet key. |
-| `llmProvider` | `string` | `undefined` | E.g. `'anthropic'`, `'openai'`, `'groq'`. When set, the SDK emits a `byok-warning` event if that provider's live trust score drops below 70 (subscribe via `shell.on('byok-warning', ...)`). |
-| `llmModel` | `string` | `undefined` | E.g. `'claude-sonnet-4-6'`. Informational; surfaces in per-model trust telemetry. |
-| `profile` | `'conservative' \| 'balanced' \| 'pro'` | `'balanced'` | HAL strictness preset. `conservative` = veto on borderline; `balanced` = veto on clearly hallucinated; `pro` = only veto on hard-fail signals. |
-| `engineUrl` | `string` | `'https://repid-engine-production.up.railway.app'` | Override for testing or self-hosted engines. |
+| `apiKey` | `string` | `undefined` | Optional. Only the write paths (`executeA2A`, `register`) need one; HAL scoring, RepID reads and proofs are keyless. |
+| `apiUrl` | `string` | `'https://repid-engine-production.up.railway.app'` | Override for testing or a self-hosted engine. |
+| `timeout` | `number` | SDK default | Request timeout in milliseconds. |
 
-Environment variables the CLI reads:
+Environment variables:
 
-| Env var | Used by | Description |
+| Env var | Read by | Description |
 |---|---|---|
-| `REPID_API_KEY` | `trustshell verify`, SDK | The testnet API key. |
-| `TRUSTSHELL_KEY` | `trustshell pay` | A signing private key (only needed if you initiate x402 escrows yourself). |
-| `TRUSTSHELL_ENDPOINT` | both | Override `engineUrl` from the environment. |
+| `REPID_API_KEY` | CLI, MCP server | API key, when a write path needs one. |
+| `TRUSTSHELL_API_URL` | CLI, MCP server, SDK | Override the backend origin. |
 
-The `trustshell init` command writes a project-local `.trustshell.json` with the canonical network + contract addresses pinned:
+Those are the only two the code reads — verifiable with
+`grep -rn 'process.env' src/`.
 
-```json
-{
-  "version": "1.1.0",
-  "network": "base-sepolia",
-  "chainId": 84532,
-  "contracts": {
-    "identityRegistry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
-    "reputationRegistry": "0x8004B663056A597Dffe9eCcC1965A193B7388713"
-  },
-  "api": { "endpoint": "https://repid-engine-production.up.railway.app" }
-}
-```
+There is **no config file and no `init` command.** Configuration is the constructor and those two
+environment variables; the contract addresses below are pinned in the SDK itself, not in a file
+you maintain:
+
+| | |
+|---|---|
+| network | `base-sepolia` (chainId `84532`) |
+| identityRegistry | `0x8004A818BFB912233c491871b3d84c89A494BD9e` |
+| reputationRegistry | `0x8004B663056A597Dffe9eCcC1965A193B7388713` |
 
 ## 7. Error handling patterns
 
@@ -214,10 +214,10 @@ Wrap every call in try/catch in production code. The engine returns typed JSON e
 import { TrustShell } from '@hyperdag/trustshell';
 
 try {
-  const result = await shell.evaluate(text, certainty);
-  if (!result.approved) {
+  const result = await shell.verifyOutput(text);
+  if (!result.ok) {
     // HAL vetoed — your agent should NOT act on this output.
-    log.warn('hal_veto', { reason: result.veto_reason, hal_score: result.hal_score });
+    log.warn('hal_veto', { reason: result.decisionReason, hal_score: result.halScore });
     return { ok: false, blocked: true };
   }
   return { ok: true, repid: result.new_score, tier: result.tier };
@@ -250,10 +250,10 @@ try {
 Treat HAL as a circuit breaker, not a single point of failure. The recommended fail-open pattern for non-safety-critical agents:
 
 ```typescript
-async function checkedExecute(decision: string, certainty: number) {
+async function checkedExecute(decision: string) {
   try {
-    const r = await shell.evaluate(decision, certainty);
-    if (!r.approved) return { halted: true, reason: r.veto_reason };
+    const r = await shell.verifyOutput(decision);
+    if (!r.ok) return { halted: true, reason: r.decisionReason };
     return { ok: true };
   } catch {
     // Engine unreachable — fail open with a clearly logged warning.
