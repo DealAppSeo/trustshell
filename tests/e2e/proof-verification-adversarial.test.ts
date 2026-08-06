@@ -33,24 +33,43 @@ const ENGINE = process.env.TRUSTSHELL_API_URL || 'https://repid-engine-productio
 const AGENT = 'trinity-shofet';
 const TIMEOUT = 60_000;
 
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
+
 interface VerifyResult {
   verified: boolean;
   error: string | null;
-  proof_size_bytes: number;
-  verifier_version: string;
+  proof_size_bytes?: number;
+  verifier_version?: string;
+  elapsed_ms?: number;
+  harness_failure?: boolean;
 }
 type Statement = Record<string, unknown>;
 
 let b64: string;
 let statement: Statement;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let verify: (proofB64: string, s: Statement) => Promise<VerifyResult>;
+
+/**
+ * Verify in a SEPARATE PROCESS. The verifier is ESM and this suite is CJS, but
+ * the real reason is that a subprocess is the integration being claimed: an
+ * external caller shares none of our module system or transpiler config.
+ */
+function verify(proofB64: string, s: Statement): VerifyResult {
+  const script = join(__dirname, 'verify-subprocess.mjs');
+  try {
+    const out = execFileSync('node', [script, JSON.stringify({ proof_bytes: proofB64, statement: s })], {
+      encoding: 'utf8',
+      timeout: 45_000,
+    });
+    return JSON.parse(out) as VerifyResult;
+  } catch (e) {
+    const stdout = (e as { stdout?: string }).stdout;
+    if (stdout) return JSON.parse(stdout) as VerifyResult;
+    throw e;
+  }
+}
 
 beforeAll(async () => {
-  const mod = (await import('@hyperdag/proof-verifier')) as unknown as {
-    verify: typeof verify;
-  };
-  verify = mod.verify;
   const res = await fetch(`${ENGINE}/api/v1/repid/${AGENT}/proof`, {
     signal: AbortSignal.timeout(45_000),
   });
@@ -72,7 +91,7 @@ d('client-side Plonky3 verification', () => {
   it(
     'accepts a genuine live proof',
     async () => {
-      const r = await verify(b64, statement);
+      const r = verify(b64, statement);
       expect(`verified=${r.verified} error=${r.error}`).toBe('verified=true error=null');
       // A verifier reporting zero bytes examined has not examined the proof.
       expect(r.proof_size_bytes).toBeGreaterThan(1000);
@@ -83,7 +102,7 @@ d('client-side Plonky3 verification', () => {
   it(
     'REJECTS a proof with a single flipped byte',
     async () => {
-      const r = await verify(flipOneByte(b64), statement);
+      const r = verify(flipOneByte(b64), statement);
       expect(r.verified).toBe(false);
       expect(r.error).toBeTruthy();
     },
@@ -95,7 +114,7 @@ d('client-side Plonky3 verification', () => {
     async () => {
       // Keep the real proof, lie about what it proves. If this passed, the proof
       // would be decorative — anyone could restate it as any score.
-      const r = await verify(b64, { ...statement, repid_score: 9999 });
+      const r = verify(b64, { ...statement, repid_score: 9999 });
       expect(r.verified).toBe(false);
     },
     TIMEOUT,
@@ -104,7 +123,7 @@ d('client-side Plonky3 verification', () => {
   it(
     'REJECTS a threshold the proof does not actually clear',
     async () => {
-      const r = await verify(b64, { ...statement, threshold: 99_999 });
+      const r = verify(b64, { ...statement, threshold: 99_999 });
       expect(r.verified).toBe(false);
       // This one fails on the STATEMENT relation rather than the crypto, which
       // is the correct place for it to fail.
@@ -116,7 +135,7 @@ d('client-side Plonky3 verification', () => {
   it(
     'REJECTS presenting another agent\'s proof as your own',
     async () => {
-      const r = await verify(b64, { ...statement, agent_id: 'attacker-agent' });
+      const r = verify(b64, { ...statement, agent_id: 'attacker-agent' });
       expect(r.verified).toBe(false);
     },
     TIMEOUT,
@@ -125,12 +144,12 @@ d('client-side Plonky3 verification', () => {
   it(
     'verifies fast enough to sit in a request path',
     async () => {
-      const t0 = Date.now();
-      await verify(b64, statement);
-      const ms = Date.now() - t0;
-      // Observed 29ms. A generous ceiling — this asserts the order of magnitude,
-      // so a regression to seconds fails while normal variance does not.
-      expect(ms).toBeLessThan(2000);
+      // Use the VERIFIER's own elapsed_ms, not the wall clock around the
+      // subprocess — otherwise this would mostly measure node startup and would
+      // pass even if verification itself regressed by an order of magnitude.
+      const r = verify(b64, statement);
+      expect(typeof r.elapsed_ms).toBe('number');
+      expect(r.elapsed_ms!).toBeLessThan(500); // observed 29ms
     },
     TIMEOUT,
   );
