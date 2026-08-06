@@ -91,6 +91,59 @@ function resolveVersion(): string {
 
 export const VERSION = resolveVersion();
 
+/**
+ * Turn a transport failure into something a first-time user can act on.
+ *
+ * WHY THIS EXISTS. The very first command in the quickstart is
+ * `trustshell verify "..."`, and on a shared or repeat-visited IP it returns
+ * `verify failed: HAL evaluation failed: 429 Too Many Requests`. That is the
+ * worst possible first impression: a raw HTTP code, no cause, no remedy, and no
+ * indication the tool is working correctly — which it is. The public endpoint is
+ * deliberately capped so anonymous traffic cannot burn the fleet's inference
+ * budget, and hitting that cap means the install SUCCEEDED.
+ *
+ * A rate limit is not a broken install and must not read like one.
+ */
+export function explainFailure(command: string, e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+
+  if (/\b429\b|too many requests|rate.?limit/i.test(msg)) {
+    return [
+      `${command}: rate limit reached on the public endpoint — your install is fine.`,
+      '',
+      '  The keyless endpoint is capped per IP so anonymous traffic cannot drain',
+      '  the shared model budget. You have hit that cap, not a bug.',
+      '',
+      '  What still works right now, keyless and uncapped:',
+      '    trustshell repid <agentId>            live RepID + tier',
+      '    trustshell proof <agentId> --verify   ZK range proof, verified locally',
+      '',
+      '  To lift the cap, point the CLI at your own deployment:',
+      '    TRUSTSHELL_API_URL=https://your-engine  trustshell verify "..."',
+    ].join('\n');
+  }
+
+  if (/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|fetch failed|network/i.test(msg)) {
+    return [
+      `${command}: could not reach the engine — this looks like a network problem, not a verdict.`,
+      `  ${msg}`,
+      '  Nothing was evaluated, so treat this as UNKNOWN rather than as a pass or a veto.',
+    ].join('\n');
+  }
+
+  // "timed out" is what Node and fetch actually say; a \btimeout\b matcher misses
+  // it entirely. Caught by this module's own test.
+  if (/\b408\b|time[d]?\s?out|timeout|aborted/i.test(msg)) {
+    return [
+      `${command}: timed out before the quorum answered.`,
+      '  The cross-provider fact-check can be slow under load. Nothing was decided —',
+      '  do NOT treat a timeout as a pass.',
+    ].join('\n');
+  }
+
+  return `${command} failed: ${msg}`;
+}
+
 const HELP = `trustshell — trust rails for AI agents, in your terminal + CI
 
 USAGE
@@ -297,7 +350,7 @@ export async function run(
         else io.out(formatVerify(r));
         return verdictExitCode(r.verdict);
       } catch (e: any) {
-        io.err(`verify failed: ${e?.message ?? String(e)}`);
+        io.err(explainFailure('verify', e));
         return EXIT.RUNTIME;
       }
     }
@@ -309,7 +362,7 @@ export async function run(
         else io.out(formatRepid(r.agentId, r.repid, r.tier));
         return EXIT.OK;
       } catch (e: any) {
-        io.err(`repid failed: ${e?.message ?? String(e)}`);
+        io.err(explainFailure('repid', e));
         return EXIT.RUNTIME;
       }
     }
@@ -327,7 +380,7 @@ export async function run(
         }
         return EXIT.OK;
       } catch (e: any) {
-        io.err(`proof failed: ${e?.message ?? String(e)}`);
+        io.err(explainFailure('proof', e));
         return EXIT.RUNTIME;
       }
     }

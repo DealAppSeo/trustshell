@@ -60,6 +60,77 @@ We say this plainly on purpose: **nothing here claims more than actually runs.**
 
 ---
 
+## Why the model underneath can be swapped
+
+The thing being evaluated and the thing doing the evaluating are **not the same
+model** — and that is the whole point.
+
+`verifyOutput(text)` scores the **text**, not its provenance. It runs the text
+through a fixed, published weighted formula and a cross-provider quorum. Nothing
+in the verdict depends on which model produced the text, so you can change your
+generator — Claude to a local Llama to whatever ships next quarter — and your
+trust guarantees do not move. Swap the generator; the judge is unchanged.
+
+The standard is inspectable rather than proprietary. The five HAL signals are
+combined with weights that are public constants in the engine:
+
+| signal | weight |
+|---|---|
+| harm probability | 0.40 |
+| epistemic uncertainty | 0.30 |
+| evidence quality | 0.20 |
+| scope appropriateness | 0.10 |
+| certainty at claim | carried through, not weighted into the sum |
+
+Verdicts are then cross-checked by an independent quorum of providers, so a
+single model — including a single *wrong* model — cannot decide the outcome
+alone. `score()` returns the per-provider `evidence[]` so you can see who said
+what and why.
+
+```typescript
+const shell = new TrustShell();                       // keyless
+
+// Same text, different generators. Same judge, same standard.
+const a = await shell.verifyOutput(claudeOutput);
+const b = await shell.verifyOutput(localLlamaOutput);
+// a.verdict / b.verdict come from the same formula + quorum, not from the
+// model that wrote the text.
+```
+
+> **What is NOT true yet, stated plainly.** Those weights are **fixed constants**,
+> not per-user settings. Binding thresholds to *your* standards — a per-owner
+> constitution that changes what passes — is designed and partially built
+> (`CONSTITUTIONAL_AUDIT_ENABLED`, default **off**, non-load-bearing today). So
+> the model is swappable now; the standard is public and fixed now; making the
+> standard *yours* is on the roadmap below, not in this package.
+
+---
+
+## Live today vs. next
+
+Nothing in the left column is aspirational — each row links to something you can
+check without asking us.
+
+| Live today | How to verify it yourself |
+|---|---|
+| `@hyperdag/trustshell` on npm | [npmjs.com/package/@hyperdag/trustshell](https://www.npmjs.com/package/@hyperdag/trustshell) |
+| Keyless HAL scoring, cross-provider quorum | `npx trustshell verify "The Earth orbits the Sun."` |
+| Keyless RepID read | `npx trustshell repid trinity-shofet` |
+| Keyless ZK range proof + client-side verify | `npx trustshell proof trinity-shofet --verify` |
+| MCP server for Claude Desktop / Cursor | `npx @hyperdag/trustshell-mcp` |
+| ERC-8004 IdentityRegistry, Base Sepolia | [`0x8004A818…`](https://sepolia.basescan.org/address/0x8004A818BFB912233c491871b3d84c89A494BD9e) |
+| ERC-8004 ReputationRegistry, Base Sepolia | [`0x8004B663…`](https://sepolia.basescan.org/address/0x8004B663056A597Dffe9eCcC1965A193B7388713) |
+| Engine health + deployed commit | [`/health`](https://repid-engine-production.up.railway.app/health) |
+
+| Next — designed or partial, **not** live | Current state |
+|---|---|
+| Per-user standard binding (your thresholds) | flag exists, default off, non-load-bearing |
+| Behavioral-integrity / deception scoring | shadow-only: computes and logs, moves no RepID |
+| On-chain reputation writes | paused |
+| Searchable encrypted agent memory | design only |
+
+---
+
 ## Install
 
 ```bash

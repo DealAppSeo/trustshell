@@ -7,6 +7,7 @@
  *      (VETO → 1, PASS/FLAG → 0) — with the SDK client MOCKED so no request is made.
  */
 import {
+  explainFailure,
   parseArgs,
   verdictExitCode,
   run,
@@ -57,6 +58,33 @@ describe('reported version', () => {
     const code = await run(parseArgs(['--version']), {} as unknown as TrustShell, io);
     expect(code).toBe(EXIT.OK);
     expect(out.join('\n')).toContain(pkgVersion);
+  });
+});
+
+describe('explainFailure — a transport fault must not read like a broken install', () => {
+  it('a 429 says the install is FINE and names what still works', () => {
+    const m = explainFailure('verify', new Error('HAL evaluation failed: 429 Too Many Requests'));
+    // The exact first impression a new user gets when they hit the public cap.
+    expect(m).toContain('your install is fine');
+    expect(m).toContain('not a bug');
+    expect(m).toContain('trustshell repid');
+    expect(m).toContain('TRUSTSHELL_API_URL');
+    // It must NOT lead with a bare HTTP code the way it used to.
+    expect(m.split(String.fromCharCode(10))[0]).not.toMatch(/^verify failed:/);
+  });
+
+  it('a network fault is UNKNOWN, never a pass or a veto', () => {
+    const m = explainFailure('verify', new Error('fetch failed'));
+    expect(m).toContain('UNKNOWN');
+    expect(m).toContain('not a verdict');
+  });
+
+  it('a timeout explicitly refuses to be read as a pass', () => {
+    expect(explainFailure('verify', new Error('The operation timed out'))).toContain('do NOT treat a timeout as a pass');
+  });
+
+  it('an unrecognised error still surfaces its message', () => {
+    expect(explainFailure('repid', new Error('boom'))).toBe('repid failed: boom');
   });
 });
 
@@ -159,7 +187,10 @@ describe('run() exit codes (mocked SDK — no network)', () => {
     const { io, err } = captureIO();
     const code = await run({ ...base, operand: 'x' }, client, io);
     expect(code).toBe(EXIT.RUNTIME);
-    expect(err.join('\n')).toMatch(/verify failed/);
+    // Explained, not raw: a transport fault must read as UNKNOWN, never as a
+    // pass or a veto.
+    expect(err.join(' ')).toMatch(/could not reach the engine/);
+    expect(err.join(' ')).toMatch(/UNKNOWN/);
   });
 
   it('usage error → exit 2', async () => {
