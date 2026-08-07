@@ -11,13 +11,15 @@ export declare const EXIT: {
     /** Runtime error (network / backend / timeout). */
     readonly RUNTIME: 3;
 };
-export type Command = 'verify' | 'repid' | 'proof' | 'help' | 'version';
+export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
     /** Positional operand: the text (verify) or the agent id/slug (repid/proof). */
     operand?: string;
     json: boolean;
+    /** badge: emit a Markdown snippet (data-URI SVG + caption) instead of raw SVG. */
+    markdown?: boolean;
     /** proof: verify the proof client-side. */
     verify: boolean;
     /** A usage error message; when set the caller should print help + exit USAGE. */

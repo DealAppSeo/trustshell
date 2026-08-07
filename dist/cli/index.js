@@ -39,6 +39,7 @@ exports.main = main;
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const trustshell_1 = require("../lib/trustshell");
+const badge_1 = require("../lib/badge");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -97,6 +98,11 @@ COMMANDS
   repid <agentIdOrSlug>      Print an agent's live RepID score + tier (keyless).
   proof <agentIdOrSlug>      Fetch an agent's ZK RepID range proof (POSTCARD tier).
       [--verify]             …and verify it client-side with the bundled WASM verifier.
+  badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,
+                             self-contained SVG badge ("RepID ≥ threshold ✓ ZK-verified").
+                             Green ONLY on a true local verification; never reveals the
+                             score. EXIT 3 if the badge is not in the verified state.
+      [--markdown]           Emit a copy-pasteable Markdown snippet (data-URI SVG) instead.
 
 OPTIONS
   --json                     Emit machine-readable JSON instead of human text.
@@ -131,6 +137,8 @@ function parseArgs(argv) {
             flags.add('json');
         else if (a === '--verify')
             flags.add('verify');
+        else if (a === '--markdown' || a === '--md')
+            flags.add('markdown');
         else if (a === '-h' || a === '--help')
             flags.add('help');
         else if (a === '-v' || a === '--version')
@@ -160,7 +168,8 @@ function parseArgs(argv) {
     switch (cmd) {
         case 'verify':
         case 'repid':
-        case 'proof': {
+        case 'proof':
+        case 'badge': {
             const operand = rest[0];
             if (!operand) {
                 const what = cmd === 'verify' ? '"<text>"' : '<agentIdOrSlug>';
@@ -168,10 +177,11 @@ function parseArgs(argv) {
                     command: cmd,
                     json,
                     verify,
+                    markdown: flags.has('markdown'),
                     error: `\`trustshell ${cmd}\` requires ${what}`,
                 };
             }
-            return { command: cmd, operand, json, verify };
+            return { command: cmd, operand, json, verify, markdown: flags.has('markdown') };
         }
         case 'help':
             return { command: 'help', json, verify };
@@ -308,6 +318,34 @@ async function run(args, client, io = realIO) {
             }
             catch (e) {
                 io.err(`proof failed: ${e?.message ?? String(e)}`);
+                return exports.EXIT.RUNTIME;
+            }
+        }
+        case 'badge': {
+            try {
+                // A badge is a shareable CLAIM, so we always verify the proof before rendering.
+                // The badge itself is honest (green only on a true local verification), and the
+                // exit code mirrors that: a non-verified badge must not read as success in CI.
+                const p = await client.presentProof(args.operand, { verify: true });
+                const status = (0, badge_1.proofBadgeStatus)(p);
+                if (args.json) {
+                    io.out(JSON.stringify(status, null, 2));
+                }
+                else if (args.markdown) {
+                    io.out((0, badge_1.renderProofBadgeMarkdown)(p));
+                }
+                else {
+                    io.out((0, badge_1.renderProofBadge)(p));
+                }
+                if (status.state !== 'verified') {
+                    io.err(`badge rendered in '${status.state}' state — ${status.detail}. ` +
+                        `It is honest, but do NOT present it as a verified proof.`);
+                    return exports.EXIT.RUNTIME;
+                }
+                return exports.EXIT.OK;
+            }
+            catch (e) {
+                io.err(`badge failed: ${e?.message ?? String(e)}`);
                 return exports.EXIT.RUNTIME;
             }
         }
