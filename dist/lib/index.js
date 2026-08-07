@@ -36,11 +36,20 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = void 0;
+exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.default = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
 var trustshell_1 = require("./trustshell");
 Object.defineProperty(exports, "default", { enumerable: true, get: function () { return trustshell_1.TrustShell; } });
+/**
+ * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
+ * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
+ * re-verify. Green only when local verification returned true; never reveals the score.
+ */
+var badge_1 = require("./badge");
+Object.defineProperty(exports, "renderProofBadge", { enumerable: true, get: function () { return badge_1.renderProofBadge; } });
+Object.defineProperty(exports, "renderProofBadgeMarkdown", { enumerable: true, get: function () { return badge_1.renderProofBadgeMarkdown; } });
+Object.defineProperty(exports, "proofBadgeStatus", { enumerable: true, get: function () { return badge_1.proofBadgeStatus; } });
 /**
  * One-install story (Phase F): re-export the sound WASM proof verifier so a single
  * `npm install @hyperdag/trustshell` ships HAL filtering AND client-side ZKP RepID verification.

@@ -27,6 +27,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TrustShell, type VerifyOutputResult, type ProofPresentation } from '../lib/trustshell';
+import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -40,7 +41,7 @@ export const EXIT = {
   RUNTIME: 3,
 } as const;
 
-export type Command = 'verify' | 'repid' | 'proof' | 'help' | 'version';
+export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'help' | 'version';
 
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
@@ -48,6 +49,8 @@ export interface ParsedArgs {
   /** Positional operand: the text (verify) or the agent id/slug (repid/proof). */
   operand?: string;
   json: boolean;
+  /** badge: emit a Markdown snippet (data-URI SVG + caption) instead of raw SVG. */
+  markdown?: boolean;
   /** proof: verify the proof client-side. */
   verify: boolean;
   /** A usage error message; when set the caller should print help + exit USAGE. */
@@ -103,6 +106,11 @@ COMMANDS
   repid <agentIdOrSlug>      Print an agent's live RepID score + tier (keyless).
   proof <agentIdOrSlug>      Fetch an agent's ZK RepID range proof (POSTCARD tier).
       [--verify]             …and verify it client-side with the bundled WASM verifier.
+  badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,
+                             self-contained SVG badge ("RepID ≥ threshold ✓ ZK-verified").
+                             Green ONLY on a true local verification; never reveals the
+                             score. EXIT 3 if the badge is not in the verified state.
+      [--markdown]           Emit a copy-pasteable Markdown snippet (data-URI SVG) instead.
 
 OPTIONS
   --json                     Emit machine-readable JSON instead of human text.
@@ -136,6 +144,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   for (const a of argv) {
     if (a === '--json') flags.add('json');
     else if (a === '--verify') flags.add('verify');
+    else if (a === '--markdown' || a === '--md') flags.add('markdown');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
     else if (a.startsWith('-')) {
@@ -165,7 +174,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   switch (cmd) {
     case 'verify':
     case 'repid':
-    case 'proof': {
+    case 'proof':
+    case 'badge': {
       const operand = rest[0];
       if (!operand) {
         const what = cmd === 'verify' ? '"<text>"' : '<agentIdOrSlug>';
@@ -173,10 +183,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
           command: cmd,
           json,
           verify,
+          markdown: flags.has('markdown'),
           error: `\`trustshell ${cmd}\` requires ${what}`,
         };
       }
-      return { command: cmd, operand, json, verify };
+      return { command: cmd, operand, json, verify, markdown: flags.has('markdown') };
     }
     case 'help':
       return { command: 'help', json, verify };
@@ -328,6 +339,34 @@ export async function run(
         return EXIT.OK;
       } catch (e: any) {
         io.err(`proof failed: ${e?.message ?? String(e)}`);
+        return EXIT.RUNTIME;
+      }
+    }
+
+    case 'badge': {
+      try {
+        // A badge is a shareable CLAIM, so we always verify the proof before rendering.
+        // The badge itself is honest (green only on a true local verification), and the
+        // exit code mirrors that: a non-verified badge must not read as success in CI.
+        const p = await client.presentProof(args.operand as string, { verify: true });
+        const status = proofBadgeStatus(p);
+        if (args.json) {
+          io.out(JSON.stringify(status, null, 2));
+        } else if (args.markdown) {
+          io.out(renderProofBadgeMarkdown(p));
+        } else {
+          io.out(renderProofBadge(p));
+        }
+        if (status.state !== 'verified') {
+          io.err(
+            `badge rendered in '${status.state}' state — ${status.detail}. ` +
+            `It is honest, but do NOT present it as a verified proof.`,
+          );
+          return EXIT.RUNTIME;
+        }
+        return EXIT.OK;
+      } catch (e: any) {
+        io.err(`badge failed: ${e?.message ?? String(e)}`);
         return EXIT.RUNTIME;
       }
     }

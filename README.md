@@ -200,6 +200,27 @@ trustshell verify "The capital of France is Paris."
 
 trustshell repid trinity-shofet          # → RepID 1585  (ESTABLISHED)
 trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
+trustshell badge trinity-shofet          # → a portable SVG badge (see below)
+trustshell badge trinity-shofet --markdown  # → a README-pasteable snippet
+```
+
+**`badge` is a portable, self-contained proof.** It fetches an agent's ZK RepID range proof,
+**verifies it client-side**, and emits an embeddable SVG — `RepID ≥ threshold ✓ ZK-verified`.
+Two honesty guarantees, both test-enforced: it shows the green *verified* state **only** when
+local verification actually returned true (an absent, failed, or unavailable verifier renders
+grey/red with the reason, and the command exits non-zero — never a false green), and it **never
+reveals the score** — only the threshold, because that is exactly what the range proof attests.
+The SVG has no external references, so it renders offline and cannot phone home. A live example
+(a real proof for `trinity-shofet`, verified with the WASM verifier) is checked in at
+[`examples/proof-badge-trinity-shofet.svg`](examples/proof-badge-trinity-shofet.svg).
+
+From the SDK:
+
+```ts
+import TrustShell, { renderProofBadge } from '@hyperdag/trustshell';
+const shell = new TrustShell();
+const proof = await shell.presentProof('trinity-shofet', { verify: true });
+const svg = renderProofBadge(proof, { href: 'https://trustrepid.dev/agent/trinity-shofet' });
 ```
 
 **`verify` is a CI gate.** It exits **0** on `PASS`/`FLAG` and **non-zero (1)** on `VETO`, so you
