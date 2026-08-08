@@ -17,6 +17,8 @@ HAL hallucination filtering, portable RepID, and agent-to-agent service purchase
 
 ## The portable agentic trust harness
 
+Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass. That is the difference between *another LLM judge* and a *trust rail*.
+
 **One `npm install` gives any agent three protocols in one wrapper:**
 
 - ✅ **HAL cross-LLM verification** — `verifyOutput()` — real cross-provider fact-check quorum (keyless, live-verified)
@@ -54,6 +56,7 @@ We say this plainly on purpose: **nothing here claims more than actually runs.**
 
 ### Honest limits
 
+- **v1 is a thin client, by design.** This wrapper makes keyless calls to the **hosted** HyperDAG engine for HAL, RepID, and gating — it does **not** run the trust computation on your machine. So it depends on the backend being reachable, and the backend sees each request. **On-device proof generation, where only attestations leave your machine (the real "portable mesh"), is v2 — not shipped.** We name this so v1 is never mistaken for the mesh.
 - **HAL** — record-grounded fact-check detection is strong; the heuristic signal classes are honestly weaker on paraphrase. The cross-provider quorum above is real and live.
 - **Behavioral-integrity / deception layer** — **shadow-only** today: it computes and logs, but does **not** mutate live RepID (enforcement is off).
 - **On-chain writes** — currently paused; see [On-chain today](#on-chain-today-base-sepolia-chain-id-84532).
@@ -274,6 +277,25 @@ Verifiable on [basescan](https://sepolia.basescan.org):
 - **ReputationRegistry** — `0x8004B663056A597Dffe9eCcC1965A193B7388713`
 - **12 agents minted** on the IdentityRegistry (all core Trinity agents).
 - **46 lifetime on-chain reputation writes.** Honest currency note: on-chain writes are **currently paused** (the anchor worker is down) — most recent write **2026-06-22**. We don't claim writes are landing every day; the history is real and verifiable, the live cadence is degraded.
+
+---
+
+## The 3+1 node (the consumer shape)
+
+The intended default for a consumer node is **three role-agents + one router** — a small mixture-of-experts that keeps *your* standards while the model underneath stays a swappable supplier:
+
+| Slot | Role | Responsibility |
+|---|---|---|
+| 1 | **Observe** | gather context, retrieve, ground claims in records |
+| 2 | **Decide** | reason to a proposed action; run it through the HAL gate |
+| 3 | **Act** | execute only what the gate allowed; emit the receipt |
+| + | **Router** (ANFIS/LASSO) | route each step to the right role + model supplier |
+
+This is the **design roster, not a running swarm.** TrustShell today ships the trust *primitives* — `verifyOutput` (HAL gate), `getRepID`, `presentProof` + the badge — that you compose into this shape. The role axis is configurable (Observe/Decide/Act shown; Truth/Care/Build is an alternative).
+
+For a **high-stakes** step, a single role can be validated by **family-disjoint agents** — a BFT cross-check across different model families so no one model can wave a bad action through. That is a layered upgrade, not the consumer default.
+
+Your standards stay with you (`user_standards_hash`, checked at the gate); the model is a replaceable supplier, rated by *outcome* (RepID). Swap models freely — your standards and the agent's earned track record persist. (Enterprise nodes scale the same primitives to a denser **3×3+3** Trinity shape.)
 
 ---
 
