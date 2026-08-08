@@ -48,6 +48,10 @@ attests):
 npx -y @hyperdag/trustshell badge <your-agent-id> --markdown >> README.md
 ```
 
+> Needs `@hyperdag/trustshell` **≥ 1.3.0**. If `badge` says *unknown command*, your published build
+> predates it — upgrade, or `npm i github:DealAppSeo/trustshell` (tracks latest). The **CI gate above
+> uses only `verify`, which is in every release**, so it works today regardless.
+
 The badge renders green **only** when local ZK verification actually returned true — an absent or
 failed verifier renders grey/red and exits non-zero, never a false green.
 

@@ -217,6 +217,11 @@ The SVG has no external references, so it renders offline and cannot phone home.
 (a real proof for `trinity-shofet`, verified with the WASM verifier) is checked in at
 [`examples/proof-badge-trinity-shofet.svg`](examples/proof-badge-trinity-shofet.svg).
 
+> **`badge` ships in `@hyperdag/trustshell` ≥ 1.3.0.** `verify` / `repid` / `proof` are in every
+> published release; if `npx @hyperdag/trustshell badge …` says *unknown command*, your published
+> build predates it — upgrade, or install from source (`npm i github:DealAppSeo/trustshell`, which
+> tracks the latest).
+
 From the SDK:
 
 ```ts
