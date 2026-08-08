@@ -33,6 +33,10 @@ export type HistoryRow = {
   repidDelta: number;
   /** HAL verdict for this run ('clean' | 'flagged' | 'vetoed'), when scoring ran. */
   halDecision?: string | null;
+  /** True when the earn-gate zeroed the reward (a conversational answer is not a deliverable). */
+  purposeSuppressed?: boolean;
+  /** Human note explaining the earning outcome ("0 earned — conversational, not a deliverable"). */
+  earnNote?: string | null;
   /** Honest failure note when the score event could not be recorded (never a fake Δ 0.00). */
   scoreError?: string | null;
 };

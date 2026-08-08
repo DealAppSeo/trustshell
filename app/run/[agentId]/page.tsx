@@ -116,6 +116,8 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
       // the catch swallowed it, rendering a fake "Δ 0.00" on every run.
       let repidDelta = 0;
       let halDecision: string | null = null;
+      let purposeSuppressed = false;
+      let earnNote: string | null = null;
       let scoreError: string | null = null;
       if (!agent?.apiKey) {
         scoreError =
@@ -142,6 +144,16 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
           if (scoreRes.ok) {
             if (typeof scoreData.delta === 'number') repidDelta = scoreData.delta;
             halDecision = scoreData.hal_decision ?? null;
+            // Honest earning: a conversational answer is not a verified deliverable, so it
+            // earns nothing. `purpose_suppressed` = the gate zeroed it (enforced); when the
+            // gate is still in shadow, `earn_gate.would_suppress` says it WOULD, without lying
+            // about the delta that actually applied this run.
+            purposeSuppressed = scoreData.purpose_suppressed === true;
+            earnNote = purposeSuppressed
+              ? '0 earned — conversational, not a deliverable'
+              : scoreData.earn_gate?.would_suppress === true
+                ? "conversational — won't earn once honest-scoring is enabled"
+                : null;
             setRepid(prev => prev + repidDelta);
             flashDelta(repidDelta);
           } else if (scoreRes.status === 403 && scoreData.error === 'Constitutional block') {
@@ -170,6 +182,8 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         timestamp: Date.now(),
         repidDelta,
         halDecision,
+        purposeSuppressed,
+        earnNote,
         scoreError
       };
 
@@ -324,7 +338,13 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
                     </span>
                   )}
                   {!h.scoreError && (
-                    <span>RepID Δ: <span className={h.repidDelta >= 0 ? "text-green-500" : "text-red-500"}>{h.repidDelta > 0 ? '+' : ''}{h.repidDelta.toFixed(2)}</span></span>
+                    h.purposeSuppressed ? (
+                      <span className="text-gray-400" title="RepID is earned on verified deliverables, not conversation.">{h.earnNote}</span>
+                    ) : (
+                      <span>RepID Δ: <span className={h.repidDelta >= 0 ? "text-green-500" : "text-red-500"}>{h.repidDelta > 0 ? '+' : ''}{h.repidDelta.toFixed(2)}</span>
+                        {h.earnNote && <span className="text-gray-500"> · {h.earnNote}</span>}
+                      </span>
+                    )
                   )}
                 </span>
               </div>
