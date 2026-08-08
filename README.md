@@ -244,6 +244,11 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
 | `2` | usage / bad arguments |
 | `3` | runtime error (network / backend / timeout) |
 
+**A complete, copy-paste GitHub Actions workflow is in [`examples/ci-gate/`](examples/ci-gate/)** —
+drop `trust-gate.yml` into `.github/workflows/`, list your claims in `TRUST_CLAIMS.txt`, and your
+build fails on a hallucinated one. Keyless, ~5 minutes, no account. Verified green-as-shipped and
+red-on-a-false-claim.
+
 Add `--json` to any command for machine-readable output. `verify` / `repid` / `proof` are all
 **keyless**; set `REPID_API_KEY` to attach a key and `TRUSTSHELL_API_URL` to point at another backend.
 Run `trustshell --help` for the full reference.

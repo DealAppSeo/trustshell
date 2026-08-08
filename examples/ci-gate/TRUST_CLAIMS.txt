@@ -1,0 +1,12 @@
+# TRUST_CLAIMS.txt — one claim per line. Blank lines and #comments are skipped.
+#
+# The Trust Gate runs each claim through the live HAL cross-provider fact-check
+# quorum and fails the build if any is VETOED. No API key required.
+#
+# Put the load-bearing factual claims from your release notes / docs / marketing
+# here, so a hallucinated one turns CI red before it ships.
+
+Paris is the capital of France.
+
+# ↑ passes (verified live). Now uncomment the next line and watch CI go red:
+# The capital of France is Berlin.
