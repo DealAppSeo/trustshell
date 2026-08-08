@@ -1,0 +1,60 @@
+# Trust Gate (HAL) — fail the build when a claim doesn't pass a live fact-check quorum.
+#
+# Drop this file into your repo at .github/workflows/trust-gate.yml, add a
+# TRUST_CLAIMS.txt at your repo root (one claim per line), and push. No API key,
+# no account: the verify path is keyless against the live HyperDAG backend.
+#
+# What it does: runs each claim through `trustshell verify` (a real cross-provider
+# HAL quorum). Exit 0 = PASS/FLAG, exit 1 = VETO (fails the build), exit 3 =
+# backend/network (a warning, NOT counted as a veto — a transient outage should
+# not read as "your claim is false"; set STRICT=1 to make infra errors block too).
+name: Trust Gate (HAL)
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  hal-trust-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fail the build if HAL vetoes a claim
+        shell: bash
+        env:
+          STRICT: '0'   # set to '1' to also fail on backend/network errors (exit 3)
+        run: |
+          claims_file="TRUST_CLAIMS.txt"
+          if [ ! -f "$claims_file" ]; then
+            echo "No $claims_file at repo root — nothing to gate."
+            exit 0
+          fi
+          vetoed=0
+          while IFS= read -r line || [ -n "$line" ]; do
+            trimmed="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            [ -z "$trimmed" ] && continue          # skip blank lines
+            case "$trimmed" in \#*) continue ;; esac # skip # comments
+            echo "::group::verify: $trimmed"
+            npx -y @hyperdag/trustshell@latest verify "$trimmed"
+            code=$?
+            echo "::endgroup::"
+            if [ "$code" -eq 0 ]; then
+              echo "PASS: $trimmed"
+            elif [ "$code" -eq 1 ]; then
+              echo "::error::HAL VETOED (claim did not pass): $trimmed"
+              vetoed=$((vetoed + 1))
+            else
+              echo "::warning::verify exit $code for: $trimmed — backend/usage issue, not counted as a veto (set STRICT=1 to block)."
+              [ "${STRICT}" = "1" ] && vetoed=$((vetoed + 1))
+            fi
+          done < "$claims_file"
+          if [ "$vetoed" -gt 0 ]; then
+            echo "$vetoed claim(s) failed the trust gate — not shipping."
+            exit 1
+          fi
+          echo "All claims passed the HAL trust gate."
