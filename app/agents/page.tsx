@@ -50,37 +50,13 @@ export default function AgentsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12">
-      <div className="space-y-4">
+    <div className="max-w-5xl mx-auto space-y-8">
+      <div className="space-y-2">
         <h2 className="text-3xl font-bold">Your Agents</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
           An <span className="text-white font-medium">agent</span> is a named identity you wrap with TrustShell.
-          Every response it produces is <span className="text-white font-medium">HAL-scored</span> for hallucination,
-          and its honest behavior earns portable, on-chain <span className="text-white font-medium">RepID</span>.
-          Create one below to see it work end-to-end.
-        </p>
-
-        {/* Expectation-setting: the 4-step journey, so a first-timer knows where this leads */}
-        <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-          {[
-            { n: 1, t: 'Create an agent', d: 'Name it + optional rules. You are here.', here: true },
-            { n: 2, t: 'Connect a model', d: 'Bring your own key on the Connect page.' },
-            { n: 3, t: 'Run prompts', d: 'HAL scores every response in real time.' },
-            { n: 4, t: 'Earn RepID', d: 'Honest agents climb the Leaderboard.' },
-          ].map((s) => (
-            <li
-              key={s.n}
-              className={`p-4 rounded-xl border ${s.here ? 'border-amber-600/50 bg-amber-600/10' : 'border-[#1e293b] bg-[#0f172a]'}`}
-            >
-              <div className={`text-xs font-mono ${s.here ? 'text-amber-400' : 'text-[#475569]'}`}>STEP {s.n}</div>
-              <div className="font-semibold text-white mt-1">{s.t}</div>
-              <div className="text-xs text-[#94a3b8] mt-1 leading-snug">{s.d}</div>
-            </li>
-          ))}
-        </ol>
-
-        <p className="text-xs text-[#64748b] pt-1">
-          Free · no wallet · your first runs need no email — add one later to save your agent and raise the daily limit. Agents are stored locally in <span className="text-[#94a3b8]">this browser</span> until you choose to publish on-chain.
+          Every response is <span className="text-white font-medium">HAL-scored</span> for hallucination, and its
+          honest behavior earns portable, on-chain <span className="text-white font-medium">RepID</span>. Create one below.
         </p>
       </div>
 
@@ -119,13 +95,13 @@ export default function AgentsPage() {
             </div>
           ) : (
             agents.map(a => (
-              <div key={a.id} className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] flex justify-between items-center">
-                <div>
-                  <h4 className="font-bold text-lg text-white">{a.name}</h4>
-                  <p className="text-sm text-[#94a3b8]">{a.description || 'No description'}</p>
+              <div key={a.id} className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] flex justify-between items-center gap-3">
+                <div className="min-w-0">
+                  <h4 className="font-bold text-lg text-white truncate">{a.name}</h4>
+                  <p className="text-sm text-[#94a3b8] truncate">{a.description || 'No description'}</p>
                   <p className="text-xs text-[#475569] mt-2">Prompts: {a.totalPrompts}</p>
                 </div>
-                <button onClick={() => router.push(`/run/${a.id}`)} className="px-6 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
+                <button onClick={() => router.push(`/run/${a.id}`)} className="shrink-0 px-6 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
                   Use
                 </button>
               </div>
@@ -133,6 +109,34 @@ export default function AgentsPage() {
           )}
         </div>
       </div>
+
+      {/* The 4-step journey — CONTEXT below the form, not a control. Horizontal swipe strip
+          on phones, a row on desktop. The current step is a left-accent + label, never an
+          amber-filled card that could be mistaken for the Create button. */}
+      <div className="pt-1">
+        <div className="text-xs font-mono text-[#475569] mb-2">HOW IT WORKS</div>
+        <ol className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:grid sm:grid-cols-4 sm:mx-0 sm:px-0 sm:overflow-visible">
+          {[
+            { n: 1, t: 'Create an agent', d: 'Name it + optional rules.', here: true },
+            { n: 2, t: 'Connect a model', d: 'Bring your own key on Connect.' },
+            { n: 3, t: 'Run prompts', d: 'HAL scores every response.' },
+            { n: 4, t: 'Earn RepID', d: 'Honest agents climb the Leaderboard.' },
+          ].map((s) => (
+            <li
+              key={s.n}
+              className={`shrink-0 min-w-[10rem] sm:min-w-0 p-3 rounded-lg bg-[#0f172a] border border-[#1e293b] border-l-2 ${s.here ? 'border-l-amber-500' : 'border-l-[#1e293b]'}`}
+            >
+              <div className={`text-xs font-mono ${s.here ? 'text-amber-400' : 'text-[#475569]'}`}>STEP {s.n}{s.here ? ' · you are here' : ''}</div>
+              <div className="font-medium text-white text-sm mt-1">{s.t}</div>
+              <div className="text-xs text-[#94a3b8] mt-0.5 leading-snug">{s.d}</div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <p className="text-xs text-[#64748b]">
+        Free · no wallet · your first runs need no email — add one later to save your agent and raise the daily limit. Agents are stored locally in <span className="text-[#94a3b8]">this browser</span> until you choose to publish on-chain.
+      </p>
     </div>
   );
 }
