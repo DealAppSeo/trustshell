@@ -1,0 +1,65 @@
+# PR-gating CI for trustshell.
+#
+# WHY THIS EXISTS. This repository looked like it had CI: `publish-sdk.yml` is a
+# real, well-built workflow. But it triggers only on `push: tags: ['v*']` and
+# `workflow_dispatch`, so it has never once run on a pull request. Nothing here
+# verified a PR. An audit that counts workflow FILES scores this repo as having
+# CI; an audit that counts gating checks scores it as having none, and the second
+# count is the one that matters.
+#
+# What this gates on, and why each was measured before being written here:
+#
+#   npm ci                -> exit 0 (lockfile and package.json agree)
+#   npx tsc --noEmit      -> exit 0
+#   jest, minus tests/e2e -> 5 suites, 87 tests, exit 0
+#
+# WHY THE E2E SUITE IS EXCLUDED, and why that is not just moving the goalposts.
+# `tests/e2e/wrapper-readiness.test.ts` probes a LIVE backend — repid-engine on
+# Railway — for /health, the HAL quorum and a real postcard proof. Those 7 tests
+# fail whenever that host is unreachable, which says nothing about whether this
+# package is correct. A gate that goes red because a third-party service is down
+# gets ignored within a week, and an ignored gate is worse than no gate. The
+# suite is valuable and is still runnable on demand via
+# `npm run test:wrapper-readiness`.
+#
+# A SEPARATE DEFECT THIS UNCOVERED, deliberately NOT fixed here:
+# `sdk:test` is `jest --testPathPattern=trustshell`, and that pattern matches the
+# REPOSITORY DIRECTORY in every absolute path — /…/trustshell/tests/… — so it
+# selects all 6 suites rather than the intended tests/trustshell.test.ts. That
+# matters because publish-sdk.yml runs `sdk:test` as a release gate, which means
+# an npm publish depends on a live external backend being up. Publishing is
+# irreversible and a version can never be reused, so that is not something to
+# change as a side effect of adding CI. Left for an explicit decision.
+
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it fails loudly when the lockfile and
+      # package.json disagree instead of quietly reconciling them. A sibling repo
+      # in this fleet had drifted for months precisely because nothing ever ran
+      # the strict form.
+      - name: Install
+        run: npm ci
+
+      # Typecheck before tests. `next build` compiles only what is reachable from
+      # a route, so tsc catches whole files a build structurally never visits.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx jest --testPathIgnorePatterns '/node_modules/' 'tests/e2e/'
