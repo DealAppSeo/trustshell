@@ -45,7 +45,7 @@
     "lint": "eslint",
     "sdk:clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "sdk:build": "npm run sdk:clean && tsc --project tsconfig.sdk.json",
-    "sdk:test": "jest --testPathPattern=trustshell --passWithNoTests",
+    "sdk:test": "jest --testPathIgnorePatterns /node_modules/ tests/e2e/ --passWithNoTests",
     "test:wrapper-readiness": "jest tests/e2e/wrapper-readiness.test.ts",
     "prepublishOnly": "npm run sdk:build && npm run sdk:test"
   },
