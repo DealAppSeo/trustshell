@@ -31,7 +31,20 @@
 
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { chromium } from 'playwright';
+
+// Playwright is deliberately NOT a dependency of this package. CI does not run this suite
+// (see the header), so declaring it would install a browser driver on every pull request for
+// zero gating benefit — against this package's stated dependency diet. It is imported
+// dynamically so its absence exits 2 = NOT_CHECKED, the ecosystem's code for "we did not
+// look", rather than a module-not-found stack trace that reads like a product failure.
+let chromium;
+try {
+  ({ chromium } = await import('playwright'));
+} catch {
+  console.error('NOT_CHECKED: this suite needs Playwright, which this package does not depend on.');
+  console.error('  npm i -D playwright && npx playwright install chromium');
+  process.exit(2);
+}
 
 const ENGINE_PORT = 4599;
 const APP_PORT = 3100;
