@@ -4,6 +4,16 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { founderGoals, type GoalVersion } from '@/lib/founder-goals';
 import { ROLE_PACKS } from '@/lib/role-packs';
+import { TrustBadge, EmptyState } from '@/components/trust-state';
+
+/** Surfaces that are specified but have no runtime behind them. Listed, never rendered live. */
+const UNBUILT = [
+  'Steer — inject an instruction into a running loop',
+  'Stop — halt tool use and spend',
+  'GateRun stream',
+  'Lane health (XC / GA / CC)',
+  'Simulation flags',
+] as const;
 
 /**
  * The founder-only panel. Renders nothing unless Founder Mode is on.
@@ -78,6 +88,13 @@ export function FounderPanel({ onFiled }: { onFiled?: (msg: string) => void }) {
           </span>
         </div>
 
+        {history.length === 0 && (
+          <EmptyState
+            title="No goals written yet."
+            detail="Nothing is optimising for anything in particular. Write what this should be aiming at — you can revise it, and every earlier version is kept."
+          />
+        )}
+
         {showHistory && (
           <ul className="space-y-2 pt-2">
             {history.map((g) => (
@@ -148,15 +165,21 @@ export function FounderPanel({ onFiled }: { onFiled?: (msg: string) => void }) {
         )}
       </section>
 
-      {/* Honest absence list */}
-      <section className="border-t border-amber-500/20 pt-4">
-        <h2 className="text-sm font-semibold text-[#94a3b8]">Not built yet</h2>
-        <p className="mt-1 text-xs text-[#64748b]">
-          Steer and stop hooks, the GateRun stream, lane health for XC/GA/CC, and sim flags are
-          specified but not implemented. They are named here instead of shown as controls,
-          because nothing currently reads them at runtime — including these goals. A button
-          that looks live and does nothing is worse than an absent one.
+      {/* Honest absence list — rendered in the same vocabulary as every other verdict. */}
+      <section className="space-y-3 border-t border-amber-500/20 pt-4">
+        <h2 className="text-sm font-semibold text-[#a8b3c2]">Specified, not built</h2>
+        <p className="text-xs leading-relaxed text-[#64748b]">
+          Named here rather than shown as controls. Nothing reads any of these at runtime yet —
+          including the goals above. A control that looks live and does nothing invites you to
+          believe an instruction landed somewhere it never reached.
         </p>
+        <ul className="flex flex-wrap gap-2">
+          {UNBUILT.map((item) => (
+            <li key={item}>
+              <TrustBadge state="NOT_CHECKED" detail={item} />
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

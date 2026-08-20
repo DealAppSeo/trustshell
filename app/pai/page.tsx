@@ -13,6 +13,7 @@ import {
 } from '@/lib/pai';
 import { founderMode, FOUNDER_EVENT_LABEL, type FounderEventKind } from '@/lib/founder-mode';
 import { FounderPanel } from '@/components/founder-panel';
+import { TrustBadge } from '@/components/trust-state';
 
 /**
  * The PAI: one conversation in front of the trust kernel.
@@ -334,8 +335,14 @@ export default function PaiPage() {
           <h1 className="text-2xl font-bold text-white">
             {agent ? agent.name : 'Your PAI'}
           </h1>
-          <p className="mt-1 text-sm text-[#94a3b8]">
-            One conversation in front of the trust kernel. It holds none of your keys.
+          {/*
+            The keyless promise, stated once and only once. Repeating a guarantee reads as
+            reassurance rather than fact — and this one is structural, not aspirational: this
+            module never imports the vault, so there is no code path by which the agent could
+            receive a provider key.
+          */}
+          <p className="mt-1 max-w-prose text-sm leading-relaxed text-[#a8b3c2]">
+            Agents don&apos;t hold your keys. They only act inside grants you can revoke.
           </p>
         </div>
 
@@ -381,34 +388,38 @@ export default function PaiPage() {
               {m.text}
             </div>
 
+            {/*
+              Two different axes, deliberately not merged into one indicator: the badge says
+              whether this answer was scored AT ALL, and the HAL word says what the scoring
+              found. Collapsing them is how "we did not look" becomes "it passed" — the exact
+              two-outcome failure the three-state discipline exists to prevent.
+            */}
             {m.role === 'pai' && (m.scoreError || typeof m.repidDelta === 'number' || m.halDecision) && (
-              <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-[#64748b]">
-                {m.halDecision && (
-                  <span>
-                    HAL:{' '}
-                    <span
-                      className={
-                        m.halDecision === 'vetoed'
-                          ? 'text-red-400'
-                          : m.halDecision === 'flagged'
-                            ? 'text-amber-400'
-                            : 'text-emerald-400'
-                      }
-                    >
-                      {m.halDecision.toUpperCase()}
-                    </span>
-                  </span>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {m.scoreError ? (
+                  <TrustBadge state="NOT_CHECKED" detail={m.scoreError} />
+                ) : (
+                  <TrustBadge
+                    state={m.halDecision === 'vetoed' ? 'FAILED' : 'MEASURED'}
+                    detail={
+                      m.halDecision === 'vetoed'
+                        ? 'HAL vetoed this answer — it was not allowed to stand'
+                        : m.halDecision === 'flagged'
+                          ? 'HAL flagged something worth checking'
+                          : 'HAL found nothing to flag'
+                    }
+                  />
                 )}
+
                 {typeof m.repidDelta === 'number' && (
-                  <span>
-                    RepID Δ{' '}
-                    <span className={m.repidDelta >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                  <span className="font-mono text-[11px] tabular-nums text-[#8b97a8]">
+                    RepID{' '}
+                    <span className={m.repidDelta >= 0 ? 'text-[#5eead4]' : 'text-[#fda4af]'}>
                       {m.repidDelta > 0 ? '+' : ''}
                       {m.repidDelta.toFixed(2)}
                     </span>
                   </span>
                 )}
-                {m.scoreError && <span className="text-amber-400/90">⚠ Not scored: {m.scoreError}</span>}
               </div>
             )}
 
@@ -470,9 +481,7 @@ export default function PaiPage() {
       </form>
 
       <p className="text-xs text-[#64748b]">
-        Runs on the free shared pool
-        {runsLeft !== null ? ` · ${runsLeft} left today` : ''} · your provider keys stay in the
-        browser vault and are never sent to this agent.
+        Runs on the free shared pool{runsLeft !== null ? ` · ${runsLeft} left today` : ''}.
       </p>
     </div>
   );
