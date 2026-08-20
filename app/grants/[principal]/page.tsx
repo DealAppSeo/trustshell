@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { listGrantsFor, type ListedGrant, type Caveat } from '@/lib/repid-engine';
 import { RevokeButton } from '../RevokeButton';
+import { TrustBadge } from '@/components/trust-state';
 
 // Live authority data — a stale "still live" reading after a revoke is exactly the failure
 // mode this page exists to prevent. Same discipline as /passport/[agentId].
@@ -73,14 +74,23 @@ function GrantCard({ grant, principal }: { grant: ListedGrant; principal: string
         <span>scope: {grant.capabilities.join(', ') || '(none)'}</span>
         <span>{caveatSummary(grant.caveats)}</span>
         <span>expires: {fmtDate(grant.expires_at)}</span>
-        <span
-          title={
-            grant.signature_status === 'VERIFIED'
-              ? `signed by ${grant.grantor_wallet_address_used}`
-              : 'grantor has no registered wallet yet — mint consent was not cryptographically checked'
-          }
-        >
-          consent: {grant.signature_status === 'VERIFIED' ? 'signed ✓' : 'NOT_CHECKED (no grantor wallet on record)'}
+        {/*
+          Mint consent, through the one shared vocabulary rather than an ad-hoc pair of
+          strings. This previously rendered a bare `signed ✓` for VERIFIED — the exact shape
+          a status must never take here, because a tick carries no claim ceiling: it reads as
+          blanket approval of the grant when all that was checked is that the grantor's
+          registered wallet signed the mint intent. `ListedGrant.signature_status`' own
+          docstring is explicit that the two values are "never silently equivalent"; routing
+          them through TrustBadge makes that structural instead of a convention two strings
+          apart.
+        */}
+        <span className="sm:col-span-2">
+          <span className="mr-2 text-neutral-500">consent:</span>
+          {grant.signature_status === 'VERIFIED' ? (
+            <TrustBadge state="MEASURED" detail="grantor's registered wallet signed this mint intent" />
+          ) : (
+            <TrustBadge state="NOT_CHECKED" detail="no grantor wallet on record — mint consent was never cryptographically checked" />
+          )}
         </span>
         {grant.revoked_at && <span>revoked: {fmtDate(grant.revoked_at)} by {grant.revoked_by}</span>}
       </div>
