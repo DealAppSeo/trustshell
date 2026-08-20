@@ -156,6 +156,17 @@ try {
   body = await page.locator('body').innerText();
   note(/actor=founder/i.test(body), 'Founder Mode states the tagging before you act');
 
+  // Two properties that are pure regression risk: both were correct when written, and both
+  // are the kind of thing a later edit undoes without any test noticing.
+  const keylessCount = (body.match(/Agents don.t hold your keys/g) || []).length;
+  note(keylessCount === 1, 'the keyless promise appears exactly once', `found ${keylessCount}`);
+
+  const chatBox = await page.locator('text=/I.m your agent|suppliers matched/').first().boundingBox();
+  const panelBox = await page.locator('text=Specified, not built').first().boundingBox();
+  note(chatBox && panelBox && chatBox.y < panelBox.y,
+    'on a phone the conversation sits above the founder tools',
+    chatBox && panelBox ? `chat ${Math.round(chatBox.y)}px, panel ${Math.round(panelBox.y)}px` : 'not measurable');
+
   const bug = page.getByRole('button', { name: /Product bug/i });
   note((await bug.count()) > 0, 'a founder can file a product bug');
   if (await bug.count()) {
