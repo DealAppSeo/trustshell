@@ -182,6 +182,140 @@ export async function fetchStakePositions(agent: string): Promise<{
 }
 
 // ---------------------------------------------------------------------------
+// Grants — principal-to-principal authority (scope + budget + expiry + revoke)
+//
+// Wired to repid-engine's src/routes/mvp-api.ts / src/services/principal-grants.ts (new).
+// Not a TODO-shaped contract like purchaseService below — this backend exists and was
+// verified end-to-end (mint -> list -> revoke) against the live principal_grants table
+// before this client was written.
+// ---------------------------------------------------------------------------
+
+export type GrantClass = 'spend' | 'hot' | 'warm' | 'cold';
+
+export type Caveat =
+  | { type: 'maxValue'; asset: string; amount: number }
+  | { type: 'toolAllowlist'; tools: string[] }
+  | { type: 'maxCalls'; limit: number };
+
+export type Grant = {
+  id: string;
+  grantor_agent_id: string;
+  grantee_agent_id: string;
+  parent_grant_id: string | null;
+  depth: number;
+  grant_class: GrantClass;
+  capabilities: string[];
+  caveats: Caveat[];
+  role: string | null;
+  audit_for: string | null;
+  not_before: string;
+  expires_at: string;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  mint_reason: string;
+  created_at: string;
+  idempotency_key: string | null;
+  grantor_signature: string | null;
+  grantor_wallet_address_used: string | null;
+  /**
+   * VERIFIED: grantor has a registered wallet_address and the mint intent signature matched it.
+   * NOT_CHECKED: grantor has no wallet_address on record (most agents today — measured
+   * 2026-08-20: 18 of 176). Never silently equivalent to VERIFIED; render them distinctly.
+   */
+  signature_status: 'VERIFIED' | 'NOT_CHECKED' | null;
+};
+
+/** A listed grant with liveness computed against its FULL ancestor chain, not just its own row. */
+export type ListedGrant = Grant & { live: boolean; liveReason: string };
+
+export type MintGrantResult = { ok: true; grant: Grant } | { ok: false; error: string };
+
+/**
+ * `idempotencyKey`: generate one client-side (e.g. crypto.randomUUID()) and reuse the SAME
+ * value across retries of one logical mint attempt — a retry with the same key returns the
+ * grant that attempt already minted rather than risking a duplicate.
+ *
+ * `signature`: an EIP-712 signature over the canonical GrantIntent typed-data payload
+ * (repid-engine's src/services/principal-grant-intent.ts), signed by whoever holds the
+ * grantor agent's registered wallet key. This client never signs anything — it only carries
+ * a signature the caller already produced, the same "verify, don't sign" boundary the backend
+ * itself holds. Omit it if the grantor has no registered wallet yet; the mint proceeds with
+ * `signature_status: 'NOT_CHECKED'` rather than being blocked on wallet coverage that doesn't
+ * exist yet for most agents.
+ */
+export async function mintGrant(input: {
+  grantorAgentId: string;
+  granteeAgentId: string;
+  grantClass: GrantClass;
+  capabilities: string[];
+  caveats: Caveat[];
+  ttlSeconds: number;
+  role?: string;
+  auditFor?: string;
+  parentGrantId?: string;
+  idempotencyKey?: string;
+  signature?: string;
+}): Promise<MintGrantResult> {
+  const res = await fetch(`${REPID_ENGINE_URL}/api/v1/grants`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grantor_agent_id: input.grantorAgentId,
+      grantee_agent_id: input.granteeAgentId,
+      grant_class: input.grantClass,
+      capabilities: input.capabilities,
+      caveats: input.caveats,
+      ttl_seconds: input.ttlSeconds,
+      role: input.role ?? null,
+      audit_for: input.auditFor ?? null,
+      parent_grant_id: input.parentGrantId ?? null,
+      idempotency_key: input.idempotencyKey ?? null,
+      signature: input.signature ?? null,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.ok === false) {
+    return { ok: false, error: data?.error || `mint failed (${res.status})` };
+  }
+  return { ok: true, grant: data.grant as Grant };
+}
+
+/**
+ * List every grant where `principal` is grantor or grantee. Returns `'error'` (unreachable
+ * backend) distinctly from an empty list (reachable, genuinely zero grants) — the page must not
+ * render "no grants" when the real answer is "could not check."
+ */
+export async function listGrantsFor(principal: string): Promise<ListedGrant[] | 'error'> {
+  try {
+    const res = await fetch(
+      `${REPID_ENGINE_URL}/api/v1/grants?principal=${encodeURIComponent(principal)}`,
+      { cache: 'no-store' }
+    );
+    if (!res.ok) return 'error';
+    const data = await res.json();
+    return Array.isArray(data?.grants) ? (data.grants as ListedGrant[]) : [];
+  } catch {
+    return 'error';
+  }
+}
+
+export async function revokeGrant(
+  grantId: string,
+  requestedBy: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(`${REPID_ENGINE_URL}/api/v1/grants/${encodeURIComponent(grantId)}/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requested_by: requestedBy }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.ok === false) {
+    return { ok: false, error: data?.error || `revoke failed (${res.status})` };
+  }
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Marketplace trade / x402
 // ---------------------------------------------------------------------------
 
