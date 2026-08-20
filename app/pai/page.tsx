@@ -360,19 +360,21 @@ export default function PaiPage() {
         </button>
       </header>
 
+      {/*
+        The banner stays above the fold because it changes what every subsequent action MEANS —
+        you need to know your clicks are being tagged before you make them. The panel itself
+        goes below the conversation: it is a control and reference surface, and on a phone,
+        putting it here pushed the chat past fourteen role-pack cards. The answer is the
+        primary object on this screen; the tools are not.
+      */}
       {founderOn && (
-        <>
-          <p className="rounded-lg border border-amber-500/30 bg-amber-600/5 px-4 py-3 text-xs text-amber-200/80">
-            Founder Mode is on. Everything you file is tagged <strong>actor=founder</strong> and
-            stays out of end-user telemetry — so testing your own product never gets counted as
-            adoption of it. Founder Mode grants no keys and bypasses nothing: every gate that
-            fails closed still fails closed. Stored on this device only; the durable event
-            contract is still being specified.
-          </p>
-          <FounderPanel
-            onFiled={(msg) => setMsgs((m) => [...m, mkMsg('pai', msg)])}
-          />
-        </>
+        <p className="rounded-lg border border-amber-500/30 bg-amber-600/5 px-4 py-3 text-xs leading-relaxed text-amber-200/80">
+          Founder Mode is on. Everything you file is tagged <strong>actor=founder</strong> and
+          stays out of end-user telemetry — so testing your own product never gets counted as
+          adoption of it. It grants no keys and bypasses nothing: every gate that fails closed
+          still fails closed. Stored on this device only; the durable event contract is still
+          being specified.
+        </p>
       )}
 
       <div className="space-y-4 rounded-xl border border-[#1e293b] bg-[#0f172a] p-5">
@@ -483,6 +485,10 @@ export default function PaiPage() {
       <p className="text-xs text-[#64748b]">
         Runs on the free shared pool{runsLeft !== null ? ` · ${runsLeft} left today` : ''}.
       </p>
+
+      {founderOn && (
+        <FounderPanel onFiled={(msg) => setMsgs((m) => [...m, mkMsg('pai', msg)])} />
+      )}
     </div>
   );
 }
