@@ -214,6 +214,15 @@ export type Grant = {
   revoked_by: string | null;
   mint_reason: string;
   created_at: string;
+  idempotency_key: string | null;
+  grantor_signature: string | null;
+  grantor_wallet_address_used: string | null;
+  /**
+   * VERIFIED: grantor has a registered wallet_address and the mint intent signature matched it.
+   * NOT_CHECKED: grantor has no wallet_address on record (most agents today — measured
+   * 2026-08-20: 18 of 176). Never silently equivalent to VERIFIED; render them distinctly.
+   */
+  signature_status: 'VERIFIED' | 'NOT_CHECKED' | null;
 };
 
 /** A listed grant with liveness computed against its FULL ancestor chain, not just its own row. */
@@ -221,6 +230,19 @@ export type ListedGrant = Grant & { live: boolean; liveReason: string };
 
 export type MintGrantResult = { ok: true; grant: Grant } | { ok: false; error: string };
 
+/**
+ * `idempotencyKey`: generate one client-side (e.g. crypto.randomUUID()) and reuse the SAME
+ * value across retries of one logical mint attempt — a retry with the same key returns the
+ * grant that attempt already minted rather than risking a duplicate.
+ *
+ * `signature`: an EIP-712 signature over the canonical GrantIntent typed-data payload
+ * (repid-engine's src/services/principal-grant-intent.ts), signed by whoever holds the
+ * grantor agent's registered wallet key. This client never signs anything — it only carries
+ * a signature the caller already produced, the same "verify, don't sign" boundary the backend
+ * itself holds. Omit it if the grantor has no registered wallet yet; the mint proceeds with
+ * `signature_status: 'NOT_CHECKED'` rather than being blocked on wallet coverage that doesn't
+ * exist yet for most agents.
+ */
 export async function mintGrant(input: {
   grantorAgentId: string;
   granteeAgentId: string;
@@ -231,6 +253,8 @@ export async function mintGrant(input: {
   role?: string;
   auditFor?: string;
   parentGrantId?: string;
+  idempotencyKey?: string;
+  signature?: string;
 }): Promise<MintGrantResult> {
   const res = await fetch(`${REPID_ENGINE_URL}/api/v1/grants`, {
     method: 'POST',
@@ -245,6 +269,8 @@ export async function mintGrant(input: {
       role: input.role ?? null,
       audit_for: input.auditFor ?? null,
       parent_grant_id: input.parentGrantId ?? null,
+      idempotency_key: input.idempotencyKey ?? null,
+      signature: input.signature ?? null,
     }),
   });
   const data = await res.json().catch(() => ({}));

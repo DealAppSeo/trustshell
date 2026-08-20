@@ -73,6 +73,15 @@ function GrantCard({ grant, principal }: { grant: ListedGrant; principal: string
         <span>scope: {grant.capabilities.join(', ') || '(none)'}</span>
         <span>{caveatSummary(grant.caveats)}</span>
         <span>expires: {fmtDate(grant.expires_at)}</span>
+        <span
+          title={
+            grant.signature_status === 'VERIFIED'
+              ? `signed by ${grant.grantor_wallet_address_used}`
+              : 'grantor has no registered wallet yet — mint consent was not cryptographically checked'
+          }
+        >
+          consent: {grant.signature_status === 'VERIFIED' ? 'signed ✓' : 'NOT_CHECKED (no grantor wallet on record)'}
+        </span>
         {grant.revoked_at && <span>revoked: {fmtDate(grant.revoked_at)} by {grant.revoked_by}</span>}
       </div>
       {!grant.live && (
