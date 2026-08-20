@@ -1,16 +1,26 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono, IBM_Plex_Serif } from 'next/font/google';
 import './globals.css';
 import { TopNav } from '@/components/top-nav';
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
 });
 
-const jetbrainsMono = JetBrains_Mono({ 
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
+});
+
+// Display face for headings. Inter is superb for dense operator UI and stays as the body
+// face, but a page set entirely in it reads as a template rather than as a product. Plex
+// Serif was drawn for IBM's technical products, so it carries engineering heritage rather
+// than editorial gloss — warmth without softness, and unmistakably not the body face.
+const plexSerif = IBM_Plex_Serif({
+  subsets: ['latin'],
+  weight: ['500', '600'],
+  variable: '--font-plex-serif',
 });
 
 export const metadata: Metadata = {
@@ -43,7 +53,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} bg-background`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${jetbrainsMono.variable} ${plexSerif.variable} bg-background`}
+    >
       <body className="min-h-screen font-sans antialiased">
         <TopNav />
         {children}
