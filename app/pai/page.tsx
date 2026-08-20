@@ -12,6 +12,7 @@ import {
   type KernelRead,
 } from '@/lib/pai';
 import { founderMode, FOUNDER_EVENT_LABEL, type FounderEventKind } from '@/lib/founder-mode';
+import { FounderPanel } from '@/components/founder-panel';
 
 /**
  * The PAI: one conversation in front of the trust kernel.
@@ -353,11 +354,18 @@ export default function PaiPage() {
       </header>
 
       {founderOn && (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-600/5 px-4 py-3 text-xs text-amber-200/80">
-          Founder Mode is on. Notes you file are tagged <strong>founder</strong> and stay out of
-          end-user telemetry — so testing your own product never gets counted as adoption of it.
-          Stored on this device only; the durable event contract is still being specified.
-        </p>
+        <>
+          <p className="rounded-lg border border-amber-500/30 bg-amber-600/5 px-4 py-3 text-xs text-amber-200/80">
+            Founder Mode is on. Everything you file is tagged <strong>actor=founder</strong> and
+            stays out of end-user telemetry — so testing your own product never gets counted as
+            adoption of it. Founder Mode grants no keys and bypasses nothing: every gate that
+            fails closed still fails closed. Stored on this device only; the durable event
+            contract is still being specified.
+          </p>
+          <FounderPanel
+            onFiled={(msg) => setMsgs((m) => [...m, mkMsg('pai', msg)])}
+          />
+        </>
       )}
 
       <div className="space-y-4 rounded-xl border border-[#1e293b] bg-[#0f172a] p-5">

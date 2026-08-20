@@ -8,10 +8,10 @@
  * reading of the founder's own testing. The fix is not to exclude the founder — it is to make
  * the two signals structurally distinct at write time.
  *
- * THE DISCRIMINANT IS EXPLICIT, NEVER INFERRED. `audience` is stamped when the event is
+ * THE DISCRIMINANT IS EXPLICIT, NEVER INFERRED. `actor` is stamped when the event is
  * created, from the toggle's state at that moment. It is deliberately NOT derived later from
  * "was this user an admin" — a founder browsing as a normal user is producing genuine
- * end-user signal, and re-deriving audience at read time would silently relabel it. GA is
+ * end-user signal, and re-deriving actor at read time would silently relabel it. GA is
  * specing the durable contract for this (trinity-ecosystem docs/handoffs/INBOX_GA.md,
  * 2026-08-20); these types are the first slice that contract will be measured against.
  *
@@ -36,7 +36,7 @@ const EVENTS_KEY = 'trustshell_founder_events_v1';
  * Who the signal is FROM — the field that keeps founder testing out of adoption metrics.
  * Stamped at write time from the toggle. Never recomputed on read.
  */
-export type EventAudience = 'founder' | 'user';
+export type EventActor = 'founder' | 'user';
 
 /**
  * What the founder was doing. `product_bug` and `ux_note` are judgements about the product;
@@ -49,7 +49,7 @@ export type FounderEventKind = 'product_bug' | 'ux_note' | 'sim_run' | 'mark_for
 export interface FounderEvent {
   id: string;
   /** Always 'founder' for these. The field is spelled out rather than implied by the type. */
-  audience: EventAudience;
+  actor: EventActor;
   kind: FounderEventKind;
   /** Which surface this came from, e.g. '/pai' — so a note is actionable without guesswork. */
   surface: string;
@@ -77,7 +77,7 @@ export const founderMode = {
   },
 
   /**
-   * Record a founder event. Takes `audience` from the toggle at THIS moment rather than
+   * Record a founder event. Takes `actor` from the toggle at THIS moment rather than
    * accepting it from the caller — a caller that could pass 'user' here would be able to
    * launder founder signal into the end-user funnel, which is the one thing this module
    * exists to prevent.
@@ -92,7 +92,7 @@ export const founderMode = {
 
     const event: FounderEvent = {
       id: crypto.randomUUID(),
-      audience: 'founder',
+      actor: 'founder',
       kind: input.kind,
       surface: input.surface,
       note: input.note,
