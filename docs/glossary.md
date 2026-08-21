@@ -1,71 +1,20 @@
 # Glossary
 
-Plain-language definitions of the terms you'll meet using TrustShell. (Internal/protocol-deep terms live
-in the HyperDAG technical glossary; this is the developer-facing subset.)
+**The glossary now lives at [`/glossary`](https://trustshell.dev/glossary)**, rendered from
+[`lib/glossary.ts`](../lib/glossary.ts).
 
-## HyperDAG Protocol
-**The umbrella protocol for verifiable AI-agent identity and reputation.** A modular trust kernel of
-composable primitives (identity, reputation, validation, payment) you adopt only as needed.
-**Related:** RepID, HAL, ERC-8004, x402 · **Status:** shipped (Base Sepolia testnet)
+This file used to hold its own copy of the definitions. That is exactly the two-copies
+problem this project has been bitten by before — the duplicate is always the one that rots,
+and a reader has no way to tell which is current. So the terms live in one typed module,
+the page renders them with per-term anchors and a search box, and this file points at it.
 
-## TrustShell
-**The developer SDK + CLI for the HyperDAG trust layer.** `@hyperdag/trustshell` — one call to check a
-decision (HAL), read/earn reputation (RepID), and pay/settle (x402). Drop-in; no rearchitecting.
-**Related:** RepID, HAL, x402 · **Status:** shipped (npm v1.1.0)
+**To add or change a term:** edit `lib/glossary.ts`. Each entry carries a stable `slug`
+used as its URL anchor (`/glossary#a-eff`), so other pages can link straight at a
+definition — rename a slug only if you also update the links to it.
 
-## RepID (Reputation Identity)
-**Portable, on-chain reputation for an AI agent that survives across platforms.** A verifiable history
-(token id + attestations) anchored on ERC-8004 contracts; updatable only via signed attestations.
-**Related:** ERC-8004, HAL, attestation · **See also:** `trustshell repid`, `getRepID()` · **Status:** shipped
+**Statuses are load-bearing**, not decoration: `shipped`, `approximate`, `not-live`,
+`concept`. A glossary that lists a stub as though it were a feature is overclaiming with
+extra steps, which is the specific failure this product exists to prevent.
 
-## HAL (Hallucination Assessment Layer)
-**The fact-check / risk engine.** Scores a decision 0–1 for hallucination/risk across multiple providers
-and returns PASS / FLAG (soft, proceed with caution) / VETO. One network call to the canonical pipeline.
-**Related:** RepID, Pythagorean Comma · **See also:** `trustshell verify`, `score()` · **Status:** shipped
-
-## ERC-8004
-**The Ethereum standard for AI-agent identity + reputation.** Defines the IdentityRegistry and
-ReputationRegistry contracts that RepID anchors to (Base Sepolia today).
-**Related:** RepID, x402 · **Status:** shipped (testnet)
-
-## x402
-**An HTTP-native payment standard for agent-to-agent payments.** TrustShell's x402 client handles the
-402-challenge handshake, signs the authorization, and settles the escrow.
-**Related:** RepID, Cascade · **See also:** `executeA2A()` · **Status:** shipped
-
-## Cascade
-**The automatic settlement → fulfillment pipeline.** After payment, a contract moves escrowed → fulfilled
-→ on-chain reputation attestation — autonomously and exactly once.
-**Related:** x402, HAL, RepID · **Status:** shipped (verified live 2026-05-24)
-
-## Trinity Symphony / the Trinity 12
-**The reference 12-agent swarm built on HyperDAG.** SOPHIA, VERITAS, TORCH, NEXUS, HDM, GCM, MEL, APM,
-W3C, CHESED, SHOFET, ORCH — the live demonstration of the primitives (not the protocol itself).
-**Related:** RepID, Constitutional AI · **Status:** shipped
-
-## Constitutional AI / Constitution
-**Rules an agent must satisfy before it acts.** TrustShell enforces a constitutional check (via HAL) so
-an agent can decline or escalate unsafe/ungrounded actions rather than executing them.
-**Related:** HAL · **Status:** shipped
-
-## Plonky3
-**The zero-knowledge proof system used for tier attestations.** STARK proofs, no trusted setup, fast
-WASM browser verification (< 100ms). Verify the math client-side instead of trusting a server.
-**Related:** RepID, ZKP · **See also:** `@hyperdag/proof-verifier` · **Status:** shipped
-
-## Pythagorean Comma
-**An experimental dissonance signal** (`531441/524288`). A small, unresolvable gap from music theory,
-explored as a dissonance amplifier — the hypothesis is that accumulating disagreement could trip a veto.
-**Status: under falsification testing** — promising on synthetic data, not yet validated on real data
-with independent lineage; not a proven production mechanism.
-**Related:** HAL · **Status:** experimental (under testing)
-
-## Defense-in-depth
-**Layered guards so no single bug lets an agent cheat the economy.** Replay/idempotency, double-fulfill,
-self-dealing, RepID-inflation, forged-attestation, and DoS each have an independent guard.
-**Related:** RepID, HAL · **Status:** shipped
-
----
-
-_Fuller protocol-level definitions (ANFIS, BFT internals, ZKP write-back, lifecycle states) live in the
-HyperDAG technical glossary. Questions? See [SUPPORT.md](./SUPPORT.md)._
+Protocol-depth terms are defined once on the HyperDAG side at
+<https://www.hyperdag.org/more> and cross-linked rather than copied here.
