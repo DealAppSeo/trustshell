@@ -333,7 +333,7 @@ export default function PaiPage() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            {agent ? agent.name : 'Your PAI'}
+            {agent ? agent.name : 'Your PAI — Personal Agentic Interface'}
           </h1>
           {/*
             The keyless promise, stated once and only once. Repeating a guarantee reads as

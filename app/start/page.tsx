@@ -319,7 +319,7 @@ function buildPlan(
             ? 'Your provider key is ready to plug in on the Connect page.'
             : 'Or keep using the free shared pool while you test.',
         },
-        { title: 'See HAL verify it', detail: 'Every response gets scored for hallucination in real time.' },
+        { title: 'See HAL verify it', detail: 'Every response gets scored for hallucination detection in real time.' },
         {
           title: 'Publish on-chain',
           detail: hasWallet

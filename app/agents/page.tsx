@@ -55,7 +55,7 @@ export default function AgentsPage() {
         <h2 className="text-3xl font-bold">Your Agents</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
           An <span className="text-white font-medium">agent</span> is a named identity you wrap with TrustShell.
-          Every response is <span className="text-white font-medium">HAL-scored</span> for hallucination, and its
+          Every response is <span className="text-white font-medium">HAL-scored</span> for hallucination detection, and its
           honest behavior earns portable, on-chain <span className="text-white font-medium">RepID</span>. Create one below.
         </p>
       </div>

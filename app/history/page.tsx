@@ -30,8 +30,15 @@ export default function HistoryPage() {
           <h2 className="text-3xl font-bold text-white">Decision history</h2>
           <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
             Your audit trail: every prompt you run is logged here with the model that answered, the HAL verdict,
-            and the resulting <span className="text-white font-medium">RepID</span> change. It&apos;s stored in
-            this browser only — export it any time.
+            and the resulting <span className="text-white font-medium">RepID</span> change. This table is stored in
+            this browser&apos;s IndexedDB and nowhere else — no server-side copy, unencrypted, erased if you clear
+            site data. Export it any time.
+          </p>
+          <p className="text-[#94a3b8] max-w-2xl leading-relaxed text-sm">
+            To be exact about what that does <em>not</em> mean: running a prompt sends it to our router and on to
+            the model provider that answers it, and scoring happens on our server. We retain a 200-character prompt
+            preview for routing quality — never the full prompt or answer. The privacy property here is
+            &ldquo;your history is yours&rdquo;, not &ldquo;nothing left your machine&rdquo;.
           </p>
         </div>
         <button onClick={handleExport} className="shrink-0 px-4 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">

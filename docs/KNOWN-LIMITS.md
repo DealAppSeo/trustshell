@@ -86,6 +86,25 @@ These are rendered distinctly and are never treated as equivalent. A grant with
 `NOT_CHECKED` consent is still a real, enforced grant; what is unproven is that
 the named grantor authorised it.
 
+### Prompts leave your device, and a 200-character preview is retained
+
+The `/history` entry above is about *history rows*. It is not a claim that nothing left
+your machine, and the two are easy to conflate.
+
+Running a prompt sends it to the router (`POST /api/v1/llm/complete`) and on to whichever
+model provider answers it. HAL scoring is a second server-side call. Both are how an
+answer and a score get produced at all — there is no local inference path.
+
+The backend retains `anfis_routing_logs.prompt_preview`, the **first 200 characters** of
+every prompt, on both the success and failure paths, for routing quality. Alongside it:
+provider, model, token counts, latency, cost. **Full prompts and full answers are not
+stored** — several modules say so explicitly, and `routing_decision_records` was designed
+with "no prompt text and no prompt preview" as a stated constraint.
+
+So the accurate claim is *"your history is yours"*, not *"nothing left your machine."* If
+a prompt must never leave your machine, do not send it through a hosted router — this one
+included.
+
 ### Founder Mode events are device-local, with no durable backend
 
 Notes filed in Founder Mode are tagged `actor=founder`, kept out of end-user
