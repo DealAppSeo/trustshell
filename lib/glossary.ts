@@ -340,7 +340,7 @@ export const TERMS: Term[] = [
     definition:
       'Proving a statement is true without revealing the data behind it — verification without surveillance.',
     note:
-      'NOT LIVE HERE. The prover shipping today is a stub: it produces no real proof, and nothing on this site is currently protected by one. It is a contract surface waiting for the real implementation, and we label it rather than let it read as a feature.',
+      'NOT LIVE HERE, and the halves differ. PROVING — producing a proof — is a stub on this site: it generates nothing real, and nothing here is currently protected by one. VERIFYING — checking a proof someone else produced — is shipped and published as `@hyperdag/proof-verifier`. A verifier without a live prover protects nothing yet, so this stays labelled not-live; but the checking half is real code you can read, not a promise.',
     related: ['plonky3', 'selective-disclosure'],
     deeper: { label: 'Privacy terms on HyperDAG', href: `${HYPERDAG_GLOSSARY}#privacy` },
   },
@@ -350,8 +350,13 @@ export const TERMS: Term[] = [
     group: 'privacy',
     status: 'not-live',
     definition: 'The STARK proving system the ZKP design targets.',
-    note: 'Named because it is the plan. Not running — see ZKP.',
+    note:
+      'The PROVER is not running here — see ZKP. The VERIFIER is: `@hyperdag/proof-verifier` v0.2.0 is published on npm under Apache-2.0, a Rust crate compiled to WebAssembly that checks a Plonky3 RepID proof in your own browser or Node process rather than trusting a server that says `verified: true`. It is the strongest single piece of evidence that this is engineering rather than positioning — and it is waiting for the prover, not the other way round.',
     related: ['zkp'],
+    deeper: {
+      label: '@hyperdag/proof-verifier on npm',
+      href: 'https://www.npmjs.com/package/@hyperdag/proof-verifier',
+    },
   },
   {
     slug: 'selective-disclosure',
