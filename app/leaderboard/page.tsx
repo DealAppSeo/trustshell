@@ -65,6 +65,31 @@ const fmt = (n: number | null | undefined, digits = 2) =>
   n == null || Number.isNaN(n) ? '—' : n.toFixed(digits);
 const fmtInt = (n: number | null | undefined) =>
   n == null || Number.isNaN(n) ? '—' : Math.round(n).toLocaleString();
+/**
+ * How old is this board, in whole days? `null` when we have no timestamp at all —
+ * which is NOT the same as "fresh" and must not render as it.
+ */
+const ageInDays = (iso: string | null): number | null => {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / 86_400_000);
+};
+
+/**
+ * Say the age in words a reader does not have to do arithmetic on. A leaderboard is
+ * read as "how things stand NOW", so anything but a fresh board has to correct that
+ * assumption on sight rather than in a footnote.
+ */
+const ageLabel = (days: number): string => {
+  if (days <= 0) return 'Scored today';
+  if (days === 1) return 'Scored yesterday';
+  if (days < 7) return `Scored ${days} days ago`;
+  if (days < 14) return 'Scored over a week ago';
+  if (days < 60) return `Scored ${Math.floor(days / 7)} weeks ago`;
+  return `Scored ${Math.floor(days / 30)} months ago`;
+};
+
 const fmtDate = (iso: string | null) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -137,6 +162,7 @@ export default function LeaderboardPage() {
 
   const lastUpdated =
     board === 'agents' ? agents?.last_updated : models?.last_updated;
+  const staleDays = ageInDays(lastUpdated ?? null);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12 space-y-10">
@@ -149,10 +175,45 @@ export default function LeaderboardPage() {
           Leaderboard.
         </h1>
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-3xl">
-          Live RepID scoring from the public repid-engine — agents earn
+          RepID scoring from the public repid-engine — agents earn
           reputation by predicting well and calibrating honestly. Per-model
           boards rank the underlying LLMs on the same task.
         </p>
+
+        {/*
+          FRESHNESS, STATED UP FRONT. The figures below come from the most recent
+          evaluation round, and rounds do not run on a schedule — so a board can be
+          weeks old while looking exactly as authoritative as a fresh one. Reading a
+          leaderboard as "how things stand now" is the natural assumption, so the page
+          corrects it on sight rather than in a footnote at 40% opacity below the fold.
+          Never colour-only: the age is always spelled out in words.
+        */}
+        {!loading && !error && (
+          <p
+            className={`inline-flex items-center gap-2 text-sm rounded-lg border px-3 py-2 ${
+              staleDays === null || staleDays >= 7
+                ? 'border-border text-muted'
+                : 'border-accent/40 text-foreground'
+            }`}
+          >
+            <span aria-hidden="true">◷</span>
+            {staleDays === null ? (
+              <span>
+                <strong className="text-foreground">Age unknown</strong> — this board carries
+                no round timestamp, so we cannot tell you how current it is. That is an
+                absence, not a claim that it is fresh.
+              </span>
+            ) : (
+              <span>
+                <strong className="text-foreground">{ageLabel(staleDays)}</strong>
+                {staleDays >= 7 && (
+                  <> — rounds run when we run them, not on a schedule. Treat these standings
+                  as of {fmtDate(lastUpdated ?? null)}, not as of today.</>
+                )}
+              </span>
+            )}
+          </p>
+        )}
       </header>
 
       {/* BOARD TABS */}
