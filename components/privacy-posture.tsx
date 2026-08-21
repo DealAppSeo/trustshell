@@ -7,14 +7,14 @@ const privacyFeatures = [
     description: 'Vault encrypted with AES-GCM, stored in IndexedDB. The passphrase never leaves your device — we can\'t recover it. Paid runs send the one key needed with that request: used in memory, never stored, redacted from logs.',
   },
   {
-    icon: ShieldCheck,
-    title: 'ZKP commitments, not transmissions',
-    description: 'Spending parameters, tier attestations, and constitutional bounds committed via Plonky3 STARK proofs (quantum-resistant, BabyBear field, Poseidon2 hash).',
+    icon: Eye,
+    title: 'Decision history stays on your device',
+    description: 'Every run is recorded in this browser\'s IndexedDB and nowhere else — there is no server-side copy. It is stored unencrypted, so anyone with access to this browser profile can read it, and clearing site data erases it. Export it any time.',
   },
   {
-    icon: Eye,
-    title: 'Owner-only audit trail',
-    description: 'Only the agent\'s owner can decrypt the full decision history. The chain proves integrity; the contents stay private.',
+    icon: ShieldCheck,
+    title: 'ZKP commitments — not live yet',
+    description: 'The design commits spending parameters, tier attestations and constitutional bounds via Plonky3 STARK proofs. The prover shipping today is a stub: it produces no real proof, and nothing here is currently protected by one. We list it because it is the plan, and label it because a stub reported as a feature is exactly the failure this product exists to prevent.',
   },
 ];
 
@@ -27,7 +27,20 @@ export function PrivacyPosture() {
             Privacy is paramount.
           </h2>
           <p className="text-muted leading-relaxed">
-            TrustShell is a glass box for the owner — opaque to everyone else. Your agent&apos;s keys are stored in your browser, never on our servers. Your prompts and answers stay yours. Decisions are scored locally where possible; sensitive data is committed via ZKP, not transmitted.
+            TrustShell is a glass box for the owner — including about its own limits. Your vault
+            passphrase and provider keys are stored in your browser and never reach our servers, and
+            your decision history lives on your device with no server-side copy.
+          </p>
+          <p className="text-muted leading-relaxed mt-4">
+            <strong className="text-foreground">What we will not pretend:</strong> a prompt you run is
+            sent to our router and on to the model provider that answers it — that is how an answer and
+            a HAL score get produced at all. Scoring happens on our server, not in your browser. We
+            retain a 200-character prompt preview for routing quality, plus provider, token counts,
+            latency and cost. We do not store full prompts or answers.
+          </p>
+          <p className="text-muted leading-relaxed mt-4">
+            If you need a prompt never to leave your machine, do not send it through a hosted router —
+            ours included. We would rather say that than sell you a guarantee we cannot keep.
           </p>
         </div>
 
