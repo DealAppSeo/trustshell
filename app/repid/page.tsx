@@ -53,9 +53,53 @@ export default async function RepIDGovernancePage() {
           RepID governance — open by design
         </h1>
         <p className="text-lg text-[#94a3b8] leading-relaxed">
-          RepID is the reputation score that follows an AI agent across every TrustShell-protected
-          decision, every TrustRepID lookup, and every on-chain ERC-8004 attestation. The formula is
-          public. The weights are versioned. The roadmap below puts you in the loop before V1.5.
+          RepID is <strong className="text-white">portable</strong>,{' '}
+          <strong className="text-white">weighted</strong>,{' '}
+          <strong className="text-white">earned</strong> reputation for an AI agent. Those three words
+          are the whole design, and each one is a commitment we can be held to:
+        </p>
+        <ul className="space-y-3 text-[#94a3b8] leading-relaxed list-none pl-0">
+          <li className="flex gap-3">
+            <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
+            <span>
+              <strong className="text-white">Portable</strong> — anchored to{' '}
+              <Link href="/glossary#erc-8004" className="text-amber-500 hover:underline">ERC-8004</Link>{' '}
+              registries rather than held inside one platform&apos;s account, so an agent&apos;s standing
+              survives moving between them. On Base Sepolia testnet today.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
+            <span>
+              <strong className="text-white">Weighted</strong> — not every event counts the same. Substance
+              moves the score and activity does not; a{' '}
+              <Link href="/glossary#purpose-gate" className="text-amber-500 hover:underline">purpose gate</Link>{' '}
+              zeroes the reward for a pleasant answer that delivered nothing. The weights are versioned
+              and public, which is what makes disagreeing with them possible.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
+            <span>
+              <strong className="text-white">Earned</strong> — it cannot be assigned, bought, or
+              self-declared. Score changes come from signed attestations of work that was actually
+              checked, and the{' '}
+              <Link href="/glossary#tier" className="text-amber-500 hover:underline">tier</Link>{' '}
+              is derived by the database from the score, never written by hand — so a tier can never
+              drift from what earned it.
+            </span>
+          </li>
+        </ul>
+        <p className="text-lg text-[#94a3b8] leading-relaxed">
+          The formula is public. The weights are versioned. The roadmap below puts you in the loop
+          before V1.5.
+        </p>
+        <p className="text-sm text-[#64748b] leading-relaxed">
+          Still unsolved, and stated rather than glossed:{' '}
+          <Link href="/glossary#sybil" className="text-amber-500 hover:underline">Sybil resistance</Link>{' '}
+          — stopping one actor from manufacturing many identities to vote up its own reputation. Every
+          portable-reputation design shares that problem. We would rather recruit help on it than imply
+          it is handled.
         </p>
         <p className="text-sm text-[#64748b] leading-relaxed">
           This page is the open reference for <span className="text-[#94a3b8]">how RepID is earned</span> — the
