@@ -101,7 +101,27 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         } else if (data.error === 'daily_cap') {
           setError(data.message || "You've reached today's run limit — it resets tomorrow.");
         } else if (data.error === 'Max routing attempts reached') {
-          setError('Free tier exhausted. Add a paid key in /connect or wait a minute.');
+          // DO NOT name a cause here. The backend sends this when it tried its
+          // providers and every one failed -- for ANY reason. It does not say why.
+          //
+          // This branch used to read "Free tier exhausted. Add a paid key in
+          // /connect or wait a minute." On 2026-08-21 a user hit it on their FIRST
+          // run of the day and all three claims were false: seven days of call logs
+          // held no quota error at all, the real cause was two providers configured
+          // with model ids their vendors had retired, and no amount of waiting was
+          // ever going to clear that.
+          //
+          // Inventing a specific, confident cause is worse than admitting we do not
+          // have one -- it sends the user to fix something that is not broken, and
+          // it is precisely the failure mode this product exists to argue against.
+          //
+          // The /connect suggestion SURVIVES, because it is independently true:
+          // bringing your own key routes to the paid tier and goes around whatever
+          // failed here. It is offered as a workaround now, not as a diagnosis.
+          setError(
+            data.message ||
+              'Couldn’t reach a working model. Every provider we tried failed — that’s on our side, not a limit on your account. Adding your own key on /connect routes around it, or try again shortly.',
+          );
         } else {
           setError(data.error || 'Request failed');
         }
