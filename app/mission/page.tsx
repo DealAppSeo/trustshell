@@ -50,6 +50,64 @@ export default function MissionPage() {
         </p>
       </section>
 
+      {/* What a trust harness is */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-bold text-white">What a trust harness actually is</h2>
+        <p className="text-[#94a3b8] leading-relaxed">
+          TrustShell is a <strong className="text-white">portable agentic trust harness</strong>. A
+          harness wraps an agent you already have rather than replacing it — you don&apos;t rearchitect
+          anything, and you don&apos;t adopt a platform. It sits between your agent and whichever model
+          answers, and it carries three things across that boundary: who the agent is, what rules it
+          agreed to operate under, and what it has actually earned.
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          <strong className="text-white">Portable</strong> is the load-bearing word. Reputation held
+          inside one vendor&apos;s account is that vendor&apos;s asset, and switching providers resets you
+          to zero — which is precisely what makes lock-in feel inevitable. An agent&apos;s standing here
+          is anchored on-chain and travels with it, so changing model is a routing decision rather than
+          starting over.
+        </p>
+        <p className="text-[#94a3b8] leading-relaxed">
+          In practice that means three things a developer can check rather than take on faith:
+        </p>
+        <ul className="space-y-3 text-[#94a3b8] leading-relaxed list-none pl-0">
+          <li className="flex gap-3">
+            <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
+            <span>
+              <strong className="text-white">Spend less on tokens.</strong> Runs route to free-tier
+              models first and reach paid ones only when the free tier is exhausted or the work needs
+              more — with the paid fallbacks themselves ordered cheapest-first.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
+            <span>
+              <strong className="text-white">No vendor lock-in.</strong> You bring your own keys. Your
+              agent, its constitution and its earned{' '}
+              <Link href="/glossary#repid" className="text-amber-500 hover:underline">RepID</Link>{' '}
+              are not held by the provider answering the prompt, so leaving one costs you nothing but a
+              config change.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
+            <span>
+              <strong className="text-white">State that persists with the agent, not the vendor.</strong>{' '}
+              Identity, constitution and standing follow the agent across models. Your provider keys sit
+              in an encrypted browser vault we never receive. Your decision history stays on your device
+              — and to be exact rather than flattering, it is stored there <em>unencrypted</em>, so it is
+              private from us but not from someone holding your laptop. We would rather you knew which
+              of those two things we are actually claiming.
+            </span>
+          </li>
+        </ul>
+        <p className="text-[#94a3b8] leading-relaxed">
+          Every term above is defined, with its own link, in the{' '}
+          <Link href="/glossary" className="text-amber-500 hover:underline">glossary</Link> — including
+          the parts that are not built yet, which are labelled as such.
+        </p>
+      </section>
+
       {/* The people rank the models */}
       <section className="space-y-4">
         <h2 className="text-2xl font-bold text-white">The people rank the models</h2>
