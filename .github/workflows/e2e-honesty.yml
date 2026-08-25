@@ -1,0 +1,106 @@
+# The honesty properties, exercised on a schedule — never on a pull request.
+#
+# WHAT THIS GATES, AND WHY IT IS NOT IN check.yml.
+# tests/e2e/mvp-walk.mjs and tests/e2e/grants-fail-closed.mjs pin the behaviour
+# this product is actually built on, and it is behaviour no unit test reaches:
+#
+#   - a passport 503 must NOT read as "no agent found" — asserting absence from a
+#     failed lookup is the same lie as an empty grants list standing in for an
+#     unreachable service
+#   - a 503 grants list must NOT render an empty state, which would assert
+#     "nothing can act for you" when the truth is "we could not check"
+#   - a refused revoke (403) must be shown, not swallowed
+#   - unsigned mint consent must read NOT_CHECKED, not a tick
+#
+# Those are one refactor from breaking at all times, and until this workflow
+# existed NOTHING exercised them. Both suites shipped as exit-2 NOT_CHECKED
+# because Playwright is not a dependency — honest, but it meant they had never
+# run at all.
+#
+# check.yml deliberately excludes tests/e2e/, and that decision is correct and is
+# NOT being reversed here: these need a browser and a server, and a gate that
+# reddens for environmental reasons gets ignored within a week. An ignored gate
+# is worse than no gate.
+#
+# So this is a SEPARATE workflow with a schedule + manual trigger and NO
+# pull_request trigger. The consequence is deliberate and worth stating plainly:
+#   - PR feedback stays fast, and no contributor's push installs a browser
+#   - `npm ci` on a PR is untouched — Playwright is installed only in this job
+#   - a red here NEVER blocks a merge; it is a signal to a human, not a gate
+#
+# That last line is the trade. This will not stop a bad merge. It will tell you,
+# within a day, that the honesty properties stopped holding — which is strictly
+# more than the zero coverage they had before.
+
+name: e2e-honesty
+
+on:
+  schedule:
+    # 06:20 UTC daily. Not on the hour: scheduled runners are heavily contended
+    # at :00 and GitHub drops queued cron jobs under load, which would show up
+    # here as "the suite silently stopped running" — the exact class of failure
+    # this repository treats as worse than a red.
+    - cron: '20 6 * * *'
+  workflow_dispatch:
+    inputs:
+      ref_note:
+        description: 'Why this manual run? (recorded on the run itself)'
+        required: false
+        default: 'manual check of the honesty properties'
+
+# A scheduled run only ever needs to read the repo.
+permissions:
+  contents: read
+
+jobs:
+  honesty:
+    runs-on: ubuntu-latest
+    # Generous but bounded: the walk builds the app and drives a real browser.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Note why this ran
+        run: echo "ref_note = ${{ inputs.ref_note || 'scheduled' }}"
+
+      - run: npm ci
+
+      # Playwright lives ONLY in this job. It is deliberately not a dependency of
+      # the package (see the header of tests/e2e/mvp-walk.mjs) so that no PR pays
+      # for a browser it will never launch.
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@^1.62.1
+          npx playwright install --with-deps chromium
+
+      # Each suite runs even if the previous one failed, so one broken surface
+      # does not hide the state of the other.
+      - name: MVP walk
+        id: mvp
+        run: npm run test:mvp-walk
+
+      - name: Grants fail-closed
+        id: grants
+        if: ${{ always() }}
+        run: npm run test:grants-fail-closed
+
+      # Exit 2 is this repo's NOT_CHECKED, and it must never be read as a pass.
+      # If a suite reports it here — where a browser and a server are both
+      # present — the environment did not do what this workflow exists to
+      # provide, and that is a failure of the workflow, not an absence of signal.
+      - name: A NOT_CHECKED here is a failure of this workflow
+        if: ${{ always() }}
+        run: |
+          mvp='${{ steps.mvp.outcome }}'
+          grants='${{ steps.grants.outcome }}'
+          echo "mvp-walk: $mvp | grants-fail-closed: $grants"
+          if [ "$mvp" != 'success' ] || [ "$grants" != 'success' ]; then
+            echo "::error::An honesty suite did not pass. This does not block any merge — read the logs and fix it deliberately."
+            exit 1
+          fi
+          echo 'Both honesty suites passed against a real browser.'
