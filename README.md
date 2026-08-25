@@ -49,7 +49,7 @@ Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdi
 | `getRepID(agentId)` | ✅ | current RepID + tier (public read) |
 | `presentProof(agentId)` | ✅ | RepID range proof for client-side verify |
 | `register(...)` | ✅ | public agent onboarding |
-| `listServices()` / `getService(id)` | 🔑 | catalog read is **API-key gated on the deployed backend today** (401 without a key). Browse the same live catalog keyless at **[trustshell.dev/market](https://trustshell.dev/market)**. The backend change opening this read keylessly is written and under review; this row flips to ✅ when it deploys, and not before. |
+| `listServices()` / `getService(id)` | ✅ | catalog read, **verified keyless against the deployed backend** (200, no key). Writes to the same paths — create, reprice, delete a listing — stay key-gated. Browse the same catalog in a browser at **[trustshell.dev/market](https://trustshell.dev/market)**. |
 | `executeA2A(...)` / `buildX402Payment(...)` | 🔑 + 💰 | agent-to-agent purchase; **needs API key AND a funded Base Sepolia wallet** (real EIP-3009 x402 settlement) |
 
 We say this plainly on purpose: **nothing here claims more than actually runs.**
@@ -149,16 +149,16 @@ Runnable version: [`examples/quickstart/quickstart.mjs`](examples/quickstart/qui
 
 ## Discover → buy → receipt (agent-to-agent)
 
-The full A2A loop: find a verified service, buy it, get a verifiable receipt. This path **moves real Base Sepolia testnet value**, so it needs an API key and a funded wallet.
+The full A2A loop: find a verified service, buy it, get a verifiable receipt. Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
 
 ```ts
 import { TrustShell, buildX402Payment } from '@hyperdag/trustshell';
 
 const { client } = await TrustShell.init({
-  apiKey: process.env.REPID_API_KEY,          // required for discovery + purchase
+  apiKey: process.env.REPID_API_KEY,          // required for the purchase, not for the discovery
 });
 
-// DISCOVER — list the live marketplace (key-gated today; see table above).
+// DISCOVER — list the live marketplace. Keyless: you can browse before you commit a key.
 const { services } = await client.listServices({ type: 'verification' });
 const svc = services[0]; // e.g. "Verify-a-claim / HAL fact-check" by trinity-shofet, $0.05
 
