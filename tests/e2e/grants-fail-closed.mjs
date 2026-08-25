@@ -25,12 +25,14 @@
  *
  *     npm run test:grants-fail-closed
  *
- * Requires a Chromium that Playwright can find. In this sandbox that is
- * PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers; elsewhere `npx playwright install chromium`.
+ * Requires a Chromium. Elsewhere, `npx playwright install chromium` is enough — the binary is
+ * resolved per-environment by ./chromium-path.mjs, which explains why a path that is REQUIRED
+ * in an agent sandbox must not be used in CI, and vice versa. Override with PLAYWRIGHT_CHROMIUM.
  */
 
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { chromiumExecutablePath, LAUNCH_ARGS } from './chromium-path.mjs';
 
 // Playwright is deliberately NOT a dependency of this package. CI does not run this suite
 // (see the header), so declaring it would install a browser driver on every pull request for
@@ -211,14 +213,12 @@ if (!(await waitForApp(`${base}/grants`))) {
   process.exit(1);
 }
 
-// `--no-proxy-server` is required, not hygiene. In a sandboxed environment Chromium honours
-// the ambient HTTPS_PROXY for every host INCLUDING loopback, so the browser-side revoke fetch
-// to 127.0.0.1 dies as "Failed to fetch" while the server-side list fetch — Node, which does
-// not use that proxy — succeeds against the same origin. The asymmetry is the tell, and
-// without this flag it reads as "revoke is broken" when the product is fine.
+// Both the executable path and `--no-proxy-server` are environment questions, and the
+// reasoning for each now lives in ./chromium-path.mjs — including why the sandbox needs an
+// explicit path that must NOT be used in CI, which is what broke this suite's first real run.
 const browser = await chromium.launch({
-  executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? '/opt/pw-browsers/chromium',
-  args: ['--no-proxy-server'],
+  executablePath: chromiumExecutablePath(),
+  args: LAUNCH_ARGS,
 });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
 const page = await ctx.newPage();

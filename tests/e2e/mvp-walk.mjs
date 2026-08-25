@@ -34,6 +34,7 @@
 
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { chromiumExecutablePath, LAUNCH_ARGS } from './chromium-path.mjs';
 
 // Playwright is deliberately not a dependency of this package (CI does not run this suite, so
 // declaring it would install a browser driver on every PR for no gating benefit). Absent, this
@@ -105,7 +106,7 @@ const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], { env, s
 const base = `http://127.0.0.1:${APP_PORT}`;
 for (let i = 0; i < 120; i++) { try { if ((await fetch(`${base}/pai`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 500)); }
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-proxy-server'] });
+const browser = await chromium.launch({ executablePath: chromiumExecutablePath(), args: LAUNCH_ARGS });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } });
 const page = await ctx.newPage();
 const errs = [];
