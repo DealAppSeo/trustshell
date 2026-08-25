@@ -49,7 +49,7 @@ Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdi
 | `getRepID(agentId)` | ✅ | current RepID + tier (public read) |
 | `presentProof(agentId)` | ✅ | RepID range proof for client-side verify |
 | `register(...)` | ✅ | public agent onboarding |
-| `listServices()` / `getService(id)` | 🔑 | catalog read is **API-key gated on the deployed backend today** (401 without a key). Browse the same live catalog keyless at **[trustshell.dev/market](https://trustshell.dev/market)**. Making this route public keyless is a one-line backend change staged for Sean. |
+| `listServices()` / `getService(id)` | 🔑 | catalog read is **API-key gated on the deployed backend today** (401 without a key). Browse the same live catalog keyless at **[trustshell.dev/market](https://trustshell.dev/market)**. The backend change opening this read keylessly is written and under review; this row flips to ✅ when it deploys, and not before. |
 | `executeA2A(...)` / `buildX402Payment(...)` | 🔑 + 💰 | agent-to-agent purchase; **needs API key AND a funded Base Sepolia wallet** (real EIP-3009 x402 settlement) |
 
 We say this plainly on purpose: **nothing here claims more than actually runs.**
@@ -125,16 +125,23 @@ if (!health.ok) throw new Error('backend unreachable');
 // 2) verifyOutput() — is this agent output trustworthy?
 const good = await client.verifyOutput('The capital of France is Paris.');
 console.log(good.verdict, good.trustScore, good.evidence);
-// → PASS 100 [ 'groq:TRUE (...)', 'cerebras:TRUE (...)' ]
+// → PASS 100 [ 'gemini:TRUE (...)', 'mistral:TRUE (...)', 'openrouter:TRUE (...)' ]
 
 const bad = await client.verifyOutput('The Eiffel Tower is located in Rome, Italy.');
 console.log(bad.verdict, bad.trustScore, bad.evidence);
-// → VETO 0 [ 'groq:FALSE (Eiffel Tower in Paris, France)', 'cerebras:FALSE (...)' ]
+// → VETO 0 [ 'gemini:FALSE (Eiffel Tower is in Paris, France)', ... ]
 
 // 3) getRepID() — any agent's live reputation (public read).
 const rep = await client.getRepID('trinity-shofet');
-console.log(rep.repid, rep.tier);   // → 1390 ESTABLISHED
+console.log(rep.repid, rep.tier);   // → 2110 ESTABLISHED
 ```
+
+**Two things in that output move, and the comments above are illustrative rather than
+promised.** *Which providers* answer is chosen by the live quorum — you may see
+`groq`/`cerebras` instead of the three shown, and the count varies with availability;
+what is fixed is that the verdict is backed by named cross-provider evidence, each with
+a reason. And `repid` is a **live score that changes** — gate on `tier`, or on your own
+threshold against `repid`, never on a specific number copied from a README.
 
 Runnable version: [`examples/quickstart/quickstart.mjs`](examples/quickstart/quickstart.mjs). See [`examples/quickstart/QUICKSTART.md`](examples/quickstart/QUICKSTART.md).
 
@@ -198,10 +205,11 @@ npm install -g @hyperdag/trustshell     # or: npx @hyperdag/trustshell verify "�
 trustshell verify "The capital of France is Paris."
 # ✓ PASS  trust 100/100
 #   evidence:
-#     - groq:TRUE (Officially recognized capital of France)
-#     - cerebras:TRUE (Paris is the official capital of France.)
+#     - gemini:TRUE (Paris is the capital of France.)
+#     - mistral:TRUE (Paris is widely recognized as capital of France)
+#     - openrouter:TRUE (Paris is the capital of France.)
 
-trustshell repid trinity-shofet          # → RepID 1585  (ESTABLISHED)
+trustshell repid trinity-shofet          # → RepID 2110  (ESTABLISHED) — live, moves
 trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
 trustshell badge trinity-shofet          # → a portable SVG badge (see below)
 trustshell badge trinity-shofet --markdown  # → a README-pasteable snippet
