@@ -28,9 +28,19 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { TrustShell } from '../lib/trustshell';
+import { resolvePackageVersion } from '../lib/version';
 
-/** Package version — kept in sync with package.json at release time. */
-export const MCP_VERSION = '1.2.0';
+/**
+ * Package version — read from package.json at runtime, never retyped here.
+ *
+ * Was a hardcoded literal, last touched at `'1.2.0'` and never updated
+ * through the 1.3.0 release — the same bug the CLI's `resolveVersion()` (now
+ * `../lib/version.ts`, shared by both) already fixed once, one file over,
+ * without the fix being generalized past that one call site. See that
+ * module's header for why this is a runtime `readFileSync` and not a static
+ * `import pkg from '../../package.json'`.
+ */
+export const MCP_VERSION = resolvePackageVersion(__dirname);
 
 /** Build the SDK client from env (apiKey + apiUrl are both optional; reads are keyless). */
 export function makeClient(): TrustShell {

@@ -5,6 +5,8 @@
  * tool's handler delegates to the injected SDK client (a mock — NO live backend). Mirrors the CLI
  * test's injectable-client pattern so tool wiring is provable without hitting the network.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createServer, makeClient, MCP_VERSION } from '../src/mcp/index';
 import { TrustShell } from '../src/lib/trustshell';
 
@@ -39,8 +41,17 @@ describe('trustshell MCP server', () => {
     expect(names).toEqual(['getLeaderboard', 'getRepID', 'verify']);
   });
 
-  it('exposes version 1.2.0', () => {
-    expect(MCP_VERSION).toBe('1.2.0');
+  // Deliberately NOT a hardcoded literal — a literal is exactly the bug this
+  // pins against (MCP_VERSION sat at '1.2.0' through the 1.3.0 release,
+  // because a hardcoded assertion would have stayed green while it drifted).
+  // Reads package.json independently and compares, mirroring cli.test.ts's
+  // 'reported version' suite for the same fix on the CLI side.
+  it('reports the actual installed package version, not a stale literal', () => {
+    const pkgVersion = (
+      JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as { version: string }
+    ).version;
+    expect(MCP_VERSION).toBe(pkgVersion);
+    expect(MCP_VERSION).not.toBe('unknown');
   });
 
   it('makeClient builds a TrustShell without throwing', () => {
