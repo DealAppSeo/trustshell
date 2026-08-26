@@ -2,6 +2,12 @@
 
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+// Read from package.json, never retyped here — this string sat at 'v1.1.0'
+// through the 1.2.0 and 1.3.0 releases (see src/lib/version.ts for the SDK's
+// identical bug and why it's a runtime read there instead of an import: this
+// component isn't under the SDK's rootDir-constrained tsconfig, so a plain
+// import is the simpler fix here).
+import packageJson from '../package.json';
 
 export function Hero() {
   const [copied, setCopied] = useState(false);
@@ -62,7 +68,7 @@ export function Hero() {
             </span>
           </button>
           <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : 'npm package v1.1.0'}
+            {copied ? 'Copied to clipboard!' : `npm package v${packageJson.version}`}
           </span>
         </div>
 
