@@ -123,7 +123,11 @@ export const STAKE_AUTH_ERRORS: Record<string, string> = {
 
 /**
  * Read the current stake total + authority ceiling for a builder/agent.
- * Wired to GET /api/v1/stake/authority/:builder_id (v1.ts:404).
+ * Wired to GET /api/v1/stake/authority/:builder_id.
+ *
+ * Returns null on ANY failure — refused, server error, unreachable — so a caller cannot tell
+ * those apart and MUST NOT render a reason it does not have. See the note in
+ * fetchStakePositions; the same 401 that looked like an unfinished backend was an auth gate.
  */
 export async function fetchAuthority(builderId: string): Promise<AuthoritySnapshot | null> {
   try {
@@ -154,7 +158,12 @@ export async function fetchStakePositions(agent: string): Promise<{
   total_active_usdc: number;
   positions: StakePosition[];
 } | null> {
-  // TODO(review): confirm canonical endpoint. Using mvp-api /staking/:agent shape.
+  // ENDPOINT CONFIRMED 2026-08-28, and the TODO that used to sit here was wrong in a way
+  // worth recording: it read "confirm canonical endpoint", which invited the reader to
+  // conclude the backend was unfinished. It is not. This path exists, is mounted, and
+  // answers — it was returning 401 because it sat behind auth while this call sends no key
+  // (repid-engine#504 opens the read). "Unfinished" and "gated" look identical from here,
+  // and guessing between them is what put a false claim on the stake page.
   try {
     const res = await fetch(
       `${REPID_ENGINE_URL}/api/v1/staking/${encodeURIComponent(agent)}`
