@@ -1,3 +1,4 @@
+import { OG_IMAGE } from '@/lib/site';
 import Link from 'next/link';
 
 export const metadata = {
@@ -8,6 +9,7 @@ export const metadata = {
     title: 'What Makes a Good Earned Reputation? — TrustShell',
     description:
       'Sybil-resistant, privacy-preserving, federated reputation is the shared unsolved problem. Come build it with us.',
+    images: OG_IMAGE,
     type: 'article',
     url: 'https://trustshell.dev/earned-trust',
   },
