@@ -98,11 +98,42 @@ const note = (ok, what, detail = '') => {
   console.log(`${ok ? 'OK  ' : 'GAP '} ${what}${detail ? ` — ${detail}` : ''}`);
 };
 
+/**
+ * REFUSE TO RUN AGAINST A SERVER THIS PROCESS DID NOT START (added 2026-08-28).
+ *
+ * MEASURED FAULT, not defensive tidiness. `spawn('npx', ['next','start'])` + `app.kill()`
+ * kills the npx WRAPPER and leaves the `next-server` child alive holding the port. The next
+ * run's readiness probe connects to that survivor immediately, this run's `next build` output
+ * is never served, and every assertion is evaluated against a FROZEN SNAPSHOT of whatever the
+ * code looked like on the first run.
+ *
+ * Found by injecting a deliberate bug and watching a sibling suite still report all-pass.
+ * Four orphaned next-servers were alive at the time and the port answered with no suite
+ * running — one of them was stale enough to 404 on a page that exists. A suite that cannot
+ * fail is worse than none, because it also reports safety.
+ *
+ * Occupied port => exit 2 (NOT_CHECKED). Never a silent pass.
+ */
+let __portBusy = false;
+try {
+  const __probe = await fetch(`http://127.0.0.1:${APP_PORT}/`, { signal: AbortSignal.timeout(2000) });
+  __portBusy = !!__probe;
+} catch { /* nothing listening — the state we want */ }
+if (__portBusy) {
+  console.error(`NOT_CHECKED: port ${APP_PORT} is already serving. This suite refuses to test a`);
+  console.error('  server it did not start — it would silently assert against a stale build.');
+  console.error('  Clear it first:  pkill -f next-server');
+  process.exit(2);
+}
+
 await new Promise((r) => engine.listen(ENGINE_PORT, r));
 const env = { ...process.env, NEXT_PUBLIC_REPID_ENGINE_URL: `http://127.0.0.1:${ENGINE_PORT}` };
 const b = spawn('npx', ['next', 'build'], { env, stdio: 'ignore' });
 if ((await new Promise((r) => b.on('exit', r))) !== 0) { console.error('build failed'); engine.close(); process.exit(1); }
-const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], { env, stdio: 'ignore' });
+// `detached` puts the server in its own process GROUP so the whole tree dies with killApp().
+const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], { env, stdio: 'ignore', detached: true });
+const killApp = () => { try { process.kill(-app.pid, 'SIGKILL'); } catch { try { app.kill('SIGKILL'); } catch {} } };
+process.on('exit', killApp);
 const base = `http://127.0.0.1:${APP_PORT}`;
 for (let i = 0; i < 120; i++) { try { if ((await fetch(`${base}/pai`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 500)); }
 
@@ -225,7 +256,7 @@ try {
 } catch (e) {
   note(false, 'walk aborted', e.message.split('\n')[0]);
 } finally {
-  await browser.close(); app.kill(); engine.close();
+  await browser.close(); killApp(); engine.close();
 }
 
 const gaps = findings.filter((f) => !f.ok);
