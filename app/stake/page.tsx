@@ -420,8 +420,17 @@ export default function StakePage() {
             </div>
             {positions == null ? (
               <div className="p-6 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl text-sm">
-                {/* TODO(review): canonical read endpoint not finalized — see fetchStakePositions. */}
-                Stake positions unavailable. The per-agent read surface is still being finalized on the backend.
+                {/* DO NOT NAME A CAUSE HERE. This branch is reached on any failure — refused,
+                    server error, unreachable — and the client collapses all of them to null, so
+                    the reason is not knowable from this component.
+
+                    It previously read "still being finalized on the backend", which was FALSE:
+                    the endpoint exists, is mounted and answers; it was returning 401 because the
+                    read sat behind auth (repid-engine#504 opens it). A page that invents a cause
+                    is the failure this product is built to refuse, and it was doing it in the
+                    one place a user checks their own collateral. */}
+                Stake positions could not be read. This is not the same as having none — nothing
+                was measured either way, so no total is shown rather than a zero.
               </div>
             ) : positions.positions.length === 0 ? (
               <div className="p-6 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl text-sm">

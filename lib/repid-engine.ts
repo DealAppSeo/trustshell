@@ -123,7 +123,11 @@ export const STAKE_AUTH_ERRORS: Record<string, string> = {
 
 /**
  * Read the current stake total + authority ceiling for a builder/agent.
- * Wired to GET /api/v1/stake/authority/:builder_id (v1.ts:404).
+ * Wired to GET /api/v1/stake/authority/:builder_id.
+ *
+ * Returns null on ANY failure — refused, server error, unreachable — so a caller cannot tell
+ * those apart and MUST NOT render a reason it does not have. See the note in
+ * fetchStakePositions; the same 401 that looked like an unfinished backend was an auth gate.
  */
 export async function fetchAuthority(builderId: string): Promise<AuthoritySnapshot | null> {
   try {
@@ -154,7 +158,12 @@ export async function fetchStakePositions(agent: string): Promise<{
   total_active_usdc: number;
   positions: StakePosition[];
 } | null> {
-  // TODO(review): confirm canonical endpoint. Using mvp-api /staking/:agent shape.
+  // ENDPOINT CONFIRMED 2026-08-28, and the TODO that used to sit here was wrong in a way
+  // worth recording: it read "confirm canonical endpoint", which invited the reader to
+  // conclude the backend was unfinished. It is not. This path exists, is mounted, and
+  // answers — it was returning 401 because it sat behind auth while this call sends no key
+  // (repid-engine#504 opens the read). "Unfinished" and "gated" look identical from here,
+  // and guessing between them is what put a false claim on the stake page.
   try {
     const res = await fetch(
       `${REPID_ENGINE_URL}/api/v1/staking/${encodeURIComponent(agent)}`
@@ -370,4 +379,76 @@ export async function purchaseService(input: {
     return { ok: false, error: data?.error || `trade failed (${res.status})`, ...data };
   }
   return { ok: true, ...data };
+}
+
+// ---------------------------------------------------------------------------
+// Publish queue — the verification record for anything an agent wants to post.
+//
+// Wired to repid-engine's src/routes/social-queue.ts. The read is deliberately keyless and
+// returns METADATA ONLY — id, platform, status, verdict, score, mode, author, timestamps.
+// The draft copy itself is never returned, so this client cannot display unpublished content
+// and must not pretend to.
+// ---------------------------------------------------------------------------
+
+export type QueuedDraft = {
+  id: number;
+  platform: string | null;
+  status: string | null;
+  /** clean | flagged | vetoed | abstain, or NULL meaning NOT CHECKED — never a pass. */
+  hal_decision: string | null;
+  hal_score: number | null;
+  hal_mode: string | null;
+  agent_id: string | null;
+  verified_at: string | null;
+  scheduled_for: string | null;
+  posted_at: string | null;
+  post_url: string | null;
+  created_at: string | null;
+};
+
+export type QueueRead =
+  | { kind: 'ok'; count: number; unverified: number; drafts: QueuedDraft[] }
+  /**
+   * The backend refused the read, and WE CANNOT TELL WHY FROM OUT HERE.
+   *
+   * MEASURED, and it is the reason this state is not called `not_deployed`: the engine runs
+   * its auth middleware BEFORE routing, so an unknown path and a known-but-authed path
+   * return the identical `401 Unauthorized: API key required`. A route that has not shipped
+   * yet is indistinguishable from one that has and is gated.
+   *
+   * That ambiguity is not a detail — it is exactly why three broken reads went unnoticed on
+   * this product. So the page says both possibilities rather than picking the flattering one.
+   */
+  | { kind: 'refused' }
+  | { kind: 'error'; status: number };
+
+/**
+ * Read the publish queue.
+ *
+ * THE OUTCOMES ARE THE POINT, and none of them is an empty list. Folding a refusal into
+ * "nothing queued" would render a measurement nobody made, which is the exact collapse this
+ * product exists to refuse.
+ *
+ * CAUGHT BY RUNNING IT, NOT BY READING IT. The first version keyed "not deployed" off a 404
+ * and never fired: the engine authenticates before it routes, so an unmapped path answers
+ * 401 like any gated one. The build was green and the page rendered the wrong state — a
+ * compile is not a run.
+ */
+export async function readPublishQueue(): Promise<QueueRead> {
+  if (!REPID_ENGINE_URL) return { kind: 'refused' };
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/social/drafts`, { cache: 'no-store' });
+    // 401 and 404 are the same fact from out here: the read did not happen. See `refused`.
+    if (res.status === 401 || res.status === 404) return { kind: 'refused' };
+    if (!res.ok) return { kind: 'error', status: res.status };
+    const data = await res.json();
+    return {
+      kind: 'ok',
+      count: Number(data?.count ?? 0),
+      unverified: Number(data?.unverified ?? 0),
+      drafts: Array.isArray(data?.drafts) ? (data.drafts as QueuedDraft[]) : [],
+    };
+  } catch {
+    return { kind: 'error', status: 0 };
+  }
 }
