@@ -61,3 +61,18 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   { path: '/run', priority: 0.5 },
   { path: '/history', priority: 0.4 },
 ];
+
+/**
+ * The shared social card, for pages that define their own `openGraph`.
+ *
+ * NECESSARY BECAUSE OF A NEXT RULE THAT IS EASY TO MISS: nested metadata like `openGraph` is
+ * REPLACED, not merged, by the last segment that defines it. So a page that sets an
+ * openGraph title to get a good link preview silently drops the root's image and ends up with
+ * a worse preview than a page that set nothing at all. Measured: /mission and /earned-trust
+ * were the only two pages serving no og:image, and they were the only two that had bothered
+ * to customise their card.
+ *
+ * Spread this into any page-level `openGraph` block. One definition so the next page to
+ * override cannot quietly lose the image again.
+ */
+export const OG_IMAGE = [{ url: '/opengraph-image', width: 1200, height: 630 }];

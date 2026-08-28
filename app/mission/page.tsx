@@ -1,3 +1,4 @@
+import { OG_IMAGE } from '@/lib/site';
 import Link from 'next/link';
 
 export const metadata = {
@@ -8,6 +9,7 @@ export const metadata = {
     title: 'Mission — TrustShell',
     description:
       'Trust is becoming the infrastructure of the AI age. Own yours. The vision behind HyperDAG, RepID, and TrustShell — stated as a direction, not a finished product.',
+    images: OG_IMAGE,
     type: 'article',
     url: 'https://trustshell.dev/mission',
   },

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, IBM_Plex_Serif } from 'next/font/google';
 import './globals.css';
 import { TopNav } from '@/components/top-nav';
+import { SITE_URL } from '@/lib/site';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,6 +25,16 @@ const plexSerif = IBM_Plex_Serif({
 });
 
 export const metadata: Metadata = {
+  /**
+   * REQUIRED for the generated OG card to resolve. Without a metadataBase, Next emits a
+   * RELATIVE og:image URL, and every scraper that reads it — every messaging app, every
+   * social preview — resolves it against nothing and shows no image. The absent base is why
+   * adding an image alone would not have been enough.
+   *
+   * Reads the deployment's own origin so a preview build advertises its own card rather than
+   * production's, which would make a preview link silently misrepresent what it is showing.
+   */
+  metadataBase: new URL(SITE_URL),
   title: 'TrustShell - AI Agents That Earn Your Trust',
   description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
   keywords: ['AI agents', 'ERC-8004', 'trust layer', 'blockchain', 'reputation', 'x402', 'hallucination defense', 'LangChain', 'LlamaIndex', 'HuggingFace', 'agent framework'],
