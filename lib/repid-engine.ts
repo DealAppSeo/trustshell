@@ -24,9 +24,68 @@ export function rawToUsdc(raw: string | number | bigint | null | undefined): num
 export type AuthoritySnapshot = {
   builder_id: string;
   stake_total: string; // raw micro-USDC
-  authority: string; // authority ceiling (raw / engine units)
+  /**
+   * The authority ceiling in raw engine units — or NULL when the backend withholds it.
+   *
+   * It is withheld for a builder whose path never applied the builder floor (a token_only demo
+   * builder). Its computed figure is real arithmetic, but A_eff — the ceiling that actually
+   * governs spend delegation — would refuse a budget against it, so quoting it promises something
+   * that does not exist.
+   *
+   * NULL IS NOT ZERO, and the difference is the whole reason this field is nullable rather than
+   * defaulted. `rawToUsdc(null)` returns 0, so anything that funnels this through the usual
+   * conversion renders "$0.00" and states the opposite falsehood: that the ceiling was measured
+   * and came out empty. Check `authority_withheld` BEFORE converting.
+   */
+  authority: string | null;
+  /** True when the backend deliberately withheld a figure. Render "not established", never "$0". */
+  authority_withheld?: boolean;
+  /** False when the figure, if shown at all, is not one the spend gate would honour. */
+  authority_is_binding?: boolean;
+  /** Why it was withheld or is non-binding, in the backend's own words. */
+  authority_detail?: string;
   basis: string;
 };
+
+/**
+ * Decide what the UI should show for an authority ceiling.
+ *
+ * EXTRACTED FROM THE PAGE ON PURPOSE. This is a claim about what is true, not about layout, and
+ * it has one hazard that a render function will get wrong every time: `rawToUsdc(null)` returns
+ * **0**. So any code that converts before checking renders "$0.00" and asserts the ceiling was
+ * measured and came out empty — the exact opposite falsehood from the one the backend withholds
+ * the figure to avoid. Checking must happen BEFORE converting, and putting that in one tested
+ * function is the only way it stays that way.
+ *
+ * Treats a missing `authority` as withheld even when the backend did not say so, because an older
+ * backend that predates the flag still must not have its null read as zero.
+ */
+export function authorityCeilingDisplay(a: AuthoritySnapshot | null): {
+  /** USD figure to show, or null when there is nothing honest to show. */
+  usd: number | null;
+  /** Render "Not established" — never "$0.00". */
+  withheld: boolean;
+  /** Shown, but the spend gate would not honour it. */
+  nonBinding: boolean;
+  detail?: string;
+} {
+  if (!a) return { usd: null, withheld: false, nonBinding: false };
+  const withheld = a.authority_withheld === true || a.authority == null;
+  if (withheld) {
+    return {
+      usd: null,
+      withheld: true,
+      nonBinding: true,
+      ...(a.authority_detail ? { detail: a.authority_detail } : {}),
+    };
+  }
+  return {
+    usd: rawToUsdc(a.authority as string),
+    withheld: false,
+    nonBinding: a.authority_is_binding === false,
+    ...(a.authority_detail ? { detail: a.authority_detail } : {}),
+  };
+}
 
 export type StakeDepositResult = {
   ok: boolean;
