@@ -118,6 +118,24 @@ export default async function PreviewPage() {
         </p>
       </section>
 
+      {/* The page answered "what is it worth". Leaving it there makes it a dead end: the one
+          person it was built for — someone with no agent, deciding whether this is for them —
+          has nowhere to go with the answer. /start is the honest next step, and it is described
+          as what it is (a tailoring flow with an escape at every step), not as a signup wall. */}
+      <section className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-6">
+        <h2 className="text-lg font-semibold text-neutral-100">Worth doing?</h2>
+        <p className="mt-2 text-sm leading-relaxed text-neutral-400">
+          Nothing above required an account, and neither does the next step. It asks three optional
+          questions to tailor what you see, every one of them skippable, and it is not a gate.
+        </p>
+        <Link
+          href="/start"
+          className="mt-4 inline-block rounded-md bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+        >
+          Start here →
+        </Link>
+      </section>
+
       <section className="text-sm text-neutral-500">
         <p>
           Curious how the formula is decided, or want to argue with it?{' '}
