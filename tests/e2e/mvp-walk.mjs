@@ -58,6 +58,11 @@ let passportMode = 'missing';
 // tariff render" but "does an unreachable engine read as NOT_CHECKED rather than an empty
 // table", and an empty table is what a page renders when it treats a failure as no-data.
 let previewMode = 'up';
+// The authority ceiling for a builder whose path never applied the builder floor. The backend
+// withholds the figure because A_eff would refuse it; the UI must say so rather than convert a
+// null through rawToUsdc(), which returns 0 and would render "$0.00" — asserting the ceiling was
+// measured and came out empty, the opposite falsehood.
+let authorityMode = 'withheld';
 
 const PREVIEW_ACTIONS = [
   { eventType: 'REFERRAL', verdict: 'APPROXIMATE', delta: 20, contingentOnEvidence: true,
@@ -101,6 +106,24 @@ const engine = createServer((req, res) => {
     }] });
   }
   if (u.includes('/revoke')) return json(200, { ok: true });
+  if (u.includes('/stake/authority/')) {
+    if (authorityMode === 'withheld') {
+      return json(200, {
+        builder_id: 'b1', stake_total: '100000000',
+        authority: null, authority_withheld: true, authority_is_binding: false,
+        authority_detail: 'The builder floor was not applied on this path at all. It is not zero; it is not established.',
+        basis: 'demo',
+      });
+    }
+    return json(200, {
+      builder_id: 'b1', stake_total: '100000000',
+      authority: '50000000', authority_withheld: false, authority_is_binding: true, basis: 'sqrt',
+    });
+  }
+  if (u.includes('/api/v1/staking/')) return json(200, { total_active_usdc: 100, positions: [] });
+  if (/\/api\/v1\/agents\/[^/]+$/.test(u.split('?')[0])) {
+    return json(200, { agent_id: AGENT_ID, current_repid: 1200, tier: 'ESTABLISHED' });
+  }
   if (u.includes('/repid/preview/actions')) {
     if (previewMode === 'down') return json(503, { error: 'unavailable' });
     return json(200, { ok: true, measurement: 'APPROXIMATE', persisted: false,
@@ -322,6 +345,50 @@ try {
   note(/NOT_CHECKED/.test(downBody) && /not\s+.?no actions|is not\b|nothing was measured/i.test(downBody),
     'and says nothing was measured — an empty table would read as "no actions are worth anything"');
   previewMode = 'up';
+
+  // --- /stake: a withheld ceiling must not become "$0.00" ------------------------------
+  //
+  // THE HAZARD IS THE CONVERSION, not the fetch. rawToUsdc(null) returns 0, so a page that
+  // converts before checking renders a confident "$0.00" — claiming the ceiling WAS measured and
+  // came out empty. That is a different false statement from the one the backend withholds the
+  // figure to avoid, and a worse one: $0.00 looks like a fact, a blank looks like a gap.
+  //
+  // Reachable here only because registration above persisted an agent to IndexedDB, which is
+  // what /stake reads to populate its picker.
+  await page.goto(`${base}/stake`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  const stakeBody = await page.locator('body').innerText();
+  note(!/\$0\.00/.test(stakeBody),
+    'a withheld ceiling is NOT rendered as $0.00', stakeBody.match(/\$[\d.]+/g)?.join(' ') ?? '');
+  // SCOPED TO THE STAT, not the page. The first version of this assertion searched the whole
+  // body — and passed even with the guard removed, because the backend's own detail sentence
+  // contains the words "it is not established". It was matching prose while the number beside it
+  // read $0.00. An assertion that can pass for the wrong reason is worse than none: it certifies
+  // the exact failure it was written to catch.
+  const ceilingStat = await page
+    .locator('p', { hasText: /^Authority ceiling$/i })
+    .locator('xpath=following-sibling::p[1]')
+    .innerText();
+  note(/^Not established$/i.test(ceilingStat.trim()),
+    'the ceiling STAT ITSELF reads "Not established" — no figure, rather than a figure of zero',
+    `stat=${JSON.stringify(ceilingStat.trim())}`);
+  note(/not zero/i.test(stakeBody),
+    'and the backend reason is shown, so the reader knows which of the two it is');
+
+  authorityMode = 'binding';
+  await page.goto(`${base}/stake`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  const stakeOk = await page.locator('body').innerText();
+  note(/\$50\.00/.test(stakeOk),
+    'a REAL binding ceiling still renders its figure — withholding must not swallow good data');
+  const ceilingStatOk = await page
+    .locator('p', { hasText: /^Authority ceiling$/i })
+    .locator('xpath=following-sibling::p[1]')
+    .innerText();
+  note(/^\$50\.00$/.test(ceilingStatOk.trim()),
+    'and the stat carries the real figure, not a label',
+    `stat=${JSON.stringify(ceilingStatOk.trim())}`);
+  authorityMode = 'withheld';
 
   note(errs.length === 0, 'no runtime errors across the whole walk', errs.slice(0, 3).join('; '));
 } catch (e) {
