@@ -16,6 +16,7 @@ const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/market', label: 'Market' },
   { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/stake', label: 'Stake' },
+  { href: '/preview', label: 'Preview' },
   { href: '/repid', label: 'RepID' },
   { href: '/history', label: 'History' },
   { href: '/settings', label: 'Settings' },

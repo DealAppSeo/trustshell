@@ -452,3 +452,105 @@ export async function readPublishQueue(): Promise<QueueRead> {
     return { kind: 'error', status: 0 };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Preview RepID — what an action is WORTH, before anyone has done anything
+// ---------------------------------------------------------------------------
+//
+// THE POINT OF THESE TWO CALLS IS THAT THEY WRITE NOTHING. A visitor with no agent, no
+// key and no account can ask "what would I earn" and get a real answer off the same
+// tariff the live scorer uses. Keyless by design: the engine bypasses auth for
+// `GET /api/v1/repid/*`, so the browser calls it directly.
+//
+// EVERY FIELD THAT KEEPS THIS HONEST IS CARRIED THROUGH, NOT SUMMARISED AWAY. The engine
+// labels its own answer `APPROXIMATE`, says `persisted: false`, flags the tier as a
+// counterparty-gate approximation, and lists what it `omits`. A client that dropped any
+// of those would turn a projection into a promise — which is exactly the failure this
+// whole surface exists to avoid. So the types below mirror the payload rather than
+// flattening it, and the page renders the caveats rather than the numbers alone.
+//
+// `verdict` is the three-outcome vocabulary, not a boolean:
+//   APPROXIMATE — a published tariff value; real, but subject to decay and need-weight
+//   NOT_CHECKED — the value CANNOT be stated before the event happens, or the live path
+//                 awards nothing for it yet. Listed rather than hidden, because an action
+//                 silently missing from a catalogue reads as an action that does not exist.
+
+export type PreviewVerdict = 'APPROXIMATE' | 'NOT_CHECKED';
+
+export type PreviewAction = {
+  eventType: string;
+  verdict: PreviewVerdict;
+  delta: number | null;
+  contingentOnEvidence: boolean;
+  reason: string;
+};
+
+export type PreviewCatalog = {
+  measurement: 'APPROXIMATE';
+  persisted: false;
+  actions: PreviewAction[];
+  disclaimer: string;
+};
+
+export type PreviewProjection = {
+  measurement: 'APPROXIMATE';
+  persisted: false;
+  baseRepId: number;
+  projectedRepId: number;
+  projectedTier: string;
+  tierIsCounterpartyGateApproximation: boolean;
+  tierCaveat: string;
+  events: PreviewAction[];
+  omits: string[];
+};
+
+/**
+ * Fetch the action catalogue.
+ *
+ * Returns `'not_checked'` rather than `null` on any failure, and the caller MUST render
+ * that as its own state. An empty list would read as "there are no actions", which is a
+ * different and false claim; a thrown error would blank the page. Not reached is not the
+ * same as nothing to show.
+ */
+export async function fetchPreviewCatalog(): Promise<PreviewCatalog | 'not_checked'> {
+  if (!REPID_ENGINE_URL) return 'not_checked';
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/repid/preview/actions`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return 'not_checked';
+    const data = await res.json();
+    if (!data?.ok || !Array.isArray(data.actions)) return 'not_checked';
+    return data as PreviewCatalog;
+  } catch {
+    return 'not_checked';
+  }
+}
+
+/**
+ * Project a starting score forward over a chosen set of actions.
+ *
+ * `base` is omitted from the query when undefined so the engine applies its OWN default
+ * rather than one invented here. Two defaults for one number is how they drift.
+ */
+export async function fetchPreviewProjection(input: {
+  base?: number;
+  eventTypes: string[];
+}): Promise<PreviewProjection | 'not_checked'> {
+  if (!REPID_ENGINE_URL) return 'not_checked';
+  try {
+    const q = new URLSearchParams();
+    if (input.base !== undefined) q.set('base', String(input.base));
+    q.set('events', input.eventTypes.join(','));
+    const res = await fetch(
+      `${REPID_ENGINE_URL}/api/v1/repid/preview/project?${q.toString()}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return 'not_checked';
+    const data = await res.json();
+    if (!data?.ok || typeof data.projectedRepId !== 'number') return 'not_checked';
+    return data as PreviewProjection;
+  } catch {
+    return 'not_checked';
+  }
+}
