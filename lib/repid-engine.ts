@@ -24,9 +24,68 @@ export function rawToUsdc(raw: string | number | bigint | null | undefined): num
 export type AuthoritySnapshot = {
   builder_id: string;
   stake_total: string; // raw micro-USDC
-  authority: string; // authority ceiling (raw / engine units)
+  /**
+   * The authority ceiling in raw engine units — or NULL when the backend withholds it.
+   *
+   * It is withheld for a builder whose path never applied the builder floor (a token_only demo
+   * builder). Its computed figure is real arithmetic, but A_eff — the ceiling that actually
+   * governs spend delegation — would refuse a budget against it, so quoting it promises something
+   * that does not exist.
+   *
+   * NULL IS NOT ZERO, and the difference is the whole reason this field is nullable rather than
+   * defaulted. `rawToUsdc(null)` returns 0, so anything that funnels this through the usual
+   * conversion renders "$0.00" and states the opposite falsehood: that the ceiling was measured
+   * and came out empty. Check `authority_withheld` BEFORE converting.
+   */
+  authority: string | null;
+  /** True when the backend deliberately withheld a figure. Render "not established", never "$0". */
+  authority_withheld?: boolean;
+  /** False when the figure, if shown at all, is not one the spend gate would honour. */
+  authority_is_binding?: boolean;
+  /** Why it was withheld or is non-binding, in the backend's own words. */
+  authority_detail?: string;
   basis: string;
 };
+
+/**
+ * Decide what the UI should show for an authority ceiling.
+ *
+ * EXTRACTED FROM THE PAGE ON PURPOSE. This is a claim about what is true, not about layout, and
+ * it has one hazard that a render function will get wrong every time: `rawToUsdc(null)` returns
+ * **0**. So any code that converts before checking renders "$0.00" and asserts the ceiling was
+ * measured and came out empty — the exact opposite falsehood from the one the backend withholds
+ * the figure to avoid. Checking must happen BEFORE converting, and putting that in one tested
+ * function is the only way it stays that way.
+ *
+ * Treats a missing `authority` as withheld even when the backend did not say so, because an older
+ * backend that predates the flag still must not have its null read as zero.
+ */
+export function authorityCeilingDisplay(a: AuthoritySnapshot | null): {
+  /** USD figure to show, or null when there is nothing honest to show. */
+  usd: number | null;
+  /** Render "Not established" — never "$0.00". */
+  withheld: boolean;
+  /** Shown, but the spend gate would not honour it. */
+  nonBinding: boolean;
+  detail?: string;
+} {
+  if (!a) return { usd: null, withheld: false, nonBinding: false };
+  const withheld = a.authority_withheld === true || a.authority == null;
+  if (withheld) {
+    return {
+      usd: null,
+      withheld: true,
+      nonBinding: true,
+      ...(a.authority_detail ? { detail: a.authority_detail } : {}),
+    };
+  }
+  return {
+    usd: rawToUsdc(a.authority as string),
+    withheld: false,
+    nonBinding: a.authority_is_binding === false,
+    ...(a.authority_detail ? { detail: a.authority_detail } : {}),
+  };
+}
 
 export type StakeDepositResult = {
   ok: boolean;
@@ -450,5 +509,107 @@ export async function readPublishQueue(): Promise<QueueRead> {
     };
   } catch {
     return { kind: 'error', status: 0 };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Preview RepID — what an action is WORTH, before anyone has done anything
+// ---------------------------------------------------------------------------
+//
+// THE POINT OF THESE TWO CALLS IS THAT THEY WRITE NOTHING. A visitor with no agent, no
+// key and no account can ask "what would I earn" and get a real answer off the same
+// tariff the live scorer uses. Keyless by design: the engine bypasses auth for
+// `GET /api/v1/repid/*`, so the browser calls it directly.
+//
+// EVERY FIELD THAT KEEPS THIS HONEST IS CARRIED THROUGH, NOT SUMMARISED AWAY. The engine
+// labels its own answer `APPROXIMATE`, says `persisted: false`, flags the tier as a
+// counterparty-gate approximation, and lists what it `omits`. A client that dropped any
+// of those would turn a projection into a promise — which is exactly the failure this
+// whole surface exists to avoid. So the types below mirror the payload rather than
+// flattening it, and the page renders the caveats rather than the numbers alone.
+//
+// `verdict` is the three-outcome vocabulary, not a boolean:
+//   APPROXIMATE — a published tariff value; real, but subject to decay and need-weight
+//   NOT_CHECKED — the value CANNOT be stated before the event happens, or the live path
+//                 awards nothing for it yet. Listed rather than hidden, because an action
+//                 silently missing from a catalogue reads as an action that does not exist.
+
+export type PreviewVerdict = 'APPROXIMATE' | 'NOT_CHECKED';
+
+export type PreviewAction = {
+  eventType: string;
+  verdict: PreviewVerdict;
+  delta: number | null;
+  contingentOnEvidence: boolean;
+  reason: string;
+};
+
+export type PreviewCatalog = {
+  measurement: 'APPROXIMATE';
+  persisted: false;
+  actions: PreviewAction[];
+  disclaimer: string;
+};
+
+export type PreviewProjection = {
+  measurement: 'APPROXIMATE';
+  persisted: false;
+  baseRepId: number;
+  projectedRepId: number;
+  projectedTier: string;
+  tierIsCounterpartyGateApproximation: boolean;
+  tierCaveat: string;
+  events: PreviewAction[];
+  omits: string[];
+};
+
+/**
+ * Fetch the action catalogue.
+ *
+ * Returns `'not_checked'` rather than `null` on any failure, and the caller MUST render
+ * that as its own state. An empty list would read as "there are no actions", which is a
+ * different and false claim; a thrown error would blank the page. Not reached is not the
+ * same as nothing to show.
+ */
+export async function fetchPreviewCatalog(): Promise<PreviewCatalog | 'not_checked'> {
+  if (!REPID_ENGINE_URL) return 'not_checked';
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/repid/preview/actions`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return 'not_checked';
+    const data = await res.json();
+    if (!data?.ok || !Array.isArray(data.actions)) return 'not_checked';
+    return data as PreviewCatalog;
+  } catch {
+    return 'not_checked';
+  }
+}
+
+/**
+ * Project a starting score forward over a chosen set of actions.
+ *
+ * `base` is omitted from the query when undefined so the engine applies its OWN default
+ * rather than one invented here. Two defaults for one number is how they drift.
+ */
+export async function fetchPreviewProjection(input: {
+  base?: number;
+  eventTypes: string[];
+}): Promise<PreviewProjection | 'not_checked'> {
+  if (!REPID_ENGINE_URL) return 'not_checked';
+  try {
+    const q = new URLSearchParams();
+    if (input.base !== undefined) q.set('base', String(input.base));
+    q.set('events', input.eventTypes.join(','));
+    const res = await fetch(
+      `${REPID_ENGINE_URL}/api/v1/repid/preview/project?${q.toString()}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return 'not_checked';
+    const data = await res.json();
+    if (!data?.ok || typeof data.projectedRepId !== 'number') return 'not_checked';
+    return data as PreviewProjection;
+  } catch {
+    return 'not_checked';
   }
 }

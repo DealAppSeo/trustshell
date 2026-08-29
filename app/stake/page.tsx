@@ -8,6 +8,7 @@ import {
   fetchStakePositions,
   fetchStakeSignMessage,
   rawToUsdc,
+  authorityCeilingDisplay,
   usdcToRaw,
   STAKE_AUTH_ERRORS,
   AuthoritySnapshot,
@@ -197,7 +198,11 @@ export default function StakePage() {
   };
 
   const tier = repid != null ? repidToTier(repid) : null;
-  const authorityCeiling = authority ? rawToUsdc(authority.authority) : null;
+  // One tested helper rather than an inline conditional: rawToUsdc(null) returns 0, so the check
+  // must happen before the conversion, and that ordering is too easy to lose in a render body.
+  const authorityView = authorityCeilingDisplay(authority);
+  const authorityCeiling = authorityView.usd;
+  const authorityWithheld = authorityView.withheld;
   const stakeTotal = authority ? rawToUsdc(authority.stake_total) : null;
 
   return (
@@ -298,10 +303,26 @@ export default function StakePage() {
               <Stat label="Staked (USDC)" value={stakeTotal != null ? `$${stakeTotal.toFixed(2)}` : '—'} />
               <Stat
                 label="Authority ceiling"
-                value={authorityCeiling != null ? `$${authorityCeiling.toFixed(2)}` : '—'}
+                value={
+                  authorityCeiling != null
+                    ? `$${authorityCeiling.toFixed(2)}`
+                    : authorityWithheld
+                      ? 'Not established'
+                      : '—'
+                }
                 accent
               />
             </div>
+            {authority && authorityView.nonBinding && (
+              <p className="text-xs leading-relaxed text-amber-600">
+                {authorityView.detail ??
+                  (authorityWithheld
+                    ? 'No authority ceiling is quoted for this builder: the builder floor was ' +
+                      'never applied on its path, so the ceiling that governs real spend ' +
+                      'delegation is not established. This is not a ceiling of zero.'
+                    : 'Demo figure — not a ceiling the spend gate would honour.')}
+              </p>
+            )}
             {authority && (
               <p className="text-xs text-[#475569]">
                 Basis: <span className="font-mono">{authority.basis}</span>

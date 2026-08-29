@@ -25,12 +25,23 @@ export function RepidGovernance() {
           weighted signals above are the load-bearing part of the formula.
         </p>
 
-        <a
-          href="/repid"
-          className="inline-flex items-center gap-1 text-muted hover:text-accent transition-colors"
-        >
-          <span>&rarr;</span> Read more &amp; contribute at trustshell.dev/repid
-        </a>
+        {/* The formula above is abstract, and the obvious next question — "so what is any one
+            action actually worth to me?" — had no answer anywhere on this page. /preview answers
+            it off the live tariff, with no account, and nothing linked to it. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+          <a
+            href="/preview"
+            className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+          >
+            <span>&rarr;</span> See what each action is worth
+          </a>
+          <a
+            href="/repid"
+            className="inline-flex items-center gap-1 text-muted hover:text-accent transition-colors"
+          >
+            <span>&rarr;</span> Read more &amp; contribute at trustshell.dev/repid
+          </a>
+        </div>
       </div>
     </section>
   );
