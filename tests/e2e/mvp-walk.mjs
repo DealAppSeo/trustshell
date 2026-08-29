@@ -54,6 +54,19 @@ const AGENT_ID = 'pai-dogfood-agent-001';
 
 const seen = [];
 let passportMode = 'missing';
+// Same shape as passportMode: the interesting question for /preview is not only "does the
+// tariff render" but "does an unreachable engine read as NOT_CHECKED rather than an empty
+// table", and an empty table is what a page renders when it treats a failure as no-data.
+let previewMode = 'up';
+
+const PREVIEW_ACTIONS = [
+  { eventType: 'REFERRAL', verdict: 'APPROXIMATE', delta: 20, contingentOnEvidence: true,
+    reason: 'published tariff for this action' },
+  { eventType: 'CODE_CONTRIBUTION', verdict: 'APPROXIMATE', delta: 25, contingentOnEvidence: true,
+    reason: 'published tariff for this action' },
+  { eventType: 'CHALLENGE_WIN', verdict: 'NOT_CHECKED', delta: null, contingentOnEvidence: false,
+    reason: 'computed by the challenge scorer from certainty asserted at claim time' },
+];
 const engine = createServer((req, res) => {
   seen.push(`${req.method} ${req.url.split('?')[0]}`);
   const cors = {
@@ -88,6 +101,21 @@ const engine = createServer((req, res) => {
     }] });
   }
   if (u.includes('/revoke')) return json(200, { ok: true });
+  if (u.includes('/repid/preview/actions')) {
+    if (previewMode === 'down') return json(503, { error: 'unavailable' });
+    return json(200, { ok: true, measurement: 'APPROXIMATE', persisted: false,
+      actions: PREVIEW_ACTIONS,
+      disclaimer: 'Preview only. Nothing here was written and no reputation was earned.' });
+  }
+  if (u.includes('/repid/preview/project')) {
+    if (previewMode === 'down') return json(503, { error: 'unavailable' });
+    return json(200, { ok: true, measurement: 'APPROXIMATE', persisted: false,
+      baseRepId: 200, projectedRepId: 245, projectedTier: 'PROBATIONARY',
+      tierIsCounterpartyGateApproximation: true,
+      tierCaveat: 'Score-ladder tier only. The database derives the real tier from a trigger that also demotes AUTONOMOUS and VETERAN below 2 unique counterparties.',
+      events: PREVIEW_ACTIONS.slice(0, 2),
+      omits: ['decay — the live path decays the current score against 30-day activity'] });
+  }
   if (u.includes('/passport/')) return passportMode === 'down' ? json(503, { error: 'unavailable' }) : json(404, { error: 'not found' });
   return json(404, { error: 'not found' });
 });
@@ -252,6 +280,49 @@ try {
   const hBody = await page.locator('body').innerText();
   note(/this device|local|browser/i.test(hBody), 'Activity says its history is device-local, not a global feed');
 
+  // --- /preview: the page for someone who has none of the above ------------------------
+  //
+  // Every step until now assumes an agent already exists. /preview is the one surface for a
+  // visitor deciding whether to start at all, and the thing most worth checking is not that
+  // the markup appears — SSR renders identically whether or not React mounts — but that the
+  // PROJECTOR actually works when clicked. That is a client-side path, and clicking it is the
+  // only way to know it runs.
+  await page.goto(`${base}/preview`, { waitUntil: 'networkidle' });
+  const prevBody = await page.locator('body').innerText();
+  note(/REFERRAL/.test(prevBody) && /\+20/.test(prevBody),
+    'the tariff renders real values, not placeholders');
+  note(/NOT_CHECKED/.test(prevBody),
+    'an action whose value cannot be stated is LISTED as NOT_CHECKED, not hidden');
+  note(/APPROXIMATE/i.test(prevBody),
+    'the page says APPROXIMATE — a projection is never presented as an earned score');
+
+  const projectBtn = page.getByRole('button', { name: /^Project$/ });
+  await projectBtn.click();
+  await page.waitForTimeout(1200);
+  const projected = await page.locator('body').innerText();
+  // If React never mounted, the click is a no-op and the page looks exactly as it did.
+  note(/245/.test(projected), 'THE PROJECTOR ACTUALLY RUNS — a projected score appears after the click');
+  note(/counterpart/i.test(projected),
+    'the tier caveat is shown WITH the tier, not filed at the bottom');
+  note(/decay/i.test(projected), 'the projection states what it omits');
+  note(/Nothing was written/i.test(projected),
+    'the page says nothing was persisted — read off the response, not asserted');
+
+  // The funnel edge. A page that answers "is this worth it" and then leads nowhere strands
+  // the one person it was written for.
+  note(await page.locator('a[href="/start"]').count() > 0,
+    '/preview offers a next step instead of dead-ending');
+
+  // --- and the same page with the engine unreachable ------------------------------------
+  previewMode = 'down';
+  await page.goto(`${base}/preview`, { waitUntil: 'networkidle' });
+  const downBody = await page.locator('body').innerText();
+  const rowCount = await page.locator('tbody tr').count();
+  note(rowCount === 0, 'an unreachable engine renders NO table rather than an empty one', `rows=${rowCount}`);
+  note(/NOT_CHECKED/.test(downBody) && /not\s+.?no actions|is not\b|nothing was measured/i.test(downBody),
+    'and says nothing was measured — an empty table would read as "no actions are worth anything"');
+  previewMode = 'up';
+
   note(errs.length === 0, 'no runtime errors across the whole walk', errs.slice(0, 3).join('; '));
 } catch (e) {
   note(false, 'walk aborted', e.message.split('\n')[0]);
@@ -262,3 +333,15 @@ try {
 const gaps = findings.filter((f) => !f.ok);
 console.log(`\n${findings.length - gaps.length}/${findings.length} OK`);
 if (gaps.length) console.log('GAPS:\n' + gaps.map((g) => `  - ${g.what}${g.detail ? ` (${g.detail})` : ''}`).join('\n'));
+
+// THIS LINE WAS MISSING, AND ITS ABSENCE MADE THE SUITE REPORT SUCCESS OVER ITS OWN FAILURES.
+// Everything above printed GAPS and then exited 0. Anything keying off the exit code — a script,
+// a future CI step, a person typing `&& echo ok` — read a broken product journey as a passing
+// one. That is the exact defect this suite exists to catch, in the suite itself.
+//
+// `grants-fail-closed.mjs`, in this directory, already ends with the same line, which is what
+// establishes this as an omission rather than a choice. Not being in gating CI is a decision
+// about where the suite RUNS; it was never a licence to misreport when it does.
+//
+// Repo convention: 0 VERIFIED, 2 NOT_CHECKED (Playwright absent — handled at the top), else FAILED.
+process.exit(gaps.length === 0 ? 0 : 1);
