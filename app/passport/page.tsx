@@ -47,9 +47,10 @@ export default function PassportIndexPage() {
             real and simulated flows counted separately. Mock money earns zero reputation.
           </li>
           <li>
-            <strong className="text-neutral-200">Proof</strong> — a zero-knowledge range proof
-            (score ≥ threshold without revealing the score). Honestly labeled: it does not yet
-            bind agent execution transcripts — that binding is on the roadmap.
+            <strong className="text-neutral-200">Proof</strong> — a Plonky3 range proof that the
+            score exceeds a threshold. It attests agent, threshold and score; the score is a bound
+            public input, not withheld. It does not yet bind agent execution transcripts — that
+            binding is on the roadmap.
           </li>
         </ul>
         <p className="pt-2">
