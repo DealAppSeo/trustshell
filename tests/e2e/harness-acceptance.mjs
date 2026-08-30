@@ -277,6 +277,108 @@ try {
   record('badge', 'FAILED', String(e.stderr || e.message).slice(0, 160));
 }
 
+// --- x402: the capability this gate did not test at all ----------------------
+//
+// The MVP is advertised as four things — HAL, zkRepID, x402, ERC-8004. Until now this file had
+// legs for three. x402 was absent, and an absent capability reads as fine: it contributes no
+// FAILED, no NOT_CHECKED, and no line in the summary. That is the two-outcome collapse this gate
+// exists to prevent, arriving as a coverage gap instead of a wrong verdict.
+//
+// Two things are genuinely measurable from a cold, keyless install, and they are the two a
+// stranger must be able to do before any payment is possible: find something to buy, and produce
+// a valid payment authorization. Settlement is NOT_CHECKED and is never attempted here.
+
+try {
+  const { TrustShell } = await import(join(dir, 'node_modules', '@hyperdag', 'trustshell', 'dist', 'lib', 'index.js'));
+  const page = await new TrustShell({}).listServices({ limit: 5 });
+  const services = page?.services ?? [];
+  if (!Array.isArray(services)) record('x402.discovery', 'FAILED', `listServices returned no services array (keys: ${Object.keys(page ?? {}).join(',')})`);
+  else if (services.length === 0) record('x402.discovery', 'FAILED', 'the marketplace is empty — a stranger has nothing to pay for');
+  else record('x402.discovery', 'MEASURED', `${services.length} purchasable service(s) visible without a key`,
+    { count: page.count, priceRangeUsdcRaw: page.priceRangeUsdcRaw });
+} catch (e) {
+  record('x402.discovery', 'FAILED', `keyless listServices threw: ${String(e.message).slice(0, 140)}`);
+}
+
+// PAYMENT AUTHORIZATION. Signed locally with a throwaway key generated in this file; nothing is
+// broadcast, no chain call is made, and the address holds nothing. This is pure EIP-712 signing.
+//
+// The check is SIGNER RECOVERY, not field shape. A well-shaped blob with a bad signature is
+// exactly the failure that would pass a shape check and be rejected by the facilitator, i.e. the
+// user finds out at the till.
+//
+// TWO STEPS, because one cannot distinguish two very different faults:
+//   step 1 pins the EIP-712 domain explicitly, so a recovery failure means SIGNING is broken;
+//   step 2 uses the SDK's DEFAULTS and recovers against the documented Base Sepolia domain, so a
+//          failure there means the default network or asset MOVED.
+// The second matters on its own: if that default ever became a mainnet asset, every caller who
+// omits `asset`/`chainId` would sign an authorization against real money believing it was testnet.
+//
+// IF YOU SABOTAGE THIS LEG TO CHECK IT STILL FAILS — and you should — DO NOT CORRUPT THE `v` BYTE.
+// MEASURED over 12 signatures: flipping only the trailing recovery byte left verification passing
+// 5 times out of 12, exactly the number whose v was 0x1c, because ethers reduces v to its parity
+// and a corrupt byte lands on the original parity about half the time. A tamper test that passes
+// half the time reads as a flaky gate and is really a flaky instrument — it cost a round here.
+// Corrupt a digit inside r/s instead: 0 of 12 survived, and the sabotage then fails 3 runs of 3.
+try {
+  const { buildX402Payment } = await import(join(dir, 'node_modules', '@hyperdag', 'trustshell', 'dist', 'lib', 'index.js'));
+  const { verifyTypedData, Wallet } = await import(join(dir, 'node_modules', 'ethers', 'lib.esm', 'index.js'))
+    .catch(() => import(join(dir, 'node_modules', 'ethers')));
+
+  const KEY = '0x' + 'ab'.repeat(32);
+  const PAYER = new Wallet(KEY).address;
+  const TO = '0x000000000000000000000000000000000000dEaD';
+  const SEPOLIA_USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+  const CANON = ['from', 'nonce', 'signature', 'to', 'validAfter', 'validBefore', 'value'];
+  const types = { TransferWithAuthorization: [
+    { name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'value', type: 'uint256' },
+    { name: 'validAfter', type: 'uint256' }, { name: 'validBefore', type: 'uint256' }, { name: 'nonce', type: 'bytes32' }] };
+  const decode = (h) => JSON.parse(Buffer.from(h, 'base64').toString('utf8'));
+  const recovers = (payload, domain) => {
+    const { signature, ...msg } = payload;
+    try { return verifyTypedData(domain, types, msg, signature).toLowerCase() === String(payload.from).toLowerCase(); }
+    catch { return false; }
+  };
+
+  // step 1 — domain pinned by this test
+  const pinnedDomain = { name: 'USDC', version: '2', chainId: 84532, verifyingContract: SEPOLIA_USDC };
+  const pinned = decode(await buildX402Payment({ privateKey: KEY, to: TO, amount: 100000, asset: SEPOLIA_USDC, chainId: 84532 }));
+  const missing = CANON.filter((k) => pinned[k] === undefined);
+
+  if (missing.length) {
+    record('x402.payment_header', 'FAILED', `the header omits ${missing.join(', ')} — the facilitator decodes all seven`);
+  } else if (String(pinned.from).toLowerCase() !== PAYER.toLowerCase()) {
+    record('x402.payment_header', 'FAILED', `header claims from=${pinned.from} but the key signs as ${PAYER}`);
+  } else if (!recovers(pinned, pinnedDomain)) {
+    record('x402.payment_header', 'FAILED',
+      'the EIP-712 signature does NOT recover to the payer on an explicitly pinned domain — the ' +
+      'authorization is well-shaped and invalid, which a facilitator rejects at settlement, not here');
+  } else {
+    // step 2 — the SDK's own defaults
+    const defaulted = decode(await buildX402Payment({ privateKey: KEY, to: TO, amount: 100000 }));
+    if (!recovers(defaulted, pinnedDomain)) {
+      record('x402.payment_header', 'FAILED',
+        'signing is sound on a pinned domain but the SDK DEFAULTS no longer recover against Base ' +
+        'Sepolia USDC — the default network or asset moved, and a caller who omits asset/chainId ' +
+        'would sign against something other than testnet');
+    } else {
+      record('x402.payment_header', 'MEASURED',
+        'a valid EIP-3009 authorization is produced from a cold install and its signature recovers ' +
+        'to the payer; SDK defaults are still Base Sepolia USDC (84532)',
+        { fields: CANON.length, validForSeconds: defaulted.validBefore - Math.floor(Date.now() / 1000) });
+    }
+  }
+} catch (e) {
+  record('x402.payment_header', 'NOT_CHECKED', `could not drive buildX402Payment: ${String(e.message).slice(0, 130)}`);
+}
+
+// SETTLEMENT is deliberately never attempted. Releasing an authorization moves real testnet USDC
+// and needs a funded key; a gate that did it would be spending money to report a status, and a
+// gate that SIMULATED it and reported MEASURED would be certifying a payment that never happened.
+record('x402.settlement', 'NOT_CHECKED',
+  'not attempted by design — releasing an authorization moves real testnet USDC. Run it with a ' +
+  'funded Base Sepolia key against POST /api/v1/contracts/:id/escrow, outside this gate');
+
 // --- on-chain: the two legs that must never be certified from a network error ---
 async function rpc(method, params) {
   const res = await fetch(RPC, {
