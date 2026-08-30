@@ -4,7 +4,8 @@ export { TrustShell as default } from './trustshell';
 /**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
- * re-verify. Green only when local verification returned true; never reveals the score.
+ * re-verify. Green only when local verification returned true. The BADGE never prints the
+ * score; the proof's statement still carries it as a bound public input.
  */
 export {
   renderProofBadge,

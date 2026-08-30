@@ -9,10 +9,15 @@
  *     actually returned `verified: true`. An absent, failed, or unavailable
  *     verification renders grey/red with the reason — never a fake green. This
  *     mirrors the SDK's own rule: an unavailable safety check is not a passing one.
- *  2. The badge NEVER renders the agent's RepID score. The whole point of the
- *     range proof is that it attests `RepID ≥ threshold` WITHOUT revealing the
- *     score — so the badge shows the threshold and tier, and the score never
- *     appears in the output.
+ *  2. The badge NEVER renders the agent's RepID score — and note the SCOPE of that
+ *     claim, because this comment previously got it wrong. It is a fact about THIS
+ *     RENDERER, not about the proof. The statement beside every proof carries
+ *     `repid_score` as a bound PUBLIC INPUT to the circuit (public values
+ *     [16]=threshold, [17]=repid_score), so the score is not withheld by the proof;
+ *     it is simply not printed here. This used to read "the range proof attests
+ *     `RepID ≥ threshold` WITHOUT revealing the score", which was false in the one
+ *     sentence a reader takes as the privacy guarantee. Making the score genuinely
+ *     private is a new circuit and a new verifier major, not a wording change.
  *
  * Pure and dependency-free: no network, no external asset references. The SVG is
  * inline and portable — it renders offline and cannot phone home.

@@ -84,8 +84,9 @@ COMMANDS
       [--verify]             …and verify it client-side with the bundled WASM verifier.
   badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,
                              self-contained SVG badge ("RepID ≥ threshold ✓ ZK-verified").
-                             Green ONLY on a true local verification; never reveals the
-                             score. EXIT 3 if the badge is not in the verified state.
+                             Green ONLY on a true local verification. The BADGE never
+                             prints the score — the proof's statement still carries it
+                             as a public input. EXIT 3 if not in the verified state.
       [--markdown]           Emit a copy-pasteable Markdown snippet (data-URI SVG) instead.
 
 OPTIONS
