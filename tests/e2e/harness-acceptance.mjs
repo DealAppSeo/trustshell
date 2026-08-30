@@ -178,6 +178,7 @@ try {
 // So the scope is pinned: the four canonical keys are bound (falsifying any breaks verification),
 // and ANYTHING ELSE is decoration the verifier does not check. A real expiry is a circuit public
 // input and a verifier major, not a key in a JSON blob.
+let unknownKeysIgnored = null; // null = NOT_CHECKED; true = decoration; false = verifier checks them
 try {
   const { verify } = await import(join(dir, 'node_modules', '@hyperdag', 'proof-verifier', 'index.js'))
     .catch(() => import('@hyperdag/proof-verifier'));
@@ -192,6 +193,7 @@ try {
     const r = await verify(pr.proofBytes, { ...stmt, ...bogus });
     if (r?.verified === true) ignored.push(Object.keys(bogus)[0]);
   }
+  unknownKeysIgnored = ignored.length > 0;
   if (ignored.length === 0) {
     record('zkrepid.statement_binding_scope', 'MEASURED', 'the verifier rejects unknown statement keys — an added expiry WOULD be checked');
   } else {
@@ -203,26 +205,66 @@ try {
   record('zkrepid.statement_binding_scope', 'NOT_CHECKED', String(e.message).slice(0, 110));
 }
 
-// FRESHNESS: cryptographically valid is not the same as currently true.
-// The badge renders green on `verification.verified`, which proves the proof is internally sound —
-// never that it still describes the agent. A proof minted when the score was above the threshold
-// keeps verifying after the score falls through it, and nothing on the badge says how old it is.
+// FRESHNESS is TWO independent faults, and the first draft of this file lumped them into one leg.
+// That was this gate committing the exact defect it exists to catch. The single leg keyed on AGE,
+// so the moment a fresh proof is served it records MEASURED — and the unbound-expiry finding, which
+// no amount of freshness fixes, disappears from the report along with it. A defect must not be
+// retired because an unrelated number improved.
+//
+//   zkrepid.freshness       OPERATIONAL. Is the proof the user is served CURRENT? Today it is not,
+//                           and the cause is known and fixed but not yet deployed: the canonical
+//                           store write has failed on every attempt since 2026-08-01 (42804,
+//                           repid-engine #549), so every consumer is served the last row that
+//                           landed. This leg SHOULD go MEASURED when that deploys — that is the
+//                           signal the fix worked, which is why it is worth having on its own.
+//
+//   zkrepid.expiry_binding  CIRCUIT. Does the proof COMMIT to a validity window? No deploy can fix
+//                           this one. `createdAt` travels beside the proof as metadata, not as a
+//                           public input, so an age check built on it catches a stale issuer and
+//                           never a lying one — a backdated createdAt costs nothing to write.
+//
+// The second leg deliberately does NOT test for the presence of an expiry key. Measured on
+// 2026-08-30 and pinned by zkrepid.statement_binding_scope above: the verifier ignores unknown
+// statement fields, so an `expires_at` added to the JSON renders inside a verified proof while
+// committing to nothing. Presence would therefore be the WORST evidence available — it reads as
+// attested precisely where nothing is attested. This leg reasons from the binding measurement.
 if (proofCreatedAt) {
   const ageDays = (Date.now() - Date.parse(proofCreatedAt)) / 86400000;
   const live = liveScore == null ? null : Number(liveScore);
   const attested = proofStatement?.repid_score ?? null;
   const drifted = live != null && attested != null && live !== attested;
+  const drift = drifted ? `; it attests ${attested} while the live score is ${live}` : '';
   if (ageDays > 7) {
     record('zkrepid.freshness', 'FAILED',
-      `proof is ${ageDays.toFixed(0)} days old and carries no expiry` +
-      (drifted ? `; it attests ${attested} while the live score is ${live}` : '') +
-      ' — and note createdAt is itself UNBOUND, so an age check built on it detects staleness, never a lying issuer',
-      { createdAt: proofCreatedAt, attested, live, createdAt_is_bound: false });
+      `the served proof is ${ageDays.toFixed(0)} days old${drift}` +
+      ' — the store write has been failing since 2026-08-01, so consumers get the last row that landed',
+      { createdAt: proofCreatedAt, attested, live, ageDays: Number(ageDays.toFixed(1)) });
   } else {
-    record('zkrepid.freshness', 'MEASURED', `proof is ${ageDays.toFixed(1)} days old`);
+    record('zkrepid.freshness', 'MEASURED', `the served proof is ${ageDays.toFixed(1)} days old${drift}`);
   }
 } else {
   record('zkrepid.freshness', 'NOT_CHECKED', 'no createdAt on the proof');
+}
+
+if (proofStatement == null) {
+  record('zkrepid.expiry_binding', 'NOT_CHECKED', 'no statement parsed — see zkrepid.proof');
+} else if (unknownKeysIgnored === null) {
+  record('zkrepid.expiry_binding', 'NOT_CHECKED', 'binding scope unmeasured — see zkrepid.statement_binding_scope');
+} else {
+  const windowKey = ['valid_until', 'expires_at', 'not_after'].find((k) => proofStatement[k] !== undefined);
+  if (windowKey && unknownKeysIgnored === false) {
+    record('zkrepid.expiry_binding', 'MEASURED', `the statement carries \`${windowKey}\` and the verifier binds it`);
+  } else if (windowKey) {
+    record('zkrepid.expiry_binding', 'FAILED',
+      `the statement carries \`${windowKey}\` but the verifier IGNORES unknown keys — it renders as attested ` +
+      'while committing to nothing, which is worse than carrying no expiry at all',
+      { window_key: windowKey, bound: false });
+  } else {
+    record('zkrepid.expiry_binding', 'FAILED',
+      'the proof commits to no validity window — a bound window means valid_from/valid_until as circuit ' +
+      'public inputs, i.e. a verifier major AND a matching prover, not a key added to the statement JSON',
+      { statement_keys: Object.keys(proofStatement), createdAt_is_bound: false });
+  }
 }
 
 // Badge: green ONLY on true local verification.
