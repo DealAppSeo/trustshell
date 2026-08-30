@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { REPID_ENGINE_URL } from '@/lib/repid-engine';
+import { TrustBadge } from '@/components/trust-state';
 
 // Live trust data — never serve a stale passport.
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,10 @@ type Passport = {
   };
   reputation: { repid_score: number; tier: string | null; activity_30d: number };
   identity_erc8004: {
-    registered_onchain: boolean;
+    // Three states, never two — see repid-engine src/services/agent-passport.ts. `false` used to
+    // mean both "nothing was minted" and "we never checked", and tokens in the second group are
+    // live on chain. UNVERIFIED must never render as a denial.
+    registered_onchain: 'MINTED' | 'UNVERIFIED' | 'NOT_MINTED';
     token_id: string | null;
     contract_address: string | null;
     network: string | null;
@@ -172,7 +176,7 @@ export default async function PassportPage({
       </header>
 
       <Section title="Identity (ERC-8004)">
-        {id.registered_onchain ? (
+        {id.registered_onchain === 'MINTED' ? (
           <>
             <Row label="Status">
               <span className="text-green-500">Registered on-chain</span> ({id.network})
@@ -203,10 +207,37 @@ export default async function PassportPage({
               </a>
             </Row>
           </>
+        ) : id.registered_onchain === 'UNVERIFIED' ? (
+          <>
+            {/*
+              NOT a denial. This agent has a token id; what is missing is OUR record of the mint
+              transaction. Measured 2026-08-30: tokens in exactly this state return a real owner
+              from ownerOf() on the live registry — one of them the conservator address this same
+              passport prints. Rendering it as "off-chain only", which is what the old boolean did,
+              told visitors an identity did not exist while the chain was holding it.
+            */}
+            <Row label="Status">
+              <TrustBadge
+                state="NOT_CHECKED"
+                detail="a token id exists; this service has no record of the mint transaction"
+              />
+            </Row>
+            <Row label="Token ID">{id.token_id}</Row>
+            <Row label="Resolve it">
+              <a
+                href={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-500 underline"
+              >
+                Cross-verify ownerOf() on-chain now →
+              </a>
+            </Row>
+          </>
         ) : (
           <Row label="Status">
             <span className="text-neutral-400">
-              Off-chain only — no ERC-8004 identity recorded for this agent yet.
+              Off-chain only — no ERC-8004 token has been minted for this agent.
             </span>
           </Row>
         )}

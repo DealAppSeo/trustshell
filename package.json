@@ -51,7 +51,9 @@
     "test:grants-fail-closed": "node tests/e2e/grants-fail-closed.mjs",
     "test:mvp-walk": "node tests/e2e/mvp-walk.mjs",
     "test:campaign-honesty": "node tests/e2e/campaign-honesty.mjs",
-    "test:roles-honesty": "node tests/e2e/roles-honesty.mjs"
+    "test:roles-honesty": "node tests/e2e/roles-honesty.mjs",
+    "test:acceptance": "node tests/e2e/harness-acceptance.mjs",
+    "test:acceptance-baseline": "node tests/e2e/acceptance-baseline.mjs"
   },
   "comment:deps": "DEPENDENCY DIET 2026-06-15: the SDK (src/lib/) imports NONE of next/react/supabase/lucide/idb \u2014 they are Next.js-APP baggage that SDK consumers were inheriting (puppeteer/sharp/googleapis arrive transitively via next, ~1898 pkgs / ~7min install). The published package ships only dist/ (files[]), so the only true SDK runtime dep is @hyperdag/proof-verifier (dynamically imported, fails gracefully). App-runtime deps moved to devDependencies \u2192 they are still installed for `next build`/dev (full install), but `npm install @hyperdag/trustshell` no longer pulls the Next.js tree. NOTE: this confirms the SDK should ultimately be its OWN package (also resolves the merge-base caveat) \u2014 flagged for Sean.",
   "dependencies": {
