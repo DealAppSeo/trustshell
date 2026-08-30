@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { listGrantsFor, type ListedGrant, type Caveat } from '@/lib/repid-engine';
+import {
+  listGrantsFor,
+  fetchRoleCatalog,
+  roleStanding,
+  type ListedGrant,
+  type Caveat,
+  type RoleCatalog,
+  type RoleStanding,
+} from '@/lib/repid-engine';
 import { RevokeButton } from '../RevokeButton';
 import { TrustBadge } from '@/components/trust-state';
 
@@ -33,6 +41,62 @@ function caveatSummary(caveats: Caveat[]): string {
     .join(' · ');
 }
 
+/**
+ * A role chip that cannot be mistaken for a boundary it is not.
+ *
+ * THE BUG THIS FIXES. Every role rendered here in one amber chip — the brand accent, which on
+ * this site drives calls to action. `cfo` (a ceiling the mint path enforces) and
+ * "Researcher / Data" (free text that constrains nothing) were pixel-identical, so the screen
+ * asserted an authorization boundary for a string nobody had ever checked against anything.
+ * That is this codebase's recurring defect wearing a UI: a verdict displayed without being
+ * earned.
+ *
+ * Three states, never two. NOT_CHECKED is not LABEL_ONLY — "the backend does not recognise
+ * this name" is a measurement, and it is unavailable when the catalog is unreachable.
+ */
+function RoleChip({ standing }: { standing: RoleStanding }) {
+  if (standing.kind === 'ABSENT') return null;
+
+  const style =
+    standing.kind === 'RECOGNIZED'
+      ? 'border-[#2dd4bf]/45 bg-[#2dd4bf]/8 text-[#5eead4]'
+      : 'border-dashed border-[#8b97a8]/45 text-[#a8b3c2]';
+
+  const suffix =
+    standing.kind === 'RECOGNIZED' ? '' : standing.kind === 'LABEL_ONLY' ? ' · label only' : ' · not checked';
+
+  return (
+    <span
+      className={`inline-block rounded border px-1.5 py-0.5 text-xs ${style}`}
+      title={
+        standing.kind === 'RECOGNIZED'
+          ? `Ceiling: ${standing.definition.ceiling.join(', ') || 'nothing — this role may hold no capability'}`
+          : standing.kind === 'LABEL_ONLY'
+            ? 'Free text. Stored for humans; it constrains nothing.'
+            : 'The role catalog could not be read, so whether this name bounds anything is unknown.'
+      }
+    >
+      {standing.role}
+      {suffix}
+    </span>
+  );
+}
+
+/** The one-line explanation under the grant, where the chip alone would be too terse. */
+function roleDetail(standing: RoleStanding): string | null {
+  if (standing.kind === 'ABSENT') return null;
+  if (standing.kind === 'RECOGNIZED') {
+    const c = standing.definition.ceiling;
+    return c.length === 0
+      ? `role ${standing.role}: ceiling is empty — this role may carry no capability at all, so nothing was granted under it that it did not already hold elsewhere`
+      : `role ${standing.role}: ceiling ${c.join(', ')} — applied at mint, so anything outside it was refused then`;
+  }
+  if (standing.kind === 'LABEL_ONLY') {
+    return `role "${standing.role}" is a human label. It is not one of the names that carry a ceiling, and it constrains nothing — read the scope and budget above, not the word.`;
+  }
+  return `role "${standing.role}" — the ceiling catalog is unreachable, so whether this name bounds anything could not be checked. Do not read it as a boundary.`;
+}
+
 function LiveBadge({ grant }: { grant: ListedGrant }) {
   if (grant.live) {
     return (
@@ -51,8 +115,18 @@ function LiveBadge({ grant }: { grant: ListedGrant }) {
   );
 }
 
-function GrantCard({ grant, principal }: { grant: ListedGrant; principal: string }) {
+function GrantCard({
+  grant,
+  principal,
+  catalog,
+}: {
+  grant: ListedGrant;
+  principal: string;
+  catalog: RoleCatalog | 'error';
+}) {
   const youAreGrantor = grant.grantor_agent_id === principal;
+  const standing = roleStanding(grant.role, catalog);
+  const detail = roleDetail(standing);
   return (
     <div className="space-y-2 rounded-lg border border-neutral-800 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -60,14 +134,10 @@ function GrantCard({ grant, principal }: { grant: ListedGrant; principal: string
           <span className="font-semibold text-neutral-200">{grant.grantor_agent_id}</span>
           <span className="mx-2 text-neutral-500">→</span>
           <span className="font-semibold text-neutral-200">{grant.grantee_agent_id}</span>
-          {grant.role && (
-            <span className="ml-2 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-500">
-              {grant.role}
-            </span>
-          )}
         </div>
         <LiveBadge grant={grant} />
       </div>
+      <RoleChip standing={standing} />
       <div className="grid grid-cols-1 gap-1 text-xs text-neutral-400 sm:grid-cols-2">
         <span>class: {grant.grant_class}</span>
         <span>depth: {grant.depth}{grant.parent_grant_id ? ' (delegated)' : ' (root)'}</span>
@@ -92,6 +162,9 @@ function GrantCard({ grant, principal }: { grant: ListedGrant; principal: string
             <TrustBadge state="NOT_CHECKED" detail="no grantor wallet on record — mint consent was never cryptographically checked" />
           )}
         </span>
+        {detail && (
+          <span className="leading-relaxed text-neutral-500 sm:col-span-2">{detail}</span>
+        )}
         {grant.revoked_at && <span>revoked: {fmtDate(grant.revoked_at)} by {grant.revoked_by}</span>}
       </div>
       {!grant.live && (
@@ -114,7 +187,9 @@ export default async function GrantsForPrincipalPage({
   params: Promise<{ principal: string }>;
 }) {
   const { principal } = await params;
-  const grants = await listGrantsFor(principal);
+  // Both reads in parallel. The catalog failing must not take the grants down with it — an
+  // unreadable ceiling table degrades every role to "not checked", which is a real answer.
+  const [grants, catalog] = await Promise.all([listGrantsFor(principal), fetchRoleCatalog()]);
 
   if (grants === 'error') {
     return (
@@ -150,7 +225,7 @@ export default async function GrantsForPrincipalPage({
           <h2 className="text-lg font-semibold text-neutral-200">Granted by {principal}</h2>
           <div className="space-y-3">
             {granted.map((g) => (
-              <GrantCard key={g.id} grant={g} principal={principal} />
+              <GrantCard key={g.id} grant={g} principal={principal} catalog={catalog} />
             ))}
           </div>
         </section>
@@ -161,7 +236,7 @@ export default async function GrantsForPrincipalPage({
           <h2 className="text-lg font-semibold text-neutral-200">Received by {principal}</h2>
           <div className="space-y-3">
             {received.map((g) => (
-              <GrantCard key={g.id} grant={g} principal={principal} />
+              <GrantCard key={g.id} grant={g} principal={principal} catalog={catalog} />
             ))}
           </div>
         </section>
