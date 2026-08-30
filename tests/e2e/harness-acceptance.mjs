@@ -120,13 +120,50 @@ try {
 if (proofStatement) {
   if (proofStatement.repid_score !== undefined) {
     record('zkrepid.privacy', 'FAILED',
-      'statement carries repid_score in plaintext while the badge claims it attests the threshold, not the score',
-      { threshold: proofStatement.threshold, leaked_field: 'statement.repid_score' });
+      'the exact score is a PUBLIC circuit input while the badge claims it attests the threshold, not the score — ' +
+      'fix the copy now; making the score private is a new circuit and a new verifier major, not a payload edit',
+      { threshold: proofStatement.threshold, public_input: 'statement.repid_score' });
   } else {
     record('zkrepid.privacy', 'MEASURED', 'statement carries the threshold, not the score');
   }
 } else {
   record('zkrepid.privacy', 'NOT_CHECKED', 'no statement parsed — see zkrepid.proof');
+}
+
+// TAMPER-EVIDENCE — a positive property, measured, and worth a regression guard.
+// The statement is not decoration beside the proof: agent_id, repid_score and threshold are all
+// PUBLIC INPUTS to the plonky3 circuit. Falsify any one and verification fails with
+// InvalidOpeningArgument(InvalidPowWitness). That is the property that makes the badge meaningful
+// at all, and nothing was pinning it.
+//
+// It is also why "just drop repid_score from the statement to fix the privacy leak" is WRONG and
+// is recorded here so nobody tries it: removing the field returns `missing field repid_score` and
+// the proof stops verifying entirely. The score is bound into the circuit; taking it out of the
+// statement is not a payload edit, it is a new circuit.
+try {
+  const { verify } = await import(join(dir, 'node_modules', '@hyperdag', 'proof-verifier', 'index.js'))
+    .catch(() => import('@hyperdag/proof-verifier'));
+  const raw = run('npx', ['trustshell', 'proof', AGENT, '--json'], { timeout: 120000 });
+  const pr = JSON.parse(raw);
+  const stmt = typeof pr.statement === 'string' ? JSON.parse(pr.statement) : pr.statement;
+  const base = await verify(pr.proofBytes, stmt);
+  const mutations = {
+    repid_score: { ...stmt, repid_score: Number(stmt.repid_score) + 7777 },
+    threshold: { ...stmt, threshold: 1 },
+    agent_id: { ...stmt, agent_id: '00000000-0000-4000-8000-000000000000' },
+  };
+  const survived = [];
+  for (const [field, mutated] of Object.entries(mutations)) {
+    const r = await verify(pr.proofBytes, mutated);
+    if (r?.verified === true) survived.push(field);
+  }
+  if (base?.verified !== true) record('zkrepid.tamper_evidence', 'FAILED', 'the untampered baseline did not verify');
+  else if (survived.length) record('zkrepid.tamper_evidence', 'FAILED',
+    `verification SURVIVED falsifying: ${survived.join(', ')} — those fields are not bound to the proof`);
+  else record('zkrepid.tamper_evidence', 'MEASURED',
+    'falsifying agent_id, repid_score or threshold each breaks verification — all three are bound public inputs');
+} catch (e) {
+  record('zkrepid.tamper_evidence', 'NOT_CHECKED', `could not drive the verifier directly: ${String(e.message).slice(0, 110)}`);
 }
 
 // FRESHNESS: cryptographically valid is not the same as currently true.
