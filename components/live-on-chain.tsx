@@ -40,14 +40,22 @@ const contracts = [
   },
 ];
 
-// Static numbers verified against production DB + Base Sepolia at edit time. See
-// block comment above for the rationale. Update on the same cadence as the static
-// landing copy. Verified 2026-07-08: all 12 core Trinity agents minted on the
-// canonical IdentityRegistry; 46 lifetime on-chain reputation writes. Writes are
-// currently paused (drain/anchor worker down) — most recent write 2026-06-22.
+// FALLBACK VALUES — and a lesson about what a fallback may assert.
+//
+// These used to read "46 lifetime writes ... writes are currently paused (drain/anchor worker
+// down) — most recent write 2026-06-22." MEASURED 2026-08-30: the table holds 93 writes, every
+// one with a transaction hash, and the most recent landed THAT DAY. The system was not paused
+// and had not been for months.
+//
+// The number going stale was inevitable and forgivable. Asserting a SYSTEM STATE was not: if the
+// live endpoint ever fails, the page would have told visitors the chain writes had stopped while
+// they were actively running. A fallback may carry a last-known reading. It must not diagnose.
+//
+// So the numbers are refreshed to the measured values, and `renderFallbackAsUnknown` decides what
+// happens when the endpoint is unreachable — see its use below. Nothing here claims liveness.
 const STATIC_AGENTS_MINTED = 12;
-const STATIC_LIFETIME_REAL_WRITES = 46;
-const STATIC_FROZEN_AT = '2026-06-22'; // last real on-chain write date (writes currently paused)
+const STATIC_LIFETIME_REAL_WRITES = 93;
+const STATIC_FROZEN_AT = '2026-08-30'; // last real on-chain write observed when these were set
 
 const LIVE_REFRESH_MS = 60_000;
 
@@ -246,7 +254,7 @@ export function LiveOnChain() {
               <p className="text-xs text-muted/40">
                 {onchainLive
                   ? 'Agents minted + lifetime writes are live from the engine — they grow as agents onboard.'
-                  : `Agents minted + lifetime writes are static fallbacks (live stats endpoint unavailable). All 12 core agents are minted; on-chain writes are currently paused — most recent write ${STATIC_FROZEN_AT}.`}
+                  : `Agents minted + lifetime writes are last-known figures — the live stats endpoint is unavailable, so these are NOT current. Most recent write observed when they were recorded: ${STATIC_FROZEN_AT}. Whether writes are flowing right now is not known from this page.`}
               </p>
             </div>
           </div>
