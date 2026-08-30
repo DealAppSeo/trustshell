@@ -135,9 +135,20 @@ export function renderProofBadge(
   const totalW = leftW + rightW;
   const H = 20;
 
+  // HONEST CAPTION. This read "The proof attests the threshold, not the score." — which was
+  // false about the proof, in the one sentence a reader takes as the privacy guarantee.
+  // MEASURED 2026-08-30 by driving @hyperdag/proof-verifier directly: `repid_score` is a PUBLIC
+  // INPUT to the plonky3 circuit (public values [16]=threshold, [17]=repid_score), and the AIR's
+  // boundary constraint is `reconstructed == repid - threshold - 1`. So the exact score travels
+  // in the statement beside every proof, and every consumer that echoes the statement republishes
+  // it. What IS true — and is pinned by this file's tests — is that the BADGE never renders it.
+  //
+  // Do not shorten this back. Making the score genuinely private needs the score to become a
+  // witness bound by a commitment, i.e. a new circuit and a new verifier major (board tasks 82/86),
+  // not a wording change. When that ships, the original sentence becomes true and can return.
   const title = escapeXml(
     `${status.label} — ${status.value}. ${status.detail}. ` +
-    `The proof attests the threshold, not the score.`,
+    `Proves the score is above the threshold; the score itself is public in the proof's statement.`,
   );
 
   const leftText = escapeXml(status.label);
@@ -184,6 +195,7 @@ export function renderProofBadgeMarkdown(
   const alt = `${status.label} ${status.value}`;
   const img = `![${alt}](data:image/svg+xml;base64,${b64})`;
   const linked = opts.href ? `[${img}](${opts.href})` : img;
+  // Same honest caption as the SVG title — see renderProofBadge.
   return `${linked}\n\n> ${status.label} — ${status.value}. ${status.detail}. ` +
-    `The proof attests the threshold, not the score.`;
+    `Proves the score is above the threshold; the score itself is public in the proof's statement.`;
 }

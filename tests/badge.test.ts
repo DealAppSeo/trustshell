@@ -1,7 +1,10 @@
 /**
  * Proof badge tests — pure rendering + the two honesty invariants:
  *   1. Green ("verified") ONLY when local verification returned true.
- *   2. The RepID score NEVER appears in any output (the proof attests the threshold).
+ *   2. The RepID score NEVER appears in any BADGE output. Note the scope: that is a fact about
+ *      what this renderer emits, NOT about the proof. `repid_score` is a public input to the
+ *      circuit and travels in the statement, so the caption must not claim the proof withholds
+ *      it — it once did, and that was the single sentence readers took as the privacy guarantee.
  *
  * No network: badge rendering is pure over a ProofPresentation. The CLI `badge`
  * command is exercised through run() with a MOCKED client (same pattern as cli.test.ts).
@@ -115,7 +118,9 @@ describe('renderProofBadgeMarkdown', () => {
   it('embeds the SVG as a self-contained data URI + honest caption', () => {
     const md = renderProofBadgeMarkdown(presentation({ verification: { verified: true, error: null, verifierVersion: 'wasm-v1' } }));
     expect(md).toContain('data:image/svg+xml;base64,');
-    expect(md).toMatch(/attests the threshold, not the score/);
+    expect(md).toMatch(/Proves the score is above the threshold/);
+    // The caption must NOT claim the proof withholds the score — it does not.
+    expect(md).not.toMatch(/attests the threshold, not the score/);
   });
 });
 
