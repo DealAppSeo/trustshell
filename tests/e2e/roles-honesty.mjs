@@ -204,6 +204,24 @@ try {
   );
   check('roles page shows the intersection rule, not just prose', rolesBody.includes('effective = requested'));
 
+  // The formula must be READABLE IN FULL at every width, not merely present in the DOM.
+  //
+  // This assertion exists because a craft "fix" of mine broke it and only a screenshot of the
+  // real render caught it. `whitespace-nowrap` stopped an ugly mid-phrase wrap and instead
+  // clipped the line at "the role's ceilin" — `max-w-[68ch]` resolves `ch` against the
+  // element's own 13px mono face, which came to less than the line plus its padding. Every
+  // text assertion above still passed: innerText returns the whole string whether or not the
+  // reader can see it. So does a DOM query. Only geometry catches this class.
+  for (const [w, h] of [[375, 900], [1280, 1400]]) {
+    await page.setViewportSize({ width: w, height: h });
+    const clipped = await page.evaluate(() => {
+      const el = [...document.querySelectorAll('p')].find((e) => e.textContent.startsWith('effective = requested'));
+      return el ? el.scrollWidth > el.clientWidth + 1 : null;
+    });
+    check(`the intersection formula is fully visible at ${w}px`, clipped === false, `clipped=${clipped}`);
+  }
+  await page.setViewportSize({ width: 1280, height: 1400 });
+
   if (process.env.SHOT_DIR) {
     await page.screenshot({ path: `${process.env.SHOT_DIR}/roles-measured.png`, fullPage: true });
   }

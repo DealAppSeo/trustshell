@@ -101,7 +101,19 @@ export default async function RoleCeilingsPage() {
           ends up holding is the intersection of three things, and the role can only ever shrink
           it:
         </p>
-        <p className="max-w-[68ch] overflow-x-auto whitespace-nowrap rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3 font-mono text-[13px] leading-relaxed text-neutral-300">
+        {/*
+          NOT max-w-[68ch]. That cap is the prose measure, and `ch` resolves against THIS
+          element's own 13px mono face — 68ch came to less than the line plus its padding, so
+          the formula rendered clipped at "the role's ceilin". A half-shown formula is worse
+          than a wrapped one: the reader cannot tell it continues.
+
+          So: full container width, and nowrap only from `sm` up, where the line fits. Below
+          that it WRAPS rather than scrolling. Measured at 375px, the nowrap version scrolled
+          inside its own box — correct by the letter of the rule, and still a formula the
+          reader sees two thirds of with nothing indicating more. On a phone a wrapped
+          complete line beats a clipped one.
+        */}
+        <p className="overflow-x-auto rounded-lg sm:whitespace-nowrap border border-neutral-800 bg-neutral-900/40 px-4 py-3 font-mono text-[13px] leading-relaxed text-neutral-300">
           effective = requested ∩ what the grantor holds ∩ the role&apos;s ceiling
         </p>
         <p className="max-w-[68ch] text-neutral-400">
