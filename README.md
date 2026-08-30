@@ -48,7 +48,8 @@ Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdi
 | `score(text)` | ✅ | raw HAL signals behind `verifyOutput` |
 | `getRepID(agentId)` | ✅ | current RepID + tier (public read) |
 | `presentProof(agentId)` | ✅ | RepID range proof for client-side verify |
-| `register(...)` | ✅ | public agent onboarding |
+| `register(...)` | ✅ | public agent onboarding — creates the agent and its RepID. **It does not mint an ERC-8004 identity**; see below |
+| ERC-8004 identity mint | 🔑 | `POST /api/v1/agents/:id/mint` — key-gated. A keyless `register()` leaves the agent with **no on-chain identity**, and the passport reports `NOT_MINTED` rather than implying one exists |
 | `listServices()` / `getService(id)` | ✅ | catalog read, **verified keyless against the deployed backend** (200, no key). Writes to the same paths — create, reprice, delete a listing — stay key-gated. Browse the same catalog in a browser at **[trustshell.dev/market](https://trustshell.dev/market)**. |
 | `executeA2A(...)` / `buildX402Payment(...)` | 🔑 + 💰 | agent-to-agent purchase; **needs API key AND a funded Base Sepolia wallet** (real EIP-3009 x402 settlement) |
 
@@ -57,6 +58,7 @@ We say this plainly on purpose: **nothing here claims more than actually runs.**
 ### Honest limits
 
 - **v1 is a thin client, by design.** This wrapper makes keyless calls to the **hosted** HyperDAG engine for HAL, RepID, and gating — it does **not** run the trust computation on your machine. So it depends on the backend being reachable, and the backend sees each request. **On-device proof generation, where only attestations leave your machine (the real "portable mesh"), is v2 — not shipped.** We name this so v1 is never mistaken for the mesh.
+- **ERC-8004 identity is a keyed step, and `register()` is not it.** Registration is keyless and gives you an agent with a live RepID — reputation, proofs and the badge all work from there. The on-chain identity token is minted by a separate, key-gated call. So a keyless onboarding ends with **no token on chain**, and we report that as `NOT_MINTED` rather than showing an identity that is not there. Ask for a key if you need the on-chain identity. (Measured 2026-08-30: the registration path never reaches the minter — this is the documented design, not an outage.)
 - **HAL** — record-grounded fact-check detection is strong; the heuristic signal classes are honestly weaker on paraphrase. The cross-provider quorum above is real and live.
 - **Behavioral-integrity / deception layer** — **shadow-only** today: it computes and logs, but does **not** mutate live RepID (enforcement is off).
 - **On-chain writes** — currently paused; see [On-chain today](#on-chain-today-base-sepolia-chain-id-84532).

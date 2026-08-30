@@ -277,9 +277,17 @@ if (chainReachable) {
 // minting route, POST /api/v1/agents/:id/mint, is bearer-gated. So a stranger completing the
 // quickstart ends with NO on-chain identity. This leg fails until that link exists — it is the
 // difference between "the pieces work" and "it works for anyone".
+// DECIDED 2026-08-30: identity is a KEYED step, and that is now stated in the README's
+// keyless-vs-keyed table and its Honest limits. So the product no longer overclaims — but the
+// leg stays FAILED, because this gate answers "can a stranger get all four capabilities", and
+// the honest answer is still no for on-chain identity. Documenting a gap closes the dishonesty,
+// not the gap. It flips to MEASURED only when a keyless path actually mints, or when the MVP's
+// definition of done formally drops on-chain identity from the four.
 record('erc8004.identity_for_new_user', 'FAILED',
-  'register() is keyless but never mints; POST /agents/:id/mint is bearer-gated — a new user cannot obtain an on-chain identity',
-  { registerRoute: 'src/routes/agents-external.ts', mintRoute: 'src/routes/agents-onchain.ts (auth required)' });
+  'BY DESIGN, now documented: register() is keyless and never mints; POST /agents/:id/mint is key-gated. ' +
+  'A stranger finishes onboarding with no on-chain identity — reputation, proofs and badge all work without one',
+  { registerRoute: 'src/routes/agents-external.ts', mintRoute: 'src/routes/agents-onchain.ts (auth required)',
+    documented: 'README keyless-vs-keyed table + Honest limits', decision: '2026-08-30 — keyed step, report NOT_MINTED honestly' });
 
 function finish() {
   try { rmSync(dir, { recursive: true, force: true }); } catch {}
