@@ -53,6 +53,42 @@ permissions:
   contents: read
 
 jobs:
+  # The cold-install acceptance gate. A SEPARATE job from `honesty` for two reasons: it needs no
+  # browser (it drives the published CLI and plain HTTP, so it must not pay for a Chromium
+  # install), and one broken surface must not hide the state of the other.
+  #
+  # WHY IT RUNS HERE AND NOWHERE ELSE. The gate needs OUTBOUND HTTP to a Base Sepolia RPC, and an
+  # agent sandbox has none — all six public Base RPCs tried on 2026-08-30 returned
+  # `CONNECT tunnel failed, response 403`, which is the proxy refusing, not the servers. So two
+  # legs are permanently NOT_CHECKED wherever this repo is developed, and a GitHub runner is the
+  # cheapest place they become real measurements. That is this job's whole purpose, which is why
+  # a NOT_CHECKED here counts as a failure of the job rather than an absence of signal.
+  #
+  # WHY IT IS DIFFED AGAINST A BASELINE RATHER THAN RUN BARE. The gate exits 1 today: four real
+  # gaps are open and none is closeable from CI. Wiring that straight in paints this workflow
+  # permanently red, and `continue-on-error` would reduce it to log output nobody reads — the
+  # two-outcome collapse the gate exists to prevent, arriving through the door marked CI. The
+  # baseline fails on any DIFFERENCE, including a known gap that has been FIXED, so the list
+  # cannot quietly become a silencer. See tests/e2e/acceptance-baseline.mjs.
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Note why this ran
+        run: echo "ref_note = ${{ inputs.ref_note || 'scheduled' }}"
+
+      # No `npm ci`: the gate installs the PUBLISHED package into a temp directory on purpose.
+      # Building from this checkout would test the source, which is not the question it asks.
+      - name: Cold-install acceptance gate, diffed against its baseline
+        run: npm run test:acceptance-baseline
+
   honesty:
     runs-on: ubuntu-latest
     # Generous but bounded: the walk builds the app and drives a real browser.
