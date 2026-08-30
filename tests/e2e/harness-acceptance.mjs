@@ -34,6 +34,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
@@ -59,6 +61,26 @@ const dir = mkdtempSync(join(tmpdir(), 'trustshell-cold-'));
 writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'cold', private: true }));
 const run = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, { cwd: dir, encoding: 'utf8', timeout: opts.timeout ?? 180000, stdio: ['ignore', 'pipe', 'pipe'] });
+
+/**
+ * Load a module FROM THE COLD INSTALL, and from nowhere else.
+ *
+ * This replaced `import(join(dir,'node_modules','@hyperdag','proof-verifier','index.js'))
+ * .catch(() => import('@hyperdag/proof-verifier'))`, which was wrong twice over and CI is what
+ * caught it. The path guessed `index.js`; the package's `main` is `js/index.js` and it ships no
+ * `exports` map, so the first import ALWAYS failed. The `.catch()` then resolved the bare
+ * specifier — which, because this file lives inside the repo, found the REPO'S OWN dev
+ * dependency. Three legs therefore reported MEASURED locally while testing the development tree,
+ * not the package npm serves, which is this gate's entire claim. On a runner with no `npm ci`
+ * there was nothing to fall back to and they turned NOT_CHECKED, which is how it surfaced.
+ *
+ * So: resolve through the cold directory's own require, which honours `main` rather than guessing
+ * a filename, and DO NOT fall back. If it cannot be loaded from there, that is the finding — a
+ * dependency a user's install does not get — and the leg must say NOT_CHECKED rather than quietly
+ * borrowing one from here.
+ */
+const coldRequire = createRequire(join(dir, 'package.json'));
+const fromColdInstall = (specifier) => import(pathToFileURL(coldRequire.resolve(specifier)).href);
 
 try {
   run('npm', ['install', `@hyperdag/trustshell@${VERSION}`, '--no-audit', '--no-fund']);
@@ -141,8 +163,7 @@ if (proofStatement) {
 // the proof stops verifying entirely. The score is bound into the circuit; taking it out of the
 // statement is not a payload edit, it is a new circuit.
 try {
-  const { verify } = await import(join(dir, 'node_modules', '@hyperdag', 'proof-verifier', 'index.js'))
-    .catch(() => import('@hyperdag/proof-verifier'));
+  const { verify } = await fromColdInstall('@hyperdag/proof-verifier');
   const raw = run('npx', ['trustshell', 'proof', AGENT, '--json'], { timeout: 120000 });
   const pr = JSON.parse(raw);
   const stmt = typeof pr.statement === 'string' ? JSON.parse(pr.statement) : pr.statement;
@@ -180,8 +201,7 @@ try {
 // input and a verifier major, not a key in a JSON blob.
 let unknownKeysIgnored = null; // null = NOT_CHECKED; true = decoration; false = verifier checks them
 try {
-  const { verify } = await import(join(dir, 'node_modules', '@hyperdag', 'proof-verifier', 'index.js'))
-    .catch(() => import('@hyperdag/proof-verifier'));
+  const { verify } = await fromColdInstall('@hyperdag/proof-verifier');
   const pr = JSON.parse(run('npx', ['trustshell', 'proof', AGENT, '--json'], { timeout: 120000 }));
   const stmt = typeof pr.statement === 'string' ? JSON.parse(pr.statement) : pr.statement;
   const ignored = [];
@@ -289,7 +309,7 @@ try {
 // a valid payment authorization. Settlement is NOT_CHECKED and is never attempted here.
 
 try {
-  const { TrustShell } = await import(join(dir, 'node_modules', '@hyperdag', 'trustshell', 'dist', 'lib', 'index.js'));
+  const { TrustShell } = await fromColdInstall('@hyperdag/trustshell');
   const page = await new TrustShell({}).listServices({ limit: 5 });
   const services = page?.services ?? [];
   if (!Array.isArray(services)) record('x402.discovery', 'FAILED', `listServices returned no services array (keys: ${Object.keys(page ?? {}).join(',')})`);
@@ -321,9 +341,8 @@ try {
 // half the time reads as a flaky gate and is really a flaky instrument — it cost a round here.
 // Corrupt a digit inside r/s instead: 0 of 12 survived, and the sabotage then fails 3 runs of 3.
 try {
-  const { buildX402Payment } = await import(join(dir, 'node_modules', '@hyperdag', 'trustshell', 'dist', 'lib', 'index.js'));
-  const { verifyTypedData, Wallet } = await import(join(dir, 'node_modules', 'ethers', 'lib.esm', 'index.js'))
-    .catch(() => import(join(dir, 'node_modules', 'ethers')));
+  const { buildX402Payment } = await fromColdInstall('@hyperdag/trustshell');
+  const { verifyTypedData, Wallet } = await fromColdInstall('ethers');
 
   const KEY = '0x' + 'ab'.repeat(32);
   const PAYER = new Wallet(KEY).address;
