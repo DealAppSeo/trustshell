@@ -50,6 +50,23 @@ const CHAIN_ID = 84532;
 const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 
 const legs = [];
+
+/**
+ * TIMINGS ARE OBSERVATIONS, NEVER VERDICTS.
+ *
+ * Recorded so a later question about weights, quorum size or budgets can be answered with
+ * numbers instead of intuition. They deliberately do NOT influence any leg: a slow provider is
+ * not a failing one, and a gate that reddened on latency would redden on someone else's bad
+ * afternoon.
+ *
+ * Every figure here is n=1 from a single cold run, and is labelled that way in the output for
+ * one reason: this project has already had to retract published numbers taken from a sample
+ * nobody characterised. One run tells you an order of magnitude and whether a path is alive. It
+ * does not support tuning anything, and 2-4 real events a day will not either.
+ */
+const perf = {};
+const since = (t0) => Date.now() - t0;
+
 const record = (leg, verdict, detail, evidence) => {
   legs.push({ leg, verdict, detail, evidence });
   const mark = { MEASURED: 'MEASURED   ', NOT_CHECKED: 'NOT_CHECKED', FAILED: 'FAILED     ' }[verdict];
@@ -94,9 +111,12 @@ try {
 // HAL. A live cross-provider quorum: the assertion is that real providers answered, not merely
 // that the process exited 0 — a verdict with an empty evidence list is the failure mode here.
 try {
+  const t0 = Date.now();
   const out = run('npx', ['trustshell', 'verify', 'The Earth orbits the Sun.', '--json'], { timeout: 180000 });
+  perf.hal_verify_ms = since(t0);
   const j = JSON.parse(out);
   const providers = (j.evidence ?? j.providers ?? []).length;
+  perf.hal_quorum_size = providers;
   if (!j.verdict && !j.decision) record('hal.verify', 'FAILED', 'no verdict field in --json output');
   else if (providers === 0) record('hal.verify', 'FAILED', 'verdict returned with ZERO provider evidence — a quorum of nobody');
   else record('hal.verify', 'MEASURED', `${j.verdict ?? j.decision}, ${providers} providers responded`);
@@ -167,7 +187,10 @@ try {
   const raw = run('npx', ['trustshell', 'proof', AGENT, '--json'], { timeout: 120000 });
   const pr = JSON.parse(raw);
   const stmt = typeof pr.statement === 'string' ? JSON.parse(pr.statement) : pr.statement;
+  const tv = Date.now();
   const base = await verify(pr.proofBytes, stmt);
+  // The pure client-side verification, with no fetch in it — the figure a consumer pays.
+  perf.proof_verify_ms = since(tv);
   const mutations = {
     repid_score: { ...stmt, repid_score: Number(stmt.repid_score) + 7777 },
     threshold: { ...stmt, threshold: 1 },
@@ -361,14 +384,16 @@ try {
 
   // step 1 — domain pinned by this test
   const pinnedDomain = { name: 'USDC', version: '2', chainId: 84532, verifyingContract: SEPOLIA_USDC };
+  const tb = Date.now();
   const pinned = decode(await buildX402Payment({ privateKey: KEY, to: TO, amount: 100000, asset: SEPOLIA_USDC, chainId: 84532 }));
+  perf.x402_header_build_ms = since(tb);
   const missing = CANON.filter((k) => pinned[k] === undefined);
 
   if (missing.length) {
     record('x402.payment_header', 'FAILED', `the header omits ${missing.join(', ')} — the facilitator decodes all seven`);
   } else if (String(pinned.from).toLowerCase() !== PAYER.toLowerCase()) {
     record('x402.payment_header', 'FAILED', `header claims from=${pinned.from} but the key signs as ${PAYER}`);
-  } else if (!recovers(pinned, pinnedDomain)) {
+  } else if ((() => { const tr = Date.now(); const ok = recovers(pinned, pinnedDomain); perf.x402_recover_ms = since(tr); return !ok; })()) {
     record('x402.payment_header', 'FAILED',
       'the EIP-712 signature does NOT recover to the payer on an explicitly pinned domain — the ' +
       'authorization is well-shaped and invalid, which a facilitator rejects at settlement, not here');
@@ -410,7 +435,9 @@ async function rpc(method, params) {
 
 let chainReachable = false;
 try {
+  const tc = Date.now();
   const j = await rpc('eth_chainId', []);
+  perf.rpc_chainid_ms = since(tc);
   const id = parseInt(j.result, 16);
   if (id !== CHAIN_ID) record('chain.identity', 'FAILED', `RPC is chain ${id}, expected Base Sepolia ${CHAIN_ID}`);
   else { chainReachable = true; record('chain.reachable', 'MEASURED', `Base Sepolia ${CHAIN_ID}`); }
@@ -424,7 +451,9 @@ try {
 // sample agent's identity resolves; a NEW user's identity is asserted by the register leg below.
 if (chainReachable) {
   try {
+    const tg = Date.now();
     const code = await rpc('eth_getCode', [IDENTITY_REGISTRY, 'latest']);
+    perf.rpc_getcode_ms = since(tg);
     const bytes = ((code.result || '0x').length - 2) / 2;
     if (bytes < 2) record('erc8004.registry', 'FAILED', 'identity registry has no code at the pinned address');
     else record('erc8004.registry', 'MEASURED', `identity registry deployed (${bytes} bytes)`);
@@ -456,8 +485,13 @@ function finish() {
   try { rmSync(dir, { recursive: true, force: true }); } catch {}
   const failed = legs.filter((l) => l.verdict === 'FAILED');
   const unchecked = legs.filter((l) => l.verdict === 'NOT_CHECKED');
-  if (JSON_OUT) console.log(JSON.stringify({ version: VERSION, legs }, null, 2));
+  if (JSON_OUT) console.log(JSON.stringify({ version: VERSION, legs, perf }, null, 2));
   else {
+    const shown = Object.entries(perf).filter(([, v]) => v != null);
+    if (shown.length) {
+      console.log('\nobserved this run (n=1 — an order of magnitude, not a basis for tuning):');
+      console.log('  ' + shown.map(([k, v]) => `${k}=${v}${k.endsWith('_ms') ? 'ms' : ''}`).join('  '));
+    }
     console.log(`\n${legs.filter((l) => l.verdict === 'MEASURED').length} measured · ${unchecked.length} not checked · ${failed.length} failed`);
     if (unchecked.length) console.log('NOT_CHECKED is not a pass. This run cannot certify those legs.');
   }
