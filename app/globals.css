@@ -65,6 +65,19 @@ h2 {
   border-radius: 4px;
 }
 
+/* Text selection and the caret ship with browser defaults that belong to no design system —
+   Chrome's selection blue against this ground is the one surface on the page that looks like a
+   different product. Both are drawn from the accent, at a tint that keeps selected body text
+   above 4.5:1 rather than inverting it. */
+::selection {
+  background: rgba(246, 133, 27, 0.28);
+  color: var(--foreground);
+}
+
+:where(input, textarea) {
+  caret-color: var(--accent);
+}
+
 /* Motion is short and purposeful. Anything decorative is off for those who ask. */
 @media (prefers-reduced-motion: reduce) {
   *,

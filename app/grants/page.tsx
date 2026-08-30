@@ -55,6 +55,14 @@ export default function GrantsIndexPage() {
           </li>
         </ul>
         <p className="pt-2">
+          A grant may also name a <strong className="text-neutral-200">role</strong> — CEO, CTO,
+          CFO or CMO. A role never supplies authority; it caps what the grant may carry, which is
+          why a CTO grant cannot move money whatever it asks for.{' '}
+          <Link href="/grants/roles" className="text-amber-500 underline">
+            See the four ceilings →
+          </Link>
+        </p>
+        <p className="pt-2">
           Full endpoint reference:{' '}
           <a
             href="https://github.com/DealAppSeo/repid-engine/blob/main/docs/mvp-grants-api.md"

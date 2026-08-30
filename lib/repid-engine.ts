@@ -298,6 +298,86 @@ export type ListedGrant = Grant & { live: boolean; liveReason: string };
 
 export type MintGrantResult = { ok: true; grant: Grant } | { ok: false; error: string };
 
+// ---------------------------------------------------------------------------
+// Role ceilings
+// ---------------------------------------------------------------------------
+
+export type RoleDefinition = {
+  name: string;
+  label: string;
+  /** The MOST this role may ever hold. `[]` means it may hold nothing — that is CTO and CMO. */
+  ceiling: string[];
+  rationale: string;
+};
+
+export type RoleCatalog = {
+  roles: RoleDefinition[];
+  /** The closed set of names that carry a ceiling. Everything else is a label. */
+  recognized: string[];
+  note: string;
+};
+
+/**
+ * Fetch the role ceilings FROM THE BACKEND THAT ENFORCES THEM.
+ *
+ * WHY THIS IS NOT A CONSTANT IN THIS FILE. A ceiling table hardcoded here would render
+ * identically whether or not the mint path agreed with it, which makes it a displayed
+ * constraint no gate need honour — the exact shape repid-engine's own principal-roles.ts
+ * header names as the defect it was written to avoid. If the answer cannot be fetched, the
+ * caller must say NOT_CHECKED. It must never fall back to a copy.
+ *
+ * Returns `'error'` for unreachable, distinctly from a catalog that is genuinely empty.
+ */
+export async function fetchRoleCatalog(): Promise<RoleCatalog | 'error'> {
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/grants/roles`, { cache: 'no-store' });
+    if (!res.ok) return 'error';
+    const data = await res.json();
+    if (!Array.isArray(data?.roles) || !Array.isArray(data?.recognized)) return 'error';
+    return {
+      roles: data.roles as RoleDefinition[],
+      recognized: data.recognized as string[],
+      note: typeof data.note === 'string' ? data.note : '',
+    };
+  } catch {
+    return 'error';
+  }
+}
+
+/** What a role string on a grant actually means, judged against the live catalog. */
+export type RoleStanding =
+  | { kind: 'ABSENT' }
+  /** A name the backend recognises. Its ceiling is applied at mint time. */
+  | { kind: 'RECOGNIZED'; role: string; definition: RoleDefinition }
+  /** Free text. Stored for humans, bounds nothing. */
+  | { kind: 'LABEL_ONLY'; role: string }
+  /** The catalog could not be read, so which of the two above this is CANNOT BE SAID. */
+  | { kind: 'NOT_CHECKED'; role: string };
+
+/**
+ * Classify a grant's `role` field.
+ *
+ * `catalog: 'error'` yields NOT_CHECKED rather than LABEL_ONLY. Those are different claims:
+ * LABEL_ONLY asserts the backend does not recognise this name, which is a measurement, and
+ * asserting it from a failed fetch would be inventing the reassuring half of an answer nobody
+ * got. Matching is case- and whitespace-insensitive, mirroring `resolveRole` — which
+ * deliberately does not fuzzy-match, so neither does this.
+ */
+export function roleStanding(
+  role: string | null | undefined,
+  catalog: RoleCatalog | 'error'
+): RoleStanding {
+  if (role === null || role === undefined || String(role).trim() === '') return { kind: 'ABSENT' };
+  const raw = String(role).trim();
+  if (catalog === 'error') return { kind: 'NOT_CHECKED', role: raw };
+  const norm = raw.toLowerCase();
+  const def = catalog.roles.find((r) => r.name.toLowerCase() === norm);
+  if (def && catalog.recognized.some((n) => n.toLowerCase() === norm)) {
+    return { kind: 'RECOGNIZED', role: raw, definition: def };
+  }
+  return { kind: 'LABEL_ONLY', role: raw };
+}
+
 /**
  * `idempotencyKey`: generate one client-side (e.g. crypto.randomUUID()) and reuse the SAME
  * value across retries of one logical mint attempt — a retry with the same key returns the

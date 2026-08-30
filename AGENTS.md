@@ -6,14 +6,22 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # The browser suites DO run in an agent sandbox. Run them before saying a client path is unverifiable.
 
-**MEASURED 2026-08-29, from a sandboxed agent session, all three green:**
+**MEASURED, from a sandboxed agent session — the first three on 2026-08-29, all four on 2026-08-30, green:**
 
 ```bash
 export PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 npm run test:mvp-walk            # 39/39  — the whole first-user journey, in real Chromium
 npm run test:grants-fail-closed  # 10/10
 npm run test:campaign-honesty    # 15/15
+npm run test:roles-honesty       # 15/15  — added 2026-08-30, same run
 ```
+
+`test:roles-honesty` builds in-suite rather than assuming a build exists, and so do two of its
+siblings. That is not ceremony: **`next build` inlines `NEXT_PUBLIC_*` by static analysis**, so a
+bundle built without `NEXT_PUBLIC_REPID_ENGINE_URL` sends every fetch to the empty string. Running
+that suite against a pre-existing build failed eight assertions, and the natural reading of the
+output was "these pages are broken". They were not — the probe was. Point a suite at a build it
+did not make and you are measuring the build, not the code.
 
 **Why this note exists.** Each of those files says *"NOT in gating CI — it needs a browser and a
 server"*, which is true and is about **where the suite runs**, not whether you can run it. Skimmed,
