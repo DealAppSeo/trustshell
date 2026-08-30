@@ -166,6 +166,43 @@ try {
   record('zkrepid.tamper_evidence', 'NOT_CHECKED', `could not drive the verifier directly: ${String(e.message).slice(0, 110)}`);
 }
 
+// BINDING SCOPE — which statement fields the proof actually commits to, and which it ignores.
+//
+// This leg exists because the obvious fix for the freshness defect is to add `expires_at` to the
+// statement, and MEASURED 2026-08-30 that would be a lie. serde ignores unknown fields, so the
+// verifier returns verified:true with expires_at set to a future date, to 1999, to the string
+// "whatever i like", or removed entirely. An expiry added that way would render inside a verified
+// proof while committing to nothing — a new instance of the precise defect this repo keeps paying
+// for, introduced by the fix for another one.
+//
+// So the scope is pinned: the four canonical keys are bound (falsifying any breaks verification),
+// and ANYTHING ELSE is decoration the verifier does not check. A real expiry is a circuit public
+// input and a verifier major, not a key in a JSON blob.
+try {
+  const { verify } = await import(join(dir, 'node_modules', '@hyperdag', 'proof-verifier', 'index.js'))
+    .catch(() => import('@hyperdag/proof-verifier'));
+  const pr = JSON.parse(run('npx', ['trustshell', 'proof', AGENT, '--json'], { timeout: 120000 }));
+  const stmt = typeof pr.statement === 'string' ? JSON.parse(pr.statement) : pr.statement;
+  const ignored = [];
+  for (const bogus of [
+    { expires_at: '1999-01-01T00:00:00Z' },
+    { expires_at: 'whatever i like' },
+    { not_a_real_field: true },
+  ]) {
+    const r = await verify(pr.proofBytes, { ...stmt, ...bogus });
+    if (r?.verified === true) ignored.push(Object.keys(bogus)[0]);
+  }
+  if (ignored.length === 0) {
+    record('zkrepid.statement_binding_scope', 'MEASURED', 'the verifier rejects unknown statement keys — an added expiry WOULD be checked');
+  } else {
+    record('zkrepid.statement_binding_scope', 'MEASURED',
+      'unknown statement keys are IGNORED by the verifier — anything beyond the four canonical keys commits to nothing',
+      { bound: ['agent_id', 'repid_score', 'threshold'], ignored_examples: [...new Set(ignored)] });
+  }
+} catch (e) {
+  record('zkrepid.statement_binding_scope', 'NOT_CHECKED', String(e.message).slice(0, 110));
+}
+
 // FRESHNESS: cryptographically valid is not the same as currently true.
 // The badge renders green on `verification.verified`, which proves the proof is internally sound —
 // never that it still describes the agent. A proof minted when the score was above the threshold
@@ -178,8 +215,9 @@ if (proofCreatedAt) {
   if (ageDays > 7) {
     record('zkrepid.freshness', 'FAILED',
       `proof is ${ageDays.toFixed(0)} days old and carries no expiry` +
-      (drifted ? `; it attests ${attested} while the live score is ${live}` : ''),
-      { createdAt: proofCreatedAt, attested, live });
+      (drifted ? `; it attests ${attested} while the live score is ${live}` : '') +
+      ' — and note createdAt is itself UNBOUND, so an age check built on it detects staleness, never a lying issuer',
+      { createdAt: proofCreatedAt, attested, live, createdAt_is_bound: false });
   } else {
     record('zkrepid.freshness', 'MEASURED', `proof is ${ageDays.toFixed(1)} days old`);
   }
