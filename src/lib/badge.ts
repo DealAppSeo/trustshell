@@ -141,14 +141,16 @@ export function renderProofBadge(
   // INPUT to the plonky3 circuit (public values [16]=threshold, [17]=repid_score), and the AIR's
   // boundary constraint is `reconstructed == repid - threshold - 1`. So the exact score travels
   // in the statement beside every proof, and every consumer that echoes the statement republishes
-  // it. What IS true — and is pinned by this file's tests — is that the BADGE never renders it.
+  // it. The circuit binds THREE things — agent_id, threshold and repid_score — so the caption now
+  // names all three rather than describing only what leaks. What remains true, and is pinned by
+  // this file's tests, is that the BADGE itself never renders the score.
   //
   // Do not shorten this back. Making the score genuinely private needs the score to become a
   // witness bound by a commitment, i.e. a new circuit and a new verifier major (board tasks 82/86),
   // not a wording change. When that ships, the original sentence becomes true and can return.
   const title = escapeXml(
     `${status.label} — ${status.value}. ${status.detail}. ` +
-    `Proves the score is above the threshold; the score itself is public in the proof's statement.`,
+    `Attests agent, threshold and score; the score is a bound public input.`,
   );
 
   const leftText = escapeXml(status.label);
@@ -197,5 +199,5 @@ export function renderProofBadgeMarkdown(
   const linked = opts.href ? `[${img}](${opts.href})` : img;
   // Same honest caption as the SVG title — see renderProofBadge.
   return `${linked}\n\n> ${status.label} — ${status.value}. ${status.detail}. ` +
-    `Proves the score is above the threshold; the score itself is public in the proof's statement.`;
+    `Attests agent, threshold and score; the score is a bound public input.`;
 }
