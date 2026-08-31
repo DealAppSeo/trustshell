@@ -206,7 +206,7 @@ export default function PaiPage() {
         ...m,
         mkMsg(
           'pai',
-          `Done — I have a real identity now, and a Passport you can read. I hold no keys of yours: I run on the free shared pool, and anything beyond that needs a grant you issue explicitly. Ask me anything.`,
+          `Done — I have an off-chain identity now, and a Passport you can read. (Signup does not mint a token on-chain to save gas, and my score is a public input, not hidden). I hold no keys of yours: I run on the free shared pool. HAL gates my actions, not this welcome screen. Ask me anything.`,
           { kernelRead: relevantKernelRead('passport') },
         ),
       ]);
