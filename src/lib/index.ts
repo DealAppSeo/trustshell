@@ -31,3 +31,21 @@ export async function verify(
   const mod: any = await import(/* @vite-ignore */ verifierPkg);
   return mod.verify(proofBytes, statement);
 }
+
+/**
+ * wrapExecute — run an agent's work, score the output with HAL, return both.
+ *
+ * Records by default and withholds nothing; blocking is opt-in per call via
+ * `blockAtOrAbove`. See wrap-execute.ts for why that default is a measurement, not
+ * caution, and for what the wrapper structurally cannot do (it scores output that has
+ * already been produced, so it withholds results, not side effects).
+ */
+export { wrapExecute, meetsThreshold, HAL_VERDICT_ORDER } from './wrap-execute';
+export type {
+  HalVerdict,
+  HalScorer,
+  WrapDisposition,
+  WrapExecuteOptions,
+  WrapExecuteRecord,
+  WrapExecuteResult,
+} from './wrap-execute';
