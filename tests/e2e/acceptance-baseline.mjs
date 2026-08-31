@@ -50,10 +50,32 @@ const KNOWN_FAILED = {
       'constraint (reconstructed == repid - threshold - 1), so privacy is a new circuit, not a payload edit',
     pointer: 'board task 82, blocked behind task 86 (the live prover has no source in any repository)',
   },
+  // CORRECTED 2026-08-31. Both halves of the previous entry are now false, and the pointer was
+  // actively misleading: it read "this leg should go MEASURED once #549 deploys". #549 HAS
+  // deployed, the write DOES work, and the leg is still red — so the entry as written told the
+  // next reader that the fix had failed. It had not.
+  //
+  // MEASURED against production, 2026-08-31:
+  //   6 proof jobs completed in 24 h. The 2 from today wrote proof rows; the 4 from 2026-08-30
+  //   12:04Z wrote none. A brand-new agent's proof landed in 4.96 s and was anchored on chain
+  //   2 min later. The write is not failing today.
+  //
+  //   The default agent's staleness is a DIFFERENT thing, and the obvious explanation is wrong:
+  //   it is NOT that nothing re-mints for an idle agent. It logged 13 score events after its
+  //   last stored proof and enqueued a job as late as 2026-08-11 — jobs were raised and produced
+  //   nothing. So the historical gap is real and was never backfilled, and no code deploy closes
+  //   it: only re-minting does. That is why a stranger who registered minutes ago now holds a
+  //   fresher, better artifact than the flagship agent.
   'zkrepid.freshness': {
-    why: 'the canonical proof write has failed on every attempt since 2026-08-01 (Postgres 42804), ' +
-      'so every consumer is served the last row that landed',
-    pointer: 'repid-engine PR #549 — this leg should go MEASURED once that deploys',
+    why: 'the proof write is HEALTHY again as of 2026-08-31 (measured: a cold-registered agent ' +
+      'went request -> proof in 4.96 s -> on-chain anchor in 2 min 09 s). This leg stays red ' +
+      'because the default agent\'s own 2026-08-01..08-11 gap was never backfilled — 13 score ' +
+      'events after its last stored proof, jobs enqueued, no rows written. A deploy cannot fix ' +
+      'a row that was never written; only a re-mint can.',
+    pointer: 'board task 89 (backfill; all inputs verified recoverable) — needs a GO, not a deploy. ' +
+      'NOT ESTABLISHED: which change flipped the write. The window is 2026-08-30 12:04Z (4/4 ' +
+      'failed) to 2026-08-31 01:22Z (2/2 wrote), which brackets the prover-URL restoration but ' +
+      'does not attribute it.',
   },
   'zkrepid.expiry_binding': {
     why: 'the proof commits to no validity window; createdAt is metadata beside the proof, not a ' +
