@@ -65,6 +65,12 @@ export default function PaiPage() {
   const [qIndex, setQIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /*
+    Claiming is offered only AFTER the agent has answered something. Asking for
+    a wallet from someone who has not yet found out whether they want the thing
+    is the friction this flow exists to defer.
+  */
+  const [hasRun, setHasRun] = useState(false);
   const [founderOn, setFounderOn] = useState(false);
   const [runsLeft, setRunsLeft] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -300,6 +306,7 @@ export default function PaiPage() {
       ]);
 
       if (agent) {
+        setHasRun(true);
         await localDb.updateAgent(agent.id, {
           totalPrompts: agent.totalPrompts + 1,
           lastUsedAt: Date.now(),
@@ -485,6 +492,32 @@ export default function PaiPage() {
       <p className="text-xs text-[#64748b]">
         Runs on the free shared pool{runsLeft !== null ? ` · ${runsLeft} left today` : ''}.
       </p>
+
+      {/*
+        The one place the flow asks for anything. It appears only once the agent
+        has actually answered something, because until then there is nothing to
+        own — and it states the cost honestly rather than selling the step.
+      */}
+      {agent && hasRun && (
+        <Link
+          href="/bind"
+          className="group flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 rounded-xl border border-[#1e293b] bg-[#0f172a] px-5 py-4 transition-colors hover:border-amber-600/50"
+        >
+          <span className="space-y-1">
+            <span className="block text-sm font-semibold text-white">
+              Make {agent.name} yours
+            </span>
+            <span className="block max-w-prose text-xs leading-relaxed text-[#94a3b8]">
+              Right now this agent lives in this browser. Signing once with a wallet records
+              that it is yours — checkable by anyone, revocable by you. No email, no name, no
+              transaction.
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-semibold text-amber-500 transition-colors group-hover:text-amber-400">
+            Claim it →
+          </span>
+        </Link>
+      )}
 
       {founderOn && (
         <FounderPanel onFiled={(msg) => setMsgs((m) => [...m, mkMsg('pai', msg)])} />
