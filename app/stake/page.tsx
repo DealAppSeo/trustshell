@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { localDb, Agent } from '@/lib/db';
+import { FaucetHelp } from '@/components/faucet-help';
 import {
   depositStake,
   fetchAuthority,
@@ -388,6 +389,8 @@ export default function StakePage() {
                     wallet you control — testnet staking above works either way.
                   </div>
                 )}
+
+                {realMode && !isEmailDerived && <FaucetHelp />}
 
                 {realMode && !isEmailDerived && (
                   <div>

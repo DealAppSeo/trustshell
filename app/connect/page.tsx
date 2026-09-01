@@ -145,7 +145,6 @@ export default function ConnectPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div className="space-y-2">
-        <p className="text-xs font-mono text-amber-400">STEP 2 OF 4 · CONNECT A MODEL</p>
         <h2 className="text-3xl font-bold">Your API Keys</h2>
         <p className="text-[#94a3b8] leading-relaxed">
           Each key you add is encrypted straight into your Vault — stored only in this browser, never sent to a
