@@ -70,5 +70,19 @@ export const localDb = {
     const history = await this.getHistory();
     history.unshift(row);
     await set(HISTORY_KEY, history);
+  },
+  /**
+   * Whole-array writes, for import (lib/portable.ts) and nothing else.
+   *
+   * Every other method above is incremental precisely so that two tabs cannot clobber each
+   * other. These two CAN, so they take an already-merged array: the caller reads, merges with
+   * mergeAgents/mergeHistory, and writes back. Handing this a bare list from a file would
+   * delete every agent that exists only in this browser.
+   */
+  async putAgents(agents: Agent[]): Promise<void> {
+    await set(AGENTS_KEY, agents);
+  },
+  async putHistory(history: HistoryRow[]): Promise<void> {
+    await set(HISTORY_KEY, history);
   }
 };
