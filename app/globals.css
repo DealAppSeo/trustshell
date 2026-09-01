@@ -146,3 +146,59 @@ h2 {
 ::-webkit-scrollbar-thumb:hover {
   background: #52525b;
 }
+
+/* ── Claiming an agent ──────────────────────────────────────────────────────
+   The signed statement is the one element on that surface a person is meant to
+   stop and read, so it gets the only real depth in the flow: a contact shadow
+   plus a soft ambient one, both offset. A zero-offset glow would be decoration.
+   The `pre` also needs its own wrap rule — the engine aligns the statement's
+   colons with spaces, and collapsing them would destroy the alignment it set. */
+.claim-statement {
+  white-space: pre;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 10px 28px -14px rgba(0, 0, 0, 0.9);
+}
+
+/* The one authored moment in the flow: the claim settling into a receipt.
+   Exponential ease-out, and the resting state is already visible, so nothing
+   depends on the animation having run. */
+.claim-settle {
+  animation: claim-settle 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes claim-settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* The step the wallet is asking about right now. A slow breath, not a spinner:
+   the wait is on a human reading a wallet dialog, not on the network. */
+.mark-active {
+  animation: mark-breathe 1.9s ease-in-out infinite;
+}
+
+@keyframes mark-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .claim-settle,
+  .mark-active {
+    animation: none;
+  }
+}
