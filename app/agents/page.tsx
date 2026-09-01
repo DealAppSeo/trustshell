@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { localDb, Agent } from '@/lib/db';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export default function AgentsPage() {
@@ -9,6 +10,7 @@ export default function AgentsPage() {
   const [desc, setDesc] = useState('');
   const [consti, setConsti] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -99,7 +101,17 @@ export default function AgentsPage() {
                 <div className="min-w-0">
                   <h4 className="font-bold text-lg text-white truncate">{a.name}</h4>
                   <p className="text-sm text-[#94a3b8] truncate">{a.description || 'No description'}</p>
-                  <p className="text-xs text-[#475569] mt-2">Prompts: {a.totalPrompts}</p>
+                  <p className="text-xs text-[#94a3b8] mt-2">Prompts: {a.totalPrompts}</p>
+                  {/* The ID was shown nowhere on this page, which made it the one thing you could
+                      not write down before losing the browser that held it. Recovery in Settings
+                      takes exactly this string. */}
+                  <button
+                    onClick={() => { void navigator.clipboard?.writeText(a.id); setCopied(a.id); }}
+                    title="Copy this agent's ID"
+                    className="mt-1 font-mono text-xs text-[#94a3b8] hover:text-white truncate max-w-full block text-left"
+                  >
+                    {copied === a.id ? 'ID copied' : a.id}
+                  </button>
                 </div>
                 <button onClick={() => router.push(`/run/${a.id}`)} className="shrink-0 px-6 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
                   Use
@@ -140,8 +152,12 @@ export default function AgentsPage() {
         </ol>
       </div>
 
-      <p className="text-xs text-[#64748b]">
-        Free · no wallet · your first runs need no email — add one later to save your agent and raise the daily limit. Agents are stored locally in <span className="text-[#94a3b8]">this browser</span> until you choose to publish on-chain.
+      <p className="text-xs text-[#94a3b8] leading-relaxed max-w-2xl">
+        Free · no wallet · your first runs need no email — add one later to raise the daily limit.
+        Agents are stored in <span className="text-white">this browser only</span>, so clearing site
+        data or switching devices loses them from this list. Verifying an email does not save them:{' '}
+        <Link href="/settings" className="text-amber-500 hover:underline">back them up in Settings</Link>,
+        which is also where an agent can be recovered from its ID.
       </p>
     </div>
   );
