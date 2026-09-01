@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   bindAgent,
   explainBindError,
   fetchBindMessage,
+  parseStatement,
   shortAddress,
   type BindOutcome,
 } from '@/lib/human-bind';
@@ -141,15 +142,14 @@ export function ClaimPanel({
             and nothing to sign. Reload and try again.
           </div>
         ) : statement ? (
-          <pre className="claim-statement overflow-x-auto rounded-lg border border-[#27272a] bg-[#0d0d0f] px-6 py-5 font-mono text-[13px] leading-[1.75] text-[#d4d4d8]">
-            {statement}
-          </pre>
+          <Statement raw={statement} />
         ) : (
           <div className="h-32 animate-pulse rounded-lg bg-[#141416]" aria-hidden />
         )}
         <p className="max-w-[62ch] text-sm text-[#a1a1aa]">
           This text comes from the engine that will verify it, so what you read here is exactly
-          what gets checked. It records ownership. It moves no funds and grants no spending
+          what gets checked — the wording and spacing above are shown for reading; the exact
+          characters are the ones your wallet signs. It records ownership. It moves no funds and grants no spending
           authority — that is what a{' '}
           <Link href="/grants" className="text-accent underline underline-offset-2">
             grant
@@ -202,6 +202,64 @@ export function ClaimPanel({
           <ClaimError reason={outcome.reason} detail={outcome.detail} />
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The statement, set the way it is meant to be read.
+ *
+ * ONE STRING DOING TWO JOBS. The engine sends three machine parameters a person should read
+ * character by character, and two sentences of English they should read as a sentence. In one
+ * monospace block the reader is asked to do the wrong thing with half of it — so the
+ * parameters keep the mono and the declaration takes the display face.
+ *
+ * THE ORDER IS THE ENGINE'S. Splitting the two registers is the whole change; moving a
+ * document's parts around before somebody signs it is not part of it.
+ *
+ * WHEN THE SHAPE IS UNFAMILIAR, THE RAW TEXT WINS. `parseStatement` returns null on anything
+ * it does not fully recognise and this falls back to rendering the string verbatim. A tidy
+ * reconstruction shown where the real document belongs would be a rendering of our guess, at
+ * the exact moment somebody decides to sign.
+ */
+function Statement({ raw }: { raw: string }) {
+  const parsed = parseStatement(raw);
+
+  if (!parsed) {
+    return (
+      <pre className="claim-statement claim-statement-raw overflow-x-auto rounded-lg border border-[#27272a] bg-[#0d0d0f] px-6 py-5 font-mono text-[13px] leading-[1.75] text-[#d4d4d8]">
+        {raw}
+      </pre>
+    );
+  }
+
+  return (
+    <div className="claim-statement space-y-5 rounded-lg border border-[#27272a] bg-[#0d0d0f] px-6 py-5">
+      <p className="font-mono text-[12px] tracking-wide text-[#8b97a8]">{parsed.title}</p>
+
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 font-mono text-[13px]">
+        {parsed.params.map((p) => (
+          <Fragment key={p.key}>
+            <dt className="text-[#8b97a8]">{p.key}</dt>
+            <dd className="m-0 break-all text-[#d4d4d8]">{p.value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+
+      <div className="border-t border-[#27272a] pt-4">
+        <p className="max-w-[52ch] font-display text-[17px] leading-relaxed text-[#ededf0] [text-wrap:pretty]">
+          {parsed.prose}
+        </p>
+      </div>
+
+      <details className="group">
+        <summary className="cursor-pointer list-none text-xs text-[#8b97a8] underline underline-offset-2 transition-colors hover:text-[#a1a1aa]">
+          Show the exact text being signed
+        </summary>
+        <pre className="claim-statement-raw mt-3 overflow-x-auto border-t border-[#27272a] pt-3 font-mono text-[12px] leading-[1.75] text-[#a1a1aa]">
+          {raw}
+        </pre>
+      </details>
     </div>
   );
 }
