@@ -50,33 +50,24 @@ const KNOWN_FAILED = {
       'constraint (reconstructed == repid - threshold - 1), so privacy is a new circuit, not a payload edit',
     pointer: 'board task 82, blocked behind task 86 (the live prover has no source in any repository)',
   },
-  // CORRECTED 2026-08-31. Both halves of the previous entry are now false, and the pointer was
-  // actively misleading: it read "this leg should go MEASURED once #549 deploys". #549 HAS
-  // deployed, the write DOES work, and the leg is still red — so the entry as written told the
-  // next reader that the fix had failed. It had not.
+  // `zkrepid.freshness` LIVED HERE AND IS GONE, 2026-09-01 — deleted the moment its probe
+  // started passing, which is this file's own third rule applied to itself: an entry claiming a
+  // gap that is fixed hides that gap when it REOPENS, because forever after it reads as the
+  // known case. Keeping it "just in case" is the failure mode, not the safe option.
   //
-  // MEASURED against production, 2026-08-31:
-  //   6 proof jobs completed in 24 h. The 2 from today wrote proof rows; the 4 from 2026-08-30
-  //   12:04Z wrote none. A brand-new agent's proof landed in 4.96 s and was anchored on chain
-  //   2 min later. The write is not failing today.
+  // Its two previous reasons were BOTH wrong, and the sequence is the reusable part:
+  //   * "the write has failed on every attempt since 2026-08-01, #549 will fix it on deploy" —
+  //     #549 deployed, the write worked, the leg stayed red. The entry then told every reader
+  //     the fix had failed.
+  //   * "so nothing re-mints for an idle agent" — also wrong. The agent had logged 13 score
+  //     events after its last stored proof and enqueued jobs as late as 2026-08-11. Jobs were
+  //     raised and produced nothing; the gap was historical and simply never backfilled.
   //
-  //   The default agent's staleness is a DIFFERENT thing, and the obvious explanation is wrong:
-  //   it is NOT that nothing re-mints for an idle agent. It logged 13 score events after its
-  //   last stored proof and enqueued a job as late as 2026-08-11 — jobs were raised and produced
-  //   nothing. So the historical gap is real and was never backfilled, and no code deploy closes
-  //   it: only re-minting does. That is why a stranger who registered minutes ago now holds a
-  //   fresher, better artifact than the flagship agent.
-  'zkrepid.freshness': {
-    why: 'the proof write is HEALTHY again as of 2026-08-31 (measured: a cold-registered agent ' +
-      'went request -> proof in 4.96 s -> on-chain anchor in 2 min 09 s). This leg stays red ' +
-      'because the default agent\'s own 2026-08-01..08-11 gap was never backfilled — 13 score ' +
-      'events after its last stored proof, jobs enqueued, no rows written. A deploy cannot fix ' +
-      'a row that was never written; only a re-mint can.',
-    pointer: 'board task 89 (backfill; all inputs verified recoverable) — needs a GO, not a deploy. ' +
-      'NOT ESTABLISHED: which change flipped the write. The window is 2026-08-30 12:04Z (4/4 ' +
-      'failed) to 2026-08-31 01:22Z (2/2 wrote), which brackets the prover-URL restoration but ' +
-      'does not attribute it.',
-  },
+  // CLOSED by re-minting the 102 stranded non-churn jobs (board task 89, GO 2026-09-01):
+  // 102/102 proofs written, 0 errored, 0 that were not real plonky3 proofs. The gate now reads
+  // `the served proof is 0.0 days old` and the default agent's proof attests 1299 against a live
+  // score of 1299. The single HAL_SCORE_EVENT job in that window was deliberately left alone —
+  // re-enqueuing it is precisely the churn #192 stopped at source.
   'zkrepid.expiry_binding': {
     why: 'the proof commits to no validity window; createdAt is metadata beside the proof, not a ' +
       'public input, so an age check on it catches a stale issuer and never a lying one',
