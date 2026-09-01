@@ -41,6 +41,7 @@ const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
 const VERSION = arg('--version', '1.3.0');
 const RPC = arg('--rpc', process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org');
+const ENGINE = arg('--engine', process.env.REPID_ENGINE_URL || 'https://repid-engine-production.up.railway.app');
 const AGENT = arg('--agent', 'trinity-sophia');
 const JSON_OUT = argv.includes('--json');
 
@@ -107,10 +108,67 @@ try {
   finish();
 }
 
+// --- can we reach the engine at all? -----------------------------------------
+//
+// THIS GATE WAS REPORTING FIVE REGRESSIONS THAT WERE THIS SANDBOX, NOT THE PRODUCT.
+// hal.verify, repid.read, zkrepid.proof, badge and x402.discovery all reached the engine
+// through a proxy that denies the host, and every one of them recorded FAILED — so the
+// baseline comparison called them regressions against a product nobody had tested. That is
+// the two-outcome collapse this file exists to prevent, committed by the file itself, and
+// it is worse than a plain false alarm: once these legs are reliably red from a sandbox, a
+// REAL regression in them is invisible, because it looks like the usual noise.
+//
+// THE TRAP IS THAT THE DENIAL IS NOT A TRANSPORT ERROR. Node's fetch does not throw here —
+// it RESOLVES with a perfectly ordinary `403`, so "did it throw" cannot tell a refused
+// CONNECT from an engine that answered "forbidden". Measured 2026-09-01, the proxy names
+// itself and that is the only reliable discriminator:
+//
+//     status 403
+//     x-deny-reason: host_not_allowed
+//     Host not in allowlist: repid-engine-production.up.railway.app.
+//
+// So: a response carrying `x-deny-reason` means we never reached the engine → NOT_CHECKED.
+// ANY other response, 403 included, means the engine answered and the legs below are
+// testing the real thing → a failure there is real and stays FAILED.
+let engineReachable = false;
+let engineNote = '';
+try {
+  const te = Date.now();
+  const res = await fetch(`${ENGINE}/health`, { signal: AbortSignal.timeout(20000) });
+  perf.engine_health_ms = since(te);
+  const denied = res.headers.get('x-deny-reason');
+  if (denied) {
+    engineNote = `egress to ${ENGINE} is blocked by this environment (${denied}) — rerun from CI or a host allowed to reach it, or pass --engine <reachable url>`;
+    record('engine.reachable', 'NOT_CHECKED', engineNote);
+  } else {
+    engineReachable = true;
+    record('engine.reachable', 'MEASURED', `${ENGINE} answered ${res.status}`);
+  }
+} catch (e) {
+  engineNote = `no egress to ${ENGINE} from here (${String(e.message).slice(0, 80)}) — rerun from CI or a host with outbound HTTP, or pass --engine <reachable url>`;
+  record('engine.reachable', 'NOT_CHECKED', engineNote);
+}
+
+/** Throw before spending a 90-180s CLI timeout on a host we already know is unreachable. */
+const requireEngine = () => {
+  if (!engineReachable) throw Object.assign(new Error(engineNote), { engineDown: true });
+};
+
+/**
+ * The two meanings of a thrown error, kept apart. Unreachable is NOT_CHECKED and names the
+ * parent leg the way the chain legs already name `chain.reachable`; anything else is a real
+ * failure of a real engine and reads exactly as it did before.
+ */
+const recordEngineLeg = (leg, e) =>
+  e?.engineDown || !engineReachable
+    ? record(leg, 'NOT_CHECKED', 'engine unreachable — see engine.reachable')
+    : record(leg, 'FAILED', String(e.stderr || e.message).slice(0, 160));
+
 // --- the four advertised capabilities ---------------------------------------
 // HAL. A live cross-provider quorum: the assertion is that real providers answered, not merely
 // that the process exited 0 — a verdict with an empty evidence list is the failure mode here.
 try {
+  requireEngine();
   const t0 = Date.now();
   const out = run('npx', ['trustshell', 'verify', 'The Earth orbits the Sun.', '--json'], { timeout: 180000 });
   perf.hal_verify_ms = since(t0);
@@ -121,18 +179,19 @@ try {
   else if (providers === 0) record('hal.verify', 'FAILED', 'verdict returned with ZERO provider evidence — a quorum of nobody');
   else record('hal.verify', 'MEASURED', `${j.verdict ?? j.decision}, ${providers} providers responded`);
 } catch (e) {
-  record('hal.verify', 'FAILED', String(e.stderr || e.message).slice(0, 160));
+  recordEngineLeg('hal.verify', e);
 }
 
 // RepID: keyless read.
 let liveScore = null;
 try {
+  requireEngine();
   const j = JSON.parse(run('npx', ['trustshell', 'repid', AGENT, '--json'], { timeout: 90000 }));
   liveScore = j.repid ?? j.repid_score ?? j.score ?? null;
   if (liveScore == null) record('repid.read', 'FAILED', 'no score field in --json output');
   else record('repid.read', 'MEASURED', `${AGENT} = ${liveScore} (${j.tier ?? 'no tier'})`);
 } catch (e) {
-  record('repid.read', 'FAILED', String(e.stderr || e.message).slice(0, 160));
+  recordEngineLeg('repid.read', e);
 }
 
 // zkRepID: the proof must VERIFY CLIENT-SIDE, not merely be delivered. A proof you fetched but
@@ -144,6 +203,7 @@ try {
 // gate's whole value is that a wrong probe fails LOUD instead of passing quietly.
 let proofStatement = null, proofCreatedAt = null;
 try {
+  requireEngine();
   const j = JSON.parse(run('npx', ['trustshell', 'proof', AGENT, '--verify', '--json'], { timeout: 120000 }));
   const verified = j?.verification?.verified === true;
   proofStatement = typeof j.statement === 'string' ? JSON.parse(j.statement) : j.statement;
@@ -152,7 +212,7 @@ try {
   else if (!verified) record('zkrepid.proof', 'FAILED', `client-side verification did NOT pass: ${j?.verification?.error ?? 'no reason given'}`);
   else record('zkrepid.proof', 'MEASURED', `${j.scheme} verified client-side by ${j.verification.verifierVersion}`);
 } catch (e) {
-  record('zkrepid.proof', 'FAILED', String(e.stderr || e.message).slice(0, 160));
+  recordEngineLeg('zkrepid.proof', e);
 }
 
 // PRIVACY: a threshold proof must not ship the score.
@@ -312,12 +372,13 @@ if (proofStatement == null) {
 
 // Badge: green ONLY on true local verification.
 try {
+  requireEngine();
   const svg = run('npx', ['trustshell', 'badge', AGENT], { timeout: 120000 });
   if (!svg.includes('<svg')) record('badge', 'FAILED', 'no SVG emitted');
   else if (!/ZK-verified/i.test(svg)) record('badge', 'FAILED', 'SVG emitted but not in the verified state');
   else record('badge', 'MEASURED', 'self-contained SVG in the verified state');
 } catch (e) {
-  record('badge', 'FAILED', String(e.stderr || e.message).slice(0, 160));
+  recordEngineLeg('badge', e);
 }
 
 // --- x402: the capability this gate did not test at all ----------------------
@@ -332,6 +393,7 @@ try {
 // a valid payment authorization. Settlement is NOT_CHECKED and is never attempted here.
 
 try {
+  requireEngine();
   const { TrustShell } = await fromColdInstall('@hyperdag/trustshell');
   const page = await new TrustShell({}).listServices({ limit: 5 });
   const services = page?.services ?? [];
@@ -340,7 +402,9 @@ try {
   else record('x402.discovery', 'MEASURED', `${services.length} purchasable service(s) visible without a key`,
     { count: page.count, priceRangeUsdcRaw: page.priceRangeUsdcRaw });
 } catch (e) {
-  record('x402.discovery', 'FAILED', `keyless listServices threw: ${String(e.message).slice(0, 140)}`);
+  e?.engineDown || !engineReachable
+    ? record('x402.discovery', 'NOT_CHECKED', 'engine unreachable — see engine.reachable')
+    : record('x402.discovery', 'FAILED', `keyless listServices threw: ${String(e.message).slice(0, 140)}`);
 }
 
 // PAYMENT AUTHORIZATION. Signed locally with a throwaway key generated in this file; nothing is
