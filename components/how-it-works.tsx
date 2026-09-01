@@ -56,7 +56,14 @@ export function HowItWorks() {
 
         <div className="grid md:grid-cols-3 gap-6">
           {steps.map((step, index) => (
-            <div key={step.title} className="space-y-3">
+            /* min-w-0 is what makes the `overflow-x-auto` on the <pre> below actually
+               work. A grid item defaults to min-width:auto, so the code block could not
+               shrink under its own longest line and stretched the column past the
+               viewport instead of scrolling inside itself. Same root cause as the
+               contract addresses in live-on-chain.tsx, and it was hidden behind them —
+               both blocks measured the identical width, so fixing one left the page
+               overflowing by exactly as much as before. */
+            <div key={step.title} className="space-y-3 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-accent text-white text-sm font-semibold flex items-center justify-center">
                   {index + 1}

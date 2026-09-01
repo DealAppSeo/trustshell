@@ -48,6 +48,13 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-4">Project</h3>
+            {/* These links are plain inline text, not inline-flex. inline-flex does not wrap,
+                so at 320px the longest label plus its 12px glyph ran 6px past the viewport and
+                sideways-scrolled the whole landing page. flex-wrap fixes the overflow but
+                orphans the glyph onto a line of its own, which reads as broken. Inline text
+                wraps at word boundaries, and because JSX leaves no whitespace between the
+                label and the icon there is no break opportunity between them — so the glyph
+                stays welded to the last word instead. */}
             <ul className="space-y-2">
               {footerLinks.project.map((link) => (
                 <li key={link.name}>
@@ -55,10 +62,10 @@ export function Footer() {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
+                    className="text-sm text-muted hover:text-accent transition-colors"
                   >
                     {link.name}
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="w-3 h-3 inline-block ml-1 align-[-0.1em]" />
                   </a>
                 </li>
               ))}
@@ -74,10 +81,10 @@ export function Footer() {
                     href={link.href}
                     target={link.internal ? undefined : '_blank'}
                     rel={link.internal ? undefined : 'noopener noreferrer'}
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
+                    className="text-sm text-muted hover:text-accent transition-colors"
                   >
                     {link.name}
-                    {!link.internal && <ExternalLink className="w-3 h-3" />}
+                    {!link.internal && <ExternalLink className="w-3 h-3 inline-block ml-1 align-[-0.1em]" />}
                   </a>
                 </li>
               ))}
@@ -93,10 +100,10 @@ export function Footer() {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
+                    className="text-sm text-muted hover:text-accent transition-colors"
                   >
                     {link.name}
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="w-3 h-3 inline-block ml-1 align-[-0.1em]" />
                   </a>
                 </li>
               ))}
@@ -112,10 +119,10 @@ export function Footer() {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
+                    className="text-sm text-muted hover:text-accent transition-colors"
                   >
                     {link.name}
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="w-3 h-3 inline-block ml-1 align-[-0.1em]" />
                   </a>
                 </li>
               ))}
@@ -131,10 +138,10 @@ export function Footer() {
                     href={link.href}
                     target={link.internal ? undefined : '_blank'}
                     rel={link.internal ? undefined : 'noopener noreferrer'}
-                    className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1"
+                    className="text-sm text-muted hover:text-accent transition-colors"
                   >
                     {link.name}
-                    {!link.internal && <ExternalLink className="w-3 h-3" />}
+                    {!link.internal && <ExternalLink className="w-3 h-3 inline-block ml-1 align-[-0.1em]" />}
                   </a>
                 </li>
               ))}

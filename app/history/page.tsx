@@ -25,8 +25,11 @@ export default function HistoryPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div className="flex justify-between items-start gap-4">
-        <div className="space-y-2">
+      {/* The button is shrink-0 and the prose beside it defaults to min-width:auto, so at
+          320px the pair could not fit and pushed the page 3px wide. Wrapping lets the
+          button drop below the text instead of forcing the row. */}
+      <div className="flex flex-wrap justify-between items-start gap-4">
+        <div className="space-y-2 min-w-0">
           <h2 className="text-3xl font-bold text-white">Decision history</h2>
           <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
             Your audit trail: every prompt you run is logged here with the model that answered, the HAL verdict,
