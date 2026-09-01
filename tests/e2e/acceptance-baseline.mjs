@@ -13,10 +13,13 @@
  * fails on any DIFFERENCE in either direction:
  *
  *   a FAILED leg that is not in the baseline   -> a REGRESSION. Something new broke.
- *   a baseline leg that is no longer FAILED    -> a STALE BASELINE. Good news, and still a failure:
+ *   a baseline leg that is now MEASURED        -> a STALE BASELINE. Good news, and still a failure:
  *                                                 an entry claiming a gap that is fixed will hide
  *                                                 that gap when it REOPENS, because forever after
  *                                                 it reads as the known case.
+ *   a baseline leg that is now NOT_CHECKED     -> UNVERIFIED. Neither confirmed nor cleared, and
+ *                                                 emphatically NOT grounds to delete the entry:
+ *                                                 only MEASURED can retire one.
  *   a NOT_CHECKED leg that is not by-design    -> the ENVIRONMENT did not provide what this job
  *                                                 exists to provide (outbound HTTP to a Base
  *                                                 Sepolia RPC). Not an absence of signal — a
@@ -145,6 +148,19 @@ for (const [leg, e] of Object.entries(KNOWN_FAILED)) {
   const v = verdictOf.get(leg);
   if (v === undefined) {
     problems.push(`STALE       ${leg} — in the baseline but the gate no longer reports this leg at all; remove or rename the entry`);
+  } else if (v === 'NOT_CHECKED') {
+    // NOT_CHECKED IS NOT EVIDENCE A GAP CLOSED, and treating it as such was this comparator
+    // committing the same two-outcome collapse it exists to catch. Measured 2026-09-01: from a
+    // sandbox that cannot reach the engine, three real KNOWN_FAILED entries went NOT_CHECKED and
+    // this branch told the reader to DELETE them — which would destroy the record of a live gap
+    // on the evidence of a network denial, and the deletion is exactly what the STALE rule above
+    // exists to prevent. Only MEASURED can retire an entry.
+    problems.push(
+      `UNVERIFIED  ${leg} — in the baseline and NOT_CHECKED this run, so this run neither\n` +
+      `              confirms the gap nor clears it. DO NOT delete the entry on this evidence:\n` +
+      `              NOT_CHECKED means nobody looked. Re-run where the leg can actually execute.\n` +
+      `              was: ${e.pointer}`,
+    );
   } else if (v !== 'FAILED') {
     problems.push(
       `STALE       ${leg} — now ${v}. THIS IS GOOD NEWS AND STILL A FAILURE: delete the entry.\n` +
