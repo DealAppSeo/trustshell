@@ -178,12 +178,23 @@ export function LiveOnChain() {
               {contracts.map((contract) => (
                 <div key={contract.name} className="space-y-1">
                   <p className="text-sm text-foreground font-medium">{contract.name}:</p>
-                  <div className="flex items-center gap-2">
+                  {/* `truncate` alone did nothing here. A flex item defaults to
+                      min-width:auto, so this 42-character address never shrank below its
+                      own content and dragged the whole column out past the viewport:
+                      MEASURED 2026-09-01, the landing page scrolled 149px sideways at
+                      320px and 79px at 390px, and this was the only cause of it.
+
+                      min-w-0 is what lets it shrink. It wraps rather than truncating,
+                      because the section's claim is that these addresses are verifiable
+                      on basescan and a clipped address cannot be checked against
+                      anything — the copy button beside it is a convenience, not a
+                      substitute for being able to read the value. */}
+                  <div className="flex items-center gap-2 min-w-0">
                     <a
                       href={`https://sepolia.basescan.org/address/${contract.address}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-sm text-muted hover:text-accent transition-colors truncate"
+                      className="font-mono text-sm text-muted hover:text-accent transition-colors min-w-0 break-all"
                     >
                       {contract.address}
                     </a>

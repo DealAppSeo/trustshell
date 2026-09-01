@@ -115,7 +115,13 @@ export default function AgentsPage() {
           amber-filled card that could be mistaken for the Create button. */}
       <div className="pt-1">
         <div className="text-xs font-mono text-[#475569] mb-2">HOW IT WORKS</div>
-        <ol className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:grid sm:grid-cols-4 sm:mx-0 sm:px-0 sm:overflow-visible">
+        {/* The `-mx-1 px-1` pair that used to be here made this element 8px wider than its
+            container and shifted it 4px left, so its right edge sat 4px past the page and
+            sideways-scrolled /agents at every phone width (MEASURED 2026-09-01: ol width 328
+            in a 320 viewport). The two cancelled out visually — the padding put the cards
+            back where the margin had taken them — so removing both leaves the layout
+            identical and costs only 8px of scroll viewport. */}
+        <ol className="flex gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-4 sm:overflow-visible">
           {[
             { n: 1, t: 'Create an agent', d: 'Name it + optional rules.', here: true },
             { n: 2, t: 'Connect a model', d: 'Bring your own key on Connect.' },
