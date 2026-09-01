@@ -50,7 +50,12 @@ try {
 
 const ENGINE_PORT = 4701;
 const APP_PORT = 3201;
-const AGENT_ID = 'pai-dogfood-agent-001';
+// A UUID, because the engine issues UUIDs and at least one surface GATES on that shape:
+// /bind runs UUID.test() before it will look up ownership at all, so the old
+// 'pai-dogfood-agent-001' silently produced a page with no claim panel — and the four
+// assertions written against that panel failed as if the product were broken. The engine
+// stub was the unfaithful part, not the page. Keep this a UUID.
+const AGENT_ID = 'a1c8e0d4-77b2-4f39-8e5a-2b6d0c94f731';
 
 const seen = [];
 let passportMode = 'missing';
@@ -58,11 +63,32 @@ let passportMode = 'missing';
 // tariff render" but "does an unreachable engine read as NOT_CHECKED rather than an empty
 // table", and an empty table is what a page renders when it treats a failure as no-data.
 let previewMode = 'up';
+// PROVEN vs LINKED is the property this whole page had to be corrected for once, so it is a
+// switch rather than a fixture: `linked` is an agent administratively associated with an
+// account and owned by nobody, and it MUST render as not owned. `owned` is a real signature.
+let ownerMode = 'linked';
 // The authority ceiling for a builder whose path never applied the builder floor. The backend
 // withholds the figure because A_eff would refuse it; the UI must say so rather than convert a
 // null through rawToUsdc(), which returns 0 and would render "$0.00" — asserting the ceiling was
 // measured and came out empty, the opposite falsehood.
 let authorityMode = 'withheld';
+
+/**
+ * The bind statement, in the engine's exact wording — because the page is supposed to RENDER
+ * what the engine sends rather than rebuild it client-side. Asserting the page contains this
+ * string is what catches a client that quietly composes its own sentence: the code that
+ * verifies a signature and the text shown to the person signing must not be able to drift.
+ */
+const BIND_STATEMENT = [
+  'HyperDAG — bind agent to human',
+  '',
+  'wallet: 0x8f4b2c1a9d7e3f60ab5c8e21d4f9a0b7c36e5d18',
+  `agent:  ${AGENT_ID}`,
+  'scope:  ownership',
+  '',
+  'Signing this proves you control this wallet and claims ownership of this agent.',
+  'It moves no funds and grants no spending authority.',
+].join('\n');
 
 const PREVIEW_ACTIONS = [
   { eventType: 'REFERRAL', verdict: 'APPROXIMATE', delta: 20, contingentOnEvidence: true,
@@ -140,6 +166,15 @@ const engine = createServer((req, res) => {
       omits: ['decay — the live path decays the current score against 30-day activity'] });
   }
   if (u.includes('/passport/')) return passportMode === 'down' ? json(503, { error: 'unavailable' }) : json(404, { error: 'not found' });
+
+  // --- the claim surface -----------------------------------------------------------------
+  if (u.includes('/human/bind/message')) return json(200, { message: BIND_STATEMENT, scope: 'ownership' });
+  if (/\/owner$/.test(u.split('?')[0])) {
+    return json(200, ownerMode === 'owned'
+      ? { owned: true, owner: { kind: 'human_sbt', assurance: 'signature' }, bound_at: '2026-08-30T10:00:00Z', scope: 'ownership' }
+      // owned:false WITH a linked_account is the shape the UI must not round up to ownership.
+      : { owned: false, owner: null, linked_account: 'builder-42' });
+  }
   return json(404, { error: 'not found' });
 });
 
@@ -389,6 +424,101 @@ try {
     'and the stat carries the real figure, not a label',
     `stat=${JSON.stringify(ceilingStatOk.trim())}`);
   authorityMode = 'withheld';
+
+  // --- /bind: the last step of the journey, and the one whose whole job is to not overclaim.
+  //
+  // PLACED LAST ON PURPOSE. Reaching a signable state needs `window.ethereum`, and injecting a
+  // wallet changes what every other page sees — /stake reads one too. Running this after the
+  // rest means nothing above can be affected by the shim.
+  //
+  // WHAT THIS CANNOT CHECK, stated rather than faked: the signature itself. ethers rejects a
+  // synthetic signature, so the walk stops at the moment before the wallet prompt opens. Every
+  // assertion below is about what the page SAYS and REFUSES, which is the part that can lie.
+
+  // Without a wallet at all — the state most first visitors are in.
+  await page.goto(`${base}/bind`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  const bindNoWallet = await page.locator('body').innerText();
+  note(/wallet/i.test(bindNoWallet) && bindNoWallet.trim().length > 200,
+    'the claim page explains itself with no wallet installed, rather than rendering blank');
+  note(!errs.some((e) => /ethereum|wallet/i.test(e)),
+    'and it does not throw looking for a wallet that is not there');
+
+  // A wallet that exists and is already connected. eth_accounts is answered silently; nothing
+  // here calls eth_requestAccounts, so no popup is opened that nobody asked for.
+  const WALLET = '0x8F4b2C1a9D7e3F60aB5c8E21D4f9A0b7C36e5D18';
+  await page.addInitScript(`window.ethereum = {
+    isMetaMask: true,
+    request: async ({ method }) => {
+      if (method === 'eth_accounts' || method === 'eth_requestAccounts') return ['${WALLET}'];
+      if (method === 'eth_chainId') return '0x14a34';
+      return null;
+    },
+    on: () => {}, removeListener: () => {},
+  };`);
+
+  await page.goto(`${base}/bind`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+  let bindBody = await page.locator('body').innerText();
+
+  // THE PROPERTY THIS PAGE WAS CORRECTED FOR. `owned:false` with a `linked_account` is an
+  // administrative association nobody signed. Rendering it as ownership is the exact overclaim
+  // the passport page had to retract, and it is one refactor away at all times.
+  note(/not owned/i.test(bindBody),
+    'an agent LINKED to an account reads as NOT owned — an association is not a signature');
+  note(!/\bis owned by\b/i.test(bindBody) && !/you own this/i.test(bindBody),
+    'and nothing on the page rounds that association up to ownership');
+
+  // The statement is fetched, not rebuilt — but it is deliberately RE-TYPESET: the machine
+  // parameters keep the monospace, the two sentences of English take the display face. So the
+  // rendered text is not byte-identical to the wire format, and asserting that it is fails on a
+  // working page. Ask the two questions separately.
+  //
+  // First: does the split view actually carry the three values a person is agreeing to?
+  //
+  // Match on the VALUES, not on the wire format's punctuation. The split rendering puts each
+  // label in its own element, so `wallet:` on the wire becomes a `wallet` label beside its
+  // value and the colon is gone from innerText. Asserting the colon fails on a correct page —
+  // it was the fourth harness artifact in this section, after the non-UUID agent id and the
+  // exact-spacing comparison. A test written from the wire format does not describe a page
+  // that deliberately re-typesets it.
+  const flat = bindBody.replace(/\s+/g, ' ').toLowerCase();
+  note(
+    ['wallet', '0x8f4b2c1a9d7e3f60ab5c8e21d4f9a0b7c36e5d18', 'agent', AGENT_ID, 'scope', 'ownership']
+      .every((bit) => flat.includes(bit.toLowerCase())),
+    'the split statement still names the wallet, the agent and the scope being agreed to');
+
+  // Second, and this is the one that catches a client-side reconstruction: the verbatim
+  // disclosure must hold the engine's EXACT characters. The split rendering is only honest
+  // while the real document stays checkable underneath it.
+  const disclosure = page.getByText(/exact text being signed/i);
+  const hasDisclosure = (await disclosure.count()) > 0;
+  note(hasDisclosure, 'the exact bytes being signed are disclosed, not only the tidy rendering');
+  if (hasDisclosure) {
+    await disclosure.first().click();
+    await page.waitForTimeout(400);
+    const raw = await page.locator('.claim-statement-raw').first().innerText();
+    note(raw.trim() === BIND_STATEMENT.trim(),
+      "the disclosed text is the ENGINE's, character for character — not a reconstruction",
+      raw.trim() === BIND_STATEMENT.trim() ? '' : JSON.stringify(raw.slice(0, 80)));
+  }
+
+  // Two prompts, disclosed before the first one opens. A second wallet popup nobody was warned
+  // about reads as a malfunction, and that is how people learn to dismiss them.
+  note(/two signature|2 signature|twice|second signature/i.test(bindBody),
+    'both wallet prompts are disclosed BEFORE the first one opens');
+
+  // An already-claimed agent is refused up front, so nobody is asked to open a wallet and fail.
+  ownerMode = 'owned';
+  await page.goto(`${base}/bind`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+  bindBody = await page.locator('body').innerText();
+  const claimBtn = page.getByRole('button', { name: /sign and claim/i });
+  note((await claimBtn.count()) === 0 || !(await claimBtn.first().isEnabled()),
+    'an agent that is already claimed offers no way to sign — the check happens before the prompt');
+  note(/already|claimed|owned/i.test(bindBody),
+    'and it says so, rather than failing at the signature');
+  ownerMode = 'linked';
 
   note(errs.length === 0, 'no runtime errors across the whole walk', errs.slice(0, 3).join('; '));
 } catch (e) {
