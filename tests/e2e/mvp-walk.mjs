@@ -33,6 +33,8 @@
  */
 
 import { createServer } from 'node:http';
+import { readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { chromiumExecutablePath, LAUNCH_ARGS } from './chromium-path.mjs';
 
@@ -165,6 +167,13 @@ const engine = createServer((req, res) => {
       events: PREVIEW_ACTIONS.slice(0, 2),
       omits: ['decay — the live path decays the current score against 30-day activity'] });
   }
+  if (/\/card$/.test(u.split('?')[0])) {
+    return json(200, {
+      agent_id: AGENT_ID, name: 'Dogfood recovered', description: 'rebuilt from its public card',
+      repid: 61.4, total_decisions: 137,
+      created_at: '2026-07-14T09:02:00Z', last_active_at: '2026-08-29T18:41:00Z',
+    });
+  }
   if (u.includes('/passport/')) return passportMode === 'down' ? json(503, { error: 'unavailable' }) : json(404, { error: 'not found' });
 
   // --- the claim surface -----------------------------------------------------------------
@@ -224,7 +233,7 @@ const base = `http://127.0.0.1:${APP_PORT}`;
 for (let i = 0; i < 120; i++) { try { if ((await fetch(`${base}/pai`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 500)); }
 
 const browser = await chromium.launch({ executablePath: chromiumExecutablePath(), args: LAUNCH_ARGS });
-const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 900 }, acceptDownloads: true });
 const page = await ctx.newPage();
 const errs = [];
 page.on('pageerror', (e) => errs.push(e.message));
@@ -519,6 +528,117 @@ try {
   note(/already|claimed|owned/i.test(bindBody),
     'and it says so, rather than failing at the signature');
   ownerMode = 'linked';
+
+  // --- can the agent LEAVE the browser that made it? ---------------------------------------
+  //
+  // The last thing the journey owes someone who has built an agent. Settings called TrustShell
+  // "the portable agentic trust harness" for months while agents lived in one browser's
+  // IndexedDB with no way out, so this walks the loss and the recovery rather than trusting
+  // that a button exists: back up, WIPE, restore, and check the agent came back whole.
+  //
+  // LAST ON PURPOSE. This section deliberately destroys local storage mid-way, so anything
+  // after it would be testing a browser that had just been cleared.
+
+  await page.goto(`${base}/settings`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  let settings = await page.locator('body').innerText();
+  note(/agent/i.test(settings) && /back up/i.test(settings),
+    'Settings offers a way to take the agent with you');
+
+  // The file holds an API key the engine issues ONCE and cannot reissue, so the page has to say
+  // so before somebody drops it in a shared folder. A silent backup of a secret is its own bug.
+  note(/API keys|like a password/i.test(settings),
+    'and it says out loud that the backup contains keys, rather than shipping a secret quietly');
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /back up agents/i }).click(),
+  ]);
+  const backupPath = await download.path();
+  const backupText = backupPath ? await readFile(backupPath, 'utf8') : '';
+  note(!!backupPath && /^trustshell-agents-.*\.json$/.test(download.suggestedFilename()),
+    'the backup downloads and names itself for what it holds', download.suggestedFilename());
+  note(backupText.includes(AGENT_ID),
+    'the agent this walk registered is actually in the file — not an empty export');
+
+  // THE LOSS, staged exactly as it happens: site data cleared, plus one agent that exists only
+  // here and has never been backed up. Import must not delete it.
+  const LOCAL_ONLY = '7d2e9f01-3a4b-4c5d-8e6f-9a0b1c2d3e4f';
+  await page.evaluate(async (only) => {
+    await new Promise((resolve, reject) => {
+      const o = indexedDB.open('keyval-store', 1);
+      o.onupgradeneeded = () => o.result.createObjectStore('keyval');
+      o.onsuccess = () => {
+        const tx = o.result.transaction('keyval', 'readwrite');
+        tx.objectStore('keyval').put(
+          [{ id: only, name: 'Sable', createdAt: 3000, totalPrompts: 1, lastUsedAt: 7000, apiKey: 'sk-sable-local' }],
+          'trustshell_agents_v1',
+        );
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      };
+      o.onerror = () => reject(o.error);
+    });
+  }, LOCAL_ONLY);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(800);
+
+  await page.setInputFiles('input[type=file][accept*="json"]', backupPath);
+  await page.waitForTimeout(1200);
+
+  const restored = await page.evaluate(async () => {
+    return new Promise((resolve, reject) => {
+      const o = indexedDB.open('keyval-store', 1);
+      o.onupgradeneeded = () => o.result.createObjectStore('keyval');
+      o.onsuccess = () => {
+        const g = o.result.transaction('keyval', 'readonly').objectStore('keyval').get('trustshell_agents_v1');
+        g.onsuccess = () => resolve(g.result ?? []);
+        g.onerror = () => reject(g.error);
+      };
+      o.onerror = () => reject(o.error);
+    });
+  });
+  const ids = restored.map((a) => a.id);
+  note(ids.includes(AGENT_ID), 'the backed-up agent comes back after the browser is wiped');
+  note(ids.includes(LOCAL_ONLY),
+    'AND the agent that existed only in this browser is NOT deleted by the import — a restore that ' +
+    'replaces instead of merging causes the exact loss this feature exists to prevent',
+    ids.join(', '));
+  note(restored.find((a) => a.id === LOCAL_ONLY)?.apiKey === 'sk-sable-local',
+    'the local-only agent keeps its own unreissuable key');
+
+  // Importing the same file twice must not read as a second successful restore.
+  await page.setInputFiles('input[type=file][accept*="json"]', backupPath);
+  await page.waitForTimeout(1000);
+  settings = await page.locator('body').innerText();
+  note(/nothing new/i.test(settings),
+    're-importing the same file says "nothing new" rather than claiming a restore it did not perform');
+
+  // The vault backup is also .json and sits on this same page. Refusing it by NAME is what stops
+  // somebody concluding their agents are gone when they simply picked the wrong file.
+  const decoy = `${tmpdir()}/mvp-walk-vault-decoy.json`;
+  await writeFile(decoy, JSON.stringify({ salt: 'x', iv: 'y', ciphertext: 'z' }));
+  await page.setInputFiles('input[type=file][accept*="json"]', decoy);
+  await page.waitForTimeout(900);
+  settings = await page.locator('body').innerText();
+  note(/vault/i.test(settings) && /not a trustshell agent export/i.test(settings),
+    'the encrypted vault file is refused BY NAME, so a wrong pick is not mistaken for data loss');
+
+  // Recovery by ID is the last resort, and it must say what it CANNOT return before anyone
+  // commits — an agent that comes back unable to earn, with no warning, is the quiet failure.
+  const idField = page.locator('input[placeholder^="00000000"]');
+  if (await idField.count()) {
+    await idField.fill(AGENT_ID);
+    await page.getByRole('button', { name: /look it up/i }).click();
+    await page.waitForTimeout(1200);
+    settings = await page.locator('body').innerText();
+    note(/Dogfood recovered/i.test(settings),
+      'an agent can be rebuilt from its public card when the backup file is gone too');
+    note(/API key/i.test(settings) && /constitution/i.test(settings),
+      'and the page states what recovery CANNOT return — the key and the constitution — before you commit');
+  } else {
+    note(false, 'recovery by ID is reachable from Settings');
+  }
 
   note(errs.length === 0, 'no runtime errors across the whole walk', errs.slice(0, 3).join('; '));
 } catch (e) {
