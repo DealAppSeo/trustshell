@@ -212,7 +212,7 @@ export default function PaiPage() {
         ...m,
         mkMsg(
           'pai',
-          `Done — I have a real identity now, and a Passport you can read. I hold no keys of yours: I run on the free shared pool, and anything beyond that needs a grant you issue explicitly. Ask me anything.`,
+          `Done — I am registered now, with an ID and a Passport you can read. That is a record, not an on-chain identity, and not yet ownership: claiming me is what makes me yours. I hold no keys of yours: I run on the free shared pool, and anything beyond that needs a grant you issue explicitly. Ask me anything.`,
           { kernelRead: relevantKernelRead('passport') },
         ),
       ]);

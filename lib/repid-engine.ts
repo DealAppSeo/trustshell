@@ -693,3 +693,36 @@ export async function fetchPreviewProjection(input: {
     return 'not_checked';
   }
 }
+
+export type Faucet = { name: string; url: string; assets: string[]; note?: string };
+export type FaucetInfo = {
+  dispenses: boolean;
+  message: string;
+  network: string;
+  chain_id: number;
+  staking_min_eth: string;
+  staking_suggested_eth: string;
+  faucets: Faucet[];
+};
+
+/**
+ * Where to get testnet ETH, asked of the engine rather than hardcoded here.
+ *
+ * THE ENGINE ALREADY ANSWERS THIS HONESTLY and nothing surfaced it: `dispenses: false`,
+ * "We do not run a faucet", plus the public faucets to use instead. A list copied into
+ * this repo would drift the first time one of those faucets moved, and the drift would
+ * show up as a dead link at the moment somebody needs funds.
+ *
+ * Returns null on any failure. The caller must then say it could not check, never fall
+ * back to a remembered list — a stale faucet link is worse than an admitted gap.
+ */
+export async function fetchFaucetInfo(): Promise<FaucetInfo | null> {
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/faucet/info`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data?.faucets) ? (data as FaucetInfo) : null;
+  } catch {
+    return null;
+  }
+}

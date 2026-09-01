@@ -69,7 +69,11 @@ export const BIND_ERRORS: Record<string, string> = {
   bad_signature:
     'The signature did not match the wallet on your account. Switch your wallet to the account you registered with, then try again.',
   no_account:
-    'That wallet proved you hold the key, but it has no account here yet. Connect it once to create one — no email, no name.',
+    'That wallet proved you hold the key, but it has no account here yet. Create one below — it takes one signature, and asks for no email and no name.',
+  too_many_connects:
+    'Too many accounts have been created from this network in the last hour. Wait a little and try again.',
+  connect_disabled:
+    'Creating an account is switched off on this deployment, so there is no way to finish claiming yet. Nothing you did was wrong.',
 
   // ── the binding itself ──
   disabled:
@@ -327,6 +331,58 @@ export async function fetchAgentOwner(agentId: string): Promise<AgentOwner | nul
     return (await res.json()) as AgentOwner;
   } catch {
     return null;
+  }
+}
+
+export type ConnectOutcome =
+  | { ok: true; created: boolean }
+  | { ok: false; reason: string; detail?: string };
+
+/**
+ * Turn a proven wallet into an account.
+ *
+ * WHY THIS EXISTS AS A UI STEP AT ALL. `bindOwnerToAgent` takes the wallet from the
+ * ACCOUNT ROW, never from the caller — so somebody holding a wallet with no account
+ * cannot claim anything, and the claim panel could only tell them so. Telling a person
+ * what to do while giving them no way to do it is a dead end, and this closes it.
+ *
+ * IT ASKS FOR NOTHING BUT THE SIGNATURE. `display_name` is optional and deliberately
+ * not sent: the page promises no email and no name, and an account created here keeps
+ * that promise. The wallet IS the identity.
+ *
+ * IT GRANTS NO REPUTATION, and the copy must never imply otherwise. RepID is earned by
+ * work somebody else verified; if connecting minted any, RepID would measure how many
+ * wallets a person can generate, which is free.
+ *
+ * IDEMPOTENT. Connecting twice returns the same account with `created: false` rather
+ * than a second one, so a retry after a declined prompt is safe.
+ */
+export async function connectAccount(input: {
+  wallet: string;
+  sign: SignFn;
+}): Promise<ConnectOutcome> {
+  const path = '/api/v1/account/connect';
+  const auth = await authHeaders('POST', path, input.wallet, input.sign);
+  if ('error' in auth) return { ok: false, reason: auth.error };
+
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth.headers },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // The engine reports the feature flag and the rate limit with the same `error`
+      // key. Map the flag to its own reason so the copy can distinguish "switched off"
+      // from "you went too fast" — they need different things from the reader.
+      const raw = String(data?.error ?? 'unreachable');
+      const reason = raw === 'disabled' ? 'connect_disabled' : raw;
+      return { ok: false, reason, detail: data?.message };
+    }
+    return { ok: true, created: data?.created === true };
+  } catch {
+    return { ok: false, reason: 'unreachable' };
   }
 }
 

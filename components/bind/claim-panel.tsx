@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   bindAgent,
+  connectAccount,
   explainBindError,
   fetchBindMessage,
   parseStatement,
@@ -44,6 +45,8 @@ export function ClaimPanel({
   const [statementFailed, setStatementFailed] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [outcome, setOutcome] = useState<BindOutcome | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [connectNote, setConnectNote] = useState<string | null>(null);
 
   // The statement names the wallet, so it can only be fetched once one is
   // connected — and it must be refetched if the person switches accounts.
@@ -78,6 +81,27 @@ export function ClaimPanel({
     setOutcome(result);
     if (result.ok) onBound?.();
   }, [wallet.address, wallet.sign, agentId, onBound]);
+
+  /**
+   * Create the account, then hand control back rather than claiming automatically.
+   * Auto-retrying would open two more wallet prompts the person was never warned about;
+   * they press "Sign and claim" again, now that it can succeed.
+   */
+  const connect = useCallback(async () => {
+    if (!wallet.address) return;
+    setConnecting(true);
+    setConnectNote(null);
+    const result = await connectAccount({ wallet: wallet.address, sign: wallet.sign });
+    setConnecting(false);
+    if (result.ok) {
+      setOutcome(null);
+      setConnectNote(
+        result.created ? 'Account created — claim your agent now.' : 'You already had an account — claim your agent now.',
+      );
+      return;
+    }
+    setOutcome({ ok: false, reason: result.reason, detail: result.detail });
+  }, [wallet.address, wallet.sign]);
 
   const busy = phase === 'auth' || phase === 'binding' || phase === 'submitting';
 
@@ -199,7 +223,19 @@ export function ClaimPanel({
         </button>
 
         {outcome && !outcome.ok && (
-          <ClaimError reason={outcome.reason} detail={outcome.detail} />
+          <ClaimError
+            reason={outcome.reason}
+            detail={outcome.detail}
+            onConnect={connect}
+            connecting={connecting}
+            connectNote={connectNote}
+          />
+        )}
+
+        {/* A success note survives the error being cleared, so the person can see that the
+            account exists and the claim is now worth retrying. */}
+        {!outcome && connectNote && (
+          <p className="text-sm text-[#5eead4]">{connectNote}</p>
         )}
       </div>
     </div>
@@ -265,24 +301,75 @@ function Statement({ raw }: { raw: string }) {
 }
 
 /** A refusal the person can act on, plus the way out where one exists. */
-function ClaimError({ reason, detail }: { reason: string; detail?: string }) {
+function ClaimError({
+  reason,
+  detail,
+  onConnect,
+  connecting,
+  connectNote,
+}: {
+  reason: string;
+  detail?: string;
+  onConnect?: () => void;
+  connecting?: boolean;
+  connectNote?: string | null;
+}) {
   return (
     <div
       role="alert"
       className="space-y-2 rounded-lg border border-[#fb7185]/40 bg-[#fb7185]/[0.06] px-5 py-4 text-sm"
     >
       <p className="text-[#fda4af]">{explainBindError(reason, detail)}</p>
-      {reason === 'no_account' && (
-        <p className="text-[#a1a1aa]">
-          Wallet accounts are not open on this deployment yet, so this is not something you can
-          fix from here. It is the last switch between you and a claimed agent.
-        </p>
+      {reason === 'no_account' && onConnect && (
+        <ConnectStep onConnect={onConnect} connecting={connecting} note={connectNote} />
       )}
       {reason === 'disabled' && (
         <p className="text-[#a1a1aa]">
           Everything else you have done is saved. Nothing was lost, and nothing was signed away.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * The way out of `no_account`.
+ *
+ * `bindOwnerToAgent` takes the wallet from the ACCOUNT ROW, never from the caller, so a
+ * wallet with no account cannot claim anything. Before this existed the panel said
+ * "connect it once to create one" and offered no control that did — an instruction with
+ * no way to follow it, which is a dead end wearing the clothes of guidance.
+ *
+ * IT ANNOUNCES ITS OWN COST. The flow above promises two signatures; this adds a third,
+ * and says so before opening the prompt rather than after.
+ */
+function ConnectStep({
+  onConnect,
+  connecting,
+  note,
+}: {
+  onConnect: () => void;
+  connecting?: boolean;
+  note?: string | null;
+}) {
+  return (
+    <div className="space-y-3 pt-1">
+      <p className="text-[#a1a1aa]">
+        Creating one takes a single extra signature and asks for nothing else — no email, no
+        name, no transaction. It earns no reputation: RepID is earned by work someone else
+        verified, never by signing up.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onConnect}
+          disabled={connecting}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#ff9838] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {connecting ? 'Waiting for your wallet…' : 'Create my account'}
+        </button>
+        {note && <span className="text-[#5eead4]">{note}</span>}
+      </div>
     </div>
   );
 }
