@@ -334,3 +334,75 @@ export async function fetchAgentOwner(agentId: string): Promise<AgentOwner | nul
 export function shortAddress(addr: string): string {
   return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 }
+
+/** One `key: value` line from the statement, kept in the order the engine sent. */
+export type StatementParam = { key: string; value: string };
+
+export type ParsedStatement = {
+  /** The statement's own first line. */
+  title: string;
+  /** The contiguous `key: value` block — the specifics. */
+  params: StatementParam[];
+  /** Everything after it — the declaration, as one flowing paragraph. */
+  prose: string;
+};
+
+/**
+ * Split the statement into its two kinds of text, FOR DISPLAY ONLY.
+ *
+ * The engine sends one string that is doing two jobs: three machine parameters
+ * a person should read character by character, and two sentences of ordinary
+ * English they should read as a sentence. Setting both in the same monospace
+ * block asks the reader to do the wrong thing with half of it.
+ *
+ * THIS NEVER CHANGES WHAT GETS SIGNED. `bindAgent` signs the raw string it
+ * received, untouched; this only decides how that string is typeset. The order
+ * is preserved exactly as the engine wrote it — splitting the two registers is
+ * the whole improvement, and reordering a document somebody is about to sign
+ * is not part of it.
+ *
+ * Returns null on anything that does not match the expected shape, and the
+ * caller then renders the raw text verbatim. A statement we do not fully
+ * understand must never be shown as a tidy reconstruction: that would be a
+ * rendering of our guess, presented where the real thing belongs.
+ */
+export function parseStatement(raw: string): ParsedStatement | null {
+  const lines = raw.split('\n');
+  let i = 0;
+
+  const skipBlank = () => {
+    while (i < lines.length && !(lines[i] ?? '').trim()) i++;
+  };
+
+  skipBlank();
+  const title = (lines[i] ?? '').trim();
+  if (!title) return null;
+  i++;
+
+  skipBlank();
+
+  const params: StatementParam[] = [];
+  while (i < lines.length && (lines[i] ?? '').trim()) {
+    const m = /^([A-Za-z][A-Za-z0-9_ -]*):[ \t]+(.+)$/.exec(lines[i] ?? '');
+    if (!m || !m[1] || !m[2]) break;
+    params.push({ key: m[1].trim(), value: m[2].trim() });
+    i++;
+  }
+  if (params.length === 0) return null;
+
+  // The parameter block must end at a blank line or at the end of the text. If
+  // it stopped on some other line, the shape is not the one we recognise and
+  // the rest would be mis-attributed to the prose.
+  if (i < lines.length && (lines[i] ?? '').trim()) return null;
+
+  skipBlank();
+
+  const prose = lines
+    .slice(i)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(' ');
+  if (!prose) return null;
+
+  return { title, params, prose };
+}

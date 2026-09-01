@@ -23,9 +23,24 @@ const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/settings', label: 'Settings' },
 ];
 
+/**
+ * Routes where the full link row is collapsed behind the toggle at every width.
+ *
+ * Claiming an agent is the one screen in this product where somebody is committing to
+ * something rather than moving between things, and thirteen equally-weighted exits compete
+ * with the single decision the page exists for. Nothing is removed — the same menu is one
+ * click away from the same control the narrow layout already uses — so this quiets the
+ * navigation without stranding anyone in it.
+ */
+const FOCUSED_ROUTES = ['/bind'];
+
 export function TopNav() {
   const pathname = usePathname() || '/';
   const [open, setOpen] = useState(false);
+
+  const focused = FOCUSED_ROUTES.some(
+    (r) => pathname === r || pathname.startsWith(`${r}/`),
+  );
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -38,8 +53,8 @@ export function TopNav() {
           TrustShell
         </Link>
 
-        {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-1">
+        {/* Desktop links — hidden entirely on a focused route */}
+        <div className={focused ? 'hidden' : 'hidden md:flex items-center gap-1'}>
           {NAV_LINKS.map((l) => (
             <Link
               key={l.href}
@@ -61,7 +76,7 @@ export function TopNav() {
           aria-label="Toggle navigation"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded border border-[#1e293b] text-[#94a3b8] hover:text-white"
+          className={`${focused ? 'inline-flex' : 'md:hidden inline-flex'} items-center justify-center w-9 h-9 rounded border border-[#1e293b] text-[#94a3b8] hover:text-white`}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             {open ? (
@@ -75,7 +90,9 @@ export function TopNav() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden border-t border-[#1e293b] bg-[#0a0f1a] px-4 py-2 space-y-1">
+        <div
+          className={`${focused ? '' : 'md:hidden '}border-t border-[#1e293b] bg-[#0a0f1a] px-4 py-2 space-y-1`}
+        >
           {NAV_LINKS.map((l) => (
             <Link
               key={l.href}
