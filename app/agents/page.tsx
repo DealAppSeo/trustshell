@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { localDb, Agent } from '@/lib/db';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AgentRepId } from '@/components/agent-repid';
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -101,7 +102,11 @@ export default function AgentsPage() {
                 <div className="min-w-0">
                   <h4 className="font-bold text-lg text-white truncate">{a.name}</h4>
                   <p className="text-sm text-[#94a3b8] truncate">{a.description || 'No description'}</p>
-                  <p className="text-xs text-[#94a3b8] mt-2">Prompts: {a.totalPrompts}</p>
+                  {/* The local counter is runs IN THIS BROWSER — it is not the score, and
+                      labelling it plainly keeps it from being read as one. The engine's figure
+                      sits below it with the reason it can be believed. */}
+                  <p className="text-xs text-[#94a3b8] mt-2">Runs in this browser: {a.totalPrompts}</p>
+                  <AgentRepId agent={a} />
                   {/* The ID was shown nowhere on this page, which made it the one thing you could
                       not write down before losing the browser that held it. Recovery in Settings
                       takes exactly this string. */}
