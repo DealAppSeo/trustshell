@@ -118,9 +118,24 @@ export default function AgentsPage() {
                     {copied === a.id ? 'ID copied' : a.id}
                   </button>
                 </div>
-                <button onClick={() => router.push(`/run/${a.id}`)} className="shrink-0 px-6 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
-                  Use
-                </button>
+                {/* Claiming was reachable only by finding the nav item and coming back here
+                    to copy the id, even though HUMAN_AGENT_BIND_ENABLED is on and the id is
+                    printed directly above. Secondary to Use on purpose: running the agent is
+                    what this page is for, and claiming asks for a wallet. No id is passed —
+                    /bind reads this browser's agents and auto-selects when there is one, and
+                    choosing deliberately is the right default for an action that signs an
+                    ownership claim. */}
+                <div className="shrink-0 flex flex-col items-stretch gap-2">
+                  <button onClick={() => router.push(`/run/${a.id}`)} className="px-6 py-2 bg-[#1e293b] hover:bg-[#334155] text-white font-bold rounded">
+                    Use
+                  </button>
+                  <Link
+                    href="/bind"
+                    className="px-6 py-1.5 text-center text-xs text-[#94a3b8] hover:text-white underline underline-offset-2"
+                  >
+                    Claim it
+                  </Link>
+                </div>
               </div>
             ))
           )}
@@ -138,12 +153,16 @@ export default function AgentsPage() {
             in a 320 viewport). The two cancelled out visually — the padding put the cards
             back where the margin had taken them — so removing both leaves the layout
             identical and costs only 8px of scroll viewport. */}
-        <ol className="flex gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-4 sm:overflow-visible">
+        <ol className="flex gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible">
           {[
             { n: 1, t: 'Create an agent', d: 'Name it + optional rules.', here: true },
             { n: 2, t: 'Connect a model', d: 'Bring your own key on Connect.' },
             { n: 3, t: 'Run prompts', d: 'HAL scores every response.' },
             { n: 4, t: 'Earn RepID', d: 'Honest agents climb the Leaderboard.' },
+            // app/bind/page.tsx calls itself "the last step of the journey" and "the last
+            // thing the walkthrough asks of you". This strip ended at step 4, so the product
+            // told people the journey finished one step before it does.
+            { n: 5, t: 'Claim it', d: 'Sign once to prove it is yours.' },
           ].map((s) => (
             <li
               key={s.n}
