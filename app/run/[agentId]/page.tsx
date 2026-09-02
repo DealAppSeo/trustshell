@@ -5,13 +5,31 @@ import { localDb, Agent, HistoryRow } from '@/lib/db';
 import { vault } from '@/lib/vault';
 import { tokenHeader, fetchGateStatus, getGateEmail } from '@/lib/agent-gate';
 import { GateModal } from '@/components/gate-modal';
+import { TrustBadge } from '@/components/trust-state';
+import { fetchAgentRepId, REPID_LOOKUP_DETAIL, type RepIdLookup } from '@/lib/agent-repid';
 
 export default function RunPage({ params }: { params: Promise<{ agentId: string }> }) {
   const unwrappedParams = use(params);
   const agentId = unwrappedParams.agentId;
   const [agent, setAgent] = useState<Agent | null>(null);
   const [agentsLoaded, setAgentsLoaded] = useState(false);
-  const [repid, setRepid] = useState<number>(0);
+  /**
+   * The score, WITH the reason it can be believed — never a bare number.
+   *
+   * This was `useState<number>(0)` fed by a raw fetch whose `.catch(() => {})` swallowed every
+   * failure, rendered as `{(repid || 0).toFixed(2)}`. Three different states — in flight, fetch
+   * failed, agent unknown to the engine — all displayed as **RepID 0.00** on the one page where
+   * a person watches their score. Zero is not "we could not look": it reads as "your agent has
+   * earned nothing", which is a claim about its conduct.
+   *
+   * `null` means in flight. Reusing lib/agent-repid.ts rather than a second fetch also collapses
+   * two sources into one: this page read `/agents/:id` → `repid_score` while /agents read
+   * `/agents/:id/card` → `repid`. Two endpoints and two field names for one number is how they
+   * drift apart.
+   */
+  const [lookup, setLookup] = useState<RepIdLookup | null>(null);
+  /** Local optimistic delta from runs scored in this session, added to the measured baseline. */
+  const [earned, setEarned] = useState<number>(0);
   const [prompt, setPrompt] = useState('');
   const [tierPref, setTierPref] = useState('auto');
   const [loading, setLoading] = useState(false);
@@ -51,14 +69,9 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
       setAgentsLoaded(true);
     });
     localDb.getHistory().then(h => setHistory(h.filter(row => row.agentId === agentId)));
-    fetch(`${process.env.NEXT_PUBLIC_REPID_ENGINE_URL}/api/v1/agents/${agentId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && typeof data.repid_score === 'number') {
-          setRepid(data.repid_score);
-        }
-      })
-      .catch(() => {});
+    setLookup(null);
+    setEarned(0);
+    fetchAgentRepId(agentId).then(setLookup);
   }, [agentId]);
 
   const handleRun = async (e: React.FormEvent) => {
@@ -174,7 +187,7 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
               : scoreData.earn_gate?.would_suppress === true
                 ? "conversational — won't earn once honest-scoring is enabled"
                 : null;
-            setRepid(prev => prev + repidDelta);
+            setEarned(prev => prev + repidDelta);
             flashDelta(repidDelta);
           } else if (scoreRes.status === 403 && scoreData.error === 'Constitutional block') {
             // HAL vetoed the response — that's the product working, show it.
@@ -282,13 +295,26 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         </div>
         <div className="text-right relative">
           <div className="text-sm text-[#94a3b8] font-bold uppercase tracking-wider">RepID Score</div>
-          <div
-            className={`text-4xl font-bold text-amber-500 transition-transform duration-300 ${
-              scorePulse ? 'scale-110' : 'scale-100'
-            }`}
-          >
-            {(repid || 0).toFixed(2)}
-          </div>
+          {lookup === null ? (
+            <div className="text-4xl font-bold text-[#475569]" aria-live="polite">…</div>
+          ) : lookup.state === 'MEASURED' ? (
+            <>
+              <div
+                className={`text-4xl font-bold text-amber-500 transition-transform duration-300 ${
+                  scorePulse ? 'scale-110' : 'scale-100'
+                }`}
+              >
+                {(lookup.repid + earned).toFixed(2)}
+              </div>
+              <TrustBadge state="MEASURED" className="mt-1 justify-end" />
+            </>
+          ) : (
+            /* No baseline, so no absolute figure is shown. The delta toast below still fires on
+               a scored run: "this run earned +1.20" is measured even when the total is not. */
+            <div className="mt-1 max-w-[22rem]">
+              <TrustBadge state={lookup.state} detail={REPID_LOOKUP_DETAIL[lookup.reason]} />
+            </div>
+          )}
 
           {/* Real-time RepID delta toast — rises + fades on each scoring event. */}
           {deltaToast && (
