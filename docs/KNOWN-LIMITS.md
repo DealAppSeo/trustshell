@@ -209,16 +209,53 @@ npm run test:grants-fail-closed
 Playwright is deliberately not a dependency. Absent, these exit **2 =
 NOT_CHECKED** rather than failing — "we did not look", not "it passed".
 
-### There is no version endpoint on this domain
+### The version endpoint now exists — a 200 still is not proof of the current commit
 
-`trustshell.dev` exposes no `/api/version`, so you cannot tell from the outside
-which commit is serving. A 200 from the domain proves the site is up, not that it
-is running current code: a platform keeps the last successful build serving when a
-new deploy fails, so a green pipeline and a healthy page are both compatible with
-week-old code.
+`trustshell.dev` **does** expose `GET /api/version` now [MEASURED 2026-09-02: 200,
+`{commit, commit_short, platform, environment, region, responded_at}`,
+`cache-control: no-store`]. This paragraph previously said it did not — that was
+true when written (last review 2026-08-20) and the route shipped since. A negative
+claim like "there is no X" decays the moment someone adds X, so it is re-probed
+here rather than repeated.
 
-Sibling surfaces in this ecosystem do expose `/api/version`. This one does not
-yet.
+What the route buys you: you can now read which commit is serving from the outside
+and compare it to `main`, because a 200 from the domain proves the site is **up**,
+not that it is running current code — a platform keeps the last successful build
+serving when a new deploy fails, so a green pipeline and a healthy page are both
+compatible with week-old code. The endpoint is `force-dynamic` and `no-store` for
+exactly that reason: a cached version endpoint reports the previous deployment's
+SHA, which is worse than none.
+
+---
+
+## Limits in the published SDK (`@hyperdag/trustshell`)
+
+### A native-ESM `default` import does not give the class — use the named import
+
+The package is a CommonJS build. Its types declare a `default` export equal to the
+`TrustShell` class, and that is correct for `require()` and for TypeScript/bundler
+consumers with `esModuleInterop`. But **Node's native ESM loader** resolves a
+default import of a CJS module to `module.exports` (the namespace object), not the
+class [MEASURED 2026-09-02, reproduced in `tests/sdk-import-contract.mjs`]:
+
+```js
+import TrustShell from '@hyperdag/trustshell';
+new TrustShell();                       // throws "TrustShell is not a constructor"
+```
+
+The documented path — the **named** import the README uses — works everywhere:
+
+```js
+import { TrustShell } from '@hyperdag/trustshell';   // the class, in ESM, CJS, and bundlers
+```
+
+So the blast radius is narrow (raw native-ESM code using a *default* import, against
+the README), but the types over-promise there, and that is a real gap rather than a
+design choice. The correct fix is a **dual ESM+CJS build** so the ESM entry ships a
+native `export default`; it is additive (the CJS path is unchanged) but it touches
+the publish pipeline and the package version, so it is staged rather than shipped
+here. `npm run test:sdk-import` locks the blessed path and pins the current
+default-ESM behaviour, so the gap cannot silently widen and the fix flips it loudly.
 
 ---
 
