@@ -46,7 +46,7 @@
     "sdk:clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "sdk:build": "npm run sdk:clean && tsc --project tsconfig.sdk.json",
     "sdk:test": "jest --testPathIgnorePatterns /node_modules/ tests/e2e/ --passWithNoTests",
-    "test:wrapper-readiness": "jest tests/e2e/wrapper-readiness.test.ts",
+    "test:wrapper-readiness": "node tests/e2e/wrapper-reach-preflight.mjs && jest tests/e2e/wrapper-readiness.test.ts",
     "prepublishOnly": "npm run sdk:build && npm run sdk:test",
     "test:grants-fail-closed": "node tests/e2e/grants-fail-closed.mjs",
     "test:mvp-walk": "node tests/e2e/mvp-walk.mjs",

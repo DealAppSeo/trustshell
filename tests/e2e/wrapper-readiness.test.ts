@@ -110,8 +110,13 @@ describe('SMOKE — init() live /health probe', () => {
   it(
     'reaches the live backend and reports healthy',
     () => {
-      // If the backend is unreachable this is a REAL failure, not a skip — the whole
-      // wrapper promise depends on it. Surface it loudly.
+      // A backend that is DOWN is a real failure, not a skip — the whole wrapper promise
+      // depends on it, so surface it loudly. A sandbox that will not dial is a different
+      // outcome entirely, and this assertion cannot tell them apart: a proxy denial arrives
+      // as an ordinary 403 and lands here as `ok: false`, identical to an outage. Run from an
+      // agent session on 2026-09-02 that turned seven policy refusals into seven product
+      // failures. wrapper-reach-preflight.mjs makes the distinction BEFORE jest starts and
+      // exits 2 = NOT_CHECKED, so by the time this runs, unreachable really does mean down.
       expect(health).toBeDefined();
       expect(health.ok).toBe(true);
       // status is 'ok' on the current engine; tolerate absence but require reachability.
