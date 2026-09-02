@@ -72,7 +72,13 @@ describe.each(SURFACES)('$name renders its score through the shared lookup', ({ 
 
   it('carries a verdict beside the figure', () => {
     // A number with no state is the defect, whichever surface it appears on.
-    expect(src).toMatch(/TrustBadge|AgentRepId/);
+    //
+    // MATCHES THE JSX TAG, NOT THE IDENTIFIER, and the first draft matched the identifier.
+    // Mutation-tested by deleting every rendered <TrustBadge/> from the run page: the suite
+    // still passed, because the now-unused `import { TrustBadge }` line kept the word in the
+    // file. A check an unused import satisfies is decorative — it reads correctly to a
+    // reviewer and permits exactly the defect it names.
+    expect(src).toMatch(/<(TrustBadge|AgentRepId)\b/);
   });
 });
 
