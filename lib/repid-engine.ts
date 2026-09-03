@@ -726,3 +726,60 @@ export async function fetchFaucetInfo(): Promise<FaucetInfo | null> {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Service catalog — the keyless read that /market should have been using
+// ---------------------------------------------------------------------------
+//
+// /market read `agent_services` through `sbSelect`, which returns [] for BOTH
+// "not configured" and "any non-2xx". The page then reported "No services listed
+// yet" while the table held 38 active rows — because the browser key it shipped
+// was a legacy anon JWT and legacy keys were disabled on this project on
+// 2026-08-04, so PostgREST answered 401 and 401 became [].
+//
+// That is the exact collapse docs/KNOWN-LIMITS.md says cannot happen here: an
+// unreachable service rendered as an empty result. It happened because the page
+// had no test holding the two apart.
+//
+// GET /api/v1/services needs no key at all (the engine bypasses auth for GET on
+// this path), so this drops the Supabase dependency for the catalog rather than
+// re-keying it. Three-valued for the same reason `readPublishQueue` is: `ok`
+// with zero rows and `refused` are different facts and must render differently.
+export type ServiceCatalogRead =
+  | { kind: 'ok'; services: EngineService[] }
+  | { kind: 'refused' }
+  | { kind: 'error'; status: number };
+
+export type EngineService = {
+  id?: string;
+  service_type: string;
+  service_name: string | null;
+  base_price_usdc_raw: number | null;
+  min_repid_to_purchase: number | null;
+  total_fulfilled: number | null;
+  total_satisfied: number | null;
+  avg_satisfaction: number | null;
+  active?: boolean | null;
+  provider_agent_id?: string | null;
+  // Present once the engine's provider enrichment ships; absent before it, so
+  // every consumer must treat it as optional rather than assume it.
+  provider?: { agent_name: string | null; current_repid: number | null; tier: string | null } | null;
+};
+
+export async function readServiceCatalog(): Promise<ServiceCatalogRead> {
+  if (!REPID_ENGINE_URL) return { kind: 'refused' };
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/services?limit=200`, {
+      cache: 'no-store',
+    });
+    // Same reasoning as readPublishQueue: from out here a 401 and a 404 are one
+    // fact — the read did not happen — and neither is "there are no services".
+    if (res.status === 401 || res.status === 404) return { kind: 'refused' };
+    if (!res.ok) return { kind: 'error', status: res.status };
+    const body = await res.json();
+    const list = Array.isArray(body?.data) ? body.data : [];
+    return { kind: 'ok', services: list as EngineService[] };
+  } catch {
+    return { kind: 'error', status: 0 };
+  }
+}

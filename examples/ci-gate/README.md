@@ -41,8 +41,9 @@ make infra errors fail the build too (fully fail-closed).
 ## Then: earn a verifiable badge
 
 Once your agent has a RepID, add a portable, client-verified badge to your README — it shows
-`RepID ≥ threshold ✓ ZK-verified` and **never reveals the score** (that's what the range proof
-attests):
+`RepID ≥ threshold ✓ ZK-verified` and **never renders the score on the badge**. The score is a
+public input to the circuit, so it is present in the proof statement — the badge omits it, the
+proof does not hide it:
 
 ```bash
 npx -y @hyperdag/trustshell badge <your-agent-id> --markdown >> README.md
