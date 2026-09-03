@@ -36,10 +36,9 @@ exports.main = main;
  * The pure functions (parseArgs, verdictExitCode, formatting) are exported so the
  * arg-parsing + exit-code logic is unit-testable with NO network (mirrors the MCP).
  */
-const node_fs_1 = require("node:fs");
-const node_path_1 = require("node:path");
 const trustshell_1 = require("../lib/trustshell");
 const badge_1 = require("../lib/badge");
+const version_1 = require("../lib/version");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -53,39 +52,17 @@ exports.EXIT = {
 };
 /**
  * The version the CLI reports — read from the package it was installed as,
- * never retyped here.
+ * never retyped here. See `../lib/version.ts` for why this is a runtime read
+ * rather than a static import, and for the MCP server's identical bug this
+ * helper was extracted to also fix.
  *
  * This was a hardcoded `'1.0.0'`, and it stayed 1.0.0 through the 1.1.0 and
  * 1.2.0 releases. `trustshell --version` therefore answered a question it had
  * no way to actually know: the string was written once and never again checked
  * against the thing it described. Anyone bisecting a bug report against the
  * reported version was reading a two-release-old number.
- *
- * WHY A RUNTIME READ AND NOT `import pkg from '../../package.json'`:
- * tsconfig.sdk.json pins `rootDir: ./src`, so importing package.json is a
- * TS6059 compile error — and relaxing rootDir would move every emitted file
- * from `dist/cli/` to `dist/src/cli/`, breaking the `bin` paths. So we resolve
- * it at runtime instead. Output is CommonJS, so `__dirname` is real:
- * `dist/cli/` -> `../../` -> the package root, which holds package.json in both
- * the repo and the published tarball (npm always ships package.json).
- *
- * Falls back to 'unknown' rather than to a number: a wrong version is worse
- * than an absent one, and this is the exact failure being fixed.
  */
-function resolveVersion() {
-    try {
-        const raw = (0, node_fs_1.readFileSync)((0, node_path_1.join)(__dirname, '..', '..', 'package.json'), 'utf8');
-        const parsed = JSON.parse(raw);
-        const v = typeof parsed === 'object' && parsed !== null
-            ? parsed.version
-            : undefined;
-        return typeof v === 'string' && v.length > 0 ? v : 'unknown';
-    }
-    catch {
-        return 'unknown';
-    }
-}
-exports.VERSION = resolveVersion();
+exports.VERSION = (0, version_1.resolvePackageVersion)(__dirname);
 const HELP = `trustshell — trust rails for AI agents, in your terminal + CI
 
 USAGE
@@ -100,8 +77,9 @@ COMMANDS
       [--verify]             …and verify it client-side with the bundled WASM verifier.
   badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,
                              self-contained SVG badge ("RepID ≥ threshold ✓ ZK-verified").
-                             Green ONLY on a true local verification; never reveals the
-                             score. EXIT 3 if the badge is not in the verified state.
+                             Green ONLY on a true local verification. The BADGE never
+                             prints the score — the proof's statement still carries it
+                             as a public input. EXIT 3 if not in the verified state.
       [--markdown]           Emit a copy-pasteable Markdown snippet (data-URI SVG) instead.
 
 OPTIONS

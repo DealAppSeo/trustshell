@@ -3,7 +3,8 @@ export { TrustShell as default } from './trustshell';
 /**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
- * re-verify. Green only when local verification returned true; never reveals the score.
+ * re-verify. Green only when local verification returned true. The BADGE never prints the
+ * score; the proof's statement still carries it as a bound public input.
  */
 export { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus, } from './badge';
 export type { ProofBadgeState, ProofBadgeStatus, RenderBadgeOptions } from './badge';
@@ -26,3 +27,13 @@ export declare function verify(proofBytes: string, statement: {
     error: string | null;
     verifier_version: string;
 }>;
+/**
+ * wrapExecute — run an agent's work, score the output with HAL, return both.
+ *
+ * Records by default and withholds nothing; blocking is opt-in per call via
+ * `blockAtOrAbove`. See wrap-execute.ts for why that default is a measurement, not
+ * caution, and for what the wrapper structurally cannot do (it scores output that has
+ * already been produced, so it withholds results, not side effects).
+ */
+export { wrapExecute, meetsThreshold, HAL_VERDICT_ORDER } from './wrap-execute';
+export type { HalVerdict, HalScorer, WrapDisposition, WrapExecuteOptions, WrapExecuteRecord, WrapExecuteResult, } from './wrap-execute';

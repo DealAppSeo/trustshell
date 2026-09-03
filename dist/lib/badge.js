@@ -10,10 +10,15 @@
  *     actually returned `verified: true`. An absent, failed, or unavailable
  *     verification renders grey/red with the reason — never a fake green. This
  *     mirrors the SDK's own rule: an unavailable safety check is not a passing one.
- *  2. The badge NEVER renders the agent's RepID score. The whole point of the
- *     range proof is that it attests `RepID ≥ threshold` WITHOUT revealing the
- *     score — so the badge shows the threshold and tier, and the score never
- *     appears in the output.
+ *  2. The badge NEVER renders the agent's RepID score — and note the SCOPE of that
+ *     claim, because this comment previously got it wrong. It is a fact about THIS
+ *     RENDERER, not about the proof. The statement beside every proof carries
+ *     `repid_score` as a bound PUBLIC INPUT to the circuit (public values
+ *     [16]=threshold, [17]=repid_score), so the score is not withheld by the proof;
+ *     it is simply not printed here. This used to read "the range proof attests
+ *     `RepID ≥ threshold` WITHOUT revealing the score", which was false in the one
+ *     sentence a reader takes as the privacy guarantee. Making the score genuinely
+ *     private is a new circuit and a new verifier major, not a wording change.
  *
  * Pure and dependency-free: no network, no external asset references. The SVG is
  * inline and portable — it renders offline and cannot phone home.
@@ -101,8 +106,21 @@ function renderProofBadge(presentation, opts = {}) {
     const rightW = segWidth(status.value);
     const totalW = leftW + rightW;
     const H = 20;
+    // HONEST CAPTION. This read "The proof attests the threshold, not the score." — which was
+    // false about the proof, in the one sentence a reader takes as the privacy guarantee.
+    // MEASURED 2026-08-30 by driving @hyperdag/proof-verifier directly: `repid_score` is a PUBLIC
+    // INPUT to the plonky3 circuit (public values [16]=threshold, [17]=repid_score), and the AIR's
+    // boundary constraint is `reconstructed == repid - threshold - 1`. So the exact score travels
+    // in the statement beside every proof, and every consumer that echoes the statement republishes
+    // it. The circuit binds THREE things — agent_id, threshold and repid_score — so the caption now
+    // names all three rather than describing only what leaks. What remains true, and is pinned by
+    // this file's tests, is that the BADGE itself never renders the score.
+    //
+    // Do not shorten this back. Making the score genuinely private needs the score to become a
+    // witness bound by a commitment, i.e. a new circuit and a new verifier major (board tasks 82/86),
+    // not a wording change. When that ships, the original sentence becomes true and can return.
     const title = escapeXml(`${status.label} — ${status.value}. ${status.detail}. ` +
-        `The proof attests the threshold, not the score.`);
+        `Attests agent, threshold and score; the score is a bound public input.`);
     const leftText = escapeXml(status.label);
     const rightText = escapeXml(status.value);
     const leftMid = leftW / 2;
@@ -141,6 +159,7 @@ function renderProofBadgeMarkdown(presentation, opts = {}) {
     const alt = `${status.label} ${status.value}`;
     const img = `![${alt}](data:image/svg+xml;base64,${b64})`;
     const linked = opts.href ? `[${img}](${opts.href})` : img;
+    // Same honest caption as the SVG title — see renderProofBadge.
     return `${linked}\n\n> ${status.label} — ${status.value}. ${status.detail}. ` +
-        `The proof attests the threshold, not the score.`;
+        `Attests agent, threshold and score; the score is a bound public input.`;
 }

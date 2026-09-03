@@ -1,4 +1,29 @@
 #!/usr/bin/env node
+/**
+ * @hyperdag/trustshell — CLI
+ * ------------------------------------------------------------------
+ * The THIRD distribution channel for the TrustShell trust harness:
+ *   - SDK  (`import { TrustShell }`)  → code
+ *   - MCP  (`@hyperdag/trustshell-mcp`) → AI agents (Claude Desktop / Cursor / …)
+ *   - CLI  (`trustshell …`)            → terminal + CI  ← this file
+ *
+ * A THIN wrapper over the SDK (../lib/trustshell). No fake verdicts — every
+ * command makes a real SDK call against the live HyperDAG backend.
+ *
+ * The headline capability: `trustshell verify` is a CI/pre-commit GATE.
+ *   exit 0  → HAL PASS  (or soft FLAG)   → build proceeds
+ *   exit 1  → HAL VETO                    → build FAILS ("don't ship a vetoed claim")
+ *   exit 2  → usage / bad-args error
+ *   exit 3  → runtime error (network, backend, timeout, …)
+ *
+ * ENV:
+ *   REPID_API_KEY       — attaches an API key (optional; the verify/repid/proof paths are keyless)
+ *   TRUSTSHELL_API_URL  — override the backend origin (default: live Railway backend baked into the SDK)
+ *
+ * Kept dependency-light on purpose: a tiny hand-rolled arg parser, no `commander`.
+ * The pure functions (parseArgs, verdictExitCode, formatting) are exported so the
+ * arg-parsing + exit-code logic is unit-testable with NO network (mirrors the MCP).
+ */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation } from '../lib/trustshell';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export declare const EXIT: {
@@ -25,6 +50,18 @@ export interface ParsedArgs {
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }
+/**
+ * The version the CLI reports — read from the package it was installed as,
+ * never retyped here. See `../lib/version.ts` for why this is a runtime read
+ * rather than a static import, and for the MCP server's identical bug this
+ * helper was extracted to also fix.
+ *
+ * This was a hardcoded `'1.0.0'`, and it stayed 1.0.0 through the 1.1.0 and
+ * 1.2.0 releases. `trustshell --version` therefore answered a question it had
+ * no way to actually know: the string was written once and never again checked
+ * against the thing it described. Anyone bisecting a bug report against the
+ * reported version was reading a two-release-old number.
+ */
 export declare const VERSION: string;
 /**
  * Parse CLI arguments into a {@link ParsedArgs}. PURE — no I/O, no network — so the

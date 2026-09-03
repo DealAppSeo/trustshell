@@ -222,7 +222,10 @@ trustshell badge trinity-shofet --markdown  # → a README-pasteable snippet
 Two honesty guarantees, both test-enforced: it shows the green *verified* state **only** when
 local verification actually returned true (an absent, failed, or unavailable verifier renders
 grey/red with the reason, and the command exits non-zero — never a false green), and it **never
-reveals the score** — only the threshold, because that is exactly what the range proof attests.
+renders the score** on the badge itself — only the threshold. Note the honest limit: the
+score is a **public input to the range-check circuit**, so it travels in the proof statement
+beside every proof. The badge does not display it; the proof does not hide it. Making it
+genuinely private is a new circuit and a new verifier major, not a wording change.
 The SVG has no external references, so it renders offline and cannot phone home. A live example
 (a real proof for `trinity-shofet`, verified with the WASM verifier) is checked in at
 [`examples/proof-badge-trinity-shofet.svg`](examples/proof-badge-trinity-shofet.svg).

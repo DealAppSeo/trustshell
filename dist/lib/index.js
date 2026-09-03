@@ -36,7 +36,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.default = void 0;
+exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.default = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
 var trustshell_1 = require("./trustshell");
@@ -44,7 +44,8 @@ Object.defineProperty(exports, "default", { enumerable: true, get: function () {
 /**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
- * re-verify. Green only when local verification returned true; never reveals the score.
+ * re-verify. Green only when local verification returned true. The BADGE never prints the
+ * score; the proof's statement still carries it as a bound public input.
  */
 var badge_1 = require("./badge");
 Object.defineProperty(exports, "renderProofBadge", { enumerable: true, get: function () { return badge_1.renderProofBadge; } });
@@ -64,3 +65,15 @@ async function verify(proofBytes, statement) {
     const mod = await Promise.resolve(`${verifierPkg}`).then(s => __importStar(require(s)));
     return mod.verify(proofBytes, statement);
 }
+/**
+ * wrapExecute — run an agent's work, score the output with HAL, return both.
+ *
+ * Records by default and withholds nothing; blocking is opt-in per call via
+ * `blockAtOrAbove`. See wrap-execute.ts for why that default is a measurement, not
+ * caution, and for what the wrapper structurally cannot do (it scores output that has
+ * already been produced, so it withholds results, not side effects).
+ */
+var wrap_execute_1 = require("./wrap-execute");
+Object.defineProperty(exports, "wrapExecute", { enumerable: true, get: function () { return wrap_execute_1.wrapExecute; } });
+Object.defineProperty(exports, "meetsThreshold", { enumerable: true, get: function () { return wrap_execute_1.meetsThreshold; } });
+Object.defineProperty(exports, "HAL_VERDICT_ORDER", { enumerable: true, get: function () { return wrap_execute_1.HAL_VERDICT_ORDER; } });

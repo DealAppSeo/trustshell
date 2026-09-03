@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { sbSelect } from '@/lib/supabase';
+import { readServiceCatalog } from '@/lib/repid-engine';
 import { PurchaseServiceButton } from '@/components/purchase-service';
 
 export const metadata = {
@@ -78,19 +78,25 @@ function fmtUsdc(usdc: number): string {
 }
 
 async function loadServiceCatalog(): Promise<{ rows: ServiceTypeRow[]; fetchOk: boolean }> {
-  let rows: AgentService[] = [];
-  let fetchOk = true;
-  try {
-    rows = await sbSelect<AgentService>('agent_services', {
-      select:
-        'service_type,service_name,base_price_usdc_raw,min_repid_to_purchase,total_fulfilled,total_satisfied,avg_satisfaction,active',
-      filter: 'active=eq.true',
-      limit: 500,
-    });
-  } catch {
-    rows = [];
-    fetchOk = false;
-  }
+  // Keyless engine read. This page previously went through sbSelect, which
+  // returns [] for both "not configured" and "any non-2xx" — so a 401 from the
+  // disabled legacy key rendered as "no services listed yet" over 38 live rows.
+  // fetchOk now distinguishes a real empty catalog from a read that never
+  // happened, which is the only thing that makes the empty-state honest.
+  const read = await readServiceCatalog();
+  const fetchOk = read.kind === 'ok';
+  const rows: AgentService[] = (read.kind === 'ok' ? read.services : [])
+    .filter((r) => r.active !== false)
+    .map((r) => ({
+      service_type: r.service_type,
+      service_name: r.service_name,
+      base_price_usdc_raw: r.base_price_usdc_raw,
+      min_repid_to_purchase: r.min_repid_to_purchase,
+      total_fulfilled: r.total_fulfilled,
+      total_satisfied: r.total_satisfied,
+      avg_satisfaction: r.avg_satisfaction,
+      active: r.active ?? true,
+    }));
 
   // Group by service_type and aggregate.
   const byType = new Map<string, ServiceTypeRow>();

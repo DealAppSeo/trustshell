@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="202" height="20" role="img" aria-label="RepID ≥ 999 — ✓ ZK-verified. verified locally by 0.2.0 (plonky3_range_check). The proof attests the threshold, not the score.">
-  <title>RepID ≥ 999 — ✓ ZK-verified. verified locally by 0.2.0 (plonky3_range_check). The proof attests the threshold, not the score.</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="202" height="20" role="img" aria-label="RepID ≥ 999 — ✓ ZK-verified. verified locally by 0.2.0 (plonky3_range_check). Attests agent, threshold and score; the score is a bound public input.">
+  <title>RepID ≥ 999 — ✓ ZK-verified. verified locally by 0.2.0 (plonky3_range_check). Attests agent, threshold and score; the score is a bound public input.</title>
   <linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>
   <clipPath id="r"><rect width="202" height="20" rx="3" fill="#fff"/></clipPath>
   <g clip-path="url(#r)">
