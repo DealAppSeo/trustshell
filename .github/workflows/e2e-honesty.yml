@@ -125,6 +125,21 @@ jobs:
         if: ${{ always() }}
         run: npm run test:grants-fail-closed
 
+      # These two existed and were run by NOBODY — not here, not in check.yml
+      # (which has no browser), not anywhere. 32 assertions whose verdict was
+      # never collected. Exactly the shape LESSONS warns about: a hand-written
+      # list of suites silently omits the next one added, and nothing goes red
+      # to say so, because a suite that never runs cannot fail.
+      - name: Campaign honesty
+        id: campaign
+        if: ${{ always() }}
+        run: npm run test:campaign-honesty
+
+      - name: Roles honesty
+        id: roles
+        if: ${{ always() }}
+        run: npm run test:roles-honesty
+
       # Exit 2 is this repo's NOT_CHECKED, and it must never be read as a pass.
       # If a suite reports it here — where a browser and a server are both
       # present — the environment did not do what this workflow exists to
@@ -134,9 +149,16 @@ jobs:
         run: |
           mvp='${{ steps.mvp.outcome }}'
           grants='${{ steps.grants.outcome }}'
-          echo "mvp-walk: $mvp | grants-fail-closed: $grants"
-          if [ "$mvp" != 'success' ] || [ "$grants" != 'success' ]; then
-            echo "::error::An honesty suite did not pass. This does not block any merge — read the logs and fix it deliberately."
+          campaign='${{ steps.campaign.outcome }}'
+          roles='${{ steps.roles.outcome }}'
+          echo "mvp-walk: $mvp | grants-fail-closed: $grants | campaign-honesty: $campaign | roles-honesty: $roles"
+          failed=''
+          for pair in "mvp-walk:$mvp" "grants-fail-closed:$grants" "campaign-honesty:$campaign" "roles-honesty:$roles"; do
+            name="${pair%%:*}"; outcome="${pair#*:}"
+            [ "$outcome" = 'success' ] || failed="$failed $name($outcome)"
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::An honesty suite did not pass:$failed. This does not block any merge — read the logs and fix it deliberately."
             exit 1
           fi
-          echo 'Both honesty suites passed against a real browser.'
+          echo 'All four honesty suites passed against a real browser.'
