@@ -34,16 +34,9 @@
 
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { chromiumExecutablePath, LAUNCH_ARGS } from './chromium-path.mjs';
+import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
 
-let chromium;
-try {
-  ({ chromium } = await import('playwright'));
-} catch {
-  console.error('NOT_CHECKED: this suite needs Playwright, which this package does not depend on.');
-  console.error('  npm i -D playwright && npx playwright install chromium');
-  process.exit(2);
-}
+const { chromium } = await loadPlaywrightOrExit();
 
 const ENGINE_PORT = 4601;
 const APP_PORT = 3102;

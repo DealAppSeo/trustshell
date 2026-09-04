@@ -66,3 +66,65 @@ export function chromiumExecutablePath() {
  * unconditionally rather than guessing which environment we are in.
  */
 export const LAUNCH_ARGS = ['--no-proxy-server'];
+
+/**
+ * WHERE IS PLAYWRIGHT? Same shape as the question above, one level up, and it
+ * was costing the whole browser suite.
+ *
+ * MEASURED 2026-09-04 from an agent sandbox: `playwright@1.56.1` is installed
+ * GLOBALLY (`/opt/node22/lib/node_modules`), and `import('playwright')` from
+ * this package still throws MODULE_NOT_FOUND — Node does not search the global
+ * root. Every suite then printed "this package does not depend on Playwright"
+ * and exited 2.
+ *
+ * THAT IS THE DANGEROUS OUTCOME, not a harmless skip. Exit 2 is NOT_CHECKED,
+ * which this project deliberately treats as neither pass nor failure — so four
+ * browser suites and 60+ assertions silently did not run, and nothing went red.
+ * `AGENTS.md` says these suites DO run here "because it is installed globally",
+ * which was half true: installed, yes; resolvable, no. An agent that follows
+ * that doc, sees exit 2, and concludes "browser paths are unverifiable in a
+ * sandbox" reaches the exact wrong conclusion the doc exists to prevent — and
+ * that conclusion has already been published once before.
+ *
+ * So probe for it the way we probe for the browser, rather than trusting one
+ * resolution strategy. A genuinely absent Playwright still exits 2; what no
+ * longer happens is reporting NOT_CHECKED while a usable copy sits on disk.
+ */
+export async function loadPlaywright() {
+  try {
+    return await import('playwright');
+  } catch {
+    // Not in the package. Try the global npm root, which is where an agent
+    // sandbox and many CI images put it.
+    try {
+      const { execFileSync } = await import('node:child_process');
+      const root = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim();
+      if (root) {
+        const { pathToFileURL } = await import('node:url');
+        const { join } = await import('node:path');
+        const mod = await import(pathToFileURL(join(root, 'playwright', 'index.js')).href);
+        // playwright's entry is CommonJS. Imported by URL from ESM, Node does not
+        // detect its named exports, so the namespace is `{ default }` alone and
+        // `mod.chromium` is undefined. Returning that unnormalised turned a clean
+        // NOT_CHECKED into `Cannot read properties of undefined (reading 'launch')`
+        // 100 lines later — a worse failure than the one being fixed. Normalise
+        // here so every caller sees the same shape as a plain `import('playwright')`.
+        return mod?.chromium ? mod : (mod?.default ?? mod);
+      }
+    } catch {
+      /* fall through to the honest NOT_CHECKED below */
+    }
+    return null;
+  }
+}
+
+/** Load Playwright or exit 2 = NOT_CHECKED, saying which of the two happened. */
+export async function loadPlaywrightOrExit() {
+  const pw = await loadPlaywright();
+  if (pw) return pw;
+  console.error('NOT_CHECKED: this suite needs Playwright, and no copy was found.');
+  console.error('  Not in this package (deliberate — declaring it installs a browser driver on every PR)');
+  console.error('  and not in the global npm root either.');
+  console.error('  npm i -D playwright && npx playwright install chromium');
+  process.exit(2);
+}

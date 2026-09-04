@@ -36,19 +36,12 @@ import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
-import { chromiumExecutablePath, LAUNCH_ARGS } from './chromium-path.mjs';
+import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
 
 // Playwright is deliberately not a dependency of this package (CI does not run this suite, so
 // declaring it would install a browser driver on every PR for no gating benefit). Absent, this
 // exits 2 = NOT_CHECKED — "we did not look" — rather than a module-not-found stack trace.
-let chromium;
-try {
-  ({ chromium } = await import('playwright'));
-} catch {
-  console.error('NOT_CHECKED: this suite needs Playwright, which this package does not depend on.');
-  console.error('  npm i -D playwright && npx playwright install chromium');
-  process.exit(2);
-}
+const { chromium } = await loadPlaywrightOrExit();
 
 const ENGINE_PORT = 4701;
 const APP_PORT = 3201;
