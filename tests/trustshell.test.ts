@@ -26,6 +26,59 @@ describe('TrustShell', () => {
     });
   });
 
+  // The advertised HAL entry point. The protocol README sold this package as
+  // "Drop-in npm client: `shell.evaluate(...)` for HAL" while the client had no
+  // `evaluate` at all, so a reader following the docs got a TypeError. Added
+  // 2026-09-04 as a true alias of verifyOutput; these tests pin BOTH halves of
+  // that — that it exists, and that it is genuinely the same call rather than a
+  // second implementation that can drift.
+  describe('evaluate()', () => {
+    const halResponse = {
+      hal_score: 0.13,
+      hal_verdict: 'PASS',
+      hal_flagged_hallucination: false,
+      hal_signals: {
+        harm_probability: 0.05,
+        epistemic_uncertainty: 0.2,
+        evidence_quality: 0.85,
+        scope_appropriateness: 0.9,
+        certainty_at_claim: 0.8,
+      },
+      provider_used: 'openai',
+      model_used: 'gpt-4o',
+    };
+
+    it('exists on the client (the README advertises it)', () => {
+      const shell = new TrustShell();
+      expect(typeof (shell as any).evaluate).toBe('function');
+    });
+
+    it('evaluates an output and returns the HAL verdict', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => halResponse });
+      const shell = new TrustShell({ apiUrl: 'https://example.com' });
+      const r = await shell.evaluate('Paris is the capital of France.');
+      expect(r.verdict).toBe('PASS');
+      expect(r.ok).toBe(true);
+    });
+
+    it('POSTs the same HAL endpoint verifyOutput does', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => halResponse });
+      global.fetch = fetchMock;
+      const shell = new TrustShell({ apiUrl: 'https://example.com' });
+      await shell.evaluate('Paris is the capital of France.');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toBe('https://example.com/api/v1/hal/evaluate');
+    });
+
+    it('returns exactly what verifyOutput returns (a true alias, not a second path)', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => halResponse });
+      const shell = new TrustShell({ apiUrl: 'https://example.com' });
+      const viaAlias = await shell.evaluate('Paris is the capital of France.');
+      const viaOriginal = await shell.verifyOutput('Paris is the capital of France.');
+      expect(viaAlias).toEqual(viaOriginal);
+    });
+  });
+
   describe('score()', () => {
     it('scores a response and returns trust score 0-100 (inverts risk)', async () => {
       global.fetch = jest.fn().mockResolvedValue({

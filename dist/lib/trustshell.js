@@ -255,6 +255,31 @@ class TrustShell {
         this.emit('verdict', result);
         return result;
     }
+    /**
+     * Evaluate an agent output through HAL. Alias of {@link verifyOutput}.
+     *
+     * WHY THIS EXISTS (2026-09-04). The protocol README advertises this package as
+     * "Drop-in npm client: `shell.evaluate(...)` for HAL" — and until now there was
+     * no `evaluate` on the client at all. A reader following the README got
+     * `TypeError: shell.evaluate is not a function`.
+     *
+     * `evaluate` was chosen over renaming the docs because it is the name the
+     * backend itself uses: `score()` and `verifyOutput()` both POST to
+     * `/api/v1/hal/evaluate`. The advertised verb was the endpoint's verb; the
+     * client was the thing missing it.
+     *
+     * It is a true alias, not a second implementation — it delegates to
+     * `verifyOutput` so there is exactly one HAL result shape and one place the
+     * SBFA/confidence semantics live. Prefer `verifyOutput` in new code when you
+     * want the intent to read as "check this output"; use `evaluate` when you are
+     * following the protocol docs.
+     *
+     * @param output The agent output to evaluate.
+     * @returns The same {@link VerifyOutputResult} as `verifyOutput`.
+     */
+    async evaluate(output, options = {}) {
+        return this.verifyOutput(output, options);
+    }
     /** Fetch an agent's current RepID + tier (public read; no API key required). */
     async getRepID(agentId) {
         const v = await this.verify(agentId);

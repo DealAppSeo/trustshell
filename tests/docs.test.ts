@@ -22,7 +22,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { TrustShell } from '../src/lib/trustshell';
 
-const DOCS_DIR = join(__dirname, '..', 'docs');
+const ROOT = join(__dirname, '..');
+const DOCS_DIR = join(ROOT, 'docs');
 
 function docFiles(): string[] {
   return readdirSync(DOCS_DIR).filter((f) => f.endsWith('.md'));
@@ -30,6 +31,29 @@ function docFiles(): string[] {
 
 function readDoc(f: string): string {
   return readFileSync(join(DOCS_DIR, f), 'utf8');
+}
+
+/**
+ * Every markdown surface that DESCRIBES THE SDK TO A READER, repo-root-relative.
+ *
+ * README.md joined this set on 2026-09-04, and it is the whole point of the
+ * addition. The scans below were scoped to `docs/` only, so the repo's most-read
+ * file — the one npm and GitHub render on the package's front page — was the one
+ * markdown surface free to describe an SDK that does not exist. That is the exact
+ * hole this file was written to close, reproduced one directory up.
+ *
+ * (It was a sibling README that actually shipped the bug: the protocol repo
+ * advertised `shell.evaluate(...)`, which existed nowhere. Fixed by adding the
+ * method. A cross-repo scan is not possible from here, so this covers the README
+ * that IS reachable — and `evaluate` is now real, so the claim is true wherever
+ * it appears.)
+ */
+function describedFiles(): string[] {
+  return [...docFiles().map((f) => `docs/${f}`), 'README.md'];
+}
+
+function readDescribed(f: string): string {
+  return readFileSync(join(ROOT, f), 'utf8');
 }
 
 /** Every public method actually on the client, read from the class itself. */
@@ -56,8 +80,8 @@ describe('docs describe the SDK that exists', () => {
     expect(methods.has('verifyOutput')).toBe(true);
   });
 
-  it.each(docFiles())('%s references no SDK method that does not exist', (file) => {
-    const text = readDoc(file);
+  it.each(describedFiles())('%s references no SDK method that does not exist', (file) => {
+    const text = readDescribed(file);
     // `shell.foo(` / `client.foo(` — how the docs show call sites.
     const referenced = [...text.matchAll(/\b(?:shell|client)\.([a-zA-Z][a-zA-Z0-9]*)\s*\(/g)].map(
       (m) => m[1] as string,
@@ -82,8 +106,8 @@ describe('docs describe the CLI that exists', () => {
     expect(commands.has('verify')).toBe(true);
   });
 
-  it.each(docFiles())('%s documents no `trustshell <cmd>` that does not exist', (file) => {
-    const text = readDoc(file);
+  it.each(describedFiles())('%s documents no `trustshell <cmd>` that does not exist', (file) => {
+    const text = readDescribed(file);
     const referenced = [...text.matchAll(/\btrustshell\s+([a-z][a-z0-9-]*)/g)]
       .map((m) => m[1] as string)
       // Flags and the package name are not subcommands.
@@ -108,8 +132,8 @@ describe('docs describe the environment the code actually reads', () => {
     'byok-warning', // no emitter, no event
   ];
 
-  it.each(docFiles())('%s does not resurrect a retired name', (file) => {
-    const text = readDoc(file);
+  it.each(describedFiles())('%s does not resurrect a retired name', (file) => {
+    const text = readDescribed(file);
     const found = RETIRED.filter((name) => text.includes(name));
     expect(found).toEqual([]);
   });
