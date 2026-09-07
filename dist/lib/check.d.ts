@@ -48,6 +48,12 @@ export declare function parseRun(url: string): ParsedRun | null;
  * says "✓ passed" is the failure this whole product exists to prevent.
  */
 export declare const DOES_NOT_PROVE: string[];
+/**
+ * Pluralise a counted noun. The card is the artefact people are shown; "1 jobs"
+ * on a tool whose subject is careful claims reads as carelessness about the
+ * rest.
+ */
+export declare function plural(n: number, singular: string, pluralForm?: string): string;
 /** Render the human card. PURE — takes a result, returns text. */
 export declare function formatCheckCard(r: CheckResult): string;
 /**

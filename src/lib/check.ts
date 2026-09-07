@@ -105,6 +105,15 @@ async function gh(path: string, token: string): Promise<GhResponse & { usedToken
   return { ...(await call('')), usedToken: false };
 }
 
+/**
+ * Pluralise a counted noun. The card is the artefact people are shown; "1 jobs"
+ * on a tool whose subject is careful claims reads as carelessness about the
+ * rest.
+ */
+export function plural(n: number, singular: string, pluralForm = singular + 's'): string {
+  return `${n} ${n === 1 ? singular : pluralForm}`;
+}
+
 /** Render the human card. PURE — takes a result, returns text. */
 export function formatCheckCard(r: CheckResult): string {
   const mark = (ok: boolean | null) => (ok === true ? '✓' : ok === false ? '✕' : '?');
@@ -220,7 +229,7 @@ export async function runCheck(url: string, env: Record<string, string | undefin
               ? 'NOT CHECKED — the run reports no jobs'
               : failed.length
             ? `${failed.length} of ${jobList.length} jobs did not pass: ${failed.map((j) => j.name).join(', ')}`
-            : `${jobList.length} jobs`,
+            : plural(jobList.length, 'job'),
       },
       { ok: Boolean(sha), label: 'The commit exists on the remote', detail: sha },
     ],
