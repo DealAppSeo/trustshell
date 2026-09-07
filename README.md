@@ -268,6 +268,10 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
 and prints what GitHub can confirm about it — that the run finished, that its conclusion was
 success, that **every job** passed, and that the commit exists on the remote.
 
+A run that is still queued or in progress is `INCONCLUSIVE`, never `FAILED` — an unfinished build
+has not failed, it has not answered. Likewise, if GitHub reports more jobs than it returned, the
+card says so rather than claiming a pass over jobs it never read.
+
 It needs no account, no key and no TrustShell backend, so a sceptic can point it at *someone
 else's* repository and owe nobody anything. `GITHUB_TOKEN` is optional and only raises the rate
 limit; if one is set but rejected, the command retries anonymously rather than failing.
@@ -283,7 +287,7 @@ The verdict is four-valued on purpose, and `INCONCLUSIVE` is not a pass:
 | `COMPLETE` | the run succeeded and every job passed | `0` |
 | `INCONSISTENT` | GitHub calls the run a success, but a job did not pass | `1` |
 | `FAILED` | the run's own conclusion was not success | `1` |
-| `INCONCLUSIVE` | the jobs could not be read — **NOT CHECKED**, not "fine" | `3` |
+| `INCONCLUSIVE` | the run has not finished, or the jobs could not be fully read — **NOT CHECKED**, not "fine" | `3` |
 
 *(No example output is printed here on purpose: a card in a README is a claim about a run that
 may not exist. Run it against a real run and read your own.)*

@@ -24,7 +24,12 @@ exports.runCheck = runCheck;
 exports.checkExitCode = checkExitCode;
 /** Parse a GitHub Actions run URL. PURE — no I/O, so URL handling is testable. */
 function parseRun(url) {
-    const m = String(url || '').match(/github\.com\/([^/]+)\/([^/]+)\/actions\/runs\/(\d+)/);
+    // Anchored to the real host, and restricted to GitHub's actual owner/repo
+    // charset. `[^/]+` would have accepted `evil-github.com/...` and let a `?` or
+    // `#` in a segment reshape the API path this builds. The fetch host is always
+    // a literal, so this was never a redirect — but a command whose whole claim is
+    // "api.github.com and nothing else" should not leave that argument to be made.
+    const m = String(url || '').match(/^https?:\/\/(?:www\.)?github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/actions\/runs\/(\d+)(?:[/?#]|$)/);
     if (!m || !m[1] || !m[2] || !m[3])
         return null;
     return { owner: m[1], repo: m[2], runId: m[3] };
@@ -117,16 +122,28 @@ async function runCheck(url, env = process.env) {
     if (!run.ok) {
         throw new CheckError(`GitHub ${run.status}: ${run.body?.message || 'failed'}`);
     }
-    const jobs = await gh(`${base}/jobs`, token);
+    // per_page=100 is the API maximum. Without it GitHub returns the first 30 and
+    // says nothing about it, so "every job in the run passed" would have been a
+    // claim about 30 of N jobs on any larger run — asserting a pass over work
+    // never looked at.
+    const jobs = await gh(`${base}/jobs?per_page=100`, token);
     const jobList = jobs.body?.jobs || [];
+    const totalJobs = typeof jobs.body?.total_count === 'number' ? jobs.body.total_count : jobList.length;
+    const truncated = totalJobs > jobList.length;
     const failed = jobList.filter((j) => j.conclusion && j.conclusion !== 'success' && j.conclusion !== 'skipped');
+    const finished = run.body.status === 'completed';
     const runOk = run.body.conclusion === 'success';
-    const jobsKnown = jobs.ok && jobList.length > 0;
+    // A job list we only partly saw cannot support "every job passed".
+    const jobsKnown = jobs.ok && jobList.length > 0 && !truncated;
     const jobsOk = jobsKnown && failed.length === 0;
-    // Order matters. A run GitHub calls "success" whose jobs did not all pass is
-    // the case worth a distinct word: the summary and the detail disagree.
+    // Order matters, and the first branch is the one most easily got wrong: a run
+    // still queued or in progress has `conclusion: null`, which reads as "not
+    // success". Calling that FAILED accuses a build that has not finished of
+    // failing. It is NOT CHECKED YET.
     let verdict;
-    if (!runOk)
+    if (!finished)
+        verdict = 'INCONCLUSIVE';
+    else if (!runOk)
         verdict = 'FAILED';
     else if (!jobsKnown)
         verdict = 'INCONCLUSIVE';
@@ -153,23 +170,29 @@ async function runCheck(url, env = process.env) {
                 detail: `${run.body.name || ''} · ${run.body.status}`,
             },
             {
-                ok: run.body.status === 'completed',
+                ok: finished,
                 label: 'The run finished',
-                detail: `status: ${run.body.status}`,
+                detail: finished ? `status: ${run.body.status}` : `NOT CHECKED — still ${run.body.status}; nothing is decided yet`,
             },
             {
-                ok: runOk,
+                ok: finished ? runOk : null,
                 label: 'The run succeeded',
-                detail: `GitHub reports conclusion: ${run.body.conclusion}`,
+                detail: finished
+                    ? `GitHub reports conclusion: ${run.body.conclusion}`
+                    : 'NOT CHECKED — a run that has not finished has no conclusion',
             },
             {
                 ok: jobsKnown ? jobsOk : null,
                 label: 'Every job in the run passed',
-                detail: !jobsKnown
+                detail: !jobs.ok
                     ? `NOT CHECKED — the jobs endpoint answered ${jobs.status}`
-                    : failed.length
-                        ? `${failed.length} of ${jobList.length} jobs did not pass: ${failed.map((j) => j.name).join(', ')}`
-                        : `${jobList.length} jobs`,
+                    : truncated
+                        ? `NOT CHECKED — GitHub reports ${totalJobs} jobs and returned ${jobList.length}; the rest were not read`
+                        : jobList.length === 0
+                            ? 'NOT CHECKED — the run reports no jobs'
+                            : failed.length
+                                ? `${failed.length} of ${jobList.length} jobs did not pass: ${failed.map((j) => j.name).join(', ')}`
+                                : `${jobList.length} jobs`,
             },
             { ok: Boolean(sha), label: 'The commit exists on the remote', detail: sha },
         ],
