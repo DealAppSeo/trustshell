@@ -99,6 +99,13 @@ Nothing was red. Tests passed, the file worked locally via `node bin/check.js`, 
 entirely in packaging. **Before claiming a CLI command ships, run it the way the README tells a
 stranger to run it** — from the built artifact, not the source path you have been testing.
 
+**Verify with the config CI uses, not the one nearest your change.** The commit that landed this
+was checked with `tsc --project tsconfig.sdk.json` — which `exclude`s `tests/` — plus a green jest
+run, and pushed. CI runs `npx tsc --noEmit` against the **root** `tsconfig.json`, which includes
+`tests/`, and it went red on twelve type errors in the new test file alone. Two green
+verifications, neither of them the one that gates the merge. `npm run check` and the workflow files
+name the real commands; run those before pushing, not the subset that covers the files you touched.
+
 And its verdicts exited **0 for every outcome it could compute**, so *"the jobs could not be read"*
 and *"every job passed"* were the same observable event for any caller. NOT_CHECKED must never
 share an exit code with success — least of all in the tool built to say what evidence does not

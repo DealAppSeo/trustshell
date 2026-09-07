@@ -155,7 +155,7 @@ describe('the "no account" promise survives a stale token', () => {
       if (auth) return { status: 401, body: { message: 'Bad credentials' } };
       return u.includes('/jobs') ? { status: 200, body: jobs('success') } : { status: 200, body: okRun('success') };
     });
-    const r = await runCheck(RUN_URL, { GITHUB_TOKEN: 'stale-token' } as NodeJS.ProcessEnv);
+    const r = await runCheck(RUN_URL, { GITHUB_TOKEN: 'stale-token' });
     expect(r.verdict).toBe('COMPLETE');
     expect(r.authenticated).toBe(false);
     // Every endpoint was tried with the token, then again without it.
@@ -168,7 +168,7 @@ describe('the "no account" promise survives a stale token', () => {
       if (!auth) return { status: 403, body: { message: 'rate limited' } };
       return u.includes('/jobs') ? { status: 200, body: jobs('success') } : { status: 200, body: okRun('success') };
     });
-    const r = await runCheck(RUN_URL, { GITHUB_TOKEN: 'good' } as NodeJS.ProcessEnv);
+    const r = await runCheck(RUN_URL, { GITHUB_TOKEN: 'good' });
     expect(r.authenticated).toBe(true);
   });
 });

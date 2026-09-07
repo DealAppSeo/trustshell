@@ -60,7 +60,7 @@ export declare class CheckError extends Error {
     readonly usage: boolean;
     constructor(message: string, usage?: boolean);
 }
-export declare function runCheck(url: string, env?: NodeJS.ProcessEnv): Promise<CheckResult>;
+export declare function runCheck(url: string, env?: Record<string, string | undefined>): Promise<CheckResult>;
 /**
  * Verdict → process exit code. PURE.
  *

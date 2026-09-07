@@ -138,7 +138,7 @@ export class CheckError extends Error {
   }
 }
 
-export async function runCheck(url: string, env: NodeJS.ProcessEnv = process.env): Promise<CheckResult> {
+export async function runCheck(url: string, env: Record<string, string | undefined> = process.env): Promise<CheckResult> {
   const parsed = parseRun(url);
   if (!parsed) {
     throw new CheckError('need https://github.com/owner/repo/actions/runs/123', true);
