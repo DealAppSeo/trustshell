@@ -262,6 +262,48 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
 | `2` | usage / bad arguments |
 | `3` | runtime error (network / backend / timeout) |
 
+### `check` — ask GitHub what it can confirm, with no account
+
+`trustshell check <github-actions-run-url>` reads a workflow run from the **public** GitHub API
+and prints what GitHub can confirm about it — that the run finished, that its conclusion was
+success, that **every job** passed, and that the commit exists on the remote.
+
+It needs no account, no key and no TrustShell backend, so a sceptic can point it at *someone
+else's* repository and owe nobody anything. `GITHUB_TOKEN` is optional and only raises the rate
+limit; if one is set but rejected, the command retries anonymously rather than failing.
+
+Every card ends with **what this does not prove** — that a green run is not a judgement about
+whether the code is correct, that it cannot see work on a branch nobody pushed, that passing
+tests prove only that *the tests that exist* passed, and that it does not establish authorship.
+
+The verdict is four-valued on purpose, and `INCONCLUSIVE` is not a pass:
+
+| Verdict | Meaning | Exit |
+|---|---|---|
+| `COMPLETE` | the run succeeded and every job passed | `0` |
+| `INCONSISTENT` | GitHub calls the run a success, but a job did not pass | `1` |
+| `FAILED` | the run's own conclusion was not success | `1` |
+| `INCONCLUSIVE` | the jobs could not be read — **NOT CHECKED**, not "fine" | `3` |
+
+*(No example output is printed here on purpose: a card in a README is a claim about a run that
+may not exist. Run it against a real run and read your own.)*
+
+### What each command talks to
+
+Egress is per command, and `check` is deliberately the odd one out — it is the only command that
+reaches nothing owned by this project:
+
+| Command | Network egress | Auth |
+|---|---|---|
+| `verify` | HyperDAG backend (`TRUSTSHELL_API_URL`) | keyless; `REPID_API_KEY` optional |
+| `repid` | HyperDAG backend | keyless |
+| `proof` | HyperDAG backend (`--verify` runs the verifier **locally**) | keyless |
+| `badge` | HyperDAG backend (rendering is **local**) | keyless |
+| `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
+
+No command uploads your input anywhere other than the host named above, and the published CLI
+writes no files into your working directory.
+
 **A complete, copy-paste GitHub Actions workflow is in [`examples/ci-gate/`](examples/ci-gate/)** —
 drop `trust-gate.yml` into `.github/workflows/`, list your claims in `TRUST_CLAIMS.txt`, and your
 build fails on a hallucinated one. Keyless, ~5 minutes, no account. Verified green-as-shipped and

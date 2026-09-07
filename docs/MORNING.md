@@ -23,7 +23,7 @@ curl -sL https://trustshell.dev | grep -oE 'src="[^"]+\.js[^"]*"'
 ## 2. Claude Code + tarball (the CLI)
 
 ```
-Repo: DealAppSeo/trustshell only.
+Repo: DealAppSeo/trustshell — this repo and no other.
 Branch: feat/1.4.0-local.
 Input: trustshell-1.4.0.tar.gz.
 Land inspect / init / check / report. Keep verify / repid / proof / badge.

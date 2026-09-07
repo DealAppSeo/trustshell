@@ -39,6 +39,7 @@ exports.main = main;
 const trustshell_1 = require("../lib/trustshell");
 const badge_1 = require("../lib/badge");
 const version_1 = require("../lib/version");
+const check_1 = require("../lib/check");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -81,6 +82,10 @@ COMMANDS
                              prints the score — the proof's statement still carries it
                              as a public input. EXIT 3 if not in the verified state.
       [--markdown]           Emit a copy-pasteable Markdown snippet (data-URI SVG) instead.
+  check <runUrl>             Ask GitHub what it can confirm about an Actions run, and say
+                             plainly what it does NOT prove. No account, no key, no backend —
+                             talks to api.github.com and nothing else.
+                             EXIT 0 COMPLETE, 1 FAILED/INCONSISTENT, 3 INCONCLUSIVE.
 
 OPTIONS
   --json                     Emit machine-readable JSON instead of human text.
@@ -88,10 +93,14 @@ OPTIONS
   -v, --version              Show the version.
 
 EXIT CODES
-  0  HAL PASS (or soft FLAG) — safe to proceed
-  1  HAL VETO — the claim did not pass (fail the build)
+  0  HAL PASS (or soft FLAG) — safe to proceed        · check: COMPLETE
+  1  HAL VETO — the claim did not pass                · check: FAILED / INCONSISTENT
   2  usage / bad arguments
-  3  runtime error (network / backend / timeout)
+  3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
+
+NETWORK EGRESS (what each command dials, and nothing else)
+  verify · repid · proof · badge   the HyperDAG backend (TRUSTSHELL_API_URL)
+  check                            api.github.com only — no backend, no account
 
 ENV
   REPID_API_KEY        optional API key (verify/repid/proof are keyless)
@@ -147,10 +156,15 @@ function parseArgs(argv) {
         case 'verify':
         case 'repid':
         case 'proof':
-        case 'badge': {
+        case 'badge':
+        case 'check': {
             const operand = rest[0];
             if (!operand) {
-                const what = cmd === 'verify' ? '"<text>"' : '<agentIdOrSlug>';
+                const what = cmd === 'verify'
+                    ? '"<text>"'
+                    : cmd === 'check'
+                        ? '<github-actions-run-url>'
+                        : '<agentIdOrSlug>';
                 return {
                     command: cmd,
                     json,
@@ -324,6 +338,26 @@ async function run(args, client, io = realIO) {
             }
             catch (e) {
                 io.err(`badge failed: ${e?.message ?? String(e)}`);
+                return exports.EXIT.RUNTIME;
+            }
+        }
+        case 'check': {
+            // GitHub-only. Deliberately does NOT touch `client` — no backend, no key,
+            // no account. That independence is the command's entire value.
+            try {
+                const r = await (0, check_1.runCheck)(args.operand);
+                if (args.json)
+                    io.out(JSON.stringify(r, null, 2));
+                else
+                    io.out((0, check_1.formatCheckCard)(r));
+                return (0, check_1.checkExitCode)(r.verdict);
+            }
+            catch (e) {
+                if (e instanceof check_1.CheckError) {
+                    io.err(`check failed: ${e.message}`);
+                    return e.usage ? exports.EXIT.USAGE : exports.EXIT.RUNTIME;
+                }
+                io.err(`check failed: ${e?.message ?? String(e)}`);
                 return exports.EXIT.RUNTIME;
             }
         }

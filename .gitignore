@@ -47,3 +47,10 @@ hyperdag-trustshell-*.tgz
 # The tool ships its own .codegraph/.gitignore covering the DB, but pin the
 # directory here too so a `git add -A` cannot stage even the stub.
 .codegraph/
+
+# TrustShell per-user local state. `.trustshell/profile.md` is written by
+# `trustshell init` and describes THIS machine's operator — it is deliberately
+# not shared. The generator (init) and lib/profile.js ARE committed; what they
+# produce is not.
+.trustshell/
+trustshell-card.txt
