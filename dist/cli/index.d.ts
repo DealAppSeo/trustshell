@@ -36,7 +36,7 @@ export declare const EXIT: {
     /** Runtime error (network / backend / timeout). */
     readonly RUNTIME: 3;
 };
-export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'help' | 'version';
+export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'check' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
