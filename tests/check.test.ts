@@ -8,7 +8,7 @@
  * stale-token fallback that keeps the "no account" promise true — are pinned
  * against a stubbed fetch here.
  */
-import { parseRun, checkExitCode, formatCheckCard, runCheck, CheckError, DOES_NOT_PROVE } from '../src/lib/check';
+import { parseRun, checkExitCode, formatCheckCard, runCheck, CheckError, DOES_NOT_PROVE, plural } from '../src/lib/check';
 
 const RUN_URL = 'https://github.com/DealAppSeo/trustshell/actions/runs/33942669558';
 
@@ -170,6 +170,26 @@ describe('the "no account" promise survives a stale token', () => {
     });
     const r = await runCheck(RUN_URL, { GITHUB_TOKEN: 'good' });
     expect(r.authenticated).toBe(true);
+  });
+});
+
+describe('the card counts jobs in English', () => {
+  it('says "1 job", not "1 jobs"', async () => {
+    stubFetch((u) => (u.includes('/jobs') ? { status: 200, body: jobs('success') } : { status: 200, body: okRun('success') }));
+    const r = await runCheck(RUN_URL, {});
+    const detail = r.checks.find((c) => c.label.startsWith('Every job'))!.detail;
+    expect(detail).toBe('1 job');
+    expect(detail).not.toContain('1 jobs');
+  });
+
+  it('still says "2 jobs" for more than one', async () => {
+    stubFetch((u) => (u.includes('/jobs') ? { status: 200, body: jobs('success', 'success') } : { status: 200, body: okRun('success') }));
+    const r = await runCheck(RUN_URL, {});
+    expect(r.checks.find((c) => c.label.startsWith('Every job'))!.detail).toBe('2 jobs');
+  });
+
+  it.each([[0, '0 jobs'], [1, '1 job'], [2, '2 jobs']])('plural(%i) -> %s', (n, want) => {
+    expect(plural(n as number, 'job')).toBe(want);
   });
 });
 
