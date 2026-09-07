@@ -110,3 +110,48 @@ And its verdicts exited **0 for every outcome it could compute**, so *"the jobs 
 and *"every job passed"* were the same observable event for any caller. NOT_CHECKED must never
 share an exit code with success — least of all in the tool built to say what evidence does not
 prove.
+
+
+---
+
+# OPERATOR ENVIRONMENT — do not infer this, it is written here
+
+**Sean runs Windows, in PowerShell 5.1.** The prompt looks like `PS C:\Users\Cash4>`.
+
+- **`&&` is a syntax error** in this PowerShell. Chain with `;` or give one command per line.
+- Commands must be **PowerShell**, not bash. No `export`, no `$(...)`, no `~/`.
+- **Sean is not a developer.** Give the full block to paste, say where to paste it, and say
+  what a correct result looks like. Do not give a fragment that assumes a working directory.
+- Paths in this repo's committed docs include `/Users/Cash4/...`. **Those are not his machine.**
+  A committed string is not a live environment reading.
+
+# The recurring defect: preferring your own inference to an authoritative source you already have.
+
+Four instances in the session of 2026-09-06/07, all the same move — a fact was *inferred* while
+the thing that could have *settled* it sat unread, in reach, or one question away:
+
+| inferred | the source that was already available |
+|---|---|
+| "the 1.4.0 work does not exist" | the laptop — unreachable, so **ask**; instead a BLOCKED note was written |
+| "the build is broken, publish is blocked" | `node_modules/typescript` — `npx` had fallen back to a global TS 6 |
+| "my change verifies clean" | `.github/workflows/check.yml`, which names the three gating commands |
+| "the operator is on a Mac" | the operator's own shell prompt, `PS C:\Users\Cash4>`, in the transcript |
+
+It is not random inattention. It is a consistent preference for evidence you can generate
+yourself over evidence you would have to go and read or ask for — and it gets worse with
+momentum, because gathering feels like progress and reading feels like a detour.
+
+**The rule.** Before stating any fact about (a) the operator's machine, (b) which toolchain
+just ran, or (c) what CI gates on — name the source you read for it, in the sentence. If you
+cannot name one, you inferred it: either go read it, or ask. "It looked like X" is not a source.
+
+**Asking is cheap and is not a failure.** Anything about the operator's machine is one question,
+answered in seconds, with certainty. No amount of clever inference beats that, and four attempts
+at it in one session cost more than four questions would have.
+
+**The mechanical half — use these, so the judgement is not needed:**
+
+- `npm run verify` runs **exactly** what `check.yml` gates on (`tsc --noEmit`, then jest minus
+  `tests/e2e`). Run it before every push. It exists so "which config?" has one answer instead of
+  being a choice you can get wrong — which is how CI went red above.
+- The environment block above exists so the operator's OS is never inferred again.
