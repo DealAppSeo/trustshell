@@ -8,9 +8,23 @@ The marketing page still renders. Browser calls to this Supabase project use a *
 
 1. In Supabase → API keys: **create** a publishable key named `trustshell_landing`.
 2. Vercel → project `trustshell-landing` → Settings → Environment Variables.
-3. Find the var whose value is the old `eyJ…` JWT (likely `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+3. Find the var whose value is the old `eyJ…` JWT (`NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 4. Replace the value with the new `sb_publishable_…` key. Do not turn legacy JWTs back on.
-5. Redeploy production.
+   Leave the variable NAME alone for now — see the rename note below.
+5. Redeploy production, and **untick "Use existing Build Cache"**. `NEXT_PUBLIC_*`
+   is compiled into the JS bundle at build time, so a cached build can serve the
+   old key back and make a correct fix look like a failed one.
+
+**Do not mark it Sensitive.** A `NEXT_PUBLIC_*` value ships inside the bundle every
+visitor downloads. "Sensitive" would only hide it from you in the dashboard while it
+stays public to everyone else.
+
+**The rename, after the site is back up.** The name is wrong: this is a publishable
+key that authenticates AS the `anon` role, and naming the credential after the role
+is the conflation that keeps costing time here. The code now reads
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and falls back to the old name, so the order
+is: add the new variable → redeploy → verify with step 6 → only then delete the old
+one. Adding before deleting means there is never a window where neither resolves.
 6. Prove it (a green deploy log is not proof):
 
 ```bash
