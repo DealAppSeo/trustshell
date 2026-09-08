@@ -86,6 +86,7 @@ jobs:
         env:
           REQUESTED: ${{ inputs.dist_tag }}
           ALLOW_PRERELEASE_ON_LATEST: ${{ inputs.allow_prerelease_on_latest }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./package.json').version")
@@ -108,6 +109,27 @@ jobs:
           if [ "$IS_PRERELEASE" = "true" ] && [ "$DIST_TAG" = "latest" ] && [ "${ALLOW_PRERELEASE_ON_LATEST:-false}" != "true" ]; then
             echo "::error::Refusing to publish prerelease $VERSION to the 'latest' tag. Everyone running a plain \`npm install\` would get it. Re-run with allow_prerelease_on_latest=true if that is genuinely intended."
             exit 1
+          fi
+
+          # RELEASE HOLD. A standing "do not move `latest`" decision has to live in
+          # the repository, not in someone's memory — and it has to gate the path
+          # that takes no inputs. `git tag v1.4.0 && git push --tags` fires this
+          # workflow with no form, no dry-run checkbox and no confirmation; a
+          # workflow input cannot gate a trigger that supplies none, so the hold
+          # is a committed file that every trigger path sees.
+          #
+          # Compared against the STRING "true" rather than used as a shell
+          # boolean: a workflow_dispatch boolean arrives as the text "true" or
+          # "false", and "false" is truthy in an `if:` expression. Exact string
+          # comparison is right under both readings.
+          if [ -f .release-hold ] && [ "$DIST_TAG" = "latest" ]; then
+            echo "| **release hold** | **ACTIVE** — \`.release-hold\` is present |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${DRY_RUN:-false}" = "true" ]; then
+              echo "::warning::Release hold is ACTIVE. This rehearsal continues, but a real run would refuse to publish $VERSION to 'latest'."
+            else
+              echo "::error::Release hold is ACTIVE (.release-hold exists). Refusing to publish $VERSION to the 'latest' tag — that is what every plain \`npm install\` resolves to. Read .release-hold; lift the hold by deleting that file in its own commit, or publish to a different dist-tag."
+              exit 1
+            fi
           fi
 
           echo "version=$VERSION"       >> "$GITHUB_OUTPUT"
