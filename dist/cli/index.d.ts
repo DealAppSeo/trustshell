@@ -36,7 +36,7 @@ export declare const EXIT: {
     /** Runtime error (network / backend / timeout). */
     readonly RUNTIME: 3;
 };
-export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'check' | 'help' | 'version';
+export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'check' | 'inspect' | 'init' | 'report' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -47,6 +47,14 @@ export interface ParsedArgs {
     markdown?: boolean;
     /** proof: verify the proof client-side. */
     verify: boolean;
+    /** init: replace an existing profile. Without it, an existing profile is left untouched. */
+    force?: boolean;
+    /** inspect: read a foreign log through an adapter. Adapters always yield UNCHAINED. */
+    from?: string;
+    /** report: path to the session log. */
+    session?: string;
+    /** report: path to saved `check --json` output. `report` never fetches. */
+    evidence?: string;
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }
