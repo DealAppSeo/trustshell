@@ -115,6 +115,32 @@ describe('docs describe the CLI that exists', () => {
     const phantom = [...new Set(referenced)].filter((c) => !commands.has(c));
     expect(phantom).toEqual([]);
   });
+
+  /**
+   * The MIRROR of the test above, and the one that was missing.
+   *
+   * The phantom scan catches a doc that promises a command the CLI does not
+   * have. It cannot catch the opposite — a command that SHIPS and is documented
+   * nowhere — because there is nothing in the prose to compare against. That is
+   * the quieter half, and it had already happened: the union carried `badge`,
+   * `check`, `inspect`, `init` and `report` while `docs/api-reference.md`, the
+   * page rendered at trustshell.dev/docs/api-reference, described three
+   * commands. Nothing was red. A reader following the reference would have
+   * concluded the other five did not exist.
+   *
+   * Reading the union rather than a list is the point: the next command added
+   * to the CLI fails this test until it is documented, with nobody to remember.
+   */
+  it('every shipped command appears in docs/api-reference.md', () => {
+    // `help` and `version` are reachable as commands but are documented as the
+    // `--help` / `--version` flags, which is how anyone actually invokes them.
+    const documented = readDescribed('docs/api-reference.md');
+    const subcommands = [...commands].filter((c) => c !== 'help' && c !== 'version');
+    const undocumented = subcommands.filter(
+      (c) => !new RegExp(`^### \`trustshell ${c}\\b`, 'm').test(documented),
+    );
+    expect(undocumented).toEqual([]);
+  });
 });
 
 describe('docs describe the environment the code actually reads', () => {
