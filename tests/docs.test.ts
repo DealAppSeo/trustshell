@@ -92,18 +92,47 @@ describe('docs describe the SDK that exists', () => {
 });
 
 describe('docs describe the CLI that exists', () => {
-  // Parsed from the CLI source rather than retyped, so widening the union
-  // updates this automatically.
+  /**
+   * Parsed from the CLI source rather than retyped, so widening the union
+   * updates this automatically.
+   *
+   * EVERY quoted member is taken, with no character class to get wrong. This
+   * used to extract `/'([a-z]+)'/g`, and a member the pattern could not match —
+   * `'check-run'`, say — did not fail: it silently DISAPPEARED from the set.
+   * The two consequences are not symmetric, which is why this was worth fixing
+   * rather than widening by one character:
+   *
+   * - The phantom scan below would go red, calling a real command a phantom. A
+   *   false alarm, but a loud one.
+   * - The coverage test after it would go quiet. A command absent from the set
+   *   is a command nothing requires to be documented — so the guard written to
+   *   catch an undocumented command would be the thing hiding it, and every
+   *   suite would stay green.
+   *
+   * Silent and in the safe-looking direction is the failure this file exists to
+   * prevent. So: take every member, then ASSERT the shape rather than filtering
+   * by it. A member this file did not anticipate now fails out loud and gets
+   * looked at, instead of dropping out of both scans.
+   */
   const cliSource = readFileSync(join(__dirname, '..', 'src', 'cli', 'index.ts'), 'utf8');
   const commands = (() => {
     const m = cliSource.match(/export type Command\s*=\s*([^;]+);/);
     if (!m || !m[1]) throw new Error('could not parse the Command union from src/cli/index.ts');
-    return new Set([...m[1].matchAll(/'([a-z]+)'/g)].map((x) => x[1] as string));
+    return new Set([...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1] as string));
   })();
 
   it('sanity: parsed a plausible command set', () => {
     expect(commands.size).toBeGreaterThanOrEqual(3);
     expect(commands.has('verify')).toBe(true);
+  });
+
+  it('every parsed member has the shape the scans below assume', () => {
+    // The scans match `trustshell <cmd>` as /[a-z][a-z0-9-]*/ and look for a
+    // `### \`trustshell <cmd>` heading. A member outside that shape would be
+    // matched by neither, so it must fail HERE — where the message names it —
+    // rather than passing vacuously in both.
+    const malformed = [...commands].filter((c) => !/^[a-z][a-z0-9-]*$/.test(c));
+    expect(malformed).toEqual([]);
   });
 
   it.each(describedFiles())('%s documents no `trustshell <cmd>` that does not exist', (file) => {
@@ -114,6 +143,32 @@ describe('docs describe the CLI that exists', () => {
       .filter((c) => !c.startsWith('-') && c !== 'verify--' && c !== 'dev');
     const phantom = [...new Set(referenced)].filter((c) => !commands.has(c));
     expect(phantom).toEqual([]);
+  });
+
+  /**
+   * The MIRROR of the test above, and the one that was missing.
+   *
+   * The phantom scan catches a doc that promises a command the CLI does not
+   * have. It cannot catch the opposite — a command that SHIPS and is documented
+   * nowhere — because there is nothing in the prose to compare against. That is
+   * the quieter half, and it had already happened: the union carried `badge`,
+   * `check`, `inspect`, `init` and `report` while `docs/api-reference.md`, the
+   * page rendered at trustshell.dev/docs/api-reference, described three
+   * commands. Nothing was red. A reader following the reference would have
+   * concluded the other five did not exist.
+   *
+   * Reading the union rather than a list is the point: the next command added
+   * to the CLI fails this test until it is documented, with nobody to remember.
+   */
+  it('every shipped command appears in docs/api-reference.md', () => {
+    // `help` and `version` are reachable as commands but are documented as the
+    // `--help` / `--version` flags, which is how anyone actually invokes them.
+    const documented = readDescribed('docs/api-reference.md');
+    const subcommands = [...commands].filter((c) => c !== 'help' && c !== 'version');
+    const undocumented = subcommands.filter(
+      (c) => !new RegExp(`^### \`trustshell ${c}\\b`, 'm').test(documented),
+    );
+    expect(undocumented).toEqual([]);
   });
 });
 

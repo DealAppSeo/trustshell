@@ -193,6 +193,110 @@ trinity-shofet
   verified  ✓ (client-side, 0.2.0)
 ```
 
+### `trustshell badge <agentIdOrSlug> [--markdown]`
+
+Fetch the agent's proof, verify it **client-side**, and emit a portable, self-contained SVG badge
+reading `RepID ≥ <threshold> ✓ ZK-verified`. Options: `--markdown` (a copy-pasteable data-URI
+snippet instead of raw SVG), `--json`.
+
+The badge goes green **only** on a true local verification — it exits `3` in any other state
+rather than rendering an unverified badge. It never prints the score itself; the proof's own
+statement still carries the score as a public input, so the badge is not a privacy claim.
+
+### `trustshell check <runUrl>`
+
+Ask the **public** GitHub API what it can confirm about an Actions run, and print what that does
+**not** prove. No account, no key, no TrustShell backend — it talks to `api.github.com` and nothing
+else. `GITHUB_TOKEN` is optional and only raises the rate limit; if one is set and rejected, the
+command retries anonymously rather than failing. Options: `--json`.
+
+| Verdict | Meaning | Exit |
+|---|---|---|
+| `COMPLETE` | the run succeeded and every job passed | `0` |
+| `INCONSISTENT` | GitHub calls the run a success, but a job did not pass | `1` |
+| `FAILED` | the run's own conclusion was not success | `1` |
+| `INCONCLUSIVE` | the run has not finished, or the jobs could not be fully read — **NOT CHECKED**, not "fine" | `3` |
+
+A queued or in-progress run is `INCONCLUSIVE`, never `FAILED`: an unfinished build has not failed,
+it has not answered.
+
+### `trustshell inspect [<path>] [--from <format>]`
+
+Verify an append-only tool-call log and report what it can and cannot establish. Reads a local
+file and computes hashes; it opens **no socket**. Defaults to `.trustshell/session.jsonl`.
+Options: `--from <format>` (read a foreign log through an adapter — `claude-code` today),
+`--json`.
+
+| Verdict | Meaning | Exit |
+|---|---|---|
+| `INTACT` | every line's `prev` matches the previous line's `hash` — nothing removed or edited | `0` |
+| `BROKEN` | the chain does not verify — lines were altered or dropped | `1` |
+| `UNCHAINED` | a foreign log with no chain — **NOT CHECKED**, not "fine" | `3` |
+| `NO_LOG` | no log, or an empty one — **NOT CHECKED**. An empty chain is vacuously unbroken, which is not evidence | `3` |
+
+**What `INTACT` does not prove.** The chain has **no trusted anchor**: its hashes are unkeyed and
+reproducible by anyone who can write the file. `INTACT` detects edits and deletions that left the
+later hashes untouched, and nothing more — it cannot rule out a log that was fabricated or
+rewritten wholesale. Every card says so in its own limits section.
+
+An adapter can only ever report `UNCHAINED`. A log this tool did not chain proves nothing about
+its own integrity, whatever it says happened.
+
+### `trustshell init [<dir>] [--force]`
+
+Create `.trustshell/` and write a blank `profile.md`. **No network, no account, nothing
+collected** — not your git config, hostname, username or email. It never overwrites an existing
+profile without `--force`. Options: `--force`, `--json`.
+
+The generated profile has three sections — identity, agent context, and trust settings — and
+every `share_*` flag in it starts `false`, so `report` withholds identity and context until you
+turn them on yourself. The trust defaults are the most conservative of each: `autonomy:
+ask_first`, `confidence_gate: 0.8`, `hitl_gate: 70`.
+
+The profile is yours and stays local; add `.trustshell/` to your `.gitignore` if you do not want
+it in version control.
+
+### `trustshell report [--session <path>] [--evidence <path>]`
+
+State what your session log and your saved GitHub evidence **together** support, and name where
+they disagree. **No network** — it has no fetch and no URL parameter; external evidence arrives as
+a file you produced with `trustshell check --json`. Options: `--session <path>` (default
+`.trustshell/session.jsonl`), `--evidence <path>`, `--json`.
+
+| Verdict | Meaning | Exit |
+|---|---|---|
+| `CONFIRMED` | an intact local chain **and** external evidence that agrees with it | `0` |
+| `INCONSISTENT` | the log and the external evidence disagree | `1` |
+| `UNSUPPORTED` | a claim with no evidence either way — **NOT CHECKED** | `3` |
+
+The word is **`INCONSISTENT`**, never "contradicted". Two records disagreeing is a fact about the
+records; "contradicted" reads as a finding about the agent's honesty, which this tool cannot
+establish and does not imply.
+
+`CONFIRMED` is the narrowest verdict on purpose, and it inherits the anchor limit above: the local
+chain is unkeyed, so `CONFIRMED` cannot rule out a fabricated session either. The card says so.
+
+*(No example card is printed for `check`, `inspect` or `report`. A rendered card is a claim about
+a run or a session that happened — run these against your own and read the real output.)*
+
+### What each command talks to
+
+`--json` works on every command. Across all of them, **exit `3` means NOT CHECKED** — never a pass.
+
+| Command | Network egress | Auth |
+|---|---|---|
+| `verify` | HyperDAG backend (`TRUSTSHELL_API_URL`) | keyless; `REPID_API_KEY` optional |
+| `repid` | HyperDAG backend | keyless |
+| `proof` | HyperDAG backend (`--verify` runs the verifier **locally**) | keyless |
+| `badge` | HyperDAG backend (rendering + verification are **local**) | keyless |
+| `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
+| `inspect` | **none** — reads a local file | none |
+| `init` | **none** — writes one local file | none |
+| `report` | **none** — it has no fetch and no URL parameter | none |
+
+`init` is the only command that writes to your working directory, and it writes exactly one file:
+`.trustshell/profile.md`.
+
 ### `trustshell --help` / `--version`
 
 `--version` reports the installed package version.

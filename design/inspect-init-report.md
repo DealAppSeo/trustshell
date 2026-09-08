@@ -1,25 +1,10 @@
 # Design — `inspect`, `init`, `report`
 
-Status: **BUILT 2026-09-08**, except the OpenClaw seam. `init`, `inspect` and
-`report` ship as `src/lib/{init,inspect,report}.ts` + `src/lib/profile.ts`, wired
-into the CLI and covered by `tests/inspect-init-report.test.ts`. The one thing
-still open is step 5 — the OpenClaw plugin interface — and `init` says so out
-loud in its own output rather than pretending it wired one.
-
-Two things changed from this design during the build, both recorded because the
-design is what the next reader will trust:
-
-- A fourth `inspect` verdict, **`NO_LOG`**, for a file that is not there. The
-  design listed three. A missing log is NOT CHECKED, not UNCHAINED, and it exits
-  3 with the rest of the NOT-CHECKED family.
-- `sectionBody` first used `\Z` to mean end-of-input, which JavaScript does not
-  have. Every section silently parsed as empty and the tests caught it. A regex
-  that fails by returning `""` rather than throwing is the shape of bug that
-  reaches production looking like an empty config.
-
-Originally: **PROPOSED.** Nothing here was built. `check` shipped in 1.4.0; these three
-are the rest of the set. Target 1.5.0 (additive; `verify` / `repid` / `proof` /
-`badge` / `check` unchanged).
+Status: **BUILT.** All three shipped in #111 and are in the CLI's `Command` union
+alongside `verify` / `repid` / `proof` / `badge` / `check`. This file is kept as
+the design record — why each verdict is worded the way it is, what was decided
+rather than inferred — not as the reference. **The user-facing reference is
+[`docs/api-reference.md`](../docs/api-reference.md).**
 
 Two decisions were taken by Sean rather than inferred, and they shape everything
 below:
@@ -30,20 +15,27 @@ below:
 2. `inspect` uses **TrustShell's own chained format, plus adapters** for logs
    written by other tools.
 
-## Why this file is in `design/` and not `docs/`
+## Why this file stayed in `design/`
 
 The first draft sat in `docs/`, and `tests/docs.test.ts` failed it immediately —
-it names `trustshell init`, `inspect` and `report`, none of which exist.
+it named `trustshell init`, `inspect` and `report`, none of which existed then.
 
 That guard is right, and the precedent is nearly word for word: it was written
 because `docs/api-reference.md` once documented four CLI commands that had never
 shipped in any build — one of them called `init` — and those docs render publicly
 at `trustshell.dev/docs`. A stranger could follow them and find nothing.
 
-A proposal for unbuilt commands is not documentation, so it does not belong on
-the surface that promises the reader things exist. `design/` is outside the
-scanned set. When these commands are real, their user-facing docs move into
-`docs/` and the guard will then be checking a true claim.
+A proposal for unbuilt commands is not documentation, so it did not belong on the
+surface that promises the reader things exist. `design/` is outside the scanned
+set.
+
+**The commands are real now, so the user-facing half moved into
+`docs/api-reference.md` and the guard is checking a true claim.** What stayed
+here is the reasoning, which a reference page should not carry. The move also
+surfaced the quieter half of the same defect: `badge` and `check` had shipped
+and were documented on that page nowhere at all. `tests/docs.test.ts` now asserts
+the union in **both** directions — no documented command that does not exist, and
+no shipped command that is not documented.
 
 ## The one-line thesis these three have to serve
 
@@ -175,6 +167,15 @@ line's `hash`, so removing or editing a line breaks every line after it.
 | `INTACT` | every line's `prev` matches; nothing removed or edited | 0 |
 | `BROKEN` | the chain does not verify — lines were altered or dropped | 1 |
 | `UNCHAINED` | a foreign log with no chain — **NOT CHECKED**, not "fine" | 3 |
+| `NO_LOG` | no log, or an empty one — **NOT CHECKED** | 3 |
+
+**`NO_LOG` was not in this design, and leaving it out was a defect the security
+review caught.** As specified, an absent or empty log has no broken links, so
+`breaks.length === 0` was vacuously true and `inspect` answered `INTACT` exit 0 —
+and `report` then read that as `CONFIRMED`. Nothing distinguished "the chain
+holds" from "there was nothing to check", which is the single failure this whole
+product exists to name. A three-outcome design still collapses to two if one of
+the outcomes can be reached by measuring nothing.
 
 `UNCHAINED` is not a failure and is not a pass. It is the honest verdict for
 every adapter below, and it exits 3 for the same reason `check`'s `INCONCLUSIVE`
@@ -229,17 +230,29 @@ never 0.
 
 ---
 
-## Build order
+## Build order — 1-4 DONE, 5 open
 
-1. `lib/profile.js` + `init` — nothing else can be configured until this exists.
-2. `inspect` native format + the writer that appends to it.
-3. `report`, once there is a log to report on.
-4. The `claude-code` adapter.
-5. The OpenClaw seam, once the plugin's interface is known.
+1. ~~`lib/profile.ts` + `init`~~ — **shipped.**
+2. ~~`inspect` native format + `nextEntry`, which derives the next line from the
+   file's own last line~~ — **shipped.**
+3. ~~`report`~~ — **shipped.**
+4. ~~The `claude-code` adapter~~ — **shipped** as `readClaudeCode`, and it can only
+   ever return `UNCHAINED`, as specified.
+5. The OpenClaw seam, once the plugin's interface is known. **Still open.**
+
+`nextEntry` is a pure helper. Nothing calls it from inside an agent's loop yet,
+so the native log is a format the CLI can verify rather than one anything
+currently writes — which is the open question immediately below, not a gap in
+these three commands.
 
 ## Open, and needing Sean rather than a guess
 
 - **The OpenClaw plugin interface.** Blocking step 5 only.
+- **A trust anchor for the chain.** Every `INTACT` and every `CONFIRMED` says out
+  loud that the hashes are unkeyed and reproducible by anyone who can write the
+  file. An HMAC key or a pinned head hash would change that from a caveat into a
+  property — and it is a design decision (where the key lives, who holds it),
+  not a cleanup.
 - **Who writes `session.jsonl`.** The recorder has to be *in* the agent's loop.
   Whether that is the OpenClaw plugin, a Claude Code hook, or an SDK call the
   agent makes is a real fork, and it decides how much of this is usable outside
