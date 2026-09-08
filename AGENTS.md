@@ -186,8 +186,9 @@ before. This section's own PR sat a draft with no review at all until it was mar
 — the rule caught its own author within minutes of being written. So the sequence is: open
 the PR, get CI green, **mark it ready**, wait for the verdict, then merge.
 
-A finding is work before the merge, not after. If Strix reports one, fix it and let it
-re-run on the new head.
+A finding is work before the merge, not after. If Strix reports one, fix it — and then
+ASK for the re-review, per the section immediately below. It does not re-run on the new
+head by itself.
 
 **AUTOMATIC RE-REVIEW ON PUSH IS OFF FOR THIS REPOSITORY. A push does not
 re-trigger Strix** [MEASURED 2026-09-08 on #111]. This is the trap that follows
