@@ -5,7 +5,25 @@ import { createBrowserClient } from '@supabase/ssr'
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    // BOTH names are written out as literals on purpose. Next inlines
+    // NEXT_PUBLIC_* into the browser bundle by static analysis of literal
+    // references; a computed lookup is not inlined and arrives `undefined` in
+    // the browser. A fallback list therefore has to be spelled out, and cannot
+    // be a loop over candidate names.
+    //
+    // PUBLISHABLE is the accurate name. The credential is a Supabase
+    // publishable key (`sb_publishable_…`) which AUTHENTICATES AS the `anon`
+    // Postgres role. The key is not the role: "anon key" named the credential
+    // after the role it resolves to, and those are two different things — which
+    // is exactly the conflation that keeps getting re-litigated across this
+    // stack.
+    //
+    // ANON_KEY remains as a fallback so this is safe to deploy BEFORE the new
+    // Vercel variable exists. Delete this fallback only once
+    // NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is set in every environment and the
+    // old variable is gone.
+    (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!
   )
 }
 
