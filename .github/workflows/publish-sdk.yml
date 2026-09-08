@@ -6,6 +6,33 @@
 #
 # The prepublishOnly script (sdk:build && sdk:test) is intentionally bypassed on publish
 # (--ignore-scripts) because we run build + test as explicit, individually-visible steps first.
+#
+# TWO DEFECTS THIS FILE USED TO HAVE, both of which made a GREEN RUN MEANINGLESS:
+#
+# 1. It published with no `--tag`, so EVERY publish became `latest`. A prerelease
+#    like 1.4.0-beta.1 would therefore have been handed to everyone running a
+#    plain `npm install`, which is the opposite of what a prerelease is for. npm
+#    does not special-case prereleases; the default really is `latest`.
+#
+#    Fixed, and the SAFE behaviour is now automatic rather than something a human
+#    has to remember: the dist-tag is DERIVED from the version. A version with a
+#    prerelease part (a `-`, per semver) publishes to `next`; a plain version
+#    publishes to `latest`. Overriding to put a prerelease on `latest` is possible
+#    but must be spelled out, and the run says so.
+#
+# 2. The dry-run step had no NODE_AUTH_TOKEN, so `dry_run=true` could not
+#    authenticate and therefore could not tell you anything about the credential.
+#    A green rehearsal proved the tarball packed and NOTHING about whether a real
+#    publish would work — while looking exactly like a rehearsal that had checked.
+#    That is the "NOT CHECKED and valid are both green runs" trap, and it was
+#    built into the file that exists to prevent it.
+#
+#    Fixed with an explicit credential step that reports VERIFIED / NOT CHECKED /
+#    FAILED into the job summary and FAILS THE RUN when it cannot check. An
+#    unverifiable credential must never share an exit code with a verified one.
+#    It also catches the specific accident of NPM_TOKEN being stored in the
+#    Variables tab instead of Secrets, where `${{ secrets.NPM_TOKEN }}` silently
+#    resolves to an empty string with no error at all.
 name: publish-sdk
 
 on:
@@ -15,6 +42,15 @@ on:
     inputs:
       dry_run:
         description: 'Pack only — do not publish'
+        type: boolean
+        default: false
+      dist_tag:
+        description: 'npm dist-tag. Leave blank to derive it from the version (prerelease → next, otherwise latest).'
+        type: string
+        required: false
+        default: ''
+      allow_prerelease_on_latest:
+        description: 'Danger: let a prerelease version take the `latest` tag. Almost always wrong.'
         type: boolean
         default: false
 
@@ -43,19 +79,113 @@ jobs:
           echo "package.json=$PKG  tag=$TAG"
           test "$PKG" = "$TAG" || { echo "::error::tag v$TAG does not match package.json $PKG"; exit 1; }
 
+      # Decide the dist-tag BEFORE building, so a wrong one stops the run early
+      # and is visible in the summary whether or not anything is published.
+      - name: Resolve dist-tag
+        id: tag
+        env:
+          REQUESTED: ${{ inputs.dist_tag }}
+          ALLOW_PRERELEASE_ON_LATEST: ${{ inputs.allow_prerelease_on_latest }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          # semver: anything after a '-' is a prerelease. 1.4.0-beta.1 is; 1.4.0 is not.
+          case "$VERSION" in *-*) IS_PRERELEASE=true ;; *) IS_PRERELEASE=false ;; esac
+
+          if [ -n "${REQUESTED:-}" ]; then
+            DIST_TAG="$REQUESTED"
+            ORIGIN="requested explicitly"
+          elif [ "$IS_PRERELEASE" = "true" ]; then
+            DIST_TAG="next"
+            ORIGIN="derived — $VERSION is a prerelease"
+          else
+            DIST_TAG="latest"
+            ORIGIN="derived — $VERSION is not a prerelease"
+          fi
+
+          # The footgun this file exists to close: a prerelease must not become the
+          # default install by accident. Explicit opt-in only.
+          if [ "$IS_PRERELEASE" = "true" ] && [ "$DIST_TAG" = "latest" ] && [ "${ALLOW_PRERELEASE_ON_LATEST:-false}" != "true" ]; then
+            echo "::error::Refusing to publish prerelease $VERSION to the 'latest' tag. Everyone running a plain \`npm install\` would get it. Re-run with allow_prerelease_on_latest=true if that is genuinely intended."
+            exit 1
+          fi
+
+          echo "version=$VERSION"       >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$DIST_TAG"     >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Publish plan"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| version | \`$VERSION\` |"
+            echo "| prerelease | $IS_PRERELEASE |"
+            echo "| **dist-tag** | **\`$DIST_TAG\`** ($ORIGIN) |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # THE CREDENTIAL LINE. Read this, not the green tick — that instruction only
+      # means something if the run actually checks, which it did not before.
+      - name: Credential check
+        id: cred
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            # An empty string here almost always means NPM_TOKEN was saved under
+            # Settings → Secrets and variables → **Variables** instead of
+            # **Secrets**. `secrets.NPM_TOKEN` then resolves to "" with no error.
+            echo "- npm credential: **NOT CHECKED — NPM_TOKEN resolved to an empty string**" >> "$GITHUB_STEP_SUMMARY"
+            echo "  Check Settings → Secrets and variables → **Actions → Secrets** (not the Variables tab)." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::NPM_TOKEN is empty. NOT CHECKED is not a pass — failing rather than reporting green."
+            exit 1
+          fi
+          if WHO=$(npm whoami 2>&1); then
+            echo "- npm credential: **VERIFIED** — authenticated as \`$WHO\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "npm credential VERIFIED as $WHO"
+          else
+            echo "- npm credential: **FAILED** — the token did not authenticate" >> "$GITHUB_STEP_SUMMARY"
+            echo "  \`npm whoami\` said: $WHO" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::npm whoami failed: $WHO"
+            exit 1
+          fi
+
       - name: Build SDK
         run: npm run sdk:build
 
       - name: Test SDK
         run: npm run sdk:test
 
+      # Runs on EVERY path, dry or not. This is what would have caught a command
+      # whose code was correct and whose file never entered the tarball.
+      - name: Tarball contents
+        run: |
+          set -euo pipefail
+          npm pack --dry-run 2>&1 | tee /tmp/pack.txt
+          {
+            echo "<details><summary>Tarball contents</summary>"
+            echo ""
+            echo '```'
+            grep 'npm notice' /tmp/pack.txt | sed 's/^npm notice *//'
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish — dry-run (manual only)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-        run: npm publish --dry-run --access public --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm publish --dry-run --access public --ignore-scripts --tag "${{ steps.tag.outputs.dist_tag }}"
+          echo "- result: **DRY RUN** — nothing was published. dist-tag would be \`${{ steps.tag.outputs.dist_tag }}\`." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to npm
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
-        run: npm publish --access public --ignore-scripts
+        run: |
+          npm publish --access public --ignore-scripts --tag "${{ steps.tag.outputs.dist_tag }}"
+          echo "- result: **PUBLISHED** \`${{ steps.tag.outputs.version }}\` to dist-tag \`${{ steps.tag.outputs.dist_tag }}\`." >> "$GITHUB_STEP_SUMMARY"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           # Optional supply-chain provenance later: add `--provenance` above
