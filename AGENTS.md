@@ -180,6 +180,12 @@ unreviewed merge is the agent deciding to wait.
 only for new comments waits forever. Green CI is not the merge signal; green CI **plus a
 Strix verdict** is.
 
+**Strix does not review DRAFTS, so "wait for Strix" on a draft waits forever.** Measured
+across every PR in that table: it starts **4-6 seconds after `ready_for_review`** and never
+before. This section's own PR sat a draft with no review at all until it was marked ready
+— the rule caught its own author within minutes of being written. So the sequence is: open
+the PR, get CI green, **mark it ready**, wait for the verdict, then merge.
+
 A finding is work before the merge, not after. If Strix reports one, fix it and let it
 re-run on the new head.
 
