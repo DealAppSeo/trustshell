@@ -40,6 +40,10 @@ const trustshell_1 = require("../lib/trustshell");
 const badge_1 = require("../lib/badge");
 const version_1 = require("../lib/version");
 const check_1 = require("../lib/check");
+const init_1 = require("../lib/init");
+const inspect_1 = require("../lib/inspect");
+const report_1 = require("../lib/report");
+const profile_1 = require("../lib/profile");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -87,6 +91,22 @@ COMMANDS
                              talks to api.github.com and nothing else.
                              EXIT 0 COMPLETE, 1 FAILED/INCONSISTENT, 3 INCONCLUSIVE.
 
+  inspect [<path>]           Verify an append-only tool-call log. Reads a local file and
+                             computes hashes; opens NO socket. INTACT (0) / BROKEN (1) /
+                             UNCHAINED (3) / NO_LOG (3). Defaults to .trustshell/session.jsonl.
+      [--from <format>]      Read a foreign log through an adapter (claude-code). An
+                             adapter can only ever report UNCHAINED — a log we did not
+                             chain proves nothing about its own integrity.
+  init [<dir>]               Create .trustshell/ and a blank profile.md. No network, no
+                             account, nothing collected. Never overwrites without --force.
+      [--force]              Replace an existing profile.
+  report                     State what your log and your saved GitHub evidence TOGETHER
+                             support, and where they disagree. NO NETWORK — evidence is a
+                             file you produced. CONFIRMED (0) / INCONSISTENT (1) /
+                             UNSUPPORTED (3).
+      [--session <path>]     Session log (default .trustshell/session.jsonl).
+      [--evidence <path>]    Saved output of \`trustshell check --json\`.
+
 OPTIONS
   --json                     Emit machine-readable JSON instead of human text.
   -h, --help                 Show this help.
@@ -101,6 +121,10 @@ EXIT CODES
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge   the HyperDAG backend (TRUSTSHELL_API_URL)
   check                            api.github.com only — no backend, no account
+  inspect                          NOTHING. Reads a local file.
+  init                             NOTHING. Writes one local file.
+  report                           NOTHING. It has no fetch and no URL parameter;
+                                   external evidence arrives as a file you supply.
 
 ENV
   REPID_API_KEY        optional API key (verify/repid/proof are keyless)
@@ -119,17 +143,36 @@ CI GATE EXAMPLE
 function parseArgs(argv) {
     const flags = new Set();
     const positionals = [];
-    for (const a of argv) {
+    // Options that consume the NEXT argument. Indexed rather than for-of because a
+    // value-taking flag has to be able to look ahead.
+    const values = {};
+    const VALUE_OPTS = new Set(['--from', '--session', '--evidence']);
+    for (let i = 0; i < argv.length; i += 1) {
+        const a = argv[i];
         if (a === '--json')
             flags.add('json');
         else if (a === '--verify')
             flags.add('verify');
         else if (a === '--markdown' || a === '--md')
             flags.add('markdown');
+        else if (a === '--force')
+            flags.add('force');
         else if (a === '-h' || a === '--help')
             flags.add('help');
         else if (a === '-v' || a === '--version')
             flags.add('version');
+        else if (VALUE_OPTS.has(a)) {
+            const v = argv[i + 1];
+            // A value-taking flag with nothing after it, or followed by another flag,
+            // is a usage error rather than a silent undefined — otherwise
+            // `--evidence` alone would quietly become "no evidence supplied" and
+            // report UNSUPPORTED, which reads as a finding instead of a typo.
+            if (v === undefined || v.startsWith('-')) {
+                return { command: 'help', json: false, verify: false, error: `${a} requires a value` };
+            }
+            values[a.slice(2)] = v;
+            i += 1;
+        }
         else if (a.startsWith('-')) {
             return {
                 command: 'help',
@@ -175,6 +218,22 @@ function parseArgs(argv) {
             }
             return { command: cmd, operand, json, verify, markdown: flags.has('markdown') };
         }
+        case 'inspect':
+        case 'init':
+        case 'report':
+            // Operand is OPTIONAL for all three: init defaults to cwd, inspect and
+            // report default to `.trustshell/`. Requiring one would make the common
+            // case the verbose case.
+            return {
+                command: cmd,
+                json,
+                verify,
+                force: flags.has('force'),
+                from: values['from'],
+                session: values['session'],
+                evidence: values['evidence'],
+                ...(rest[0] !== undefined ? { operand: rest[0] } : {}),
+            };
         case 'help':
             return { command: 'help', json, verify };
         case 'version':
@@ -358,6 +417,98 @@ async function run(args, client, io = realIO) {
                     return e.usage ? exports.EXIT.USAGE : exports.EXIT.RUNTIME;
                 }
                 io.err(`check failed: ${e?.message ?? String(e)}`);
+                return exports.EXIT.RUNTIME;
+            }
+        }
+        case 'init': {
+            // No network, no account, no telemetry. One directory, one file.
+            const fs = require('node:fs');
+            const impl = {
+                exists: (p) => fs.existsSync(p),
+                mkdirp: (p) => { fs.mkdirSync(p, { recursive: true }); },
+                writeFile: (p, data) => { fs.writeFileSync(p, data, 'utf8'); },
+            };
+            try {
+                const r = (0, init_1.runInit)(impl, { cwd: args.operand ?? '.', force: args.force === true });
+                if (args.json)
+                    io.out(JSON.stringify(r, null, 2));
+                else
+                    io.out((0, init_1.formatInitCard)(r));
+                return (0, init_1.initExitCode)(r.outcome);
+            }
+            catch (e) {
+                io.err(`init failed: ${e?.message ?? String(e)}`);
+                return exports.EXIT.RUNTIME;
+            }
+        }
+        case 'inspect': {
+            // Local file only. Opens no socket.
+            const fs = require('node:fs');
+            const path = args.operand ?? `${init_1.TRUSTSHELL_DIR}/session.jsonl`;
+            try {
+                if (!fs.existsSync(path)) {
+                    // A missing log is NOT CHECKED, never "clean". Exit 3.
+                    const r = (0, inspect_1.noLog)(path);
+                    if (args.json)
+                        io.out(JSON.stringify(r, null, 2));
+                    else
+                        io.out((0, inspect_1.formatInspectCard)(r));
+                    return (0, inspect_1.inspectExitCode)(r.verdict);
+                }
+                const text = fs.readFileSync(path, 'utf8');
+                const from = args.from;
+                if (from !== undefined && from !== 'trustshell' && from !== 'claude-code') {
+                    io.err(`inspect: unknown --from format "${from}" (known: trustshell, claude-code)`);
+                    return exports.EXIT.USAGE;
+                }
+                const r = from === 'claude-code' ? (0, inspect_1.readClaudeCode)(text, path) : (0, inspect_1.verifyChain)(text, path);
+                if (args.json)
+                    io.out(JSON.stringify(r, null, 2));
+                else
+                    io.out((0, inspect_1.formatInspectCard)(r));
+                return (0, inspect_1.inspectExitCode)(r.verdict);
+            }
+            catch (e) {
+                io.err(`inspect failed: ${e?.message ?? String(e)}`);
+                return exports.EXIT.RUNTIME;
+            }
+        }
+        case 'report': {
+            // NO FETCH. External evidence arrives as a file the operator produced with
+            // `check --json`. There is deliberately no URL parameter here.
+            const fs = require('node:fs');
+            try {
+                const sessionPath = args.session ?? `${init_1.TRUSTSHELL_DIR}/session.jsonl`;
+                const session = fs.existsSync(sessionPath)
+                    ? (0, inspect_1.verifyChain)(fs.readFileSync(sessionPath, 'utf8'), sessionPath)
+                    : null;
+                let evidence = null;
+                if (args.evidence !== undefined) {
+                    if (!fs.existsSync(args.evidence)) {
+                        io.err(`report: evidence file not found: ${args.evidence}`);
+                        return exports.EXIT.USAGE;
+                    }
+                    try {
+                        evidence = JSON.parse(fs.readFileSync(args.evidence, 'utf8'));
+                    }
+                    catch {
+                        io.err(`report: evidence file is not valid JSON: ${args.evidence}`);
+                        return exports.EXIT.USAGE;
+                    }
+                }
+                const profilePath = `${init_1.TRUSTSHELL_DIR}/${init_1.PROFILE_FILE}`;
+                const profile = fs.existsSync(profilePath)
+                    ? (0, profile_1.parseProfile)(fs.readFileSync(profilePath, 'utf8')).profile
+                    : (0, profile_1.defaultProfile)();
+                const r = (0, report_1.buildReport)({ session, evidence, profile });
+                if (args.json)
+                    io.out(JSON.stringify(r, null, 2));
+                else
+                    io.out((0, report_1.formatReportCard)(r));
+                return (0, report_1.reportExitCode)(r.verdict);
+            }
+            catch (e) {
+                io.err(`report failed: ${e?.message ?? String(e)}`);
                 return exports.EXIT.RUNTIME;
             }
         }

@@ -1,6 +1,23 @@
 # Design — `inspect`, `init`, `report`
 
-Status: **PROPOSED.** Nothing here is built. `check` shipped in 1.4.0; these three
+Status: **BUILT 2026-09-08**, except the OpenClaw seam. `init`, `inspect` and
+`report` ship as `src/lib/{init,inspect,report}.ts` + `src/lib/profile.ts`, wired
+into the CLI and covered by `tests/inspect-init-report.test.ts`. The one thing
+still open is step 5 — the OpenClaw plugin interface — and `init` says so out
+loud in its own output rather than pretending it wired one.
+
+Two things changed from this design during the build, both recorded because the
+design is what the next reader will trust:
+
+- A fourth `inspect` verdict, **`NO_LOG`**, for a file that is not there. The
+  design listed three. A missing log is NOT CHECKED, not UNCHAINED, and it exits
+  3 with the rest of the NOT-CHECKED family.
+- `sectionBody` first used `\Z` to mean end-of-input, which JavaScript does not
+  have. Every section silently parsed as empty and the tests caught it. A regex
+  that fails by returning `""` rather than throwing is the shape of bug that
+  reaches production looking like an empty config.
+
+Originally: **PROPOSED.** Nothing here was built. `check` shipped in 1.4.0; these three
 are the rest of the set. Target 1.5.0 (additive; `verify` / `repid` / `proof` /
 `badge` / `check` unchanged).
 

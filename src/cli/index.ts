@@ -28,6 +28,16 @@ import { TrustShell, type VerifyOutputResult, type ProofPresentation } from '../
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
+import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
+import {
+  verifyChain,
+  readClaudeCode,
+  noLog,
+  formatInspectCard,
+  inspectExitCode,
+} from '../lib/inspect';
+import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
+import { parseProfile, defaultProfile } from '../lib/profile';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -41,7 +51,17 @@ export const EXIT = {
   RUNTIME: 3,
 } as const;
 
-export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'check' | 'help' | 'version';
+export type Command =
+  | 'verify'
+  | 'repid'
+  | 'proof'
+  | 'badge'
+  | 'check'
+  | 'inspect'
+  | 'init'
+  | 'report'
+  | 'help'
+  | 'version';
 
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
@@ -53,6 +73,14 @@ export interface ParsedArgs {
   markdown?: boolean;
   /** proof: verify the proof client-side. */
   verify: boolean;
+  /** init: replace an existing profile. Without it, an existing profile is left untouched. */
+  force?: boolean;
+  /** inspect: read a foreign log through an adapter. Adapters always yield UNCHAINED. */
+  from?: string;
+  /** report: path to the session log. */
+  session?: string;
+  /** report: path to saved `check --json` output. `report` never fetches. */
+  evidence?: string;
   /** A usage error message; when set the caller should print help + exit USAGE. */
   error?: string;
 }
@@ -94,6 +122,22 @@ COMMANDS
                              talks to api.github.com and nothing else.
                              EXIT 0 COMPLETE, 1 FAILED/INCONSISTENT, 3 INCONCLUSIVE.
 
+  inspect [<path>]           Verify an append-only tool-call log. Reads a local file and
+                             computes hashes; opens NO socket. INTACT (0) / BROKEN (1) /
+                             UNCHAINED (3) / NO_LOG (3). Defaults to .trustshell/session.jsonl.
+      [--from <format>]      Read a foreign log through an adapter (claude-code). An
+                             adapter can only ever report UNCHAINED — a log we did not
+                             chain proves nothing about its own integrity.
+  init [<dir>]               Create .trustshell/ and a blank profile.md. No network, no
+                             account, nothing collected. Never overwrites without --force.
+      [--force]              Replace an existing profile.
+  report                     State what your log and your saved GitHub evidence TOGETHER
+                             support, and where they disagree. NO NETWORK — evidence is a
+                             file you produced. CONFIRMED (0) / INCONSISTENT (1) /
+                             UNSUPPORTED (3).
+      [--session <path>]     Session log (default .trustshell/session.jsonl).
+      [--evidence <path>]    Saved output of \`trustshell check --json\`.
+
 OPTIONS
   --json                     Emit machine-readable JSON instead of human text.
   -h, --help                 Show this help.
@@ -108,6 +152,10 @@ EXIT CODES
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge   the HyperDAG backend (TRUSTSHELL_API_URL)
   check                            api.github.com only — no backend, no account
+  inspect                          NOTHING. Reads a local file.
+  init                             NOTHING. Writes one local file.
+  report                           NOTHING. It has no fetch and no URL parameter;
+                                   external evidence arrives as a file you supply.
 
 ENV
   REPID_API_KEY        optional API key (verify/repid/proof are keyless)
@@ -127,13 +175,30 @@ CI GATE EXAMPLE
 export function parseArgs(argv: string[]): ParsedArgs {
   const flags = new Set<string>();
   const positionals: string[] = [];
-  for (const a of argv) {
+  // Options that consume the NEXT argument. Indexed rather than for-of because a
+  // value-taking flag has to be able to look ahead.
+  const values: Record<string, string | undefined> = {};
+  const VALUE_OPTS = new Set(['--from', '--session', '--evidence']);
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i] as string;
     if (a === '--json') flags.add('json');
     else if (a === '--verify') flags.add('verify');
     else if (a === '--markdown' || a === '--md') flags.add('markdown');
+    else if (a === '--force') flags.add('force');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
-    else if (a.startsWith('-')) {
+    else if (VALUE_OPTS.has(a)) {
+      const v = argv[i + 1];
+      // A value-taking flag with nothing after it, or followed by another flag,
+      // is a usage error rather than a silent undefined — otherwise
+      // `--evidence` alone would quietly become "no evidence supplied" and
+      // report UNSUPPORTED, which reads as a finding instead of a typo.
+      if (v === undefined || v.startsWith('-')) {
+        return { command: 'help', json: false, verify: false, error: `${a} requires a value` };
+      }
+      values[a.slice(2)] = v;
+      i += 1;
+    } else if (a.startsWith('-')) {
       return {
         command: 'help',
         json: false,
@@ -181,6 +246,22 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
       return { command: cmd, operand, json, verify, markdown: flags.has('markdown') };
     }
+    case 'inspect':
+    case 'init':
+    case 'report':
+      // Operand is OPTIONAL for all three: init defaults to cwd, inspect and
+      // report default to `.trustshell/`. Requiring one would make the common
+      // case the verbose case.
+      return {
+        command: cmd,
+        json,
+        verify,
+        force: flags.has('force'),
+        from: values['from'],
+        session: values['session'],
+        evidence: values['evidence'],
+        ...(rest[0] !== undefined ? { operand: rest[0] } : {}),
+      };
     case 'help':
       return { command: 'help', json, verify };
     case 'version':
@@ -377,6 +458,92 @@ export async function run(
           return e.usage ? EXIT.USAGE : EXIT.RUNTIME;
         }
         io.err(`check failed: ${e?.message ?? String(e)}`);
+        return EXIT.RUNTIME;
+      }
+    }
+
+    case 'init': {
+      // No network, no account, no telemetry. One directory, one file.
+      const fs = require('node:fs') as typeof import('node:fs');
+      const impl: InitFs = {
+        exists: (p) => fs.existsSync(p),
+        mkdirp: (p) => { fs.mkdirSync(p, { recursive: true }); },
+        writeFile: (p, data) => { fs.writeFileSync(p, data, 'utf8'); },
+      };
+      try {
+        const r = runInit(impl, { cwd: args.operand ?? '.', force: args.force === true });
+        if (args.json) io.out(JSON.stringify(r, null, 2));
+        else io.out(formatInitCard(r));
+        return initExitCode(r.outcome);
+      } catch (e: any) {
+        io.err(`init failed: ${e?.message ?? String(e)}`);
+        return EXIT.RUNTIME;
+      }
+    }
+
+    case 'inspect': {
+      // Local file only. Opens no socket.
+      const fs = require('node:fs') as typeof import('node:fs');
+      const path = args.operand ?? `${TRUSTSHELL_DIR}/session.jsonl`;
+      try {
+        if (!fs.existsSync(path)) {
+          // A missing log is NOT CHECKED, never "clean". Exit 3.
+          const r = noLog(path);
+          if (args.json) io.out(JSON.stringify(r, null, 2));
+          else io.out(formatInspectCard(r));
+          return inspectExitCode(r.verdict);
+        }
+        const text = fs.readFileSync(path, 'utf8');
+        const from = args.from;
+        if (from !== undefined && from !== 'trustshell' && from !== 'claude-code') {
+          io.err(`inspect: unknown --from format "${from}" (known: trustshell, claude-code)`);
+          return EXIT.USAGE;
+        }
+        const r = from === 'claude-code' ? readClaudeCode(text, path) : verifyChain(text, path);
+        if (args.json) io.out(JSON.stringify(r, null, 2));
+        else io.out(formatInspectCard(r));
+        return inspectExitCode(r.verdict);
+      } catch (e: any) {
+        io.err(`inspect failed: ${e?.message ?? String(e)}`);
+        return EXIT.RUNTIME;
+      }
+    }
+
+    case 'report': {
+      // NO FETCH. External evidence arrives as a file the operator produced with
+      // `check --json`. There is deliberately no URL parameter here.
+      const fs = require('node:fs') as typeof import('node:fs');
+      try {
+        const sessionPath = args.session ?? `${TRUSTSHELL_DIR}/session.jsonl`;
+        const session = fs.existsSync(sessionPath)
+          ? verifyChain(fs.readFileSync(sessionPath, 'utf8'), sessionPath)
+          : null;
+
+        let evidence: EvidenceDoc | null = null;
+        if (args.evidence !== undefined) {
+          if (!fs.existsSync(args.evidence)) {
+            io.err(`report: evidence file not found: ${args.evidence}`);
+            return EXIT.USAGE;
+          }
+          try {
+            evidence = JSON.parse(fs.readFileSync(args.evidence, 'utf8')) as EvidenceDoc;
+          } catch {
+            io.err(`report: evidence file is not valid JSON: ${args.evidence}`);
+            return EXIT.USAGE;
+          }
+        }
+
+        const profilePath = `${TRUSTSHELL_DIR}/${PROFILE_FILE}`;
+        const profile = fs.existsSync(profilePath)
+          ? parseProfile(fs.readFileSync(profilePath, 'utf8')).profile
+          : defaultProfile();
+
+        const r = buildReport({ session, evidence, profile });
+        if (args.json) io.out(JSON.stringify(r, null, 2));
+        else io.out(formatReportCard(r));
+        return reportExitCode(r.verdict);
+      } catch (e: any) {
+        io.err(`report failed: ${e?.message ?? String(e)}`);
         return EXIT.RUNTIME;
       }
     }

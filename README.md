@@ -304,9 +304,18 @@ reaches nothing owned by this project:
 | `proof` | HyperDAG backend (`--verify` runs the verifier **locally**) | keyless |
 | `badge` | HyperDAG backend (rendering is **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
+| `inspect` | **none** — reads a local file | none |
+| `init` | **none** — writes one local file | none |
+| `report` | **none** — it has no fetch and no URL parameter | none |
 
-No command uploads your input anywhere other than the host named above, and the published CLI
-writes no files into your working directory.
+No command uploads your input anywhere other than the host named above.
+
+`init` is the one command that writes to your working directory, and it writes exactly one file:
+`.trustshell/profile.md`. It never overwrites without `--force`, and it collects **nothing** — not
+your git config, hostname, username or email. Every share flag in the file it generates starts
+`false`, so `report` withholds identity and context until you turn them on yourself. (This sentence
+used to read "the published CLI writes no files into your working directory." That was true until
+`init` shipped, and a promise nobody re-checks is how a README starts lying.)
 
 **A complete, copy-paste GitHub Actions workflow is in [`examples/ci-gate/`](examples/ci-gate/)** —
 drop `trust-gate.yml` into `.github/workflows/`, list your claims in `TRUST_CLAIMS.txt`, and your
