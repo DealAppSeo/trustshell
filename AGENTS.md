@@ -4,6 +4,27 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## TRUE NORTH — read this before any assignment
+
+**The operating rules for every agent on this system live in
+`DealAppSeo/repid-engine/LESSONS.md`.** Read it first, whichever repo you started in.
+It is injected verbatim into every XC/GA dispatch and is the one place a lesson is
+durable across all of them.
+
+**Two tiers, and this file is the internal one.** `LESSONS.md` plus each repo's own
+entry point are a dated operating log that changes without notice — for our agents.
+The published contract for outside developers building on the ecosystem is
+**`hyperdag-protocol/BUILDERS.md`**. Never answer an outside builder from the internal
+tier; a gap in `BUILDERS.md` is a gap to fix there. That matters most here: this repo
+ships `@hyperdag/trustshell`, the one published package, so its users ARE the outside
+builders `BUILDERS.md` is written for.
+
+**This section deliberately names no sibling repos.** A per-repo list of all siblings is
+N tables of N rows — adding a Trust\* surface would mean editing every other repo, and
+forgetting fails silently: the new surface is unlisted, nothing breaks, and an agent
+landing there sees no pointer. A star, not a mesh.
+
+
 # The browser suites DO run in an agent sandbox. Run them before saying a client path is unverifiable.
 
 **MEASURED, from a sandboxed agent session — the first three on 2026-08-29, all four on 2026-08-30, green:**
