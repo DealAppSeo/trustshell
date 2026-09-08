@@ -98,3 +98,9 @@ export interface CliIO {
 export declare function run(args: ParsedArgs, client: TrustShell, io?: CliIO): Promise<number>;
 /** Entry point: parse argv, run, exit with the returned code. */
 export declare function main(argv?: string[]): Promise<void>;
+/**
+ * PURE-ish (one realpath call, no other I/O). Exported so the `hal` regression
+ * has a guard: `isEntryPath` must answer TRUE for every bin name npm links to
+ * this file, and FALSE when a test runner imports it.
+ */
+export declare function isEntryPath(argvPath: string | undefined, selfPath: string): boolean;

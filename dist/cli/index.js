@@ -11,6 +11,7 @@ exports.formatProof = formatProof;
 exports.makeClient = makeClient;
 exports.run = run;
 exports.main = main;
+exports.isEntryPath = isEntryPath;
 /**
  * @hyperdag/trustshell — CLI
  * ------------------------------------------------------------------
@@ -374,13 +375,45 @@ async function main(argv = process.argv.slice(2)) {
 }
 // Boot ONLY when run as the entry point (not when imported by a test/consumer), so the
 // pure helpers above can be unit-tested without spawning a process.exit.
+//
+// THIS MATCHED THE INVOKED NAME, AND `hal` DID NOTHING AT ALL. `package.json`
+// publishes three bins, two of which — `trustshell` and `hal` — point at THIS
+// file. npm installs each as a separate symlink, and Node leaves
+// `process.argv[1]` as the path you invoked rather than the symlink's target. So
+// under `hal` the path ended in `hal`, matched neither pattern, `main()` never
+// ran, and the process exited **0 having done nothing**.
+//
+// Silent and exit 0 is the worst available failure for this particular tool: a
+// caller who wrote `hal verify "$claim" || exit 1` had a gate that could only
+// ever pass. Measured on a clean install from the real tarball —
+// `trustshell check` exits 2 with a usage error, `hal check` prints nothing and
+// exits 0.
+//
+// Comparing the RESOLVED path against this module's own path is name-independent,
+// so a fourth bin added later works without anyone remembering this. The regex
+// fallback is kept only for the case where realpath itself throws.
+/**
+ * PURE-ish (one realpath call, no other I/O). Exported so the `hal` regression
+ * has a guard: `isEntryPath` must answer TRUE for every bin name npm links to
+ * this file, and FALSE when a test runner imports it.
+ */
+function isEntryPath(argvPath, selfPath) {
+    if (!argvPath)
+        return false;
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { realpathSync } = require('node:fs');
+        return realpathSync(argvPath) === realpathSync(selfPath);
+    }
+    catch {
+        // realpath can throw on an exotic filesystem or a deleted path; fall back to
+        // the old shape rather than refusing to boot at all.
+        return /[\\/]cli[\\/]index\.js$/.test(argvPath) || /trustshell$/.test(argvPath);
+    }
+}
 const isEntry = (() => {
     try {
-        const argvPath = process.argv[1];
-        if (!argvPath)
-            return false;
-        // dist/cli/index.js is the built bin; match against the invoked script path.
-        return /[\\/]cli[\\/]index\.js$/.test(argvPath) || /trustshell$/.test(argvPath);
+        return isEntryPath(process.argv[1], __filename);
     }
     catch {
         return false;
