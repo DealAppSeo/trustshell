@@ -186,8 +186,36 @@ before. This section's own PR sat a draft with no review at all until it was mar
 — the rule caught its own author within minutes of being written. So the sequence is: open
 the PR, get CI green, **mark it ready**, wait for the verdict, then merge.
 
-A finding is work before the merge, not after. If Strix reports one, fix it and let it
-re-run on the new head.
+A finding is work before the merge, not after. If Strix reports one, fix it — and then
+ASK for the re-review, per the section immediately below. It does not re-run on the new
+head by itself.
+
+**AUTOMATIC RE-REVIEW ON PUSH IS OFF FOR THIS REPOSITORY. A push does not
+re-trigger Strix** [MEASURED 2026-09-08 on #111]. This is the trap that follows
+directly from making it required, and it is easy to misread as a slow review.
+
+Findings were fixed and pushed. On the new head there was then **no Strix check
+run at all** — `check` green, Vercel green, and the required `Strix Security
+Review` simply absent. Absent is not pending and not passing: the PR cannot
+merge, and nothing tells you why unless you read Strix's own pinned comment,
+which says:
+
+> This pull request has **1 commit** after the last Strix review (`ae6aff5`).
+> Strix has **not** reviewed these changes. Automatic review on push is off for
+> this repository.
+
+**The trigger is a mention: comment `@strix-security` on the PR.** The pinned
+summary also carries a re-run link. Neither an empty commit nor a close-and-reopen
+is the mechanism, and both are forbidden anyway.
+
+So the full sequence is: open the PR → **mark it ready** (Strix ignores drafts) →
+wait for the verdict → fix any findings → **push AND mention `@strix-security`** →
+wait again → merge. The second wait is the one nobody expects, because on every
+other check in this repo a push is the trigger.
+
+The same session that wrote this section told the operator "Strix is
+re-reviewing" immediately after pushing a fix. It was not. Nothing was running,
+and nothing would have started.
 
 **DONE 2026-09-08: `Strix Security Review` and `check` are now REQUIRED checks** on `main`
 via a branch ruleset. GitHub enforces the wait; it is no longer only an agent's judgement.
