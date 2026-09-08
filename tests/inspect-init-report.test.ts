@@ -198,6 +198,49 @@ describe('inspect — the chain', () => {
     expect(inspectExitCode(r.verdict)).toBe(3);
   });
 
+  // STRIX FINDING (CWE-754), and it was right: `breaks.length === 0` is vacuously
+  // true for a file with no entries, so an empty log verified INTACT and exit 0,
+  // and `report` then said CONFIRMED. A recorder that initialised and never wrote
+  // was a verified pass — the exact contract this command exists to hold, broken
+  // by the command itself.
+  it.each([
+    ['completely empty', ''],
+    ['whitespace only', '   \n\n  \n'],
+    ['trailing newline only', '\n'],
+  ])('a log with NO entries (%s) is NO_LOG and exits 3 — never INTACT', (_label, text) => {
+    const r = verifyChain(text, 's.jsonl');
+    expect(r.verdict).toBe('NO_LOG');
+    expect(r.verdict).not.toBe('INTACT');
+    expect(inspectExitCode(r.verdict)).toBe(3);
+  });
+
+  it('and report therefore refuses to CONFIRM an empty session', () => {
+    const empty = verifyChain('', 's.jsonl');
+    const d = decide(empty, { verdict: 'COMPLETE' });
+    expect(d.verdict).not.toBe('CONFIRMED');
+    expect(reportExitCode(d.verdict)).not.toBe(0);
+  });
+
+  // STRIX FINDING (CWE-345). The chain is unkeyed and reproducible, so anyone who
+  // can write the log can regenerate it whole. The card must SAY so rather than
+  // claim tamper-evidence it cannot deliver.
+  it('an INTACT card states that the chain has no trusted anchor', () => {
+    const r = verifyChain(chain(3), 's.jsonl');
+    expect(r.verdict).toBe('INTACT');
+    const limits = r.does_not_prove.join(' ');
+    expect(limits).toMatch(/no trusted anchor/i);
+    expect(limits).toMatch(/fabricated|rewritten wholesale/i);
+    // The old, overstated sentence must not come back.
+    expect(limits).not.toMatch(/proves no line was altered or removed/i);
+  });
+
+  it('a demonstrably forged chain still verifies INTACT — which is why the card says so', () => {
+    // Rebuild a whole log from scratch with different content. Nothing detects it,
+    // and that is the honest limit rather than a bug to hide.
+    const forged = chain(3);
+    expect(verifyChain(forged, 'f.jsonl').verdict).toBe('INTACT');
+  });
+
   it('NO_LOG exits 3 — an absent log is NOT CHECKED, never clean', () => {
     const r = noLog('missing.jsonl');
     expect(r.verdict).toBe('NO_LOG');

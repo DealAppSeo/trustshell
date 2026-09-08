@@ -131,6 +131,9 @@ export function reportLimits(v: ReportVerdict): string[] {
     return [
       ...always,
       'Agreement between an intact log and a green run does not prove the agent did what it claimed — only that neither record contradicts the other.',
+      // Named here as well as in `inspect`, because CONFIRMED is the verdict most
+      // likely to be quoted on its own, away from the card that explains it.
+      'The local chain has no trusted anchor: its hashes are unkeyed and reproducible by anyone who can write the log, so CONFIRMED cannot rule out a fabricated session.',
     ];
   }
   if (v === 'INCONSISTENT') {

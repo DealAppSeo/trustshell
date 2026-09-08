@@ -86,7 +86,15 @@ export function inspectLimits(verdict: InspectVerdict): string[] {
   if (verdict === 'INTACT') {
     return [
       ...always,
-      'An intact chain proves no line was altered or removed AFTER it was written. It does not prove the log was complete when written — a recorder that never logged a call leaves no gap to find.',
+      // THIS SENTENCE USED TO CLAIM MORE THAN THE CHAIN CAN CARRY. It said an
+      // intact chain "proves no line was altered or removed AFTER it was
+      // written". It does not: `entryHash` is an UNKEYED sha256 with no secret,
+      // no signature and no anchor outside the file, so anyone who can write the
+      // log can re-derive every line and a wholly fabricated log verifies INTACT.
+      // Overclaiming in the tool whose whole thesis is honest limits is the
+      // failure it exists to catch.
+      'This chain has NO trusted anchor — the hashes are unkeyed and reproducible by anyone who can write the file, so INTACT does not rule out a log that was fabricated or rewritten wholesale. It detects edits and deletions that left the later hashes untouched, and nothing more.',
+      'It does not prove the log was complete when written — a recorder that never logged a call leaves no gap to find.',
     ];
   }
   if (verdict === 'UNCHAINED') {
@@ -96,7 +104,10 @@ export function inspectLimits(verdict: InspectVerdict): string[] {
     ];
   }
   if (verdict === 'NO_LOG') {
-    return ['No log was found, so nothing was checked. This is not a clean result; it is an absent one.'];
+    return [
+      'No log, or a log with no entries — so nothing was checked. This is not a clean result; it is an absent one.',
+      'A file that exists but is empty lands here too. Zero entries cannot be INTACT: there is nothing for a chain to be intact ABOUT.',
+    ];
   }
   return [
     ...always,
@@ -171,7 +182,14 @@ export function verifyChain(text: string, path: string): InspectResult {
     prevSeq = e.seq;
   });
 
-  const verdict: InspectVerdict = breaks.length === 0 ? 'INTACT' : 'BROKEN';
+  // A log with NO ENTRIES has no chain breaks, so `breaks.length === 0` is
+  // vacuously true and the old code called it INTACT — exit 0, and `report` then
+  // read it as CONFIRMED. A recorder that initialised and never wrote, or a
+  // truncated file, was a verified pass. That is the exact contract this command
+  // exists to hold ("exit 3 means NOT CHECKED, and is never 0") broken by the
+  // command itself. Zero entries is NOT CHECKED.
+  const verdict: InspectVerdict =
+    breaks.length > 0 ? 'BROKEN' : lines.length === 0 ? 'NO_LOG' : 'INTACT';
   return {
     verdict,
     format: 'trustshell',
