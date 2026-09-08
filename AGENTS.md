@@ -155,3 +155,34 @@ at it in one session cost more than four questions would have.
   `tests/e2e`). Run it before every push. It exists so "which config?" has one answer instead of
   being a choice you can get wrong — which is how CI went red above.
 - The environment block above exists so the operator's OS is never inferred again.
+
+# Wait for the Strix verdict before merging. It is not a required check, so nothing else will.
+
+**Sean's standing instruction, 2026-09-08**, after this pattern was measured across five
+PRs in one session:
+
+| PR | Strix | outcome |
+|---|---|---|
+| #103 | started, then the merge landed **5 seconds later** | no verdict ever recorded |
+| #104 | allowed to finish | *No security issues found* |
+| #105 | started, merge **2 seconds later** | no verdict |
+| #106 | allowed to finish | *No security issues found* |
+| #107 | started, merge **2 seconds later** | no verdict |
+
+Three of five shipped unreviewed, and not because the bot is slow — because merging the
+moment CI went green beat it every time. Strix is **not configured as a required check**,
+so GitHub will happily merge underneath it. The only thing standing between a PR and an
+unreviewed merge is the agent deciding to wait.
+
+**How to wait.** Strix posts a comment reading *"Security review in progress"* and then
+**edits that same comment in place** with the verdict. So the signal is an
+`issue_comment.edited` from `strix-security[bot]`, not a new comment — a watcher looking
+only for new comments waits forever. Green CI is not the merge signal; green CI **plus a
+Strix verdict** is.
+
+A finding is work before the merge, not after. If Strix reports one, fix it and let it
+re-run on the new head.
+
+(The durable fix is to make it a required check in branch protection, which would move
+this from an agent's judgement to a rule GitHub enforces. That is Sean's to decide;
+until then this section is the whole mechanism.)
