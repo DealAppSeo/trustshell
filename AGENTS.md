@@ -189,6 +189,11 @@ the PR, get CI green, **mark it ready**, wait for the verdict, then merge.
 A finding is work before the merge, not after. If Strix reports one, fix it and let it
 re-run on the new head.
 
-(The durable fix is to make it a required check in branch protection, which would move
-this from an agent's judgement to a rule GitHub enforces. That is Sean's to decide;
-until then this section is the whole mechanism.)
+**DONE 2026-09-08: `Strix Security Review` and `check` are now REQUIRED checks** on `main`
+via a branch ruleset. GitHub enforces the wait; it is no longer only an agent's judgement.
+Everything above still matters — it explains *why* the gate exists and how to satisfy it
+(mark ready, or Strix never runs and the required check never reports) — but a PR can no
+longer be merged ahead of the verdict even by an agent that forgets.
+
+Verified by attempting a merge before the verdict landed and confirming GitHub refused. A
+rule nobody has tested is a setting, not a gate.
