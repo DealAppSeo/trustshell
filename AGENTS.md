@@ -4,6 +4,27 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## TRUE NORTH — read this before any assignment
+
+**The operating rules for every agent on this system live in
+`DealAppSeo/repid-engine/LESSONS.md`.** Read it first, whichever repo you started in.
+It is injected verbatim into every XC/GA dispatch and is the one place a lesson is
+durable across all of them.
+
+**Two tiers, and this file is the internal one.** `LESSONS.md` plus each repo's own
+entry point are a dated operating log that changes without notice — for our agents.
+The published contract for outside developers building on the ecosystem is
+**`hyperdag-protocol/BUILDERS.md`**. Never answer an outside builder from the internal
+tier; a gap in `BUILDERS.md` is a gap to fix there. That matters most here: this repo
+ships `@hyperdag/trustshell`, the one published package, so its users ARE the outside
+builders `BUILDERS.md` is written for.
+
+**This section deliberately names no sibling repos.** A per-repo list of all siblings is
+N tables of N rows — adding a Trust\* surface would mean editing every other repo, and
+forgetting fails silently: the new surface is unlisted, nothing breaks, and an agent
+landing there sees no pointer. A star, not a mesh.
+
+
 # The browser suites DO run in an agent sandbox. Run them before saying a client path is unverifiable.
 
 **MEASURED, from a sandboxed agent session — the first three on 2026-08-29, all four on 2026-08-30, green:**
@@ -113,6 +134,43 @@ prove.
 
 
 ---
+
+# Ponytail: run `lite` or `full` here. NOT `ultra`.
+
+Ponytail (`/plugin install ponytail@ponytail`) forces the laziest solution that works — YAGNI,
+stdlib first, one line over fifty. It is a good fit for this repo with one calibration, and it
+reads project `AGENTS.md`, which is why the calibration lives here rather than in a chat.
+
+**Its intensity ladder is `lite | full | ultra`, default `full`.** Use `lite` or `full`.
+`ultra` is "deletion before addition, challenge the requirement in the same breath", and most of
+what is valuable in this codebase LOOKS like over-engineering until you know what it cost:
+
+- the empty-chain guard that stops `inspect` reporting `INTACT` over nothing
+- the union parser that reads every quoted member rather than a character class
+- `.release-hold`, twenty lines of prose guarding ten lines of shell
+- the egress check that runs the commands with `fetch` stubbed instead of grepping for `fetch(`
+
+Each is a guard whose value is invisible until it fires. A YAGNI extremist deletes exactly those.
+
+**Where ponytail and this repo genuinely disagree, and it is worth knowing before it surprises
+you.** Its Output rule says *"if the explanation is longer than the code, delete the
+explanation"*. Here the explanation is frequently the mechanism: LESSONS-style comments at the
+defect site are what stop a defect recurring, and a rule filed where nobody reads it has never
+prevented anything. Ponytail scopes that rule to UNREQUESTED chat prose, so read narrowly the two
+are compatible — but at `ultra` it will start pruning the comment that says why a guard exists.
+
+**What it is genuinely good for here:** `/ponytail-review` on a diff before you push (opt-in, so
+it advises without quietly removing a guard), and `/ponytail-debt`, which harvests deferred
+`ponytail:` shortcuts into a ledger — the same shape as this project's "a caveat is a debt" rule.
+
+**What it will not simplify away, by its own rules:** input validation at trust boundaries, error
+handling that prevents data loss, security measures, and anything explicitly requested. It also
+requires one runnable check behind any money- or security-path logic. Those match this repo's
+posture, which is why `full` is safe.
+
+**Uninstall has a trap.** The cleanup script is itself a plugin file, so removing the plugin
+first deletes the thing that cleans up after it. Run `node scripts/uninstall.js` BEFORE removing
+the plugin, or you leave a mode flag and `~/.config/ponytail/config.json` behind.
 
 # OPERATOR ENVIRONMENT — do not infer this, it is written here
 
