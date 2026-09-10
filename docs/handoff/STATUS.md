@@ -1,7 +1,8 @@
-# TrustShell MVP status — LOOP SPRINTS Sprint 0
+# TrustShell MVP status — LOOP SPRINTS Sprint 1
 
 Date: 2026-09-09
-Sprint: 0 of 6. Cap 6 sprints / 4 hours. Unattended from here.
+Sprint: 1 of 6 (Sprint 0 STATUS written from `ad507d6`; this section is the leftover check).
+Cap 6 sprints / 4 hours. Unattended from here.
 No merge. No publish. No x402 spend. No live infra.
 
 ## Branch
@@ -83,4 +84,18 @@ HOLD: feat/mvp-five — do not merge
 
 KILL: nothing unless you found a lie
 
-PULL-NEXT: HYP-5 or HAL-degraded inventory
+PULL-NEXT: HYP-5
+
+---
+
+## Sprint 1 — leftover must-fix on feat/mvp-five
+
+CC-ASSESS flags that remain:
+
+| Flag | In this loop? |
+|---|---|
+| Publish 1.4.0 | No — forbidden |
+| `sdk:test` publish-gate pattern | No — publish path |
+| README HAL live-degraded | Already done on this branch |
+
+No in-scope leftover must-fix. Did not start a second trustshell issue. Next ticket is Linear HYP-5 (repid-engine egress inventory ratchet), tests + inventory only.
