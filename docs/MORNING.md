@@ -50,7 +50,7 @@ When the PR is green, **you** merge and `npm publish` 1.4.0.
 ## 3. One real card
 
 ```bash
-npx @hyperdag/trustshell@1.4.0 check https://github.com/DealAppSeo/trustshell/actions/runs/<real-id>
+node dist/cli/index.js check https://github.com/DealAppSeo/trustshell/actions/runs/<real-id>
 ```
 
 If that page is honest, you may invite.
@@ -65,5 +65,5 @@ If that page is honest, you may invite.
 ## Invite (only after 1–3)
 
 > Your AI says it’s done. Check it.
-> `npx @hyperdag/trustshell@1.4.0 check <github-actions-url>`
-> No account. Public API. Says what the evidence confirms and what it does not prove.
+> From this tree: `node dist/cli/index.js check <github-actions-url>`
+> No account. Public API. Says what the evidence confirms and what it does not prove. Do not npx a version that is not on npm.
