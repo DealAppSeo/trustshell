@@ -84,7 +84,7 @@ HOLD: feat/mvp-five — do not merge
 
 KILL: nothing unless you found a lie
 
-PULL-NEXT: HYP-5
+PULL-NEXT: none (queue done; see loop recap at bottom)
 
 ---
 
@@ -98,4 +98,28 @@ CC-ASSESS flags that remain:
 | `sdk:test` publish-gate pattern | No — publish path |
 | README HAL live-degraded | Already done on this branch |
 
-No in-scope leftover must-fix. Did not start a second trustshell issue. Next ticket is Linear HYP-5 (repid-engine egress inventory ratchet), tests + inventory only.
+No in-scope leftover must-fix. Did not start a second trustshell issue.
+
+---
+
+## Loop recap (sprints 0–4). Cap not hit. Queue exhausted.
+
+| Sprint | Repo | Branch | Result |
+|---|---|---|---|
+| 0 | trustshell | feat/mvp-five | STATUS from shipped `ad507d6`. 18/18. |
+| 1 | trustshell | feat/mvp-five | CC leftover = publish only. Skipped. |
+| 2 | repid-engine | feat/hyp-5-egress-inventory @ `5a3c9f0a` | HYP-5 inventory. CALLSITES=12 pinned hosts. Guard 8/8. No live egress change. |
+| 3 | repid-engine | feat/hyp-5-egress-inventory @ `90a12586` | HAL 6-provider inventory. 2-of-3 = `quorum:partial` not `degraded`. fact-check 23/23. No keys. |
+| 4 | trustmarket | feat/shadow-hal-verify-claim @ `ca8caa4` | Shadow verify-a-claim stub. `buy:false`. NOT_CHECKED. node:test 2/2. No buy. |
+
+No merge. No publish. No x402. No live infra. No new product folders. No TrustMedical. Linear HYP-5 was reachable.
+
+---
+
+PROMOTE: (what I may merge later) feat/mvp-five in-tree MVP close; optionally hyp-5 inventory tests and trustmarket shadow stub after review.
+
+HOLD: feat/mvp-five — do not merge
+
+KILL: nothing unless you found a lie
+
+PULL-NEXT: none
