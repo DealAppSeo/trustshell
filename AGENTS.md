@@ -283,3 +283,24 @@ longer be merged ahead of the verdict even by an agent that forgets.
 
 Verified by attempting a merge before the verdict landed and confirming GitHub refused. A
 rule nobody has tested is a setting, not a gate.
+
+## LOOP SPRINTS
+
+Trigger: the user says "LOOP SPRINTS" (optional: issue id, cap, "include CC").
+
+You are unattended. Do not wait for mid-sprint approval.
+You do not get the production switch.
+
+Default: worktree or branch off main. Shadow/stubs. Tests first.
+STATUS.md after every sprint. Docs are NARRATIVE until HAL PASS.
+
+Forbidden: merge main, publish, live infra, on-chain writes, mint,
+x402 spend, new product folders, marking README REAL without HAL,
+starting a second issue.
+
+Stop on: checklist done, same test fails twice, HAL VETO,
+missing secret, STATUS stale, new folder needed, cap hit
+(default 6 sprints / 4 hours).
+
+End state: STATUS.md with PROMOTE / HOLD / KILL.
+Wait there.

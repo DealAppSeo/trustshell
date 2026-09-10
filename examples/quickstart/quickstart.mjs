@@ -1,18 +1,20 @@
 /**
  * @hyperdag/trustshell — 60-second quickstart
  *
- * Fresh clone → npm install → this file. It does the two things the wrapper
+ * Fresh clone → npm install → this file. It does the three things the wrapper
  * promise is built on, against the LIVE repid-engine (no API key needed):
  *
  *   1. init()          → live /health probe (fail fast if the backend is down)
  *   2. verifyOutput()  → run a real agent output through the live HAL quorum
+ *   3. getRepID()      → look up trinity-shofet's live RepID + tier
  *
  * Both read paths are public. The x402 A2A write path (executeA2A) needs a
  * REPID_API_KEY + a funded Base Sepolia wallet — see QUICKSTART.md.
  *
- * Run:  node quickstart.mjs
+ * Import is this tree's dist/ (1.4.0), not npm @hyperdag/trustshell (1.3.0).
+ * Run from repo root:  node examples/quickstart/quickstart.mjs
  */
-import { TrustShell } from '@hyperdag/trustshell';
+import { TrustShell } from '../../dist/lib/index.js';
 
 const t0 = Date.now();
 
@@ -48,5 +50,8 @@ if (false_.evidence.length) {
   console.log(`  evidence: ${false_.evidence.join(' | ')}`);
 }
 
+const rep = await client.getRepID('trinity-shofet');
+console.log(`✓ getRepID (trinity-shofet): repid=${rep.repid} tier=${rep.tier}`);
+
 const seconds = ((Date.now() - t0) / 1000).toFixed(1);
-console.log(`\n⏱  first verified call completed in ${seconds}s (from init to two live verdicts).`);
+console.log(`\n⏱  first verified call completed in ${seconds}s (from init to two live verdicts + getRepID).`);

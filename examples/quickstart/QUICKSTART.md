@@ -42,7 +42,10 @@ node quickstart.mjs
 ```
 
 A runnable copy is in this folder: **[`quickstart.mjs`](./quickstart.mjs)** — it verifies both a
-truthful and a false claim and prints the wall-clock time to the first verified call.
+truthful and a false claim, looks up `trinity-shofet`, and prints the wall-clock time to the first
+verified call. From this repository the file imports `../../dist/lib/index.js` so
+`node examples/quickstart/quickstart.mjs` exercises 1.4.0 without publishing. After
+`npm install @hyperdag/trustshell` in *your* project, use the named import in the README.
 
 **Import note:** use the **named** import `import { TrustShell }`. It resolves cleanly from both
 ESM and CommonJS. (The SDK is a CommonJS build; a bare `import TrustShell from '...'` default import
