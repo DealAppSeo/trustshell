@@ -71,8 +71,7 @@ Auxiliary HAL of "x402 … Base Sepolia, not Ethereum mainnet": VETO, trustScore
 
 ## 5. Agent files
 
-AGENTS.md: LOOP SPRINTS block appended only. Rest not rewritten.
-CLAUDE.md: unchanged, still `@AGENTS.md`.
+AGENTS.md: LOOP SPRINTS block appended; one launch-invite line rewritten so it does not tell a stranger to npx an unpublished version. CLAUDE.md unchanged, still `@AGENTS.md`.
 
 ## Unit tests (this ticket)
 
@@ -98,6 +97,12 @@ Exit: 0 — 24 suites, 299 tests.
 
 5. **readme-claim.yml** is not observed as a GitHub required check. File exists. Whether GitHub requires it: NOT CHECKABLE — github MCP not used.
 
+6. **No markdown documents npx of unpublished 1.4.0.** Test-enforced. `docs/MORNING.md` now runs `node dist/cli/index.js check` from this tree.
+
+## Branch
+
+MVP commits live on `feat/mvp-five` only. `feat/check-egress-2026-09-08` is not the commit target. `feat/mvp-five` is replayed onto that branch's HEAD (`2915d59`, same tree as `cc0faeb`) so it is off that HEAD without landing MVP on the egress branch.
+
 ## Files touched
 
 - tests/mvp-example.test.ts (create)
@@ -107,7 +112,9 @@ Exit: 0 — 24 suites, 299 tests.
 - examples/quickstart/QUICKSTART.md
 - .github/workflows/readme-claim.yml (create)
 - README.md (table only)
-- AGENTS.md (LOOP SPRINTS append only)
+- AGENTS.md (LOOP SPRINTS append; unpublished npx line removed)
+- docs/MORNING.md (check via this tree's dist CLI)
+- tests/doc-version.test.ts (no unpublished npx command in markdown)
 - docs/handoff/PLAN.md
 - docs/handoff/STATUS.md
 - docs/handoff/CC-ASSESS.md (rephrase only so the version walker does not treat "npm latest is 1.3.0" as "this package is 1.3.0")

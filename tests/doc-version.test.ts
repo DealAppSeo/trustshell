@@ -6,9 +6,9 @@
  * surface claim is a hit against 1.4.0, and that a ≥ floor is not.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 const ROOT = join(__dirname, '..');
 const SCRIPT = join(ROOT, 'scripts', 'check-doc-version.cjs');
@@ -82,3 +82,18 @@ describe('the check script itself', () => {
     expect(r.status).toBe(0);
   });
 });
+
+describe('unpublished 1.4.0 is not an npx command', () => {
+  it('no markdown documents npx @hyperdag/trustshell@1.4.0', () => {
+    // Production change that fails this: telling a stranger to npx a version
+    // that is not on npm. Walk, not a list — AGENTS.md and docs/MORNING.md
+    // both had the line.
+    const forbidden = 'npx @hyperdag/trustshell@1.4.0';
+    const hits = scan
+      .walkMarkdown(ROOT)
+      .filter((f) => readFileSync(f, 'utf8').includes(forbidden))
+      .map((f) => relative(ROOT, f).replace(/\\/g, '/'));
+    expect(hits).toEqual([]);
+  });
+});
+

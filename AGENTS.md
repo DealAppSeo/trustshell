@@ -113,8 +113,8 @@ are measuring the tool.
 
 **2026-09-07.** `bin/check.js` was correct and unreachable. `package.json` `files[]` publishes
 `dist/` only, so `bin/` never entered the npm tarball, and the CLI's `Command` union did not
-contain `'check'`. `npx @hyperdag/trustshell@1.4.0 check <url>` — the exact line in the launch
-invite — would have answered *unknown command* to everyone who ran it.
+contain `'check'`. The launch invite told a stranger to run `check` via npx at a version
+that was not on npm — *unknown command* to everyone who ran it.
 
 Nothing was red. Tests passed, the file worked locally via `node bin/check.js`, and the gap lived
 entirely in packaging. **Before claiming a CLI command ships, run it the way the README tells a
