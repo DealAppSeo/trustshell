@@ -1,7 +1,7 @@
 # TrustShell MVP status
 
 Date: 2026-09-09
-Tree: feat/mvp-five @ cc0faeb plus uncommitted MVP close (see git status)
+Tree: feat/mvp-five @ 7507eb2
 package.json: 1.4.0 (not published).
 Published npm latest: 1.3.0 — not used below.
 Global CLI, if invoked, is 1.3.0 — not used below.
