@@ -4,7 +4,7 @@
  * Non-interactive: --name and --answers "job|cost|brain"
  */
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import readline from 'node:readline';
 import { logValueEvent } from './value-events.mjs';
@@ -12,7 +12,9 @@ import { logValueEvent } from './value-events.mjs';
 const require = createRequire(import.meta.url);
 const interview = require('../lib/interview.js');
 
-const DIR = '.trustshell';
+// One PAI per store. TRUSTSHELL_HOME selects the store (same env value-events.mjs honors), so a
+// second PAI lives in its OWN dir instead of colliding with #1 in the default `.trustshell`.
+const DIR = process.env.TRUSTSHELL_HOME || '.trustshell';
 
 async function askInteractive() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -74,7 +76,7 @@ const exist = interview.existingCreds({ local, name, force });
 let reg;
 let freshRegister = false;
 if (exist.action === 'reuse') {
-  console.log('reusing local .trustshell credentials for', name);
+  console.log(`reusing local ${DIR} credentials for`, name);
   reg = exist.local;
 } else if (exist.action === 'exists') {
   console.error(exist.message);
@@ -86,7 +88,7 @@ if (exist.action === 'reuse') {
   } catch (err) {
     const decision = interview.reuseOrNameTaken({ name, err, local });
     if (decision.action === 'reuse') {
-      console.log('reusing local .trustshell credentials for', name);
+      console.log(`reusing local ${DIR} credentials for`, name);
       reg = decision.local;
     } else if (decision.action === 'name_taken') {
       console.log(decision.message);
@@ -127,9 +129,36 @@ interview.writePrivate(
     2,
   ) + '\n',
 );
-console.log('wrote', join(DIR, 'credentials.json'), 'and', join(DIR, 'profile.json'));
+// Wiki seed — a plain, human-readable page from the interview answers, on-device only. NOT a config
+// dump ("not 100 OAuth"): just what this PAI is for, in the person's own words, for them to grow.
+// Seed the wiki ONCE. If it already exists we leave it alone — the page invites the user to edit it,
+// so a rerun (reuse path) must never clobber their edits.
+const wikiPath = join(DIR, 'wiki', 'README.md');
+if (!existsSync(wikiPath)) {
+  const toolLines = (Array.isArray(pack) ? pack : [pack]).filter(Boolean).map((t) => `- ${t}`).join('\n') || '- (none suggested yet)';
+  interview.writePrivate(
+    wikiPath,
+    `# ${name} — your PAI\n\n` +
+      `Your confidential chief of staff. This wiki lives in \`${join(DIR, 'wiki')}/\` on this device and is never uploaded — edit it freely.\n\n` +
+      `## What it's for\n${job || '(tell it in the interview)'}\n\n` +
+      `## Cost sense\n${cost || '(not set)'}\n\n` +
+      `## Brain\n${brain || '(not set)'}\n\n` +
+      `## Suggested tools\n${toolLines}\n\n` +
+      `## Two guarantees\n- HAL VETOs a false claim before you act on it.\n- A spend with no cap or no policy is refused — it never signs by default.\n\n` +
+      `## Grow the fleet\nCreate a specialist (PAI #2+) in its own store — see the pointer at the end of this run. Keep #1 as your chief of staff.\n`,
+  );
+  console.log('wrote', join(DIR, 'credentials.json') + ',', join(DIR, 'profile.json') + ',', 'and', wikiPath);
+} else {
+  console.log('wrote', join(DIR, 'credentials.json') + ',', join(DIR, 'profile.json') + '  (kept your existing', wikiPath + ')');
+}
 if (freshRegister) {
   logQuiet('register_ok', { agentId: reg.agentId, agentName: name });
+  // Shown ONCE. The apiKey is saved in credentials.json (gitignored) and never printed again —
+  // copy it now if you need it elsewhere. On a reuse run we do NOT reprint it.
+  console.log('');
+  console.log('  agentId:', reg.agentId);
+  console.log('  apiKey :', reg.apiKey, `  (shown once — saved to ${join(DIR, 'credentials.json')})`);
+  console.log('');
 }
 
 const paris = await client.verifyOutput('The capital of France is Paris.');
@@ -144,8 +173,16 @@ if (rome.verdict === 'VETO') {
 const rep = await client.getRepID(reg.agentId);
 console.log('RepID', rep.repid, rep.tier, '(score moves; do not freeze)');
 
-console.log('- private files on this device: .trustshell/credentials.json + profile.json (gitignored)');
+console.log(`- private files on this device: ${join(DIR, 'credentials.json')} + ${join(DIR, 'profile.json')} — keep this dir out of git (.trustshell/ and everything under it is gitignored)`);
 console.log('- HAL catch: a false claim is VETO before you act on it');
 console.log('- ERC-8004 passport: register is NOT_MINTED until a keyed mint');
+
+// Create a second PAI — a LINK only. PAI #1 is your confidential chief of staff; specialists are
+// separate PAIs (#2+). Do NOT bolt specialist tools onto #1 — give it a colleague instead.
+console.log('');
+console.log('Create a second PAI (its own store UNDER the gitignored .trustshell/, so #1 is untouched):');
+console.log('  PowerShell:  $env:TRUSTSHELL_HOME=".trustshell/<name>"; node scripts/init-pai.mjs --name <name>');
+console.log('  (other shells: set the env var TRUSTSHELL_HOME to .trustshell/<name> before the node command)');
+console.log('  (#1 is your chief of staff; #2+ are specialists it can manage — one store each, all gitignored)');
 
 process.exit(0);
