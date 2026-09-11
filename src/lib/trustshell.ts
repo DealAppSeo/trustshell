@@ -193,7 +193,8 @@ export interface ProofPresentation {
   scheme: string | null; // 'plonky3_range_check' for real proofs
   statement: {
     agent_id: string;
-    repid_score: number;
+    /** Postcard only. Envelope omits this so the exact score is not plaintext. */
+    repid_score?: number;
     threshold: number;
     tier: string;
   } | null;
@@ -204,6 +205,15 @@ export interface ProofPresentation {
     error: string | null;
     verifierVersion: string;
   };
+}
+
+/** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
+export function envelope(p: ProofPresentation): ProofPresentation {
+  const s = p.statement;
+  const statement = s
+    ? { agent_id: s.agent_id, threshold: s.threshold, tier: s.tier }
+    : null;
+  return { ...p, tier: 'envelope', statement };
 }
 
 /**
@@ -852,13 +862,10 @@ export class TrustShell {
     opts: { verify?: boolean; tier?: ProofTier; allowExperimentalTiers?: boolean } = {},
   ): Promise<ProofPresentation> {
     const tier: ProofTier = opts.tier ?? 'postcard';
-    // Only `postcard` has a production-real proof endpoint today. Other tiers (envelope/letter/
-    // package) are implemented in the prover but not yet exposed as a live API — expose them behind
-    // a capability flag, default OFF, and FLAG rather than fake (no stub in a shipped path).
-    if (tier !== 'postcard' && !opts.allowExperimentalTiers) {
+    if (tier !== 'postcard' && tier !== 'envelope' && !opts.allowExperimentalTiers) {
       throw new TrustShellError(
         `Proof tier '${tier}' is not yet production-exposed. Pass { allowExperimentalTiers: true } ` +
-        `to opt in once the live endpoint ships; today only 'postcard' returns a real proof.`,
+        `to opt in once the live endpoint ships; today 'postcard' and 'envelope' are real.`,
         501,
       );
     }
@@ -878,26 +885,44 @@ export class TrustShell {
     };
 
     if (opts.verify && presentation.proofBytes && presentation.statement) {
-      presentation.verification = await this.verifyProofLocally(
-        presentation.proofBytes,
-        presentation.statement,
-      );
+      presentation.verification = await this.verifyProof(presentation);
     }
     this.emit('proof', presentation);
+    if (tier === 'envelope') {
+      const env = envelope(presentation);
+      env.verification = presentation.verification;
+      return env;
+    }
     return presentation;
+  }
+
+  /** Accepts proof bytes + statement, or a presentProof object (not only a string). */
+  async verifyProof(
+    proofBytesOrPresentation: string | ProofPresentation,
+    statement?: ProofPresentation['statement'],
+  ): Promise<NonNullable<ProofPresentation['verification']>> {
+    return this.verifyProofLocally(proofBytesOrPresentation, statement);
   }
 
   /** Client-side WASM verification of a proof against its statement. */
   private async verifyProofLocally(
-    proofBytes: string,
-    statement: ProofPresentation['statement'],
+    proofBytesOrPresentation: string | ProofPresentation,
+    statement?: ProofPresentation['statement'],
   ): Promise<NonNullable<ProofPresentation['verification']>> {
+    let proofBytes: string;
+    let stmt = statement;
+    if (typeof proofBytesOrPresentation === 'object' && proofBytesOrPresentation) {
+      proofBytes = proofBytesOrPresentation.proofBytes;
+      stmt = stmt ?? proofBytesOrPresentation.statement;
+    } else {
+      proofBytes = proofBytesOrPresentation;
+    }
     try {
       // Dynamic import via a variable specifier so the SDK type-checks and loads even when
       // the optional verifier isn't installed (it ships as an optionalDependency).
       const verifierPkg = '@hyperdag/proof-verifier';
       const mod: any = await import(/* @vite-ignore */ verifierPkg);
-      const result = await mod.verify(proofBytes, statement);
+      const result = await mod.verify(proofBytes, stmt);
       return {
         verified: !!result.verified,
         error: result.error ?? null,
@@ -1291,6 +1316,15 @@ function mapServiceRow(row: any): ServiceListing {
  *
  * Returns the base64 header string to pass as `A2AParams.xPaymentHeader`.
  */
+export function assertPaymentCap(params: { amount: number | bigint | string; cap: number | bigint | string }): true {
+  const amount = BigInt(params.amount);
+  const cap = BigInt(params.cap);
+  if (amount > cap) {
+    throw new TrustShellError(`cap_exceeded: amount ${amount} > cap ${cap}`, 400);
+  }
+  return true;
+}
+
 export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
   // Lazy import keeps ethers out of the module graph for consumers that never call this.
   const { Wallet, getAddress } = await import('ethers');
