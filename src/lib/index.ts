@@ -2,6 +2,13 @@ export * from './trustshell';
 export { TrustShell as default } from './trustshell';
 
 /**
+ * Fail-closed turn origins. `Unknown` (or an unstamped turn) may never pay — the same
+ * missing-config-refuses posture as the payment cap. Stamp origin at the trust boundary.
+ */
+export { canPay, assertOriginCanPay, PAY_CAPABLE_ORIGINS } from './origin';
+export type { AgentTurnOrigin, PayCapableOrigin } from './origin';
+
+/**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
  * re-verify. Green only when local verification returned true. The BADGE never prints the
