@@ -29,14 +29,22 @@ test('each required field (hal, repid, tx, proof.verified, cap) is enforced', ()
   }
 });
 
-test('bad verdict, non-0x tx, and an exceeded enforced cap all fail', () => {
+test('bad verdict, non-0x tx, exceeded cap, non-finite amounts, missing currency all fail', () => {
   const bads = [
     (r) => { r.hal.verdict = 'MAYBE'; },
     (r) => { r.onchain.tx = 'nope'; },
-    (r) => { r.cap.amount = 2000; }, // > limit while enforced
+    (r) => { r.cap.amount = 2000; },        // > limit while enforced
+    (r) => { r.cap.limit = Infinity; },     // non-finite cap (Greptile #1)
+    (r) => { r.cap.amount = NaN; },         // non-finite amount
+    (r) => { delete r.cap.currency; },      // currency now required (Greptile #2)
   ];
   for (const mutate of bads) {
     const r = sample(); mutate(r);
     assert.equal(validateReceipt(r).valid, false);
   }
+});
+
+test('a null proof.scheme validates (safety-glass may copy a null scheme) — Greptile #3', () => {
+  const r = sample(); r.proof.scheme = null;
+  assert.equal(validateReceipt(r).valid, true);
 });

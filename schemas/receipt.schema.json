@@ -40,14 +40,14 @@
       "required": ["verified"],
       "properties": {
         "verified": { "type": "boolean" },
-        "scheme": { "type": "string" },
+        "scheme": { "type": ["string", "null"] },
         "statement": {}
       }
     },
     "cap": {
       "type": "object",
       "description": "The spend limit that bounded this action and whether it was enforced. amount <= limit when enforced.",
-      "required": ["limit", "amount", "enforced"],
+      "required": ["limit", "amount", "currency", "enforced"],
       "properties": {
         "limit": { "type": "number", "minimum": 0 },
         "amount": { "type": "number", "minimum": 0 },

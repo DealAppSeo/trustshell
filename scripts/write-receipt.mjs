@@ -31,7 +31,7 @@ function check(node, schema, path, errors) {
   }
   const t = schema.type;
   if (t === 'string' && typeof node !== 'string') errors.push(`${path}: expected string`);
-  if (t === 'number' && typeof node !== 'number') errors.push(`${path}: expected number`);
+  if (t === 'number' && (typeof node !== 'number' || !Number.isFinite(node))) errors.push(`${path}: expected finite number`);
   if (t === 'boolean' && typeof node !== 'boolean') errors.push(`${path}: expected boolean`);
   if (t === 'object' && (node === null || typeof node !== 'object')) errors.push(`${path}: expected object`);
   if (schema.enum && !schema.enum.includes(node)) errors.push(`${path}: '${node}' not in [${schema.enum}]`);
@@ -64,12 +64,20 @@ function selfCheck() {
   const ok = validateReceipt(good);
   if (!ok.valid) throw new Error(`self-check FAIL: valid receipt rejected: ${ok.errors.join('; ')}`);
 
+  // A null proof.scheme (safety-glass may copy through a null scheme) must still validate.
+  const nullScheme = JSON.parse(JSON.stringify(good));
+  nullScheme.proof.scheme = null;
+  if (!validateReceipt(nullScheme).valid) throw new Error('self-check FAIL: null proof.scheme must validate');
+
   const cases = [
     ['missing cap', (r) => { delete r.cap; }],
     ['missing onchain.tx', (r) => { delete r.onchain.tx; }],
     ['bad verdict', (r) => { r.hal.verdict = 'MAYBE'; }],
     ['non-0x tx', (r) => { r.onchain.tx = 'nope'; }],
     ['cap exceeded but enforced', (r) => { r.cap.amount = 2000; }],
+    ['non-finite cap limit', (r) => { r.cap.limit = Infinity; }],
+    ['NaN cap amount', (r) => { r.cap.amount = NaN; }],
+    ['missing cap currency', (r) => { delete r.cap.currency; }],
   ];
   for (const [name, mutate] of cases) {
     const bad = JSON.parse(JSON.stringify(good));
