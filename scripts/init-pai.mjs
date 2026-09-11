@@ -4,7 +4,7 @@
  * Non-interactive: --name and --answers "job|cost|brain"
  */
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import readline from 'node:readline';
 import { logValueEvent } from './value-events.mjs';
@@ -12,7 +12,9 @@ import { logValueEvent } from './value-events.mjs';
 const require = createRequire(import.meta.url);
 const interview = require('../lib/interview.js');
 
-const DIR = '.trustshell';
+// One PAI per store. TRUSTSHELL_HOME selects the store (same env value-events.mjs honors), so a
+// second PAI lives in its OWN dir instead of colliding with #1 in the default `.trustshell`.
+const DIR = process.env.TRUSTSHELL_HOME || '.trustshell';
 
 async function askInteractive() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -129,19 +131,26 @@ interview.writePrivate(
 );
 // Wiki seed — a plain, human-readable page from the interview answers, on-device only. NOT a config
 // dump ("not 100 OAuth"): just what this PAI is for, in the person's own words, for them to grow.
-const toolLines = (Array.isArray(pack) ? pack : [pack]).filter(Boolean).map((t) => `- ${t}`).join('\n') || '- (none suggested yet)';
-interview.writePrivate(
-  join(DIR, 'wiki', 'README.md'),
-  `# ${name} — your PAI\n\n` +
-    `Your confidential chief of staff. This wiki lives in \`.trustshell/wiki/\` on this device and is never uploaded — edit it freely.\n\n` +
-    `## What it's for\n${job || '(tell it in the interview)'}\n\n` +
-    `## Cost sense\n${cost || '(not set)'}\n\n` +
-    `## Brain\n${brain || '(not set)'}\n\n` +
-    `## Suggested tools\n${toolLines}\n\n` +
-    `## Two guarantees\n- HAL VETOs a false claim before you act on it.\n- A spend with no cap or no policy is refused — it never signs by default.\n\n` +
-    `## Grow the fleet\nCreate a specialist (PAI #2+): \`node scripts/init-pai.mjs --name <other-name>\`. Keep #1 as your chief of staff.\n`,
-);
-console.log('wrote', join(DIR, 'credentials.json') + ',', join(DIR, 'profile.json') + ',', 'and', join(DIR, 'wiki', 'README.md'));
+// Seed the wiki ONCE. If it already exists we leave it alone — the page invites the user to edit it,
+// so a rerun (reuse path) must never clobber their edits.
+const wikiPath = join(DIR, 'wiki', 'README.md');
+if (!existsSync(wikiPath)) {
+  const toolLines = (Array.isArray(pack) ? pack : [pack]).filter(Boolean).map((t) => `- ${t}`).join('\n') || '- (none suggested yet)';
+  interview.writePrivate(
+    wikiPath,
+    `# ${name} — your PAI\n\n` +
+      `Your confidential chief of staff. This wiki lives in \`${join(DIR, 'wiki')}/\` on this device and is never uploaded — edit it freely.\n\n` +
+      `## What it's for\n${job || '(tell it in the interview)'}\n\n` +
+      `## Cost sense\n${cost || '(not set)'}\n\n` +
+      `## Brain\n${brain || '(not set)'}\n\n` +
+      `## Suggested tools\n${toolLines}\n\n` +
+      `## Two guarantees\n- HAL VETOs a false claim before you act on it.\n- A spend with no cap or no policy is refused — it never signs by default.\n\n` +
+      `## Grow the fleet\nCreate a specialist (PAI #2+) in its own store — see the pointer at the end of this run. Keep #1 as your chief of staff.\n`,
+  );
+  console.log('wrote', join(DIR, 'credentials.json') + ',', join(DIR, 'profile.json') + ',', 'and', wikiPath);
+} else {
+  console.log('wrote', join(DIR, 'credentials.json') + ',', join(DIR, 'profile.json') + '  (kept your existing', wikiPath + ')');
+}
 if (freshRegister) {
   logQuiet('register_ok', { agentId: reg.agentId, agentName: name });
   // Shown ONCE. The apiKey is saved in credentials.json (gitignored) and never printed again —
@@ -171,7 +180,9 @@ console.log('- ERC-8004 passport: register is NOT_MINTED until a keyed mint');
 // Create a second PAI — a LINK only. PAI #1 is your confidential chief of staff; specialists are
 // separate PAIs (#2+). Do NOT bolt specialist tools onto #1 — give it a colleague instead.
 console.log('');
-console.log('Create a second PAI:  node scripts/init-pai.mjs --name <other-name>');
-console.log('  (#1 is your chief of staff; #2+ are specialists it can manage — keep them separate)');
+console.log('Create a second PAI (its own store, so #1 is untouched):');
+console.log('  PowerShell:  $env:TRUSTSHELL_HOME=".trustshell-<name>"; node scripts/init-pai.mjs --name <name>');
+console.log('  bash/zsh:    TRUSTSHELL_HOME=.trustshell-<name> node scripts/init-pai.mjs --name <name>');
+console.log('  (#1 is your chief of staff; #2+ are specialists it can manage — one store each)');
 
 process.exit(0);
