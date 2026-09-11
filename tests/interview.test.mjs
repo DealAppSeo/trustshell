@@ -20,3 +20,17 @@ test('toolPack always verify + present_proof; pay/market adds x402-cap', () => {
   assert.deepEqual(toolPack('write weekly research'), ['verify', 'present_proof']);
   assert.deepEqual(toolPack('pay invoices on the market'), ['verify', 'present_proof', 'x402-cap']);
 });
+
+test('429 with local creds reuses; 429 without local is name taken, not throw', () => {
+  const { reuseOrNameTaken } = require('../lib/interview.js');
+  const err = { status: 429, message: 'Agent registration failed: 429' };
+  const reuse = reuseOrNameTaken({
+    name: 'pai-night-1',
+    err,
+    local: { agentName: 'pai-night-1', agentId: 'abc', apiKey: 'k' },
+  });
+  assert.equal(reuse.action, 'reuse');
+  const taken = reuseOrNameTaken({ name: 'pai-night-1', err, local: null });
+  assert.equal(taken.action, 'name_taken');
+  assert.equal(taken.message, 'name taken, pick another');
+});

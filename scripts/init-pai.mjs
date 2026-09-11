@@ -4,7 +4,7 @@
  * Non-interactive: --name and --answers "job|cost|brain"
  */
 import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import readline from 'node:readline';
 
@@ -47,7 +47,40 @@ if (!health?.ok) {
   process.exit(1);
 }
 
-const reg = await client.register({ agentName: name });
+function loadLocal(wantName) {
+  try {
+    const cred = JSON.parse(readFileSync(join(DIR, 'credentials.json'), 'utf8'));
+    const prof = JSON.parse(readFileSync(join(DIR, 'profile.json'), 'utf8'));
+    if (prof.agentName === wantName && cred.agentId) {
+      return { agentName: prof.agentName, agentId: cred.agentId, apiKey: cred.apiKey, erc8004TokenId: cred.erc8004TokenId ?? null };
+    }
+  } catch {
+    /* no local creds */
+  }
+  return null;
+}
+
+let reg;
+try {
+  reg = await client.register({ agentName: name });
+} catch (err) {
+  const decision = interview.reuseOrNameTaken({ name, err, local: loadLocal(name) });
+  if (decision.action === 'reuse') {
+    console.log('reusing local .trustshell credentials for', name);
+    reg = {
+      agentId: decision.local.agentId,
+      apiKey: decision.local.apiKey,
+      erc8004TokenId: decision.local.erc8004TokenId ?? null,
+    };
+  } else if (decision.action === 'name_taken') {
+    console.log(decision.message);
+    process.exit(0);
+  } else {
+    const msg = err && err.message ? err.message : String(err);
+    console.error('register failed:', msg);
+    process.exit(1);
+  }
+}
 mkdirSync(DIR, { recursive: true });
 writeFileSync(
   join(DIR, 'credentials.json'),
