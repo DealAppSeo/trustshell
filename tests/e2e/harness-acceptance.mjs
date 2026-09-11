@@ -449,7 +449,7 @@ try {
   // step 1 — domain pinned by this test
   const pinnedDomain = { name: 'USDC', version: '2', chainId: 84532, verifyingContract: SEPOLIA_USDC };
   const tb = Date.now();
-  const pinned = decode(await buildX402Payment({ privateKey: KEY, to: TO, amount: 100000, asset: SEPOLIA_USDC, chainId: 84532 }));
+  const pinned = decode(await buildX402Payment({ privateKey: KEY, to: TO, amount: 100000, cap: 100000, asset: SEPOLIA_USDC, chainId: 84532 }));
   perf.x402_header_build_ms = since(tb);
   const missing = CANON.filter((k) => pinned[k] === undefined);
 
@@ -463,7 +463,7 @@ try {
       'authorization is well-shaped and invalid, which a facilitator rejects at settlement, not here');
   } else {
     // step 2 — the SDK's own defaults
-    const defaulted = decode(await buildX402Payment({ privateKey: KEY, to: TO, amount: 100000 }));
+    const defaulted = decode(await buildX402Payment({ privateKey: KEY, to: TO, amount: 100000, cap: 100000 }));
     if (!recovers(defaulted, pinnedDomain)) {
       record('x402.payment_header', 'FAILED',
         'signing is sound on a pinned domain but the SDK DEFAULTS no longer recover against Base ' +
