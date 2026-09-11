@@ -25,6 +25,14 @@ export { CircuitBreaker } from './circuit-breaker';
 export type { BreakerOutcome } from './circuit-breaker';
 
 /**
+ * Fail-closed spend entry point: composes the origin gate (SLICE 1) + audit-before-act (SLICE 2)
+ * around `buildX402Payment`. A turn that may not pay, or a spend with no policy, never signs. Use
+ * this from a turn boundary; `buildX402Payment` remains the lower-level cap-checked signer.
+ */
+export { guardedX402Payment } from './guarded-payment';
+export type { GuardedPaymentParams } from './guarded-payment';
+
+/**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
  * re-verify. Green only when local verification returned true. The BADGE never prints the
