@@ -12,13 +12,14 @@
  *   6. presentProof()         — show the buyer's ZKP RepID postcard proof
  *
  * SAFE BY DEFAULT: without the required env this script prints exactly what it needs and exits 0
- * (no crash, no fabricated settlement). `init()` + `presentProof()` run with no key; discovery
- * (`listServices`) and the buy legs need a key — see the auth note below.
+ * (no crash, no fabricated settlement). `init()`, `presentProof()` AND discovery (`listServices`)
+ * run with no key; only the buy legs need a key — see the auth note below.
  *
- * AUTH NOTE [verified 2026-07-06 against the live engine]: unlike the read paths in the quickstart
- * (repid / proof / hal-evaluate are auth-bypassed), the marketplace endpoints `GET /api/v1/services`
- * and `POST /api/v1/contracts` are NOT public — they 401 without a valid REPID_API_KEY. So this
- * showcase needs the key from the very first discovery call.
+ * AUTH NOTE [corrected 2026-09-10 — MEASURED keyless, 38 catalog rows]: `GET /api/v1/services`
+ * (listServices) is PUBLIC / keyless, like the repid / proof / hal-evaluate read paths. Only
+ * `POST /api/v1/contracts` (the buy / escrow leg) is auth-gated — it 401s without a valid
+ * REPID_API_KEY. So discovery runs with no key; the key is needed only from the buy call onward.
+ * (The prior note said `/services` 401s without a key — that was STALE; it is public now.)
  *
  * Run:  node a2a-purchase.mjs
  *
@@ -65,7 +66,7 @@ if (BUYER_AGENT) {
 
 // --- Env guard. Discovery + buy both need a key (marketplace is auth-gated — see AUTH NOTE). ---
 const missing = [];
-if (!API_KEY) missing.push('REPID_API_KEY (buyer agent API key from register(); also gates discovery)');
+if (!API_KEY) missing.push('REPID_API_KEY (buyer agent API key from register(); gates the buy, NOT discovery)');
 if (!BUYER_AGENT) missing.push('TRUSTSHELL_BUYER_AGENT (buyer agent UUID the key is bound to)');
 if (!PAYER_KEY) missing.push('TRUSTSHELL_PAYER_KEY (funded Base Sepolia private key to sign x402)');
 
@@ -77,7 +78,7 @@ if (missing.length) {
   process.exit(0); // clean exit — no crash, no faked settlement.
 }
 
-// --- 2. listServices() — needs a key (marketplace is auth-gated). Pick a "verification" service.
+// --- 2. listServices() — keyless (public catalog read; MEASURED 38 rows 2026-09-10). Pick a "verification" service.
 const catalog = await client.listServices({ type: 'verification' });
 log(`✓ discover: ${catalog.count} verification service(s) in the catalog`);
 if (catalog.priceRangeUsdcRaw) {
