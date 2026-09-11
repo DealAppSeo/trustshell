@@ -106,6 +106,7 @@ const xPaymentHeader = await buildX402Payment({
   // get the backend's `paymentRequired.accepts[0].payTo`, then sign against that and retry.
   to: process.env.TRUSTSHELL_PAY_TO || provider.providerAgentId, // overrideable; see note above
   amount: chosen.basePriceUsdcRaw,
+  cap: process.env.TRUSTSHELL_PAY_CAP || chosen.basePriceUsdcRaw,
 });
 log('✓ payment signed (only the signed authorization travels; the private key never leaves memory)');
 

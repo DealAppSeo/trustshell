@@ -1,4 +1,8 @@
-import { assertPaymentCap } from '../src/lib/index';
+import { assertPaymentCap, buildX402Payment } from '../src/lib/index';
+
+// Disposable local-sign key only — never a funded wallet, never logged.
+const TEST_KEY = '0x1111111111111111111111111111111111111111111111111111111111111111';
+const TEST_TO = '0x0000000000000000000000000000000000000001';
 
 // The ONE cap export is `assertPaymentCap({ amount, cap })` (src/lib/trustshell.ts), throwing
 // TrustShellError `cap_exceeded` when amount > cap. This test hits that export only.
@@ -24,3 +28,29 @@ describe('assertPaymentCap — a cap below the amount MUST refuse', () => {
     expect(assertPaymentCap({ amount: 100, cap: 1000 })).toBe(true);
   });
 });
+
+describe('buildX402Payment must assert cap before signing', () => {
+  it('REFUSES when cap is missing', async () => {
+    await expect(
+      buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1 } as any),
+    ).rejects.toThrow(/cap required/);
+  });
+
+  it('REFUSES amount above cap before signing', async () => {
+    await expect(
+      buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1000, cap: 500 }),
+    ).rejects.toThrow(/cap_exceeded/);
+  });
+
+  it('signs when amount is at or below cap', async () => {
+    const hdr = await buildX402Payment({
+      privateKey: TEST_KEY,
+      to: TEST_TO,
+      amount: 500,
+      cap: 500,
+    });
+    expect(typeof hdr).toBe('string');
+    expect(hdr.length).toBeGreaterThan(10);
+  });
+});
+
