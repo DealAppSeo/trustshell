@@ -36,6 +36,15 @@ describe('guardedX402Payment — origin gate + audit-before-act around the signe
     });
   });
 
+  it('records the EFFECTIVE cap (min of declared and allowance) in the intent row', async () => {
+    const s = sink();
+    const readAllowance = () => BigInt(500); // allowance below the declared 1000 (no BigInt literal — target < ES2020)
+    await expect(
+      guardedX402Payment({ ...BASE, cap: 1000, readAllowance, origin: 'Cli', policy: { allow: false } }, { stream: s.stream, now: 't' }),
+    ).rejects.toThrow(/policy_denied/);
+    expect(JSON.parse(s.lines[0]).cap).toBe('500'); // min(1000, 500), not the declared 1000
+  });
+
   it('signs via buildX402Payment when origin is pay-capable and policy allows', async () => {
     const s = sink();
     const header = await guardedX402Payment({ ...BASE, origin: 'Cli', policy: { allow: true } }, { stream: s.stream });
