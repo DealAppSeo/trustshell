@@ -17,6 +17,14 @@ export { auditThenAct } from './audit';
 export type { SpendIntent, SpendPolicy, AuditOpts } from './audit';
 
 /**
+ * Circuit breaker: halt a retry/beat loop after N identical failures (VETO / cap_refuse /
+ * no_progress) instead of spinning forever. `record(key)` returns a one-line halt reason at the
+ * threshold; break out on a non-null return. No screensaver loop.
+ */
+export { CircuitBreaker } from './circuit-breaker';
+export type { BreakerOutcome } from './circuit-breaker';
+
+/**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
  * re-verify. Green only when local verification returned true. The BADGE never prints the
