@@ -127,7 +127,21 @@ interview.writePrivate(
     2,
   ) + '\n',
 );
-console.log('wrote', join(DIR, 'credentials.json'), 'and', join(DIR, 'profile.json'));
+// Wiki seed — a plain, human-readable page from the interview answers, on-device only. NOT a config
+// dump ("not 100 OAuth"): just what this PAI is for, in the person's own words, for them to grow.
+const toolLines = (Array.isArray(pack) ? pack : [pack]).filter(Boolean).map((t) => `- ${t}`).join('\n') || '- (none suggested yet)';
+interview.writePrivate(
+  join(DIR, 'wiki', 'README.md'),
+  `# ${name} — your PAI\n\n` +
+    `Your confidential chief of staff. This wiki lives in \`.trustshell/wiki/\` on this device and is never uploaded — edit it freely.\n\n` +
+    `## What it's for\n${job || '(tell it in the interview)'}\n\n` +
+    `## Cost sense\n${cost || '(not set)'}\n\n` +
+    `## Brain\n${brain || '(not set)'}\n\n` +
+    `## Suggested tools\n${toolLines}\n\n` +
+    `## Two guarantees\n- HAL VETOs a false claim before you act on it.\n- A spend with no cap or no policy is refused — it never signs by default.\n\n` +
+    `## Grow the fleet\nCreate a specialist (PAI #2+): \`node scripts/init-pai.mjs --name <other-name>\`. Keep #1 as your chief of staff.\n`,
+);
+console.log('wrote', join(DIR, 'credentials.json') + ',', join(DIR, 'profile.json') + ',', 'and', join(DIR, 'wiki', 'README.md'));
 if (freshRegister) {
   logQuiet('register_ok', { agentId: reg.agentId, agentName: name });
   // Shown ONCE. The apiKey is saved in credentials.json (gitignored) and never printed again —
