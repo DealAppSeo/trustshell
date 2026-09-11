@@ -1291,6 +1291,15 @@ function mapServiceRow(row: any): ServiceListing {
  *
  * Returns the base64 header string to pass as `A2AParams.xPaymentHeader`.
  */
+export function assertPaymentCap(params: { amount: number | bigint | string; cap: number | bigint | string }): true {
+  const amount = BigInt(params.amount);
+  const cap = BigInt(params.cap);
+  if (amount > cap) {
+    throw new TrustShellError(`cap_exceeded: amount ${amount} > cap ${cap}`, 400);
+  }
+  return true;
+}
+
 export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
   // Lazy import keeps ethers out of the module graph for consumers that never call this.
   const { Wallet, getAddress } = await import('ethers');
