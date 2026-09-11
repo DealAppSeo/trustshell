@@ -4,7 +4,7 @@
  * Non-interactive: --name and --answers "job|cost|brain"
  */
 import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import readline from 'node:readline';
 
@@ -33,7 +33,7 @@ async function loadTrustShell() {
   }
 }
 
-const { name, answers: argvAnswers } = interview.parseArgv(process.argv);
+const { name, answers: argvAnswers, force } = interview.parseArgv(process.argv);
 const answers = argvAnswers ?? (await askInteractive());
 const job = answers[0] || '';
 const cost = answers[1] || '';
@@ -47,11 +47,11 @@ if (!health?.ok) {
   process.exit(1);
 }
 
-function loadLocal(wantName) {
+function loadLocal() {
   try {
     const cred = JSON.parse(readFileSync(join(DIR, 'credentials.json'), 'utf8'));
     const prof = JSON.parse(readFileSync(join(DIR, 'profile.json'), 'utf8'));
-    if (prof.agentName === wantName && cred.agentId) {
+    if (cred.agentId) {
       return { agentName: prof.agentName, agentId: cred.agentId, apiKey: cred.apiKey, erc8004TokenId: cred.erc8004TokenId ?? null };
     }
   } catch {
@@ -60,29 +60,46 @@ function loadLocal(wantName) {
   return null;
 }
 
+function writePrivate(file, text) {
+  mkdirSync(DIR, { recursive: true, mode: 0o700 });
+  try { chmodSync(DIR, 0o700); } catch { /* windows */ }
+  writeFileSync(file, text, { mode: 0o600 });
+  try { chmodSync(file, 0o600); } catch { /* windows */ }
+}
+
+const local = loadLocal();
+const exist = interview.existingCreds({ local, name, force });
 let reg;
-try {
-  reg = await client.register({ agentName: name });
-} catch (err) {
-  const decision = interview.reuseOrNameTaken({ name, err, local: loadLocal(name) });
-  if (decision.action === 'reuse') {
-    console.log('reusing local .trustshell credentials for', name);
-    reg = {
-      agentId: decision.local.agentId,
-      apiKey: decision.local.apiKey,
-      erc8004TokenId: decision.local.erc8004TokenId ?? null,
-    };
-  } else if (decision.action === 'name_taken') {
-    console.log(decision.message);
-    process.exit(0);
-  } else {
-    const msg = err && err.message ? err.message : String(err);
-    console.error('register failed:', msg);
-    process.exit(1);
+if (exist.action === 'reuse') {
+  console.log('reusing local .trustshell credentials for', name);
+  reg = exist.local;
+} else if (exist.action === 'exists') {
+  console.error(exist.message);
+  process.exit(1);
+} else {
+  try {
+    reg = await client.register({ agentName: name });
+  } catch (err) {
+    const decision = interview.reuseOrNameTaken({ name, err, local });
+    if (decision.action === 'reuse') {
+      console.log('reusing local .trustshell credentials for', name);
+      reg = decision.local;
+    } else if (decision.action === 'name_taken') {
+      console.log(decision.message);
+      process.exit(0);
+    } else if (decision.action === 'busy') {
+      console.log(decision.message);
+      process.exit(1);
+    } else {
+      const msg = err && err.message ? err.message : String(err);
+      console.error('register failed:', msg);
+      process.exit(1);
+    }
   }
 }
-mkdirSync(DIR, { recursive: true });
-writeFileSync(
+
+console.log('Name', name);
+writePrivate(
   join(DIR, 'credentials.json'),
   JSON.stringify(
     { agentId: reg.agentId, apiKey: reg.apiKey, erc8004TokenId: reg.erc8004TokenId ?? null, createdAt: new Date().toISOString() },
@@ -90,7 +107,7 @@ writeFileSync(
     2,
   ) + '\n',
 );
-writeFileSync(
+writePrivate(
   join(DIR, 'profile.json'),
   JSON.stringify(
     {
@@ -122,6 +139,5 @@ console.log('RepID', rep.repid, rep.tier, '(score moves; do not freeze)');
 console.log('- private files on this device: .trustshell/credentials.json + profile.json (gitignored)');
 console.log('- HAL catch: a false claim is VETO before you act on it');
 console.log('- ERC-8004 passport: register is NOT_MINTED until a keyed mint');
-console.log('- x402+cap wallet: pay path needs a funded Base Sepolia key and an explicit cap');
 
 process.exit(0);
