@@ -76,7 +76,7 @@ const exist = interview.existingCreds({ local, name, force });
 let reg;
 let freshRegister = false;
 if (exist.action === 'reuse') {
-  console.log('reusing local .trustshell credentials for', name);
+  console.log(`reusing local ${DIR} credentials for`, name);
   reg = exist.local;
 } else if (exist.action === 'exists') {
   console.error(exist.message);
@@ -88,7 +88,7 @@ if (exist.action === 'reuse') {
   } catch (err) {
     const decision = interview.reuseOrNameTaken({ name, err, local });
     if (decision.action === 'reuse') {
-      console.log('reusing local .trustshell credentials for', name);
+      console.log(`reusing local ${DIR} credentials for`, name);
       reg = decision.local;
     } else if (decision.action === 'name_taken') {
       console.log(decision.message);
@@ -157,7 +157,7 @@ if (freshRegister) {
   // copy it now if you need it elsewhere. On a reuse run we do NOT reprint it.
   console.log('');
   console.log('  agentId:', reg.agentId);
-  console.log('  apiKey :', reg.apiKey, '  (shown once — saved to .trustshell/credentials.json)');
+  console.log('  apiKey :', reg.apiKey, `  (shown once — saved to ${join(DIR, 'credentials.json')})`);
   console.log('');
 }
 
@@ -173,16 +173,16 @@ if (rome.verdict === 'VETO') {
 const rep = await client.getRepID(reg.agentId);
 console.log('RepID', rep.repid, rep.tier, '(score moves; do not freeze)');
 
-console.log('- private files on this device: .trustshell/credentials.json + profile.json (gitignored)');
+console.log(`- private files on this device: ${join(DIR, 'credentials.json')} + ${join(DIR, 'profile.json')} — keep this dir out of git (.trustshell/ and everything under it is gitignored)`);
 console.log('- HAL catch: a false claim is VETO before you act on it');
 console.log('- ERC-8004 passport: register is NOT_MINTED until a keyed mint');
 
 // Create a second PAI — a LINK only. PAI #1 is your confidential chief of staff; specialists are
 // separate PAIs (#2+). Do NOT bolt specialist tools onto #1 — give it a colleague instead.
 console.log('');
-console.log('Create a second PAI (its own store, so #1 is untouched):');
-console.log('  PowerShell:  $env:TRUSTSHELL_HOME=".trustshell-<name>"; node scripts/init-pai.mjs --name <name>');
-console.log('  bash/zsh:    TRUSTSHELL_HOME=.trustshell-<name> node scripts/init-pai.mjs --name <name>');
-console.log('  (#1 is your chief of staff; #2+ are specialists it can manage — one store each)');
+console.log('Create a second PAI (its own store UNDER the gitignored .trustshell/, so #1 is untouched):');
+console.log('  PowerShell:  $env:TRUSTSHELL_HOME=".trustshell/<name>"; node scripts/init-pai.mjs --name <name>');
+console.log('  bash/zsh:    TRUSTSHELL_HOME=.trustshell/<name> node scripts/init-pai.mjs --name <name>');
+console.log('  (#1 is your chief of staff; #2+ are specialists it can manage — one store each, all gitignored)');
 
 process.exit(0);
