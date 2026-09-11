@@ -2,6 +2,29 @@ export * from './trustshell';
 export { TrustShell as default } from './trustshell';
 
 /**
+ * Fail-closed turn origins. `Unknown` (or an unstamped turn) may never pay — the same
+ * missing-config-refuses posture as the payment cap. Stamp origin at the trust boundary.
+ */
+export { canPay, assertOriginCanPay, PAY_CAPABLE_ORIGINS } from './origin';
+export type { AgentTurnOrigin, PayCapableOrigin } from './origin';
+
+/**
+ * Audit before act: record the spend intent, require a policy, then run the act. A missing policy
+ * refuses — a spend with no policy behind it never runs. Reuses the `.trustshell/value-events.jsonl`
+ * on-device log. Wrap `buildX402Payment` / `executeA2A` with `auditThenAct` at the spend boundary.
+ */
+export { auditThenAct } from './audit';
+export type { SpendIntent, SpendPolicy, AuditOpts } from './audit';
+
+/**
+ * Circuit breaker: halt a retry/beat loop after N identical failures (VETO / cap_refuse /
+ * no_progress) instead of spinning forever. `record(key)` returns a one-line halt reason at the
+ * threshold; break out on a non-null return. No screensaver loop.
+ */
+export { CircuitBreaker } from './circuit-breaker';
+export type { BreakerOutcome } from './circuit-breaker';
+
+/**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
  * re-verify. Green only when local verification returned true. The BADGE never prints the
