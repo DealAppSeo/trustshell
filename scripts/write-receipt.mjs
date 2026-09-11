@@ -30,10 +30,19 @@ function check(node, schema, path, errors) {
     return errors;
   }
   const t = schema.type;
-  if (t === 'string' && typeof node !== 'string') errors.push(`${path}: expected string`);
-  if (t === 'number' && (typeof node !== 'number' || !Number.isFinite(node))) errors.push(`${path}: expected finite number`);
-  if (t === 'boolean' && typeof node !== 'boolean') errors.push(`${path}: expected boolean`);
-  if (t === 'object' && (node === null || typeof node !== 'object')) errors.push(`${path}: expected object`);
+  // Type check — handles a single type OR a union array (e.g. ["string","null"]). A union must match
+  // at least one member, so a nullable field is NOT a hole that accepts anything (e.g. scheme:123 fails).
+  const matches = (n, ty) =>
+    ty === 'string' ? typeof n === 'string'
+    : ty === 'number' ? (typeof n === 'number' && Number.isFinite(n))
+    : ty === 'boolean' ? typeof n === 'boolean'
+    : ty === 'null' ? n === null
+    : ty === 'object' ? (n !== null && typeof n === 'object')
+    : true;
+  if (t !== undefined) {
+    const types = Array.isArray(t) ? t : [t];
+    if (!types.some((ty) => matches(node, ty))) errors.push(`${path}: expected ${types.join('|')}`);
+  }
   if (schema.enum && !schema.enum.includes(node)) errors.push(`${path}: '${node}' not in [${schema.enum}]`);
   if (schema.pattern && typeof node === 'string' && !new RegExp(schema.pattern).test(node)) errors.push(`${path}: does not match ${schema.pattern}`);
   if (typeof schema.minimum === 'number' && typeof node === 'number' && node < schema.minimum) errors.push(`${path}: ${node} < minimum ${schema.minimum}`);
@@ -78,6 +87,7 @@ function selfCheck() {
     ['non-finite cap limit', (r) => { r.cap.limit = Infinity; }],
     ['NaN cap amount', (r) => { r.cap.amount = NaN; }],
     ['missing cap currency', (r) => { delete r.cap.currency; }],
+    ['non-string non-null scheme', (r) => { r.proof.scheme = 123; }], // union must still type-check
   ];
   for (const [name, mutate] of cases) {
     const bad = JSON.parse(JSON.stringify(good));

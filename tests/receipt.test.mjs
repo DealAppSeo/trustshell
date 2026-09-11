@@ -48,3 +48,8 @@ test('a null proof.scheme validates (safety-glass may copy a null scheme) — Gr
   const r = sample(); r.proof.scheme = null;
   assert.equal(validateReceipt(r).valid, true);
 });
+
+test('a union type still type-checks — non-string non-null scheme fails (Greptile: union bypass)', () => {
+  const r = sample(); r.proof.scheme = 123;
+  assert.equal(validateReceipt(r).valid, false);
+});
