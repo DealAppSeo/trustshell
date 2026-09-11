@@ -42,6 +42,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrustShell = exports.TrustShellError = void 0;
 exports.envelope = envelope;
 exports.assertPaymentCap = assertPaymentCap;
+exports.capFromAllowance = capFromAllowance;
 exports.buildX402Payment = buildX402Payment;
 /** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
 function envelope(p) {
@@ -292,11 +293,16 @@ class TrustShell {
     }
     /** Fetch an agent's current RepID + tier (public read; no API key required). */
     /**
-     * Spend allowance for an agent. Fail-closed: TrustKeys `readAllowance` lives in
-     * another package and is process-local there. Until a store is wired, this throws.
+     * Spend allowance for an agent. Fail-closed unless `config.readAllowance` is
+     * the TrustKeys function (process-local in that package; pass it in).
      */
     async getAllowance(params) {
-        throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+        const reader = this.config.readAllowance;
+        if (!reader) {
+            throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+        }
+        const cap = capFromAllowance({ agentId: params.agentId, readAllowance: reader });
+        return { agentId: params.agentId, cap: cap.toString() };
     }
     async getRepID(agentId) {
         const v = await this.verify(agentId);
@@ -829,11 +835,37 @@ function assertPaymentCap(params) {
     }
     return true;
 }
-async function buildX402Payment(params) {
-    const cap = params.cap;
-    if (cap === undefined || cap === null || cap === '') {
+/** Resolve TrustKeys `readAllowance(agentId)`. Unset → `no_allowance_set`, never a guessed cap. */
+function capFromAllowance(params) {
+    if (!params.agentId) {
+        throw new TrustShellError('agentId required for readAllowance', 400);
+    }
+    const cap = params.readAllowance(params.agentId);
+    if (cap === undefined) {
+        throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+    }
+    return cap;
+}
+function resolvePaymentCap(params) {
+    const declared = params.cap;
+    const hasDeclared = declared !== undefined && declared !== null && declared !== '';
+    if (params.readAllowance) {
+        const allowed = capFromAllowance({
+            agentId: params.agentId,
+            readAllowance: params.readAllowance,
+        });
+        if (!hasDeclared)
+            return allowed;
+        const d = BigInt(declared);
+        return allowed < d ? allowed : d;
+    }
+    if (!hasDeclared) {
         throw new TrustShellError('cap required: buildX402Payment refuses to sign without a cap', 400);
     }
+    return declared;
+}
+async function buildX402Payment(params) {
+    const cap = resolvePaymentCap(params);
     assertPaymentCap({ amount: params.amount, cap });
     // Lazy import keeps ethers out of the module graph for consumers that never call this.
     const { Wallet, getAddress } = await Promise.resolve().then(() => __importStar(require('ethers')));

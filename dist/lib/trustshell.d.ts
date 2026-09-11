@@ -4,10 +4,18 @@
  *
  * From S-SDK1 spec + S-BUILD implementation.
  */
+/** TrustKeys `readAllowance` signature. Unset agent → undefined (fail closed). */
+export type ReadAllowance = (agentId: string) => bigint | undefined;
 export interface TrustShellConfig {
     apiKey?: string;
     apiUrl?: string;
     timeout?: number;
+    /**
+     * TrustKeys `readAllowance` (DealAppSeo/trustkeys, process-local there).
+     * Pass the function in; this package does not import that store.
+     * Unset → `getAllowance` stays fail-closed (`no_allowance_set`).
+     */
+    readAllowance?: ReadAllowance;
 }
 export interface ScoreOptions {
     prompt?: string;
@@ -306,11 +314,19 @@ export interface BuildX402PaymentParams {
     /** Amount in micro-USDC raw units (e.g. 100000 = 0.10 USDC). Accepts number | bigint | string. */
     amount: number | bigint | string;
     /**
-     * Spend ceiling in the same raw units as `amount`. Required.
+     * Spend ceiling in the same raw units as `amount`.
+     * Required unless `readAllowance` + `agentId` supply one.
      * Local check only — not part of the signed EIP-3009 message.
      * `buildX402Payment` refuses to sign if this is missing or if `amount` exceeds it.
      */
-    cap: number | bigint | string;
+    cap?: number | bigint | string;
+    /** Agent whose TrustKeys allowance is the cap. Required with `readAllowance`. */
+    agentId?: string;
+    /**
+     * TrustKeys `readAllowance`. Same-process inject — that package's store is
+     * process-local and not a published library. Unset agent → `no_allowance_set`.
+     */
+    readAllowance?: ReadAllowance;
     /**
      * USDC (or other EIP-3009 token) contract address = the EIP-712 `verifyingContract`.
      * Defaults to Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
@@ -485,8 +501,8 @@ export declare class TrustShell {
     evaluate(output: string, options?: ScoreOptions): Promise<VerifyOutputResult>;
     /** Fetch an agent's current RepID + tier (public read; no API key required). */
     /**
-     * Spend allowance for an agent. Fail-closed: TrustKeys `readAllowance` lives in
-     * another package and is process-local there. Until a store is wired, this throws.
+     * Spend allowance for an agent. Fail-closed unless `config.readAllowance` is
+     * the TrustKeys function (process-local in that package; pass it in).
      */
     getAllowance(params: {
         agentId: string;
@@ -636,5 +652,10 @@ export declare function assertPaymentCap(params: {
     amount: number | bigint | string;
     cap: number | bigint | string;
 }): true;
+/** Resolve TrustKeys `readAllowance(agentId)`. Unset → `no_allowance_set`, never a guessed cap. */
+export declare function capFromAllowance(params: {
+    agentId?: string;
+    readAllowance: ReadAllowance;
+}): bigint;
 export declare function buildX402Payment(params: BuildX402PaymentParams): Promise<string>;
 export default TrustShell;

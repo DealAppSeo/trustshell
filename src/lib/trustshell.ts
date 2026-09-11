@@ -5,10 +5,19 @@
  * From S-SDK1 spec + S-BUILD implementation.
  */
 
+/** TrustKeys `readAllowance` signature. Unset agent → undefined (fail closed). */
+export type ReadAllowance = (agentId: string) => bigint | undefined;
+
 export interface TrustShellConfig {
   apiKey?: string;
   apiUrl?: string;
   timeout?: number;
+  /**
+   * TrustKeys `readAllowance` (DealAppSeo/trustkeys, process-local there).
+   * Pass the function in; this package does not import that store.
+   * Unset → `getAllowance` stays fail-closed (`no_allowance_set`).
+   */
+  readAllowance?: ReadAllowance;
 }
 
 export interface ScoreOptions {
@@ -330,11 +339,19 @@ export interface BuildX402PaymentParams {
   /** Amount in micro-USDC raw units (e.g. 100000 = 0.10 USDC). Accepts number | bigint | string. */
   amount: number | bigint | string;
   /**
-   * Spend ceiling in the same raw units as `amount`. Required.
+   * Spend ceiling in the same raw units as `amount`.
+   * Required unless `readAllowance` + `agentId` supply one.
    * Local check only — not part of the signed EIP-3009 message.
    * `buildX402Payment` refuses to sign if this is missing or if `amount` exceeds it.
    */
-  cap: number | bigint | string;
+  cap?: number | bigint | string;
+  /** Agent whose TrustKeys allowance is the cap. Required with `readAllowance`. */
+  agentId?: string;
+  /**
+   * TrustKeys `readAllowance`. Same-process inject — that package's store is
+   * process-local and not a published library. Unset agent → `no_allowance_set`.
+   */
+  readAllowance?: ReadAllowance;
   /**
    * USDC (or other EIP-3009 token) contract address = the EIP-712 `verifyingContract`.
    * Defaults to Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
@@ -713,11 +730,16 @@ export class TrustShell {
 
   /** Fetch an agent's current RepID + tier (public read; no API key required). */
   /**
-   * Spend allowance for an agent. Fail-closed: TrustKeys `readAllowance` lives in
-   * another package and is process-local there. Until a store is wired, this throws.
+   * Spend allowance for an agent. Fail-closed unless `config.readAllowance` is
+   * the TrustKeys function (process-local in that package; pass it in).
    */
   async getAllowance(params: { agentId: string }): Promise<{ agentId: string; cap: string }> {
-    throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+    const reader = this.config.readAllowance;
+    if (!reader) {
+      throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+    }
+    const cap = capFromAllowance({ agentId: params.agentId, readAllowance: reader });
+    return { agentId: params.agentId, cap: cap.toString() };
   }
 
   async getRepID(agentId: string): Promise<RepIDResult> {
@@ -1340,11 +1362,38 @@ export function assertPaymentCap(params: { amount: number | bigint | string; cap
   return true;
 }
 
-export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
-  const cap = (params as { cap?: number | bigint | string }).cap;
-  if (cap === undefined || cap === null || cap === '') {
+/** Resolve TrustKeys `readAllowance(agentId)`. Unset → `no_allowance_set`, never a guessed cap. */
+export function capFromAllowance(params: { agentId?: string; readAllowance: ReadAllowance }): bigint {
+  if (!params.agentId) {
+    throw new TrustShellError('agentId required for readAllowance', 400);
+  }
+  const cap = params.readAllowance(params.agentId);
+  if (cap === undefined) {
+    throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+  }
+  return cap;
+}
+
+function resolvePaymentCap(params: BuildX402PaymentParams): number | bigint | string {
+  const declared = params.cap;
+  const hasDeclared = declared !== undefined && declared !== null && declared !== '';
+  if (params.readAllowance) {
+    const allowed = capFromAllowance({
+      agentId: params.agentId,
+      readAllowance: params.readAllowance,
+    });
+    if (!hasDeclared) return allowed;
+    const d = BigInt(declared as number | bigint | string);
+    return allowed < d ? allowed : d;
+  }
+  if (!hasDeclared) {
     throw new TrustShellError('cap required: buildX402Payment refuses to sign without a cap', 400);
   }
+  return declared as number | bigint | string;
+}
+
+export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
+  const cap = resolvePaymentCap(params);
   assertPaymentCap({ amount: params.amount, cap });
 
   // Lazy import keeps ethers out of the module graph for consumers that never call this.

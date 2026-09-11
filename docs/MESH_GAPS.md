@@ -9,7 +9,7 @@
 | envelope | envelope() + presentProof({tier:'envelope'}) | **live client strip** (CLIENT_STRIP_NOT_CIRCUIT) |
 | package | ProofTier | missing live path (501 unless experimental) |
 | vault | — | **missing** (no export) |
-| getAllowance | src/lib/trustshell.ts | **fail-closed** throw `no_allowance_set` (TrustKeys readAllowance is another repo, in-memory) |
+| getAllowance | src/lib/trustshell.ts | **wired** — inject TrustKeys `readAllowance`; unset still `no_allowance_set`. Same reader is the `buildX402Payment` cap when `agentId` is passed. |
 | lastAnchorTx | getRepID | **live** string or `NOT_ANCHORED` (no silent null). ReputationRegistry `0x8004B663056A597Dffe9eCcC1965A193B7388713` on Base Sepolia — lookup the tx on basescan when it is a 0x hash, not when `NOT_ANCHORED`. |
 | present_proof MCP | src/mcp/index.ts | **live** 1.4.0 tree; missing from npm 1.0.0 |
 

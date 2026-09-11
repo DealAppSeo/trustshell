@@ -54,3 +54,84 @@ describe('buildX402Payment must assert cap before signing', () => {
   });
 });
 
+// TrustKeys readAllowance is process-local in another package. The wire is the
+// same signature: (agentId) => bigint | undefined. Unset agent is fail-closed.
+function allowanceStore(entries: Array<[string, number]>) {
+  const m = new Map<string, bigint>();
+  for (const [id, cap] of entries) m.set(id, BigInt(cap));
+  return (agentId: string) => m.get(agentId);
+}
+
+describe('buildX402Payment uses TrustKeys readAllowance as cap', () => {
+  it('REFUSES amount above the stored allowance before signing', async () => {
+    await expect(
+      buildX402Payment({
+        privateKey: TEST_KEY,
+        to: TEST_TO,
+        amount: 501,
+        agentId: 'agent-a',
+        readAllowance: allowanceStore([['agent-a', 500]]),
+      }),
+    ).rejects.toThrow(/cap_exceeded/);
+  });
+
+  it('signs when amount is at the stored allowance', async () => {
+    const hdr = await buildX402Payment({
+      privateKey: TEST_KEY,
+      to: TEST_TO,
+      amount: 500,
+      agentId: 'agent-a',
+      readAllowance: allowanceStore([['agent-a', 500]]),
+    });
+    expect(typeof hdr).toBe('string');
+    expect(hdr.length).toBeGreaterThan(10);
+  });
+
+  it('REFUSES when the agent has no allowance — does not invent a cap', async () => {
+    await expect(
+      buildX402Payment({
+        privateKey: TEST_KEY,
+        to: TEST_TO,
+        amount: 1,
+        agentId: 'nobody',
+        readAllowance: allowanceStore([]),
+      }),
+    ).rejects.toThrow(/no_allowance_set/);
+  });
+
+  it('REFUSES when readAllowance is passed without agentId', async () => {
+    await expect(
+      buildX402Payment({
+        privateKey: TEST_KEY,
+        to: TEST_TO,
+        amount: 1,
+        readAllowance: allowanceStore([['agent-a', 500]]),
+      } as any),
+    ).rejects.toThrow(/agentId required/);
+  });
+
+  it('the tighter of caller cap and stored allowance wins', async () => {
+    const reader = allowanceStore([['agent-a', 500]]);
+    await expect(
+      buildX402Payment({
+        privateKey: TEST_KEY,
+        to: TEST_TO,
+        amount: 501,
+        cap: 1000,
+        agentId: 'agent-a',
+        readAllowance: reader,
+      }),
+    ).rejects.toThrow(/cap_exceeded/);
+    await expect(
+      buildX402Payment({
+        privateKey: TEST_KEY,
+        to: TEST_TO,
+        amount: 501,
+        cap: 500,
+        agentId: 'agent-a',
+        readAllowance: allowanceStore([['agent-a', 1000]]),
+      }),
+    ).rejects.toThrow(/cap_exceeded/);
+  });
+});
+
