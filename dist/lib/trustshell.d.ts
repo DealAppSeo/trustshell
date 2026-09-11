@@ -165,7 +165,8 @@ export interface RepIDResult {
     agentId: string;
     repid: number;
     tier: string;
-    lastAnchorTx: string | null;
+    /** On-chain tx hash, or the coded reason `NOT_ANCHORED`. Never silent null. */
+    lastAnchorTx: string;
     latestProofHash: string | null;
 }
 /** Reveal tiers (ZKP_REVEAL_TIERS). `postcard` is production-real; others are capability-gated. */
@@ -180,7 +181,8 @@ export interface ProofPresentation {
     scheme: string | null;
     statement: {
         agent_id: string;
-        repid_score: number;
+        /** Postcard only. Envelope omits this so the exact score is not plaintext. */
+        repid_score?: number;
         threshold: number;
         tier: string;
     } | null;
@@ -192,6 +194,8 @@ export interface ProofPresentation {
         verifierVersion: string;
     };
 }
+/** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
+export declare function envelope(p: ProofPresentation): ProofPresentation;
 /**
  * Params for `register()` — public agent onboarding.
  * Maps to the live backend `POST /api/v1/agents/register`.
@@ -301,6 +305,12 @@ export interface BuildX402PaymentParams {
     to: string;
     /** Amount in micro-USDC raw units (e.g. 100000 = 0.10 USDC). Accepts number | bigint | string. */
     amount: number | bigint | string;
+    /**
+     * Spend ceiling in the same raw units as `amount`. Required.
+     * Local check only — not part of the signed EIP-3009 message.
+     * `buildX402Payment` refuses to sign if this is missing or if `amount` exceeds it.
+     */
+    cap: number | bigint | string;
     /**
      * USDC (or other EIP-3009 token) contract address = the EIP-712 `verifyingContract`.
      * Defaults to Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
@@ -474,6 +484,16 @@ export declare class TrustShell {
      */
     evaluate(output: string, options?: ScoreOptions): Promise<VerifyOutputResult>;
     /** Fetch an agent's current RepID + tier (public read; no API key required). */
+    /**
+     * Spend allowance for an agent. Fail-closed: TrustKeys `readAllowance` lives in
+     * another package and is process-local there. Until a store is wired, this throws.
+     */
+    getAllowance(params: {
+        agentId: string;
+    }): Promise<{
+        agentId: string;
+        cap: string;
+    }>;
     getRepID(agentId: string): Promise<RepIDResult>;
     /**
      * Fetch a live leaderboard from the public repid-engine.
@@ -517,6 +537,8 @@ export declare class TrustShell {
         tier?: ProofTier;
         allowExperimentalTiers?: boolean;
     }): Promise<ProofPresentation>;
+    /** Accepts proof bytes + statement, or a presentProof object (not only a string). */
+    verifyProof(proofBytesOrPresentation: string | ProofPresentation, statement?: ProofPresentation['statement']): Promise<NonNullable<ProofPresentation['verification']>>;
     /** Client-side WASM verification of a proof against its statement. */
     private verifyProofLocally;
     audit(table?: string): Promise<AuditResult>;
@@ -610,5 +632,9 @@ export declare class TrustShell {
  *
  * Returns the base64 header string to pass as `A2AParams.xPaymentHeader`.
  */
+export declare function assertPaymentCap(params: {
+    amount: number | bigint | string;
+    cap: number | bigint | string;
+}): true;
 export declare function buildX402Payment(params: BuildX402PaymentParams): Promise<string>;
 export default TrustShell;

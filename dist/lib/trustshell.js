@@ -40,7 +40,17 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrustShell = exports.TrustShellError = void 0;
+exports.envelope = envelope;
+exports.assertPaymentCap = assertPaymentCap;
 exports.buildX402Payment = buildX402Payment;
+/** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
+function envelope(p) {
+    const s = p.statement;
+    const statement = s
+        ? { agent_id: s.agent_id, threshold: s.threshold, tier: s.tier }
+        : null;
+    return { ...p, tier: 'envelope', statement };
+}
 class TrustShellError extends Error {
     constructor(message, status) {
         super(message);
@@ -281,13 +291,20 @@ class TrustShell {
         return this.verifyOutput(output, options);
     }
     /** Fetch an agent's current RepID + tier (public read; no API key required). */
+    /**
+     * Spend allowance for an agent. Fail-closed: TrustKeys `readAllowance` lives in
+     * another package and is process-local there. Until a store is wired, this throws.
+     */
+    async getAllowance(params) {
+        throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+    }
     async getRepID(agentId) {
         const v = await this.verify(agentId);
         return {
             agentId,
             repid: v.repid,
             tier: v.tier,
-            lastAnchorTx: v.lastAnchorTx,
+            lastAnchorTx: v.lastAnchorTx || 'NOT_ANCHORED',
             latestProofHash: v.latestProofHash,
         };
     }
@@ -416,12 +433,9 @@ class TrustShell {
      */
     async presentProof(agentId, opts = {}) {
         const tier = opts.tier ?? 'postcard';
-        // Only `postcard` has a production-real proof endpoint today. Other tiers (envelope/letter/
-        // package) are implemented in the prover but not yet exposed as a live API — expose them behind
-        // a capability flag, default OFF, and FLAG rather than fake (no stub in a shipped path).
-        if (tier !== 'postcard' && !opts.allowExperimentalTiers) {
+        if (tier !== 'postcard' && tier !== 'envelope' && !opts.allowExperimentalTiers) {
             throw new TrustShellError(`Proof tier '${tier}' is not yet production-exposed. Pass { allowExperimentalTiers: true } ` +
-                `to opt in once the live endpoint ships; today only 'postcard' returns a real proof.`, 501);
+                `to opt in once the live endpoint ships; today 'postcard' and 'envelope' are real.`, 501);
         }
         const url = `${this.baseUrl}/api/v1/repid/${encodeURIComponent(agentId)}/proof`;
         const res = await fetch(url, { headers: this.getHeaders() });
@@ -438,19 +452,37 @@ class TrustShell {
             createdAt: data.created_at ?? null,
         };
         if (opts.verify && presentation.proofBytes && presentation.statement) {
-            presentation.verification = await this.verifyProofLocally(presentation.proofBytes, presentation.statement);
+            presentation.verification = await this.verifyProof(presentation);
         }
         this.emit('proof', presentation);
+        if (tier === 'envelope') {
+            const env = envelope(presentation);
+            env.verification = presentation.verification;
+            return env;
+        }
         return presentation;
     }
+    /** Accepts proof bytes + statement, or a presentProof object (not only a string). */
+    async verifyProof(proofBytesOrPresentation, statement) {
+        return this.verifyProofLocally(proofBytesOrPresentation, statement);
+    }
     /** Client-side WASM verification of a proof against its statement. */
-    async verifyProofLocally(proofBytes, statement) {
+    async verifyProofLocally(proofBytesOrPresentation, statement) {
+        let proofBytes;
+        let stmt = statement;
+        if (typeof proofBytesOrPresentation === 'object' && proofBytesOrPresentation) {
+            proofBytes = proofBytesOrPresentation.proofBytes;
+            stmt = stmt ?? proofBytesOrPresentation.statement;
+        }
+        else {
+            proofBytes = proofBytesOrPresentation;
+        }
         try {
             // Dynamic import via a variable specifier so the SDK type-checks and loads even when
             // the optional verifier isn't installed (it ships as an optionalDependency).
             const verifierPkg = '@hyperdag/proof-verifier';
             const mod = await Promise.resolve(`${verifierPkg}`).then(s => __importStar(require(s)));
-            const result = await mod.verify(proofBytes, statement);
+            const result = await mod.verify(proofBytes, stmt);
             return {
                 verified: !!result.verified,
                 error: result.error ?? null,
@@ -789,7 +821,20 @@ function mapServiceRow(row) {
  *
  * Returns the base64 header string to pass as `A2AParams.xPaymentHeader`.
  */
+function assertPaymentCap(params) {
+    const amount = BigInt(params.amount);
+    const cap = BigInt(params.cap);
+    if (amount > cap) {
+        throw new TrustShellError(`cap_exceeded: amount ${amount} > cap ${cap}`, 400);
+    }
+    return true;
+}
 async function buildX402Payment(params) {
+    const cap = params.cap;
+    if (cap === undefined || cap === null || cap === '') {
+        throw new TrustShellError('cap required: buildX402Payment refuses to sign without a cap', 400);
+    }
+    assertPaymentCap({ amount: params.amount, cap });
     // Lazy import keeps ethers out of the module graph for consumers that never call this.
     const { Wallet, getAddress } = await Promise.resolve().then(() => __importStar(require('ethers')));
     const chainId = params.chainId ?? 84532; // Base Sepolia

@@ -15,6 +15,7 @@
  *   - verify         — run text through the live HAL cross-provider fact-check quorum (PASS/FLAG/VETO).
  *   - getLeaderboard — the live model or agent trust leaderboard.
  *   - getRepID       — an agent's live RepID score + tier (keyless).
+ *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
  *
  * Transport: stdio (the Claude Desktop / Cursor default). Configure with:
  *   { "mcpServers": { "trustshell": { "command": "npx",

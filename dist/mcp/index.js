@@ -21,6 +21,7 @@ exports.main = main;
  *   - verify         — run text through the live HAL cross-provider fact-check quorum (PASS/FLAG/VETO).
  *   - getLeaderboard — the live model or agent trust leaderboard.
  *   - getRepID       — an agent's live RepID score + tier (keyless).
+ *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
  *
  * Transport: stdio (the Claude Desktop / Cursor default). Configure with:
  *   { "mcpServers": { "trustshell": { "command": "npx",
@@ -134,6 +135,23 @@ function createServer(client = makeClient()) {
         }
         catch (e) {
             return errorResult(`getRepID failed: ${e?.message ?? String(e)}`);
+        }
+    });
+    registerTool('present_proof', {
+        title: 'Present RepID proof',
+        description: "Fetch an agent's RepID range proof (postcard). Pass verify=true for client-side WASM check. " +
+            'Keyless. This tool is on the 1.4.0 tree; published @hyperdag/trustshell-mcp@1.0.0 does not have it.',
+        inputSchema: {
+            agentId: zod_1.z.string().min(1).describe('Agent id (e.g. trinity-shofet).'),
+            verify: zod_1.z.boolean().optional().describe('If true, verify the proof locally with the WASM verifier.'),
+        },
+    }, async ({ agentId, verify }) => {
+        try {
+            const r = await client.presentProof(agentId, { verify: verify === true });
+            return jsonResult(r);
+        }
+        catch (e) {
+            return errorResult(`present_proof failed: ${e?.message ?? String(e)}`);
         }
     });
     return server;
