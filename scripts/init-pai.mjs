@@ -182,7 +182,7 @@ console.log('- ERC-8004 passport: register is NOT_MINTED until a keyed mint');
 console.log('');
 console.log('Create a second PAI (its own store UNDER the gitignored .trustshell/, so #1 is untouched):');
 console.log('  PowerShell:  $env:TRUSTSHELL_HOME=".trustshell/<name>"; node scripts/init-pai.mjs --name <name>');
-console.log('  bash/zsh:    TRUSTSHELL_HOME=.trustshell/<name> node scripts/init-pai.mjs --name <name>');
+console.log('  (other shells: set the env var TRUSTSHELL_HOME to .trustshell/<name> before the node command)');
 console.log('  (#1 is your chief of staff; #2+ are specialists it can manage — one store each, all gitignored)');
 
 process.exit(0);
