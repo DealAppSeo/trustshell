@@ -190,6 +190,7 @@ const svc = services[0]; // e.g. "Verify-a-claim / HAL fact-check" by trinity-sh
 
 // PAY — sign an EIP-3009 x402 authorization (the key only signs locally; it never leaves memory).
 const xPaymentHeader = await buildX402Payment({
+  origin: 'Cli',                                // Unknown / missing origin cannot pay
   privateKey: process.env.TRUSTSHELL_PAYER_KEY, // funded Base Sepolia wallet
   to: svc.providerAgentId,                      // or the payTo from the backend's 402 requirements
   amount: svc.basePriceUsdcRaw,

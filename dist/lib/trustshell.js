@@ -44,6 +44,7 @@ exports.envelope = envelope;
 exports.assertPaymentCap = assertPaymentCap;
 exports.capFromAllowance = capFromAllowance;
 exports.buildX402Payment = buildX402Payment;
+const origin_1 = require("./origin");
 /** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
 function envelope(p) {
     const s = p.statement;
@@ -865,6 +866,7 @@ function resolvePaymentCap(params) {
     return declared;
 }
 async function buildX402Payment(params) {
+    (0, origin_1.assertOriginCanPay)(params.origin);
     const cap = resolvePaymentCap(params);
     assertPaymentCap({ amount: params.amount, cap });
     // Lazy import keeps ethers out of the module graph for consumers that never call this.

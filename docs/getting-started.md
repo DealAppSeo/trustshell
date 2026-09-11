@@ -309,6 +309,7 @@ const svc = catalog.services[0];
 
 // 3) Sign an x402 payment (EIP-3009). The private key signs locally and is NEVER logged/sent.
 const xPaymentHeader = await buildX402Payment({
+  origin: 'Cli',                                  // Unknown / missing origin cannot pay
   privateKey: process.env.TRUSTSHELL_PAYER_KEY!,  // funded Base Sepolia key
   to: svc.providerAgentId,                        // provider payTo (from the 402 requirements)
   amount: svc.basePriceUsdcRaw,                   // micro-USDC raw

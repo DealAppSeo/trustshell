@@ -1,4 +1,4 @@
-import { assertPaymentCap, buildX402Payment } from '../src/lib/index';
+import { assertPaymentCap, buildX402Payment, TrustShellError } from '../src/lib/index';
 
 // Disposable local-sign key only — never a funded wallet, never logged.
 const TEST_KEY = '0x1111111111111111111111111111111111111111111111111111111111111111';
@@ -29,16 +29,53 @@ describe('assertPaymentCap — a cap below the amount MUST refuse', () => {
   });
 });
 
+describe('buildX402Payment must assert origin before signing — Unknown cannot pay', () => {
+  it('REFUSES a missing origin before touching the cap or the key', async () => {
+    await expect(
+      buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1, cap: 1 } as any),
+    ).rejects.toThrow(/origin_refused/);
+  });
+
+  it('REFUSES Unknown — full contract, not just the message', async () => {
+    expect.assertions(3);
+    try {
+      await buildX402Payment({
+        privateKey: TEST_KEY,
+        to: TEST_TO,
+        amount: 1,
+        cap: 1,
+        origin: 'Unknown',
+      });
+    } catch (e) {
+      expect(e).toBeInstanceOf(TrustShellError);
+      expect((e as TrustShellError).status).toBe(403);
+      expect((e as Error).message).toMatch(/origin_refused/);
+    }
+  });
+
+  it('signs when origin is Cli and amount is at cap', async () => {
+    const hdr = await buildX402Payment({
+      privateKey: TEST_KEY,
+      to: TEST_TO,
+      amount: 1,
+      cap: 1,
+      origin: 'Cli',
+    });
+    expect(typeof hdr).toBe('string');
+    expect(hdr.length).toBeGreaterThan(10);
+  });
+});
+
 describe('buildX402Payment must assert cap before signing', () => {
   it('REFUSES when cap is missing', async () => {
     await expect(
-      buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1 } as any),
+      buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1, origin: 'Cli' } as any),
     ).rejects.toThrow(/cap required/);
   });
 
   it('REFUSES amount above cap before signing', async () => {
     await expect(
-      buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1000, cap: 500 }),
+      buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1000, cap: 500, origin: 'Cli' }),
     ).rejects.toThrow(/cap_exceeded/);
   });
 
@@ -48,6 +85,7 @@ describe('buildX402Payment must assert cap before signing', () => {
       to: TEST_TO,
       amount: 500,
       cap: 500,
+      origin: 'Cli',
     });
     expect(typeof hdr).toBe('string');
     expect(hdr.length).toBeGreaterThan(10);
@@ -69,6 +107,7 @@ describe('buildX402Payment uses TrustKeys readAllowance as cap', () => {
         privateKey: TEST_KEY,
         to: TEST_TO,
         amount: 501,
+        origin: 'Cli',
         agentId: 'agent-a',
         readAllowance: allowanceStore([['agent-a', 500]]),
       }),
@@ -80,6 +119,7 @@ describe('buildX402Payment uses TrustKeys readAllowance as cap', () => {
       privateKey: TEST_KEY,
       to: TEST_TO,
       amount: 500,
+      origin: 'Cli',
       agentId: 'agent-a',
       readAllowance: allowanceStore([['agent-a', 500]]),
     });
@@ -93,6 +133,7 @@ describe('buildX402Payment uses TrustKeys readAllowance as cap', () => {
         privateKey: TEST_KEY,
         to: TEST_TO,
         amount: 1,
+        origin: 'Cli',
         agentId: 'nobody',
         readAllowance: allowanceStore([]),
       }),
@@ -105,6 +146,7 @@ describe('buildX402Payment uses TrustKeys readAllowance as cap', () => {
         privateKey: TEST_KEY,
         to: TEST_TO,
         amount: 1,
+        origin: 'Cli',
         readAllowance: allowanceStore([['agent-a', 500]]),
       } as any),
     ).rejects.toThrow(/agentId required/);
@@ -118,6 +160,7 @@ describe('buildX402Payment uses TrustKeys readAllowance as cap', () => {
         to: TEST_TO,
         amount: 501,
         cap: 1000,
+        origin: 'Cli',
         agentId: 'agent-a',
         readAllowance: reader,
       }),
@@ -128,6 +171,7 @@ describe('buildX402Payment uses TrustKeys readAllowance as cap', () => {
         to: TEST_TO,
         amount: 501,
         cap: 500,
+        origin: 'Cli',
         agentId: 'agent-a',
         readAllowance: allowanceStore([['agent-a', 1000]]),
       }),
