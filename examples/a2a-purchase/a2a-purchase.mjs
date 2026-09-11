@@ -107,6 +107,7 @@ if (!payCap.ok) {
 }
 const provider = await client.getService(chosen.id); // refresh to get the current payTo/provider
 const xPaymentHeader = await buildX402Payment({
+  origin: 'Cli',
   privateKey: PAYER_KEY,
   // The provider's payTo comes back in the 402 requirements; for the happy path we sign for the
   // provider agent's wallet. If you don't know it yet, call executeA2A() once WITHOUT a header to

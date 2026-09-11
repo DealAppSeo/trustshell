@@ -4,6 +4,7 @@
  *
  * From S-SDK1 spec + S-BUILD implementation.
  */
+import type { AgentTurnOrigin } from './origin';
 /** TrustKeys `readAllowance` signature. Unset agent → undefined (fail closed). */
 export type ReadAllowance = (agentId: string) => bigint | undefined;
 export interface TrustShellConfig {
@@ -327,6 +328,12 @@ export interface BuildX402PaymentParams {
      * process-local and not a published library. Unset agent → `no_allowance_set`.
      */
     readAllowance?: ReadAllowance;
+    /**
+     * Where this spend came from. Required. Missing / `Unknown` / unrecognized →
+     * `origin_refused` (403) before a cap is read or a key is touched. Stamp at the
+     * trust boundary you own — this is not an anti-spoof proof against a key holder.
+     */
+    origin: AgentTurnOrigin;
     /**
      * USDC (or other EIP-3009 token) contract address = the EIP-712 `verifyingContract`.
      * Defaults to Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
