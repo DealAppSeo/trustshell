@@ -88,6 +88,29 @@ test('writePrivate writes a regular file; refuses a symlink at that path', () =>
   }
 });
 
+test('writePrivate refuses a hard link at the credential path', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { writePrivate } = require('../lib/interview.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pai-hard-'));
+  const dest = path.join(dir, 'credentials.json');
+  const other = path.join(dir, 'leaked.txt');
+  try {
+    fs.writeFileSync(other, 'innocent\n');
+    try {
+      fs.linkSync(other, dest);
+    } catch (e) {
+      if (e.code === 'EPERM' || e.code === 'EACCES' || e.code === 'ENOTSUP') return;
+      throw e;
+    }
+    assert.throws(() => writePrivate(dest, '{"apiKey":"secret"}\n'), /hard link/);
+    assert.equal(fs.readFileSync(other, 'utf8'), 'innocent\n');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('writePrivate refuses a symlink directory', () => {
   const fs = require('node:fs');
   const os = require('node:os');
