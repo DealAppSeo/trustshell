@@ -312,6 +312,7 @@ const xPaymentHeader = await buildX402Payment({
   privateKey: process.env.TRUSTSHELL_PAYER_KEY!,  // funded Base Sepolia key
   to: svc.providerAgentId,                        // provider payTo (from the 402 requirements)
   amount: svc.basePriceUsdcRaw,                   // micro-USDC raw
+  cap: 1_000_000n, // BUYER limit (raw USDC units), not the listing price
 });
 
 // 4) Buy: create the service contract + escrow the payment.

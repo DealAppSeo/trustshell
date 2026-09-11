@@ -33,6 +33,7 @@
  *   TRUSTSHELL_PAY_TO      the provider payTo address to sign the x402 payment against (see note in-code)
  */
 import { TrustShell, buildX402Payment } from '@hyperdag/trustshell';
+import { requirePayCap } from './require-pay-cap.mjs';
 
 const API_URL = process.env.TRUSTSHELL_API_URL || 'https://repid-engine-production.up.railway.app';
 const API_KEY = process.env.REPID_API_KEY;
@@ -99,6 +100,11 @@ log(`  picked: "${chosen.serviceName}" (${chosen.id}) — ${(chosen.basePriceUsd
 
 // --- 3. buildX402Payment() — sign the EIP-3009 authorization (key never logged). ---------------
 log('\n→ signing x402 payment (EIP-3009 TransferWithAuthorization)…');
+const payCap = requirePayCap(process.env);
+if (!payCap.ok) {
+  log(payCap.message);
+  process.exit(1);
+}
 const provider = await client.getService(chosen.id); // refresh to get the current payTo/provider
 const xPaymentHeader = await buildX402Payment({
   privateKey: PAYER_KEY,
@@ -107,7 +113,7 @@ const xPaymentHeader = await buildX402Payment({
   // get the backend's `paymentRequired.accepts[0].payTo`, then sign against that and retry.
   to: process.env.TRUSTSHELL_PAY_TO || provider.providerAgentId, // overrideable; see note above
   amount: chosen.basePriceUsdcRaw,
-  cap: process.env.TRUSTSHELL_PAY_CAP || chosen.basePriceUsdcRaw,
+  cap: payCap.cap, // BUYER limit, not the listing price
 });
 log('✓ payment signed (only the signed authorization travels; the private key never leaves memory)');
 

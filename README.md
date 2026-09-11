@@ -163,6 +163,16 @@ Runnable version: [`examples/quickstart/quickstart.mjs`](examples/quickstart/qui
 
 ---
 
+### Payments
+
+`buildX402Payment` signs an EIP-3009 header for x402 on Base Sepolia.
+Pass `cap` in the same raw units as `amount` — the **BUYER limit**, not the listing price.
+If `cap` is missing, it refuses to sign (`cap required`).
+If `amount` exceeds `cap`, it throws `cap_exceeded`.
+The private key signs locally and never leaves the process.
+`executeA2A` still needs an API key and a funded testnet wallet.
+This does not spend until you escrow. Not mainnet.
+
 ## Discover → buy → receipt (agent-to-agent)
 
 The full A2A loop: find a verified service, buy it, get a verifiable receipt. Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
@@ -183,6 +193,7 @@ const xPaymentHeader = await buildX402Payment({
   privateKey: process.env.TRUSTSHELL_PAYER_KEY, // funded Base Sepolia wallet
   to: svc.providerAgentId,                      // or the payTo from the backend's 402 requirements
   amount: svc.basePriceUsdcRaw,
+  cap: 1_000_000n, // BUYER limit (raw USDC units), not the listing price
 });
 
 // BUY — agent-to-agent purchase: create the contract + escrow the payment.
