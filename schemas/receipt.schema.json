@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hyperdag.org/schemas/receipt.schema.json",
+  "title": "TrustShell action receipt",
+  "description": "One shared receipt contract for a machine action: what the harness checked (hal), who acted (repid), the on-chain anchor (tx), the zero-knowledge proof result (proof.verified), and the spend cap that bounded it (cap). Field paths match scripts/safety-glass.mjs so the two share one shape; `cap` is the field safety-glass does not yet emit.",
+  "type": "object",
+  "required": ["hal", "repid", "onchain", "proof", "cap"],
+  "additionalProperties": true,
+  "properties": {
+    "agent": { "type": "string" },
+    "hal": {
+      "type": "object",
+      "required": ["verdict", "trustScore"],
+      "properties": {
+        "verdict": { "type": "string", "enum": ["PASS", "FLAG", "VETO"] },
+        "trustScore": { "type": "number" },
+        "evidence": {}
+      }
+    },
+    "repid": {
+      "type": "object",
+      "required": ["score", "tier"],
+      "properties": {
+        "score": { "type": "number" },
+        "tier": { "type": "string" }
+      }
+    },
+    "onchain": {
+      "type": "object",
+      "required": ["tx"],
+      "properties": {
+        "tx": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+        "registry": { "type": "string" },
+        "block": { "type": "number" },
+        "method": { "type": "string" }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "required": ["verified"],
+      "properties": {
+        "verified": { "type": "boolean" },
+        "scheme": { "type": "string" },
+        "statement": {}
+      }
+    },
+    "cap": {
+      "type": "object",
+      "description": "The spend limit that bounded this action and whether it was enforced. amount <= limit when enforced.",
+      "required": ["limit", "amount", "enforced"],
+      "properties": {
+        "limit": { "type": "number", "minimum": 0 },
+        "amount": { "type": "number", "minimum": 0 },
+        "currency": { "type": "string" },
+        "enforced": { "type": "boolean" }
+      }
+    }
+  }
+}
