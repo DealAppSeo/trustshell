@@ -24,6 +24,15 @@ function mockClient(overrides: Partial<Record<string, any>> = {}): TrustShell {
     getRepID: jest.fn(async (agentId: string) => ({
       agentId, repid: 1000, tier: 'ESTABLISHED', lastAnchorTx: null, latestProofHash: null,
     })),
+    presentProof: jest.fn(async (agentId: string, opts?: { verify?: boolean }) => ({
+      agentId,
+      tier: 'postcard',
+      proofBytes: 'Yg==',
+      scheme: 'plonky3_range_check',
+      statement: { agent_id: agentId, threshold: 999, tier: 'ESTABLISHED' },
+      createdAt: null,
+      verification: opts?.verify ? { verified: true, error: null, verifierVersion: 'mock' } : undefined,
+    })),
     ...overrides,
   } as unknown as TrustShell;
 }
@@ -35,10 +44,10 @@ function getTool(server: any, name: string) {
 }
 
 describe('trustshell MCP server', () => {
-  it('registers exactly the three advertised tools', () => {
+  it('registers the advertised tools including present_proof', () => {
     const server: any = createServer(mockClient());
     const names = Object.keys(server._registeredTools ?? {}).sort();
-    expect(names).toEqual(['getLeaderboard', 'getRepID', 'verify']);
+    expect(names).toEqual(['getLeaderboard', 'getRepID', 'present_proof', 'verify']);
   });
 
   // Deliberately NOT a hardcoded literal — a literal is exactly the bug this
@@ -84,6 +93,15 @@ describe('trustshell MCP server', () => {
     const res = await tool.handler({ agentId: 'agent-123' });
     expect((client.getRepID as jest.Mock)).toHaveBeenCalledWith('agent-123');
     expect(JSON.parse(res.content[0].text).tier).toBe('ESTABLISHED');
+  });
+
+  it('present_proof delegates to client.presentProof with verify', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    const tool = getTool(server, 'present_proof');
+    const res = await tool.handler({ agentId: 'trinity-shofet', verify: true });
+    expect((client.presentProof as jest.Mock)).toHaveBeenCalledWith('trinity-shofet', { verify: true });
+    expect(JSON.parse(res.content[0].text).verification.verified).toBe(true);
   });
 
   it('surfaces client errors as an isError result (never throws to the transport)', async () => {

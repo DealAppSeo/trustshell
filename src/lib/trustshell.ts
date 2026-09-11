@@ -330,6 +330,7 @@ export interface BuildX402PaymentParams {
   amount: number | bigint | string;
   /**
    * Spend ceiling in the same raw units as `amount`. Required.
+   * Local check only — not part of the signed EIP-3009 message.
    * `buildX402Payment` refuses to sign if this is missing or if `amount` exceeds it.
    */
   cap: number | bigint | string;
