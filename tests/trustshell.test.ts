@@ -351,6 +351,7 @@ describe('buildX402Payment()', () => {
       privateKey: TEST_KEY,
       to: TEST_TO,
       amount: 100000,
+      cap: 100000,
     });
 
     expect(typeof header).toBe('string');
@@ -366,7 +367,7 @@ describe('buildX402Payment()', () => {
   });
 
   it('never includes the private key in the header payload', async () => {
-    const header = await buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1 });
+    const header = await buildX402Payment({ privateKey: TEST_KEY, to: TEST_TO, amount: 1, cap: 1 });
     const decoded = Buffer.from(header, 'base64').toString('utf8');
     expect(decoded).not.toContain(TEST_KEY);
     expect(decoded).not.toContain(TEST_KEY.slice(2));

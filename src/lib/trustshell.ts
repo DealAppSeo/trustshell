@@ -329,6 +329,11 @@ export interface BuildX402PaymentParams {
   /** Amount in micro-USDC raw units (e.g. 100000 = 0.10 USDC). Accepts number | bigint | string. */
   amount: number | bigint | string;
   /**
+   * Spend ceiling in the same raw units as `amount`. Required.
+   * `buildX402Payment` refuses to sign if this is missing or if `amount` exceeds it.
+   */
+  cap: number | bigint | string;
+  /**
    * USDC (or other EIP-3009 token) contract address = the EIP-712 `verifyingContract`.
    * Defaults to Base Sepolia USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
    */
@@ -1326,6 +1331,12 @@ export function assertPaymentCap(params: { amount: number | bigint | string; cap
 }
 
 export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
+  const cap = (params as { cap?: number | bigint | string }).cap;
+  if (cap === undefined || cap === null || cap === '') {
+    throw new TrustShellError('cap required: buildX402Payment refuses to sign without a cap', 400);
+  }
+  assertPaymentCap({ amount: params.amount, cap });
+
   // Lazy import keeps ethers out of the module graph for consumers that never call this.
   const { Wallet, getAddress } = await import('ethers');
 
