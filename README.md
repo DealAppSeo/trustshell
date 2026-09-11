@@ -167,8 +167,8 @@ Runnable version: [`examples/quickstart/quickstart.mjs`](examples/quickstart/qui
 
 `buildX402Payment` signs an EIP-3009 header for x402 on Base Sepolia.
 Pass `cap` in the same raw units as `amount` — the **BUYER limit**, not the listing price.
-If `cap` is missing, it refuses to sign (`cap required`).
-If `amount` exceeds `cap`, it throws `cap_exceeded`.
+If `cap` is missing, it refuses to sign (`cap required`) unless you pass TrustKeys `readAllowance` with `agentId` (that function is process-local in TrustKeys; inject it — this package does not import that store). An unset agent throws `no_allowance_set` rather than inventing a cap. If both `cap` and `readAllowance` are present, the tighter ceiling wins.
+If `amount` exceeds the effective cap, it throws `cap_exceeded`.
 The signed bearer header is redeemable on the token; `cap` is a local check and is **not** in the signed message.
 The private key signs locally and never leaves the process.
 `executeA2A` still needs an API key and a funded testnet wallet. Not mainnet.
