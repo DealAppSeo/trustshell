@@ -169,9 +169,9 @@ Runnable version: [`examples/quickstart/quickstart.mjs`](examples/quickstart/qui
 Pass `cap` in the same raw units as `amount` — the **BUYER limit**, not the listing price.
 If `cap` is missing, it refuses to sign (`cap required`).
 If `amount` exceeds `cap`, it throws `cap_exceeded`.
+The signed bearer header is redeemable on the token; `cap` is a local check and is **not** in the signed message.
 The private key signs locally and never leaves the process.
-`executeA2A` still needs an API key and a funded testnet wallet.
-This does not spend until you escrow. Not mainnet.
+`executeA2A` still needs an API key and a funded testnet wallet. Not mainnet.
 
 ## Discover → buy → receipt (agent-to-agent)
 
