@@ -130,6 +130,12 @@ interview.writePrivate(
 console.log('wrote', join(DIR, 'credentials.json'), 'and', join(DIR, 'profile.json'));
 if (freshRegister) {
   logQuiet('register_ok', { agentId: reg.agentId, agentName: name });
+  // Shown ONCE. The apiKey is saved in credentials.json (gitignored) and never printed again —
+  // copy it now if you need it elsewhere. On a reuse run we do NOT reprint it.
+  console.log('');
+  console.log('  agentId:', reg.agentId);
+  console.log('  apiKey :', reg.apiKey, '  (shown once — saved to .trustshell/credentials.json)');
+  console.log('');
 }
 
 const paris = await client.verifyOutput('The capital of France is Paris.');
@@ -147,5 +153,11 @@ console.log('RepID', rep.repid, rep.tier, '(score moves; do not freeze)');
 console.log('- private files on this device: .trustshell/credentials.json + profile.json (gitignored)');
 console.log('- HAL catch: a false claim is VETO before you act on it');
 console.log('- ERC-8004 passport: register is NOT_MINTED until a keyed mint');
+
+// Create a second PAI — a LINK only. PAI #1 is your confidential chief of staff; specialists are
+// separate PAIs (#2+). Do NOT bolt specialist tools onto #1 — give it a colleague instead.
+console.log('');
+console.log('Create a second PAI:  node scripts/init-pai.mjs --name <other-name>');
+console.log('  (#1 is your chief of staff; #2+ are specialists it can manage — keep them separate)');
 
 process.exit(0);
