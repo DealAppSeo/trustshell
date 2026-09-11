@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import readline from 'node:readline';
+import { logValueEvent } from './value-events.mjs';
 
 const require = createRequire(import.meta.url);
 const interview = require('../lib/interview.js');
@@ -117,6 +118,7 @@ interview.writePrivate(
   ) + '\n',
 );
 console.log('wrote', join(DIR, 'credentials.json'), 'and', join(DIR, 'profile.json'));
+logValueEvent('register_ok', { agentId: reg.agentId, agentName: name }, { dir: DIR });
 
 const paris = await client.verifyOutput('The capital of France is Paris.');
 console.log('verify Paris:', paris.verdict);
@@ -124,6 +126,7 @@ const rome = await client.verifyOutput('The Eiffel Tower is located in Rome, Ita
 console.log('verify Rome:', rome.verdict);
 if (rome.verdict === 'VETO') {
   console.log('Harness blocked a false claim before you saw it.');
+  logValueEvent('VETO', { claim: 'The Eiffel Tower is located in Rome, Italy.' }, { dir: DIR });
 }
 
 const rep = await client.getRepID(reg.agentId);
