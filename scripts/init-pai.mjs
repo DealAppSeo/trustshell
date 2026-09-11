@@ -61,9 +61,18 @@ function loadLocal() {
   return null;
 }
 
+function logQuiet(event, data) {
+  try {
+    logValueEvent(event, data, { dir: DIR });
+  } catch (err) {
+    console.error('value-events log failed:', err && err.message ? err.message : String(err));
+  }
+}
+
 const local = loadLocal();
 const exist = interview.existingCreds({ local, name, force });
 let reg;
+let freshRegister = false;
 if (exist.action === 'reuse') {
   console.log('reusing local .trustshell credentials for', name);
   reg = exist.local;
@@ -73,6 +82,7 @@ if (exist.action === 'reuse') {
 } else {
   try {
     reg = await client.register({ agentName: name });
+    freshRegister = true;
   } catch (err) {
     const decision = interview.reuseOrNameTaken({ name, err, local });
     if (decision.action === 'reuse') {
@@ -118,7 +128,9 @@ interview.writePrivate(
   ) + '\n',
 );
 console.log('wrote', join(DIR, 'credentials.json'), 'and', join(DIR, 'profile.json'));
-logValueEvent('register_ok', { agentId: reg.agentId, agentName: name }, { dir: DIR });
+if (freshRegister) {
+  logQuiet('register_ok', { agentId: reg.agentId, agentName: name });
+}
 
 const paris = await client.verifyOutput('The capital of France is Paris.');
 console.log('verify Paris:', paris.verdict);
@@ -126,7 +138,7 @@ const rome = await client.verifyOutput('The Eiffel Tower is located in Rome, Ita
 console.log('verify Rome:', rome.verdict);
 if (rome.verdict === 'VETO') {
   console.log('Harness blocked a false claim before you saw it.');
-  logValueEvent('VETO', { claim: 'The Eiffel Tower is located in Rome, Italy.' }, { dir: DIR });
+  logQuiet('VETO', { claim: 'The Eiffel Tower is located in Rome, Italy.' });
 }
 
 const rep = await client.getRepID(reg.agentId);

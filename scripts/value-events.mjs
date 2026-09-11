@@ -10,7 +10,7 @@
  *
  * Run `node scripts/value-events.mjs` (or `--selfcheck`) to exercise the self-check.
  */
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -40,8 +40,11 @@ export function logValueEvent(event, data = {}, opts = {}) {
     return line;
   }
   const dir = opts.dir ?? trustshellDir();
-  mkdirSync(dir, { recursive: true });
-  appendFileSync(join(dir, 'value-events.jsonl'), line);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try { chmodSync(dir, 0o700); } catch { /* windows */ }
+  const file = join(dir, 'value-events.jsonl');
+  appendFileSync(file, line, { mode: 0o600 });
+  try { chmodSync(file, 0o600); } catch { /* windows */ }
   return line;
 }
 
