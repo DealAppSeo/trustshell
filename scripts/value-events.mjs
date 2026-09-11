@@ -14,8 +14,12 @@ import { appendFileSync, mkdirSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-/** The only events this logs. An unknown event throws — a typo must not become a silent no-count. */
-export const VALUE_EVENTS = Object.freeze(['register_ok', 'VETO', 'cap_refuse']);
+/**
+ * The only events this logs. An unknown event throws — a typo must not become a silent no-count.
+ * `intent` is the audit-before-act row (origin, amount, cap, agentId) written by audit-intent.mjs
+ * before a spend runs; it is an audit record, not one of the three headline "moments worth counting".
+ */
+export const VALUE_EVENTS = Object.freeze(['register_ok', 'VETO', 'cap_refuse', 'intent']);
 
 export function trustshellDir() {
   if (process.env.TRUSTSHELL_HOME) return process.env.TRUSTSHELL_HOME;

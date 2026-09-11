@@ -9,6 +9,14 @@ export { canPay, assertOriginCanPay, PAY_CAPABLE_ORIGINS } from './origin';
 export type { AgentTurnOrigin, PayCapableOrigin } from './origin';
 
 /**
+ * Audit before act: record the spend intent, require a policy, then run the act. A missing policy
+ * refuses — a spend with no policy behind it never runs. Reuses the `.trustshell/value-events.jsonl`
+ * on-device log. Wrap `buildX402Payment` / `executeA2A` with `auditThenAct` at the spend boundary.
+ */
+export { auditThenAct } from './audit';
+export type { SpendIntent, SpendPolicy, AuditOpts } from './audit';
+
+/**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
  * re-verify. Green only when local verification returned true. The BADGE never prints the
