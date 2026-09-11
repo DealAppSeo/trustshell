@@ -176,7 +176,8 @@ export interface RepIDResult {
   agentId: string;
   repid: number;
   tier: string;
-  lastAnchorTx: string | null;
+  /** On-chain tx hash, or the coded reason `NOT_ANCHORED`. Never silent null. */
+  lastAnchorTx: string;
   latestProofHash: string | null;
 }
 
@@ -711,13 +712,21 @@ export class TrustShell {
   }
 
   /** Fetch an agent's current RepID + tier (public read; no API key required). */
+  /**
+   * Spend allowance for an agent. Fail-closed: TrustKeys `readAllowance` lives in
+   * another package and is process-local there. Until a store is wired, this throws.
+   */
+  async getAllowance(params: { agentId: string }): Promise<{ agentId: string; cap: string }> {
+    throw new TrustShellError(`no_allowance_set: ${params.agentId}`, 403);
+  }
+
   async getRepID(agentId: string): Promise<RepIDResult> {
     const v = await this.verify(agentId);
     return {
       agentId,
       repid: v.repid,
       tier: v.tier,
-      lastAnchorTx: v.lastAnchorTx,
+      lastAnchorTx: v.lastAnchorTx || 'NOT_ANCHORED',
       latestProofHash: v.latestProofHash,
     };
   }

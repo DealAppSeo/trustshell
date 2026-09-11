@@ -21,7 +21,7 @@ describe('envelope disclosure', () => {
     expect(JSON.stringify(postcard)).toMatch(/repid_score/);
   });
 
-  it('envelope proof does not contain repid_score plaintext', () => {
+  it('CLIENT_STRIP_NOT_CIRCUIT: envelope has no repid_score; postcard statement still binds the score', () => {
     const env = envelope(postcard);
     const json = JSON.stringify(env);
     expect(env.tier).toBe('envelope');
