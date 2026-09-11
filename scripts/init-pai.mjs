@@ -4,7 +4,7 @@
  * Non-interactive: --name and --answers "job|cost|brain"
  */
 import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import readline from 'node:readline';
 
@@ -60,13 +60,6 @@ function loadLocal() {
   return null;
 }
 
-function writePrivate(file, text) {
-  mkdirSync(DIR, { recursive: true, mode: 0o700 });
-  try { chmodSync(DIR, 0o700); } catch { /* windows */ }
-  writeFileSync(file, text, { mode: 0o600 });
-  try { chmodSync(file, 0o600); } catch { /* windows */ }
-}
-
 const local = loadLocal();
 const exist = interview.existingCreds({ local, name, force });
 let reg;
@@ -99,7 +92,7 @@ if (exist.action === 'reuse') {
 }
 
 console.log('Name', name);
-writePrivate(
+interview.writePrivate(
   join(DIR, 'credentials.json'),
   JSON.stringify(
     { agentId: reg.agentId, apiKey: reg.apiKey, erc8004TokenId: reg.erc8004TokenId ?? null, createdAt: new Date().toISOString() },
@@ -107,7 +100,7 @@ writePrivate(
     2,
   ) + '\n',
 );
-writePrivate(
+interview.writePrivate(
   join(DIR, 'profile.json'),
   JSON.stringify(
     {

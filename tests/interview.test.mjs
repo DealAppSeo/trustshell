@@ -61,3 +61,55 @@ test('existingCreds reuses same name; refuses other name without --force', () =>
   assert.equal(existingCreds({ local, name: 'other', force: true }).action, 'register');
   assert.equal(existingCreds({ local: null, name: 'x', force: false }).action, 'register');
 });
+
+test('writePrivate writes a regular file; refuses a symlink at that path', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { writePrivate } = require('../lib/interview.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pai-priv-'));
+  const dest = path.join(dir, 'credentials.json');
+  try {
+    writePrivate(dest, '{"apiKey":"k"}\n');
+    assert.equal(fs.readFileSync(dest, 'utf8'), '{"apiKey":"k"}\n');
+    const target = path.join(dir, 'leaked.txt');
+    fs.writeFileSync(target, 'innocent\n');
+    fs.unlinkSync(dest);
+    try {
+      fs.symlinkSync(target, dest);
+    } catch (e) {
+      if (e.code === 'EPERM' || e.code === 'EACCES') return;
+      throw e;
+    }
+    assert.throws(() => writePrivate(dest, '{"apiKey":"secret"}\n'), /symlink/);
+    assert.equal(fs.readFileSync(target, 'utf8'), 'innocent\n');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('writePrivate refuses a symlink directory', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { writePrivate } = require('../lib/interview.js');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pai-dir-'));
+  const real = path.join(root, 'real');
+  const link = path.join(root, '.trustshell');
+  fs.mkdirSync(real);
+  try {
+    try {
+      fs.symlinkSync(real, link);
+    } catch (e) {
+      if (e.code === 'EPERM' || e.code === 'EACCES') return;
+      throw e;
+    }
+    assert.throws(
+      () => writePrivate(path.join(link, 'credentials.json'), '{"apiKey":"secret"}\n'),
+      /symlink/,
+    );
+    assert.equal(fs.existsSync(path.join(real, 'credentials.json')), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
