@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { CONSTITUTION_QUESTIONS } from '@/lib/pai';
+import { parseHalVerdict, parseRegister, rejectEmptyName } from '@/lib/create-pai-parse';
 
 /**
  * /create — the create-PAI FACE. The web mirror of `scripts/init-pai.mjs`, following docs/CREATE_PAI.md:
@@ -41,11 +42,8 @@ async function halVerdict(text: string): Promise<Verdict> {
       body: JSON.stringify({ text, strictness: 2 }),
     });
     const data = await res.json().catch(() => ({}));
-    const v = (data.verdict ?? data.hal_decision ?? '').toString().toUpperCase();
-    if (v.includes('VETO')) return 'VETO';
-    if (v.includes('FLAG')) return 'FLAG';
-    if (v.includes('PASS')) return 'PASS';
-    return null; // unknown — shown as "not checked", never faked into a PASS
+    // Live HAL returns { decision: "vetoed"|"clean" }, not verdict/hal_decision.
+    return parseHalVerdict(data);
   } catch {
     return null;
   }
@@ -67,7 +65,8 @@ export default function CreatePaiPage() {
 
   async function onCreate() {
     const trimmed = name.trim();
-    if (!trimmed) { setError('Give your PAI a name first.'); return; }
+    const empty = rejectEmptyName(trimmed);
+    if (empty) { setError(empty); return; }
     if (!ENGINE) { setError('Backend URL is not configured for this deploy (NEXT_PUBLIC_REPID_ENGINE_URL).'); return; }
     setBusy(true);
     setError('');
@@ -79,12 +78,9 @@ export default function CreatePaiPage() {
         body: JSON.stringify({ name: trimmed, agent_name: trimmed, origin: 'Site' }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.agent_id) {
-        // 429 duplicate name: say "name taken", no stack trace.
-        throw new Error(res.status === 429 ? 'That name is taken — pick another.' : (data.error || `Register failed (${res.status}).`));
-      }
-      const agentId: string = data.agent_id;
-      const apiKey: string | null = typeof data.api_key === 'string' ? data.api_key : null;
+      const parsed = parseRegister(res.status, data);
+      if (!parsed.ok) throw new Error(parsed.message);
+      const { agentId, apiKey } = parsed;
 
       const [parisVerdict, romeVerdict] = await Promise.all([halVerdict(PARIS), halVerdict(ROME)]);
 
@@ -123,6 +119,7 @@ export default function CreatePaiPage() {
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !busy) void onCreate(); }}
               placeholder="e.g. Atlas"
+              required
               className="flex-1 rounded-md border border-[#333] bg-[#111] px-3 py-2 text-[#fafafa] outline-none focus:border-[#666]"
               disabled={busy}
             />
