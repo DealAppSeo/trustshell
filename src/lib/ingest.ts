@@ -49,13 +49,15 @@ const INJECTION: readonly RegExp[] = [
   /\bdo not (follow|obey|tell|mention)\b/i,
 ];
 
-// Weaker signals — an imperative to the reader without a full smuggling phrase. Borderline.
+// Weaker signals — a role/instruction imperative without a full smuggling phrase. Borderline.
+// NOTE: deliberately NOT bare words like "ignore"/"reveal" — benign prose legitimately discusses
+// them ("nothing telling the agent to ignore or reveal anything"), and matching the word alone
+// false-vetoes ordinary data. The strong phrases (ignore PREVIOUS INSTRUCTIONS, reveal the apiKey)
+// are caught by INJECTION above; borderline needs imperative context, not a keyword.
 const BORDERLINE: readonly RegExp[] = [
-  /\bignore\b/i,
-  /\boverride\b/i,
   /\binstructions?\s*:/i,
   /\bact as\b/i,
-  /\bpretend\b/i,
+  /\bpretend (you|to be)\b/i,
 ];
 
 /** Neutralize imperative directives so a quoted excerpt cannot carry them forward as live instructions. */
