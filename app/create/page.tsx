@@ -40,10 +40,13 @@ async function halVerdict(text: string): Promise<Verdict> {
       body: JSON.stringify({ text, strictness: 2 }),
     });
     const data = await res.json().catch(() => ({}));
-    const v = (data.verdict ?? data.hal_decision ?? '').toString().toUpperCase();
-    if (v.includes('VETO')) return 'VETO';
-    if (v.includes('FLAG')) return 'FLAG';
-    if (v.includes('PASS')) return 'PASS';
+    // The LIVE /api/v1/hal/evaluate contract returns `decision`: "clean" | "vetoed" | "flagged"
+    // (verified against repid-engine-production). Read that FIRST — reading only `verdict`/`hal_decision`
+    // (which the endpoint does NOT send) made every claim read "not checked" and the VETO hero never fire.
+    const v = (data.decision ?? data.verdict ?? data.hal_decision ?? '').toString().toUpperCase();
+    if (v.includes('VETO')) return 'VETO';                    // "vetoed"
+    if (v.includes('FLAG')) return 'FLAG';                    // "flagged"
+    if (v.includes('PASS') || v.includes('CLEAN')) return 'PASS'; // "clean" = passed the check
     return null; // unknown — shown as "not checked", never faked into a PASS
   } catch {
     return null;
@@ -79,8 +82,15 @@ export default function CreatePaiPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.agent_id) {
-        // 429 duplicate name: say "name taken", no stack trace.
-        throw new Error(res.status === 429 ? 'That name is taken — pick another.' : (data.error || `Register failed (${res.status}).`));
+        // Match the canonical signal (lib/interview.js reuseOrNameTaken): a TAKEN name is 409 (or a
+        // taken/conflict message); 429 is rate-limit, NOT a duplicate. No stack trace either way.
+        const emsg = String(data.error ?? '');
+        const taken = res.status === 409 || /taken|already exists|conflict/i.test(emsg);
+        throw new Error(
+          taken ? 'That name is taken — pick another.'
+            : res.status === 429 ? 'Busy right now — try again in a moment.'
+              : (data.error || `Register failed (${res.status}).`),
+        );
       }
       const agentId: string = data.agent_id;
       const apiKey: string | null = typeof data.api_key === 'string' ? data.api_key : null;
