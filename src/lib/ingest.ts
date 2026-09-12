@@ -60,13 +60,19 @@ const BORDERLINE: readonly RegExp[] = [
   /\bpretend (you|to be)\b/i,
 ];
 
-/** Neutralize imperative directives so a quoted excerpt cannot carry them forward as live instructions. */
+// Broad neutralizer for imperative-to-reader constructs, so the excerpt PAI1 sees cannot carry
+// instructions forward across the boundary. Over-redaction is intentional and fail-SAFE: the excerpt
+// is a short gist, not the full data — redacting a benign imperative is far cheaper than forwarding a
+// malicious one verbatim. Runs on `clean`/`flag` excerpts (a `veto` excerpt is a fixed reason string).
+// ponytail: keyword heuristic with a KNOWN CEILING — a novel phrasing can evade both the verdict and
+// this redactor. That is exactly why `flag` defaults off (uncertainty→veto), why `clean` means
+// "no KNOWN injection" (not "provably safe"), and why this module is NOT exported / NOT wired into any
+// path yet. Upgrade path before production trust: a model-based injection classifier, not more regex.
+const IMPERATIVE =
+  /\b(ignore|disregard|forget|override|bypass|reveal|expose|leak|exfiltrate|approve|authorize|transfer|delete|drop|execute|eval|install|uninstall|act as|pretend|jailbreak|you are (?:now|actually)|you must|do not|don'?t|new instructions?|system prompt|developer mode)\b[\s\S]{0,80}/gi;
+
 function sanitizeExcerpt(content: string, chars: number): string {
-  const neutralized = content
-    .replace(/\b(ignore|disregard|forget)\b[\s\S]{0,40}\b(previous|prior|above|instruction[s]?|rule[s]?|prompt|context)\b/gi, '[redacted-directive]')
-    .replace(/\byou are (now|actually)\b[\s\S]{0,40}/gi, '[redacted-role-reassignment]')
-    .replace(/\bsystem prompt\b/gi, '[redacted]');
-  return neutralized.replace(/\s+/g, ' ').trim().slice(0, chars);
+  return content.replace(IMPERATIVE, '[redacted-directive]').replace(/\s+/g, ' ').trim().slice(0, chars);
 }
 
 /**
