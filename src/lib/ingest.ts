@@ -45,7 +45,7 @@ const INJECTION: readonly RegExp[] = [
   /\byou are (now|actually)\b/i,
   /\bnew instructions?\b\s*[:.]/i,
   /\bsystem prompt\b/i,
-  /\b(reveal|print|leak|exfiltrate|send)\b[\s\S]{0,40}\b(system prompt|secret|api[_\s-]?key|password|private key|credentials?)\b/i,
+  /\b(reveal|print|leak|exfiltrate|send|email|forward|publish|share|disclose|expose|output|transmit)\b[\s\S]{0,40}\b(system prompt|system instructions?|secret|api[_\s-]?key|password|private key|credentials?)\b/i,
   /\bdo not (follow|obey|tell|mention)\b/i,
 ];
 
