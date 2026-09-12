@@ -61,5 +61,6 @@ A PAI is "created" when there is, on the person's device, a `.trustshell/` holdi
 `verify` and `presentProof` need no key; `register`/mint and x402 spend need a key + wallet and are
 opt-in. Nothing is published; nothing on-chain moves without the person's explicit key + cap.
 
-*Referenced by `init-pai.mjs` (the runnable creator). Value events (register_ok / VETO / cap_refuse) are
+*Referenced by `init-pai.mjs` (the runnable creator). CLI: `trustshell init --pai --name <n>` (or
+`node scripts/init-pai.mjs --name <n>`). Value events (register_ok / VETO / cap_refuse) are
 logged as JSON lines by `scripts/value-events.mjs`.*

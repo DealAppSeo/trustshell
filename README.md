@@ -333,7 +333,7 @@ reaches nothing owned by this project:
 | `badge` | HyperDAG backend (rendering is **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `inspect` | **none** — reads a local file | none |
-| `init` | **none** — writes one local file | none |
+| `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 
 No command uploads your input anywhere other than the host named above.

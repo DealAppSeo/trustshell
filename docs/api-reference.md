@@ -242,11 +242,16 @@ rewritten wholesale. Every card says so in its own limits section.
 An adapter can only ever report `UNCHAINED`. A log this tool did not chain proves nothing about
 its own integrity, whatever it says happened.
 
-### `trustshell init [<dir>] [--force]`
+### `trustshell init [<dir>] [--force] [--pai]`
 
 Create `.trustshell/` and write a blank `profile.md`. **No network, no account, nothing
 collected** — not your git config, hostname, username or email. It never overwrites an existing
 profile without `--force`. Options: `--force`, `--json`.
+
+`--pai` runs `scripts/init-pai.mjs` (the PAI FACE: interview → live register). That path **does**
+reach the HyperDAG backend. Equivalent from a clone: `node scripts/init-pai.mjs --name <n>`.
+Options with `--pai`: `--name <n>`, `--answers <job|cost|brain>`, `--force`. If the script is not
+in this install, the CLI prints that path and exits 2 — never silent 0.
 
 The generated profile has three sections — identity, agent context, and trust settings — and
 every `share_*` flag in it starts `false`, so `report` withholds identity and context until you
@@ -291,7 +296,7 @@ a run or a session that happened — run these against your own and read the rea
 | `badge` | HyperDAG backend (rendering + verification are **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `inspect` | **none** — reads a local file | none |
-| `init` | **none** — writes one local file | none |
+| `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 
 `init` is the only command that writes to your working directory, and it writes exactly one file:

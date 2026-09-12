@@ -38,6 +38,7 @@ import {
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
 import { parseProfile, defaultProfile } from '../lib/profile';
+import { join } from 'node:path';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -75,6 +76,12 @@ export interface ParsedArgs {
   verify: boolean;
   /** init: replace an existing profile. Without it, an existing profile is left untouched. */
   force?: boolean;
+  /** init: run scripts/init-pai.mjs (PAI FACE — live register) instead of the blank profile. */
+  pai?: boolean;
+  /** init --pai: forwarded to scripts/init-pai.mjs */
+  name?: string;
+  /** init --pai: forwarded to scripts/init-pai.mjs (`job|cost|brain`) */
+  answers?: string;
   /** inspect: read a foreign log through an adapter. Adapters always yield UNCHAINED. */
   from?: string;
   /** report: path to the session log. */
@@ -98,6 +105,41 @@ export interface ParsedArgs {
  * reported version was reading a two-release-old number.
  */
 export const VERSION = resolvePackageVersion(__dirname);
+
+/** Repo-relative path the published CLI must be able to spawn. */
+export const INIT_PAI_SCRIPT = 'scripts/init-pai.mjs';
+/** The path a stranger can run from a clone when the script is not in this install. */
+export const INIT_PAI_DOC = 'node scripts/init-pai.mjs --name <n>';
+
+/** `cliDir` is src/cli or dist/cli — both sit two levels below the package root. */
+export function resolveInitPai(cliDir: string): string {
+  return join(cliDir, '..', '..', INIT_PAI_SCRIPT);
+}
+
+export interface InitPaiFs {
+  exists(p: string): boolean;
+  spawn(cmd: string, args: string[]): { status: number | null };
+}
+
+/**
+ * Spawn scripts/init-pai.mjs. Missing script → USAGE, never silent 0
+ * (the unpublished-bin failure class).
+ */
+export function runInitPai(
+  impl: InitPaiFs,
+  opts: { cliDir: string; name?: string; answers?: string; force?: boolean },
+): { code: number; missing: boolean; script: string } {
+  const script = resolveInitPai(opts.cliDir);
+  if (!impl.exists(script)) {
+    return { code: EXIT.USAGE, missing: true, script };
+  }
+  const args = [script];
+  if (opts.name) args.push('--name', opts.name);
+  if (opts.answers) args.push('--answers', opts.answers);
+  if (opts.force) args.push('--force');
+  const r = impl.spawn(process.execPath, args);
+  return { code: r.status === null ? EXIT.RUNTIME : r.status, missing: false, script };
+}
 
 const HELP = `trustshell — trust rails for AI agents, in your terminal + CI
 
@@ -131,6 +173,10 @@ COMMANDS
   init [<dir>]               Create .trustshell/ and a blank profile.md. No network, no
                              account, nothing collected. Never overwrites without --force.
       [--force]              Replace an existing profile.
+      [--pai]                Run scripts/init-pai.mjs (PAI FACE — live register). Equivalent:
+                             node scripts/init-pai.mjs --name <n>
+      [--name <n>]           With --pai: PAI name (forwarded to init-pai).
+      [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -153,7 +199,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge   the HyperDAG backend (TRUSTSHELL_API_URL)
   check                            api.github.com only — no backend, no account
   inspect                          NOTHING. Reads a local file.
-  init                             NOTHING. Writes one local file.
+  init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -178,13 +224,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
   // Options that consume the NEXT argument. Indexed rather than for-of because a
   // value-taking flag has to be able to look ahead.
   const values: Record<string, string | undefined> = {};
-  const VALUE_OPTS = new Set(['--from', '--session', '--evidence']);
+  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers']);
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i] as string;
     if (a === '--json') flags.add('json');
     else if (a === '--verify') flags.add('verify');
     else if (a === '--markdown' || a === '--md') flags.add('markdown');
     else if (a === '--force') flags.add('force');
+    else if (a === '--pai') flags.add('pai');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
     else if (VALUE_OPTS.has(a)) {
@@ -257,9 +304,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
         json,
         verify,
         force: flags.has('force'),
+        pai: flags.has('pai'),
         from: values['from'],
         session: values['session'],
         evidence: values['evidence'],
+        name: values['name'],
+        answers: values['answers'],
         ...(rest[0] !== undefined ? { operand: rest[0] } : {}),
       };
     case 'help':
@@ -463,6 +513,23 @@ export async function run(
     }
 
     case 'init': {
+      if (args.pai) {
+        const fs = require('node:fs') as typeof import('node:fs');
+        const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
+        const r = runInitPai(
+          {
+            exists: (p) => fs.existsSync(p),
+            spawn: (cmd, argv) => spawnSync(cmd, argv, { stdio: 'inherit' }),
+          },
+          { cliDir: __dirname, name: args.name, answers: args.answers, force: args.force },
+        );
+        if (r.missing) {
+          io.err(`init --pai: ${INIT_PAI_SCRIPT} is not in this install.`);
+          io.err(`equivalent path: ${INIT_PAI_DOC}`);
+          return r.code;
+        }
+        return r.code;
+      }
       // No network, no account, no telemetry. One directory, one file.
       const fs = require('node:fs') as typeof import('node:fs');
       const impl: InitFs = {

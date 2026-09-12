@@ -36,7 +36,10 @@
   "files": [
     "dist/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "scripts/init-pai.mjs",
+    "scripts/value-events.mjs",
+    "lib/interview.js"
   ],
   "scripts": {
     "dev": "next dev",
