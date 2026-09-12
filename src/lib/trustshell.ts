@@ -246,6 +246,13 @@ export interface RegisterParams {
   walletAddress?: string;
   /** true → register as an anonymous HUMAN rather than an EXTERNAL_AGENT. */
   isHuman?: boolean;
+  /**
+   * Where this create-PAI turn came from — provenance stamped on the first commit (the register).
+   * The hosted create-PAI page passes `'Site'`; the CLI `init-pai` passes `'Cli'`. Forwarded to the
+   * backend as `origin`; unlike a payment, registration is not origin-gated, so this is a record of
+   * the surface, not a permission.
+   */
+  origin?: AgentTurnOrigin;
 }
 
 /**
@@ -1151,6 +1158,7 @@ export class TrustShell {
       ...(params.llmModel !== undefined ? { llm_model: params.llmModel } : {}),
       ...(params.walletAddress !== undefined ? { wallet_address: params.walletAddress } : {}),
       ...(params.isHuman !== undefined ? { is_human: params.isHuman } : {}),
+      ...(params.origin !== undefined ? { origin: params.origin } : {}),
     };
 
     const res = await fetch(url, {
