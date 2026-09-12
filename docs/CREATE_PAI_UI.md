@@ -29,11 +29,20 @@ Empty/409/429 copy on prod **matches this table** [V source `lib/create-pai-pars
 ### Caveats (honest, known)
 - **(a) 429 is currently labeled "name taken."** Strictly 429 = rate-limit, not a duplicate. The merged
   parser (`parseRegister`, #141, CC1) collapses 409+429 into "name taken". Conservative, not wrong enough
-  to block — and see (b): it is effectively unreachable today.
-- **(b) The backend does NOT enforce name uniqueness.** A duplicate register returns **201 Created** (a
-  new agent), not 409/429 [V live: two identical `"My PAI"` POSTs → 201 each]. So the "name taken" branch
-  is **dead code today**; the real fix (register 409 on dup) is backend-side, flagged for Sean. Until then
-  the UI cannot show a collision because the backend never reports one.
+  to block — and see (b).
+- **(b) The engine's only duplicate defense is a per-IP anti-spam 429, NOT global name-uniqueness**
+  [V 2026-09-12, repid-engine `src/routes/agents-external.ts`]. `checkAndRecordDedup(ip, name)` returns
+  **429** for the *same name from the same IP within 24h* — so in that narrow case the "name taken" copy
+  fires correctly. But a taken name from a **different** IP/context returns **201 Created with a new
+  `agent_id`** [V live: repeated `"My PAI"` POSTs → 201, distinct ids]. So **201 is NOT reuse** (a fresh
+  agent each time), and there is no global 409.
+- **(c) Whether a taken name SHOULD 409 is a design decision, not a clean bug — flagged for Sean.** PAI
+  names are *personal labels the user chooses*; global uniqueness would stop two unrelated users both
+  naming their PAI "Atlas", and the identity key is `agentId`, not the name. repid-engine's CLAUDE-RULE-1
+  requires show-what-exists + GO before changing `register`, and existing duplicate names are already in
+  prod. So CC2 did **not** unilaterally ship a global-409 register change; the UI's `409 → "name taken"`
+  branch is correct *if* the engine ever adopts it. Decision for Sean: keep non-unique personal names
+  (then soften/keep the UI copy as-is), or enforce 409 (then the branch becomes live).
 
 ## Value events — page-path gap (documented, item 2)
 `register_ok` / `VETO` / `cap_refuse` **value events are a device/CLI concept**: `scripts/init-pai.mjs`
