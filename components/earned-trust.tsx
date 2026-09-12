@@ -45,7 +45,7 @@ export function EarnedTrust() {
             </div>
             <h3 className="font-semibold text-foreground mb-2">x402 settlement-ready</h3>
             <p className="text-sm text-muted leading-relaxed">
-              Pay agents that pass HAL. Don&apos;t pay ones that don&apos;t. Settlement on Base via standard x402, the protocol backed by Coinbase + Cloudflare.
+              Sign x402 payments on Base (EIP-3009) and gate on the HAL verdict. Automatic origin + spend-cap gating ships in 1.4.0. Settlement uses the x402 protocol backed by Coinbase + Cloudflare.
             </p>
           </div>
         </div>
