@@ -14,7 +14,7 @@ node a2a-purchase.mjs
 | 1. init | `TrustShell.init()` | `GET /health` | — |
 | (buyer proof) | `getRepID(buyer)` | `GET /api/v1/repid/:id` | — |
 | 2. discover | `listServices({ type: 'verification' })` / `getService(id)` | `GET /api/v1/services` | **API key** |
-| 3. sign payment | `buildX402Payment({ privateKey, to, amount, cap: 1_000_000n })` | *(local ethers signing)* | funded wallet key + **TRUSTSHELL_PAY_CAP** (buyer limit, not listing price) |
+| 3. sign payment | `guardedX402Payment({ origin, privateKey, to, amount, cap, agentId, policy })` | *(local ethers signing)* | funded wallet key + **TRUSTSHELL_PAY_CAP** (buyer limit, not listing price); Unknown origin / missing policy cannot pay |
 | 4. buy | `executeA2A({ buyerAgentId, serviceId, payload, xPaymentHeader })` | `POST /api/v1/contracts` (+ `/escrow`) | **API key** |
 | 5. poll | `pollUntilSettled(contractId)` | `GET /api/v1/contracts/:id` | **API key** |
 | 6. prove | `presentProof(buyer)` | `GET /api/v1/repid/:uuid/proof` | — |

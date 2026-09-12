@@ -6,7 +6,7 @@
  *
  *   1. TrustShell.init()      — live /health probe (fail fast)
  *   2. listServices()         — read the marketplace catalog, pick a "verification" service
- *   3. buildX402Payment()     — sign an EIP-3009 x402 payment header (only the signature travels)
+ *   3. guardedX402Payment()   — origin + policy + audit, then sign the EIP-3009 header
  *   4. executeA2A()           — create the service contract + escrow the payment
  *   5. pollUntilSettled()     — await async fulfillment by the provider agent
  *   6. presentProof()         — show the buyer's ZKP RepID postcard proof
@@ -32,7 +32,7 @@
  *   TRUSTSHELL_SERVICE_ID  buy this specific service instead of auto-picking a "verification" one
  *   TRUSTSHELL_PAY_TO      the provider payTo address to sign the x402 payment against (see note in-code)
  */
-import { TrustShell, buildX402Payment } from '@hyperdag/trustshell';
+import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';
 import { requirePayCap } from './require-pay-cap.mjs';
 
 const API_URL = process.env.TRUSTSHELL_API_URL || 'https://repid-engine-production.up.railway.app';
@@ -98,7 +98,7 @@ if (!chosen) {
 }
 log(`  picked: "${chosen.serviceName}" (${chosen.id}) — ${(chosen.basePriceUsdcRaw / 1e6).toFixed(2)} USDC, min RepID ${chosen.minRepidToPurchase}`);
 
-// --- 3. buildX402Payment() — sign the EIP-3009 authorization (key never logged). ---------------
+// --- 3. guardedX402Payment() — origin + policy + audit, then sign (key never logged). ----------
 log('\n→ signing x402 payment (EIP-3009 TransferWithAuthorization)…');
 const payCap = requirePayCap(process.env);
 if (!payCap.ok) {
@@ -106,7 +106,8 @@ if (!payCap.ok) {
   process.exit(1);
 }
 const provider = await client.getService(chosen.id); // refresh to get the current payTo/provider
-const xPaymentHeader = await buildX402Payment({
+// Cli + explicit allow: this process is the human-run CLI, not an unstamped agent turn.
+const xPaymentHeader = await guardedX402Payment({
   origin: 'Cli',
   privateKey: PAYER_KEY,
   // The provider's payTo comes back in the 402 requirements; for the happy path we sign for the
@@ -115,6 +116,8 @@ const xPaymentHeader = await buildX402Payment({
   to: process.env.TRUSTSHELL_PAY_TO || provider.providerAgentId, // overrideable; see note above
   amount: chosen.basePriceUsdcRaw,
   cap: payCap.cap, // BUYER limit, not the listing price
+  agentId: BUYER_AGENT,
+  policy: { allow: true },
 });
 log('✓ payment signed (only the signed authorization travels; the private key never leaves memory)');
 

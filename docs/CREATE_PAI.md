@@ -38,7 +38,7 @@ map it to the smallest tool pack. Examples:
 |---|---|---|
 | "I want it to fact-check my drafts / not make things up" | catch hallucinations | `verifyOutput` (HAL PASS/FLAG/VETO) |
 | "I want to prove I'm reputable without doxxing my score" | portable trust | `presentProof(agentId, {verify})` (ZK RepID) |
-| "I want it to buy things for me but not overspend" | bounded spend | `buildX402Payment` + a spend **cap** (refuse over cap) |
+| "I want it to buy things for me but not overspend" | bounded spend | `guardedX402Payment` + a spend **cap** (refuse over cap; Unknown origin / missing policy cannot pay) |
 | "I just want to try it" | first taste | `verifyOutput` on one claim they care about |
 If they volunteered nothing specific, default to the **HAL catch** pack — it needs no key and shows value
 in one turn (`trustshell verify "<a claim they'd believe>"`).
