@@ -114,6 +114,7 @@ export default function CreatePaiPage() {
           <label className="block text-sm text-[#a1a1a1]">Name your PAI</label>
           <div className="mt-2 flex gap-3">
             <input
+              data-tour="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !busy) void onCreate(); }}
@@ -143,7 +144,7 @@ export default function CreatePaiPage() {
               <div className="flex gap-2"><dt className="w-20 text-[#a1a1a1]">agentId</dt><dd className="break-all">{created.agentId}</dd></div>
               <div className="flex gap-2">
                 <dt className="w-20 text-[#a1a1a1]">apiKey</dt>
-                <dd className="break-all">{created.apiKey ?? '(not returned)'}</dd>
+                <dd data-tour="key" className="break-all">{created.apiKey ?? '(not returned)'}</dd>
               </div>
             </dl>
             <p className="mt-3 text-xs text-[#ff9f43]">Shown once. Copy the apiKey now — it is not stored server-side and will not be shown again.</p>
@@ -153,7 +154,7 @@ export default function CreatePaiPage() {
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-[#a1a1a1]">The harness, working</h2>
             {created.romeVerdict === 'VETO' ? (
-              <p className="mt-3 text-2xl font-bold text-[#4ade80]">Harness caught a false claim before you acted on it.</p>
+              <p data-tour="veto" className="mt-3 text-2xl font-bold text-[#4ade80]">Harness caught a false claim before you acted on it.</p>
             ) : (
               <p className="mt-3 text-lg text-[#a1a1a1]">
                 Rome check returned {created.romeVerdict ?? 'not checked'} — the cross-model quorum was not reached this time (not a failure of your PAI).
