@@ -287,7 +287,7 @@ below match the real `TrustShell` class (`src/lib/trustshell.ts`). A single runn
 at [`examples/a2a-purchase/`](../examples/a2a-purchase/).
 
 ```typescript
-import { TrustShell, buildX402Payment } from '@hyperdag/trustshell';
+import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';
 
 const { client } = await TrustShell.init();
 
@@ -307,13 +307,15 @@ const catalog = await buyer.listServices({ type: 'verification' });
 const svc = catalog.services[0];
 // const one = await buyer.getService(svc.id);   // single lookup
 
-// 3) Sign an x402 payment (EIP-3009). The private key signs locally and is NEVER logged/sent.
-const xPaymentHeader = await buildX402Payment({
+// 3) Origin + policy + audit, then sign (EIP-3009). The private key signs locally and is NEVER logged/sent.
+const xPaymentHeader = await guardedX402Payment({
   origin: 'Cli',                                  // Unknown / missing origin cannot pay
   privateKey: process.env.TRUSTSHELL_PAYER_KEY!,  // funded Base Sepolia key
   to: svc.providerAgentId,                        // provider payTo (from the 402 requirements)
   amount: svc.basePriceUsdcRaw,                   // micro-USDC raw
   cap: 1_000_000n, // BUYER limit (raw USDC units), not the listing price
+  agentId: reg.agentId,
+  policy: { allow: true },                        // missing policy refuses — never a default-allow
 });
 
 // 4) Buy: create the service contract + escrow the payment.
@@ -341,8 +343,8 @@ const proof = await buyer.presentProof(reg.agentId);
 without a `REPID_API_KEY`. The full paid buy additionally needs a funded Base Sepolia wallet for the
 x402 escrow leg.
 
-**`buildX402Payment` bundle note:** it lazy-imports `ethers`, so apps that never initiate a payment
-don't pull the signing code into their module graph at import time.
+**`guardedX402Payment` / `buildX402Payment` bundle note:** the signer lazy-imports `ethers`, so apps that never initiate a payment
+don't pull the signing code into their module graph at import time. Spend paths use `guardedX402Payment` (origin + policy + audit); `buildX402Payment` is the lower-level cap-checked signer.
 
 ---
 

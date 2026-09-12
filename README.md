@@ -23,7 +23,7 @@ Most "LLM trust" tools are *judges* — they score an output and leave the decis
 
 - ✅ **HAL cross-LLM verification** — `verifyOutput()` — real cross-provider fact-check quorum (keyless, live-verified)
 - 🏅 **ERC-8004 portable reputation** — `getRepID()` / `presentProof()` — look up any agent's RepID score + tier, or present a client-verifiable range proof (keyless, live-verified)
-- 💸 **x402 payments** — `executeA2A()` / `buildX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (available — needs an API key + a funded Base Sepolia wallet)
+- 💸 **x402 payments** — `executeA2A()` / `guardedX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (available — needs an API key + a funded Base Sepolia wallet)
 
 HAL verify and RepID lookup run against the live backend with **no key**. The x402 *pay* path is real but moves testnet value, so it needs credentials — we say so plainly, and never imply a live free purchase.
 
@@ -51,7 +51,7 @@ Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdi
 | `register(...)` | ✅ | public agent onboarding — creates the agent and its RepID. **It does not mint an ERC-8004 identity**; see below |
 | ERC-8004 identity mint | 🔑 | `POST /api/v1/agents/:id/mint` — key-gated. A keyless `register()` leaves the agent with **no on-chain identity**, and the passport reports `NOT_MINTED` rather than implying one exists |
 | `listServices()` / `getService(id)` | ✅ | catalog read, **verified keyless against the deployed backend** (200, no key). Writes to the same paths — create, reprice, delete a listing — stay key-gated. Browse the same catalog in a browser at **[trustshell.dev/market](https://trustshell.dev/market)**. |
-| `executeA2A(...)` / `buildX402Payment(...)` | 🔑 + 💰 | agent-to-agent purchase; **needs API key AND a funded Base Sepolia wallet** (real EIP-3009 x402 settlement) |
+| `executeA2A(...)` / `guardedX402Payment(...)` | 🔑 + 💰 | agent-to-agent purchase; **needs API key AND a funded Base Sepolia wallet** (real EIP-3009 x402 settlement) |
 
 We say this plainly on purpose: **nothing here claims more than actually runs.**
 
@@ -165,7 +165,7 @@ Runnable version: [`examples/quickstart/quickstart.mjs`](examples/quickstart/qui
 
 ### Payments
 
-`buildX402Payment` signs an EIP-3009 header for x402 on Base Sepolia.
+`guardedX402Payment` is the spend entry: origin must be pay-capable (`Unknown` cannot pay), a policy must allow the spend, the intent is audited, then `buildX402Payment` signs an EIP-3009 header for x402 on Base Sepolia.
 Pass `cap` in the same raw units as `amount` — the **BUYER limit**, not the listing price.
 If `cap` is missing, it refuses to sign (`cap required`) unless you pass TrustKeys `readAllowance` with `agentId` (that function is process-local in TrustKeys; inject it — this package does not import that store). An unset agent throws `no_allowance_set` rather than inventing a cap. If both `cap` and `readAllowance` are present, the tighter ceiling wins.
 If `amount` exceeds the effective cap, it throws `cap_exceeded`.
@@ -178,7 +178,7 @@ The private key signs locally and never leaves the process.
 The full A2A loop: find a verified service, buy it, get a verifiable receipt. Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
 
 ```ts
-import { TrustShell, buildX402Payment } from '@hyperdag/trustshell';
+import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';
 
 const { client } = await TrustShell.init({
   apiKey: process.env.REPID_API_KEY,          // required for the purchase, not for the discovery
@@ -188,13 +188,15 @@ const { client } = await TrustShell.init({
 const { services } = await client.listServices({ type: 'verification' });
 const svc = services[0]; // e.g. "Verify-a-claim / HAL fact-check" by trinity-shofet, $0.05
 
-// PAY — sign an EIP-3009 x402 authorization (the key only signs locally; it never leaves memory).
-const xPaymentHeader = await buildX402Payment({
+// PAY — origin + policy + audit, then sign (the key only signs locally; it never leaves memory).
+const xPaymentHeader = await guardedX402Payment({
   origin: 'Cli',                                // Unknown / missing origin cannot pay
   privateKey: process.env.TRUSTSHELL_PAYER_KEY, // funded Base Sepolia wallet
   to: svc.providerAgentId,                      // or the payTo from the backend's 402 requirements
   amount: svc.basePriceUsdcRaw,
   cap: 1_000_000n, // BUYER limit (raw USDC units), not the listing price
+  agentId: process.env.TRUSTSHELL_BUYER_AGENT,
+  policy: { allow: true },                      // missing policy refuses — never a default-allow
 });
 
 // BUY — agent-to-agent purchase: create the contract + escrow the payment.
