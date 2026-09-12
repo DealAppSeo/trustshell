@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-// Read from package.json, never retyped here — this string sat at 'v1.1.0'
-// through the 1.2.0 and 1.3.0 releases (see src/lib/version.ts for the SDK's
-// identical bug and why it's a runtime read there instead of an import: this
-// component isn't under the SDK's rootDir-constrained tsconfig, so a plain
-// import is the simpler fix here).
-import packageJson from '../package.json';
+import { NPM_LATEST } from '@/lib/npm-latest';
+// The install badge names npm latest, not package.json. Reading package.json
+// here re-created the v1.1.0-stuck bug in reverse: this tree is 1.4.0
+// unpublished, so the caption next to `npm install` advertised a version the
+// registry 404s. SDK/CLI still use resolvePackageVersion() (this tree).
 
 export function Hero() {
   const [copied, setCopied] = useState(false);
@@ -68,7 +67,7 @@ export function Hero() {
             </span>
           </button>
           <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : `npm package v${packageJson.version}`}
+            {copied ? 'Copied to clipboard!' : `npm latest v${NPM_LATEST}`}
           </span>
         </div>
 
