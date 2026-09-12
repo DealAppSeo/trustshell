@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { CONSTITUTION_QUESTIONS } from '@/lib/pai';
 
 /**
@@ -14,8 +13,8 @@ import { CONSTITUTION_QUESTIONS } from '@/lib/pai';
  * GET /api/v1/repid/:id. Nothing is published; no key of the user's is held — register returns a key
  * shown once and it is theirs to keep.
  *
- * No version string is rendered here on purpose: npm publishes 1.3.0, so a "1.4.0" on the page would be
- * a claim the registry does not back (see docs — "no 1.4.0 unless npm view says 1.4.0").
+ * No version string is rendered here on purpose: the published npm version can lag the git one, so a
+ * version badge on the page could claim a release the registry does not back. Show none until it matches.
  */
 
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL;
@@ -179,6 +178,16 @@ export default function CreatePaiPage() {
             </p>
           </section>
 
+          {/* What just happened — one screen, three bullets. Plain, honest, no jargon. */}
+          <section className="rounded-lg border border-[#222] p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[#a1a1a1]">What just happened</h2>
+            <ul className="mt-3 space-y-2 text-sm">
+              <li>• Your PAI is registered — you have an <span className="font-mono">agentId</span> and a one-time <span className="font-mono">apiKey</span> (above). No key of yours was taken.</li>
+              <li>• The harness ran live: it <span className="text-[#4ade80]">passed</span> a true claim and {created.romeVerdict === 'VETO' ? <><span className="text-[#4ade80]">vetoed</span> a false one before you could act on it</> : <>checked a false one</>}.</li>
+              <li>• Your RepID standing is live and portable — you can prove it later without revealing the number.</li>
+            </ul>
+          </section>
+
           {/* Optional interview — one beat, skip is the default. */}
           {interviewActive ? (
             <section className="rounded-lg border border-[#333] p-5">
@@ -220,15 +229,20 @@ export default function CreatePaiPage() {
                 </p>
               )}
               <p>
-                Want a specialist? Create a <strong className="text-[#fafafa]">second PAI</strong> — a new name in its own
+                Want a specialist? Create a <strong className="text-[#fafafa]">second PAI</strong> — a new name, its own
                 store, so #1 is untouched. #1 is your chief of staff; it manages the others. Don&apos;t bolt specialist
-                tools onto #1.
+                tools onto #1 — give it a colleague instead.
               </p>
-              <p className="mt-2 font-mono text-xs">
-                CLI: <span className="text-[#fafafa]">$env:TRUSTSHELL_HOME=&quot;.trustshell/&lt;name&gt;&quot;; node scripts/init-pai.mjs --name &lt;name&gt;</span>
-              </p>
-              <p className="mt-3">
-                <Link href="/create" className="underline">Create another PAI →</Link>
+              {/* Create a second PAI: a fresh register with a new name = a distinct agent (its own agentId
+                  + apiKey = its own store). Resets this screen; it does NOT add tools to #1. */}
+              <button
+                onClick={() => { setCreated(null); setName(''); setDraft(''); setAnswers([]); setInterviewOpen(false); setError(''); }}
+                className="mt-3 rounded-md bg-[#fafafa] px-5 py-2 font-medium text-[#0a0a0a]"
+              >
+                Create a second PAI
+              </button>
+              <p className="mt-3 font-mono text-xs">
+                Or on the CLI, its own on-device store: <span className="text-[#fafafa]">$env:TRUSTSHELL_HOME=&quot;.trustshell/&lt;name&gt;&quot;; node scripts/init-pai.mjs --name &lt;name&gt;</span>
               </p>
             </section>
           )}
