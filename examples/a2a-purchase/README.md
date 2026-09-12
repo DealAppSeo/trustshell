@@ -41,7 +41,7 @@ Set these via a dotenv file or your shell — **never on the command line**:
 | `REPID_API_KEY` | yes | The buyer agent's API key. Get one from `client.register({ agentName })` — the `api_key` is **shown once**. Must match the deployed Railway allowlist. |
 | `TRUSTSHELL_BUYER_AGENT` | yes | The buyer agent **UUID** the key is bound to. |
 | `TRUSTSHELL_PAYER_KEY` | yes | A **funded Base Sepolia** private key (`0x…`) used to sign the x402 EIP-3009 payment. Only the signed authorization travels; the key never leaves memory and is never logged. |
-| `TRUSTSHELL_PAY_CAP` | yes (to sign) | Buyer spend ceiling in **raw USDC units** (e.g. `1000000` = 1 USDC). **Not** the listing price. Unset → script prints the set-TRUSTSHELL_PAY_CAP line and **exits 1** (does not sign). |
+| `TRUSTSHELL_PAY_CAP` | yes (to sign) | Buyer spend ceiling in **raw USDC units** (e.g. `1000000` = 1 USDC). **Not** the listing price. Unset → **exits 1** (does not sign). Amount above cap → **exits 1** before `guardedX402Payment` (see `over-cap.mjs`). |
 | `TRUSTSHELL_API_URL` | no | Override the engine URL (defaults to the live production engine). |
 | `TRUSTSHELL_SERVICE_ID` | no | Buy this specific service instead of auto-picking a `verification` one. |
 | `TRUSTSHELL_PAY_TO` | no | The provider `payTo` address to sign the x402 payment against. If you don't know it, run once **without** a payment header — `executeA2A` returns the backend's `paymentRequired.accepts[0].payTo`; set that here and re-run. |

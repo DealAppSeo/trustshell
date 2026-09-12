@@ -33,7 +33,7 @@
  *   TRUSTSHELL_PAY_TO      the provider payTo address to sign the x402 payment against (see note in-code)
  */
 import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';
-import { requirePayCap } from './require-pay-cap.mjs';
+import { requirePayCap, refuseOverCap } from './require-pay-cap.mjs';
 
 const API_URL = process.env.TRUSTSHELL_API_URL || 'https://repid-engine-production.up.railway.app';
 const API_KEY = process.env.REPID_API_KEY;
@@ -103,6 +103,11 @@ log('\n→ signing x402 payment (EIP-3009 TransferWithAuthorization)…');
 const payCap = requirePayCap(process.env);
 if (!payCap.ok) {
   log(payCap.message);
+  process.exit(1);
+}
+const over = refuseOverCap(chosen.basePriceUsdcRaw, payCap.cap);
+if (!over.ok) {
+  log(over.message);
   process.exit(1);
 }
 const provider = await client.getService(chosen.id); // refresh to get the current payTo/provider
