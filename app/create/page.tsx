@@ -57,11 +57,13 @@ export default function CreatePaiPage() {
   const [error, setError] = useState('');
   const [created, setCreated] = useState<Created | null>(null);
 
-  // Optional interview — one beat at a time, max 3, skip is the default (never blocks the value above).
+  // Optional interview — SKIPPED unless they ask. It stays hidden until the user opts in; when open,
+  // it is one beat at a time, max 3. The value above (creds, hero, RepID) is never blocked by it.
+  const [interviewOpen, setInterviewOpen] = useState(false);
   const [answers, setAnswers] = useState<string[]>([]);
   const [draft, setDraft] = useState('');
   const qIndex = answers.length;
-  const interviewActive = created !== null && qIndex < CONSTITUTION_QUESTIONS.length;
+  const interviewActive = created !== null && interviewOpen && qIndex < CONSTITUTION_QUESTIONS.length;
 
   async function onCreate() {
     const trimmed = name.trim();
@@ -198,9 +200,9 @@ export default function CreatePaiPage() {
                 >
                   Answer
                 </button>
-                {/* Skip is the default action — it ends the interview immediately. */}
+                {/* Skip closes the interview immediately and returns to the done state. */}
                 <button
-                  onClick={() => setAnswers(CONSTITUTION_QUESTIONS.map(() => ''))}
+                  onClick={() => setInterviewOpen(false)}
                   className="rounded-md bg-[#fafafa] px-4 py-1.5 text-sm font-medium text-[#0a0a0a]"
                 >
                   Skip — I&apos;m done
@@ -209,6 +211,14 @@ export default function CreatePaiPage() {
             </section>
           ) : (
             <section className="rounded-lg border border-[#222] p-5 text-sm text-[#a1a1a1]">
+              {/* Interview is skipped unless they ask — a quiet opt-in, never a blocking prompt. */}
+              {qIndex === 0 && (
+                <p className="mb-4">
+                  <button onClick={() => setInterviewOpen(true)} className="text-[#fafafa] underline">
+                    Shape it with a few questions (optional) →
+                  </button>
+                </p>
+              )}
               <p>
                 Want a specialist? Create a <strong className="text-[#fafafa]">second PAI</strong> — a new name in its own
                 store, so #1 is untouched. #1 is your chief of staff; it manages the others. Don&apos;t bolt specialist
