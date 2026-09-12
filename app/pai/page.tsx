@@ -186,6 +186,8 @@ export default function PaiPage() {
           name: 'My PAI',
           description: 'Personal agent created through the PAI conversation.',
           constitution_text: composeConstitution(nextAnswers),
+          // Provenance on the first commit: this PAI is created from the hosted Site.
+          origin: 'Site',
         }),
       });
       const data = await res.json();

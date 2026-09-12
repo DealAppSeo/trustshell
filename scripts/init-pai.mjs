@@ -83,7 +83,7 @@ if (exist.action === 'reuse') {
   process.exit(1);
 } else {
   try {
-    reg = await client.register({ agentName: name });
+    reg = await client.register({ agentName: name, origin: 'Cli' }); // provenance: created from the CLI
     freshRegister = true;
   } catch (err) {
     const decision = interview.reuseOrNameTaken({ name, err, local });

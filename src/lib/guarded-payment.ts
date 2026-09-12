@@ -14,6 +14,13 @@ export interface GuardedPaymentParams extends BuildX402PaymentParams {
   policy: SpendPolicy | null | undefined;
   /** Who is spending — required for the audit intent row. */
   agentId: string;
+  /**
+   * Provenance receipt writer, run AFTER the policy gate and BEFORE signing. If it THROWS — the
+   * receipt can't be built, validated (schemas/receipt.schema.json), or persisted — the payment
+   * REFUSES: no receipt, no signature. Build + validate with write-receipt.mjs's buildReceipt /
+   * validateReceipt and persist inside this thunk; throw on any failure. Absent = no receipt gate.
+   */
+  writeReceipt?: () => void | Promise<void>;
 }
 
 /**
@@ -23,7 +30,8 @@ export interface GuardedPaymentParams extends BuildX402PaymentParams {
  * for advanced callers; this composes the origin + audit gates around it so neither can be skipped.
  *
  * Order matters: origin is checked FIRST (a turn that may not pay never even writes an intent), then
- * auditThenAct records the attempt before the policy gate and the signature.
+ * auditThenAct records the attempt before the policy gate; then the receipt is written; then the
+ * signature. A receipt-write failure refuses the spend — write-receipt-BEFORE-pay is fail-closed.
  */
 // What to record for the cap in the audit row. Deliberately does NOT re-read the allowance or
 // BigInt-parse the declared cap: the signer (buildX402Payment → resolvePaymentCap) is the single
@@ -47,5 +55,14 @@ export async function guardedX402Payment(params: GuardedPaymentParams, opts: Aud
     cap: auditCapLabel(params),
     agentId: params.agentId,
   };
-  return auditThenAct(intent, params.policy, () => buildX402Payment(params), opts);
+  return auditThenAct(
+    intent,
+    params.policy,
+    async () => {
+      // Receipt BEFORE pay: a throw here (unbuildable/invalid/unpersisted receipt) refuses the sign.
+      if (params.writeReceipt) await params.writeReceipt();
+      return buildX402Payment(params);
+    },
+    opts,
+  );
 }

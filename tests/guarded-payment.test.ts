@@ -69,4 +69,26 @@ describe('guardedX402Payment — origin gate + audit-before-act around the signe
     expect(decoded.signature).toMatch(/^0x[0-9a-f]+$/i);
     expect(s.lines).toHaveLength(1); // intent recorded before signing
   });
+
+  it('REFUSES the payment when writeReceipt throws (receipt-before-pay is fail-closed)', async () => {
+    const s = sink();
+    await expect(
+      guardedX402Payment(
+        { ...BASE, origin: 'Cli', policy: { allow: true }, writeReceipt: () => { throw new Error('receipt invalid'); } },
+        { stream: s.stream },
+      ),
+    ).rejects.toThrow(/receipt invalid/);
+    expect(s.lines).toHaveLength(1); // intent still recorded (audited) even though the receipt failed → no header
+  });
+
+  it('writes the receipt BEFORE signing, then returns the header', async () => {
+    const order: string[] = [];
+    const header = await guardedX402Payment(
+      { ...BASE, origin: 'Cli', policy: { allow: true }, writeReceipt: async () => { order.push('receipt'); } },
+      { stream: { write: () => order.push('intent') } },
+    );
+    expect(order).toEqual(['intent', 'receipt']); // intent row, then receipt, then (below) sign
+    const decoded = JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+    expect(decoded.signature).toMatch(/^0x[0-9a-f]+$/i);
+  });
 });

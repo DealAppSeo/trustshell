@@ -188,6 +188,17 @@ describe('TrustShell', () => {
       const body = JSON.parse(init.body);
       expect(body.agent_name).toBe('my-agent');
       expect(body.description).toBe('a test agent');
+      expect(body.origin).toBeUndefined(); // omitted when not provided
+    });
+
+    it('forwards the turn origin as provenance on the first commit', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true, status: 201, json: async () => ({ agent_id: 'a', api_key: 'k' }),
+      });
+      global.fetch = fetchMock as any;
+      await new TrustShell().register({ agentName: 'site-pai', origin: 'Site' });
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.origin).toBe('Site');
     });
 
     it('throws TrustShellError on non-2xx', async () => {
