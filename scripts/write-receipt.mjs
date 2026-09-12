@@ -3,7 +3,9 @@
  *
  * One shared shape with scripts/safety-glass.mjs (hal / repid / onchain.tx / proof.verified) plus the
  * `cap` block safety-glass does not emit. Validation reads the schema file itself (single source) —
- * no ajv dependency. Run `node scripts/write-receipt.mjs` for the self-check.
+ * no ajv dependency. Extra keys such as optional `ingest` are allowed (schema additionalProperties:
+ * true); this walker only inspects listed properties, so old receipts without them still validate.
+ * Run `node scripts/write-receipt.mjs` for the self-check.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +74,12 @@ function selfCheck() {
   });
   const ok = validateReceipt(good);
   if (!ok.valid) throw new Error(`self-check FAIL: valid receipt rejected: ${ok.errors.join('; ')}`);
+
+  // Optional extra ingest (additionalProperties) must not break old receipts.
+  const withIngest = JSON.parse(JSON.stringify(good));
+  withIngest.ingest = { verdict: 'clean', host: 'example.com' };
+  if (!validateReceipt(withIngest).valid) throw new Error('self-check FAIL: extra ingest must validate');
+  if (!validateReceipt(good).valid) throw new Error('self-check FAIL: old receipt without ingest must still validate');
 
   // A null proof.scheme (safety-glass may copy through a null scheme) must still validate.
   const nullScheme = JSON.parse(JSON.stringify(good));

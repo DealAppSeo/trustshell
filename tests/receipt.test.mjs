@@ -53,3 +53,9 @@ test('a union type still type-checks — non-string non-null scheme fails (Grept
   const r = sample(); r.proof.scheme = 123;
   assert.equal(validateReceipt(r).valid, false);
 });
+
+test('optional extra ingest is allowed; old receipts without it still validate', () => {
+  assert.equal(validateReceipt(sample()).valid, true);
+  const withIngest = { ...sample(), ingest: { verdict: 'clean', host: 'example.com' } };
+  assert.equal(validateReceipt(withIngest).valid, true);
+});
