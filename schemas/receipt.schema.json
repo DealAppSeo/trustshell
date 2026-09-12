@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://hyperdag.org/schemas/receipt.schema.json",
   "title": "TrustShell action receipt",
-  "description": "One shared receipt contract for a machine action: what the harness checked (hal), who acted (repid), the on-chain anchor (tx), the zero-knowledge proof result (proof.verified), and the spend cap that bounded it (cap). Field paths match scripts/safety-glass.mjs so the two share one shape; `cap` is the field safety-glass does not yet emit.",
+  "description": "One shared receipt contract for a machine action: what the harness checked (hal), who acted (repid), the on-chain anchor (tx), the zero-knowledge proof result (proof.verified), and the spend cap that bounded it (cap). Field paths match scripts/safety-glass.mjs so the two share one shape; `cap` is the field safety-glass does not yet emit. Extra keys are allowed (additionalProperties: true); an optional `ingest` consume-side verdict is one such key. Old receipts without it still validate. scripts/write-receipt.mjs walks listed properties only, so extra keys are neither required nor rewritten.",
   "type": "object",
   "required": ["hal", "repid", "onchain", "proof", "cap"],
   "additionalProperties": true,
