@@ -182,6 +182,39 @@ try {
   recordEngineLeg('hal.verify', e);
 }
 
+// HAL DISCRIMINATION — the leg above proves a quorum ANSWERED; it does NOT prove the answer is
+// CORRECT. A HAL that vetoes everything, or passes everything, or returns a fixed verdict, sails
+// through it. This leg asserts the property the product actually sells: a known-FALSE claim is
+// vetoed and a known-TRUE claim is not. It is the assertion the fabricated trinity_tasks
+// "E2E-SMOKE nightly" only ever claimed (agents with no HTTP client reported `claims_pass` —
+// v_e2e_smoke_nightly_truth shows 0 real verifications). Verdicts confirmed live 2026-09-13
+// against POST /api/v1/hal/evaluate: "…in Paris" -> clean, "…in Rome" -> vetoed, real 2-provider
+// quorum each. A regression here (HAL stops discriminating) goes FAILED and reddens the nightly.
+const verdictOf = (text) => {
+  const j = JSON.parse(run('npx', ['trustshell', 'verify', text, '--json'], { timeout: 180000 }));
+  return String(j.verdict ?? j.decision ?? '').toLowerCase();
+};
+try {
+  requireEngine();
+  const td = Date.now();
+  const truthy = verdictOf('The Eiffel Tower is in Paris, France.'); // true → must NOT be vetoed
+  const falsy = verdictOf('The Eiffel Tower is in Rome, Italy.');     // false → must be vetoed
+  perf.hal_discrimination_ms = since(td);
+  const truthyVetoed = /veto/.test(truthy);
+  const falsyVetoed = /veto/.test(falsy);
+  if (falsyVetoed && !truthyVetoed) {
+    record('hal.discrimination', 'MEASURED',
+      `true-claim → '${truthy}' (not vetoed), false-claim → '${falsy}' (vetoed) — HAL discriminates`);
+  } else {
+    record('hal.discrimination', 'FAILED',
+      `HAL did NOT discriminate: true-claim → '${truthy}' (want not-vetoed), ` +
+      `false-claim → '${falsy}' (want vetoed). A quorum answered but the answers do not separate ` +
+      'true from false — the property the product sells is not holding');
+  }
+} catch (e) {
+  recordEngineLeg('hal.discrimination', e);
+}
+
 // RepID: keyless read.
 let liveScore = null;
 try {
