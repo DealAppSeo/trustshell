@@ -191,7 +191,20 @@ try {
 // against POST /api/v1/hal/evaluate: "…in Paris" -> clean, "…in Rome" -> vetoed, real 2-provider
 // quorum each. A regression here (HAL stops discriminating) goes FAILED and reddens the nightly.
 const verdictOf = (text) => {
-  const j = JSON.parse(run('npx', ['trustshell', 'verify', text, '--json'], { timeout: 180000 }));
+  // `trustshell verify` EXITS NON-ZERO when the claim is vetoed — that is a real verdict, not a
+  // command failure, and the JSON is still on stdout. execFileSync throws on non-zero, so catch
+  // and read stdout (the same pattern acceptance-baseline.mjs uses on this gate's own exit code).
+  // Only a genuinely empty stdout is a real failure. Without this, the false-claim leg — which
+  // MUST be vetoed to pass — would always throw, which is why the existing hal.verify leg only
+  // ever used a clean statement.
+  let out;
+  try {
+    out = run('npx', ['trustshell', 'verify', text, '--json'], { timeout: 180000 });
+  } catch (e) {
+    if (e.stdout == null || String(e.stdout).trim() === '') throw e;
+    out = e.stdout;
+  }
+  const j = JSON.parse(out);
   return String(j.verdict ?? j.decision ?? '').toLowerCase();
 };
 try {
