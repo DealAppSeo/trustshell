@@ -57,6 +57,7 @@
     "test:grants-fail-closed": "node tests/e2e/grants-fail-closed.mjs",
     "test:mvp-walk": "node tests/e2e/mvp-walk.mjs",
     "test:create-walk": "node tests/e2e/create-walk.mjs",
+    "test:home-stats-walk": "node tests/e2e/home-stats-walk.mjs",
     "test:campaign-honesty": "node tests/e2e/campaign-honesty.mjs",
     "test:roles-honesty": "node tests/e2e/roles-honesty.mjs",
     "test:acceptance": "node tests/e2e/harness-acceptance.mjs",
