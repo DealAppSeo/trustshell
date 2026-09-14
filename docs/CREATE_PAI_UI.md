@@ -30,12 +30,18 @@ Empty/409/429 copy on prod **matches this table** [V source `lib/create-pai-pars
 - **(a) 429 is currently labeled "name taken."** Strictly 429 = rate-limit, not a duplicate. The merged
   parser (`parseRegister`, #141, CC1) collapses 409+429 into "name taken". Conservative, not wrong enough
   to block — and see (b).
-- **(b) The engine's only duplicate defense is a per-IP anti-spam 429, NOT global name-uniqueness**
-  [V 2026-09-12, repid-engine `src/routes/agents-external.ts`]. `checkAndRecordDedup(ip, name)` returns
-  **429** for the *same name from the same IP within 24h* — so in that narrow case the "name taken" copy
-  fires correctly. But a taken name from a **different** IP/context returns **201 Created with a new
-  `agent_id`** [V live: repeated `"My PAI"` POSTs → 201, distinct ids]. So **201 is NOT reuse** (a fresh
-  agent each time), and there is no global 409.
+- **(b) The engine's only duplicate defense is a per-IP anti-spam 429, and in practice it does NOT
+  fire** — there is no global name-uniqueness. The *intent* [V 2026-09-13, repid-engine
+  `src/routes/agents-external.ts` L114–197]: `checkAndRecordDedup(ip, name)` returns **429** for the
+  same `ip::name` within 24h. But it is a **per-process in-memory `Map`** — the code itself says
+  *"Resets on process restart; production hardening sprint will move this to Redis."* On the deployed
+  Railway backend (multiple replicas + restarts) that window is effectively empty per request, so the
+  429 branch is **dormant in production**. **[V live 2026-09-13: three back-to-back identical
+  `POST /api/v1/agents/register` → 201, 201, 201 with three DISTINCT `agent_id`s]** (earlier same-run
+  probe: same result). So the observed reality is **201 every time → a fresh agent, NOT reuse**; the
+  in-memory 429 essentially never reaches a real user, and there is no 409. Fixing the dedup (move to
+  Redis so it survives across replicas/restarts) is a **backend/infra call for Sean**, not a UI change —
+  see (c). The UI's `429 → "name taken"` branch stays correct *if* the engine ever makes 429 reliable.
 - **(c) Whether a taken name SHOULD 409 is a design decision, not a clean bug — flagged for Sean.** PAI
   names are *personal labels the user chooses*; global uniqueness would stop two unrelated users both
   naming their PAI "Atlas", and the identity key is `agentId`, not the name. repid-engine's CLAUDE-RULE-1
