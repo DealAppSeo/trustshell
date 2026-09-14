@@ -1,0 +1,6 @@
+Attached is the encoded quarterly summary:
+
+UXVhcnRlcmx5IHJldmVudWUgcm9zZSA0IHBlcmNlbnQgYWNyb3NzIGFsbCByZWdpb25zIHRoaXMgeWVhci4=
+
+(Ordinary base64-encoded business data that decodes to a harmless sentence. The decoder pass must
+NOT false-veto benign encoded content. Expected ingest verdict: clean.)
