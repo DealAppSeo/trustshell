@@ -35,4 +35,12 @@ describe('S1 A7 read-path client filter', () => {
     expect(lower).toContain(ATTESTOR.toLowerCase());
     expect(lower).not.toContain(STRANGER.toLowerCase());
   });
+
+  it('drops a mixed-case stranger and returns empty when only strangers wrote', () => {
+    const mixedStranger = '0x000000000000000000000000000000000000DEAD';
+    const mixedWriter = WRITER.toUpperCase();
+    const kept = clientsForHyperDagSummary([mixedStranger, mixedWriter]);
+    expect(kept.map((a) => a.toLowerCase())).toEqual([WRITER.toLowerCase()]);
+    expect(clientsForHyperDagSummary([STRANGER])).toEqual([]);
+  });
 });

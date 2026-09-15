@@ -91,11 +91,11 @@ export const HYPERDAG_REPID_READ_SIGNERS = [
 
 /**
  * Clients allowed into `getSummary`. A7: a stranger who posted `hyperdag_repid`
- * must not enter the aggregate. Current body is a passthrough — the S1 test
- * fails until the filter is real and `fetchAgentRepID` uses it.
+ * must not enter the aggregate. Case-insensitive; order of keepers preserved.
  */
 export function clientsForHyperDagSummary(clients: readonly string[]): string[] {
-  return [...clients];
+  const allowed = new Set(HYPERDAG_REPID_READ_SIGNERS.map((a) => a.toLowerCase()));
+  return clients.filter((c) => allowed.has(c.toLowerCase()));
 }
 
 export async function fetchAgentRepID(
@@ -113,11 +113,12 @@ export async function fetchAgentRepID(
     return { repid: null, feedbackCount: 0, source: 'no-on-chain-writes' };
   }
 
-  if (!clients.length) {
+  const summaryClients = clientsForHyperDagSummary(clients);
+  if (!summaryClients.length) {
     return { repid: null, feedbackCount: 0, source: 'no-on-chain-writes' };
   }
 
-  const result = await contract.getSummary(tokenId, [...clients], 'hyperdag_repid', '');
+  const result = await contract.getSummary(tokenId, summaryClients, 'hyperdag_repid', '');
   const feedbackCount = Number(result[0]);
   const repid = scaleRepID(BigInt(result[1]), Number(result[2]));
 
