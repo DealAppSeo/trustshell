@@ -29,6 +29,9 @@ function presentation(over: Partial<ProofPresentation> = {}): ProofPresentation 
     scheme: 'plonky3_range_check',
     statement: { agent_id: 'trinity-shofet', repid_score: SCORE, threshold: THRESHOLD, tier: 'ESTABLISHED' },
     createdAt: '2026-08-07T00:00:00.000Z',
+    signer: null,
+    note: 'not a registry aggregate',
+    reasons: {},
     ...over,
   };
 }

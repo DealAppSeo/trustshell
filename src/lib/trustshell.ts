@@ -7,6 +7,13 @@
 
 import { assertOriginCanPay } from './origin';
 import type { AgentTurnOrigin } from './origin';
+import {
+  verifyOutputGrounding,
+  countProviders,
+  repidHonesty,
+  proofHonesty,
+} from './honest-contract';
+import type { Grounding } from './honest-contract';
 
 /** TrustKeys `readAllowance` signature. Unset agent → undefined (fail closed). */
 export type ReadAllowance = (agentId: string) => bigint | undefined;
@@ -68,6 +75,14 @@ export interface VerifyResult {
   lastAnchorTx: string | null;
   latestProofHash: string | null;
   provenanceChain: any[];
+  /** Honest contract (T4): real on-chain mint? null = endpoint didn't say (see reasons). */
+  minted: boolean | null;
+  /** Publishing signer address when exposed; else null (see reasons). */
+  signer: string | null;
+  /** Scoring lane from a real response field; else null (see reasons). */
+  scoreLane: string | null;
+  /** Why any of the above is null. Never empty when a field is null. */
+  reasons: Record<string, string>;
 }
 
 export interface AuditResult {
@@ -90,6 +105,10 @@ export interface VerifyOutputResult {
   decisionReason: string;
   /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
   evidence: string[];
+  /** How this verdict is grounded: 'hal' when a real provider quorum spoke, 'none' when HAL could not check. */
+  grounding: Grounding;
+  /** The REAL provider quorum behind the verdict — a MEASURED count (evidence length), never a constant. */
+  providersUsed: number;
   /**
    * SBFA consensus fields. Populated from the backend `sbfa` object (SBFA v0.2 shadow) when present;
    * left undefined when the backend doesn't supply them. Never fabricated (except `confidence`, which
@@ -191,6 +210,14 @@ export interface RepIDResult {
   /** On-chain tx hash, or the coded reason `NOT_ANCHORED`. Never silent null. */
   lastAnchorTx: string;
   latestProofHash: string | null;
+  /** Honest contract (T4): real on-chain mint? `null` = the endpoint didn't say (see `reasons`). Never defaults to true. */
+  minted: boolean | null;
+  /** Publishing signer address when the endpoint exposes it; else `null` (see `reasons`). */
+  signer: string | null;
+  /** Scoring lane from a real response field; else `null` (see `reasons`). */
+  scoreLane: string | null;
+  /** For every field above that is `null`: the reason it is unavailable. Never empty when a field is null. */
+  reasons: Record<string, string>;
 }
 
 /** Reveal tiers (ZKP_REVEAL_TIERS). `postcard` is production-real; others are capability-gated. */
@@ -212,6 +239,12 @@ export interface ProofPresentation {
     tier: string;
   } | null;
   createdAt: string | null;
+  /** Honest contract (T4): the engine's publishing signer when the payload carries it; else null (see `reasons`). */
+  signer: string | null;
+  /** A presented proof is an engine-signed postcard — NOT an aggregate of registry rows. Fixed, honest label. */
+  note: 'not a registry aggregate';
+  /** Why `signer` is null, when it is. */
+  reasons: Record<string, string>;
   /** populated by presentProof({ verify: true }) — client-side WASM verification result. */
   verification?: {
     verified: boolean;
@@ -669,6 +702,8 @@ export class TrustShell {
     }
 
     const data = await res.json();
+    // Honest contract (T4): derive mint/signer/lane from the REAL response, null-with-reason otherwise.
+    const honesty = repidHonesty(data);
     return {
       // The live /api/v1/repid/:id returns `repid_score` (cached read); keep the legacy fallbacks.
       repid: data.repid_score ?? data.repid ?? data.current_repid,
@@ -676,6 +711,10 @@ export class TrustShell {
       lastAnchorTx: data.last_anchor_tx || null,
       latestProofHash: data.latest_proof_hash || null,
       provenanceChain: data.provenance || [],
+      minted: honesty.minted,
+      signer: honesty.signer,
+      scoreLane: honesty.scoreLane,
+      reasons: honesty.reasons,
     };
   }
 
@@ -708,6 +747,9 @@ export class TrustShell {
       signals: r.signals,
       decisionReason: r.decisionReason,
       evidence: r.evidence,
+      // Honest grounding contract (T4): grounding + the REAL quorum, both from the actual evidence.
+      grounding: verifyOutputGrounding(r.evidence.length),
+      providersUsed: countProviders({ evidence: r.evidence }),
       belief: r.belief, // real DST belief mass, or undefined (never fabricated)
       ignoranceMass: r.ignoranceMass, // real DST ignorance, or undefined (never derived)
       confidence: r.confidence ?? derivedConfidence, // real SBFA confidence; else DERIVED proxy
@@ -766,6 +808,11 @@ export class TrustShell {
       tier: v.tier,
       lastAnchorTx: v.lastAnchorTx || 'NOT_ANCHORED',
       latestProofHash: v.latestProofHash,
+      // Honest contract (T4): forwarded from verify() — never defaulted.
+      minted: v.minted,
+      signer: v.signer,
+      scoreLane: v.scoreLane,
+      reasons: v.reasons,
     };
   }
 
@@ -928,6 +975,8 @@ export class TrustShell {
       throw new TrustShellError(`Proof lookup failed: ${res.status}`, res.status);
     }
     const data = await res.json();
+    // Honest contract (T4): signer from the real payload else null-with-reason; a proof is a postcard, not a mean.
+    const proofH = proofHonesty(data);
     const presentation: ProofPresentation = {
       agentId,
       tier,
@@ -935,6 +984,9 @@ export class TrustShell {
       scheme: data.scheme ?? null,
       statement: data.statement ?? null,
       createdAt: data.created_at ?? null,
+      signer: proofH.signer,
+      note: proofH.note,
+      reasons: proofH.reasons,
     };
 
     if (opts.verify && presentation.proofBytes && presentation.statement) {
