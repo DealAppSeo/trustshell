@@ -13,6 +13,9 @@ const postcard: ProofPresentation = {
     tier: 'ESTABLISHED',
   },
   createdAt: '2026-09-01',
+  signer: null,
+  note: 'not a registry aggregate',
+  reasons: {},
 };
 
 describe('envelope disclosure', () => {

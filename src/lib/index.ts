@@ -33,6 +33,21 @@ export { guardedX402Payment } from './guarded-payment';
 export type { GuardedPaymentParams } from './guarded-payment';
 
 /**
+ * Signer-aware verification (T6): the registry is permissionless, so "check the signer" is the real
+ * step. Two of our addresses post feedback (a writer + an attestor); this labels every signer against
+ * a config allowlist and returns unknowns FLAGGED — it never silently drops a row, and recommends no
+ * policy. Keyless (public RPC). See docs/SIGNER_VERIFICATION.md.
+ */
+export {
+  verifySigner,
+  classifySigners,
+  onchainFeedbackClients,
+  HYPERDAG_REPID_SIGNERS,
+  REPUTATION_REGISTRY_BASE_SEPOLIA,
+} from './verify-signer';
+export type { SignerEntry, SignerVerdict, VerifySignerResult } from './verify-signer';
+
+/**
  * S5: one action class cannot run without a typed envelope. Exported and used
  * by the CLI `verify`/`evaluate` command (origin=Cli, actionClass=verify).
  */
