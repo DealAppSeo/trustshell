@@ -169,6 +169,10 @@ Use it as a gate:
 trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || exit 1
 ```
 
+### `trustshell evaluate "<claim>"`
+
+Alias of `trustshell verify`. Same HAL quorum, same exits. Exists so every public surface names `evaluate()`.
+
 ### `trustshell repid <agentIdOrSlug>`
 
 Print an agent's live RepID and tier. Keyless. Options: `--json`.
