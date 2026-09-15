@@ -80,7 +80,26 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     cb: (args: any) => unknown,
   ) => void;
 
-  // --- verify: HAL cross-provider fact-check quorum -----------------------------------------
+  const verifyHandler = async ({ text }: { text: string }) => {
+    try {
+      const r = await client.verifyOutput(text);
+      return jsonResult({
+        verdict: r.verdict,
+        ok: r.ok,
+        trustScore: r.trustScore,
+        halScore: r.halScore,
+        decisionReason: r.decisionReason,
+        evidence: r.evidence,
+      });
+    } catch (e: any) {
+      return errorResult(`verify failed: ${e?.message ?? String(e)}`);
+    }
+  };
+
+  // --- verify / evaluate: HAL cross-provider fact-check quorum ------------------------------
+  const verifySchema = {
+    text: z.string().min(1).describe('The claim or output text to fact-check.'),
+  };
   registerTool(
     'verify',
     {
@@ -89,25 +108,19 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         'Run text through the live HAL cross-provider fact-check quorum (strictness 2). Returns ' +
         'PASS / FLAG / VETO, a 0–100 trust score, the decision reason, and per-provider evidence. ' +
         'Use it to check a claim before acting on it.',
-      inputSchema: {
-        text: z.string().min(1).describe('The claim or output text to fact-check.'),
-      },
+      inputSchema: verifySchema,
     },
-    async ({ text }: { text: string }) => {
-      try {
-        const r = await client.verifyOutput(text);
-        return jsonResult({
-          verdict: r.verdict,
-          ok: r.ok,
-          trustScore: r.trustScore,
-          halScore: r.halScore,
-          decisionReason: r.decisionReason,
-          evidence: r.evidence,
-        });
-      } catch (e: any) {
-        return errorResult(`verify failed: ${e?.message ?? String(e)}`);
-      }
+    verifyHandler,
+  );
+  registerTool(
+    'evaluate',
+    {
+      title: 'HAL evaluate',
+      description:
+        'Alias of verify. Same live HAL quorum. Exists so every public surface names evaluate().',
+      inputSchema: verifySchema,
     },
+    verifyHandler,
   );
 
   // --- getLeaderboard: live model / agent trust leaderboard ---------------------------------

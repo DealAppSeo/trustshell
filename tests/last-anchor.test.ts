@@ -9,6 +9,10 @@ describe('getRepID lastAnchorTx', () => {
       lastAnchorTx: null,
       latestProofHash: null,
     });
+    (client as any).presentProof = async () => ({
+      proofBytes: '',
+      proofHash: null,
+    });
     const r = await client.getRepID('trinity-shofet');
     expect(r.lastAnchorTx).toBe('NOT_ANCHORED');
   });

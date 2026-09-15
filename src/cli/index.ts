@@ -25,6 +25,7 @@
  * arg-parsing + exit-code logic is unit-testable with NO network (mirrors the MCP).
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation } from '../lib/trustshell';
+import { runEnvelopedAction } from '../lib/action-envelope';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
@@ -54,6 +55,7 @@ export const EXIT = {
 
 export type Command =
   | 'verify'
+  | 'evaluate'
   | 'repid'
   | 'proof'
   | 'badge'
@@ -150,6 +152,7 @@ COMMANDS
   verify "<text>"            Run <text> through the live HAL cross-provider fact-check
                              quorum. Prints PASS / FLAG / VETO + trust score + evidence.
                              EXIT 0 on PASS/FLAG, EXIT 1 on VETO — use it as a CI gate.
+  evaluate "<text>"          Alias of verify. Same HAL quorum, same exits.
   repid <agentIdOrSlug>      Print an agent's live RepID score + tier (keyless).
   proof <agentIdOrSlug>      Fetch an agent's ZK RepID range proof (POSTCARD tier).
       [--verify]             …and verify it client-side with the bundled WASM verifier.
@@ -271,6 +274,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   switch (cmd) {
     case 'verify':
+    case 'evaluate':
     case 'repid':
     case 'proof':
     case 'badge':
@@ -278,7 +282,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const operand = rest[0];
       if (!operand) {
         const what =
-          cmd === 'verify'
+          cmd === 'verify' || cmd === 'evaluate'
             ? '"<text>"'
             : cmd === 'check'
               ? '<github-actions-run-url>'
@@ -424,9 +428,13 @@ export async function run(
       io.out(VERSION);
       return EXIT.OK;
 
-    case 'verify': {
+    case 'verify':
+    case 'evaluate': {
       try {
-        const r = await client.verifyOutput(args.operand as string);
+        const r = await runEnvelopedAction(
+          { origin: 'Cli', actionClass: 'verify', policyId: 'hal' },
+          () => client.verifyOutput(args.operand as string),
+        );
         if (args.json) io.out(JSON.stringify(r, null, 2));
         else io.out(formatVerify(r));
         return verdictExitCode(r.verdict);

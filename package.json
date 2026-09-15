@@ -63,6 +63,7 @@
     "test:roles-honesty": "node tests/e2e/roles-honesty.mjs",
     "test:acceptance": "node tests/e2e/harness-acceptance.mjs",
     "test:acceptance-baseline": "node tests/e2e/acceptance-baseline.mjs",
+    "e2e:mvp": "node tests/e2e/mvp-pack.mjs",
     "test:sdk-import": "npm run sdk:build && node tests/sdk-import-contract.mjs",
     "docs:honest-types": "node scripts/gen-honest-return-docs.mjs",
     "test:pack-x402": "node tests/pack-x402-guards.mjs"

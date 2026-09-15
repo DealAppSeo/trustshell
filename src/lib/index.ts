@@ -48,6 +48,13 @@ export {
 export type { SignerEntry, SignerVerdict, VerifySignerResult } from './verify-signer';
 
 /**
+ * S5: one action class cannot run without a typed envelope. Exported and used
+ * by the CLI `verify`/`evaluate` command (origin=Cli, actionClass=verify).
+ */
+export { runEnvelopedAction, EnvelopeRequiredError, isActionEnvelope } from './action-envelope';
+export type { ActionEnvelope, ActionOrigin } from './action-envelope';
+
+/**
  * Portable proof badge — render a {@link ProofPresentation} (from `presentProof`)
  * as a self-contained, embeddable SVG or Markdown snippet a reviewer can share and
  * re-verify. Green only when local verification returned true. The BADGE never prints the

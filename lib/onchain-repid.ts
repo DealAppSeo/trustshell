@@ -80,6 +80,24 @@ function scaleRepID(raw: bigint, decimals: number): number {
   return Number(raw) / divisor;
 }
 
+/**
+ * Addresses whose `tag1=hyperdag_repid` rows we will aggregate.
+ * Writer + attestor (board #63 / T6). Not writer-only — that drops the attestor.
+ */
+export const HYPERDAG_REPID_READ_SIGNERS = [
+  '0xb24268884472E7613aA58D38C8813f7Af1667382',
+  '0xf6eE1768868c3266868edcA78bC41C50309cb22A',
+] as const;
+
+/**
+ * Clients allowed into `getSummary`. A7: a stranger who posted `hyperdag_repid`
+ * must not enter the aggregate. Case-insensitive; order of keepers preserved.
+ */
+export function clientsForHyperDagSummary(clients: readonly string[]): string[] {
+  const allowed = new Set(HYPERDAG_REPID_READ_SIGNERS.map((a) => a.toLowerCase()));
+  return clients.filter((c) => allowed.has(c.toLowerCase()));
+}
+
 export async function fetchAgentRepID(
   tokenId: number,
   options?: { rpcUrl?: string; registryAddress?: string }
@@ -95,11 +113,12 @@ export async function fetchAgentRepID(
     return { repid: null, feedbackCount: 0, source: 'no-on-chain-writes' };
   }
 
-  if (!clients.length) {
+  const summaryClients = clientsForHyperDagSummary(clients);
+  if (!summaryClients.length) {
     return { repid: null, feedbackCount: 0, source: 'no-on-chain-writes' };
   }
 
-  const result = await contract.getSummary(tokenId, [...clients], 'hyperdag_repid', '');
+  const result = await contract.getSummary(tokenId, summaryClients, 'hyperdag_repid', '');
   const feedbackCount = Number(result[0]);
   const repid = scaleRepID(BigInt(result[1]), Number(result[2]));
 

@@ -23,7 +23,10 @@ export async function GET() {
       total_minted: agents.length,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'On-chain read failed';
-    return NextResponse.json({ error: message }, { status: 502 });
+    const reason = err instanceof Error ? err.message : 'On-chain read failed';
+    return NextResponse.json(
+      { error: 'leaderboard_unavailable', reason, providersUsed: null },
+      { status: 503 },
+    );
   }
 }
