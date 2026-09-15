@@ -65,5 +65,21 @@ assert(esm.meetsThreshold('VETO', 'FLAG') === true && esm.meetsThreshold('PASS',
 assert(typeof esm.proofBadgeStatus === 'function' && typeof esm.verify === 'function',
   'the honesty helpers (proofBadgeStatus) and the WASM proof verifier (verify) are exported');
 
+// ── 5. THE x402 GUARDS must ship in the package entry (T5, ai_dispatch #93). Published 1.3.0
+//      predated these, so npm users on 1.3.0 got the RAW buildX402Payment with NO origin check,
+//      NO audit hook and NO spend cap. Guarded is the documented default; the raw builder is the
+//      explicit lower-level opt-out. This pins the four to the built artifact so a future publish
+//      cannot ship the unguarded surface again.
+assert(typeof esm.guardedX402Payment === 'function',
+  'export guardedX402Payment — the guarded spend entry (origin + audit-before-act + cap)');
+assert(typeof esm.assertOriginCanPay === 'function',
+  'export assertOriginCanPay — an Unknown/undefined origin cannot pay');
+assert(typeof esm.auditThenAct === 'function',
+  'export auditThenAct — the intent is audited BEFORE the action');
+assert(typeof esm.buildX402Payment === 'function',
+  'export buildX402Payment — the lower-level cap-checked signer (explicit opt-out, not the default)');
+assert(typeof esm.TrustShell?.prototype?.getAllowance === 'function',
+  'TrustShell#getAllowance — the spend-cap read is on the shipped class');
+
 console.log(`\n${failures === 0 ? 'PASS' : 'FAIL'}: SDK import contract — ${failures} failure(s)`);
 process.exit(failures === 0 ? 0 : 1);
