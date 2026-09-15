@@ -12,6 +12,17 @@ describe('honest return contract (T4) — pure derivations', () => {
     expect(verifyOutputGrounding(2)).toBe('hal'); // groq + cerebras spoke
   });
 
+  it('docs are generated from the types (providers_used cannot drift to a constant 6)', () => {
+    const { readFileSync } = require('node:fs');
+    const { resolve } = require('node:path');
+    const docs = readFileSync(resolve(process.cwd(), 'docs/SDK_HONEST_RETURN_TYPES.md'), 'utf8');
+    expect(docs).toMatch(/generated/i);
+    expect(docs).toMatch(/providers_used/);
+    expect(docs).toMatch(/grounding/);
+    expect(docs).toMatch(/minted/);
+    expect(docs).not.toMatch(/\bproviders_used\b.*\b6\b/);
+  });
+
   it('A2: providers_used reflects the LIVE quorum (measured), never a constant', () => {
     // The number varies with the actual evidence — it is not hardcoded (and is 2, not the "6" copy claimed).
     expect(countProviders({ evidence: ['groq:TRUE', 'cerebras:TRUE'] })).toBe(2);

@@ -109,6 +109,8 @@ export interface VerifyOutputResult {
   grounding: Grounding;
   /** The REAL provider quorum behind the verdict — a MEASURED count (evidence length), never a constant. */
   providersUsed: number;
+  /** Dispatch name for the same field — so copy cannot write "6" again. */
+  providers_used: number;
   /**
    * SBFA consensus fields. Populated from the backend `sbfa` object (SBFA v0.2 shadow) when present;
    * left undefined when the backend doesn't supply them. Never fabricated (except `confidence`, which
@@ -750,6 +752,7 @@ export class TrustShell {
       // Honest grounding contract (T4): grounding + the REAL quorum, both from the actual evidence.
       grounding: verifyOutputGrounding(r.evidence.length),
       providersUsed: countProviders({ evidence: r.evidence }),
+      providers_used: countProviders({ evidence: r.evidence }),
       belief: r.belief, // real DST belief mass, or undefined (never fabricated)
       ignoranceMass: r.ignoranceMass, // real DST ignorance, or undefined (never derived)
       confidence: r.confidence ?? derivedConfidence, // real SBFA confidence; else DERIVED proxy
