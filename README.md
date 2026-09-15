@@ -44,7 +44,7 @@ Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdi
 | Method | Keyless? | Notes |
 |---|---|---|
 | `TrustShell.init()` | ✅ | live `/health` probe |
-| `verifyOutput(text)` | ✅ | real cross-provider HAL quorum |
+| `verifyOutput(text)` / `evaluate(text)` | ✅ | real cross-provider HAL quorum (`evaluate` is an alias) |
 | `score(text)` | ✅ | raw HAL signals behind `verifyOutput` |
 | `getRepID(agentId)` | ✅ | current RepID + tier (public read) |
 | `presentProof(agentId)` | ✅ | RepID range proof for client-side verify |
@@ -64,7 +64,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 | This package | live | v1 hosted thin client. Trust computation runs on the HyperDAG engine, not on your machine. On-device proofs are v2, not shipped. npm `latest` is 1.3.0; this tree is 1.4.0 unpublished. |
 | `getRepID()` / `presentProof()` | live | Keyless. Score moves; gate on tier or your own threshold. |
 | `register()` | live | Keyless. Creates an agent and a RepID. It does not mint ERC-8004. |
-| `verifyOutput()` / `trustshell verify` | live-degraded | Keyless. Quorum is real; 2/6 providers funded (2026-09-09). HAL is weaker on paraphrases than on record-grounded facts. Which providers appear in evidence moves. |
+| `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. Live 2026-09-15: 2 answering / 8 configured. HAL is weaker on paraphrases than on record-grounded facts. |
 | ERC-8004 identity mint | paused/blocked | Key-gated, separate call. A keyless `register()` leaves `NOT_MINTED`. |
 | On-chain reputation writes | paused/blocked | History is real (last write 2026-06-22); writes are not landing now. |
 | x402 `executeA2A()` | paused/blocked | Protocol exists on Base Sepolia (chain id 84532). Needs an API key and a funded testnet wallet. Not mainnet. |

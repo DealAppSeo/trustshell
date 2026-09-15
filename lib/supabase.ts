@@ -1,29 +1,38 @@
 // Supabase client helpers for both server and browser.
 import { createBrowserClient } from '@supabase/ssr'
 
+/**
+ * Fail-closed browser key. A legacy JWT (`eyJ…`) is dead in prod and must not
+ * be inlined. Prefer the publishable key. ANON_KEY is only used if it is not a JWT.
+ */
+export function pickBrowserSupabaseKey(
+  publishable?: string | null,
+  anon?: string | null,
+): string {
+  const pub = (publishable ?? '').trim();
+  if (pub && !pub.startsWith('eyJ')) return pub;
+  const a = (anon ?? '').trim();
+  if (a.startsWith('eyJ')) {
+    throw new Error(
+      'dead_jwt_refused: NEXT_PUBLIC_SUPABASE_ANON_KEY is a legacy JWT; set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    );
+  }
+  if (a) return a;
+  throw new Error('supabase_key_missing');
+}
+
 // Browser client for client-side operations (waitlist forms, etc.)
 export function createClient() {
+  // BOTH names are written out as literals on purpose. Next inlines
+  // NEXT_PUBLIC_* into the browser bundle by static analysis of literal
+  // references; a computed lookup is not inlined and arrives `undefined` in
+  // the browser.
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    // BOTH names are written out as literals on purpose. Next inlines
-    // NEXT_PUBLIC_* into the browser bundle by static analysis of literal
-    // references; a computed lookup is not inlined and arrives `undefined` in
-    // the browser. A fallback list therefore has to be spelled out, and cannot
-    // be a loop over candidate names.
-    //
-    // PUBLISHABLE is the accurate name. The credential is a Supabase
-    // publishable key (`sb_publishable_…`) which AUTHENTICATES AS the `anon`
-    // Postgres role. The key is not the role: "anon key" named the credential
-    // after the role it resolves to, and those are two different things — which
-    // is exactly the conflation that keeps getting re-litigated across this
-    // stack.
-    //
-    // ANON_KEY remains as a fallback so this is safe to deploy BEFORE the new
-    // Vercel variable exists. Delete this fallback only once
-    // NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is set in every environment and the
-    // old variable is gone.
-    (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!
+    pickBrowserSupabaseKey(
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    ),
   )
 }
 
