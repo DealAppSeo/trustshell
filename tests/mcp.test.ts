@@ -47,7 +47,7 @@ describe('trustshell MCP server', () => {
   it('registers the advertised tools including present_proof', () => {
     const server: any = createServer(mockClient());
     const names = Object.keys(server._registeredTools ?? {}).sort();
-    expect(names).toEqual(['getLeaderboard', 'getRepID', 'present_proof', 'verify']);
+    expect(names).toEqual(['evaluate', 'getLeaderboard', 'getRepID', 'present_proof', 'verify']);
   });
 
   // Deliberately NOT a hardcoded literal — a literal is exactly the bug this
@@ -65,6 +65,15 @@ describe('trustshell MCP server', () => {
 
   it('makeClient builds a TrustShell without throwing', () => {
     expect(makeClient()).toBeInstanceOf(TrustShell);
+  });
+
+  it('evaluate tool is an alias of verify', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    const tool = getTool(server, 'evaluate');
+    const res = await tool.handler({ text: 'The capital of France is Paris.' });
+    expect((client.verifyOutput as jest.Mock)).toHaveBeenCalledWith('The capital of France is Paris.');
+    expect(JSON.parse(res.content[0].text).verdict).toBe('PASS');
   });
 
   it('verify tool delegates to client.verifyOutput and returns a JSON text block', async () => {

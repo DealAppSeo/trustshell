@@ -5,8 +5,14 @@
  * From S-SDK1 spec + S-BUILD implementation.
  */
 
+import { createHash } from 'node:crypto';
 import { assertOriginCanPay } from './origin';
 import type { AgentTurnOrigin } from './origin';
+
+/** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
+export function hashProofBytes(proofBytes: string): string {
+  return createHash('sha256').update(proofBytes, 'utf8').digest('hex');
+}
 
 /** TrustKeys `readAllowance` signature. Unset agent → undefined (fail closed). */
 export type ReadAllowance = (agentId: string) => bigint | undefined;
@@ -212,6 +218,8 @@ export interface ProofPresentation {
     tier: string;
   } | null;
   createdAt: string | null;
+  /** EAS uid or sha256(proofBytes). Set whenever proof bytes exist. */
+  proofHash?: string | null;
   /** populated by presentProof({ verify: true }) — client-side WASM verification result. */
   verification?: {
     verified: boolean;
@@ -760,12 +768,21 @@ export class TrustShell {
 
   async getRepID(agentId: string): Promise<RepIDResult> {
     const v = await this.verify(agentId);
+    let latestProofHash = v.latestProofHash;
+    if (!latestProofHash) {
+      try {
+        const p = await this.presentProof(agentId);
+        latestProofHash = p.proofHash ?? (p.proofBytes ? hashProofBytes(p.proofBytes) : null);
+      } catch {
+        latestProofHash = null;
+      }
+    }
     return {
       agentId,
       repid: v.repid,
       tier: v.tier,
       lastAnchorTx: v.lastAnchorTx || 'NOT_ANCHORED',
-      latestProofHash: v.latestProofHash,
+      latestProofHash,
     };
   }
 
@@ -928,13 +945,16 @@ export class TrustShell {
       throw new TrustShellError(`Proof lookup failed: ${res.status}`, res.status);
     }
     const data = await res.json();
+    const proofBytes = data.proof_bytes || '';
+    const uid = typeof data.eas?.attestation_uid === 'string' ? data.eas.attestation_uid : null;
     const presentation: ProofPresentation = {
       agentId,
       tier,
-      proofBytes: data.proof_bytes || '',
+      proofBytes,
       scheme: data.scheme ?? null,
       statement: data.statement ?? null,
       createdAt: data.created_at ?? null,
+      proofHash: uid || (proofBytes ? hashProofBytes(proofBytes) : null),
     };
 
     if (opts.verify && presentation.proofBytes && presentation.statement) {
