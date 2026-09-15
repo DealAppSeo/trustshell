@@ -52,6 +52,7 @@
     "sdk:test": "jest --testPathIgnorePatterns /node_modules/ tests/e2e/ --passWithNoTests",
     "check:egress": "node scripts/check-egress.cjs",
     "check:doc-version": "node scripts/check-doc-version.cjs",
+    "test:prod-bundle-key": "node scripts/check-prod-supabase-bundle.mjs",
     "verify": "tsc --noEmit && jest --testPathIgnorePatterns /node_modules/ tests/e2e/ --passWithNoTests",
     "test:wrapper-readiness": "node tests/e2e/wrapper-reach-preflight.mjs && jest tests/e2e/wrapper-readiness.test.ts",
     "prepublishOnly": "npm run sdk:build && npm run sdk:test",
