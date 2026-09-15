@@ -22,23 +22,38 @@ const note = (ok, what, detail = '') => {
 };
 
 function run(cmd, args, cwd = dir) {
-  return spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout: 90_000, shell: process.platform === 'win32' });
+  return spawnSync(cmd, args, {
+    cwd,
+    encoding: 'utf8',
+    timeout: 120_000,
+    maxBuffer: 8 * 1024 * 1024,
+    windowsHide: true,
+  });
 }
 
 try {
-  execFileSync('npm', ['run', 'sdk:build'], { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
-  execFileSync('npm', ['pack', '--pack-destination', dir], { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
+  execFileSync('npm', ['run', 'sdk:build'], { cwd: ROOT, stdio: 'inherit', shell: true });
+  execFileSync('npm', ['pack', '--pack-destination', dir], { cwd: ROOT, stdio: 'inherit', shell: true });
   const tgz = readdirSync(dir).find((f) => f.endsWith('.tgz'));
   if (!tgz) throw new Error('npm pack produced no tarball');
-  run('npm', ['init', '-y']);
-  const inst = run('npm', ['install', join(dir, tgz)]);
+  const init = spawnSync('npm', ['init', '-y'], { cwd: dir, encoding: 'utf8', shell: true });
+  if (init.status !== 0) note(false, 'npm init', init.stderr);
+  const inst = spawnSync('npm', ['install', join(dir, tgz)], { cwd: dir, encoding: 'utf8', shell: true, timeout: 120_000 });
   note(inst.status === 0, 'install packed tarball', inst.stderr?.slice(0, 200));
 
   const cli = join(dir, 'node_modules', '@hyperdag', 'trustshell', 'dist', 'cli', 'index.js');
   const paris = run(process.execPath, [cli, 'verify', 'The capital of France is Paris.']);
-  note(paris.status === 0 && /PASS/i.test(paris.stdout || ''), 'verify PASS (Paris)', `exit=${paris.status}`);
+  note(
+    paris.status === 0 && /PASS/i.test(paris.stdout || ''),
+    'verify PASS (Paris)',
+    `exit=${paris.status} ${(paris.stderr || paris.stdout || '').slice(0, 160)}`,
+  );
   const rome = run(process.execPath, [cli, 'verify', 'The Eiffel Tower is located in Rome, Italy.']);
-  note(rome.status === 1 && /VETO/i.test(rome.stdout + rome.stderr), 'verify VETO (Rome)', `exit=${rome.status}`);
+  note(
+    rome.status === 1 && /VETO/i.test((rome.stdout || '') + (rome.stderr || '')),
+    'verify VETO (Rome)',
+    `exit=${rome.status} ${(rome.stderr || rome.stdout || '').slice(0, 160)}`,
+  );
 
   const repid = run(process.execPath, [cli, 'repid', AGENT, '--json']);
   let latest = null;
