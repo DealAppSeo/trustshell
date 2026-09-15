@@ -28,10 +28,9 @@ one. Adding before deleting means there is never a window where neither resolves
 6. Prove it (a green deploy log is not proof):
 
 ```bash
-curl -sL https://trustshell.dev | grep -oE 'src="[^"]+\.js[^"]*"'
-# fetch each bundle, then:
-#   old JWT pattern  → want 0
-#   sb_publishable_  → want ≥1
+node scripts/check-prod-supabase-bundle.mjs
+# VERIFIED (exit 0): ≥1 sb_publishable_, 0 eyJ JWTs
+# FAILED   (exit 1): dead JWT still inlined, or no publishable key
 ```
 
 ## 2. Claude Code + tarball (the CLI)
