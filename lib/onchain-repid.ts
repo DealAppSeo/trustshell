@@ -80,6 +80,24 @@ function scaleRepID(raw: bigint, decimals: number): number {
   return Number(raw) / divisor;
 }
 
+/**
+ * Addresses whose `tag1=hyperdag_repid` rows we will aggregate.
+ * Writer + attestor (board #63 / T6). Not writer-only — that drops the attestor.
+ */
+export const HYPERDAG_REPID_READ_SIGNERS = [
+  '0xb24268884472E7613aA58D38C8813f7Af1667382',
+  '0xf6eE1768868c3266868edcA78bC41C50309cb22A',
+] as const;
+
+/**
+ * Clients allowed into `getSummary`. A7: a stranger who posted `hyperdag_repid`
+ * must not enter the aggregate. Current body is a passthrough — the S1 test
+ * fails until the filter is real and `fetchAgentRepID` uses it.
+ */
+export function clientsForHyperDagSummary(clients: readonly string[]): string[] {
+  return [...clients];
+}
+
 export async function fetchAgentRepID(
   tokenId: number,
   options?: { rpcUrl?: string; registryAddress?: string }
