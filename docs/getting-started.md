@@ -4,7 +4,7 @@ A frictionless first hour: install, run a real claim through HAL, see the verdic
 
 ## 1. What is TrustShell
 
-`@hyperdag/trustshell` is the open-source npm client for the HyperDAG trust layer. You send an AI agent decision (a string + a 0–1 certainty); the **HAL** (Hallucination Auditor Layer) scores it across multiple LLM providers and returns a `PASS` / `FLAG` / `VETO` verdict plus a delta on the agent's portable reputation (**RepID**). Every score change is auditable; every reputation update is anchored on the canonical **ERC-8004 ReputationRegistry** on Base Sepolia.
+`@hyperdag/trustshell` is the open-source npm client for the HyperDAG trust layer. You send an AI agent decision (a string + a 0–1 certainty); the **HAL** (Hallucination Auditor Layer) scores it across multiple LLM providers and returns a `PASS` / `FLAG` / `VETO` verdict plus a delta on the agent's portable reputation (**RepID**). RepID is an engine-computed score, signed by a known address and published to a permissionless **ERC-8004** registry on Base Sepolia. Verification is keyless — and because the registry is permissionless, anyone may post their own row, so check the signer. (Not every score change is written on-chain: publishing is periodic and can be paused, so treat the engine score as the source of truth and the registry as a signed, checkable postcard.)
 
 Three primitives: **RepID** (reputation), **HAL** (hallucination defense), **x402** (agent-to-agent payments). All Apache 2.0. The reputation algorithm itself is also open — see [trustshell.dev/repid](https://trustshell.dev/repid). New to the terms? The [glossary](./glossary.md) covers each in plain language.
 
