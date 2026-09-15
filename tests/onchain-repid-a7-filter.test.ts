@@ -25,6 +25,11 @@ describe('S1 A7 read-path client filter', () => {
     expect(wrongCall).toBe(false);
   });
 
+  it('scripts/verify-onchain-leaderboard.mjs does not pass unfiltered clients', () => {
+    const src = readFileSync(join(__dirname, '../scripts/verify-onchain-leaderboard.mjs'), 'utf8');
+    expect(src.includes('getSummary(a.tokenId, [...clients]')).toBe(false);
+  });
+
   it('clientsForHyperDagSummary drops a stranger and keeps writer+attestor', () => {
     expect(HYPERDAG_REPID_READ_SIGNERS.map((a) => a.toLowerCase())).toEqual(
       [WRITER.toLowerCase(), ATTESTOR.toLowerCase()],

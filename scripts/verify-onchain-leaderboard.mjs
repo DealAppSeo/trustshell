@@ -11,6 +11,10 @@ const AGENTS = [
   { name: 'veritas', tokenId: 5864 },
   { name: 'shofet', tokenId: 5863 },
 ];
+const ALLOWED = new Set([
+  '0xb24268884472E7613aA58D38C8813f7Af1667382',
+  '0xf6eE1768868c3266868edcA78bC41C50309cb22A',
+].map((a) => a.toLowerCase()));
 
 const provider = new ethers.JsonRpcProvider('https://sepolia.base.org');
 const contract = new ethers.Contract(REG, ABI, provider);
@@ -21,7 +25,12 @@ for (const a of AGENTS) {
     console.log(`${a.name}: token ${a.tokenId} — minted, no on-chain writes`);
     continue;
   }
-  const [count, value, decimals] = await contract.getSummary(a.tokenId, [...clients], 'hyperdag_repid', '');
+  const summaryClients = clients.filter((c) => ALLOWED.has(String(c).toLowerCase()));
+  if (!summaryClients.length) {
+    console.log(`${a.name}: token ${a.tokenId} — minted, no allowlisted on-chain writes`);
+    continue;
+  }
+  const [count, value, decimals] = await contract.getSummary(a.tokenId, summaryClients, 'hyperdag_repid', '');
   const score = Number(value) / 10 ** Number(decimals);
   console.log(`${a.name}: token ${a.tokenId} — RepID ${score} (${count} writes)`);
 }
