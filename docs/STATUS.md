@@ -4,7 +4,7 @@ Measured 2026-09-15. Not a launch announcement.
 
 | Fact | Today |
 |---|---|
-| npm `@hyperdag/trustshell` **latest** | **1.3.0** until F-PUBLISH. This tree is 1.4.0 unpublished. Do not `npm install @hyperdag/trustshell@1.4.0` (404). |
+| npm `latest` | **1.3.0** until F-PUBLISH. This tree is 1.4.0 unpublished. `@1.4.0` 404s. |
 | After F-PUBLISH | 1.4.0. Not before. |
 | HAL quorum | **2 answering / 8 configured** (measured `quorum_health.answering_providers`). Not a constant 6. |
 | Chain | **Base Sepolia** (84532), not mainnet. |

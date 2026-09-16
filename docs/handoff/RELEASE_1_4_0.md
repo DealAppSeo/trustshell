@@ -35,4 +35,5 @@ Dead JWT (`eyJ…`) is refused as a browser Supabase key. Engine footer shows li
 npm install @hyperdag/trustshell@1.4.0
 ```
 
-Until then: `npm install @hyperdag/trustshell` → 1.3.0, or `github:DealAppSeo/trustshell` for main.
+Until then npm `latest` is **1.3.0**.
+For this tree: `github:DealAppSeo/trustshell`.
