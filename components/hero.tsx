@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { NPM_LATEST } from '@/lib/npm-latest';
+// L3: install badge is npm 1.3.0 until F-PUBLISH (2 answering / 8 configured lives in README Status).
 // The install badge names npm latest, not package.json. Reading package.json
 // here re-created the v1.1.0-stuck bug in reverse: this tree is 1.4.0
 // unpublished, so the caption next to `npm install` advertised a version the

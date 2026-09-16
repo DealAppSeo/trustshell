@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+import { EngineCommitLine } from '@/components/engine-commit';
 
 const footerLinks = {
   project: [
@@ -150,9 +151,10 @@ export function Footer() {
         </div>
 
         {/* Bottom line */}
-        <div className="text-center">
+        <div className="text-center space-y-1">
+          <EngineCommitLine />
           <p className="text-xs text-muted/60">
-            &copy; 2026 HyperDAG. Built on ERC-8004 + x402. Apache 2.0 licensed.
+            &copy; 2026 HyperDAG. Built on ERC-8004 + x402. Apache 2.0 licensed. Base Sepolia, not mainnet.
           </p>
         </div>
       </div>

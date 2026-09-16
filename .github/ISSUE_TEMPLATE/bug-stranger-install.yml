@@ -1,0 +1,34 @@
+name: Bug — stranger install
+description: npm install / CLI / MCP did not work as documented
+title: "[stranger-install] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a cold install. npm `latest` is **1.3.0** until F-PUBLISH. Do not report `npm install @hyperdag/trustshell@1.4.0` 404 as a product bug — that version is unpublished.
+  - type: dropdown
+    id: path
+    attributes:
+      label: What did you run?
+      options:
+        - npm install @hyperdag/trustshell
+        - github:DealAppSeo/trustshell
+        - npx trustshell verify
+        - npx trustshell-mcp
+        - example-agent clone
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Exact commands and output
+      description: Paste the four-command path if you tried it (verify Paris, verify Rome, getRepID, presentProof --verify).
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: node -v and npm -v
+    validations:
+      required: true

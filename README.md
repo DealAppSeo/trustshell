@@ -15,6 +15,19 @@ HAL hallucination filtering, portable RepID, and agent-to-agent service purchase
 
 ---
 
+## Status
+
+| | Today |
+|---|---|
+| npm `latest` | **1.3.0** until F-PUBLISH. This tree is 1.4.0 unpublished. `@1.4.0` 404s. |
+| HAL quorum | **2 answering / 8 configured** (measured). Not a constant 6. |
+| Chain | **Base Sepolia**, not mainnet. |
+| Grounding | **shadow** — does not mutate live RepID. |
+
+Not a launch announcement. After F-PUBLISH this block flips npm to 1.4.0.
+
+---
+
 ## The portable agentic trust harness
 
 Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass. That is the difference between *another LLM judge* and a *trust rail*.

@@ -1,0 +1,33 @@
+name: Break the gate
+description: HAL passed a false claim, or vetoed a true one, or a proof verified when it should not
+title: "[break-the-gate] "
+labels: ["hal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The gate is supposed to refuse. If it didn't, say so here. Quorum today is **2 answering / 8 configured**, Base Sepolia, grounding shadow.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - trustshell verify / evaluate
+        - getRepID
+        - presentProof --verify
+        - MCP present_proof
+        - example-agent
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: Input and expected vs actual verdict
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (command output, proof hash, no secrets)
+    validations:
+      required: true
