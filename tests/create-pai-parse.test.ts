@@ -52,7 +52,7 @@ describe('create PAI parsers (live HAL decision field)', () => {
     const second = parseRegister(201, { agent_id: 'agent-uuid-2', api_key: 'ts_live_2' });
     expect(first).toEqual({ ok: true, agentId: 'agent-uuid-1', apiKey: 'ts_live_1' });
     expect(second).toEqual({ ok: true, agentId: 'agent-uuid-2', apiKey: 'ts_live_2' });
-    // The load-bearing property: same name, but the ids differ — a new agent, not the first reused.
-    expect((first as { agentId: string }).agentId).not.toBe((second as { agentId: string }).agentId);
+    if (!first.ok || !second.ok) throw new Error('expected two 201 parses');
+    expect(first.agentId).not.toBe(second.agentId);
   });
 });
