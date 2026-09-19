@@ -41,4 +41,18 @@ describe('create PAI parsers (live HAL decision field)', () => {
       apiKey: null,
     });
   });
+
+  // CREATE_PAI_UI.md caveat (b), encoded: the engine's per-IP 429 dedup is a per-process in-memory
+  // Map that does NOT fire in the multi-replica Railway deployment, so registering the SAME name twice
+  // returns 201 both times with DISTINCT agent_ids. That is a fresh agent each time — NEVER reuse. The
+  // parser must therefore treat each 201 as its own new agent and must not collapse a duplicate name to
+  // the same id. [V live 2026-09-13: 3 identical POSTs → 201/201/201, distinct ids]
+  it('duplicate name → two 201s are two DISTINCT fresh agents, never reuse (caveat b)', () => {
+    const first = parseRegister(201, { agent_id: 'agent-uuid-1', api_key: 'ts_live_1' });
+    const second = parseRegister(201, { agent_id: 'agent-uuid-2', api_key: 'ts_live_2' });
+    expect(first).toEqual({ ok: true, agentId: 'agent-uuid-1', apiKey: 'ts_live_1' });
+    expect(second).toEqual({ ok: true, agentId: 'agent-uuid-2', apiKey: 'ts_live_2' });
+    if (!first.ok || !second.ok) throw new Error('expected two 201 parses');
+    expect(first.agentId).not.toBe(second.agentId);
+  });
 });
