@@ -62,6 +62,7 @@
     "test:home-stats-walk": "node tests/e2e/home-stats-walk.mjs",
     "test:campaign-honesty": "node tests/e2e/campaign-honesty.mjs",
     "test:roles-honesty": "node tests/e2e/roles-honesty.mjs",
+    "test:onboarding-honesty": "node tests/e2e/onboarding-honesty.mjs",
     "test:acceptance": "node tests/e2e/harness-acceptance.mjs",
     "test:acceptance-baseline": "node tests/e2e/acceptance-baseline.mjs",
     "e2e:mvp": "node tests/e2e/mvp-pack.mjs",
