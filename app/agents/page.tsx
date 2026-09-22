@@ -4,6 +4,14 @@ import { localDb, Agent } from '@/lib/db';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AgentRepId } from '@/components/agent-repid';
+import { parseRegister } from '@/lib/create-pai-parse';
+
+/**
+ * Read at MODULE SCOPE as a literal `process.env.NAME`, which is the only form
+ * `next build` inlines. `process.env[name]` is not inlined and is `undefined` in the
+ * browser — so a computed read here would make the guard below fire on every deploy.
+ */
+const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL;
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -12,42 +20,66 @@ export default function AgentsPage() {
   const [consti, setConsti] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [error, setError] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     localDb.getAgents().then(setAgents);
   }, []);
 
+  /**
+   * A FAILED CREATE MUST SAY SO. This handler used to swallow every failure:
+   * an unset engine URL, a 429 on a taken name, a 500, an unparseable body —
+   * all of them landed in `console.error` or in a falsy `data.agent_id`, the
+   * spinner stopped, and the page looked exactly as it does when nothing was
+   * clicked. The one surface the top nav and the hero button both point at was
+   * the one that could fail invisibly.
+   *
+   * Two things make it honest now, and neither is new code in this repo:
+   *
+   *   * The `!ENGINE` guard `/create` has had all along. Unset, the old template
+   *     literal POSTed to the string `"undefined/api/v1/agents/register"`, which
+   *     resolves against this origin, 404s as HTML, and throws in `res.json()`.
+   *   * `parseRegister`, the shared, tested reader `/create` uses. Rolling our own
+   *     `if (data.agent_id)` here is what lost the 429 "name is taken" message and
+   *     the camelCase `agentId` shape: two surfaces, one endpoint, two opinions
+   *     about what its response means.
+   */
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!ENGINE) {
+      setError('Backend URL is not configured for this deploy (NEXT_PUBLIC_REPID_ENGINE_URL). Nothing was created.');
+      return;
+    }
     setLoading(true);
+    setError('');
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_REPID_ENGINE_URL}/api/v1/agents/register`, {
+      const res = await fetch(`${ENGINE}/api/v1/agents/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description: desc, constitution_text: consti })
       });
-      const data = await res.json();
-      if (data.agent_id) {
-        const newAgent = {
-          id: data.agent_id,
-          name,
-          description: desc,
-          constitution: consti,
-          createdAt: Date.now(),
-          totalPrompts: 0,
-          lastUsedAt: Date.now(),
-          // Shown ONCE by the backend — dropping it (the pre-2026-07-30
-          // behavior) left every browser agent unable to authenticate its
-          // score events, so HAL scoring silently failed as "Δ 0.00".
-          apiKey: typeof data.api_key === 'string' ? data.api_key : undefined
-        };
-        await localDb.saveAgent(newAgent);
-        setAgents(await localDb.getAgents());
-        setName(''); setDesc(''); setConsti('');
-      }
-    } catch (e) {
-      console.error(e);
+      const data = await res.json().catch(() => ({}));
+      const parsed = parseRegister(res.status, data);
+      if (!parsed.ok) throw new Error(parsed.message);
+      const newAgent = {
+        id: parsed.agentId,
+        name,
+        description: desc,
+        constitution: consti,
+        createdAt: Date.now(),
+        totalPrompts: 0,
+        lastUsedAt: Date.now(),
+        // Shown ONCE by the backend — dropping it (the pre-2026-07-30
+        // behavior) left every browser agent unable to authenticate its
+        // score events, so HAL scoring silently failed as "Δ 0.00".
+        apiKey: parsed.apiKey ?? undefined
+      };
+      await localDb.saveAgent(newAgent);
+      setAgents(await localDb.getAgents());
+      setName(''); setDesc(''); setConsti('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reach the backend. Nothing was created.');
     }
     setLoading(false);
   };
@@ -86,6 +118,9 @@ export default function AgentsPage() {
               <button type="submit" disabled={loading} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold p-3 rounded disabled:opacity-60">
                 {loading ? 'Registering…' : 'Create Agent'}
               </button>
+              {/* role="alert" so the failure reaches a screen reader too — the whole
+                  defect was a state change nobody was told about. */}
+              {error && <p role="alert" className="text-sm text-[#ff6b6b]">{error}</p>}
               <p className="text-xs text-[#64748b] text-center">Registers a cryptographic identity, then take it to <span className="text-[#94a3b8]">Connect</span> to run it.</p>
             </form>
           </div>
