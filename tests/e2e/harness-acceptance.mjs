@@ -360,12 +360,38 @@ try {
 // no amount of freshness fixes, disappears from the report along with it. A defect must not be
 // retired because an unrelated number improved.
 //
-//   zkrepid.freshness       OPERATIONAL. Is the proof the user is served CURRENT? Today it is not,
-//                           and the cause is known and fixed but not yet deployed: the canonical
-//                           store write has failed on every attempt since 2026-08-01 (42804,
-//                           repid-engine #549), so every consumer is served the last row that
-//                           landed. This leg SHOULD go MEASURED when that deploys — that is the
-//                           signal the fix worked, which is why it is worth having on its own.
+//   zkrepid.freshness       OPERATIONAL. Is the proof the user is served CURRENT? It measures ONE
+//                           thing — the age of the served proof — and as of 2026-09-22 it states
+//                           only that. It used to assert a CAUSE it had never checked: "the
+//                           canonical store write has failed on every attempt since 2026-08-01
+//                           (42804, repid-engine #549)". That was true when written and was false
+//                           by the time it fired, and a reader acting on the failure message went
+//                           looking for a fixed bug.
+//
+//                           WHAT WAS ACTUALLY TRUE on the day this was corrected [ALL MEASURED
+//                           2026-09-22 against the production database and the Railway logs]:
+//
+//                             * The store write was FINE. 22,450 real plonky3 proofs exist and
+//                               rows landed as recently as 2026-09-20 — so the hardcoded 42804
+//                               claim was refuted outright, not merely stale.
+//                             * The probe's agent (trinity-sophia) was last proved 2026-09-14,
+//                               which is exactly why this leg first tripped on 09-21 at "7 days"
+//                               and read "8 days" on 09-22. Her own queued jobs date from
+//                               2026-07-28 and sit behind a ~40k backlog.
+//                             * SEPARATELY, and SIX DAYS LATER, proof-drain-worker died on
+//                               `password authentication failed for user "postgres"`, taking every
+//                               direct-Postgres caller in repid-engine with it.
+//
+//                           THE TWO ARE NOT THE SAME EVENT, and the tempting summary — "the drain
+//                           is down, that is why the proof is stale" — gets the order backwards:
+//                           the staleness predates the outage by six days. The first draft of this
+//                           very comment said it, which is the point. A cause that fits is not a
+//                           cause that was measured.
+//
+//                           So this leg now reports its ONE measurement and names the two readings
+//                           that separate the candidates, rather than picking one. An acceptance
+//                           gate that hardcodes a diagnosis ages into a confident wrong answer —
+//                           the defect it exists to catch, wearing its own uniform.
 //
 //   zkrepid.expiry_binding  CIRCUIT. Does the proof COMMIT to a validity window? No deploy can fix
 //                           this one. `createdAt` travels beside the proof as metadata, not as a
@@ -386,7 +412,9 @@ if (proofCreatedAt) {
   if (ageDays > 7) {
     record('zkrepid.freshness', 'FAILED',
       `the served proof is ${ageDays.toFixed(0)} days old${drift}` +
-      ' — the store write has been failing since 2026-08-01, so consumers get the last row that landed',
+      ' — CAUSE NOT CHECKED FROM HERE. This gate measures age only. To tell the candidates apart:' +
+      ' is repid_zkp_proofs still taking rows (store write healthy, this agent simply not re-proved)' +
+      ' and is proof-drain-worker draining (repid_proof_queue pending count falling)?',
       { createdAt: proofCreatedAt, attested, live, ageDays: Number(ageDays.toFixed(1)) });
   } else {
     record('zkrepid.freshness', 'MEASURED', `the served proof is ${ageDays.toFixed(1)} days old${drift}`);
