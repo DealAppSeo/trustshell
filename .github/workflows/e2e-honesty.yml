@@ -140,6 +140,17 @@ jobs:
         if: ${{ always() }}
         run: npm run test:roles-honesty
 
+      # Added 2026-09-22, and `tests/honesty-suites-wired.test.ts` is what stops the
+      # NEXT one being forgotten. The comment above this block already names the
+      # defect — "a hand-written list of suites silently omits the next one added" —
+      # and the list was still hand-written, so the note was a warning with nothing
+      # behind it. The guard runs in gating CI and fails when a `test:*-honesty`
+      # script exists in package.json and is not wired here.
+      - name: Onboarding honesty
+        id: onboarding
+        if: ${{ always() }}
+        run: npm run test:onboarding-honesty
+
       # Exit 2 is this repo's NOT_CHECKED, and it must never be read as a pass.
       # If a suite reports it here — where a browser and a server are both
       # present — the environment did not do what this workflow exists to
@@ -151,9 +162,10 @@ jobs:
           grants='${{ steps.grants.outcome }}'
           campaign='${{ steps.campaign.outcome }}'
           roles='${{ steps.roles.outcome }}'
-          echo "mvp-walk: $mvp | grants-fail-closed: $grants | campaign-honesty: $campaign | roles-honesty: $roles"
+          onboarding='${{ steps.onboarding.outcome }}'
+          echo "mvp-walk: $mvp | grants-fail-closed: $grants | campaign-honesty: $campaign | roles-honesty: $roles | onboarding-honesty: $onboarding"
           failed=''
-          for pair in "mvp-walk:$mvp" "grants-fail-closed:$grants" "campaign-honesty:$campaign" "roles-honesty:$roles"; do
+          for pair in "mvp-walk:$mvp" "grants-fail-closed:$grants" "campaign-honesty:$campaign" "roles-honesty:$roles" "onboarding-honesty:$onboarding"; do
             name="${pair%%:*}"; outcome="${pair#*:}"
             [ "$outcome" = 'success' ] || failed="$failed $name($outcome)"
           done
@@ -161,4 +173,4 @@ jobs:
             echo "::error::An honesty suite did not pass:$failed. This does not block any merge — read the logs and fix it deliberately."
             exit 1
           fi
-          echo 'All four honesty suites passed against a real browser.'
+          echo 'Every wired honesty suite passed against a real browser.'
