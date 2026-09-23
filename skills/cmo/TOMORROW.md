@@ -1,0 +1,5 @@
+- Print/open the four-secrets table.
+- Set up phone + screen capture.
+- Record the 12-minute pillar.
+- Pick 2 clips (60–90s each).
+- Draft only (no publish).
