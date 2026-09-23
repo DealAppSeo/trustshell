@@ -4,6 +4,7 @@ import { localDb, Agent } from '@/lib/db';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AgentRepId } from '@/components/agent-repid';
+import { AgentsStanding } from '@/components/agents-standing';
 import { parseRegister } from '@/lib/create-pai-parse';
 
 /**
@@ -124,6 +125,13 @@ export default function AgentsPage() {
               <p className="text-xs text-[#64748b] text-center">Registers a cryptographic identity, then take it to <span className="text-[#94a3b8]">Connect</span> to run it.</p>
             </form>
           </div>
+
+          {/* This page names the leaderboard twice in its own copy — "how it appears on
+              the leaderboard", "honest agents climb the Leaderboard" — and until now
+              offered no link to it and no standings. So the one page that introduces
+              RepID was the one that gave the number no reference frame: a new agent
+              reads 200 and nothing on screen said whether that is good. */}
+          <AgentsStanding agents={agents} />
         </div>
 
         <div className="space-y-4">
