@@ -252,7 +252,7 @@ trustshell verify "The capital of France is Paris."
 #     - mistral:TRUE (Paris is widely recognized as capital of France)
 #     - openrouter:TRUE (Paris is the capital of France.)
 
-trustshell repid trinity-shofet          # → RepID 2110  (ESTABLISHED) — live, moves
+trustshell repid trinity-shofet          # → RepID <live score> (ESTABLISHED) — real, and it moves
 trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
 trustshell badge trinity-shofet          # → a portable SVG badge (see below)
 trustshell badge trinity-shofet --markdown  # → a README-pasteable snippet
@@ -271,10 +271,19 @@ The SVG has no external references, so it renders offline and cannot phone home.
 (a real proof for `trinity-shofet`, verified with the WASM verifier) is checked in at
 [`examples/proof-badge-trinity-shofet.svg`](examples/proof-badge-trinity-shofet.svg).
 
-> **`badge` ships in `@hyperdag/trustshell` ≥ 1.3.0.** `verify` / `repid` / `proof` are in every
-> published release; if `npx @hyperdag/trustshell badge …` says *unknown command*, your published
-> build predates it — upgrade, or install from source (`npm i github:DealAppSeo/trustshell`, which
-> tracks the latest).
+> **Which commands are in which published release.** `verify` / `repid` / `proof` are in every
+> published release. **`badge` ships in ≥ 1.3.0.** **`check` / `init` / `inspect` / `report` ship
+> in ≥ 1.4.0** — on an older published build they exit `2` with *unknown command*, which is a
+> version gap, not a broken install. If you hit that: upgrade, or install from source
+> (`npm i github:DealAppSeo/trustshell`, which tracks the latest).
+>
+> **This note exists because the gap was measured, not imagined** [2026-09-23]: running `init`
+> against the then-latest published build exited `2`, while the same command worked from source.
+> A repo that documents a command its published package does not expose sends every reader who
+> follows the README straight into *unknown command* — the same defect this project already
+> recorded once, when a correct `bin/check.js` never entered the npm tarball because `files` did
+> not list it.
+> **Check a command against the artifact a stranger installs, not the checkout you developed in.**
 
 From the SDK:
 
@@ -357,6 +366,30 @@ your git config, hostname, username or email. Every share flag in the file it ge
 `false`, so `report` withholds identity and context until you turn them on yourself. (This sentence
 used to read "the published CLI writes no files into your working directory." That was true until
 `init` shipped, and a promise nobody re-checks is how a README starts lying.)
+
+**`init --pai` is the one variant that touches the network, and it is a different thing from
+`init`.** Plain `init` is local-only. `--pai` runs a short interview (three questions, skippable),
+**registers an agent on the live backend**, and writes its credentials to `.trustshell/`. So it
+creates real, durable state — an agent with a live RepID — where `init` creates a file.
+
+```bash
+trustshell init --pai                                   # interactive
+trustshell init --pai --name my-pai --answers "job|cost|brain"   # non-interactive
+```
+
+**One PAI per store, and the store is the collision boundary.** Credentials live in
+`.trustshell/` by default, so a second `init --pai` in the same directory finds the first one's
+credentials and reuses them rather than registering a second agent. To run **two** agents, give
+each its own store:
+
+```bash
+TRUSTSHELL_HOME=.trustshell-cmo   trustshell init --pai --name my-cmo
+```
+
+`TRUSTSHELL_HOME` is honoured by `init --pai` and by the value-event log, so the two agents keep
+separate credentials and separate histories. Registration is **keyless and does not mint an
+on-chain identity** — see the `NOT_MINTED` note above; the ERC-8004 token is a separate,
+key-gated step.
 
 **A complete, copy-paste GitHub Actions workflow is in [`examples/ci-gate/`](examples/ci-gate/)** —
 drop `trust-gate.yml` into `.github/workflows/`, list your claims in `TRUST_CLAIMS.txt`, and your
