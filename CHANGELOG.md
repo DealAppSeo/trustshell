@@ -2,7 +2,7 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## Unreleased
+## 1.4.0 — 2026-09-23
 
 ### Security / x402 spend guards — published surface
 
@@ -25,5 +25,10 @@ sign, and nothing records the intent before the signature.
   policy refused with the intent row recorded first; audit-before-act holds even if the allowance
   reader throws), `tests/origin.test.ts`, and `tests/x402-cap.test.ts` (over-cap refused).
 
-**Closing this for npm users is a publish** (a new version that includes the guards), which is a
-Sean gate — this change does not publish.
+**This release IS that publish.** The guards above were previously on `main` only, so every npm
+user was installing the unguarded surface. 1.4.0 closes that gap: `guardedX402Payment`,
+`assertOriginCanPay`, `auditThenAct` and `TrustShell#getAllowance` are now in the published
+package, pinned to the built entry by `tests/sdk-import-contract.mjs` (§5).
+
+Also newly reachable for npm users: the `check`, `init`, `inspect` and `report` CLI commands, which
+answered `error: unknown command` on 1.3.0 because the build predated them.
