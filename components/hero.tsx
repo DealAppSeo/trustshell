@@ -2,28 +2,29 @@
 
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { NPM_LATEST } from '@/lib/npm-latest';
-// L3: install badge is npm 1.3.0 until F-PUBLISH (2 answering / 8 configured lives in README Status).
-// The install badge names npm latest, not package.json. Reading package.json
-// here re-created the v1.1.0-stuck bug in reverse: this tree is 1.4.0
-// unpublished, so the caption next to `npm install` advertised a version the
-// registry 404s. SDK/CLI still use resolvePackageVersion() (this tree).
+
+const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
+trustshell verify "The capital of France is Paris."
+trustshell verify "The Eiffel Tower is located in Rome, Italy."`;
 
 export function Hero() {
   const [copied, setCopied] = useState(false);
+  const [demoMissing, setDemoMissing] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText('npm install @hyperdag/trustshell');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(WIN_COMMANDS);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
-    <section className="relative px-6 py-20 md:py-32 bg-slate-950 text-white overflow-hidden">
-      {/* Background Glow */}
+    <section className="relative px-6 py-20 md:py-28 bg-slate-950 text-white overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_70%)] pointer-events-none" />
 
-      {/* Header bar with Navigation Logo */}
       <div className="absolute top-6 left-6 flex items-center gap-2">
         <span className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
           <span className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-xs">⚡</span>
@@ -31,89 +32,52 @@ export function Hero() {
         </span>
       </div>
 
-      <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
-        {/* H1 */}
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white text-balance leading-tight">
-          The portable agentic trust harness
+      <div className="max-w-3xl w-full min-w-0 mx-auto text-center space-y-8 relative z-10">
+        <h1 className="max-w-full text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white text-wrap leading-tight">
+          Gate, not a chatbot
         </h1>
 
-        {/* Subhead */}
-        <p className="max-w-2xl mx-auto text-lg md:text-xl text-slate-300 text-balance leading-relaxed">
-          One <code className="font-mono text-indigo-300">npm install</code> gives any AI agent or app three protocols in one wrapper:
-          <span className="block mt-3 text-base text-slate-400">
-            ✅ HAL cross-LLM verification &nbsp;·&nbsp; 🏅 ERC-8004 portable reputation &nbsp;·&nbsp; 💸 x402 payments
-          </span>
+        <p className="max-w-xl mx-auto text-base sm:text-lg text-slate-300 text-wrap">
+          Install. Check a true sentence. Check a false one.
         </p>
 
-        {/* Code Snippet Box */}
-        <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left relative shadow-2xl">
-          <pre className="font-mono text-xs md:text-sm text-indigo-200 space-y-1 overflow-x-auto">
-            <code>
-              <div><span className="text-indigo-400">const</span> shell = <span className="text-indigo-400">new</span> <span className="text-emerald-400">TrustShell</span>();</div>
-              <div><span className="text-indigo-400">const</span> result = <span className="text-indigo-400">await</span> shell.score(response);</div>
-              <div>console.log(result.trustScore); <span className="text-slate-500">// 87</span></div>
-            </code>
+        <figure className="max-w-xl w-full min-w-0 mx-auto text-left">
+          <div className="relative aspect-video overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+            <video
+              className="h-full w-full bg-slate-900"
+              controls
+              playsInline
+              preload="metadata"
+              src="/trustshell-demo-20s.mp4"
+              aria-label="TrustShell 20 second demo"
+              onError={() => setDemoMissing(true)}
+            />
+            {demoMissing ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-sm text-slate-400">
+                20s demo slot
+              </div>
+            ) : null}
+          </div>
+          <figcaption className="mt-2 text-xs text-slate-500 leading-relaxed">
+            Embed slot: <code className="break-all text-slate-400">public/trustshell-demo-20s.mp4</code>.
+            The file is not in the repo yet. Copy it from{' '}
+            <code className="break-all text-slate-400">E:\TrustDisk\video\trustshell-demo-20s.mp4</code>{' '}
+            when that file exists.
+          </figcaption>
+        </figure>
+
+        <div className="max-w-xl w-full min-w-0 mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left shadow-2xl">
+          <pre className="max-w-full overflow-x-auto font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words">
+            <code>{WIN_COMMANDS}</code>
           </pre>
-        </div>
-
-        {/* Install box */}
-        <div className="flex flex-col items-center gap-2 pt-2">
           <button
+            type="button"
             onClick={handleCopy}
-            className="group flex items-center gap-3 px-5 py-3 bg-slate-900 border border-slate-800 rounded-xl font-mono text-sm hover:border-indigo-500 hover:bg-slate-900/80 transition-all duration-200 shadow-lg"
+            className="mt-4 inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"
           >
-            <code className="text-indigo-300">npm install @hyperdag/trustshell</code>
-            <span className="text-slate-400 group-hover:text-white transition-colors">
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </span>
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            {copied ? 'Copied' : 'Copy the three commands'}
           </button>
-          <span className="text-xs text-slate-500">
-            {copied ? 'Copied to clipboard!' : `npm latest v${NPM_LATEST}`}
-          </span>
-        </div>
-
-        {/* New here? Optional adaptive onboarding — never a forced redirect */}
-        <div className="pt-1">
-          <a
-            href="/start"
-            className="text-sm text-indigo-300 hover:text-indigo-200 transition-colors inline-flex items-center gap-1"
-          >
-            New here? Set up your fastest path
-            <span aria-hidden="true">&rarr;</span>
-          </a>
-        </div>
-
-        {/* CTAs */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-          <a
-            href="/docs/getting-started"
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center gap-2 text-sm"
-          >
-            Get Started
-            <span aria-hidden="true">&rarr;</span>
-          </a>
-          <a
-            href="/agents"
-            className="px-6 py-3 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-semibold rounded-xl transition-all duration-200 text-sm"
-          >
-            Try it live
-          </a>
-          <a
-            href="https://www.npmjs.com/package/@hyperdag/trustshell"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-semibold rounded-xl transition-all duration-200 text-sm"
-          >
-            npm
-          </a>
-          <a
-            href="https://github.com/DealAppSeo/hyperdag-protocol"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-semibold rounded-xl transition-all duration-200 text-sm"
-          >
-            GitHub
-          </a>
         </div>
       </div>
     </section>
