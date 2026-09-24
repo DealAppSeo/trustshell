@@ -370,8 +370,8 @@ try {
 
   // The funnel edge. A page that answers "is this worth it" and then leads nowhere strands
   // the one person it was written for.
-  note(await page.locator('a[href="/start"]').count() > 0,
-    '/preview offers a next step instead of dead-ending');
+  note(await page.getByRole('link', { name: /three commands/i }).count() > 0,
+    '/preview offers the landing commands instead of the wallet questionnaire');
 
   // --- and the same page with the engine unreachable ------------------------------------
   previewMode = 'down';

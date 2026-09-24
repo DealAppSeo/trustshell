@@ -27,6 +27,8 @@ describe('site install copy matches published 1.4.0', () => {
     expect(hero).toContain('trustshell verify "The Eiffel Tower is located in Rome, Italy."');
     expect(hero).toContain('/trustshell-demo-20s.mp4');
     expect(hero).toContain('E:\\TrustDisk\\video\\trustshell-demo-20s.mp4');
+    expect(hero).toMatch(/showDemo \?/);
+    expect(hero.indexOf('<video')).toBeGreaterThan(hero.indexOf('showDemo ?'));
     expect(hero).not.toMatch(/\/start/);
     expect(hero).not.toMatch(/PAI/);
     expect(hero).not.toMatch(/wallet/i);

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Gate, not a chatbot — TrustShell',
-  description: 'Install. Check a true sentence. Check a false one.',
+  title: 'Set up your fastest path — TrustShell',
+  description: 'Three optional questions tailor TrustShell to how you build — skippable, changeable anytime.',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -3,15 +3,11 @@
 Install. Check a true sentence. Check a false one.
 
 <!--
-  Embed slot. The 20s demo is not in this repo yet.
+  Embed slot. The player stays out of the README until the file is in the repo.
   When E:\TrustDisk\video\trustshell-demo-20s.mp4 exists, copy it to public/trustshell-demo-20s.mp4.
 -->
 
-<video src="public/trustshell-demo-20s.mp4" controls width="720" title="TrustShell 20 second demo">
-TrustShell 20 second demo
-</video>
-
-Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists: `E:\TrustDisk\video\trustshell-demo-20s.mp4`.
+Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists: `E:\TrustDisk\video\trustshell-demo-20s.mp4`. The player is hidden until that file is there.
 
 ```bash
 npm i -g @hyperdag/trustshell@1.4.0
