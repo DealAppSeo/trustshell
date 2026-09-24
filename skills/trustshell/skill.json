@@ -1,0 +1,27 @@
+{
+  "name": "trustshell",
+  "description": "Fact-check a claim, read an agent's live RepID, or verify its ZK proof by shelling out to the trustshell bins. Use when the user asks to verify a claim, look up a RepID, check a proof, or attach the local trustshell MCP server.",
+  "version": "1.4.0",
+  "commands": [
+    "trustshell verify \"<claim>\"",
+    "trustshell repid <id>",
+    "trustshell proof <id> --verify"
+  ],
+  "metadata": {
+    "openclaw": {
+      "emoji": "🛡️",
+      "requires": {
+        "bins": ["trustshell", "trustshell-mcp"]
+      },
+      "install": [
+        {
+          "id": "npm",
+          "kind": "node",
+          "package": "@hyperdag/trustshell@1.4.0",
+          "bins": ["trustshell", "trustshell-mcp", "hal"],
+          "label": "Install @hyperdag/trustshell@1.4.0"
+        }
+      ]
+    }
+  }
+}
