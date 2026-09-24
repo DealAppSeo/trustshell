@@ -1,4 +1,5 @@
 import { Hero } from '@/components/hero';
+import { demoFileExists } from '@/lib/demo-file';
 import { StatusStrip } from '@/components/status-strip';
 import { CompatibilityInfo } from '@/components/compatibility-info';
 import { GlassBox } from '@/components/glass-box';
@@ -18,7 +19,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       {/* Section 1: Hero */}
-      <Hero />
+      <Hero showDemo={demoFileExists()} />
       <StatusStrip />
 
       {/* Section 1.5: Compatibility & Signals Info */}

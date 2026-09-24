@@ -1,9 +1,23 @@
+# Gate, not a chatbot
+
+Install. Check a true sentence. Check a false one.
+
+<!--
+  Embed slot. The player stays out of the README until the file is in the repo.
+  When E:\TrustDisk\video\trustshell-demo-20s.mp4 exists, copy it to public/trustshell-demo-20s.mp4.
+-->
+
+Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists: `E:\TrustDisk\video\trustshell-demo-20s.mp4`. The player is hidden until that file is there.
+
+```bash
+npm i -g @hyperdag/trustshell@1.4.0
+trustshell verify "The capital of France is Paris."
+trustshell verify "The Eiffel Tower is located in Rome, Italy."
+```
+
 <div align="center">
 
-# @hyperdag/trustshell
-
-**Trust rails for AI agents.**
-HAL hallucination filtering, portable RepID, and agent-to-agent service purchase — against a live backend, in one `npm install`.
+**@hyperdag/trustshell**
 
 [![npm](https://img.shields.io/npm/v/@hyperdag/trustshell)](https://www.npmjs.com/package/@hyperdag/trustshell)
 [![npm downloads](https://img.shields.io/npm/dm/@hyperdag/trustshell.svg)](https://www.npmjs.com/package/@hyperdag/trustshell)
@@ -19,12 +33,12 @@ HAL hallucination filtering, portable RepID, and agent-to-agent service purchase
 
 | | Today |
 |---|---|
-| npm `latest` | **1.3.0** until F-PUBLISH. This tree is 1.4.0 unpublished. `@1.4.0` 404s. |
+| npm `latest` | **1.4.0** (`npm view @hyperdag/trustshell version`, 2026-09-24). |
 | HAL quorum | **2 answering / 8 configured** (measured). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
 
-Not a launch announcement. After F-PUBLISH this block flips npm to 1.4.0.
+Not a launch announcement.
 
 ---
 
@@ -74,7 +88,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 
 | Surface | State | Today |
 |---|---|---|
-| This package | live | v1 hosted thin client. Trust computation runs on the HyperDAG engine, not on your machine. On-device proofs are v2, not shipped. npm `latest` is 1.3.0; this tree is 1.4.0 unpublished. |
+| This package | live | v1 hosted thin client. Trust computation runs on the HyperDAG engine, not on your machine. On-device proofs are v2, not shipped. npm `latest` is 1.4.0. |
 | `getRepID()` / `presentProof()` | live | Keyless. Score moves; gate on tier or your own threshold. |
 | `register()` | live | Keyless. Creates an agent and a RepID. It does not mint ERC-8004. |
 | `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. Live 2026-09-15: 2 answering / 8 configured. HAL is weaker on paraphrases than on record-grounded facts. |
