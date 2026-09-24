@@ -405,6 +405,22 @@ Run `trustshell --help` for the full reference.
 
 ---
 
+## Agent skill
+
+OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.4.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
+
+```bash
+npm i -g @hyperdag/trustshell@1.4.0
+
+trustshell verify "<claim>"
+trustshell repid <id>
+trustshell proof <id> --verify
+```
+
+`trustshell verify` exits 0 on PASS or FLAG and 1 on VETO. The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
+
+---
+
 ## The RepID stack
 
 TrustShell connects three layers:
