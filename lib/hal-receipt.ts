@@ -28,6 +28,11 @@ export function classifyVerdict(verdict: string): ReceiptVerdict {
   return 'NOT_CHECKED';
 }
 
+/** One line: family, host, verdict. ERROR and any missing vote are NOT_CHECKED. */
+export function receiptLine(row: Pick<ReceiptRow, 'family' | 'host' | 'verdict'>): string {
+  return `${row.family} ${row.host} ${classifyVerdict(row.verdict)}`;
+}
+
 function median(nums: number[]): number | null {
   if (nums.length === 0) return null;
   const sorted = [...nums].sort((a, b) => a - b);

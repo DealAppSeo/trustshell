@@ -1,5 +1,6 @@
 import fixture from '@/fixtures/hal-last-week.fixture.json';
-import { countByFamily, type ReceiptRow } from '@/lib/hal-receipt';
+import { CopyReceiptLine } from '@/components/copy-receipt-line';
+import { countByFamily, receiptLine, type ReceiptRow } from '@/lib/hal-receipt';
 
 export const metadata = {
   title: 'Last measured week — TrustShell',
@@ -65,6 +66,17 @@ export default function HalReceiptPage() {
           </tbody>
         </table>
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Copy a line</h2>
+        <ul className="space-y-2">
+          {(fixture.rows as ReceiptRow[]).map((row, i) => (
+            <li key={`${row.family}-${row.host}-${row.verdict}-${i}`}>
+              <CopyReceiptLine line={receiptLine(row)} />
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <p className="text-xs text-muted">
         ERROR is counted as NOT_CHECKED. It is not counted as FALSE. UNCERTAIN stays UNCERTAIN:
