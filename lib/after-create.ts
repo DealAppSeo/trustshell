@@ -14,6 +14,12 @@ export const NOT_CHECKED_TABLE: AfterCreateTable = {
   can_rate_models: 'NOT_CHECKED',
 };
 
+export type AfterCreateResult = AfterCreateTable & { source: 'counted' | 'NOT_CHECKED' };
+
+function notChecked(): AfterCreateResult {
+  return { ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED' };
+}
+
 /** Unset TRUSTSHELL_API_URL uses the default engine. A blank value is a missing URL. */
 export function engineBase(env: NodeJS.ProcessEnv = process.env): string | null {
   if (!Object.prototype.hasOwnProperty.call(env, 'TRUSTSHELL_API_URL')) return DEFAULT_ENGINE;
@@ -52,19 +58,22 @@ export function tableFromBody(body: unknown, liveLabel: boolean): AfterCreateTab
 export async function loadAfterCreate(opts: {
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
-} = {}): Promise<AfterCreateTable> {
+} = {}): Promise<AfterCreateResult> {
   const env = opts.env ?? process.env;
   const base = engineBase(env);
-  if (!base) return { ...NOT_CHECKED_TABLE };
+  if (!base) return notChecked();
   const fetchImpl = opts.fetchImpl ?? fetch;
   try {
     const res = await fetchImpl(`${base}/api/v1/after-create`, {
       signal: AbortSignal.timeout(8000),
       headers: { accept: 'application/json' },
     });
-    if (!res.ok) return { ...NOT_CHECKED_TABLE };
-    return tableFromBody(await res.json(), saysStakeLive(env));
+    if (!res.ok) return notChecked();
+    const body: unknown = await res.json();
+    const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    if (record.status !== undefined && record.status !== 'counted') return notChecked();
+    return { ...tableFromBody(body, saysStakeLive(env)), source: 'counted' };
   } catch {
-    return { ...NOT_CHECKED_TABLE };
+    return notChecked();
   }
 }
