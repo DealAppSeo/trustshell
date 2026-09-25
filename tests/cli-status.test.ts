@@ -23,7 +23,7 @@ describe('trustshell status', () => {
 
   it('prints NOT_CHECKED when both endpoints fail', async () => {
     const text = await buildStatusReport({
-      env: { TRUSTSHELL_API_URL: 'https://engine.test' },
+      env: { NODE_ENV: 'test', TRUSTSHELL_API_URL: 'https://engine.test' },
       fetchImpl: async () => jsonResponse(503, {}),
     });
     expect(text).toBe(
@@ -58,7 +58,7 @@ describe('trustshell status', () => {
       });
     };
     const text = await buildStatusReport({
-      env: { TRUSTSHELL_API_URL: 'https://engine.test' },
+      env: { NODE_ENV: 'test', TRUSTSHELL_API_URL: 'https://engine.test' },
       fetchImpl: fetchImpl as typeof fetch,
     });
     expect(text).toContain('can_verify true');
