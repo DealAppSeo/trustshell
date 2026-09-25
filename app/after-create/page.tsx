@@ -22,7 +22,9 @@ export default async function AfterCreatePage() {
       <header className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">After create</h1>
         <p className="text-sm text-muted">
-          Read from /api/v1/after-create. Timeout, 5xx, or a missing URL is NOT_CHECKED.
+          {table.source === 'counted'
+            ? 'counted from /api/v1/after-create'
+            : 'NOT_CHECKED. Timeout, 5xx, or a missing URL is not a fixture.'}
         </p>
       </header>
       <table className="w-full text-sm text-left border border-border">
