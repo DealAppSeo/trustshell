@@ -60,6 +60,41 @@ describe('e2e CLI smoke (no engine)', () => {
     expect(page).not.toMatch(/Help B is live|blended/i);
   });
 
+  it('trustshell status --help mentions after-create', async () => {
+    const { io, out } = capture();
+    const code = await run(parseArgs(['status', '--help']), {} as never, io);
+    expect(code).toBe(0);
+    expect(out.join('\n')).toMatch(/after-create/);
+  });
+
+  it('OFFLINE=1 status is NOT_CHECKED and is not PASS', async () => {
+    const prevOffline = process.env.OFFLINE;
+    const prevUrl = process.env.TRUSTSHELL_API_URL;
+    const prevFetch = global.fetch;
+    process.env.OFFLINE = '1';
+    process.env.TRUSTSHELL_API_URL = 'https://engine.test';
+    let called = false;
+    global.fetch = (async () => {
+      called = true;
+      return new Response('no', { status: 200 });
+    }) as typeof fetch;
+    try {
+      const { io, out } = capture();
+      const code = await run(parseArgs(['status']), {} as never, io);
+      const text = out.join('\n');
+      expect(code).toBe(0);
+      expect(text).toContain('NOT_CHECKED');
+      expect(text).not.toMatch(/\bPASS\b/);
+      expect(called).toBe(false);
+    } finally {
+      global.fetch = prevFetch;
+      if (prevOffline === undefined) delete process.env.OFFLINE;
+      else process.env.OFFLINE = prevOffline;
+      if (prevUrl === undefined) delete process.env.TRUSTSHELL_API_URL;
+      else process.env.TRUSTSHELL_API_URL = prevUrl;
+    }
+  });
+
   it('OFFLINE=1 is NOT_CHECKED and is not PASS', () => {
     const prev = process.env.OFFLINE;
     process.env.OFFLINE = '1';
