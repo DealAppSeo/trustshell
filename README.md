@@ -82,6 +82,14 @@ Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdi
 
 We say this plainly on purpose: **nothing here claims more than actually runs.**
 
+### Honesty
+
+v1 is hosted HAL. The check runs on the HyperDAG engine.
+
+v2 is on-device proof generation. It is not shipped.
+
+There is no mesh in v1. Staking is not live.
+
 ### Live vs paused
 
 Three states: **live** | **live-degraded** | **paused/blocked**.
