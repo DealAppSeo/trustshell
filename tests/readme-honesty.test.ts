@@ -31,6 +31,18 @@ describe('README live vs paused', () => {
     expect(table).toMatch(/verifyOutput[\s\S]{0,400}live-degraded/i);
   });
 
+  it('has one honesty block for hosted v1 and unshipped v2', () => {
+    expect(README).toMatch(/### Honesty/);
+    expect(README).toMatch(/v1 is hosted HAL\./);
+    expect(README).toMatch(/v2 is on-device proof generation\. It is not shipped\./);
+    expect(README).toMatch(/There is no mesh in v1\./);
+    expect(README).toMatch(/Staking is not live\./);
+    const block = README.split('### Honesty')[1]?.split(/\n### /)[0] ?? '';
+    expect(block).not.toMatch(/v1[^\n.]{0,80}on-device/i);
+    expect(block).not.toMatch(/mesh[^\n.]{0,40}\bis (shipped|live)/i);
+    expect(block).not.toMatch(/staking is live/i);
+  });
+
   it('does not contradict the five facts', () => {
     const forbidden = [
       /register\(\)\s+mints/i,
