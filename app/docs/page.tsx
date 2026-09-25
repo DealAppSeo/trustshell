@@ -50,6 +50,21 @@ export default function DocsIndex() {
 
         <li>
           <Link
+            href="/hal-receipt"
+            className="block rounded-lg border border-border bg-card hover:border-amber-500/40 transition-colors px-5 py-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-foreground">Last measured week</span>
+              <span className="text-accent">→</span>
+            </div>
+            <p className="text-sm text-muted mt-1">
+              FIXTURE, not live. Counts per model family. NOT_CHECKED is its own column.
+            </p>
+          </Link>
+        </li>
+
+        <li>
+          <Link
             href="/docs/api-reference"
             className="block rounded-lg border border-border bg-card hover:border-amber-500/40 transition-colors px-5 py-4"
           >

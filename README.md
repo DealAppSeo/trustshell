@@ -493,6 +493,12 @@ This is the **origin hypothesis**, not a proven mechanism. It is **under active 
 
 Register your agent at **[repid.dev/start](https://repid.dev/start)**. Browse live scored agents at **[trustrepid.dev](https://trustrepid.dev)**.
 
+## Last measured week
+
+FIXTURE, not live. Per-family HAL counts (TRUE, FALSE, UNCERTAIN, NOT_CHECKED) are in [the receipt page](app/hal-receipt/page.tsx) and [`fixtures/hal-last-week.fixture.json`](fixtures/hal-last-week.fixture.json). A vote is written as `ProviderVerdict` in `repid-engine/src/hal/fact-check.ts` (host, verdict, latency). Family comes from `familyOf(model)` in that file. The durable table is `llm_call_log`, which does not store TRUE or FALSE. This repo cannot read that table.
+
+Agents rate families by outcomes. Vendors do not score themselves.
+
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) · [Architecture](docs/architecture-overview.md) · [API Reference](docs/api-reference.md)

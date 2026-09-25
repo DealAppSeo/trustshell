@@ -1,0 +1,27 @@
+{
+  "label": "FIXTURE",
+  "live": false,
+  "week": "not-a-production-week",
+  "why": "Public GET /api/v1/hal/fact-check-count and GET /api/v1/hal/stats do not return per-family TRUE/FALSE/NOT_CHECKED. The durable log is llm_call_log in repid-engine, and this repo cannot read it. These rows illustrate the columns. They are not a measurement of production.",
+  "writes": {
+    "verdict_file": "repid-engine/src/hal/fact-check.ts",
+    "verdict_type": "ProviderVerdict",
+    "verdict_fields": ["provider", "model", "verdict", "latency_ms"],
+    "verdict_enum": ["TRUE", "FALSE", "UNCERTAIN", "ERROR"],
+    "family_file": "repid-engine/src/hal/fact-check.ts",
+    "family_function": "familyOf(model)",
+    "host_field": "ProviderVerdict.provider",
+    "durable_table": "llm_call_log",
+    "durable_writer": "repid-engine/src/billing/log-call.ts",
+    "durable_columns": ["provider", "model", "latency_ms", "status"],
+    "public_counter_table": "hal_public_fact_checks"
+  },
+  "rows": [
+    { "family": "glm", "host": "cerebras", "verdict": "FALSE", "latency_ms": 220 },
+    { "family": "glm", "host": "cerebras", "verdict": "ERROR", "latency_ms": 8000 },
+    { "family": "openai", "host": "openai", "verdict": "TRUE", "latency_ms": 410 },
+    { "family": "openai", "host": "openai", "verdict": "NOT_CHECKED", "latency_ms": null },
+    { "family": "qwen", "host": "deepseek", "verdict": "TRUE", "latency_ms": 490 },
+    { "family": "qwen", "host": "deepseek", "verdict": "UNCERTAIN", "latency_ms": 530 }
+  ]
+}

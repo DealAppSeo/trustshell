@@ -47,6 +47,7 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   { path: '/docs', priority: 0.9 },
   { path: '/docs/getting-started', priority: 0.8 },
   { path: '/docs/api-reference', priority: 0.8 },
+  { path: '/hal-receipt', priority: 0.6 },
   { path: '/passport', priority: 0.8 },
   { path: '/grants', priority: 0.8 },
   { path: '/market', priority: 0.7 },
