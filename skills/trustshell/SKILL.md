@@ -1,6 +1,6 @@
 ---
 name: trustshell
-description: Fact-check a claim, read an agent's live RepID, or verify its ZK proof by shelling out to the trustshell bins. Use when the user asks to verify a claim, look up a RepID, check a proof, or attach the local trustshell MCP server.
+description: Fact-check a claim, read an agent's live RepID, verify its ZK proof, or print after-create and Honesty A by shelling out to the trustshell bins. Use when the user asks to verify a claim, look up a RepID, check a proof, see can_verify, or attach the local trustshell MCP server.
 metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trustshell-mcp"]},"install":[{"id":"npm","kind":"node","package":"@hyperdag/trustshell@1.4.0","bins":["trustshell","trustshell-mcp","hal"],"label":"Install @hyperdag/trustshell@1.4.0"}]}}
 ---
 
@@ -18,13 +18,18 @@ That install provides `trustshell`, `hal`, and `trustshell-mcp`. If `trustshell`
 
 ## Commands
 
-These three shells are the whole skill. Quote the claim so the shell does not split it. Report the command's stdout and exit code. Do not rescore the claim, edit HAL, or change the quorum.
+These shells are the whole skill. Quote the claim so the shell does not split it. Report the command's stdout and exit code. Do not rescore the claim, edit HAL, or change the quorum.
 
 ```bash
 trustshell verify "<claim>"
 trustshell repid <id>
 trustshell proof <id> --verify
+trustshell status
 ```
+
+## When to call status
+
+After an agent is created, run `trustshell status`. It prints the after-create cells, including `can_verify`, and one Honesty A line. Report that stdout. `NOT_CHECKED` is not a pass.
 
 - `trustshell verify "<claim>"` exits 0 on PASS or FLAG and 1 on VETO. Report the verdict, trust score, and evidence the CLI printed.
 - `trustshell repid <id>` prints the live score and tier. The number moves. Do not treat an example score as the current value.

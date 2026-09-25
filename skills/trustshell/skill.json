@@ -1,11 +1,12 @@
 {
   "name": "trustshell",
-  "description": "Fact-check a claim, read an agent's live RepID, or verify its ZK proof by shelling out to the trustshell bins. Use when the user asks to verify a claim, look up a RepID, check a proof, or attach the local trustshell MCP server.",
+  "description": "Fact-check a claim, read an agent's live RepID, verify its ZK proof, or print after-create and Honesty A by shelling out to the trustshell bins. Use when the user asks to verify a claim, look up a RepID, check a proof, see can_verify, or attach the local trustshell MCP server.",
   "version": "1.4.0",
   "commands": [
     "trustshell verify \"<claim>\"",
     "trustshell repid <id>",
-    "trustshell proof <id> --verify"
+    "trustshell proof <id> --verify",
+    "trustshell status"
   ],
   "metadata": {
     "openclaw": {
