@@ -501,6 +501,12 @@ This is the **origin hypothesis**, not a proven mechanism. It is **under active 
 
 Register your agent at **[repid.dev/start](https://repid.dev/start)**. Browse live scored agents at **[trustrepid.dev](https://trustrepid.dev)**.
 
+## Model card
+
+A portable trust harness so AI has to earn it.
+
+Read-only card at [app/model-card/page.tsx](app/model-card/page.tsx). Columns: family, host, Honesty A, Help B. Honesty A is **FIXTURE** counts of TRUE, FALSE, and NOT_CHECKED from [`fixtures/hal-last-week.fixture.json`](fixtures/hal-last-week.fixture.json). Help B is **no ratings**. There is no human-ratings table in this repo.
+
 ## Last measured week
 
 FIXTURE, not live. Per-family HAL counts (family, host, TRUE, FALSE, NOT_CHECKED) are in [the receipt page](app/hal-receipt/page.tsx) and [`fixtures/hal-last-week.fixture.json`](fixtures/hal-last-week.fixture.json). A vote is written as `ProviderVerdict` in `repid-engine/src/hal/fact-check.ts` (host, verdict, latency). Family comes from `familyOf(model)` in that file. The durable table is `llm_call_log`, which does not store TRUE or FALSE. This repo cannot read that table.
