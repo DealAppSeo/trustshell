@@ -49,9 +49,7 @@ export default function HalReceiptPage() {
               <th className="px-3 py-2 font-semibold">Host</th>
               <th className="px-3 py-2 font-semibold">TRUE</th>
               <th className="px-3 py-2 font-semibold">FALSE</th>
-              <th className="px-3 py-2 font-semibold">UNCERTAIN</th>
               <th className="px-3 py-2 font-semibold">NOT_CHECKED</th>
-              <th className="px-3 py-2 font-semibold">Median latency</th>
             </tr>
           </thead>
           <tbody>
@@ -61,11 +59,7 @@ export default function HalReceiptPage() {
                 <td className="px-3 py-2 text-muted">{row.hosts.join(', ')}</td>
                 <td className="px-3 py-2 tabular-nums">{row.TRUE}</td>
                 <td className="px-3 py-2 tabular-nums">{row.FALSE}</td>
-                <td className="px-3 py-2 tabular-nums">{row.UNCERTAIN}</td>
                 <td className="px-3 py-2 tabular-nums">{row.NOT_CHECKED}</td>
-                <td className="px-3 py-2 tabular-nums">
-                  {row.median_latency_ms == null ? '—' : `${row.median_latency_ms} ms`}
-                </td>
               </tr>
             ))}
           </tbody>
@@ -73,7 +67,9 @@ export default function HalReceiptPage() {
       </div>
 
       <p className="text-xs text-muted">
-        ERROR is counted as NOT_CHECKED. It is not counted as FALSE. Week label: {fixture.week}.
+        ERROR is counted as NOT_CHECKED. It is not counted as FALSE. UNCERTAIN stays UNCERTAIN:
+        fixture count {counts.reduce((n, row) => n + row.UNCERTAIN, 0)}, not in FALSE and not in NOT_CHECKED.
+        Week label: {fixture.week}.
       </p>
     </main>
   );

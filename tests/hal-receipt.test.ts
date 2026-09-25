@@ -24,6 +24,10 @@ describe('HAL family receipt', () => {
 
     const glm = countByFamily(rows).find((row) => row.family === 'glm');
     expect(glm).toMatchObject({ FALSE: 1, NOT_CHECKED: 1, TRUE: 0, UNCERTAIN: 0 });
+    const qwen = countByFamily(rows).find((row) => row.family === 'qwen');
+    expect(qwen).toMatchObject({ TRUE: 1, FALSE: 0, UNCERTAIN: 1, NOT_CHECKED: 0 });
+    expect(page).toMatch(/font-semibold">NOT_CHECKED/);
+    expect(page).not.toMatch(/font-semibold">UNCERTAIN/);
   });
 
   it('counts one row per family and does not publish prompts or ids', () => {
