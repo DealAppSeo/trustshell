@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { classifyVerdict, countByFamily, type ReceiptRow } from '../lib/hal-receipt';
+import { classifyVerdict, countByFamily, receiptLine, type ReceiptRow } from '../lib/hal-receipt';
 
 const ROOT = join(__dirname, '..');
 const fixture = JSON.parse(readFileSync(join(ROOT, 'fixtures/hal-last-week.fixture.json'), 'utf8'));
@@ -28,6 +28,17 @@ describe('HAL family receipt', () => {
     expect(qwen).toMatchObject({ TRUE: 1, FALSE: 0, UNCERTAIN: 1, NOT_CHECKED: 0 });
     expect(page).toMatch(/font-semibold">NOT_CHECKED/);
     expect(page).not.toMatch(/font-semibold">UNCERTAIN/);
+  });
+
+  it('copies one line of family, host, and verdict', () => {
+    expect(receiptLine({ family: 'glm', host: 'cerebras', verdict: 'FALSE' })).toBe('glm cerebras FALSE');
+    expect(receiptLine({ family: 'glm', host: 'cerebras', verdict: 'ERROR' })).toBe('glm cerebras NOT_CHECKED');
+    expect(receiptLine({ family: 'openai', host: 'openai', verdict: 'NOT_CHECKED' })).toBe(
+      'openai openai NOT_CHECKED',
+    );
+    const lines = rows.map((row) => receiptLine(row));
+    expect(lines.join('\n')).not.toMatch(/user_id|agent_id|prompt/i);
+    expect(page).toContain('Copy a line');
   });
 
   it('counts one row per family and does not publish prompts or ids', () => {
