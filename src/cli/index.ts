@@ -38,6 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
+import { buildStatusReport } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { join } from 'node:path';
 
@@ -63,6 +64,7 @@ export type Command =
   | 'inspect'
   | 'init'
   | 'report'
+  | 'status'
   | 'help'
   | 'version';
 
@@ -180,6 +182,7 @@ COMMANDS
                              node scripts/init-pai.mjs --name <n>
       [--name <n>]           With --pai: PAI name (forwarded to init-pai).
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
+  status                     Print the after-create table and one Honesty A line. A timeout or a non-200 is NOT_CHECKED. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -199,7 +202,7 @@ EXIT CODES
   3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
 
 NETWORK EGRESS (what each command dials, and nothing else)
-  verify · repid · proof · badge   the HyperDAG backend (TRUSTSHELL_API_URL)
+  verify · repid · proof · badge · status   the HyperDAG backend (TRUSTSHELL_API_URL)
   check                            api.github.com only — no backend, no account
   inspect                          NOTHING. Reads a local file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
@@ -297,6 +300,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
       return { command: cmd, operand, json, verify, markdown: flags.has('markdown') };
     }
+    case 'status':
+      return { command: 'status', json, verify };
     case 'inspect':
     case 'init':
     case 'report':
@@ -427,6 +432,12 @@ export async function run(
     case 'version':
       io.out(VERSION);
       return EXIT.OK;
+
+    case 'status': {
+      const text = await buildStatusReport({ env: process.env, fetchImpl: fetch });
+      io.out(text);
+      return EXIT.OK;
+    }
 
     case 'verify':
     case 'evaluate': {

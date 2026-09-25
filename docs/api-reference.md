@@ -271,6 +271,10 @@ ask_first`, `confidence_gate: 0.8`, `hitl_gate: 70`.
 The profile is yours and stays local; add `.trustshell/` to your `.gitignore` if you do not want
 it in version control.
 
+### `trustshell status`
+
+Print the after-create table and one Honesty A line. A timeout or a non-200 is NOT_CHECKED. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
+
 ### `trustshell report [--session <path>] [--evidence <path>]`
 
 State what your session log and your saved GitHub evidence **together** support, and name where
