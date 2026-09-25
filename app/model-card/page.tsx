@@ -1,14 +1,14 @@
-import fixture from '@/fixtures/hal-last-week.fixture.json';
-import { modelCardRows } from '@/lib/model-card';
-import type { ReceiptRow } from '@/lib/hal-receipt';
+import { loadHonestyCard } from '@/lib/honesty-a';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Model card — TrustShell',
-  description: 'Read-only model card. Honesty A is a FIXTURE. Help B has no ratings.',
+  description: 'Read-only model card. Honesty A is counted or FIXTURE. Help B has no ratings unless n is at least 1.',
 };
 
-export default function ModelCardPage() {
-  const cards = modelCardRows(fixture.rows as ReceiptRow[]);
+export default async function ModelCardPage() {
+  const card = await loadHonestyCard();
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-12 space-y-8">
@@ -20,7 +20,7 @@ export default function ModelCardPage() {
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm text-left">
-          <caption className="sr-only">Model card. Honesty A is FIXTURE. Help B is no ratings.</caption>
+          <caption className="sr-only">Model card. Honesty A is FIXTURE unless the count endpoint says counted. Help B is no ratings.</caption>
           <thead className="bg-card text-muted">
             <tr>
               <th className="px-3 py-2 font-semibold">family</th>
@@ -30,12 +30,16 @@ export default function ModelCardPage() {
             </tr>
           </thead>
           <tbody>
-            {cards.map((row) => (
+            {card.rows.map((row) => (
               <tr key={`${row.family}-${row.host}`} className="border-t border-border">
                 <td className="px-3 py-2 text-foreground">{row.family}</td>
                 <td className="px-3 py-2 text-muted">{row.host}</td>
                 <td className="px-3 py-2">
-                  <span className="text-amber-500 font-semibold">FIXTURE</span>
+                  {card.source === 'FIXTURE' ? (
+                    <span className="text-amber-500 font-semibold">FIXTURE</span>
+                  ) : (
+                    <span className="text-amber-500 font-semibold">counted</span>
+                  )}
                   <span className="text-muted">
                     {' '}
                     TRUE {row.TRUE} / FALSE {row.FALSE} / NOT_CHECKED {row.NOT_CHECKED}
@@ -49,8 +53,9 @@ export default function ModelCardPage() {
       </div>
 
       <p className="text-sm text-muted leading-relaxed">
-        Honesty A counts the rows in fixtures/hal-last-week.fixture.json. TRUE, FALSE, and NOT_CHECKED stay separate.
-        Help B is no ratings. This repo has no human-ratings table to count.
+        Honesty A uses GET /api/v1/hal/honesty-a when status is counted. Otherwise it counts
+        fixtures/hal-last-week.fixture.json and is labeled FIXTURE. TRUE, FALSE, and NOT_CHECKED stay separate.
+        Help B is no ratings unless that payload has n of at least 1.
       </p>
     </main>
   );
