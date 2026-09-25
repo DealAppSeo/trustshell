@@ -18,7 +18,7 @@ const counted = {
 describe('Honesty A wiring', () => {
   it('uses live rows when status is counted', async () => {
     const card = await loadHonestyCard({
-      env: {},
+      env: { NODE_ENV: 'test' },
       fetchImpl: async () => jsonResponse(200, counted),
     });
     expect(card.source).toBe('counted');
@@ -35,7 +35,7 @@ describe('Honesty A wiring', () => {
 
   it('falls back to the FIXTURE file when the endpoint is not counted', async () => {
     const down = await loadHonestyCard({
-      env: {},
+      env: { NODE_ENV: 'test' },
       fetchImpl: async () => jsonResponse(503, { status: 'down' }),
     });
     expect(down.source).toBe('FIXTURE');
