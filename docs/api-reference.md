@@ -147,6 +147,8 @@ Two binaries, same program: `trustshell` and `hal`.
 | `2` | usage / bad arguments |
 | `3` | runtime error (network / backend / timeout) |
 
+<a id="cli-verify"></a>
+
 ### `trustshell verify "<claim>"`
 
 Runs the claim through the live HAL cross-provider quorum. Options: `--json`.
@@ -173,6 +175,8 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || exit 1
 
 Alias of `trustshell verify`. Same HAL quorum, same exits. Exists so every public surface names `evaluate()`.
 
+<a id="cli-repid"></a>
+
 ### `trustshell repid <agentIdOrSlug>`
 
 Print an agent's live RepID and tier. Keyless. Options: `--json`.
@@ -182,6 +186,8 @@ $ trustshell repid trinity-shofet
 trinity-shofet
   RepID 2070  (ESTABLISHED)
 ```
+
+<a id="cli-proof"></a>
 
 ### `trustshell proof <agentIdOrSlug> [--verify]`
 
