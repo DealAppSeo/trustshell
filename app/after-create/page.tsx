@@ -43,6 +43,7 @@ export default async function AfterCreatePage() {
           ))}
         </tbody>
       </table>
+      <p className="font-mono text-sm text-foreground">{table.receipt}</p>
     </main>
   );
 }

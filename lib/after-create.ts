@@ -1,3 +1,5 @@
+import { receiptLine } from './hal-receipt';
+
 export const DEFAULT_ENGINE = 'https://repid-engine-production.up.railway.app';
 
 export type AfterCreateTable = {
@@ -14,10 +16,13 @@ export const NOT_CHECKED_TABLE: AfterCreateTable = {
   can_rate_models: 'NOT_CHECKED',
 };
 
-export type AfterCreateResult = AfterCreateTable & { source: 'counted' | 'NOT_CHECKED' };
+export type AfterCreateResult = AfterCreateTable & {
+  source: 'counted' | 'NOT_CHECKED';
+  receipt: string;
+};
 
 function notChecked(): AfterCreateResult {
-  return { ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED' };
+  return { ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED', receipt: 'NOT_CHECKED' };
 }
 
 /** Unset TRUSTSHELL_API_URL uses the default engine. A blank value is a missing URL. */
@@ -43,6 +48,23 @@ export function stakeCell(value: unknown, liveLabel: boolean): string {
   if (value === true) return liveLabel ? 'live' : 'shadow — not live';
   if (value === false) return 'false';
   return 'NOT_CHECKED';
+}
+
+/** `family host verdict`. A missing or failed vote is NOT_CHECKED. */
+export function receiptFromBody(body: unknown): string {
+  const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  if (
+    typeof record.family !== 'string' ||
+    typeof record.host !== 'string' ||
+    typeof record.verdict !== 'string'
+  ) {
+    return 'NOT_CHECKED';
+  }
+  return receiptLine({
+    family: record.family,
+    host: record.host,
+    verdict: record.verdict,
+  });
 }
 
 export function tableFromBody(body: unknown, liveLabel: boolean): AfterCreateTable {
@@ -72,7 +94,7 @@ export async function loadAfterCreate(opts: {
     const body: unknown = await res.json();
     const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
     if (record.status !== undefined && record.status !== 'counted') return notChecked();
-    return { ...tableFromBody(body, saysStakeLive(env)), source: 'counted' };
+    return { ...tableFromBody(body, saysStakeLive(env)), source: 'counted', receipt: receiptFromBody(body) };
   } catch {
     return notChecked();
   }
