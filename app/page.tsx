@@ -1,4 +1,5 @@
 import { Hero } from '@/components/hero';
+import { AfterAgent } from '@/components/after-agent';
 import { demoFileExists } from '@/lib/demo-file';
 import { StatusStrip } from '@/components/status-strip';
 import { CompatibilityInfo } from '@/components/compatibility-info';
@@ -20,6 +21,7 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       {/* Section 1: Hero */}
       <Hero showDemo={demoFileExists()} />
+      <AfterAgent />
       <StatusStrip />
 
       {/* Section 1.5: Compatibility & Signals Info */}
