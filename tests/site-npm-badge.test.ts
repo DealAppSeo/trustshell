@@ -21,7 +21,8 @@ describe('site install copy matches published 1.4.0', () => {
 
   it('hero is the one-screen win and does not interpolate package.json', () => {
     expect(hero).not.toMatch(/packageJson\.version/);
-    expect(hero).toMatch(/Gate, not a chatbot/);
+    expect(hero).toMatch(/A portable trust harness so AI has to earn it\./);
+    expect(hero).toMatch(/Check a claim\. See the receipt\. Keep your keys\./);
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
     expect(hero).toContain('trustshell verify "The capital of France is Paris."');
     expect(hero).toContain('trustshell verify "The Eiffel Tower is located in Rome, Italy."');

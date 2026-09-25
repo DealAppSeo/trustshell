@@ -1,6 +1,6 @@
-# Gate, not a chatbot
+# A portable trust harness so AI has to earn it.
 
-Install. Check a true sentence. Check a false one.
+Check a claim. See the receipt. Keep your keys.
 
 <!--
   Embed slot. The player stays out of the README until the file is in the repo.
