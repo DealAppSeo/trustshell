@@ -27,6 +27,7 @@ describe('after-create', () => {
       can_bind: 'false',
       can_stake: 'false',
       can_rate_models: 'true',
+      receipt: 'NOT_CHECKED',
     });
   });
 
@@ -35,7 +36,7 @@ describe('after-create', () => {
       env: testEnv,
       fetchImpl: async () => jsonResponse(503, { error: 'down' }),
     });
-    expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED' });
+    expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED', receipt: 'NOT_CHECKED' });
   });
 
   it('a set URL and a 200 counted body is not a fixture', async () => {
@@ -45,7 +46,23 @@ describe('after-create', () => {
     });
     expect(table.source).toBe('counted');
     expect(table.can_verify).toBe('true');
+    expect(table.receipt).toBe('NOT_CHECKED');
     expect(table.source).not.toBe('FIXTURE');
+  });
+
+  it('shows the receipt line family host verdict', async () => {
+    const table = await loadAfterCreate({
+      env: testEnv,
+      fetchImpl: async () =>
+        jsonResponse(200, { ...ok, family: 'glm', host: 'cerebras', verdict: 'FALSE' }),
+    });
+    expect(table.receipt).toBe('glm cerebras FALSE');
+    const late = await loadAfterCreate({
+      env: testEnv,
+      fetchImpl: async () =>
+        jsonResponse(200, { ...ok, family: 'openai', host: 'openai', verdict: 'ERROR' }),
+    });
+    expect(late.receipt).toBe('openai openai NOT_CHECKED');
   });
 
   it('a 503 fixture is NOT_CHECKED', async () => {
@@ -53,7 +70,7 @@ describe('after-create', () => {
       env: { ...testEnv, TRUSTSHELL_API_URL: 'https://engine.test' },
       fetchImpl: async () => jsonResponse(503, { status: 'counted', ...ok }),
     });
-    expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED' });
+    expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED', receipt: 'NOT_CHECKED' });
   });
 
   it('a timeout is NOT_CHECKED', async () => {
@@ -89,6 +106,6 @@ describe('after-create', () => {
         throw new Error('should not fetch');
       },
     });
-    expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED' });
+    expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED', receipt: 'NOT_CHECKED' });
   });
 });
