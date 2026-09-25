@@ -78,6 +78,7 @@ export async function buildStatusReport(opts: {
   env: NodeJS.ProcessEnv;
   fetchImpl: typeof fetch;
 }): Promise<string> {
+  if (opts.env.OFFLINE === '1') return NOT_CHECKED_LINES;
   const base = engineBase(opts.env);
   if (!base) return NOT_CHECKED_LINES;
   const [after, honesty] = await Promise.all([
