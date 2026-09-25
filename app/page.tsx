@@ -1,4 +1,5 @@
 import { Hero } from '@/components/hero';
+import { JoinKit } from '@/components/join-kit';
 import { AfterAgent } from '@/components/after-agent';
 import { demoFileExists } from '@/lib/demo-file';
 import { StatusStrip } from '@/components/status-strip';
@@ -21,6 +22,7 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       {/* Section 1: Hero */}
       <Hero showDemo={demoFileExists()} />
+      <JoinKit />
       <AfterAgent />
       <StatusStrip />
 
