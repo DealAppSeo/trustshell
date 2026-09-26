@@ -45,6 +45,12 @@ export function stakeCell(value: unknown, liveLabel: boolean): string {
   return 'NOT_CHECKED';
 }
 
+/** The after-create page never prints can_stake as live. This does not flip REAL_STAKING. */
+export function shownStakeCell(cell: string): string {
+  if (cell === 'live') return 'testnet / shadow';
+  return cell;
+}
+
 export function tableFromBody(body: unknown, liveLabel: boolean): AfterCreateTable {
   const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
   return {
