@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport } from './status';
+import { formatStatusJson, formatStatusText, loadStatusPayload } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { join } from 'node:path';
 
@@ -434,8 +434,8 @@ export async function run(
       return EXIT.OK;
 
     case 'status': {
-      const text = await buildStatusReport({ env: process.env, fetchImpl: fetch });
-      io.out(text);
+      const payload = await loadStatusPayload({ env: process.env, fetchImpl: fetch });
+      io.out(args.json ? formatStatusJson(payload) : formatStatusText(payload));
       return EXIT.OK;
     }
 
