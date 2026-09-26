@@ -14,6 +14,7 @@ import { RepidGovernance } from '@/components/repid-governance';
 import { PrivacyPosture } from '@/components/privacy-posture';
 import { Ecosystem } from '@/components/ecosystem';
 import { BuilderWaitlist } from '@/components/builder-waitlist';
+import { LandingClose } from '@/components/landing-close';
 import { Footer } from '@/components/footer';
 
 export default function Home() {
@@ -59,7 +60,9 @@ export default function Home() {
       
       {/* Section 12: Builder Waitlist */}
       <BuilderWaitlist />
-      
+
+      <LandingClose />
+
       {/* Section 13: Footer */}
       <Footer />
     </main>
