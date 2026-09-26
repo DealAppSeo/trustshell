@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
-import { buildStatusReport } from '../src/cli/status';
+import { buildStatusReport, formatStatusJson, loadStatusPayload } from '../src/cli/status';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -67,6 +67,55 @@ describe('trustshell status', () => {
     expect(text).toContain('honesty-a glm cerebras TRUE 4 FALSE 1 NOT_CHECKED 2');
     expect(text).not.toContain('qwen');
     expect(text).not.toMatch(/user_id|prompt/i);
+  });
+
+  it('trustshell status --json prints the same fields', async () => {
+    const env: NodeJS.ProcessEnv = { NODE_ENV: 'test', TRUSTSHELL_API_URL: 'https://engine.test' };
+    const fetchImpl = async (url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith('/api/v1/after-create')) {
+        return jsonResponse(200, {
+          can_verify: true,
+          can_bind: false,
+          can_stake: true,
+          can_rate_models: false,
+        });
+      }
+      return jsonResponse(200, {
+        status: 'counted',
+        rows: [{ family: 'glm', host: 'cerebras', TRUE: 4, FALSE: 1, NOT_CHECKED: 2 }],
+      });
+    };
+    const payload = await loadStatusPayload({ env, fetchImpl: fetchImpl as typeof fetch });
+    const parsed = JSON.parse(formatStatusJson(payload)) as Record<string, string>;
+    expect(parsed).toEqual({
+      can_verify: 'true',
+      can_bind: 'false',
+      can_stake: 'shadow — not live',
+      can_rate_models: 'false',
+      honesty_a: 'glm cerebras TRUE 4 FALSE 1 NOT_CHECKED 2',
+    });
+    expect(parseArgs(['status', '--json']).json).toBe(true);
+
+    const out: string[] = [];
+    const prevFetch = global.fetch;
+    const prevUrl = process.env.TRUSTSHELL_API_URL;
+    global.fetch = fetchImpl as typeof fetch;
+    process.env.TRUSTSHELL_API_URL = 'https://engine.test';
+    try {
+      const code = await run(parseArgs(['status', '--json']), {} as never, {
+        out: (s) => out.push(s),
+        err: () => undefined,
+      });
+      expect(code).toBe(0);
+      expect(JSON.parse(out.join('\n')).honesty_a).toBe(
+        'glm cerebras TRUE 4 FALSE 1 NOT_CHECKED 2',
+      );
+    } finally {
+      global.fetch = prevFetch;
+      if (prevUrl === undefined) delete process.env.TRUSTSHELL_API_URL;
+      else process.env.TRUSTSHELL_API_URL = prevUrl;
+    }
   });
 
   it('run() prints that report and does not use the SDK client', async () => {
