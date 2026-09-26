@@ -33,6 +33,8 @@ describe('trustshell status', () => {
         'can_stake NOT_CHECKED',
         'can_rate_models NOT_CHECKED',
         'honesty-a NOT_CHECKED',
+        'first-pass NOT_CHECKED',
+        'post-HAL NOT_CHECKED',
       ].join('\n'),
     );
     expect(text).not.toMatch(/PASS/);
@@ -65,8 +67,37 @@ describe('trustshell status', () => {
     expect(text).toContain('can_bind false');
     expect(text).toContain('can_stake shadow — not live');
     expect(text).toContain('honesty-a glm cerebras TRUE 4 FALSE 1 NOT_CHECKED 2');
+    expect(text).toContain('first-pass glm cerebras TRUE 4 FALSE 1 NOT_CHECKED 2');
+    expect(text).toContain('post-HAL NOT_CHECKED');
     expect(text).not.toContain('qwen');
     expect(text).not.toMatch(/user_id|prompt/i);
+    expect(text).not.toMatch(/can_stake live/);
+    expect(text).not.toMatch(/\b0\b/);
+  });
+
+  it('prints NOT_CHECKED for the live honesty-a gap and does not invent a post-HAL count', async () => {
+    const text = await buildStatusReport({
+      env: { NODE_ENV: 'test', TRUSTSHELL_API_URL: 'https://engine.test' },
+      fetchImpl: async (url) => {
+        const href = String(url);
+        if (href.endsWith('/api/v1/after-create')) {
+          return jsonResponse(200, { can_verify: true, can_bind: false, can_stake: false, can_rate_models: false });
+        }
+        return jsonResponse(200, {
+          window_days: 7,
+          status: 'NOT_CHECKED',
+          source: 'hal_quorum_validator_votes',
+          writer_enabled: false,
+          gap: 'relation "public.hal_quorum_validator_votes" does not exist',
+          rows: null,
+        });
+      },
+    });
+    expect(text).toContain('honesty-a NOT_CHECKED');
+    expect(text).toContain('first-pass NOT_CHECKED');
+    expect(text).toContain('post-HAL NOT_CHECKED');
+    expect(text).not.toMatch(/post-HAL (?!NOT_CHECKED)/);
+    expect(text).not.toMatch(/\b0\b/);
   });
 
   it('run() prints that report and does not use the SDK client', async () => {

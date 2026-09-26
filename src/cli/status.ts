@@ -6,6 +6,8 @@ const NOT_CHECKED_LINES = [
   'can_stake NOT_CHECKED',
   'can_rate_models NOT_CHECKED',
   'honesty-a NOT_CHECKED',
+  'first-pass NOT_CHECKED',
+  'post-HAL NOT_CHECKED',
 ].join('\n');
 
 function engineBase(env: NodeJS.ProcessEnv): string | null {
@@ -58,6 +60,35 @@ export function honestyLine(body: unknown): string {
   return `honesty-a ${vote.family} ${vote.host} TRUE ${truth} FALSE ${fals} NOT_CHECKED ${missed}`;
 }
 
+/**
+ * GET /api/v1/hal/honesty-a has family, provider, and one verdict. It has no
+ * post-HAL column. A missing read is NOT_CHECKED, not 0.
+ */
+export function firstPassLines(body: unknown): string[] {
+  const post = 'post-HAL NOT_CHECKED';
+  if (!body || typeof body !== 'object') return ['first-pass NOT_CHECKED', post];
+  const record = body as Record<string, unknown>;
+  if (record.status !== 'counted' || !Array.isArray(record.rows) || record.rows.length === 0) {
+    return ['first-pass NOT_CHECKED', post];
+  }
+  const row = record.rows[0];
+  if (!row || typeof row !== 'object') return ['first-pass NOT_CHECKED', post];
+  const vote = row as Record<string, unknown>;
+  if (
+    typeof vote.family !== 'string' ||
+    typeof vote.host !== 'string' ||
+    typeof vote.TRUE !== 'number' ||
+    typeof vote.FALSE !== 'number' ||
+    typeof vote.NOT_CHECKED !== 'number'
+  ) {
+    return ['first-pass NOT_CHECKED', post];
+  }
+  return [
+    `first-pass ${vote.family} ${vote.host} TRUE ${vote.TRUE} FALSE ${vote.FALSE} NOT_CHECKED ${vote.NOT_CHECKED}`,
+    post,
+  ];
+}
+
 async function readJson(
   fetchImpl: typeof fetch,
   url: string,
@@ -89,5 +120,6 @@ export async function buildStatusReport(opts: {
     ? afterLines(after.body, saysStakeLive(opts.env))
     : NOT_CHECKED_LINES.split('\n').slice(0, 4);
   lines.push(honesty.ok ? honestyLine(honesty.body) : 'honesty-a NOT_CHECKED');
+  lines.push(...(honesty.ok ? firstPassLines(honesty.body) : ['first-pass NOT_CHECKED', 'post-HAL NOT_CHECKED']));
   return lines.join('\n');
 }
