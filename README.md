@@ -427,6 +427,12 @@ Run `trustshell --help` for the full reference.
 
 ---
 
+## For 8004 / OpenClaw
+
+ERC-8004 identity mint is a separate key-gated call. `register()` does not mint it. A keyless agent stays `NOT_MINTED`.
+
+OpenClaw loads [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md) and shells out to `trustshell`. Install with `npm i -g @hyperdag/trustshell@1.4.0`. Use `trustshell verify`, `trustshell status`, `trustshell repid`, and `trustshell proof`. There is no mesh in v1. Staking is not live.
+
 ## Agent skill
 
 OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.4.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
