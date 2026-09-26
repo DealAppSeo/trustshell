@@ -57,6 +57,10 @@ export default async function ModelCardPage() {
         fixtures/hal-last-week.fixture.json and is labeled FIXTURE. TRUE, FALSE, and NOT_CHECKED stay separate.
         Help B is no ratings unless that payload has n of at least 1.
       </p>
+      <p className="text-sm text-muted leading-relaxed">
+        First-pass family votes and the post-HAL verdict are different columns when the engine exposes them.{' '}
+        {card.columns}
+      </p>
     </main>
   );
 }
