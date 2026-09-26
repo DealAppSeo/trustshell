@@ -1,5 +1,5 @@
 import { Hero } from '@/components/hero';
-import { demoFileExists } from '@/lib/demo-file';
+import { DemoVideo } from '@/components/demo-video';
 
 /**
  * /start used to open on three questions, the last of which asks for a wallet.
@@ -7,5 +7,5 @@ import { demoFileExists } from '@/lib/demo-file';
  * at /start/tailor and is not linked from this page.
  */
 export default function StartPage() {
-  return <Hero showDemo={demoFileExists()} />;
+  return <Hero demo={<DemoVideo />} />;
 }
