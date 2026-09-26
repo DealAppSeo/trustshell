@@ -29,7 +29,7 @@ describe('landing close', () => {
     const headline = close.slice(close.indexOf('<h2'), close.indexOf('</h2>'));
     expect(headline).toContain(CLOSE_LINE);
     expect(headline).not.toMatch(/VETO/);
-    expect(hero).toMatch(/A portable trust harness so AI has to earn it\./);
+    expect(hero).toMatch(/A portable trust harness\. Autonomy is earned\./);
     expect(hero).not.toMatch(/wallet/i);
   });
 
