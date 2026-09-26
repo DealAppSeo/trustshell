@@ -29,24 +29,16 @@ describe('model card', () => {
     expect(page).not.toMatch(/blended|Help B is live|B is live/i);
     expect(page).not.toMatch(/\bscore\b/i);
     expect(page).toContain('TRUE {row.TRUE} / FALSE {row.FALSE} / NOT_CHECKED {row.NOT_CHECKED}');
-    expect(page).toContain(
-      'First-pass family votes and the post-HAL verdict are different columns when the engine exposes them.',
-    );
+    expect(page).toContain('GET /api/v1/hal/honesty-a reads family, provider, and verdict. It has no post-HAL column.');
+    expect(page).not.toMatch(/first_pass|post_hal/);
   });
 
-  it('prints NOT_CHECKED unless the engine exposes both vote columns', () => {
-    expect(exposedColumns({ status: 'counted', rows: [{ family: 'glm', host: 'cerebras', TRUE: 1, FALSE: 0, NOT_CHECKED: 0 }] })).toBe(
-      'NOT_CHECKED',
-    );
-    expect(exposedColumns({ first_pass: [{ family: 'glm', host: 'cerebras', verdict: 'TRUE' }] })).toBe('NOT_CHECKED');
-    const both = exposedColumns({
-      first_pass: [{ family: 'glm', host: 'cerebras', verdict: 'TRUE' }],
-      post_hal: [{ family: 'glm', host: 'cerebras', verdict: 'FALSE' }],
-    });
-    expect(both).toBe('first-pass glm cerebras TRUE. post-HAL glm cerebras FALSE.');
-    expect(both).not.toContain('NOT_CHECKED');
-    expect(both).not.toMatch(/\bscore\b/i);
+  it('prints NOT_CHECKED for post-HAL and does not invent columns', () => {
+    expect(exposedColumns()).toBe('NOT_CHECKED');
+    const src = readFileSync(join(ROOT, 'lib/honesty-a.ts'), 'utf8');
+    expect(src).not.toMatch(/first_pass|post_hal/);
     expect(page).toContain('{card.columns}');
     expect(page).toContain('no ratings');
+    expect(page).not.toMatch(/\bscore\b/i);
   });
 });

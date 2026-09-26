@@ -18,41 +18,16 @@ export type HonestyCardRow = {
 export type HonestyCard = {
   source: 'counted' | 'FIXTURE';
   rows: HonestyCardRow[];
-  /** First-pass family votes and the post-HAL verdict, or NOT_CHECKED. */
+  /**
+   * post-HAL on this card. GET /api/v1/hal/honesty-a has no post-HAL field,
+   * so this stays NOT_CHECKED. TRUE, FALSE, and NOT_CHECKED stay on the row.
+   */
   columns: string;
 };
 
-type VoteColumn = { family: string; host: string; verdict: string };
-
-function voteColumn(value: unknown): VoteColumn[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-  const rows: VoteColumn[] = [];
-  for (const raw of value) {
-    if (!raw || typeof raw !== 'object') return null;
-    const row = raw as Record<string, unknown>;
-    if (typeof row.family !== 'string' || typeof row.host !== 'string' || typeof row.verdict !== 'string') {
-      return null;
-    }
-    rows.push({ family: row.family, host: row.host, verdict: row.verdict });
-  }
-  return rows;
-}
-
-function formatColumn(label: string, rows: VoteColumn[]): string {
-  return `${label} ${rows.map((row) => `${row.family} ${row.host} ${row.verdict}`).join(', ')}`;
-}
-
-/**
- * First-pass family votes and the post-HAL verdict are different columns when the
- * engine exposes both. Otherwise this is NOT_CHECKED. It does not fold TRUE, FALSE,
- * and NOT_CHECKED into one another.
- */
-export function exposedColumns(body: unknown): string {
-  const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-  const first = voteColumn(record.first_pass);
-  const post = voteColumn(record.post_hal);
-  if (!first || !post) return 'NOT_CHECKED';
-  return `${formatColumn('first-pass', first)}. ${formatColumn('post-HAL', post)}.`;
+/** The honesty-a route does not expose a post-HAL column. Do not invent one. */
+export function exposedColumns(): string {
+  return 'NOT_CHECKED';
 }
 
 export function engineBase(env: NodeJS.ProcessEnv = process.env): string | null {
@@ -86,7 +61,7 @@ export function cardFromPayload(body: unknown): HonestyCard | null {
     });
   }
   if (rows.length === 0) return null;
-  return { source: 'counted', rows, columns: exposedColumns(body) };
+  return { source: 'counted', rows, columns: exposedColumns() };
 }
 
 export function fixtureCard(): HonestyCard {
@@ -103,7 +78,7 @@ export function fixtureCard(): HonestyCard {
       NOT_CHECKED: row.NOT_CHECKED,
       helpB: NO_RATINGS,
     })),
-    columns: exposedColumns(fixture),
+    columns: exposedColumns(),
   };
 }
 

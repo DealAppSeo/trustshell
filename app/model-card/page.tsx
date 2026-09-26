@@ -58,7 +58,7 @@ export default async function ModelCardPage() {
         Help B is no ratings unless that payload has n of at least 1.
       </p>
       <p className="text-sm text-muted leading-relaxed">
-        First-pass family votes and the post-HAL verdict are different columns when the engine exposes them.{' '}
+        GET /api/v1/hal/honesty-a reads family, provider, and verdict. It has no post-HAL column.{' '}
         {card.columns}
       </p>
     </main>
