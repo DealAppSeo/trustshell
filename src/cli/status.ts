@@ -7,7 +7,6 @@ const NOT_CHECKED_LINES = [
   'can_rate_models NOT_CHECKED',
   'honesty-a NOT_CHECKED',
   'first-pass NOT_CHECKED',
-  'post-HAL NOT_CHECKED',
 ].join('\n');
 
 function engineBase(env: NodeJS.ProcessEnv): string | null {
@@ -54,39 +53,55 @@ export function honestyLine(body: unknown): string {
   if (!row || typeof row !== 'object') return 'honesty-a NOT_CHECKED';
   const vote = row as Record<string, unknown>;
   if (typeof vote.family !== 'string' || typeof vote.host !== 'string') return 'honesty-a NOT_CHECKED';
-  const truth = typeof vote.TRUE === 'number' ? vote.TRUE : 0;
-  const fals = typeof vote.FALSE === 'number' ? vote.FALSE : 0;
-  const missed = typeof vote.NOT_CHECKED === 'number' ? vote.NOT_CHECKED : 0;
-  return `honesty-a ${vote.family} ${vote.host} TRUE ${truth} FALSE ${fals} NOT_CHECKED ${missed}`;
+  return `honesty-a ${vote.family} ${vote.host} TRUE ${countCell(vote.TRUE)} FALSE ${countCell(vote.FALSE)} NOT_CHECKED ${countCell(vote.NOT_CHECKED)}`;
+}
+
+function countCell(value: unknown): string {
+  return typeof value === 'number' ? String(value) : 'NOT_CHECKED';
+}
+
+function passCounts(value: unknown): { TRUE: number; FALSE: number; NOT_CHECKED: number } | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.TRUE !== 'number' || typeof row.FALSE !== 'number' || typeof row.NOT_CHECKED !== 'number') {
+    return null;
+  }
+  return { TRUE: row.TRUE, FALSE: row.FALSE, NOT_CHECKED: row.NOT_CHECKED };
+}
+
+function verdictWord(value: unknown): string {
+  return value === 'TRUE' || value === 'FALSE' ? value : 'NOT_CHECKED';
 }
 
 /**
- * GET /api/v1/hal/honesty-a has family, provider, and one verdict. It has no
- * post-HAL column. A missing read is NOT_CHECKED, not 0.
+ * Print counted first_pass fields. A NOT_CHECKED body or a missing column is
+ * NOT_CHECKED, not 0. post-HAL is printed only when post_hal_verdict is present.
  */
 export function firstPassLines(body: unknown): string[] {
-  const post = 'post-HAL NOT_CHECKED';
-  if (!body || typeof body !== 'object') return ['first-pass NOT_CHECKED', post];
+  if (!body || typeof body !== 'object') return ['first-pass NOT_CHECKED'];
   const record = body as Record<string, unknown>;
-  if (record.status !== 'counted' || !Array.isArray(record.rows) || record.rows.length === 0) {
-    return ['first-pass NOT_CHECKED', post];
+  const row =
+    Array.isArray(record.rows) && record.rows[0] && typeof record.rows[0] === 'object'
+      ? (record.rows[0] as Record<string, unknown>)
+      : null;
+  const lines: string[] = [];
+  if (record.status !== 'counted') {
+    lines.push('first-pass NOT_CHECKED');
+  } else {
+    const pass = passCounts(row?.first_pass) ?? passCounts(record.first_pass);
+    const family = typeof row?.family === 'string' ? row.family : typeof record.family === 'string' ? record.family : '';
+    const host = typeof row?.host === 'string' ? row.host : typeof record.host === 'string' ? record.host : '';
+    lines.push(
+      pass && family && host
+        ? `first-pass ${family} ${host} TRUE ${pass.TRUE} FALSE ${pass.FALSE} NOT_CHECKED ${pass.NOT_CHECKED}`
+        : 'first-pass NOT_CHECKED',
+    );
   }
-  const row = record.rows[0];
-  if (!row || typeof row !== 'object') return ['first-pass NOT_CHECKED', post];
-  const vote = row as Record<string, unknown>;
-  if (
-    typeof vote.family !== 'string' ||
-    typeof vote.host !== 'string' ||
-    typeof vote.TRUE !== 'number' ||
-    typeof vote.FALSE !== 'number' ||
-    typeof vote.NOT_CHECKED !== 'number'
-  ) {
-    return ['first-pass NOT_CHECKED', post];
+  const holder = row && Object.prototype.hasOwnProperty.call(row, 'post_hal_verdict') ? row : record;
+  if (Object.prototype.hasOwnProperty.call(holder, 'post_hal_verdict')) {
+    lines.push(`post-HAL ${verdictWord(holder.post_hal_verdict)}`);
   }
-  return [
-    `first-pass ${vote.family} ${vote.host} TRUE ${vote.TRUE} FALSE ${vote.FALSE} NOT_CHECKED ${vote.NOT_CHECKED}`,
-    post,
-  ];
+  return lines;
 }
 
 async function readJson(
@@ -120,6 +135,6 @@ export async function buildStatusReport(opts: {
     ? afterLines(after.body, saysStakeLive(opts.env))
     : NOT_CHECKED_LINES.split('\n').slice(0, 4);
   lines.push(honesty.ok ? honestyLine(honesty.body) : 'honesty-a NOT_CHECKED');
-  lines.push(...(honesty.ok ? firstPassLines(honesty.body) : ['first-pass NOT_CHECKED', 'post-HAL NOT_CHECKED']));
+  lines.push(...(honesty.ok ? firstPassLines(honesty.body) : ['first-pass NOT_CHECKED']));
   return lines.join('\n');
 }

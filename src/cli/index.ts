@@ -182,7 +182,7 @@ COMMANDS
                              node scripts/init-pai.mjs --name <n>
       [--name <n>]           With --pai: PAI name (forwarded to init-pai).
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
-  status                     Print the after-create table, one Honesty A line, and first-pass vs post-HAL. A timeout, a non-200, or a missing column is NOT_CHECKED, never 0. post-HAL stays NOT_CHECKED because GET /api/v1/hal/honesty-a has no post-HAL column. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
+  status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
