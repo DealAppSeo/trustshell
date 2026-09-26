@@ -1,6 +1,6 @@
 import { Hero } from '@/components/hero';
+import { DemoVideo } from '@/components/demo-video';
 import { AfterAgent } from '@/components/after-agent';
-import { demoFileExists } from '@/lib/demo-file';
 import { StatusStrip } from '@/components/status-strip';
 import { CompatibilityInfo } from '@/components/compatibility-info';
 import { GlassBox } from '@/components/glass-box';
@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       {/* Section 1: Hero */}
-      <Hero showDemo={demoFileExists()} />
+      <Hero demo={<DemoVideo />} />
       <AfterAgent />
       <StatusStrip />
 
