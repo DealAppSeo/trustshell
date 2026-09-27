@@ -29,7 +29,27 @@ describe('after-create', () => {
       can_bind: 'false',
       can_stake: 'false',
       can_rate_models: 'true',
+      can_list: 'NOT_CHECKED',
     });
+  });
+
+  it('reads /api/v1/trustmarket/join and keeps can_list false', async () => {
+    const urls: string[] = [];
+    const table = await loadAfterCreate({
+      env: { ...testEnv, TRUSTSHELL_API_URL: 'https://engine.test' },
+      fetchImpl: async (input) => {
+        const href = String(input);
+        urls.push(href);
+        if (href.endsWith('/api/v1/trustmarket/join')) {
+          return jsonResponse(200, { can_list: true, can_stake: true });
+        }
+        return jsonResponse(200, { status: 'counted', ...ok });
+      },
+    });
+    expect(urls).toContain('https://engine.test/api/v1/trustmarket/join');
+    expect(table.can_list).toBe('false');
+    expect(table.can_stake).toBe('false');
+    expect(table.source).toBe('counted');
   });
 
   it('renders NOT_CHECKED for a 503 fixture', async () => {
@@ -104,6 +124,7 @@ describe('after-create', () => {
     expect(page).toContain('You have an agent. Next: verify a claim. Then look at the receipt.');
     expect(page).toContain('Wallet and stake are testnet / shadow.');
     expect(page).toContain('shownStakeCell');
+    expect(page).toContain('can_list');
     expect(page).not.toMatch(/stake now/i);
     expect(page).not.toMatch(/REAL_STAKING/);
   });
