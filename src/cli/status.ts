@@ -32,11 +32,20 @@ function stakeCell(value: unknown, liveLabel: boolean): string {
   return 'NOT_CHECKED';
 }
 
-function afterLines(body: unknown, liveLabel: boolean): string[] {
+/** can_bind is true only when readiness exact_true.HUMAN_AGENT_BIND_ENABLED is boolean true. */
+export function bindCell(body: unknown): string {
+  if (!body || typeof body !== 'object') return 'NOT_CHECKED';
+  const exact = (body as Record<string, unknown>).exact_true;
+  if (!exact || typeof exact !== 'object') return 'NOT_CHECKED';
+  if (!Object.prototype.hasOwnProperty.call(exact, 'HUMAN_AGENT_BIND_ENABLED')) return 'NOT_CHECKED';
+  return (exact as Record<string, unknown>).HUMAN_AGENT_BIND_ENABLED === true ? 'true' : 'false';
+}
+
+function afterLines(body: unknown, liveLabel: boolean, bind: string): string[] {
   const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
   return [
     `can_verify ${cell(record.can_verify)}`,
-    `can_bind ${cell(record.can_bind)}`,
+    `can_bind ${bind}`,
     `can_stake ${stakeCell(record.can_stake, liveLabel)}`,
     `can_rate_models ${cell(record.can_rate_models)}`,
   ];
@@ -127,13 +136,15 @@ export async function buildStatusReport(opts: {
   if (opts.env.OFFLINE === '1') return NOT_CHECKED_LINES;
   const base = engineBase(opts.env);
   if (!base) return NOT_CHECKED_LINES;
-  const [after, honesty] = await Promise.all([
+  const [after, honesty, readiness] = await Promise.all([
     readJson(opts.fetchImpl, `${base}/api/v1/after-create`),
     readJson(opts.fetchImpl, `${base}/api/v1/hal/honesty-a`),
+    readJson(opts.fetchImpl, `${base}/readiness`),
   ]);
+  const bind = readiness.ok ? bindCell(readiness.body) : 'NOT_CHECKED';
   const lines = after.ok
-    ? afterLines(after.body, saysStakeLive(opts.env))
-    : NOT_CHECKED_LINES.split('\n').slice(0, 4);
+    ? afterLines(after.body, saysStakeLive(opts.env), bind)
+    : ['can_verify NOT_CHECKED', `can_bind ${bind}`, 'can_stake NOT_CHECKED', 'can_rate_models NOT_CHECKED'];
   lines.push(honesty.ok ? honestyLine(honesty.body) : 'honesty-a NOT_CHECKED');
   lines.push(...(honesty.ok ? firstPassLines(honesty.body) : ['first-pass NOT_CHECKED']));
   return lines.join('\n');
