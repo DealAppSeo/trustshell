@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { linksForLanding } from '@/lib/landing-nav';
 
 // Persistent app navigation. Before this existed users had to guess URLs;
 // this links the core E2E surfaces. Order mirrors the natural onboarding flow:
@@ -44,6 +45,7 @@ export function TopNav() {
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+  const links = linksForLanding(pathname, NAV_LINKS);
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#1e293b] bg-[#0a0f1a]/90 backdrop-blur supports-[backdrop-filter]:bg-[#0a0f1a]/70">
@@ -71,7 +73,7 @@ export function TopNav() {
 
             tests/nav-fit.test.ts trips if the link count changes without a re-measurement. */}
         <div className={focused ? 'hidden' : 'hidden xl:flex items-center gap-1'}>
-          {NAV_LINKS.map((l) => (
+          {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
@@ -115,7 +117,7 @@ export function TopNav() {
               menu never used to appear in — the items sat up to 64px left of the wordmark
               they hang under. Measured before and after. */}
           <div className="max-w-6xl mx-auto px-4 py-2 space-y-1">
-          {NAV_LINKS.map((l) => (
+          {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
