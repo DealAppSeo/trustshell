@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { exposedColumns } from '../lib/honesty-a';
 import { modelCardRows, HELP_B } from '../lib/model-card';
 import type { ReceiptRow } from '../lib/hal-receipt';
 
@@ -27,5 +28,25 @@ describe('model card', () => {
     expect(page).toContain('Help B');
     expect(page).not.toMatch(/blended|Help B is live|B is live/i);
     expect(page).not.toMatch(/\bscore\b/i);
+    expect(page).toContain('TRUE {row.TRUE} / FALSE {row.FALSE} / NOT_CHECKED {row.NOT_CHECKED}');
+    expect(page).toContain(
+      'First-pass family votes and the post-HAL verdict are different columns when the engine exposes them.',
+    );
+  });
+
+  it('prints NOT_CHECKED unless the engine exposes both vote columns', () => {
+    expect(exposedColumns({ status: 'counted', rows: [{ family: 'glm', host: 'cerebras', TRUE: 1, FALSE: 0, NOT_CHECKED: 0 }] })).toBe(
+      'NOT_CHECKED',
+    );
+    expect(exposedColumns({ first_pass: [{ family: 'glm', host: 'cerebras', verdict: 'TRUE' }] })).toBe('NOT_CHECKED');
+    const both = exposedColumns({
+      first_pass: [{ family: 'glm', host: 'cerebras', verdict: 'TRUE' }],
+      post_hal: [{ family: 'glm', host: 'cerebras', verdict: 'FALSE' }],
+    });
+    expect(both).toBe('first-pass glm cerebras TRUE. post-HAL glm cerebras FALSE.');
+    expect(both).not.toContain('NOT_CHECKED');
+    expect(both).not.toMatch(/\bscore\b/i);
+    expect(page).toContain('{card.columns}');
+    expect(page).toContain('no ratings');
   });
 });

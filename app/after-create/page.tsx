@@ -1,4 +1,4 @@
-import { loadAfterCreate, type AfterCreateTable } from '@/lib/after-create';
+import { loadAfterCreate, shownStakeCell, type AfterCreateTable } from '@/lib/after-create';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +26,9 @@ export default async function AfterCreatePage() {
             ? 'counted from /api/v1/after-create'
             : 'NOT_CHECKED. Timeout, 5xx, or a missing URL is not a fixture.'}
         </p>
+        <p className="text-sm text-foreground">
+          You have an agent. Next: verify a claim. Then look at the receipt. Wallet and stake are testnet / shadow.
+        </p>
       </header>
       <table className="w-full text-sm text-left border border-border">
         <thead className="bg-card text-muted">
@@ -38,7 +41,9 @@ export default async function AfterCreatePage() {
           {ROWS.map((row) => (
             <tr key={row.key} className="border-t border-border">
               <td className="px-3 py-2 text-foreground">{row.label}</td>
-              <td className="px-3 py-2">{table[row.key]}</td>
+              <td className="px-3 py-2">
+                {row.key === 'can_stake' ? shownStakeCell(table[row.key]) : table[row.key]}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -1,4 +1,6 @@
-import { loadAfterCreate, NOT_CHECKED_TABLE } from '../lib/after-create';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { loadAfterCreate, NOT_CHECKED_TABLE, shownStakeCell } from '../lib/after-create';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -90,5 +92,19 @@ describe('after-create', () => {
       },
     });
     expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED' });
+  });
+
+  it('fails if can_stake is shown live', () => {
+    expect(shownStakeCell('live')).toBe('testnet / shadow');
+    expect(shownStakeCell('live')).not.toBe('live');
+    expect(shownStakeCell('shadow — not live')).toBe('shadow — not live');
+    expect(shownStakeCell('false')).toBe('false');
+    expect(shownStakeCell('NOT_CHECKED')).toBe('NOT_CHECKED');
+    const page = readFileSync(join(__dirname, '../app/after-create/page.tsx'), 'utf8');
+    expect(page).toContain('You have an agent. Next: verify a claim. Then look at the receipt.');
+    expect(page).toContain('Wallet and stake are testnet / shadow.');
+    expect(page).toContain('shownStakeCell');
+    expect(page).not.toMatch(/stake now/i);
+    expect(page).not.toMatch(/REAL_STAKING/);
   });
 });
