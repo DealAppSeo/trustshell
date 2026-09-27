@@ -63,7 +63,7 @@ describe('trustshell status', () => {
       fetchImpl: fetchImpl as typeof fetch,
     });
     expect(text).toContain('can_verify true');
-    expect(text).toContain('can_bind false');
+    expect(text).toContain('can_bind NOT_CHECKED');
     expect(text).toContain('can_stake shadow — not live');
     expect(text).toContain('honesty-a glm cerebras TRUE 4 FALSE 1 NOT_CHECKED 2');
     expect(text).toContain('first-pass NOT_CHECKED');
@@ -138,6 +138,49 @@ describe('trustshell status', () => {
     expect(missing).toContain('first-pass NOT_CHECKED');
     expect(missing).toContain('post-HAL NOT_CHECKED');
     expect(missing).not.toMatch(/TRUE 0|post-HAL 0/);
+  });
+
+  it('prints can_bind true only when readiness exact_true is boolean true', async () => {
+    const report = async (readiness: unknown) =>
+      buildStatusReport({
+        env: { NODE_ENV: 'test', TRUSTSHELL_API_URL: 'https://engine.test' },
+        fetchImpl: async (url) => {
+          const href = String(url);
+          if (href.endsWith('/readiness')) return jsonResponse(200, readiness);
+          if (href.endsWith('/api/v1/after-create')) {
+            return jsonResponse(200, { can_verify: true, can_bind: true, can_stake: true, can_rate_models: false });
+          }
+          return jsonResponse(503, {});
+        },
+      });
+
+    const on = await report({
+      flags: { HUMAN_AGENT_BIND_ENABLED: 'on' },
+      exact_true: { HUMAN_AGENT_BIND_ENABLED: true, REAL_STAKING_ENABLED: true },
+    });
+    expect(on).toContain('can_bind true');
+    expect(on).toContain('can_stake shadow — not live');
+    expect(on).not.toMatch(/can_stake live/);
+
+    const off = await report({
+      flags: { HUMAN_AGENT_BIND_ENABLED: 'on' },
+      exact_true: { HUMAN_AGENT_BIND_ENABLED: false },
+    });
+    expect(off).toContain('can_bind false');
+
+    const word = await report({
+      flags: { HUMAN_AGENT_BIND_ENABLED: 'on' },
+      exact_true: { HUMAN_AGENT_BIND_ENABLED: 'true' },
+    });
+    expect(word).toContain('can_bind false');
+    expect(word).not.toMatch(/can_bind true/);
+
+    const ignored = await report({
+      flags: { HUMAN_AGENT_BIND_ENABLED: 'on' },
+      exact_true: { REAL_STAKING_ENABLED: false },
+    });
+    expect(ignored).toContain('can_bind NOT_CHECKED');
+    expect(ignored).not.toMatch(/can_bind true/);
   });
 
   it('run() prints that report and does not use the SDK client', async () => {
