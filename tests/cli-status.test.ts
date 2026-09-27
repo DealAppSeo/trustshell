@@ -132,7 +132,7 @@ describe('trustshell status', () => {
       fetchImpl: async () =>
         jsonResponse(200, {
           status: 'counted',
-          rows: [{ family: 'glm', host: 'cerebras', first_pass: { FALSE: 1 }, post_hal_verdict: 0 }],
+          rows: [{ family: 'glm', host: 'cerebras', first_pass: { FALSE: 1 } }],
         }),
     });
     expect(missing).toContain('first-pass NOT_CHECKED');

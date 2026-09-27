@@ -105,7 +105,8 @@ function verdictWord(value: unknown): string {
 
 /**
  * Print counted first_pass fields. A NOT_CHECKED body or a missing column is
- * NOT_CHECKED, not 0. post-HAL is printed only when post_hal_verdict is present.
+ * NOT_CHECKED, not 0. When first_pass is present, post-HAL prints the verdict
+ * or NOT_CHECKED if post_hal_verdict is missing or invalid.
  */
 export function firstPassLines(body: unknown): string[] {
   if (!body || typeof body !== 'object') return ['first-pass NOT_CHECKED'];
@@ -128,8 +129,12 @@ export function firstPassLines(body: unknown): string[] {
     );
   }
   const holder = row && Object.prototype.hasOwnProperty.call(row, 'post_hal_verdict') ? row : record;
-  if (Object.prototype.hasOwnProperty.call(holder, 'post_hal_verdict')) {
-    lines.push(`post-HAL ${verdictWord(holder.post_hal_verdict)}`);
+  const hasPostHal = Object.prototype.hasOwnProperty.call(holder, 'post_hal_verdict');
+  const hasFirstPass =
+    (row ? Object.prototype.hasOwnProperty.call(row, 'first_pass') : false) ||
+    Object.prototype.hasOwnProperty.call(record, 'first_pass');
+  if (hasPostHal || (record.status === 'counted' && hasFirstPass)) {
+    lines.push(`post-HAL ${verdictWord(hasPostHal ? holder.post_hal_verdict : undefined)}`);
   }
   return lines;
 }
