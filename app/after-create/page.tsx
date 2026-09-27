@@ -12,6 +12,7 @@ const ROWS: { key: keyof AfterCreateTable; label: string }[] = [
   { key: 'can_bind', label: 'can_bind' },
   { key: 'can_stake', label: 'can_stake' },
   { key: 'can_rate_models', label: 'can_rate_models' },
+  { key: 'can_list', label: 'can_list' },
 ];
 
 export default async function AfterCreatePage() {

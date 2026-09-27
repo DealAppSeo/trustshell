@@ -5,6 +5,7 @@ export type AfterCreateTable = {
   can_bind: string;
   can_stake: string;
   can_rate_models: string;
+  can_list: string;
 };
 
 export const NOT_CHECKED_TABLE: AfterCreateTable = {
@@ -12,6 +13,7 @@ export const NOT_CHECKED_TABLE: AfterCreateTable = {
   can_bind: 'NOT_CHECKED',
   can_stake: 'NOT_CHECKED',
   can_rate_models: 'NOT_CHECKED',
+  can_list: 'NOT_CHECKED',
 };
 
 export type AfterCreateResult = AfterCreateTable & { source: 'counted' | 'NOT_CHECKED' };
@@ -51,14 +53,37 @@ export function shownStakeCell(cell: string): string {
   return cell;
 }
 
-export function tableFromBody(body: unknown, liveLabel: boolean): AfterCreateTable {
+/**
+ * Join flag stays off. A boolean from /api/v1/trustmarket/join prints false.
+ * A missing field is NOT_CHECKED, not a listing.
+ */
+export function listCell(value: unknown): string {
+  if (value === true || value === false) return 'false';
+  return 'NOT_CHECKED';
+}
+
+export function tableFromBody(body: unknown, liveLabel: boolean, canList: unknown): AfterCreateTable {
   const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
   return {
     can_verify: boolCell(record.can_verify),
     can_bind: boolCell(record.can_bind),
     can_stake: stakeCell(record.can_stake, liveLabel),
     can_rate_models: boolCell(record.can_rate_models),
+    can_list: listCell(canList),
   };
+}
+
+async function readJson(fetchImpl: typeof fetch, url: string): Promise<unknown | null> {
+  try {
+    const res = await fetchImpl(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 export async function loadAfterCreate(opts: {
@@ -69,17 +94,15 @@ export async function loadAfterCreate(opts: {
   const base = engineBase(env);
   if (!base) return notChecked();
   const fetchImpl = opts.fetchImpl ?? fetch;
-  try {
-    const res = await fetchImpl(`${base}/api/v1/after-create`, {
-      signal: AbortSignal.timeout(8000),
-      headers: { accept: 'application/json' },
-    });
-    if (!res.ok) return notChecked();
-    const body: unknown = await res.json();
-    const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    if (record.status !== undefined && record.status !== 'counted') return notChecked();
-    return { ...tableFromBody(body, saysStakeLive(env)), source: 'counted' };
-  } catch {
-    return notChecked();
+  const [body, joinBody] = await Promise.all([
+    readJson(fetchImpl, `${base}/api/v1/after-create`),
+    readJson(fetchImpl, `${base}/api/v1/trustmarket/join`),
+  ]);
+  const join = joinBody && typeof joinBody === 'object' ? (joinBody as Record<string, unknown>) : null;
+  const canList = join ? join.can_list : undefined;
+  const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+  if (!record || (record.status !== undefined && record.status !== 'counted')) {
+    return { ...notChecked(), can_list: listCell(canList) };
   }
+  return { ...tableFromBody(body, saysStakeLive(env), canList), source: 'counted' };
 }
