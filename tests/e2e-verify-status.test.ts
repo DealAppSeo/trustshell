@@ -12,6 +12,31 @@ const HONESTY_MISSING_FIRST_PASS = {
   rows: [{ family: 'glm', host: 'cerebras', TRUE: 4, FALSE: 1, NOT_CHECKED: 2 }],
 };
 
+const HONESTY_COUNTED_FIRST_PASS = {
+  status: 'counted',
+  rows: [
+    {
+      family: 'glm',
+      host: 'cerebras',
+      TRUE: 4,
+      FALSE: 1,
+      NOT_CHECKED: 2,
+      first_pass: { TRUE: 0, FALSE: 1, NOT_CHECKED: 2 },
+    },
+  ],
+};
+
+const HONESTY_COUNTED_EMPTY = {
+  window_days: 7,
+  status: 'counted',
+  source: 'hal_quorum_validator_votes',
+  writer_enabled: true,
+  gap: null,
+  rows: [],
+};
+
+const COUNTED_LINE = 'first-pass glm cerebras TRUE 0 FALSE 1 NOT_CHECKED 2';
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -25,7 +50,11 @@ function capture(): { io: CliIO; out: string[]; err: string[] } {
   return { io: { out: (s) => out.push(s), err: (s) => err.push(s) }, out, err };
 }
 
-function installFetch(): void {
+function firstPassLine(text: string): string | undefined {
+  return text.split('\n').find((line) => line.startsWith('first-pass'));
+}
+
+function installFetch(honesty: unknown = HONESTY_MISSING_FIRST_PASS): void {
   global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = (init?.method ?? 'GET').toUpperCase();
@@ -38,7 +67,7 @@ function installFetch(): void {
         provider_responses: [{ provider: 'glm', verdict: 'TRUE', note: 'counted' }],
       });
     }
-    if (url.endsWith('/api/v1/hal/honesty-a')) return jsonResponse(200, HONESTY_MISSING_FIRST_PASS);
+    if (url.endsWith('/api/v1/hal/honesty-a')) return jsonResponse(200, honesty);
     if (url.endsWith('/api/v1/after-create')) {
       return jsonResponse(200, {
         can_verify: true,
@@ -83,13 +112,16 @@ describe('e2e verify + status against mocked honesty-a', () => {
     const client = new TrustShell({ apiUrl: ENGINE });
     const verifyCap = capture();
     const verifyCode = await run(parseArgs(['verify', 'Paris is in France']), client, verifyCap.io);
+    const verifyText = verifyCap.out.join('\n');
     expect(verifyCode).toBe(0);
-    expect(verifyCap.out.join('\n')).toMatch(/\bPASS\b/);
+    expect(verifyText).toMatch(/\bPASS\b/);
+    expect(firstPassLine(verifyText)).toBe('first-pass NOT_CHECKED');
+    expect(firstPassLine(verifyText)).not.toMatch(/\b0\b/);
 
     const statusCap = capture();
     const statusCode = await run(parseArgs(['status']), client, statusCap.io);
     const text = statusCap.out.join('\n');
-    const firstPass = text.split('\n').find((line) => line.startsWith('first-pass'));
+    const firstPass = firstPassLine(text);
 
     expect(statusCode).toBe(0);
     expect(firstPass).toBe('first-pass NOT_CHECKED');
@@ -100,5 +132,48 @@ describe('e2e verify + status against mocked honesty-a', () => {
     expect(text).toContain('can_stake shadow — not live');
     expect(text).not.toMatch(/can_stake live/);
     expect(text).toContain('can_bind NOT_CHECKED');
+  });
+
+  it('prints a counted first_pass from honesty-a on verify and status', async () => {
+    installFetch(HONESTY_COUNTED_FIRST_PASS);
+    const client = new TrustShell({ apiUrl: ENGINE });
+
+    const verifyCap = capture();
+    const verifyCode = await run(parseArgs(['verify', 'Paris is in France']), client, verifyCap.io);
+    expect(verifyCode).toBe(0);
+    expect(verifyCap.out.join('\n')).toContain(COUNTED_LINE);
+    expect(verifyCap.out.join('\n')).not.toMatch(/post-HAL/);
+
+    const jsonCap = capture();
+    const jsonCode = await run(parseArgs(['verify', 'Paris is in France', '--json']), client, jsonCap.io);
+    expect(jsonCode).toBe(0);
+    expect(JSON.parse(jsonCap.out.join('\n')).firstPass).toBe(COUNTED_LINE);
+
+    const statusCap = capture();
+    const statusCode = await run(parseArgs(['status']), client, statusCap.io);
+    const text = statusCap.out.join('\n');
+    expect(statusCode).toBe(0);
+    expect(text).toContain(COUNTED_LINE);
+    expect(text).not.toMatch(/post-HAL/);
+    expect(text).toContain('can_stake shadow — not live');
+    expect(text).not.toMatch(/can_stake live/);
+  });
+
+  it('prints NOT_CHECKED when counted honesty-a has no first_pass rows', async () => {
+    installFetch(HONESTY_COUNTED_EMPTY);
+    const client = new TrustShell({ apiUrl: ENGINE });
+
+    const verifyCap = capture();
+    await run(parseArgs(['verify', 'Paris is in France']), client, verifyCap.io);
+    expect(firstPassLine(verifyCap.out.join('\n'))).toBe('first-pass NOT_CHECKED');
+    expect(firstPassLine(verifyCap.out.join('\n'))).not.toMatch(/\b0\b/);
+
+    const statusCap = capture();
+    await run(parseArgs(['status']), client, statusCap.io);
+    const text = statusCap.out.join('\n');
+    expect(firstPassLine(text)).toBe('first-pass NOT_CHECKED');
+    expect(text).not.toMatch(/first-pass[^\n]*\b0\b/);
+    expect(text).toContain('honesty-a NOT_CHECKED');
+    expect(text).toContain('can_stake shadow — not live');
   });
 });

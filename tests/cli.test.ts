@@ -122,6 +122,17 @@ describe('verdictExitCode', () => {
 
 describe('run() exit codes (mocked SDK — no network)', () => {
   const base: ParsedArgs = { command: 'verify', json: false, verify: false };
+  const prevFetch = global.fetch;
+
+  beforeEach(() => {
+    global.fetch = (async () => {
+      throw new Error('offline');
+    }) as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = prevFetch;
+  });
 
   it('verify PASS → exit 0', async () => {
     const client = {

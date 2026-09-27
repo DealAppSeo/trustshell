@@ -129,6 +129,18 @@ async function readJson(
   }
 }
 
+/** The first-pass lines from honesty-a. A missing column is NOT_CHECKED, never 0. */
+export async function firstPassText(opts: {
+  env: NodeJS.ProcessEnv;
+  fetchImpl: typeof fetch;
+}): Promise<string> {
+  if (opts.env.OFFLINE === '1') return 'first-pass NOT_CHECKED';
+  const base = engineBase(opts.env);
+  if (!base) return 'first-pass NOT_CHECKED';
+  const honesty = await readJson(opts.fetchImpl, `${base}/api/v1/hal/honesty-a`);
+  return (honesty.ok ? firstPassLines(honesty.body) : ['first-pass NOT_CHECKED']).join('\n');
+}
+
 export async function buildStatusReport(opts: {
   env: NodeJS.ProcessEnv;
   fetchImpl: typeof fetch;
