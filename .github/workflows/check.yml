@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # `npm ci` rather than `npm install`: it fails loudly when the lockfile and

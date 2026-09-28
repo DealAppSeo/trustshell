@@ -271,6 +271,14 @@ ask_first`, `confidence_gate: 0.8`, `hitl_gate: 70`.
 The profile is yours and stays local; add `.trustshell/` to your `.gitignore` if you do not want
 it in version control.
 
+### `trustshell remember <text>`
+
+Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
+
+### `trustshell recall`
+
+Print saved notes, oldest first. A `do_not_send` row is not printed; the line is `do_not_send COUNT N`. No network.
+
 ### `trustshell status`
 
 Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
