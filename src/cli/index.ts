@@ -40,6 +40,7 @@ import {
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
 import { buildStatusReport, firstPassText, statusJsonFromText } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
+import { formatRecall, insertMemory, memoryDbPath } from '../memory/local-store';
 import { join } from 'node:path';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -65,6 +66,8 @@ export type Command =
   | 'init'
   | 'report'
   | 'status'
+  | 'remember'
+  | 'recall'
   | 'help'
   | 'version';
 
@@ -183,6 +186,8 @@ COMMANDS
       [--name <n>]           With --pai: PAI name (forwarded to init-pai).
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
+  remember "<text>"          Write a note into the local sqlite memory. No network.
+  recall                     Print saved notes. do_not_send rows print as a count only.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -206,6 +211,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   check                            api.github.com only — no backend, no account
   inspect                          NOTHING. Reads a local file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
+  remember · recall                NOTHING. Local sqlite only.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -302,6 +308,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
     case 'status':
       return { command: 'status', json, verify };
+    case 'remember': {
+      const text = rest.join(' ').trim();
+      if (!text) {
+        return {
+          command: 'remember',
+          json,
+          verify,
+          error: '`trustshell remember` requires "<text>"',
+        };
+      }
+      return { command: 'remember', operand: text, json, verify };
+    }
+    case 'recall':
+      return { command: 'recall', json, verify };
     case 'inspect':
     case 'init':
     case 'report':
@@ -437,6 +457,27 @@ export async function run(
       const text = await buildStatusReport({ env: process.env, fetchImpl: fetch });
       io.out(args.json ? JSON.stringify(statusJsonFromText(text), null, 2) : text);
       return EXIT.OK;
+    }
+
+    case 'remember': {
+      try {
+        insertMemory(memoryDbPath(), 'note', args.operand as string);
+        io.out('remembered');
+        return EXIT.OK;
+      } catch (e: any) {
+        io.err(`remember failed: ${e?.message ?? String(e)}`);
+        return EXIT.RUNTIME;
+      }
+    }
+
+    case 'recall': {
+      try {
+        io.out(formatRecall(memoryDbPath()));
+        return EXIT.OK;
+      } catch (e: any) {
+        io.err(`recall failed: ${e?.message ?? String(e)}`);
+        return EXIT.RUNTIME;
+      }
     }
 
     case 'verify':

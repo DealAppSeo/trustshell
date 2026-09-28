@@ -1,0 +1,108 @@
+/**
+ * Local memory sqlite. Default file is ~/.trustshell/memory.sqlite.
+ * TRUSTSHELL_MEMORY points tests and CI at a temp file.
+ */
+import { mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+
+const loadSqlite = createRequire(__filename);
+
+export type MemoryKind = 'note' | 'pref' | 'do_not_send';
+
+export type MemoryRow = {
+  id: number;
+  kind: MemoryKind;
+  body: string;
+  created_at: string;
+};
+
+const SCHEMA = `CREATE TABLE IF NOT EXISTS memory (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL CHECK (kind IN ('note', 'pref', 'do_not_send')),
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)`;
+
+type Statement = {
+  run(...params: unknown[]): { lastInsertRowid: number | bigint };
+  all(...params: unknown[]): Record<string, unknown>[];
+  get(...params: unknown[]): Record<string, unknown> | undefined;
+};
+
+type SqliteDb = {
+  exec(sql: string): void;
+  prepare(sql: string): Statement;
+  close(): void;
+};
+
+export function memoryDbPath(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
+  const override = env.TRUSTSHELL_MEMORY;
+  if (typeof override === 'string' && override.trim().length > 0) return override.trim();
+  return join(home, '.trustshell', 'memory.sqlite');
+}
+
+function openDb(path: string): SqliteDb {
+  mkdirSync(dirname(path), { recursive: true });
+  const { DatabaseSync } = loadSqlite('node:sqlite') as {
+    DatabaseSync: new (location: string) => SqliteDb;
+  };
+  const db = new DatabaseSync(path);
+  db.exec(SCHEMA);
+  return db;
+}
+
+function asRow(row: Record<string, unknown>): MemoryRow {
+  return {
+    id: Number(row.id),
+    kind: row.kind as MemoryKind,
+    body: String(row.body),
+    created_at: String(row.created_at),
+  };
+}
+
+export function insertMemory(
+  path: string,
+  kind: MemoryKind,
+  body: string,
+  now: string = new Date().toISOString(),
+): MemoryRow {
+  const db = openDb(path);
+  try {
+    const result = db
+      .prepare('INSERT INTO memory (kind, body, created_at) VALUES (?, ?, ?)')
+      .run(kind, body, now);
+    return { id: Number(result.lastInsertRowid), kind, body, created_at: now };
+  } finally {
+    db.close();
+  }
+}
+
+export function listNotes(path: string): MemoryRow[] {
+  const db = openDb(path);
+  try {
+    return db
+      .prepare("SELECT id, kind, body, created_at FROM memory WHERE kind = 'note' ORDER BY id ASC")
+      .all()
+      .map(asRow);
+  } finally {
+    db.close();
+  }
+}
+
+export function countDoNotSend(path: string): number {
+  const db = openDb(path);
+  try {
+    const row = db.prepare("SELECT COUNT(*) AS n FROM memory WHERE kind = 'do_not_send'").get();
+    return Number(row?.n ?? 0);
+  } finally {
+    db.close();
+  }
+}
+
+/** Notes in insert order, then a count. do_not_send bodies are not included. */
+export function formatRecall(path: string): string {
+  const notes = listNotes(path).map((row) => row.body);
+  return [...notes, `do_not_send COUNT ${countDoNotSend(path)}`].join('\n');
+}
