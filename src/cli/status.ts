@@ -161,3 +161,27 @@ export async function buildStatusReport(opts: {
   lines.push(...(honesty.ok ? firstPassLines(honesty.body) : ['first-pass NOT_CHECKED']));
   return lines.join('\n');
 }
+
+/** JSON view of the human status lines. A missing first_pass is omitted, never 0. */
+export function statusJsonFromText(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split('\n')) {
+    if (!line) continue;
+    if (line.startsWith('first-pass ')) {
+      const rest = line.slice('first-pass '.length);
+      if (rest !== 'NOT_CHECKED') out.first_pass = rest;
+      continue;
+    }
+    if (line.startsWith('post-HAL ')) {
+      out.post_hal = line.slice('post-HAL '.length);
+      continue;
+    }
+    if (line.startsWith('honesty-a ')) {
+      out.honesty_a = line.slice('honesty-a '.length);
+      continue;
+    }
+    const space = line.indexOf(' ');
+    if (space > 0) out[line.slice(0, space)] = line.slice(space + 1);
+  }
+  return out;
+}
