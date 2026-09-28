@@ -17,7 +17,7 @@ describe('laya hook runtime', () => {
       throw new Error('HAL called');
     }) as typeof fetch;
 
-    expect(layaHook('cheap')).toEqual({ classify: 'cheap' });
+    expect(layaHook('cheap')).toEqual({ action: 'recall', source: 'local' });
     expect(layaHook('escalate')).toEqual({ classify: 'escalate' });
     expect(layaHook('ask')).toEqual({ classify: 'ask' });
     expect(calls).toEqual([]);
