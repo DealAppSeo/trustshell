@@ -101,7 +101,8 @@ export async function loadAfterCreate(opts: {
   const join = joinBody && typeof joinBody === 'object' ? (joinBody as Record<string, unknown>) : null;
   const canList = join ? join.can_list : undefined;
   const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
-  if (!record || (record.status !== undefined && record.status !== 'counted')) {
+  if (!record) return notChecked();
+  if (record.status !== undefined && record.status !== 'counted') {
     return { ...notChecked(), can_list: listCell(canList) };
   }
   return { ...tableFromBody(body, saysStakeLive(env), canList), source: 'counted' };
