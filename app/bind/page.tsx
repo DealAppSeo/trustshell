@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BindClient } from '@/components/bind/bind-client';
+import { bindStatus } from '@/lib/bind-status';
 
 export const metadata = {
   title: 'Claim your agent — TrustShell',
@@ -49,7 +50,7 @@ export default function BindPage() {
           says what it may do, with what budget, until when — and can be revoked on its own.
         </p>
         <p className="max-w-[64ch]">
-          Everything here runs on Base Sepolia testnet.
+          Everything here runs on Base Sepolia testnet. Stake is {bindStatus(true).stake}.
         </p>
       </footer>
     </div>
