@@ -7,7 +7,8 @@ describe('laya hook', () => {
     const src = readFileSync(join(__dirname, '../src/laya/hook.ts'), 'utf8');
     expect(src.split(/\r?\n/).filter((line) => line.length > 0).length).toBeLessThanOrEqual(20);
     expect(src).not.toMatch(/fetch\(|\/api\/v1\/hal|honesty-a|factCheck/);
-    expect(layaHook('cheap')).toEqual({ classify: 'cheap' });
+    expect(src).not.toMatch(/^import\s|from\s+['"]/m);
+    expect(layaHook('cheap')).toEqual({ action: 'recall', source: 'local' });
     expect(layaHook('escalate')).toEqual({ classify: 'escalate' });
     expect(layaHook('ask')).toEqual({ classify: 'ask' });
     expect(layaRecords().map((row) => row.classify)).toEqual(['cheap', 'escalate', 'ask']);
