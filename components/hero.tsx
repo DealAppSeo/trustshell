@@ -8,6 +8,15 @@ trustshell verify "The capital of France is Paris."
 trustshell verify "The Eiffel Tower is located in Rome, Italy."
 trustshell status`;
 
+const MCP_PASTE = `{
+  "mcpServers": {
+    "trustshell": {
+      "command": "npx",
+      "args": ["-y", "@hyperdag/trustshell-mcp"]
+    }
+  }
+}`;
+
 export function Hero() {
   const [copied, setCopied] = useState(false);
 
@@ -54,6 +63,10 @@ export function Hero() {
             {copied ? 'Copied' : 'Copy the commands'}
           </button>
         </div>
+
+        <pre className="max-w-xl w-full min-w-0 mx-auto overflow-x-auto font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words text-left">
+          <code>{MCP_PASTE}</code>
+        </pre>
 
         <p className="max-w-xl mx-auto text-base text-slate-300 text-wrap">
           Install, run verify twice, then trustshell status.
