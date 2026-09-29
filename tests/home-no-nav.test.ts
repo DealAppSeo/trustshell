@@ -21,9 +21,14 @@ describe('home renders no top nav', () => {
     }
   });
 
-  it('adds trustshell status as its own fourth command line', () => {
-    expect(hero).toContain('A portable trust harness. Autonomy is earned.');
-    expect(hero).toContain('Check a claim. See the receipt. Keep your keys.');
+  it('shows the chat paste or the four commands, and not the other labels', () => {
+    expect(hero).toContain('AI lies. Now it has to show its work.');
+    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
+    expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
+    expect(hero).toContain('Check a claim in the chat you already use');
+    expect(hero).toContain("setPanel('mcp')");
+    expect(hero).toContain('I have a terminal');
+    expect(hero).toContain("setPanel('terminal')");
     const block = hero.match(/const WIN_COMMANDS = `([\s\S]*?)`;/);
     expect(block?.[1].replace(/\r/g, '').split('\n')).toEqual([
       'npm i -g @hyperdag/trustshell@1.4.0',
@@ -31,11 +36,13 @@ describe('home renders no top nav', () => {
       'trustshell verify "The Eiffel Tower is located in Rome, Italy."',
       'trustshell status',
     ]);
-    expect(hero).not.toMatch(/Copy the three/);
-    expect(hero).toContain('Existing agent: add TrustShell MCP after status.');
-    expect(hero).toContain(
-      'New PAI: trustshell remember writes ~/.trustshell/memory.sqlite, name the PAI after the first receipt.',
-    );
+    const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
+    expect(paste?.[1] ?? '').not.toMatch(/npm/i);
+    const at = hero.indexOf('Claude, ChatGPT, Grok, Cursor');
+    const mcpPanel = hero.slice(at, hero.indexOf('{WIN_COMMANDS}', at));
+    expect(at).toBeGreaterThan(-1);
+    expect(mcpPanel).not.toMatch(/npm/i);
+    expect(mcpPanel).toContain('MCP_PASTE');
     expect(hero).not.toMatch(/stake now/i);
     expect(hero).not.toMatch(/Market|Leaderboard/);
   });
