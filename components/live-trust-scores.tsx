@@ -121,7 +121,7 @@ export function LiveTrustScores() {
 
         {loading && (
           <div className="text-center py-12 text-muted">
-            Loading live scores…
+            NOT_CHECKED
           </div>
         )}
 

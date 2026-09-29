@@ -5,7 +5,8 @@ import { Check, Copy } from 'lucide-react';
 
 const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
 trustshell verify "The capital of France is Paris."
-trustshell verify "The Eiffel Tower is located in Rome, Italy."`;
+trustshell verify "The Eiffel Tower is located in Rome, Italy."
+trustshell status`;
 
 export function Hero({ showDemo = false }: { showDemo?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -51,15 +52,7 @@ export function Hero({ showDemo = false }: { showDemo?: boolean }) {
               aria-label="TrustShell 20 second demo"
             />
           </figure>
-        ) : (
-          <p className="max-w-xl mx-auto text-xs text-slate-500 leading-relaxed">
-            Demo file is not in the repo yet. Placeholder{' '}
-            <code className="break-all text-slate-400">public/trustshell-demo-20s.mp4</code>. Copy it
-            from{' '}
-            <code className="break-all text-slate-400">E:\TrustDisk\video\trustshell-demo-20s.mp4</code>{' '}
-            when that file exists.
-          </p>
-        )}
+        ) : null}
 
         <div className="max-w-xl w-full min-w-0 mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left shadow-2xl">
           <pre className="max-w-full overflow-x-auto font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words">
@@ -71,7 +64,7 @@ export function Hero({ showDemo = false }: { showDemo?: boolean }) {
             className="mt-4 inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copied' : 'Copy the three commands'}
+            {copied ? 'Copied' : 'Copy the commands'}
           </button>
         </div>
       </div>

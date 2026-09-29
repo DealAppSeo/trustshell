@@ -29,7 +29,7 @@ import { runEnvelopedAction } from '../lib/action-envelope';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
-import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
+import { runInit, formatInitCard, initExitCode, wipeLocal, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
 import {
   verifyChain,
   readClaudeCode,
@@ -83,6 +83,8 @@ export interface ParsedArgs {
   verify: boolean;
   /** init: replace an existing profile. Without it, an existing profile is left untouched. */
   force?: boolean;
+  /** init: delete the local profile and the memory file. No network. */
+  wipe?: boolean;
   /** init: run scripts/init-pai.mjs (PAI FACE — live register) instead of the blank profile. */
   pai?: boolean;
   /** init --pai: forwarded to scripts/init-pai.mjs */
@@ -181,6 +183,7 @@ COMMANDS
   init [<dir>]               Create .trustshell/ and a blank profile.md. No network, no
                              account, nothing collected. Never overwrites without --force.
       [--force]              Replace an existing profile.
+      [--wipe]               Delete the local profile + memory file. No network.
       [--pai]                Run scripts/init-pai.mjs (PAI FACE — live register). Equivalent:
                              node scripts/init-pai.mjs --name <n>
       [--name <n>]           With --pai: PAI name (forwarded to init-pai).
@@ -243,6 +246,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     else if (a === '--verify') flags.add('verify');
     else if (a === '--markdown' || a === '--md') flags.add('markdown');
     else if (a === '--force') flags.add('force');
+    else if (a === '--wipe') flags.add('wipe');
     else if (a === '--pai') flags.add('pai');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
@@ -333,6 +337,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         json,
         verify,
         force: flags.has('force'),
+        wipe: flags.has('wipe'),
         pai: flags.has('pai'),
         from: values['from'],
         session: values['session'],
@@ -579,6 +584,23 @@ export async function run(
     }
 
     case 'init': {
+      if (args.wipe) {
+        const fs = require('node:fs') as typeof import('node:fs');
+        const cwd = args.operand ?? '.';
+        const profile = join(cwd, TRUSTSHELL_DIR, PROFILE_FILE);
+        const memory = memoryDbPath(process.env);
+        const wiped = wipeLocal(
+          {
+            exists: (p) => fs.existsSync(p),
+            unlink: (p) => fs.unlinkSync(p),
+          },
+          { profile, memory },
+        );
+        io.out(
+          `wiped profile ${wiped.profile} ${profile}\nwiped memory ${wiped.memory} ${memory}\nno network`,
+        );
+        return EXIT.OK;
+      }
       if (args.pai) {
         const fs = require('node:fs') as typeof import('node:fs');
         const { spawnSync } = require('node:child_process') as typeof import('node:child_process');

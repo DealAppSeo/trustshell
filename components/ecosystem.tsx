@@ -8,21 +8,6 @@ const ecosystem = [
     current: true,
   },
   {
-    name: 'TrustRepID',
-    description: 'Live agent reputation leaderboard.',
-    href: 'https://trustrepid.dev',
-  },
-  {
-    name: 'TrustChat',
-    description: 'Consumer-facing demo of the trust pipeline.',
-    href: 'https://trustchat.dev',
-  },
-  {
-    name: 'HyperDAG Protocol',
-    description: 'The protocol spec and reference implementation.',
-    href: 'https://github.com/DealAppSeo/hyperdag-protocol',
-  },
-  {
     name: 'ERC-8004',
     description: 'The Ethereum standard we implement.',
     href: 'https://eips.ethereum.org/EIPS/eip-8004',

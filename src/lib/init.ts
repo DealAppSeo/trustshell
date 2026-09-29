@@ -89,6 +89,18 @@ export function runInit(fs: InitFs, opts: InitOptions = {}): InitResult {
   };
 }
 
+export function wipeLocal(
+  fs: { exists(p: string): boolean; unlink(p: string): void },
+  paths: { profile: string; memory: string },
+): { profile: 'deleted' | 'absent'; memory: 'deleted' | 'absent' } {
+  const drop = (p: string): 'deleted' | 'absent' => {
+    if (!fs.exists(p)) return 'absent';
+    fs.unlink(p);
+    return 'deleted';
+  };
+  return { profile: drop(paths.profile), memory: drop(paths.memory) };
+}
+
 /** Exit code. EXISTS is 0 — "already done" is not a failure. */
 export function initExitCode(outcome: InitOutcome): number {
   return outcome === 'CREATED' || outcome === 'EXISTS' || outcome === 'OVERWRITTEN' ? 0 : 1;
