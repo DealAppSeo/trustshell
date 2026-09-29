@@ -32,7 +32,12 @@ describe('home renders no top nav', () => {
       'trustshell status',
     ]);
     expect(hero).not.toMatch(/Copy the three/);
+    expect(hero).toContain('Existing agent: add TrustShell MCP after status.');
+    expect(hero).toContain(
+      'New PAI: trustshell remember writes ~/.trustshell/memory.sqlite, name the PAI after the first receipt.',
+    );
     expect(hero).not.toMatch(/stake now/i);
+    expect(hero).not.toMatch(/Market|Leaderboard/);
   });
 
   it('home source does not show the other-route labels', () => {

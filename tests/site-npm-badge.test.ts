@@ -31,7 +31,11 @@ describe('site install copy matches published 1.4.0', () => {
     expect(hero).not.toContain('E:\\TrustDisk');
     expect(hero).not.toMatch(/showDemo|<video/);
     expect(hero).not.toMatch(/\/start/);
-    expect(hero).not.toMatch(/PAI/);
+    expect(hero).toContain('Existing agent: add TrustShell MCP after status.');
+    expect(hero).toContain(
+      'New PAI: trustshell remember writes ~/.trustshell/memory.sqlite, name the PAI after the first receipt.',
+    );
+    expect(hero).not.toMatch(/Market|Leaderboard|stake now/i);
     expect(hero).not.toMatch(/wallet/i);
   });
 
