@@ -43,7 +43,7 @@ export function Hero() {
             onClick={() => setPanel('mcp')}
             className="inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-3 text-base font-medium text-white hover:bg-indigo-500"
           >
-            Check a claim in the chat you already use
+            Check a claim in the chat you already use: Claude, ChatGPT, Grok, Cursor
           </button>
           <button
             type="button"
