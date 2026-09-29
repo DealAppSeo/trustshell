@@ -47,7 +47,15 @@ describe('trustshell MCP server', () => {
   it('registers the advertised tools including present_proof', () => {
     const server: any = createServer(mockClient());
     const names = Object.keys(server._registeredTools ?? {}).sort();
-    expect(names).toEqual(['evaluate', 'getLeaderboard', 'getRepID', 'present_proof', 'verify']);
+    expect(names).toEqual([
+      'evaluate',
+      'getLeaderboard',
+      'getRepID',
+      'present_proof',
+      'recall',
+      'remember',
+      'verify',
+    ]);
   });
 
   // Deliberately NOT a hardcoded literal — a literal is exactly the bug this

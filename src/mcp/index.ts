@@ -16,6 +16,8 @@
  *   - getLeaderboard — the live model or agent trust leaderboard.
  *   - getRepID       — an agent's live RepID score + tier (keyless).
  *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
+ *   - remember       — write a note into the local sqlite file. No network.
+ *   - recall         — list saved notes from that file. No network.
  *
  * Transport: stdio (the Claude Desktop / Cursor default). Configure with:
  *   { "mcpServers": { "trustshell": { "command": "npx",
@@ -30,6 +32,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { TrustShell } from '../lib/trustshell';
 import { resolvePackageVersion } from '../lib/version';
+import { recallLocal, rememberLocal } from './memory';
 
 /**
  * Package version — read from package.json at runtime, never retyped here.
@@ -188,6 +191,40 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         return jsonResult(r);
       } catch (e: any) {
         return errorResult(`present_proof failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  registerTool(
+    'remember',
+    {
+      title: 'Local remember',
+      description: 'Write a note into the local sqlite memory. No network. The row kind is note.',
+      inputSchema: {
+        text: z.string().min(1).describe('The note to store.'),
+      },
+    },
+    async ({ text }: { text: string }) => {
+      try {
+        return jsonResult(rememberLocal(text));
+      } catch (e: any) {
+        return errorResult(`remember failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  registerTool(
+    'recall',
+    {
+      title: 'Local recall',
+      description: 'List saved notes from the local sqlite memory. do_not_send rows are a count only. No network.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return jsonResult(recallLocal());
+      } catch (e: any) {
+        return errorResult(`recall failed: ${e?.message ?? String(e)}`);
       }
     },
   );
