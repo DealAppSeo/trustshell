@@ -58,6 +58,13 @@ export function Hero() {
         <p className="max-w-xl mx-auto text-base text-slate-300 text-wrap">
           Install, run verify twice, then trustshell status.
         </p>
+
+        <div className="max-w-xl mx-auto space-y-2 text-base text-slate-300 text-wrap">
+          <p>Existing agent: add TrustShell MCP after status.</p>
+          <p>
+            New PAI: trustshell remember writes ~/.trustshell/memory.sqlite, name the PAI after the first receipt.
+          </p>
+        </div>
       </div>
     </section>
   );
