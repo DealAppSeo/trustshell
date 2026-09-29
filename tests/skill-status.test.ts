@@ -21,4 +21,13 @@ describe('trustshell skill lists status', () => {
     expect(manifest.commands).toContain('trustshell status');
     expect(parseArgs(['status']).command).toBe('status');
   });
+
+  it('lists the chat-first path and does not put sqlite on /', () => {
+    expect(skill).toContain('trustshell status');
+    expect(skill).toContain('Check a claim in the chat you already use');
+    expect(skill).toContain('Claude, ChatGPT, Grok, and Cursor');
+    expect(skill).toContain('I have a terminal');
+    expect(skill).not.toMatch(/memory\.sqlite/);
+    expect(skill).not.toMatch(/npx @hyperdag\/trustshell@1\.4\.0/);
+  });
 });
