@@ -38,6 +38,7 @@ const FOCUSED_ROUTES = ['/bind'];
 export function TopNav() {
   const pathname = usePathname() || '/';
   const [open, setOpen] = useState(false);
+  if (pathname === '/') return null;
 
   const focused = FOCUSED_ROUTES.some(
     (r) => pathname === r || pathname.startsWith(`${r}/`),
