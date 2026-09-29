@@ -252,7 +252,7 @@ describe('stranger e2e on current main', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
     const landing = `${page}\n${hero}`;
-    expect(hero).toContain('A portable trust harness. Autonomy is earned.');
+    expect(hero).toContain('AI lies. Now it has to show its work.');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
     expect(hero).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.4\.0[^\n]*status/);
     expect(landing).not.toContain('E:\\TrustDisk');

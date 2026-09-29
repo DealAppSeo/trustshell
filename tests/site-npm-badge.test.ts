@@ -21,22 +21,24 @@ describe('site install copy matches published 1.4.0', () => {
 
   it('hero is the one-screen win and does not interpolate package.json', () => {
     expect(hero).not.toMatch(/packageJson\.version/);
-    expect(hero).toMatch(/A portable trust harness\. Autonomy is earned\./);
-    expect(hero).toMatch(/Check a claim\. See the receipt\. Keep your keys\./);
+    expect(hero).toMatch(/AI lies\. Now it has to show its work\./);
+    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
+    expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
+    expect(hero).toContain('Check a claim in the chat you already use');
+    expect(hero).toContain('I have a terminal');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
     expect(hero).toContain('trustshell verify "The capital of France is Paris."');
     expect(hero).toContain('trustshell verify "The Eiffel Tower is located in Rome, Italy."');
-    expect(hero).toContain('Install, run verify twice, then trustshell status.');
+    expect(hero).toContain('trustshell status');
+    const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
+    expect(paste?.[1]).toBe('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
+    expect(paste?.[1] ?? '').not.toMatch(/npm/i);
     expect(hero).not.toContain('Demo file is not in the repo');
     expect(hero).not.toContain('E:\\TrustDisk');
     expect(hero).not.toMatch(/showDemo|<video/);
     expect(hero).not.toMatch(/\/start/);
-    expect(hero).toContain('Existing agent: add TrustShell MCP after status.');
-    expect(hero).toContain(
-      'New PAI: trustshell remember writes ~/.trustshell/memory.sqlite, name the PAI after the first receipt.',
-    );
     expect(hero).not.toMatch(/Market|Leaderboard|stake now/i);
-    expect(hero).not.toMatch(/wallet/i);
+    expect(hero).not.toMatch(/connect wallet|your wallet|add wallet|Wallet and stake/i);
   });
 
   it('x402 card does not claim automatic HAL pay/refuse as shipped', () => {

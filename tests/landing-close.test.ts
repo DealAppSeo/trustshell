@@ -29,8 +29,9 @@ describe('landing close', () => {
     const headline = close.slice(close.indexOf('<h2'), close.indexOf('</h2>'));
     expect(headline).toContain(CLOSE_LINE);
     expect(headline).not.toMatch(/VETO/);
-    expect(hero).toMatch(/A portable trust harness\. Autonomy is earned\./);
-    expect(hero).not.toMatch(/wallet/i);
+    expect(hero).toMatch(/AI lies\. Now it has to show its work\./);
+    expect(hero).toContain('No wallet.');
+    expect(hero).not.toMatch(/connect wallet|your wallet|add wallet|Wallet and stake/i);
   });
 
   it('fails if THERE IS NO TRY is spoken as a product claim', () => {

@@ -31,12 +31,13 @@ const BANNED = [
 
 describe('public landing source', () => {
   it('keeps the one screen and none of the measured leaks', () => {
-    expect(hero).toContain('A portable trust harness. Autonomy is earned.');
-    expect(hero).toContain('Check a claim. See the receipt. Keep your keys.');
+    expect(hero).toContain('AI lies. Now it has to show its work.');
+    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
+    expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
     expect(hero).toContain('trustshell verify "The capital of France is Paris."');
     expect(hero).toContain('trustshell verify "The Eiffel Tower is located in Rome, Italy."');
-    expect(hero).toContain('Install, run verify twice, then trustshell status.');
+    expect(hero).toContain('trustshell status');
     expect(page).toContain('<Hero');
     expect(page).not.toMatch(/AfterAgent|Footer|Ecosystem|LiveTrustScores|LiveOnChain|StatusStrip|RoadmapV15|BuilderWaitlist|LandingClose/);
     for (const banned of BANNED) {
