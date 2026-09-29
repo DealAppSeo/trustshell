@@ -200,4 +200,49 @@ describe('trustshell status', () => {
       else process.env.TRUSTSHELL_API_URL = prevUrl;
     }
   });
+
+  it('a missing first_pass prints NOT_CHECKED, never 0', async () => {
+    const out: string[] = [];
+    const io: CliIO = { out: (s) => out.push(s), err: () => undefined };
+    const prev = global.fetch;
+    const prevUrl = process.env.TRUSTSHELL_API_URL;
+    const prevStake = process.env.SAYS_STAKE_LIVE;
+    const prevOffline = process.env.OFFLINE;
+    process.env.TRUSTSHELL_API_URL = 'https://engine.test';
+    delete process.env.SAYS_STAKE_LIVE;
+    delete process.env.OFFLINE;
+    global.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/v1/hal/honesty-a')) {
+        return jsonResponse(200, {
+          status: 'counted',
+          rows: [{ family: 'glm', host: 'cerebras' }],
+        });
+      }
+      if (url.endsWith('/api/v1/after-create')) {
+        return jsonResponse(200, {
+          can_verify: true,
+          can_bind: false,
+          can_stake: false,
+          can_rate_models: false,
+        });
+      }
+      return jsonResponse(200, { exact_true: { HUMAN_AGENT_BIND_ENABLED: false } });
+    }) as typeof fetch;
+    try {
+      const code = await run(parseArgs(['status']), {} as never, io);
+      expect(code).toBe(0);
+      const text = out.join('\n');
+      expect(text).toContain('first-pass NOT_CHECKED');
+      expect(text).not.toMatch(/first-pass[^\n]*\b0\b/);
+    } finally {
+      global.fetch = prev;
+      if (prevUrl === undefined) delete process.env.TRUSTSHELL_API_URL;
+      else process.env.TRUSTSHELL_API_URL = prevUrl;
+      if (prevStake === undefined) delete process.env.SAYS_STAKE_LIVE;
+      else process.env.SAYS_STAKE_LIVE = prevStake;
+      if (prevOffline === undefined) delete process.env.OFFLINE;
+      else process.env.OFFLINE = prevOffline;
+    }
+  });
 });
