@@ -9,6 +9,7 @@ trustshell verify "The Eiffel Tower is located in Rome, Italy."
 trustshell status`;
 
 export function Hero() {
+  const [panel, setPanel] = useState<'chat' | 'terminal' | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -41,6 +42,15 @@ export function Hero() {
           Check a claim. See the receipt. Keep your keys.
         </p>
 
+        <button
+          type="button"
+          onClick={() => setPanel('chat')}
+          className="inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-3 text-base font-medium text-white hover:bg-indigo-500"
+        >
+          Check a claim in the chat you already use: Claude, ChatGPT, Grok, Cursor
+        </button>
+
+        {panel === 'terminal' ? (
         <div className="max-w-xl w-full min-w-0 mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left shadow-2xl">
           <pre className="max-w-full overflow-x-auto font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words">
             <code>{WIN_COMMANDS}</code>
@@ -54,6 +64,7 @@ export function Hero() {
             {copied ? 'Copied' : 'Copy the commands'}
           </button>
         </div>
+        ) : null}
 
         <p className="max-w-xl mx-auto text-base text-slate-300 text-wrap">
           Install, run verify twice, then trustshell status.
