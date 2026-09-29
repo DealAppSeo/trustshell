@@ -40,7 +40,8 @@ import {
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
 import { buildStatusReport, firstPassText, statusJsonFromText } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
-import { formatRecall, insertMemory, memoryDbPath } from '../memory/local-store';
+import { rememberNote } from './remember';
+import { recallNotes } from './recall';
 import { join } from 'node:path';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -461,7 +462,7 @@ export async function run(
 
     case 'remember': {
       try {
-        insertMemory(memoryDbPath(), 'note', args.operand as string);
+        rememberNote(args.operand as string);
         io.out('remembered');
         return EXIT.OK;
       } catch (e: any) {
@@ -472,7 +473,7 @@ export async function run(
 
     case 'recall': {
       try {
-        io.out(formatRecall(memoryDbPath()));
+        io.out(recallNotes());
         return EXIT.OK;
       } catch (e: any) {
         io.err(`recall failed: ${e?.message ?? String(e)}`);
