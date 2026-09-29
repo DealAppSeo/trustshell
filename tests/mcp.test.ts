@@ -33,6 +33,7 @@ function mockClient(overrides: Partial<Record<string, any>> = {}): TrustShell {
       createdAt: null,
       verification: opts?.verify ? { verified: true, error: null, verifierVersion: 'mock' } : undefined,
     })),
+    verifyProof: jest.fn(async () => ({ verified: true, error: null, verifierVersion: 'mock' })),
     ...overrides,
   } as unknown as TrustShell;
 }
@@ -51,11 +52,85 @@ describe('trustshell MCP server', () => {
       'evaluate',
       'getLeaderboard',
       'getRepID',
+      'get_repid',
       'present_proof',
       'recall',
       'remember',
+      'status',
       'verify',
+      'verify_output',
+      'verify_proof',
     ]);
+  });
+
+  // The camelCase names are PUBLISHED (1.4.0 is live on npm), so dropping one is a breaking
+  // change for every agent config already pointing at it. This pins that the snake_case
+  // additions did not quietly become renames.
+  it('keeps the published camelCase names as aliases, not renames', () => {
+    const server: any = createServer(mockClient());
+    for (const legacy of ['verify', 'evaluate', 'getLeaderboard', 'getRepID']) {
+      expect(getTool(server, legacy)).toBeDefined();
+    }
+  });
+
+  it('verify_output is the canonical name for verify and hits the same SDK call', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    const r = await getTool(server, 'verify_output').handler({ text: 'claim' });
+    expect((client as any).verifyOutput).toHaveBeenCalledWith('claim');
+    expect(JSON.parse(r.content[0].text).verdict).toBe('PASS');
+  });
+
+  it('get_repid passes the agentId through, same as getRepID', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    const r = await getTool(server, 'get_repid').handler({ agentId: 'trinity-shofet' });
+    expect((client as any).getRepID).toHaveBeenCalledWith('trinity-shofet');
+    expect(JSON.parse(r.content[0].text).tier).toBe('ESTABLISHED');
+  });
+
+  it('verify_proof delegates to client.verifyProof for a presentation', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    const presentation = { proofBytes: 'Yg==', statement: { agent_id: 'a' } };
+    const r = await getTool(server, 'verify_proof').handler({ presentation });
+    expect((client as any).verifyProof).toHaveBeenCalledWith(presentation);
+    expect(JSON.parse(r.content[0].text).verified).toBe(true);
+  });
+
+  it('verify_proof accepts raw proofBytes + statement', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    await getTool(server, 'verify_proof').handler({ proofBytes: 'Yg==', statement: { agent_id: 'a' } });
+    expect((client as any).verifyProof).toHaveBeenCalledWith('Yg==', { agent_id: 'a' });
+  });
+
+  // Refusing beats guessing: verifyProof(undefined) throws deep in the WASM path with a message
+  // that never names the caller's mistake.
+  it('verify_proof refuses with a named error when given neither input', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    const r = await getTool(server, 'verify_proof').handler({});
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toMatch(/presentation.*proofBytes/);
+    expect((client as any).verifyProof).not.toHaveBeenCalled();
+  });
+
+  // status calls src/cli/status.ts so the MCP answer and `trustshell status` cannot drift.
+  // OFFLINE=1 is that module's own no-network path and returns NOT_CHECKED lines — which must
+  // survive as NOT_CHECKED, never be collapsed into a pass.
+  it('status reports NOT_CHECKED offline rather than a pass', async () => {
+    const prev = process.env.OFFLINE;
+    process.env.OFFLINE = '1';
+    try {
+      const server: any = createServer(mockClient());
+      const r = await getTool(server, 'status').handler({});
+      expect(r.isError).toBeUndefined();
+      expect(JSON.parse(r.content[0].text).status).toContain('NOT_CHECKED');
+    } finally {
+      if (prev === undefined) delete process.env.OFFLINE;
+      else process.env.OFFLINE = prev;
+    }
   });
 
   // Deliberately NOT a hardcoded literal — a literal is exactly the bug this

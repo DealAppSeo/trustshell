@@ -18,6 +18,13 @@
  *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
  *   - remember       — write a note into the local sqlite file. No network.
  *   - recall         — list saved notes from that file. No network.
+ *   - verify_output  — canonical name for verify/evaluate (SDK verifyOutput).
+ *   - get_repid      — canonical name for getRepID.
+ *   - verify_proof   — client-side WASM proof verification (SDK verifyProof). Nothing leaves the host.
+ *   - status         — `trustshell status` parity; calls src/cli/status.ts so the two cannot drift.
+ *
+ * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
+ * already published with them live, so renaming would break existing agent configs.
  *
  * Transport: stdio (the Claude Desktop / Cursor default). Configure with:
  *   { "mcpServers": { "trustshell": { "command": "npx",
@@ -32,6 +39,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { TrustShell } from '../lib/trustshell';
 import { resolvePackageVersion } from '../lib/version';
+import { buildStatusReport, statusJsonFromText } from '../cli/status';
 import { recallLocal, rememberLocal } from './memory';
 
 /**
@@ -225,6 +233,130 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         return jsonResult(recallLocal());
       } catch (e: any) {
         return errorResult(`recall failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  // --- 1.4 CLI parity: snake_case names -----------------------------------------------------
+  //
+  // The CLI and SDK are the naming authority; the MCP surface had drifted to camelCase for two
+  // tools and omitted two more. These are ADDITIONS, not renames: @hyperdag/trustshell@1.4.0 is
+  // already published with `verify` / `evaluate` / `getLeaderboard` / `getRepID` live, so
+  // renaming would break every agent config already pointing at them. The camelCase names stay
+  // as aliases and the snake_case ones are canonical.
+
+  registerTool(
+    'verify_output',
+    {
+      title: 'Verify output',
+      description:
+        'Canonical name for verify/evaluate — matches SDK verifyOutput() and `trustshell verify`. ' +
+        'Runs text through the live HAL cross-provider fact-check quorum and returns PASS / FLAG / ' +
+        'VETO, a 0-100 trust score, the decision reason, and per-provider evidence.',
+      inputSchema: verifySchema,
+    },
+    verifyHandler,
+  );
+
+  const getRepidHandler = async ({ agentId }: { agentId: string }) => {
+    try {
+      return jsonResult(await client.getRepID(agentId));
+    } catch (e: any) {
+      return errorResult(`get_repid failed: ${e?.message ?? String(e)}`);
+    }
+  };
+  registerTool(
+    'get_repid',
+    {
+      title: 'Get RepID',
+      description:
+        "Canonical name for getRepID — matches `trustshell repid`. Fetches an agent's live RepID " +
+        'score and tier from the public repid-engine (keyless).',
+      inputSchema: {
+        agentId: z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
+      },
+    },
+    getRepidHandler,
+  );
+
+  registerTool(
+    'verify_proof',
+    {
+      title: 'Verify RepID proof',
+      description:
+        'Verify a RepID range proof CLIENT-SIDE with the WASM verifier (SDK verifyProof()). Takes ' +
+        'either a full presentation object from present_proof, or raw proof bytes plus the ' +
+        'statement they were produced against. Nothing is sent to the backend — this is a local ' +
+        'check, which is the point: it is what lets a verifier trust a proof without trusting us.',
+      inputSchema: {
+        presentation: z
+          .unknown()
+          .optional()
+          .describe('A full presentation object as returned by present_proof. Preferred.'),
+        proofBytes: z
+          .string()
+          .optional()
+          .describe('Raw proof bytes, if you do not have the full presentation.'),
+        statement: z
+          .unknown()
+          .optional()
+          .describe('The statement the proof was produced against. Required with proofBytes.'),
+      },
+    },
+    async ({
+      presentation,
+      proofBytes,
+      statement,
+    }: {
+      presentation?: unknown;
+      proofBytes?: string;
+      statement?: unknown;
+    }) => {
+      // Refuse rather than guess: verifyProof(undefined) would throw deep in the WASM path with a
+      // message that does not name the caller's mistake.
+      if (presentation === undefined && proofBytes === undefined) {
+        return errorResult(
+          'verify_proof failed: pass either `presentation` (from present_proof) or `proofBytes` + `statement`.',
+        );
+      }
+      try {
+        const r =
+          presentation !== undefined
+            ? await client.verifyProof(presentation as never)
+            : await client.verifyProof(proofBytes as string, statement as never);
+        return jsonResult(r);
+      } catch (e: any) {
+        return errorResult(`verify_proof failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  // `status` is here ONLY because `trustshell status` exists in this same repo (src/cli/status.ts)
+  // and this calls that module rather than reimplementing it — so the MCP answer and the CLI
+  // answer cannot drift. buildStatusReport already returns NOT_CHECKED lines when the engine is
+  // unreachable or OFFLINE=1; those are passed through untouched, never collapsed into a pass.
+  registerTool(
+    'status',
+    {
+      title: 'TrustShell status',
+      description:
+        'Live capability + honesty report for the configured HyperDAG backend, identical to ' +
+        '`trustshell status`. Reports can_verify / can_bind / can_stake / can_rate_models, the ' +
+        'Honesty-A line and counted first-pass fields. NOT_CHECKED is a real outcome here and ' +
+        'means the value could not be read — it never means false and never means passing.',
+      inputSchema: {
+        json: z
+          .boolean()
+          .optional()
+          .describe('Return the parsed JSON view instead of the human-readable lines.'),
+      },
+    },
+    async ({ json }: { json?: boolean }) => {
+      try {
+        const text = await buildStatusReport({ env: process.env, fetchImpl: fetch });
+        return jsonResult(json === true ? statusJsonFromText(text) : { status: text });
+      } catch (e: any) {
+        return errorResult(`status failed: ${e?.message ?? String(e)}`);
       }
     },
   );
