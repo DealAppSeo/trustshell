@@ -45,6 +45,19 @@ When the user wants tools instead of a one-shot shell, the stdio server is the l
 
 Do not wrap that bin in `npx`. Do not add a second MCP package.
 
+## Chat first
+
+On `/`, start in the chat the person already uses. The button is `Check a claim in the chat you already use`. It opens one MCP paste for Claude, ChatGPT, Grok, and Cursor. That paste is the block above. It has no npm install line.
+
+`I have a terminal` is the other path. It shows four commands, and `trustshell status` is on its own line:
+
+```bash
+npm i -g @hyperdag/trustshell@1.4.0
+trustshell verify "The capital of France is Paris."
+trustshell verify "The Eiffel Tower is located in Rome, Italy."
+trustshell status
+```
+
 ## Limits
 
 Leave `TRUSTSHELL_API_URL` unset unless the user already set it. Do not invent an HTTP API or a new route. HAL stays as the CLI left it. Record-grounded fact checks are the case it handles, and paraphrases are weaker. Report the CLI verdict.
