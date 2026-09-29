@@ -49,7 +49,7 @@ export function stakeCell(value: unknown, liveLabel: boolean): string {
 
 /** The after-create page never prints can_stake as live. This does not flip REAL_STAKING. */
 export function shownStakeCell(cell: string): string {
-  if (cell === 'live') return 'testnet / shadow';
+  if (cell === 'live') return 'shadow — not live';
   return cell;
 }
 
