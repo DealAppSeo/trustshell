@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'A portable trust harness. Autonomy is earned. — TrustShell',
-  description: 'Check a claim. See the receipt. Keep your keys.',
+  title: 'Where do you already talk to AI? — TrustShell',
+  description: 'Claude, ChatGPT, Grok, Cursor, or a terminal.',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
