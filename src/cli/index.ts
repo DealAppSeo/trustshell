@@ -85,6 +85,8 @@ export interface ParsedArgs {
   force?: boolean;
   /** init: run scripts/init-pai.mjs (PAI FACE — live register) instead of the blank profile. */
   pai?: boolean;
+  /** init --pai: print NOT_MINTED and do not spawn the register script. No network. */
+  dryRun?: boolean;
   /** init --pai: forwarded to scripts/init-pai.mjs */
   name?: string;
   /** init --pai: forwarded to scripts/init-pai.mjs (`job|cost|brain`) */
@@ -183,6 +185,8 @@ COMMANDS
       [--force]              Replace an existing profile.
       [--pai]                Run scripts/init-pai.mjs (PAI FACE — live register). Equivalent:
                              node scripts/init-pai.mjs --name <n>
+      [--dry-run]            With --pai: do not mint ERC-8004. Prints NOT_MINTED. No network.
+                             trustshell init --pai dry-run is the same path.
       [--name <n>]           With --pai: PAI name (forwarded to init-pai).
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
@@ -244,6 +248,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     else if (a === '--markdown' || a === '--md') flags.add('markdown');
     else if (a === '--force') flags.add('force');
     else if (a === '--pai') flags.add('pai');
+    else if (a === '--dry-run') flags.add('dry-run');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
     else if (VALUE_OPTS.has(a)) {
@@ -323,11 +328,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     case 'recall':
       return { command: 'recall', json, verify };
     case 'inspect':
-    case 'init':
     case 'report':
-      // Operand is OPTIONAL for all three: init defaults to cwd, inspect and
-      // report default to `.trustshell/`. Requiring one would make the common
-      // case the verbose case.
+      // Operand is OPTIONAL: inspect and report default to `.trustshell/`.
       return {
         command: cmd,
         json,
@@ -341,6 +343,22 @@ export function parseArgs(argv: string[]): ParsedArgs {
         answers: values['answers'],
         ...(rest[0] !== undefined ? { operand: rest[0] } : {}),
       };
+    case 'init': {
+      // Operand is OPTIONAL: init defaults to cwd. `dry-run` is not a directory.
+      const positional = rest[0];
+      const dryWord = flags.has('pai') && positional === 'dry-run';
+      return {
+        command: 'init',
+        json,
+        verify,
+        force: flags.has('force'),
+        pai: flags.has('pai'),
+        dryRun: flags.has('dry-run') || dryWord,
+        name: values['name'],
+        answers: values['answers'],
+        ...(positional !== undefined && !dryWord ? { operand: positional } : {}),
+      };
+    }
     case 'help':
       return { command: 'help', json, verify };
     case 'version':
@@ -579,6 +597,10 @@ export async function run(
     }
 
     case 'init': {
+      if (args.pai && args.dryRun) {
+        io.out('NOT_MINTED');
+        return EXIT.OK;
+      }
       if (args.pai) {
         const fs = require('node:fs') as typeof import('node:fs');
         const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
