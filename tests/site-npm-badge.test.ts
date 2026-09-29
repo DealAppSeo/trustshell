@@ -26,10 +26,10 @@ describe('site install copy matches published 1.4.0', () => {
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
     expect(hero).toContain('trustshell verify "The capital of France is Paris."');
     expect(hero).toContain('trustshell verify "The Eiffel Tower is located in Rome, Italy."');
-    expect(hero).toContain('/trustshell-demo-20s.mp4');
-    expect(hero).toContain('E:\\TrustDisk\\video\\trustshell-demo-20s.mp4');
-    expect(hero).toMatch(/showDemo \?/);
-    expect(hero.indexOf('<video')).toBeGreaterThan(hero.indexOf('showDemo ?'));
+    expect(hero).toContain('Install, run verify twice, then trustshell status.');
+    expect(hero).not.toContain('Demo file is not in the repo');
+    expect(hero).not.toContain('E:\\TrustDisk');
+    expect(hero).not.toMatch(/showDemo|<video/);
     expect(hero).not.toMatch(/\/start/);
     expect(hero).not.toMatch(/PAI/);
     expect(hero).not.toMatch(/wallet/i);

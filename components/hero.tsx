@@ -7,7 +7,7 @@ const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
 trustshell verify "The capital of France is Paris."
 trustshell verify "The Eiffel Tower is located in Rome, Italy."`;
 
-export function Hero({ showDemo = false }: { showDemo?: boolean }) {
+export function Hero() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -40,27 +40,6 @@ export function Hero({ showDemo = false }: { showDemo?: boolean }) {
           Check a claim. See the receipt. Keep your keys.
         </p>
 
-        {showDemo ? (
-          <figure className="max-w-xl w-full min-w-0 mx-auto text-left">
-            <video
-              className="aspect-video w-full rounded-2xl border border-slate-800 bg-slate-900"
-              controls
-              playsInline
-              preload="metadata"
-              src="/trustshell-demo-20s.mp4"
-              aria-label="TrustShell 20 second demo"
-            />
-          </figure>
-        ) : (
-          <p className="max-w-xl mx-auto text-xs text-slate-500 leading-relaxed">
-            Demo file is not in the repo yet. Placeholder{' '}
-            <code className="break-all text-slate-400">public/trustshell-demo-20s.mp4</code>. Copy it
-            from{' '}
-            <code className="break-all text-slate-400">E:\TrustDisk\video\trustshell-demo-20s.mp4</code>{' '}
-            when that file exists.
-          </p>
-        )}
-
         <div className="max-w-xl w-full min-w-0 mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left shadow-2xl">
           <pre className="max-w-full overflow-x-auto font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words">
             <code>{WIN_COMMANDS}</code>
@@ -74,6 +53,10 @@ export function Hero({ showDemo = false }: { showDemo?: boolean }) {
             {copied ? 'Copied' : 'Copy the three commands'}
           </button>
         </div>
+
+        <p className="max-w-xl mx-auto text-base text-slate-300 text-wrap">
+          Install, run verify twice, then trustshell status.
+        </p>
       </div>
     </section>
   );

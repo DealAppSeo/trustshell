@@ -25,7 +25,7 @@ describe('landing close', () => {
     expect(close).toContain(CLOSE_LINE);
     expect(close).toContain(`data-end-card`);
     expect(close).toContain(END_CARD_TEXT);
-    expect(page).toContain('<LandingClose');
+    expect(page).not.toContain('<LandingClose');
     const headline = close.slice(close.indexOf('<h2'), close.indexOf('</h2>'));
     expect(headline).toContain(CLOSE_LINE);
     expect(headline).not.toMatch(/VETO/);

@@ -14,6 +14,7 @@ describe('after the three commands', () => {
     expect(block).toContain('/docs/api-reference#cli-repid');
     expect(block).toContain('/docs/api-reference#cli-proof');
     expect(block).not.toMatch(/\/start\/tailor|stake now/i);
-    expect(home.indexOf('<AfterAgent />')).toBeGreaterThan(home.indexOf('<Hero'));
+    expect(home).not.toContain('<AfterAgent');
+    expect(home).not.toMatch(/Wallet and stake/);
   });
 });
