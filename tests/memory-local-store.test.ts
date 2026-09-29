@@ -1,7 +1,7 @@
 /**
  * Local sqlite memory. The real home folder is never opened.
  */
-import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
@@ -69,6 +69,18 @@ describe('local memory store', () => {
     expect(text).toBe('ship the receipt\nthen look at it\ndo_not_send COUNT 1');
     expect(text).not.toContain('do-not-send-body');
     expect(text).not.toContain('pref-body');
+  });
+
+  it('a blocked sqlite path is NOT_CHECKED and does not crash', async () => {
+    const blocker = join(dir, 'not-a-dir');
+    writeFileSync(blocker, 'x');
+    const bad = join(blocker, 'memory.sqlite');
+    process.env.TRUSTSHELL_MEMORY = bad;
+    const err: string[] = [];
+    const io: CliIO = { out: () => undefined, err: (s) => err.push(s) };
+    await expect(run(parseArgs(['remember', 'ship the receipt']), {} as never, io)).resolves.toBe(3);
+    expect(err.join('\n')).toContain(`NOT_CHECKED ${bad}`);
+    expect(homeStamp()).toBe(beforeHome);
   });
 
   it('remember without text is a usage error', async () => {

@@ -44,13 +44,18 @@ export function memoryDbPath(env: NodeJS.ProcessEnv = process.env, home: string 
 }
 
 function openDb(path: string): SqliteDb {
-  mkdirSync(dirname(path), { recursive: true });
-  const { DatabaseSync } = loadSqlite('node:sqlite') as {
-    DatabaseSync: new (location: string) => SqliteDb;
-  };
-  const db = new DatabaseSync(path);
-  db.exec(SCHEMA);
-  return db;
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    const { DatabaseSync } = loadSqlite('node:sqlite') as {
+      DatabaseSync: new (location: string) => SqliteDb;
+    };
+    const db = new DatabaseSync(path);
+    db.exec(SCHEMA);
+    return db;
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('NOT_CHECKED ')) throw err;
+    throw new Error(`NOT_CHECKED ${path}`);
+  }
 }
 
 function asRow(row: Record<string, unknown>): MemoryRow {
