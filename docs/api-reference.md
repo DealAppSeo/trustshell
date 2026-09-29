@@ -279,6 +279,10 @@ Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTS
 
 Print saved notes, oldest first. A `do_not_send` row is not printed; the line is `do_not_send COUNT N`. No network.
 
+### `trustshell bind-status`
+
+Read `GET /api/v1/after-create`. Print `can_bind` from that body. A true `can_stake` prints `shadow — not live`, never live. A missing or failed read is `NOT_CHECKED`. No send.
+
 ### `trustshell status`
 
 Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
