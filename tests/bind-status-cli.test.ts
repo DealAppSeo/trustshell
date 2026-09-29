@@ -55,6 +55,17 @@ describe('bind-status', () => {
     expect(text).not.toMatch(/\b0\b/);
   });
 
+  it('can_stake true still prints shadow, not live', async () => {
+    const text = await runStatus({
+      status: 'counted',
+      can_bind: true,
+      can_stake: true,
+      staking: 'live',
+    });
+    expect(text).toBe('can_bind true\ncan_stake shadow — not live');
+    expect(text).not.toMatch(/can_stake live/);
+  });
+
   it('a 503 is NOT_CHECKED, never live', async () => {
     const text = await runStatus({ error: 'down' }, 503);
     expect(text).toBe('can_bind NOT_CHECKED\ncan_stake NOT_CHECKED');
