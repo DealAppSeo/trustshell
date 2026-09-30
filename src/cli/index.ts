@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, statusJsonFromText, trustshellApiUrlSet } from './status';
+import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { rememberNote } from './remember';
 import { recallNotes } from './recall';
@@ -536,7 +536,8 @@ export async function run(
           body,
           verdict: r.verdict,
         });
-        if (!args.json && receipt === 'NOT_CHECKED') io.out('receipt NOT_CHECKED');
+        const receiptLine = receiptHumanLine(receipt);
+        if (!args.json && receiptLine) io.out(receiptLine);
         return verdictExitCode(r.verdict);
       } catch (e: any) {
         io.err(`verify failed: ${e?.message ?? String(e)}`);

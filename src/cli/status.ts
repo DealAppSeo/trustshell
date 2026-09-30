@@ -161,20 +161,33 @@ export function honestyRowsLine(body: unknown): string {
   return `honesty-a rows=${record.rows.length} status=counted`;
 }
 
+export type ReceiptResult = 'skipped' | 'written' | '204' | 'columns-missing' | 'NOT_CHECKED';
+
+/** Human line for a receipt result. OFFLINE prints nothing. Missing is never 0. */
+export function receiptHumanLine(result: ReceiptResult): string | null {
+  if (result === 'skipped') return null;
+  if (result === 'written') return 'receipt written';
+  if (result === '204') return 'receipt 204';
+  if (result === 'columns-missing') return 'receipt columns-missing';
+  return 'receipt NOT_CHECKED';
+}
+
 /**
  * POST {family, host, verdict} after a live verify quorum.
- * OFFLINE skips. Timeout or a status other than 200 or 204 is NOT_CHECKED.
+ * OFFLINE skips. A body without family and host is columns-missing.
+ * Timeout or a status other than 200 or 204 is NOT_CHECKED.
  */
 export async function postHalReceipt(opts: {
   env: NodeJS.ProcessEnv;
   fetchImpl: typeof fetch;
   body: unknown;
   verdict: HalVerdict;
-}): Promise<'skipped' | 'written' | 'NOT_CHECKED'> {
+}): Promise<ReceiptResult> {
   if (opts.env.OFFLINE === '1') return 'skipped';
-  const fields = quorumReceipt(opts.body, opts.verdict);
   const base = engineBase(opts.env);
-  if (!base || !fields) return 'NOT_CHECKED';
+  if (!base) return 'NOT_CHECKED';
+  const fields = quorumReceipt(opts.body, opts.verdict);
+  if (!fields) return opts.body && typeof opts.body === 'object' ? 'columns-missing' : 'NOT_CHECKED';
   try {
     const res = await opts.fetchImpl(`${base}/api/v1/hal/receipt`, {
       method: 'POST',
@@ -182,7 +195,7 @@ export async function postHalReceipt(opts: {
       body: JSON.stringify(fields),
       signal: AbortSignal.timeout(8000),
     });
-    if (res.status === 204) return 'written';
+    if (res.status === 204) return '204';
     if (res.status !== 200) return 'NOT_CHECKED';
     const raw = await res.text();
     if (raw.trim()) {
