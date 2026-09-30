@@ -6,8 +6,10 @@ const QUESTION = 'Where do you already talk to AI?';
 const CLIENTS = ['Claude', 'ChatGPT', 'Grok', 'Cursor'];
 const COMMANDS = [
   'npm i -g @hyperdag/trustshell@1.4.0',
-  'trustshell status',
+  'trustshell verify "paste your own claim"',
+  'trustshell repid trinity-shofet',
 ];
+const AFTER = 'Post one receipt line today. LinkedIn or TikTok. Quantity this week.';
 
 describe('/start', () => {
   const page = readFileSync(join(ROOT, 'app/start/page.tsx'), 'utf8').replace(/\r/g, '');
@@ -48,9 +50,16 @@ describe('/start', () => {
     );
     expect(commands.split('\n')).toEqual(COMMANDS);
     expect(page).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.4\.0[^\n]*status/);
-    expect(page.match(/trustshell verify /g) ?? []).toHaveLength(0);
+    expect(page.match(/trustshell verify /g) ?? []).toHaveLength(1);
     expect(page).not.toMatch(/trustshell proof/);
     expect(page).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
+    expect(page).not.toMatch(/VETO/);
+    const commandsAt = page.indexOf('{COMMANDS}');
+    const afterAt = page.indexOf(AFTER);
+    expect(commandsAt).toBeGreaterThan(-1);
+    expect(afterAt).toBeGreaterThan(commandsAt);
+    const idle = page.slice(page.indexOf('return ('), page.indexOf('{chat ? ('));
+    expect(idle).not.toContain(AFTER);
   });
 
   it('does not ask for a wallet, a stake, or a tailor path', () => {
