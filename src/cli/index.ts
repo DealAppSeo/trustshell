@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport, familyHostVerdictLine, firstPassLines, loadHonestyBody, statusJsonFromText } from './status';
+import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { rememberNote } from './remember';
 import { recallNotes } from './recall';
@@ -528,11 +528,14 @@ export async function run(
           io.out(formatVerify(r));
           io.out(pass);
           io.out(familyHostVerdictLine(body, r.verdict));
+          if (trustshellApiUrlSet(process.env)) io.out(honestyRowsLine(body));
         }
         return verdictExitCode(r.verdict);
       } catch (e: any) {
         io.err(`verify failed: ${e?.message ?? String(e)}`);
-        io.out(passFrom(await honestyPromise));
+        const body = await honestyPromise;
+        io.out(passFrom(body));
+        if (trustshellApiUrlSet(process.env)) io.out(honestyRowsLine(body));
         return EXIT.RUNTIME;
       }
     }

@@ -15,6 +15,12 @@ function engineBase(env: NodeJS.ProcessEnv): string | null {
   return trimmed.length > 0 ? trimmed.replace(/\/$/, '') : null;
 }
 
+/** True only when the caller set TRUSTSHELL_API_URL to a non-empty value. */
+export function trustshellApiUrlSet(env: NodeJS.ProcessEnv): boolean {
+  if (!Object.prototype.hasOwnProperty.call(env, 'TRUSTSHELL_API_URL')) return false;
+  return (env.TRUSTSHELL_API_URL ?? '').trim().length > 0;
+}
+
 function saysStakeLive(env: NodeJS.ProcessEnv): boolean {
   const raw = env.SAYS_STAKE_LIVE;
   return typeof raw === 'string' && raw.trim().length > 0;
@@ -132,6 +138,18 @@ export function familyHostVerdictLine(body: unknown, verdict: 'PASS' | 'FLAG' | 
   const host = oneToken(row?.host) || oneToken(record.host);
   if (!family || !host) return 'NOT_CHECKED';
   return `${family} ${host} ${verdict}`;
+}
+
+/**
+ * One extra line after verify. A counted body prints the real row count.
+ * Timeout, non-200, or a missing status is NOT_CHECKED, never rows=0.
+ */
+export function honestyRowsLine(body: unknown): string {
+  const missing = 'honesty-a rows=NOT_CHECKED status=NOT_CHECKED';
+  if (!body || typeof body !== 'object') return missing;
+  const record = body as Record<string, unknown>;
+  if (record.status !== 'counted' || !Array.isArray(record.rows)) return missing;
+  return `honesty-a rows=${record.rows.length} status=counted`;
 }
 
 async function readJson(
