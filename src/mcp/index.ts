@@ -38,6 +38,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { TrustShell } from '../lib/trustshell';
+import { redact } from '../memory/redact';
 import { resolvePackageVersion } from '../lib/version';
 import { buildStatusReport, statusJsonFromText } from '../cli/status';
 import { recallLocal, rememberLocal } from './memory';
@@ -93,7 +94,7 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
 
   const verifyHandler = async ({ text }: { text: string }) => {
     try {
-      const r = await client.verifyOutput(text);
+      const r = await client.verifyOutput(redact(text));
       return jsonResult({
         verdict: r.verdict,
         ok: r.ok,

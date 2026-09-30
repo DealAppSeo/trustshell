@@ -28,6 +28,10 @@ describe('memory redact', () => {
     expect(cleaned).toContain('after');
     expect(cleaned).toContain('0xabc');
     expect(cleaned).toContain('sb_publishable_keep');
+    const bare = redact('prefix eyJhbGciOiJub25lIn0 suffix');
+    expect(bare).toContain('prefix');
+    expect(bare).toContain('suffix');
+    expect(bare).not.toContain('eyJ');
   });
 
   it('packet builder redacts and does not call a vendor', () => {
