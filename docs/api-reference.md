@@ -275,7 +275,7 @@ it in version control.
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
 
-`trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. No network.
+`trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. A value that contains `sb_secret_`, `postgresql://`, or `eyJ` is refused and nothing is written. No network.
 
 ### `trustshell recall`
 

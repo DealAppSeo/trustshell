@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
-import { readKeyed, writeKeyed } from '../src/memory/local-store';
+import { memoryDbPath, readKeyed, writeKeyed } from '../src/memory/local-store';
 
 const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
 const cliSrc = ['src/cli/remember.ts', 'src/cli/recall.ts', 'src/cli/redact-key.ts']
@@ -102,5 +102,35 @@ describe('keyed local memory', () => {
     expect(result.code).toBe(2);
     expect(result.err.join('\n')).toMatch(/requires/);
     expect(existsSync(db)).toBe(false);
+  });
+
+  it('the default file is under the user home, not this repo', () => {
+    const fallback = memoryDbPath({ NODE_ENV: 'test' });
+    expect(fallback).toBe(join(homedir(), '.trustshell', 'memory.sqlite'));
+    const repo = join(__dirname, '..').toLowerCase();
+    expect(fallback.toLowerCase().startsWith(repo)).toBe(false);
+  });
+
+  it('refuses a secret-shaped value and does not write or call out', async () => {
+    expect(cliSrc).not.toMatch(/\bPOST\b|fetch\(|https?:\/\//);
+    expect(cliSrc).not.toMatch(/HeyGen|stake/i);
+    const secrets = ['sb_secret_FAKE', 'postgresql://fake:fake@localhost/db', 'prefix eyJhbGciOiJub25lIn0 suffix'];
+    for (const value of secrets) {
+      const result = await go(['remember', 'alpha', value]);
+      expect(result.code).toBe(2);
+      expect(result.out).toEqual([]);
+      expect(result.err.join('\n')).toContain('remember refused');
+      expect(result.err.join('\n')).not.toContain('sb_secret_');
+      expect(result.err.join('\n')).not.toContain('postgresql://');
+      expect(result.err.join('\n')).not.toContain('eyJ');
+    }
+    expect(existsSync(db)).toBe(false);
+    expect(calls).toEqual([]);
+
+    expect((await go(['remember', 'alpha', 'sb_publishable_keep'])).code).toBe(0);
+    expect((await go(['recall', 'alpha'])).out).toEqual(['sb_publishable_keep']);
+    expect((await go(['redact', 'alpha'])).out).toEqual(['redacted']);
+    expect((await go(['recall', 'alpha'])).out).toEqual(['NOT_CHECKED']);
+    expect(calls).toEqual([]);
   });
 });
