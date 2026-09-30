@@ -11,12 +11,14 @@ TrustShell videos are facts. AIdeaGuy videos are stories. Do not mix.
 - Phone 9:16 clips in E:\\TrustDisk\\video\\inbox\\2026-09-26_you
 - CapCut captions
 - LinkedIn then TikTok then YouTube Shorts
+- OpenMontage (local, no paid key)
+- Publora draft
+- n8n glue
+- HITL before any live post
 - @opencoredev/social-sdk mock until Sean says post
-- publora/skills only after Approve
 - marketingskills social + video + referrals (lists only)
 
 ## Later
-- OpenMontage pipelines
 - MoneyPrinterTurbo for AIdeaGuy faceless only
 - Higgsfield virality score after one live post
 - Anil-matcha shorts generator on OUR long video
@@ -24,7 +26,7 @@ TrustShell videos are facts. AIdeaGuy videos are stories. Do not mix.
 ## Never without GO
 - HeyGen / Magic Hour / Magnific spend
 - REAL_STAKING claims
-- "stake now" on camera
+- A stake claim on camera
 
 ## Laya
 cheap = caption variants. escalate = paid render. ask = TrustShell-fact vs AIdeaGuy-story.
