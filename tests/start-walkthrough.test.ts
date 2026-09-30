@@ -6,8 +6,6 @@ const QUESTION = 'Where do you already talk to AI?';
 const CLIENTS = ['Claude', 'ChatGPT', 'Grok', 'Cursor'];
 const COMMANDS = [
   'npm i -g @hyperdag/trustshell@1.4.0',
-  'trustshell verify "The capital of France is Paris."',
-  'trustshell verify "The Eiffel Tower is located in Rome, Italy."',
   'trustshell status',
 ];
 
@@ -43,15 +41,16 @@ describe('/start', () => {
     expect(idle).not.toMatch(/memory\.sqlite/);
   });
 
-  it('shows Terminal the four commands, status on its own line', () => {
+  it('shows Terminal the install line and status on its own line', () => {
     const commands = page.slice(
       page.indexOf('const COMMANDS = `') + 'const COMMANDS = `'.length,
       page.indexOf('`;', page.indexOf('const COMMANDS')),
     );
     expect(commands.split('\n')).toEqual(COMMANDS);
     expect(page).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.4\.0[^\n]*status/);
-    expect(page.match(/trustshell verify /g)).toHaveLength(2);
+    expect(page.match(/trustshell verify /g) ?? []).toHaveLength(0);
     expect(page).not.toMatch(/trustshell proof/);
+    expect(page).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
   });
 
   it('does not ask for a wallet, a stake, or a tailor path', () => {
