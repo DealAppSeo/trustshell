@@ -69,6 +69,9 @@ export function Hero() {
             <pre className="max-w-full overflow-x-auto font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words">
               <code>{WIN_COMMANDS}</code>
             </pre>
+            <a href="/devs" className="mt-4 inline-block text-sm text-slate-400 underline underline-offset-4 hover:text-white">
+              Devs
+            </a>
           </div>
         ) : null}
       </div>
