@@ -126,9 +126,11 @@ function oneToken(value: unknown): string {
   return trimmed;
 }
 
-/** One line after verify: family, host, and the verdict from this check. Missing columns are NOT_CHECKED. */
-export function familyHostVerdictLine(body: unknown, verdict: 'PASS' | 'FLAG' | 'VETO'): string {
-  if (!body || typeof body !== 'object') return 'NOT_CHECKED';
+type HalVerdict = 'PASS' | 'FLAG' | 'VETO';
+
+/** family, host, and this check's verdict. Missing or multi-word tokens are absent. */
+function quorumReceipt(body: unknown, verdict: HalVerdict): { family: string; host: string; verdict: HalVerdict } | null {
+  if (!body || typeof body !== 'object') return null;
   const record = body as Record<string, unknown>;
   const row =
     Array.isArray(record.rows) && record.rows[0] && typeof record.rows[0] === 'object'
@@ -136,8 +138,15 @@ export function familyHostVerdictLine(body: unknown, verdict: 'PASS' | 'FLAG' | 
       : null;
   const family = oneToken(row?.family) || oneToken(record.family);
   const host = oneToken(row?.host) || oneToken(record.host);
-  if (!family || !host) return 'NOT_CHECKED';
-  return `${family} ${host} ${verdict}`;
+  if (!family || !host) return null;
+  return { family, host, verdict };
+}
+
+/** One line after verify: family, host, and the verdict from this check. Missing columns are NOT_CHECKED. */
+export function familyHostVerdictLine(body: unknown, verdict: HalVerdict): string {
+  const fields = quorumReceipt(body, verdict);
+  if (!fields) return 'NOT_CHECKED';
+  return `${fields.family} ${fields.host} ${fields.verdict}`;
 }
 
 /**
@@ -150,6 +159,44 @@ export function honestyRowsLine(body: unknown): string {
   const record = body as Record<string, unknown>;
   if (record.status !== 'counted' || !Array.isArray(record.rows)) return missing;
   return `honesty-a rows=${record.rows.length} status=counted`;
+}
+
+/**
+ * POST {family, host, verdict} after a live verify quorum.
+ * OFFLINE skips. Timeout or a status other than 200 or 204 is NOT_CHECKED.
+ */
+export async function postHalReceipt(opts: {
+  env: NodeJS.ProcessEnv;
+  fetchImpl: typeof fetch;
+  body: unknown;
+  verdict: HalVerdict;
+}): Promise<'skipped' | 'written' | 'NOT_CHECKED'> {
+  if (opts.env.OFFLINE === '1') return 'skipped';
+  const fields = quorumReceipt(opts.body, opts.verdict);
+  const base = engineBase(opts.env);
+  if (!base || !fields) return 'NOT_CHECKED';
+  try {
+    const res = await opts.fetchImpl(`${base}/api/v1/hal/receipt`, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify(fields),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.status === 204) return 'written';
+    if (res.status !== 200) return 'NOT_CHECKED';
+    const raw = await res.text();
+    if (raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw) as { written?: unknown };
+        if (parsed.written === false) return 'NOT_CHECKED';
+      } catch {
+        return 'NOT_CHECKED';
+      }
+    }
+    return 'written';
+  } catch {
+    return 'NOT_CHECKED';
+  }
 }
 
 async function readJson(

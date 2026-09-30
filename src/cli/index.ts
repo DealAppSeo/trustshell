@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, statusJsonFromText, trustshellApiUrlSet } from './status';
+import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { rememberNote } from './remember';
 import { recallNotes } from './recall';
@@ -530,6 +530,13 @@ export async function run(
           io.out(familyHostVerdictLine(body, r.verdict));
           if (trustshellApiUrlSet(process.env)) io.out(honestyRowsLine(body));
         }
+        const receipt = await postHalReceipt({
+          env: process.env,
+          fetchImpl: fetch,
+          body,
+          verdict: r.verdict,
+        });
+        if (!args.json && receipt === 'NOT_CHECKED') io.out('receipt NOT_CHECKED');
         return verdictExitCode(r.verdict);
       } catch (e: any) {
         io.err(`verify failed: ${e?.message ?? String(e)}`);
