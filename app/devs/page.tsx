@@ -25,6 +25,11 @@ export default function DevsPage() {
             See the code
           </a>
         </p>
+        <p>
+          <a href="/builders" className="text-slate-300 underline underline-offset-4">
+            Builders
+          </a>
+        </p>
       </div>
     </main>
   );
