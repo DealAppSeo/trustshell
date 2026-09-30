@@ -191,6 +191,22 @@ function namedReceipt(parsed: Record<string, unknown>): ReceiptResult | null {
   return null;
 }
 
+/** JSON receipt field. A skip or a missing result is NOT_CHECKED, never 0. */
+export function receiptJsonValue(
+  result: ReceiptResult,
+): 'written' | '204' | 'columns-missing' | 'receipt-missing' | 'insert-error' | 'NOT_CHECKED' {
+  if (
+    result === 'written' ||
+    result === '204' ||
+    result === 'columns-missing' ||
+    result === 'receipt-missing' ||
+    result === 'insert-error'
+  ) {
+    return result;
+  }
+  return 'NOT_CHECKED';
+}
+
 /**
  * POST {family, host, verdict} after a live verify quorum.
  * OFFLINE skips. A body without family and host is columns-missing.
