@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AgentRepId } from '@/components/agent-repid';
 import { AgentsStanding } from '@/components/agents-standing';
 import { parseRegister } from '@/lib/create-pai-parse';
+import { OWNED_GLASS } from '@/components/after-agent';
 
 /**
  * Read at MODULE SCOPE as a literal `process.env.NAME`, which is the only form
@@ -140,7 +141,9 @@ export default function AgentsPage() {
               Create your first agent. Takes 30 seconds. No email needed.
             </div>
           ) : (
-            agents.map(a => (
+            <>
+            <p className="text-sm text-[#94a3b8] leading-relaxed">{OWNED_GLASS}</p>
+            {agents.map(a => (
               <div key={a.id} className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] flex justify-between items-center gap-3">
                 <div className="min-w-0">
                   <h4 className="font-bold text-lg text-white truncate">{a.name}</h4>
@@ -180,7 +183,8 @@ export default function AgentsPage() {
                   </Link>
                 </div>
               </div>
-            ))
+            ))}
+            </>
           )}
         </div>
       </div>

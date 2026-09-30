@@ -1,4 +1,5 @@
 import { loadAfterCreate, shownStakeCell, type AfterCreateTable } from '@/lib/after-create';
+import { OWNED_GLASS } from '@/components/after-agent';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,7 @@ export default async function AfterCreatePage() {
         <p className="text-sm text-foreground">
           You have an agent. Next: verify a claim. Then look at the receipt. Wallet and stake are testnet / shadow.
         </p>
+        <p className="text-sm text-foreground">{OWNED_GLASS}</p>
       </header>
       <table className="w-full text-sm text-left border border-border">
         <thead className="bg-card text-muted">
