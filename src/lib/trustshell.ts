@@ -6,6 +6,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { redact } from '../memory/redact';
 import { assertOriginCanPay } from './origin';
 import type { AgentTurnOrigin } from './origin';
 import {
@@ -593,7 +594,7 @@ export class TrustShell {
     // { response, ... }. strictness 2 selects the cross-provider fact-check quorum (the real
     // HAL), not the style-only extractor. (Fixes the prior 400 "text is required".)
     const body: Record<string, unknown> = {
-      text: response,
+      text: redact(response),
       strictness: 2,
     };
 
