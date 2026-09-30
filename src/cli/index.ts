@@ -40,8 +40,9 @@ import {
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
 import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
-import { rememberNote } from './remember';
-import { recallNotes } from './recall';
+import { rememberKey, rememberNote } from './remember';
+import { recallKey, recallNotes } from './recall';
+import { redactKey } from './redact-key';
 import { bindStatusText } from './bind-status';
 import { join } from 'node:path';
 
@@ -70,6 +71,7 @@ export type Command =
   | 'status'
   | 'remember'
   | 'recall'
+  | 'redact'
   | 'bind-status'
   | 'help'
   | 'version';
@@ -100,6 +102,8 @@ export interface ParsedArgs {
   session?: string;
   /** report: path to saved `check --json` output. `report` never fetches. */
   evidence?: string;
+  /** remember/recall/redact: a local sqlite key. Absent on the one-argument note path. */
+  key?: string;
   /** A usage error message; when set the caller should print help + exit USAGE. */
   error?: string;
 }
@@ -194,7 +198,10 @@ COMMANDS
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
   remember "<text>"          Write a note into the local sqlite memory. No network.
+  remember <key> <value>     Save one value under <key> in that same file. No network.
   recall                     Print saved notes. do_not_send rows print as a count only.
+  recall <key>               Print the value for <key>. Missing is NOT_CHECKED, never empty.
+  redact <key>               Delete the <key> row. Missing is NOT_CHECKED. No network.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
@@ -219,7 +226,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   check                            api.github.com only — no backend, no account
   inspect                          NOTHING. Reads a local file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
-  remember · recall                NOTHING. Local sqlite only.
+  remember · recall · redact       NOTHING. Local sqlite only.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -324,13 +331,40 @@ export function parseArgs(argv: string[]): ParsedArgs {
           command: 'remember',
           json,
           verify,
-          error: '`trustshell remember` requires "<text>"',
+          error: '`trustshell remember` requires "<text>" or "<key> <value>"',
         };
+      }
+      if (rest.length >= 2) {
+        const key = (rest[0] ?? '').trim();
+        const value = rest.slice(1).join(' ').trim();
+        if (!key || !value) {
+          return {
+            command: 'remember',
+            json,
+            verify,
+            error: '`trustshell remember` requires "<key> <value>"',
+          };
+        }
+        return { command: 'remember', key, operand: value, json, verify };
       }
       return { command: 'remember', operand: text, json, verify };
     }
-    case 'recall':
-      return { command: 'recall', json, verify };
+    case 'recall': {
+      const key = rest.join(' ').trim();
+      return key ? { command: 'recall', key, json, verify } : { command: 'recall', json, verify };
+    }
+    case 'redact': {
+      const key = rest.join(' ').trim();
+      if (!key) {
+        return {
+          command: 'redact',
+          json,
+          verify,
+          error: '`trustshell redact` requires <key>',
+        };
+      }
+      return { command: 'redact', key, json, verify };
+    }
     case 'bind-status':
       return { command: 'bind-status', json, verify };
     case 'inspect':
@@ -486,7 +520,8 @@ export async function run(
 
     case 'remember': {
       try {
-        rememberNote(args.operand as string);
+        if (args.key) rememberKey(args.key, args.operand as string);
+        else rememberNote(args.operand as string);
         io.out('remembered');
         return EXIT.OK;
       } catch (e: any) {
@@ -497,10 +532,20 @@ export async function run(
 
     case 'recall': {
       try {
-        io.out(recallNotes());
+        io.out(args.key ? recallKey(args.key) : recallNotes());
         return EXIT.OK;
       } catch (e: any) {
         io.err(`recall failed: ${e?.message ?? String(e)}`);
+        return EXIT.RUNTIME;
+      }
+    }
+
+    case 'redact': {
+      try {
+        io.out(redactKey(args.key as string));
+        return EXIT.OK;
+      } catch (e: any) {
+        io.err(`redact failed: ${e?.message ?? String(e)}`);
         return EXIT.RUNTIME;
       }
     }
