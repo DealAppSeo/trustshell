@@ -25,6 +25,10 @@ describe('/builders', () => {
     expect(commandLines(page)).toEqual(COMMANDS);
   });
 
+  it('tells the user to copy the family host verdict line', () => {
+    expect(page).toContain('After verify, copy the family host verdict line. That is the receipt.');
+  });
+
   it('has no Paris, Rome, stake, wallet, or login', () => {
     expect(page).not.toMatch(/\b(Paris|Rome)\b/);
     expect(page).not.toMatch(/stake/i);
