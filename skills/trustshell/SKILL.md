@@ -18,7 +18,7 @@ That install provides `trustshell`, `hal`, and `trustshell-mcp`. If `trustshell`
 
 ## Commands
 
-These shells are the whole skill. Quote the claim so the shell does not split it. Report the command's stdout and exit code. Do not rescore the claim, edit HAL, or change the quorum.
+These four shells call the hosted engine. Quote the claim so the shell does not split it. Report the command's stdout and exit code. Do not rescore the claim, edit HAL, or change the quorum.
 
 ```bash
 trustshell verify "<claim>"
@@ -26,6 +26,18 @@ trustshell repid <id>
 trustshell proof <id> --verify
 trustshell status
 ```
+
+## Local notes
+
+When `trustshell --help` lists these three, they stay on this machine. They do not call a vendor. `trustshell remember` refuses a value that contains `sb_secret_`, `postgresql://`, or `eyJ` and writes nothing.
+
+```bash
+trustshell remember KEY VALUE
+trustshell recall KEY
+trustshell redact KEY
+```
+
+`trustshell recall KEY` prints `NOT_CHECKED` when the key is missing. `trustshell redact KEY` deletes that row.
 
 ## When to call status
 
