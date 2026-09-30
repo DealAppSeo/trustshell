@@ -20,6 +20,7 @@ export default function MorePage() {
             {line}
           </p>
         ))}
+        <p className="text-slate-300">Startup/Enterprise comes later.</p>
         <p>
           <a href="/why" className="text-slate-300 underline underline-offset-4">
             Why
