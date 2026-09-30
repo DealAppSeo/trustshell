@@ -198,10 +198,10 @@ COMMANDS
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.
   remember "<text>"          Write a note into the local sqlite memory. No network.
-  remember <key> <value>     Save one value under <key>. Refuses sb_secret_, postgresql://, and eyJ. No network.
+  remember KEY VALUE         Save one value under KEY. Refuses sb_secret_, postgresql://, and eyJ. No network.
   recall                     Print saved notes. do_not_send rows print as a count only.
-  recall <key>               Print the value for <key>. Missing is NOT_CHECKED, never empty.
-  redact <key>               Delete the <key> row. Missing is NOT_CHECKED. No network.
+  recall KEY                 Print the value for KEY. Missing is NOT_CHECKED, never empty.
+  redact KEY                 Delete the KEY row. Missing is NOT_CHECKED. No network.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a

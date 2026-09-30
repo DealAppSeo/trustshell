@@ -22,6 +22,19 @@ describe('trustshell skill lists status', () => {
     expect(parseArgs(['status']).command).toBe('status');
   });
 
+  it('lists remember, recall, and redact as local commands with the refuse rules', () => {
+    expect(skill).toContain('trustshell remember KEY VALUE');
+    expect(skill).toContain('trustshell recall KEY');
+    expect(skill).toContain('trustshell redact KEY');
+    expect(skill).toContain('sb_secret_');
+    expect(skill).toContain('postgresql://');
+    expect(skill).toContain('eyJ');
+    expect(skill).toMatch(/do not call a vendor/i);
+    expect(skill).not.toMatch(/memory\.sqlite/);
+    expect(skill).not.toMatch(/HeyGen/i);
+    expect(skill).not.toMatch(/stake now/i);
+  });
+
   it('lists the chat-first path and does not put sqlite on /', () => {
     expect(skill).toContain('trustshell status');
     expect(skill).toContain('Check a claim in the chat you already use');
