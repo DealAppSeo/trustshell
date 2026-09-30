@@ -20,6 +20,11 @@ export default function MorePage() {
             {line}
           </p>
         ))}
+        <p>
+          <a href="/why" className="text-slate-300 underline underline-offset-4">
+            Why
+          </a>
+        </p>
       </div>
     </main>
   );
