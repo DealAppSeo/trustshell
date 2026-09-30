@@ -114,8 +114,19 @@ describe('after-create', () => {
     expect(table).toEqual({ ...NOT_CHECKED_TABLE, source: 'NOT_CHECKED' });
   });
 
+  it('can_stake true still prints shadow, not live', async () => {
+    const body = { ...ok, can_stake: true, staking: 'live' };
+    const table = await loadAfterCreate({
+      env: { ...testEnv, SAYS_STAKE_LIVE: '1' },
+      fetchImpl: async () => jsonResponse(200, body),
+    });
+    const shown = shownStakeCell(table.can_stake);
+    expect(shown).toBe('shadow — not live');
+    expect(`can_stake ${shown}`).not.toMatch(/can_stake live/);
+  });
+
   it('fails if can_stake is shown live', () => {
-    expect(shownStakeCell('live')).toBe('testnet / shadow');
+    expect(shownStakeCell('live')).toBe('shadow — not live');
     expect(shownStakeCell('live')).not.toBe('live');
     expect(shownStakeCell('shadow — not live')).toBe('shadow — not live');
     expect(shownStakeCell('false')).toBe('false');
