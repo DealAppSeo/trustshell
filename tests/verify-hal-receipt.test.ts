@@ -98,6 +98,11 @@ describe('verify hal receipt POST', () => {
     expectReceiptBody(seen.receipts[0].init);
     expect(cap.out.join('\n')).not.toContain('receipt NOT_CHECKED');
     expect(cap.out.join('\n')).not.toMatch(/HeyGen|\bstake\b/i);
+    const lines = cap.out.join('\n').split('\n');
+    const writtenAt = lines.indexOf('receipt written');
+    expect(writtenAt).toBeGreaterThan(-1);
+    expect(lines[writtenAt + 1]).toBe('glm cerebras PASS');
+    expect(lines[writtenAt + 1]).not.toContain(CLAIM);
   });
 
   it('treats a 204 receipt as written', async () => {

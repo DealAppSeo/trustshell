@@ -538,6 +538,7 @@ export async function run(
         });
         const receiptLine = receiptHumanLine(receipt);
         if (!args.json && receiptLine) io.out(receiptLine);
+        if (!args.json && receipt === 'written') io.out(familyHostVerdictLine(body, r.verdict));
         return verdictExitCode(r.verdict);
       } catch (e: any) {
         io.err(`verify failed: ${e?.message ?? String(e)}`);
