@@ -54,7 +54,7 @@ export default function StartPage() {
             <pre className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 font-mono text-sm text-indigo-200">
               <code>{COMMANDS}</code>
             </pre>
-            <p className="text-slate-300">Post one receipt line today. LinkedIn or TikTok. Quantity this week.</p>
+            <p className="text-slate-300">Copy family host verdict. That is the receipt.</p>
           </div>
         ) : null}
       </div>
