@@ -9,7 +9,7 @@ const COMMANDS = [
   'trustshell verify "paste your own claim"',
   'trustshell repid trinity-shofet',
 ];
-const AFTER = 'Post one receipt line today. LinkedIn or TikTok. Quantity this week.';
+const AFTER = 'Copy family host verdict. That is the receipt.';
 
 describe('/start', () => {
   const page = readFileSync(join(ROOT, 'app/start/page.tsx'), 'utf8').replace(/\r/g, '');
