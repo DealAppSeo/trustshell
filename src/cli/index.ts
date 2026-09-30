@@ -402,6 +402,7 @@ export function formatVerify(r: VerifyOutputResult): string {
     lines.push('  evidence:');
     for (const e of r.evidence) lines.push(`    - ${e}`);
   }
+  if (r.verdict === 'PASS') lines.push('You have a receipt.');
   return lines.join('\n');
 }
 
