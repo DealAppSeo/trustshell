@@ -148,6 +148,17 @@ describe('verify hal receipt POST', () => {
     ]);
   });
 
+  it('prints receipt receipt-missing when a 200 says written false for that reason', async () => {
+    process.env.TRUSTSHELL_API_URL = ENGINE;
+    install(() => jsonResponse(200, { written: false, reason: 'receipt-missing' }));
+    const cap = capture();
+    const code = await run(parseArgs(['verify', CLAIM]), new TrustShell({ apiUrl: ENGINE }), cap.io);
+    expect(code).toBe(0);
+    const lines = cap.out.join('\n').split('\n');
+    expect(lines.filter((line) => line === 'receipt receipt-missing')).toEqual(['receipt receipt-missing']);
+    expect(lines.filter((line) => line === 'receipt insert-error')).toEqual([]);
+  });
+
   it('prints receipt NOT_CHECKED when the receipt POST rejects', async () => {
     process.env.TRUSTSHELL_API_URL = ENGINE;
     install(() => Promise.reject(new Error('timeout')));
