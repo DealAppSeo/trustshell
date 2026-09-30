@@ -35,9 +35,8 @@ describe('public landing source', () => {
     expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
-    expect(hero).toContain('trustshell verify "The capital of France is Paris."');
-    expect(hero).toContain('trustshell verify "The Eiffel Tower is located in Rome, Italy."');
     expect(hero).toContain('trustshell status');
+    expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     expect(page).toContain('<Hero');
     expect(page).not.toMatch(/AfterAgent|Footer|Ecosystem|LiveTrustScores|LiveOnChain|StatusStrip|RoadmapV15|BuilderWaitlist|LandingClose/);
     for (const banned of BANNED) {

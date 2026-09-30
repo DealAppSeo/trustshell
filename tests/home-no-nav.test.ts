@@ -32,8 +32,6 @@ describe('home renders no top nav', () => {
     const block = hero.match(/const WIN_COMMANDS = `([\s\S]*?)`;/);
     expect(block?.[1].replace(/\r/g, '').split('\n')).toEqual([
       'npm i -g @hyperdag/trustshell@1.4.0',
-      'trustshell verify "The capital of France is Paris."',
-      'trustshell verify "The Eiffel Tower is located in Rome, Italy."',
       'trustshell status',
     ]);
     const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
