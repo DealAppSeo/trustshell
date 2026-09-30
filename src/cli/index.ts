@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, statusJsonFromText, trustshellApiUrlSet } from './status';
+import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, receiptJsonValue, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { rememberNote } from './remember';
 import { recallNotes } from './recall';
@@ -523,22 +523,23 @@ export async function run(
         );
         const body = await honestyPromise;
         const pass = passFrom(body);
-        if (args.json) io.out(JSON.stringify({ ...r, firstPass: pass }, null, 2));
-        else {
-          io.out(formatVerify(r));
-          io.out(pass);
-          io.out(familyHostVerdictLine(body, r.verdict));
-          if (trustshellApiUrlSet(process.env)) io.out(honestyRowsLine(body));
-        }
         const receipt = await postHalReceipt({
           env: process.env,
           fetchImpl: fetch,
           body,
           verdict: r.verdict,
         });
-        const receiptLine = receiptHumanLine(receipt);
-        if (!args.json && receiptLine) io.out(receiptLine);
-        if (!args.json && receipt === 'written') io.out(familyHostVerdictLine(body, r.verdict));
+        if (args.json) {
+          io.out(JSON.stringify({ ...r, firstPass: pass, receipt: receiptJsonValue(receipt) }, null, 2));
+        } else {
+          io.out(formatVerify(r));
+          io.out(pass);
+          io.out(familyHostVerdictLine(body, r.verdict));
+          if (trustshellApiUrlSet(process.env)) io.out(honestyRowsLine(body));
+          const receiptLine = receiptHumanLine(receipt);
+          if (receiptLine) io.out(receiptLine);
+          if (receipt === 'written') io.out(familyHostVerdictLine(body, r.verdict));
+        }
         return verdictExitCode(r.verdict);
       } catch (e: any) {
         io.err(`verify failed: ${e?.message ?? String(e)}`);

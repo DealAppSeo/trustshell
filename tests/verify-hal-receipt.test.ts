@@ -206,4 +206,35 @@ describe('verify hal receipt POST', () => {
     expect(seen.receipts).toHaveLength(0);
     expect(cap.out.join('\n')).not.toContain('receipt NOT_CHECKED');
   });
+
+  it('OFFLINE still verifies, skips the POST, and sets json receipt to NOT_CHECKED', async () => {
+    process.env.OFFLINE = '1';
+    process.env.TRUSTSHELL_API_URL = ENGINE;
+    let evaluatePosts = 0;
+    let receiptPosts = 0;
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? 'GET').toUpperCase();
+      if (method === 'POST' && url.endsWith('/api/v1/hal/evaluate')) {
+        evaluatePosts += 1;
+        return jsonResponse(200, evaluateBody());
+      }
+      if (method === 'POST' && url.endsWith('/api/v1/hal/receipt')) {
+        receiptPosts += 1;
+        return jsonResponse(200, { written: true });
+      }
+      return jsonResponse(200, honestyBody());
+    }) as typeof fetch;
+    const cap = capture();
+    const code = await run(parseArgs(['verify', CLAIM, '--json']), new TrustShell({ apiUrl: ENGINE }), cap.io);
+    expect(code).toBe(0);
+    expect(evaluatePosts).toBe(1);
+    expect(receiptPosts).toBe(0);
+    expect(cap.out).toHaveLength(1);
+    const parsed = JSON.parse(cap.out[0]) as { verdict?: string; receipt?: unknown };
+    expect(parsed.verdict).toBe('PASS');
+    expect(parsed.receipt).toBe('NOT_CHECKED');
+    expect(parsed.receipt).not.toBe(0);
+    expect(JSON.stringify(parsed)).not.toMatch(/"receipt"\s*:\s*0\b/);
+  });
 });
