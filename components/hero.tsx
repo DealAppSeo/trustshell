@@ -3,8 +3,6 @@
 import { useState } from 'react';
 
 const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
-trustshell verify "The capital of France is Paris."
-trustshell verify "The Eiffel Tower is located in Rome, Italy."
 trustshell status`;
 
 const MCP_PASTE = `{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }`;
