@@ -193,6 +193,23 @@ describe('verify hal receipt POST', () => {
     expect(parsed.receipt).not.toBe(0);
   });
 
+  it('puts receipt-missing and insert-error on verify --json', async () => {
+    process.env.TRUSTSHELL_API_URL = ENGINE;
+    install(() => jsonResponse(404, {}));
+    const missing = capture();
+    await run(parseArgs(['verify', CLAIM, '--json']), new TrustShell({ apiUrl: ENGINE }), missing.io);
+    const missingBody = JSON.parse(missing.out[0]) as { receipt?: unknown };
+    expect(missingBody.receipt).toBe('receipt-missing');
+    expect(missingBody.receipt).not.toBe(0);
+
+    install(() => jsonResponse(500, { error: 'insert-error' }));
+    const failed = capture();
+    await run(parseArgs(['verify', CLAIM, '--json']), new TrustShell({ apiUrl: ENGINE }), failed.io);
+    const failedBody = JSON.parse(failed.out[0]) as { receipt?: unknown };
+    expect(failedBody.receipt).toBe('insert-error');
+    expect(failedBody.receipt).not.toBe(0);
+  });
+
   it('OFFLINE skips the receipt POST', async () => {
     process.env.OFFLINE = '1';
     process.env.TRUSTSHELL_API_URL = ENGINE;
