@@ -5,6 +5,9 @@ import { useState } from 'react';
 const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
 trustshell status`;
 
+const FIRST_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
+trustshell verify "paste your own claim"`;
+
 const MCP_PASTE = `{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }`;
 
 export function Hero() {
@@ -33,6 +36,14 @@ export function Hero() {
         <p className="max-w-xl mx-auto text-base text-slate-300 text-wrap">
           No signup. No wallet. Leave whenever you want.
         </p>
+
+        <div className="max-w-xl w-full min-w-0 mx-auto text-left space-y-3">
+          <p className="text-sm text-slate-300">Solo PAI + CMO belt</p>
+          <pre className="max-w-full overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words">
+            <code>{FIRST_COMMANDS}</code>
+          </pre>
+          <p className="text-sm text-slate-300">After verify, copy the family host verdict line.</p>
+        </div>
 
         <div className="flex flex-col items-center gap-3">
           <button

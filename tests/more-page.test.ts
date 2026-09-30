@@ -22,6 +22,13 @@ describe('/more', () => {
     expect(block.match(/'[^']+'/g)).toEqual(LINES.map((line) => `'${line}'`));
   });
 
+  it('names Startup/Enterprise once, outside the four lines', () => {
+    expect(page).toContain('Startup/Enterprise comes later.');
+    expect(page.split('Startup/Enterprise').length - 1).toBe(1);
+    const block = page.slice(page.indexOf('const LINES = ['), page.indexOf('];'));
+    expect(block).not.toMatch(/Startup|Enterprise/);
+  });
+
   it('keeps ZKP, stake, ERC-8004, and a sqlite path off the page', () => {
     expect(page).not.toMatch(/zk/i);
     expect(page).not.toMatch(/stake/i);
