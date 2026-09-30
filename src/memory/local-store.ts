@@ -43,6 +43,14 @@ export function memoryDbPath(env: NodeJS.ProcessEnv = process.env, home: string 
   return join(home, '.trustshell', 'memory.sqlite');
 }
 
+function ensureSchema(db: SqliteDb): void {
+  db.exec(SCHEMA);
+  const cols = db.prepare('PRAGMA table_info(memory)').all();
+  const hasKey = cols.some((col) => String(col.name) === 'key');
+  if (!hasKey) db.exec('ALTER TABLE memory ADD COLUMN key TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
+}
+
 function openDb(path: string): SqliteDb {
   try {
     mkdirSync(dirname(path), { recursive: true });
@@ -50,7 +58,7 @@ function openDb(path: string): SqliteDb {
       DatabaseSync: new (location: string) => SqliteDb;
     };
     const db = new DatabaseSync(path);
-    db.exec(SCHEMA);
+    ensureSchema(db);
     return db;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('NOT_CHECKED ')) throw err;
@@ -88,7 +96,9 @@ export function listNotes(path: string): MemoryRow[] {
   const db = openDb(path);
   try {
     return db
-      .prepare("SELECT id, kind, body, created_at FROM memory WHERE kind = 'note' ORDER BY id ASC")
+      .prepare(
+        "SELECT id, kind, body, created_at FROM memory WHERE kind = 'note' AND key IS NULL ORDER BY id ASC",
+      )
       .all()
       .map(asRow);
   } finally {
@@ -110,4 +120,55 @@ export function countDoNotSend(path: string): number {
 export function formatRecall(path: string): string {
   const notes = listNotes(path).map((row) => row.body);
   return [...notes, `do_not_send COUNT ${countDoNotSend(path)}`].join('\n');
+}
+
+/** One value under key. A later write of the same key replaces the row. */
+export function writeKeyed(
+  path: string,
+  key: string,
+  body: string,
+  now: string = new Date().toISOString(),
+): void {
+  const db = openDb(path);
+  try {
+    db.prepare('DELETE FROM memory WHERE key = ?').run(key);
+    db.prepare('INSERT INTO memory (kind, body, created_at, key) VALUES (?, ?, ?, ?)').run(
+      'pref',
+      body,
+      now,
+      key,
+    );
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * The stored value, or NOT_CHECKED when the key is absent.
+ * A blank body is NOT_CHECKED so a missing value is never "".
+ */
+export function readKeyed(path: string, key: string): string {
+  const db = openDb(path);
+  try {
+    const row = db.prepare('SELECT body FROM memory WHERE key = ?').get(key);
+    if (!row) return 'NOT_CHECKED';
+    const body = String(row.body ?? '');
+    if (body.trim().length === 0) return 'NOT_CHECKED';
+    return body;
+  } finally {
+    db.close();
+  }
+}
+
+/** Delete the row for key. Missing is NOT_CHECKED, not an empty success. */
+export function deleteKeyed(path: string, key: string): 'redacted' | 'NOT_CHECKED' {
+  const db = openDb(path);
+  try {
+    const row = db.prepare('SELECT id FROM memory WHERE key = ?').get(key);
+    if (!row) return 'NOT_CHECKED';
+    db.prepare('DELETE FROM memory WHERE key = ?').run(key);
+    return 'redacted';
+  } finally {
+    db.close();
+  }
 }

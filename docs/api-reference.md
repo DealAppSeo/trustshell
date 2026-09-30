@@ -275,9 +275,17 @@ it in version control.
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
 
+`trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. A value that contains `sb_secret_`, `postgresql://`, or `eyJ` is refused and nothing is written. No network.
+
 ### `trustshell recall`
 
 Print saved notes, oldest first. A `do_not_send` row is not printed; the line is `do_not_send COUNT N`. No network.
+
+`trustshell recall <key>` prints that value. A missing key, or a blank value, prints `NOT_CHECKED`, never an empty string.
+
+### `trustshell redact <key>`
+
+Delete the row for `<key>` from `~/.trustshell/memory.sqlite`. Prints `redacted`. A missing key prints `NOT_CHECKED`. No network.
 
 ### `trustshell bind-status`
 

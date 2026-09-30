@@ -225,6 +225,17 @@ describe('stranger e2e on current main', () => {
     const recall = await go(['recall']);
     expect(recall.code).toBe(0);
     expect(recall.out).toContain('stranger note');
+    const keyed = await go(['remember', 'desk', 'local only']);
+    expect(keyed.code).toBe(0);
+    const keyedRecall = await go(['recall', 'desk']);
+    expect(keyedRecall.code).toBe(0);
+    expect(keyedRecall.out).toBe('local only');
+    const redacted = await go(['redact', 'desk']);
+    expect(redacted.code).toBe(0);
+    expect(redacted.out).toBe('redacted');
+    const gone = await go(['recall', 'desk']);
+    expect(gone.out).toBe('NOT_CHECKED');
+    expect(gone.out).not.toBe('');
     const homeAfter = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     expect(homeAfter).toBe(homeBefore);
 
