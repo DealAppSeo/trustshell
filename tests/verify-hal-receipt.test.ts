@@ -154,6 +154,23 @@ describe('verify hal receipt POST', () => {
     ]);
   });
 
+  it('prints receipt written for a mocked 200 and receipt NOT_CHECKED for a mocked timeout', async () => {
+    process.env.TRUSTSHELL_API_URL = ENGINE;
+    install(() => jsonResponse(200, { written: true }));
+    const written = capture();
+    const writtenCode = await run(parseArgs(['verify', CLAIM]), new TrustShell({ apiUrl: ENGINE }), written.io);
+    expect(writtenCode).toBe(0);
+    expect(written.out.join('\n').split('\n').filter((line) => line === 'receipt written')).toEqual(['receipt written']);
+
+    install(() => Promise.reject(new Error('timeout')));
+    const timed = capture();
+    const timedCode = await run(parseArgs(['verify', CLAIM]), new TrustShell({ apiUrl: ENGINE }), timed.io);
+    expect(timedCode).toBe(0);
+    expect(timed.out.join('\n').split('\n').filter((line) => line === 'receipt NOT_CHECKED')).toEqual([
+      'receipt NOT_CHECKED',
+    ]);
+  });
+
   it('posts to the default engine when TRUSTSHELL_API_URL is unset', async () => {
     delete process.env.TRUSTSHELL_API_URL;
     const seen = install(() => jsonResponse(200, { written: true }));
