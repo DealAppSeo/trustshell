@@ -183,6 +183,22 @@ export function receiptHumanLine(result: ReceiptResult): string | null {
   return 'receipt NOT_CHECKED';
 }
 
+/** JSON receipt field. A skip or a missing result is NOT_CHECKED, never 0. */
+export function receiptJsonValue(
+  result: ReceiptResult,
+): 'written' | '204' | 'columns-missing' | 'receipt-missing' | 'insert-error' | 'NOT_CHECKED' {
+  if (
+    result === 'written' ||
+    result === '204' ||
+    result === 'columns-missing' ||
+    result === 'receipt-missing' ||
+    result === 'insert-error'
+  ) {
+    return result;
+  }
+  return 'NOT_CHECKED';
+}
+
 function namedReceipt(parsed: Record<string, unknown>): ReceiptResult | null {
   for (const key of ['code', 'error', 'reason', 'status']) {
     const value = parsed[key];
