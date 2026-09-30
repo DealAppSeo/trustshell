@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport, firstPassText, statusJsonFromText } from './status';
+import { buildStatusReport, familyHostVerdictLine, firstPassLines, loadHonestyBody, statusJsonFromText } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { rememberNote } from './remember';
 import { recallNotes } from './recall';
@@ -513,22 +513,26 @@ export async function run(
 
     case 'verify':
     case 'evaluate': {
-      const passPromise = firstPassText({ env: process.env, fetchImpl: fetch });
+      const honestyPromise = loadHonestyBody({ env: process.env, fetchImpl: fetch });
+      const passFrom = (body: unknown | null): string =>
+        (body == null ? ['first-pass NOT_CHECKED'] : firstPassLines(body)).join('\n');
       try {
         const r = await runEnvelopedAction(
           { origin: 'Cli', actionClass: 'verify', policyId: 'hal' },
           () => client.verifyOutput(args.operand as string),
         );
-        const pass = await passPromise;
+        const body = await honestyPromise;
+        const pass = passFrom(body);
         if (args.json) io.out(JSON.stringify({ ...r, firstPass: pass }, null, 2));
         else {
           io.out(formatVerify(r));
           io.out(pass);
+          io.out(familyHostVerdictLine(body, r.verdict));
         }
         return verdictExitCode(r.verdict);
       } catch (e: any) {
         io.err(`verify failed: ${e?.message ?? String(e)}`);
-        io.out(await passPromise);
+        io.out(passFrom(await honestyPromise));
         return EXIT.RUNTIME;
       }
     }
