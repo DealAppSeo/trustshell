@@ -1,24 +1,30 @@
-const REPOS = ['DealAppSeo/trustshell', 'DealAppSeo/repid-engine'];
+const LINES = [
+  'Terminal is a text window that runs a command.',
+  'GitHub is undo-history for a project you can share.',
+];
 
 export const metadata = {
   title: 'Devs — TrustShell',
-  description: 'DealAppSeo/trustshell and DealAppSeo/repid-engine.',
+  description: 'Terminal is a text window that runs a command.',
 };
 
 export default function DevsPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-20 text-white">
       <div className="mx-auto max-w-xl space-y-4">
-        <h1 className="text-3xl font-extrabold tracking-tight">Devs</h1>
-        <ul className="space-y-3 text-slate-300">
-          {REPOS.map((repo) => (
-            <li key={repo}>
-              <a href={`https://github.com/${repo}`} className="underline underline-offset-4">
-                {repo}
-              </a>
-            </li>
-          ))}
-        </ul>
+        {LINES.map((line) => (
+          <p key={line} className="text-slate-300">
+            {line}
+          </p>
+        ))}
+        <p>
+          <a
+            href="https://github.com/DealAppSeo/trustshell"
+            className="inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950"
+          >
+            See the code
+          </a>
+        </p>
       </div>
     </main>
   );
