@@ -113,6 +113,27 @@ export function firstPassLines(body: unknown): string[] {
   return lines;
 }
 
+function oneToken(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed || /\s/.test(trimmed)) return '';
+  return trimmed;
+}
+
+/** One line after verify: family, host, and the verdict from this check. Missing columns are NOT_CHECKED. */
+export function familyHostVerdictLine(body: unknown, verdict: 'PASS' | 'FLAG' | 'VETO'): string {
+  if (!body || typeof body !== 'object') return 'NOT_CHECKED';
+  const record = body as Record<string, unknown>;
+  const row =
+    Array.isArray(record.rows) && record.rows[0] && typeof record.rows[0] === 'object'
+      ? (record.rows[0] as Record<string, unknown>)
+      : null;
+  const family = oneToken(row?.family) || oneToken(record.family);
+  const host = oneToken(row?.host) || oneToken(record.host);
+  if (!family || !host) return 'NOT_CHECKED';
+  return `${family} ${host} ${verdict}`;
+}
+
 async function readJson(
   fetchImpl: typeof fetch,
   url: string,
@@ -129,16 +150,25 @@ async function readJson(
   }
 }
 
+/** The honesty-a body, or null when the check cannot be counted. */
+export async function loadHonestyBody(opts: {
+  env: NodeJS.ProcessEnv;
+  fetchImpl: typeof fetch;
+}): Promise<unknown | null> {
+  if (opts.env.OFFLINE === '1') return null;
+  const base = engineBase(opts.env);
+  if (!base) return null;
+  const honesty = await readJson(opts.fetchImpl, `${base}/api/v1/hal/honesty-a`);
+  return honesty.ok ? honesty.body : null;
+}
+
 /** The first-pass lines from honesty-a. A missing column is NOT_CHECKED, never 0. */
 export async function firstPassText(opts: {
   env: NodeJS.ProcessEnv;
   fetchImpl: typeof fetch;
 }): Promise<string> {
-  if (opts.env.OFFLINE === '1') return 'first-pass NOT_CHECKED';
-  const base = engineBase(opts.env);
-  if (!base) return 'first-pass NOT_CHECKED';
-  const honesty = await readJson(opts.fetchImpl, `${base}/api/v1/hal/honesty-a`);
-  return (honesty.ok ? firstPassLines(honesty.body) : ['first-pass NOT_CHECKED']).join('\n');
+  const body = await loadHonestyBody(opts);
+  return (body == null ? ['first-pass NOT_CHECKED'] : firstPassLines(body)).join('\n');
 }
 
 export async function buildStatusReport(opts: {
