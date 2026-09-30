@@ -161,20 +161,53 @@ export function honestyRowsLine(body: unknown): string {
   return `honesty-a rows=${record.rows.length} status=counted`;
 }
 
+export type ReceiptResult =
+  | 'skipped'
+  | 'written'
+  | '204'
+  | 'columns-missing'
+  | 'receipt-missing'
+  | 'insert-error'
+  | 'NOT_CHECKED';
+
+const NAMED_RECEIPT = new Set(['columns-missing', 'receipt-missing', 'insert-error']);
+
+/** Human line for a receipt result. OFFLINE prints nothing. Missing is never 0. */
+export function receiptHumanLine(result: ReceiptResult): string | null {
+  if (result === 'skipped') return null;
+  if (result === 'written') return 'receipt written';
+  if (result === '204') return 'receipt 204';
+  if (result === 'columns-missing') return 'receipt columns-missing';
+  if (result === 'receipt-missing') return 'receipt receipt-missing';
+  if (result === 'insert-error') return 'receipt insert-error';
+  return 'receipt NOT_CHECKED';
+}
+
+function namedReceipt(parsed: Record<string, unknown>): ReceiptResult | null {
+  for (const key of ['code', 'error', 'reason', 'status']) {
+    const value = parsed[key];
+    if (typeof value === 'string' && NAMED_RECEIPT.has(value)) return value as ReceiptResult;
+  }
+  return null;
+}
+
 /**
  * POST {family, host, verdict} after a live verify quorum.
- * OFFLINE skips. Timeout or a status other than 200 or 204 is NOT_CHECKED.
+ * OFFLINE skips. A body without family and host is columns-missing.
+ * 404 or a receipt-missing token is receipt-missing. An insert-error token is insert-error.
+ * Timeout or any other failure is NOT_CHECKED.
  */
 export async function postHalReceipt(opts: {
   env: NodeJS.ProcessEnv;
   fetchImpl: typeof fetch;
   body: unknown;
   verdict: HalVerdict;
-}): Promise<'skipped' | 'written' | 'NOT_CHECKED'> {
+}): Promise<ReceiptResult> {
   if (opts.env.OFFLINE === '1') return 'skipped';
-  const fields = quorumReceipt(opts.body, opts.verdict);
   const base = engineBase(opts.env);
-  if (!base || !fields) return 'NOT_CHECKED';
+  if (!base) return 'NOT_CHECKED';
+  const fields = quorumReceipt(opts.body, opts.verdict);
+  if (!fields) return opts.body && typeof opts.body === 'object' ? 'columns-missing' : 'NOT_CHECKED';
   try {
     const res = await opts.fetchImpl(`${base}/api/v1/hal/receipt`, {
       method: 'POST',
@@ -182,18 +215,26 @@ export async function postHalReceipt(opts: {
       body: JSON.stringify(fields),
       signal: AbortSignal.timeout(8000),
     });
-    if (res.status === 204) return 'written';
-    if (res.status !== 200) return 'NOT_CHECKED';
+    if (res.status === 204) return '204';
     const raw = await res.text();
+    let parsed: Record<string, unknown> | null = null;
     if (raw.trim()) {
       try {
-        const parsed = JSON.parse(raw) as { written?: unknown };
-        if (parsed.written === false) return 'NOT_CHECKED';
+        const body = JSON.parse(raw) as unknown;
+        parsed = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+        if (!parsed) return 'NOT_CHECKED';
       } catch {
         return 'NOT_CHECKED';
       }
     }
-    return 'written';
+    const named = parsed ? namedReceipt(parsed) : null;
+    if (res.status === 200) {
+      if (parsed?.written === false) return named ?? 'NOT_CHECKED';
+      return 'written';
+    }
+    if (named) return named;
+    if (res.status === 404) return 'receipt-missing';
+    return 'NOT_CHECKED';
   } catch {
     return 'NOT_CHECKED';
   }

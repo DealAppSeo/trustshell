@@ -121,6 +121,28 @@ describe('verify hal receipt POST', () => {
     expect(lines).toEqual(['receipt NOT_CHECKED']);
   });
 
+  it('prints receipt receipt-missing when the receipt route is 404', async () => {
+    process.env.TRUSTSHELL_API_URL = ENGINE;
+    install(() => jsonResponse(404, {}));
+    const cap = capture();
+    const code = await run(parseArgs(['verify', CLAIM]), new TrustShell({ apiUrl: ENGINE }), cap.io);
+    expect(code).toBe(0);
+    expect(cap.out.join('\n').split('\n').filter((line) => line === 'receipt receipt-missing')).toEqual([
+      'receipt receipt-missing',
+    ]);
+  });
+
+  it('prints receipt insert-error when the receipt body names that error', async () => {
+    process.env.TRUSTSHELL_API_URL = ENGINE;
+    install(() => jsonResponse(500, { error: 'insert-error' }));
+    const cap = capture();
+    const code = await run(parseArgs(['verify', CLAIM]), new TrustShell({ apiUrl: ENGINE }), cap.io);
+    expect(code).toBe(0);
+    expect(cap.out.join('\n').split('\n').filter((line) => line === 'receipt insert-error')).toEqual([
+      'receipt insert-error',
+    ]);
+  });
+
   it('prints receipt NOT_CHECKED when the receipt POST rejects', async () => {
     process.env.TRUSTSHELL_API_URL = ENGINE;
     install(() => Promise.reject(new Error('timeout')));
