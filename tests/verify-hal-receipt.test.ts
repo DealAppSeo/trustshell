@@ -165,16 +165,32 @@ describe('verify hal receipt POST', () => {
     expect(cap.out.join('\n')).not.toContain('receipt NOT_CHECKED');
   });
 
-  it('does not add a receipt line in json mode', async () => {
+  it('puts the receipt field on verify --json and never uses 0', async () => {
     process.env.TRUSTSHELL_API_URL = ENGINE;
     const seen = install(() => jsonResponse(503, {}));
     const cap = capture();
     const code = await run(parseArgs(['verify', CLAIM, '--json']), new TrustShell({ apiUrl: ENGINE }), cap.io);
     expect(code).toBe(0);
     expect(seen.receipts).toHaveLength(1);
+    expect(cap.out).toHaveLength(1);
     const raw = cap.out.join('\n');
-    expect(JSON.parse(raw).verdict).toBe('PASS');
+    const parsed = JSON.parse(raw) as { verdict?: string; receipt?: unknown };
+    expect(parsed.verdict).toBe('PASS');
+    expect(parsed.receipt).toBe('NOT_CHECKED');
+    expect(raw).not.toMatch(/"receipt"\s*:\s*0\b/);
     expect(raw).not.toContain('receipt NOT_CHECKED');
+  });
+
+  it('puts receipt written on verify --json when the POST writes', async () => {
+    process.env.TRUSTSHELL_API_URL = ENGINE;
+    install(() => jsonResponse(200, { written: true }));
+    const cap = capture();
+    const code = await run(parseArgs(['verify', CLAIM, '--json']), new TrustShell({ apiUrl: ENGINE }), cap.io);
+    expect(code).toBe(0);
+    expect(cap.out).toHaveLength(1);
+    const parsed = JSON.parse(cap.out[0]) as { receipt?: unknown };
+    expect(parsed.receipt).toBe('written');
+    expect(parsed.receipt).not.toBe(0);
   });
 
   it('OFFLINE skips the receipt POST', async () => {
