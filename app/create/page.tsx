@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { CONSTITUTION_QUESTIONS } from '@/lib/pai';
 import { parseHalVerdict, parseRegister, rejectEmptyName } from '@/lib/create-pai-parse';
+import { OWNED_GLASS } from '@/components/after-agent';
 
 /**
  * /create — the create-PAI FACE. The web mirror of `scripts/init-pai.mjs`, following docs/CREATE_PAI.md:
@@ -137,6 +138,7 @@ export default function CreatePaiPage() {
 
       {created && (
         <div className="mt-8 space-y-8">
+          <p className="text-sm leading-relaxed">{OWNED_GLASS}</p>
           {/* Credentials — shown ONCE. */}
           <section className="rounded-lg border border-[#333] bg-[#111] p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-[#a1a1a1]">Your PAI — save this now</h2>
