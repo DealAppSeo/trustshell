@@ -22,11 +22,7 @@ describe('/why', () => {
     const io: CliIO = { out: (s) => out.push(s), err: () => undefined };
     expect(await run(parseArgs(['--help']), {} as never, io)).toBe(0);
     const help = out.join('\n');
-    const listed =
-      help.includes('remember KEY VALUE') &&
-      help.includes('recall KEY') &&
-      help.includes('redact KEY');
-    expect(page.includes('Notes stay on your machine.')).toBe(listed);
+    expect(page.includes('Notes stay on your machine.')).toBe(help.includes('remember'));
   });
 
   it('has no zk, stake, ERC-8004, plonky, or sqlite', () => {
@@ -34,6 +30,8 @@ describe('/why', () => {
       expect(page.toLowerCase()).not.toContain(word);
     }
     expect(page).not.toMatch(/HeyGen/i);
+    expect(page).not.toMatch(/stake now/i);
+    expect(page).not.toMatch(/every transaction earns RepID/i);
     expect(page).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
   });
 });

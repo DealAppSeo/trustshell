@@ -21,6 +21,7 @@ const BANNED = [
   'E:\\TrustDisk',
   'Loading live scores',
   'stake now',
+  'every transaction earns RepID',
   'Wallet and stake',
   'HAL 2 answering',
   'registry addresses',
@@ -31,8 +32,8 @@ const BANNED = [
 
 describe('public landing source', () => {
   it('keeps the one screen and none of the measured leaks', () => {
-    expect(hero).toContain('AI lies. Now it has to show its work.');
-    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
+    expect(hero).toContain('A portable trust harness. Autonomy is earned.');
+    expect(hero).toContain('Check a claim. See the receipt. Keep your keys.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
     expect(hero).toContain('trustshell status');
