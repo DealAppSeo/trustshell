@@ -46,6 +46,7 @@ import { recallKey, recallNotes } from './recall';
 import { redactKey } from './redact-key';
 import { bindStatusText } from './bind-status';
 import { scrubPrinted } from './scrub-print';
+import { buildTrapsList, formatTrapsList } from './traps';
 import { join } from 'node:path';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -77,6 +78,7 @@ export type Command =
   | 'recall'
   | 'redact'
   | 'bind-status'
+  | 'traps'
   | 'help'
   | 'version';
 
@@ -207,6 +209,7 @@ COMMANDS
   recall KEY                 Print the value for KEY. Missing is NOT_CHECKED, never empty.
   redact KEY                 Delete the KEY row. Missing is NOT_CHECKED. No network.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
+  traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED until a receipt id exists. No scoreboard. No HAL wins.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -371,6 +374,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
     case 'bind-status':
       return { command: 'bind-status', json, verify };
+    case 'traps':
+      return { command: 'traps', json, verify };
     case 'inspect':
     case 'report':
       // Operand is OPTIONAL: inspect and report default to `.trustshell/`.
@@ -567,6 +572,12 @@ export async function run(
     case 'bind-status': {
       const text = await bindStatusText({ env: process.env, fetchImpl: fetch });
       io.out(text);
+      return EXIT.OK;
+    }
+
+    case 'traps': {
+      const rows = buildTrapsList(process.cwd());
+      io.out(formatTrapsList(rows, args.json));
       return EXIT.OK;
     }
 
