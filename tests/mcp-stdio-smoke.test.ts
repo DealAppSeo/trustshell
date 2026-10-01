@@ -11,6 +11,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const ROOT = join(__dirname, '..');
 const SECRET = 'sb_secret_abc';
+const SK_SECRET = 'sk-proj-abc123def456ghi789jkl012mno345pq';
 
 const RUNNER = `
 const fs = require('fs');
@@ -114,6 +115,57 @@ describe('mcp stdio smoke', () => {
       expect(stderr.join('')).not.toContain(SECRET);
       const stored = existsSync(db) ? readFileSync(db) : Buffer.alloc(0);
       expect(stored.includes(SECRET)).toBe(false);
+    } finally {
+      await client.close().catch(() => undefined);
+      await new Promise<void>((resolve) => http.close(() => resolve()));
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses sk- API key shapes and keeps them out of result/logs/memory/fetch', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-mcp-sk-'));
+    const runner = join(dir, 'mcp-stdio.cjs');
+    const db = join(dir, 'memory.sqlite');
+    writeFileSync(runner, RUNNER);
+    const bodies: string[] = [];
+    const stderr: string[] = [];
+    const http = createHttp(async (req, res) => {
+      bodies.push(await readBody(req));
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{}');
+    });
+    await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', () => resolve()));
+    const address = http.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [runner],
+      cwd: ROOT,
+      stderr: 'pipe',
+      env: {
+        TRUSTSHELL_MCP_ROOT: ROOT,
+        TRUSTSHELL_MEMORY: db,
+        TRUSTSHELL_API_URL: `http://127.0.0.1:${port}`,
+      },
+    });
+    transport.stderr?.on('data', (chunk) => stderr.push(String(chunk)));
+    const client = new Client({ name: 'trustshell-stdio-sk', version: '0.0.0' });
+    try {
+      await client.connect(transport);
+      const result = await client.callTool({
+        name: 'remember',
+        arguments: { text: `note ${SK_SECRET}` },
+      });
+      const packed = JSON.stringify(result);
+      expect(result.isError === true || packed.includes('remember refused')).toBe(true);
+      expect(packed).not.toContain(SK_SECRET);
+      expect(bodies.join('\n')).not.toContain(SK_SECRET);
+      expect(stderr.join('')).not.toContain(SK_SECRET);
+      const recalled = await client.callTool({ name: 'recall', arguments: {} });
+      expect(JSON.stringify(recalled)).not.toContain(SK_SECRET);
+      expect(stderr.join('')).not.toContain(SK_SECRET);
+      const stored = existsSync(db) ? readFileSync(db) : Buffer.alloc(0);
+      expect(stored.includes(SK_SECRET)).toBe(false);
     } finally {
       await client.close().catch(() => undefined);
       await new Promise<void>((resolve) => http.close(() => resolve()));

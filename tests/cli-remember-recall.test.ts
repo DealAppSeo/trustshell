@@ -67,4 +67,19 @@ describe('cli remember and recall', () => {
     expect(calls).toEqual([]);
     expect(existsSync(homeDb) ? statSync(homeDb).mtimeMs : null).toBe(beforeHome);
   });
+
+  it('refuses sk- API key shapes and does not store them', async () => {
+    const sk = 'sk-proj-abc123def456ghi789jkl012mno345pq';
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: CliIO = {
+      out: (s) => out.push(s),
+      err: (s) => err.push(s),
+    };
+    expect(await run(parseArgs(['remember', `token ${sk}`]), {} as never, io)).toBe(2);
+    expect(err).toContain('remember refused');
+    expect(out).toEqual([]);
+    expect(listNotes(db)).toEqual([]);
+    expect(calls).toEqual([]);
+  });
 });
