@@ -10,6 +10,8 @@ const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/g;
 const EYJ = /\beyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*/g;
 /** Agent/API keys with an `sk-` prefix, as used for agent apiKey values in this repo. */
 const SK = /\bsk-[A-Za-z0-9_\-]+/g;
+/** Slack refresh tokens beginning with `xoxr-`. Outbound silence only. */
+const XOXR = /\bxoxr-[A-Za-z0-9_-]+/g;
 
 export function redact(value: string): string {
   return value
@@ -18,5 +20,6 @@ export function redact(value: string): string {
     .replace(POSTGRES, '')
     .replace(BEARER, '')
     .replace(EYJ, '')
-    .replace(SK, '');
+    .replace(SK, '')
+    .replace(XOXR, '');
 }
