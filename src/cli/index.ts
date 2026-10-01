@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
+import { buildStatusReport, familyHostVerdictLine, firstPassLines, firstPassObject, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { classify } from './classify';
 import { rememberKey, rememberNote } from './remember';
@@ -602,12 +602,15 @@ export async function run(
         });
         if (args.json) {
           const verdictLine = familyHostVerdictLine(body, r.verdict);
-          io.out(JSON.stringify({
+          const payload: Record<string, unknown> = {
             receipt_written: receiptWrittenValue(receipt),
             family_host_verdict: verdictLine,
             ...r,
             firstPass: pass,
-          }, null, 2));
+          };
+          const counted = firstPassObject(body);
+          if (counted) payload.first_pass = counted;
+          io.out(JSON.stringify(payload, null, 2));
         } else {
           io.out(formatVerify(r));
           io.out(pass);
