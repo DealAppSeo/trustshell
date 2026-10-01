@@ -16,22 +16,32 @@ describe('memory redact', () => {
     global.fetch = prevFetch;
   });
 
-  it('strips sb_secret_, a 0x address, a JWT, and postgresql://', () => {
+  it('strips sb_secret_, a 0x address, a JWT, postgresql://, Bearer tokens, and sk- keys', () => {
     const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.dBjftJeZ4CVP';
-    const raw = `before sb_secret_abcDEF123 ${ADDRESS} ${jwt} postgresql://user:pass@db.example/app after 0xabc sb_publishable_keep`;
+    const raw = `before sb_secret_abcDEF123 ${ADDRESS} ${jwt} postgresql://user:pass@db.example/app Authorization: Bearer ${jwt} apiKey: sk-live after 0xabc sb_publishable_keep`;
     const cleaned = redact(raw);
     expect(cleaned).not.toMatch(/sb_secret_/);
     expect(cleaned).not.toMatch(/0x[0-9a-fA-F]{40}\b/);
     expect(cleaned).not.toMatch(/postgresql:\/\//i);
     expect(cleaned).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+    expect(cleaned).not.toMatch(/\bBearer\s+\S+/);
+    expect(cleaned).not.toMatch(/\bsk-[A-Za-z0-9_\-]+/);
     expect(cleaned).toContain('before');
     expect(cleaned).toContain('after');
     expect(cleaned).toContain('0xabc');
     expect(cleaned).toContain('sb_publishable_keep');
+    expect(cleaned).toContain('Authorization:');
+    expect(cleaned).toContain('apiKey:');
     const bare = redact('prefix eyJhbGciOiJub25lIn0 suffix');
     expect(bare).toContain('prefix');
     expect(bare).toContain('suffix');
     expect(bare).not.toContain('eyJ');
+  });
+
+  it('does not strip innocent sk- or Bearer-like substrings', () => {
+    expect(redact('ask-me-anything')).toContain('ask-me-anything');
+    expect(redact('Bearer of good news')).toContain('Bearer of good news');
+    expect(redact('skateboarding')).toContain('skateboarding');
   });
 
   it('packet builder redacts and does not call a vendor', () => {
