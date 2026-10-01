@@ -1,5 +1,6 @@
 /**
- * Spawn the local MCP entry over stdio and verify remember refuses Bearer tokens.
+ * Spawn the local MCP entry over stdio and verify remember refuses Bearer tokens
+ * and Slack config tokens starting with `xoxc-`.
  * The token must not appear in the tool result, stderr, sqlite file, or fetch body.
  * Innocent phrases like "Bearer of good news" are still accepted.
  */
@@ -13,6 +14,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const ROOT = join(__dirname, '..');
 const TOKEN = 'fake_bearer_token_123456789';
 const BEARER_NOTE = `Authorization: Bearer ${TOKEN}`;
+const XOXC_TOKEN = 'xoxc-1234567890abcdef';
+const XOXC_NOTE = `Slack config token: ${XOXC_TOKEN}`;
 const INNOCENT_NOTE = 'Bearer of good news';
 
 const RUNNER = `
@@ -114,6 +117,60 @@ describe('mcp remember bearer refusal', () => {
 
       const stored = existsSync(db) ? readFileSync(db) : Buffer.alloc(0);
       expect(stored.includes(TOKEN)).toBe(false);
+    } finally {
+      await client.close().catch(() => undefined);
+      await new Promise<void>((resolve) => http.close(() => resolve()));
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses Slack config tokens starting with xoxc- and keeps them out of every surface', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-mcp-xoxc-'));
+    const runner = join(dir, 'mcp-stdio.cjs');
+    const db = join(dir, 'memory.sqlite');
+    writeFileSync(runner, RUNNER);
+    const bodies: string[] = [];
+    const stderr: string[] = [];
+    const http = createHttp(async (req, res) => {
+      bodies.push(await readBody(req));
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{}');
+    });
+    await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', () => resolve()));
+    const address = http.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [runner],
+      cwd: ROOT,
+      stderr: 'pipe',
+      env: {
+        TRUSTSHELL_MCP_ROOT: ROOT,
+        TRUSTSHELL_MEMORY: db,
+        TRUSTSHELL_API_URL: `http://127.0.0.1:${port}`,
+      },
+    });
+    transport.stderr?.on('data', (chunk) => stderr.push(String(chunk)));
+    const client = new Client({ name: 'trustshell-remember-xoxc', version: '0.0.0' });
+    try {
+      await client.connect(transport);
+
+      const refused = await client.callTool({
+        name: 'remember',
+        arguments: { text: XOXC_NOTE },
+      });
+      const refusedPacked = JSON.stringify(refused);
+      expect(refused.isError === true || refusedPacked.includes('remember refused')).toBe(true);
+      expect(refusedPacked).not.toContain(XOXC_TOKEN);
+
+      const recalled = await client.callTool({ name: 'recall', arguments: {} });
+      expect(JSON.stringify(recalled)).not.toContain(XOXC_TOKEN);
+
+      expect(stderr.join('')).not.toContain(XOXC_TOKEN);
+      expect(bodies.join('\n')).not.toContain(XOXC_TOKEN);
+
+      const stored = existsSync(db) ? readFileSync(db) : Buffer.alloc(0);
+      expect(stored.includes(XOXC_TOKEN)).toBe(false);
     } finally {
       await client.close().catch(() => undefined);
       await new Promise<void>((resolve) => http.close(() => resolve()));

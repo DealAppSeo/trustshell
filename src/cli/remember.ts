@@ -6,9 +6,12 @@ import { insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
 /** Authorization header tokens, including `Bearer <jwt>`. Tokens are assumed to be at least 8 characters. */
 const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/;
 
+/** Slack configuration tokens (`xoxc-…`). Open drafts cover `xoxb-` / `xoxp-` / `xoxa-` / `xoxe-` / `xoxr-` / `xoxs-`. */
+const XOXC = /\bxoxc-[a-z0-9]+/i;
+
 /** True when a value carries a secret shape and must not be stored. */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value);
+  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || XOXC.test(value);
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
