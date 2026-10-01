@@ -18,6 +18,8 @@
  *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
  *   - remember       — write a note into the local sqlite file. No network.
  *   - recall         — list saved notes from that file. No network.
+ *   - redact         — delete one keyed row. Missing is NOT_CHECKED. No network.
+ *   - repid          — alias of get_repid / getRepID.
  *   - verify_output  — canonical name for verify/evaluate (SDK verifyOutput).
  *   - get_repid      — canonical name for getRepID.
  *   - verify_proof   — client-side WASM proof verification (SDK verifyProof). Nothing leaves the host.
@@ -41,6 +43,7 @@ import { TrustShell } from '../lib/trustshell';
 import { redact } from '../memory/redact';
 import { resolvePackageVersion } from '../lib/version';
 import { buildStatusReport, statusJsonFromText } from '../cli/status';
+import { redactKey } from '../cli/redact-key';
 import { recallLocal, rememberLocal } from './memory';
 
 /**
@@ -238,6 +241,24 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     },
   );
 
+  registerTool(
+    'redact',
+    {
+      title: 'Local redact',
+      description: 'Delete one KEY row from the local sqlite memory. Missing is NOT_CHECKED. No network.',
+      inputSchema: {
+        key: z.string().min(1).describe('The key whose row to delete.'),
+      },
+    },
+    async ({ key }: { key: string }) => {
+      try {
+        return jsonResult({ result: redactKey(key) });
+      } catch (e: any) {
+        return errorResult(`redact failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
   // --- 1.4 CLI parity: snake_case names -----------------------------------------------------
   //
   // The CLI and SDK are the naming authority; the MCP surface had drifted to camelCase for two
@@ -273,6 +294,18 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       description:
         "Canonical name for getRepID — matches `trustshell repid`. Fetches an agent's live RepID " +
         'score and tier from the public repid-engine (keyless).',
+      inputSchema: {
+        agentId: z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
+      },
+    },
+    getRepidHandler,
+  );
+  registerTool(
+    'repid',
+    {
+      title: 'RepID',
+      description:
+        "Alias of get_repid. Fetches an agent's live RepID score and tier from the public repid-engine (keyless).",
       inputSchema: {
         agentId: z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
       },

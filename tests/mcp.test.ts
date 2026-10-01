@@ -55,7 +55,9 @@ describe('trustshell MCP server', () => {
       'get_repid',
       'present_proof',
       'recall',
+      'redact',
       'remember',
+      'repid',
       'status',
       'verify',
       'verify_output',
@@ -87,6 +89,14 @@ describe('trustshell MCP server', () => {
     const r = await getTool(server, 'get_repid').handler({ agentId: 'trinity-shofet' });
     expect((client as any).getRepID).toHaveBeenCalledWith('trinity-shofet');
     expect(JSON.parse(r.content[0].text).tier).toBe('ESTABLISHED');
+  });
+
+  it('repid is the same lookup as get_repid', async () => {
+    const client = mockClient();
+    const server: any = createServer(client);
+    const r = await getTool(server, 'repid').handler({ agentId: 'trinity-shofet' });
+    expect((client as any).getRepID).toHaveBeenCalledWith('trinity-shofet');
+    expect(JSON.parse(r.content[0].text).repid).toBe(1000);
   });
 
   it('verify_proof delegates to client.verifyProof for a presentation', async () => {

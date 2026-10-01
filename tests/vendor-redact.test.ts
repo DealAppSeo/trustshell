@@ -70,4 +70,13 @@ describe('vendor packets drop secret shapes', () => {
     expect(bodies).toHaveLength(1);
     expectClean(bodies[0] as string);
   });
+
+  it('strips a fake secret from the MCP verify claim before the posted body', async () => {
+    const server = createServer(new TrustShell({ apiUrl: 'https://engine.test' })) as unknown as {
+      _registeredTools?: Record<string, { handler: (args: unknown) => Promise<unknown> }>;
+    };
+    await getTool(server, 'verify').handler({ text: CLAIM });
+    expect(bodies).toHaveLength(1);
+    expectClean(bodies[0] as string);
+  });
 });
