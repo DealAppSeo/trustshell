@@ -100,6 +100,22 @@ export function firstPassObject(
   return { true: pass.TRUE, false: pass.FALSE, not_checked: pass.NOT_CHECKED };
 }
 
+/** verify --json honesty vote counts. A missing column is omitted, never filled with 0. */
+export function honestyCountObject(
+  body: unknown,
+): { true: number; false: number; not_checked: number } | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const record = body as Record<string, unknown>;
+  if (record.status !== 'counted' || !Array.isArray(record.rows) || !record.rows[0] || typeof record.rows[0] !== 'object') {
+    return undefined;
+  }
+  const row = record.rows[0] as Record<string, unknown>;
+  if (typeof row.TRUE !== 'number' || typeof row.FALSE !== 'number' || typeof row.NOT_CHECKED !== 'number') {
+    return undefined;
+  }
+  return { true: row.TRUE, false: row.FALSE, not_checked: row.NOT_CHECKED };
+}
+
 /** verify --json post_hal. A missing column is omitted. A non-verdict is NOT_CHECKED, never 0. */
 export function postHalValue(body: unknown): 'TRUE' | 'FALSE' | 'NOT_CHECKED' | undefined {
   if (!body || typeof body !== 'object') return undefined;

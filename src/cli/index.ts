@@ -38,7 +38,7 @@ import {
   inspectExitCode,
 } from '../lib/inspect';
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
-import { buildStatusReport, familyHostVerdictLine, firstPassLines, firstPassObject, honestyRowsLine, loadHonestyBody, postHalReceipt, postHalValue, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
+import { buildStatusReport, familyHostVerdictLine, firstPassLines, firstPassObject, honestyCountObject, honestyRowsLine, loadHonestyBody, postHalReceipt, postHalValue, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { resolveLayaLane } from './laya-lane';
 import { rememberKey, rememberNote, refusedValue } from './remember';
@@ -630,6 +630,8 @@ export async function run(
           if (counted) payload.first_pass = counted;
           const postHal = offline ? undefined : postHalValue(body);
           if (postHal) payload.post_hal = postHal;
+          const counts = offline ? undefined : honestyCountObject(body);
+          if (counts) payload.honesty_counts = counts;
           io.out(JSON.stringify(payload, null, 2));
         } else {
           io.out(formatVerify(r));
