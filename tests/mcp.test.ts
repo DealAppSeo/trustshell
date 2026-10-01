@@ -63,6 +63,7 @@ describe('trustshell MCP server', () => {
       'verify_output',
       'verify_proof',
     ]);
+    expect(names).not.toContain('stake');
   });
 
   // The camelCase names are PUBLISHED (1.4.0 is live on npm), so dropping one is a breaking

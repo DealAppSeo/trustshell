@@ -44,6 +44,7 @@ import { redact } from '../memory/redact';
 import { resolvePackageVersion } from '../lib/version';
 import { buildStatusReport, statusJsonFromText } from '../cli/status';
 import { redactKey } from '../cli/redact-key';
+import { refusedValue } from '../cli/remember';
 import { recallLocal, rememberLocal } from './memory';
 
 /**
@@ -217,10 +218,12 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       },
     },
     async ({ text }: { text: string }) => {
+      if (refusedValue(text)) return errorResult('remember refused');
       try {
         return jsonResult(rememberLocal(text));
       } catch (e: any) {
-        return errorResult(`remember failed: ${e?.message ?? String(e)}`);
+        const message = e?.message === 'remember refused' ? 'remember refused' : `remember failed: ${e?.message ?? String(e)}`;
+        return errorResult(message);
       }
     },
   );
