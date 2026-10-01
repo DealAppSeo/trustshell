@@ -11,7 +11,14 @@
   "bin": {
     "trustshell": "dist/cli/index.js",
     "hal": "dist/cli/index.js",
-    "trustshell-mcp": "dist/mcp/index.js"
+    "trustshell-mcp": "dist/mcp/index.js",
+    "remember": "bin/remember.js",
+    "recall": "bin/recall.js",
+    "redact": "bin/redact.js",
+    "verify": "bin/verify.js",
+    "repid": "bin/repid.js",
+    "proof": "bin/proof.js",
+    "status": "bin/status.js"
   },
   "exports": {
     ".": {
@@ -40,7 +47,14 @@
     "LICENSE",
     "scripts/init-pai.mjs",
     "scripts/value-events.mjs",
-    "lib/interview.js"
+    "lib/interview.js",
+    "bin/remember.js",
+    "bin/recall.js",
+    "bin/redact.js",
+    "bin/verify.js",
+    "bin/repid.js",
+    "bin/proof.js",
+    "bin/status.js"
   ],
   "scripts": {
     "dev": "next dev",
