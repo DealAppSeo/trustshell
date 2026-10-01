@@ -109,6 +109,9 @@ describe('mcp stdio smoke', () => {
       expect(packed).not.toContain(SECRET);
       expect(bodies.join('\n')).not.toContain(SECRET);
       expect(stderr.join('')).not.toContain(SECRET);
+      const recalled = await client.callTool({ name: 'recall', arguments: {} });
+      expect(JSON.stringify(recalled)).not.toContain(SECRET);
+      expect(stderr.join('')).not.toContain(SECRET);
       const stored = existsSync(db) ? readFileSync(db) : Buffer.alloc(0);
       expect(stored.includes(SECRET)).toBe(false);
     } finally {
