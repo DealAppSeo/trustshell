@@ -10,6 +10,15 @@
       "env": {
         "CODEGRAPH_TELEMETRY": "0"
       }
+    },
+    "trustshell": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-p",
+        "@hyperdag/trustshell@1.4.0",
+        "trustshell-mcp"
+      ]
     }
   }
 }
