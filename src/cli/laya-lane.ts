@@ -8,11 +8,9 @@ import { redact } from '../memory/redact';
 import { layaHook } from '../laya/hook';
 import { classify, type LayaLane } from './classify';
 
-const DEFAULT_ENGINE = 'https://repid-engine-production.up.railway.app';
 const CLASSIFY_TIMEOUT_MS = 200;
 
 function engineOrigin(env: NodeJS.ProcessEnv): string | null {
-  if (!Object.prototype.hasOwnProperty.call(env, 'TRUSTSHELL_API_URL')) return DEFAULT_ENGINE;
   const trimmed = (env.TRUSTSHELL_API_URL ?? '').trim().replace(/\/$/, '');
   return trimmed.length > 0 ? trimmed : null;
 }

@@ -9,6 +9,14 @@ import { classify } from '../src/cli/classify';
 import { layaRecords } from '../src/laya/hook';
 import { TrustShell } from '../src/lib/trustshell';
 
+jest.mock('../src/cli/classify', () => {
+  const actual = jest.requireActual('../src/cli/classify') as typeof import('../src/cli/classify');
+  return {
+    ...actual,
+    classify: jest.fn((text: string) => actual.classify(text)),
+  };
+});
+
 const ENGINE = 'https://engine.test';
 const PARIS = 'The capital of France is Paris.';
 
@@ -45,6 +53,7 @@ describe('laya classify', () => {
     process.env.TRUSTSHELL_API_URL = ENGINE;
     delete process.env.OFFLINE;
     delete process.env.TRUSTSHELL_LAYA;
+    (classify as unknown as jest.Mock).mockClear();
   });
 
   afterEach(() => {
@@ -61,6 +70,8 @@ describe('laya classify', () => {
     expect(classify('ok')).toBe('cheap');
     expect(classify(PARIS)).toBe('escalate');
     expect(classify('Is this true?')).toBe('ask');
+    expect(classify('')).toBe('ask');
+    expect(classify('   ')).toBe('ask');
   });
 
   it('does not call a paid API from classify.ts', () => {
@@ -88,6 +99,7 @@ describe('laya classify', () => {
     expect(cap.out.join('\n')).not.toContain('laya cheap');
     expect(cap.out.join('\n')).not.toBe('ASK');
     expect(layaRecords().length).toBe(before);
+    expect(classify).not.toHaveBeenCalled();
   });
 
   it('local skips HAL for ok and prints receipt_written false', async () => {
@@ -122,6 +134,7 @@ describe('laya classify', () => {
     expect(body).not.toHaveProperty('claim');
     expect(raw).not.toMatch(/"receipt_written"\s*:\s*0\b/);
     expect(calls).toEqual([]);
+    expect(classify).toHaveBeenCalledWith('ok');
   });
 
   it('local prints ASK and exits 4 without calling HAL', async () => {
@@ -231,6 +244,69 @@ describe('laya classify', () => {
     const code = await run(parseArgs(['verify', 'ok']), new TrustShell({ apiUrl: ENGINE }), cap.io);
     expect(code).toBe(EXIT.OK);
     expect(calls.some((line) => line.includes('/api/v1/laya/classify'))).toBe(true);
+    expect(calls.some((line) => line.includes('/api/v1/hal/evaluate'))).toBe(true);
+    expect(cap.out.join('\n')).not.toContain('laya cheap');
+  });
+
+  it('fails if classify is imported but verify never calls it', () => {
+    const indexSrc = readFileSync(join(__dirname, '../src/cli/index.ts'), 'utf8').replace(/\r/g, '');
+    const laneSrc = readFileSync(join(__dirname, '../src/cli/laya-lane.ts'), 'utf8').replace(/\r/g, '');
+    const marker = "case 'verify':\n    case 'evaluate': {";
+    const start = indexSrc.indexOf(marker);
+    const next = indexSrc.indexOf("\n    case '", start + marker.length);
+    const verify = start === -1 ? '' : (next === -1 ? indexSrc.slice(start) : indexSrc.slice(start, next));
+    const imported = /from '\.\/classify'/.test(indexSrc) || /from '\.\/classify'/.test(laneSrc);
+    const called = /\bclassify\(/.test(verify) || (/\bresolveLayaLane\(/.test(verify) && /\bclassify\(/.test(laneSrc));
+    expect(imported).toBe(true);
+    expect(called).toBe(true);
+    expect(laneSrc).toMatch(/TRUSTSHELL_API_URL/);
+    expect(laneSrc).not.toMatch(/repid-engine-production/);
+    expect(laneSrc).toMatch(/\/api\/v1\/laya\/classify/);
+  });
+
+  it('cheap does not hit a groq, cerebras, or zai provider mock', async () => {
+    process.env.TRUSTSHELL_LAYA = 'local';
+    const hits: string[] = [];
+    const providerUrls = [
+      'https://api.groq.com/openai/v1/chat/completions',
+      'https://api.cerebras.ai/v1/chat/completions',
+      'https://api.z.ai/api/paas/v4/chat/completions',
+    ];
+    global.fetch = (async (input: RequestInfo | URL) => {
+      hits.push(String(input));
+      return new Response('{"ok":true}', { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+    const verifyOutput = jest.fn(async () => {
+      hits.push('verifyOutput');
+      for (const url of providerUrls) await fetch(url);
+      return { verdict: 'TRUE' };
+    });
+    const cap = capture();
+    const code = await run(parseArgs(['verify', 'ok']), { verifyOutput } as unknown as TrustShell, cap.io);
+    expect(code).toBe(EXIT.OK);
+    expect(cap.out).toEqual(['laya cheap NOT_CHECKED']);
+    expect(verifyOutput).not.toHaveBeenCalled();
+    expect(hits.filter((hit) => /groq|cerebras|z\.ai|verifyOutput|\/api\/v1\/hal\/evaluate/i.test(hit))).toEqual([]);
+  });
+
+  it('engine without TRUSTSHELL_API_URL escalates and does not call the default host', async () => {
+    process.env.TRUSTSHELL_LAYA = 'engine';
+    delete process.env.TRUSTSHELL_API_URL;
+    const calls: string[] = [];
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? 'GET').toUpperCase();
+      calls.push(`${method} ${url}`);
+      if (method === 'POST' && url.endsWith('/api/v1/hal/evaluate')) return evaluateResponse();
+      return classifyResponse('cheap');
+    }) as typeof fetch;
+
+    const cap = capture();
+    const code = await run(parseArgs(['verify', 'ok']), new TrustShell({ apiUrl: ENGINE }), cap.io);
+    expect(code).toBe(EXIT.OK);
+    const layaCalls = calls.filter((line) => line.includes('/api/v1/laya/classify'));
+    expect(layaCalls).toEqual([]);
+    expect(calls.some((line) => line.includes('railway.app') && line.includes('/api/v1/laya/classify'))).toBe(false);
     expect(calls.some((line) => line.includes('/api/v1/hal/evaluate'))).toBe(true);
     expect(cap.out.join('\n')).not.toContain('laya cheap');
   });

@@ -20,7 +20,7 @@ const CHEAP = new Set([
 
 export function classify(text: string): LayaLane {
   const trimmed = text.trim();
-  if (trimmed.endsWith('?')) return 'ask';
+  if (!trimmed || trimmed.endsWith('?')) return 'ask';
   const key = trimmed.toLowerCase().replace(/[.!]+$/g, '');
   if (CHEAP.has(key)) return 'cheap';
   return 'escalate';
