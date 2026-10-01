@@ -29,7 +29,7 @@ export function encryptMemory(body: string, env: NodeJS.ProcessEnv = process.env
     throw new Error(`NOT_CHECKED ${KEY} missing`);
   }
   const key = deriveKey(password);
-  const iv = randomBytes(16);
+  const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
   const encrypted = Buffer.concat([cipher.update(body, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
@@ -48,10 +48,14 @@ export function decryptMemory(body: string, env: NodeJS.ProcessEnv = process.env
     throw new Error('NOT_CHECKED malformed encrypted memory');
   }
   const [ivB64, tagB64, encryptedB64] = parts;
+  const iv = Buffer.from(ivB64, 'base64');
+  const tag = Buffer.from(tagB64, 'base64');
+  if (iv.length !== 12) throw new Error('NOT_CHECKED invalid iv');
+  if (tag.length !== 16) throw new Error('NOT_CHECKED invalid auth tag');
   try {
     const key = deriveKey(password);
-    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivB64, 'base64'));
-    decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
     const decrypted = Buffer.concat([
       decipher.update(Buffer.from(encryptedB64, 'base64')),
       decipher.final(),
