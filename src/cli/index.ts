@@ -40,6 +40,7 @@ import {
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
 import { buildStatusReport, familyHostVerdictLine, firstPassLines, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
+import { classify } from './classify';
 import { rememberKey, rememberNote } from './remember';
 import { recallKey, recallNotes } from './recall';
 import { redactKey } from './redact-key';
@@ -56,6 +57,8 @@ export const EXIT = {
   USAGE: 2,
   /** Runtime error (network / backend / timeout). */
   RUNTIME: 3,
+  /** Laya ask. A person has to answer. HAL was not called. */
+  ASK: 4,
 } as const;
 
 export type Command =
@@ -563,6 +566,24 @@ export async function run(
 
     case 'verify':
     case 'evaluate': {
+      const claim = String(args.operand ?? '');
+      const lane = classify(claim);
+      if (lane === 'ask') {
+        io.out('ASK');
+        return EXIT.ASK;
+      }
+      if (lane === 'cheap') {
+        const verdictLine = 'laya cheap NOT_CHECKED';
+        if (args.json) {
+          io.out(JSON.stringify({
+            receipt_written: false,
+            family_host_verdict: verdictLine,
+          }, null, 2));
+        } else {
+          io.out(verdictLine);
+        }
+        return EXIT.OK;
+      }
       const honestyPromise = loadHonestyBody({ env: process.env, fetchImpl: fetch });
       const passFrom = (body: unknown | null): string =>
         (body == null ? ['first-pass NOT_CHECKED'] : firstPassLines(body)).join('\n');
