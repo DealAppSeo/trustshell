@@ -41,7 +41,7 @@ import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from 
 import { buildStatusReport, familyHostVerdictLine, firstPassLines, firstPassObject, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
 import { resolveLayaLane } from './laya-lane';
-import { rememberKey, rememberNote } from './remember';
+import { rememberKey, rememberNote, refusedValue } from './remember';
 import { recallKey, recallNotes } from './recall';
 import { redactKey } from './redact-key';
 import { bindStatusText } from './bind-status';
@@ -524,13 +524,18 @@ export async function run(
 
     case 'remember': {
       try {
+        const value = String(args.operand ?? '');
+        if (refusedValue(value)) {
+          io.err('remember refused');
+          return EXIT.USAGE;
+        }
         if (args.key) {
-          const stored = rememberKey(args.key, args.operand as string);
+          const stored = rememberKey(args.key, value);
           if (!stored) {
             io.err('remember refused');
             return EXIT.USAGE;
           }
-        } else rememberNote(args.operand as string);
+        } else rememberNote(value);
         io.out('remembered');
         return EXIT.OK;
       } catch (e: any) {
