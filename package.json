@@ -54,7 +54,14 @@
     "bin/verify.js",
     "bin/repid.js",
     "bin/proof.js",
-    "bin/status.js"
+    "bin/status.js",
+    "evaluate",
+    "badge",
+    "check",
+    "inspect",
+    "init",
+    "bind-status",
+    "report"
   ],
   "scripts": {
     "dev": "next dev",
