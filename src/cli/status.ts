@@ -183,6 +183,14 @@ export function familyHostVerdictLine(body: unknown, verdict: HalVerdict): strin
  * One extra line after verify. A counted body prints the real row count.
  * Timeout, non-200, or a missing status is NOT_CHECKED, never rows=0.
  */
+/** verify --json row count. A missing status or rows array is omitted, never 0. */
+export function honestyRowsValue(body: unknown): number | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const record = body as Record<string, unknown>;
+  if (record.status !== 'counted' || !Array.isArray(record.rows)) return undefined;
+  return record.rows.length;
+}
+
 export function honestyRowsLine(body: unknown): string {
   const missing = 'honesty-a rows=NOT_CHECKED status=NOT_CHECKED';
   if (!body || typeof body !== 'object') return missing;
