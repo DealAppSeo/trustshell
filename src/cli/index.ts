@@ -45,6 +45,7 @@ import { rememberKey, rememberNote } from './remember';
 import { recallKey, recallNotes } from './recall';
 import { redactKey } from './redact-key';
 import { bindStatusText } from './bind-status';
+import { scrubPrinted } from './scrub-print';
 import { join } from 'node:path';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -488,8 +489,8 @@ export interface CliIO {
 }
 
 const realIO: CliIO = {
-  out: (s) => process.stdout.write(s + '\n'),
-  err: (s) => process.stderr.write(s + '\n'),
+  out: (s) => process.stdout.write(scrubPrinted(s) + '\n'),
+  err: (s) => process.stderr.write(scrubPrinted(s) + '\n'),
 };
 
 /**
@@ -873,7 +874,8 @@ const isEntry = (() => {
 
 if (isEntry) {
   main().catch((e) => {
-    process.stderr.write(`trustshell: fatal: ${e?.stack ?? e}\n`);
+    const detail = e instanceof Error ? (e.stack ?? e.message) : String(e);
+    process.stderr.write(scrubPrinted(`trustshell: fatal: ${detail}\n`));
     process.exit(EXIT.RUNTIME);
   });
 }
