@@ -601,14 +601,15 @@ export async function run(
           verdict: r.verdict,
         });
         if (args.json) {
-          const verdictLine = familyHostVerdictLine(body, r.verdict);
+          const offline = process.env.OFFLINE === '1';
+          const verdictLine = offline ? 'NOT_CHECKED' : familyHostVerdictLine(body, r.verdict);
           const payload: Record<string, unknown> = {
             receipt_written: receiptWrittenValue(receipt),
             family_host_verdict: verdictLine,
-            ...r,
+            ...(offline ? {} : r),
             firstPass: pass,
           };
-          const counted = firstPassObject(body);
+          const counted = offline ? undefined : firstPassObject(body);
           if (counted) payload.first_pass = counted;
           io.out(JSON.stringify(payload, null, 2));
         } else {
