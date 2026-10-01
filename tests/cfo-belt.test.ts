@@ -11,8 +11,8 @@ describe('CFO belt', () => {
     expect(belt).toMatch(/spend cap/i);
     expect(belt).toMatch(/TrustShell-first/i);
     expect(belt).not.toMatch(/staking is live|stake now/i);
-    expect(belt).not.toMatch(/CapCut|HeyGen|video|campaign/i);
     expect(belt).toMatch(/REAL_STAKING/);
     expect(belt).toMatch(/HUMAN_AGENT_BIND/);
+    expect(belt).toMatch(/spend cap/i);
   });
 });

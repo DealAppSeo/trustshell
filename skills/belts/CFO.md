@@ -22,7 +22,7 @@ TrustShell money is receipt-first. No receipt, no spend.
 - HUMAN_AGENT_BIND
 - Any stake flag
 - Production SQL
-- CapCut / HeyGen / video / campaign tasks
+- Creative production or campaign tasks
 - Live money moves
 
 ## Laya
