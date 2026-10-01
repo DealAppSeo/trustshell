@@ -1,18 +1,21 @@
-# BUS — TrustShell MVP → shippable E2E
-Updated 2026-09-15.
+# BUS — TrustShell V1 closeout
+Updated 2026-09-30.
 
-## Closed on branches (not published)
-E1 unique evidence_id. E2 exclusive floor + window. E3 SQL written not applied. E4 happy-path settle fixtures. E5 score_lane. E6 C9/C10 scratch. S1 A7 filter. S2 #156-158 green. S3 measured quorum or 503. S4 extra cases #756. S5/S11 envelope exported on verify. S6 present_proof on packed tree. S8 README pin 1.3.0. S10 evaluate=verifyOutput alias. S12 local e2e:mvp on pack. #159 refuse eyJ fallback.
-
-## OPEN
-F-PUBLISH — Sean: npm publish packed candidate after audit.
-F-DDL — Sean: apply unique-on-evidence_id after reading SQL.
-F-E2E-PUB — after publish, e2e:mvp against @latest.
-F-LIVE-SETTLE — one production service_contracts row reaches settled.
-F-STACK-GH — TrustShell stack exists on GitHub as one PR, not only local feat/xc2-2026-09-15-stack.
-F-754-CLEAN — rebase #754 if dirty; fold #756; merge when CI green (policy allows if no version bump / no apply-SQL).
-F-SITE — site version = published @latest after publish.
+When idle: `git pull origin main` then take the first OPEN box that is not already on main.
+One PR per letter. Skip if already shipped. 249 stays draft. Version 1.4.0. No npm publish. No HeyGen. No stake now.
 
 ## Locks
-XC1: repid-engine #754 branch only.
-XC2: trustshell stack only. Never #754 scoring files.
+XC1 only. Do not edit repid-engine or trustkeys.
+Do not flip REAL_STAKING. Do not edit .mcp.json.
+
+## OPEN (do in order)
+A. Stranger CLI — `--help` lists verify, repid, proof, status, remember, recall, redact. `package.json` bin + files[] ship those seven. `npm pack --dry-run` contains each bin. README names only those bins.
+B. `verify --json` — `receipt_written` is true|false|NOT_CHECKED. Then `family host verdict`. Missing receipt = NOT_CHECKED never 0. No claim text. `first_pass` object only when honesty-a counted; omit key if missing.
+C. Laya in front of HAL — `TRUSTSHELL_LAYA` unset = today quorum. `=local` uses src/laya, no network. `=engine` POST /api/v1/laya/classify, 200ms timeout → escalate. cheap skip HAL exit 0. escalate HAL. ask exit 4 ASK. Tests: ok=cheap, Paris=escalate, empty=ask.
+D. Memory refuse on MCP path — sb_secret_ / postgresql:// / eyJ → exit 2, nothing written. Same refuse before tool result serialize.
+E. MCP tools in src/mcp/index.ts = verify, repid, status, remember, recall, redact. A tool named stake fails CI. Fake secret absent from posted body.
+F. Site copy lock — hero: A portable trust harness. Autonomy is earned. / Check a claim. See the receipt. Keep your keys. Ban: stake now, every transaction earns RepID, verify moves RepID. /why notes-on-machine only if --help lists remember.
+G. tests/v1-stranger-path.test.ts covers A–F offline. No live Paris network in that file.
+
+## CLOSED tonight (do not redo)
+remember/recall/redact on main (dd3655d2). Pack bins / help / receipt_written / landing hero / MCP tools PRs 305–313 if merged. 249 remains draft.
