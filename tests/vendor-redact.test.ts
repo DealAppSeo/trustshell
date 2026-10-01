@@ -8,7 +8,10 @@ import { createServer } from '../src/mcp';
 const SECRET = 'sb_secret_FAKE';
 const POSTGRES = 'postgresql://fake:fake@localhost/db';
 const EYJ = 'eyJhbGciOiJub25lIn0';
-const CLAIM = `ship the receipt ${SECRET} ${POSTGRES} ${EYJ} done`;
+const BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.dBjftJeZ4CVP';
+const BEARER_HEADER = `Authorization: Bearer ${BEARER_TOKEN}`;
+const API_KEY = 'sk-live-abc123def456';
+const CLAIM = `ship the receipt ${SECRET} ${POSTGRES} ${EYJ} ${BEARER_HEADER} apiKey ${API_KEY} done`;
 
 function halOk(): Response {
   return new Response(
@@ -50,6 +53,10 @@ describe('vendor packets drop secret shapes', () => {
     expect(raw).not.toContain('sb_secret_');
     expect(raw).not.toContain('postgresql://');
     expect(raw).not.toContain('eyJ');
+    expect(raw).not.toContain(BEARER_TOKEN);
+    expect(raw).not.toContain('Bearer ');
+    expect(raw).not.toContain(API_KEY);
+    expect(raw).not.toContain('sk-');
     expect(raw).toContain('ship the receipt');
     expect(raw).toContain('done');
   }
