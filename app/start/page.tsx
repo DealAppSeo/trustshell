@@ -19,6 +19,8 @@ export default function StartPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-20 text-white">
       <div className="mx-auto max-w-xl space-y-6">
+        <p className="text-3xl font-extrabold tracking-tight text-white">AI lies. Now it has to show its work.</p>
+        <p className="text-base text-slate-300">Check any claim. Get a receipt. Your keys stay yours.</p>
         <h1 className="text-3xl font-extrabold tracking-tight text-white">{QUESTION}</h1>
         <div className="flex flex-wrap gap-3">
           {CLIENTS.map((name) => (

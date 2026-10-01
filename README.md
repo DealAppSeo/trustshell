@@ -1,6 +1,6 @@
-# A portable trust harness so AI has to earn it.
+# AI lies. Now it has to show its work.
 
-Check a claim. See the receipt. Keep your keys.
+Check any claim. Get a receipt. Your keys stay yours.
 
 <!--
   Embed slot. The player stays out of the README until the file is in the repo.
@@ -11,8 +11,8 @@ Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists:
 
 ```bash
 npm i -g @hyperdag/trustshell@1.4.0
-trustshell verify "The capital of France is Paris."
-trustshell verify "The Eiffel Tower is located in Rome, Italy."
+trustshell verify "paste your own claim"
+trustshell repid trinity-shofet
 ```
 
 <div align="center">

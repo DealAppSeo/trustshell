@@ -6,7 +6,8 @@ const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
 trustshell status`;
 
 const FIRST_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
-trustshell verify "paste your own claim"`;
+trustshell verify "paste your own claim"
+trustshell repid trinity-shofet`;
 
 const MCP_PASTE = `{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }`;
 

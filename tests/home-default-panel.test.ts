@@ -28,6 +28,7 @@ describe('home default panel', () => {
     expect(first?.[1].replace(/\r/g, '').split('\n')).toEqual([
       'npm i -g @hyperdag/trustshell@1.4.0',
       'trustshell verify "paste your own claim"',
+      'trustshell repid trinity-shofet',
     ]);
     expect(idle).not.toMatch(/memory\.sqlite/);
     expect(idle).not.toMatch(/Startup|Enterprise/);
