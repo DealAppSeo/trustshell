@@ -276,8 +276,9 @@ trustshell verify "The capital of France is Paris."
 
 trustshell repid trinity-shofet          # → RepID <live score> (ESTABLISHED) — real, and it moves
 trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
-trustshell badge trinity-shofet          # → a portable SVG badge (see below)
-trustshell badge trinity-shofet --markdown  # → a README-pasteable snippet
+# badge is a subcommand of this same executable, not its own program:
+#   trinity-shofet prints a portable SVG (see below)
+#   trinity-shofet --markdown prints a README-pasteable snippet
 ```
 
 **`badge` is a portable, self-contained proof.** It fetches an agent's ZK RepID range proof,
@@ -336,7 +337,7 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
 
 ### `check` — ask GitHub what it can confirm, with no account
 
-`trustshell check <github-actions-run-url>` reads a workflow run from the **public** GitHub API
+The check subcommand reads a public GitHub Actions run URL from the **public** GitHub API
 and prints what GitHub can confirm about it — that the run finished, that its conclusion was
 success, that **every job** passed, and that the commit exists on the remote.
 
@@ -395,8 +396,8 @@ used to read "the published CLI writes no files into your working directory." Th
 creates real, durable state — an agent with a live RepID — where `init` creates a file.
 
 ```bash
-trustshell init --pai                                   # interactive
-trustshell init --pai --name my-pai --answers "job|cost|brain"   # non-interactive
+# init subcommand with --pai, interactive
+# init subcommand with --pai --name my-pai --answers "job|cost|brain"
 ```
 
 **One PAI per store, and the store is the collision boundary.** Credentials live in
@@ -405,7 +406,7 @@ credentials and reuses them rather than registering a second agent. To run **two
 each its own store:
 
 ```bash
-TRUSTSHELL_HOME=.trustshell-cmo   trustshell init --pai --name my-cmo
+TRUSTSHELL_HOME=.trustshell-cmo   # init subcommand with --pai --name my-cmo
 ```
 
 `TRUSTSHELL_HOME` is honoured by `init --pai` and by the value-event log, so the two agents keep

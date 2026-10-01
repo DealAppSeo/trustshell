@@ -1,6 +1,6 @@
 ---
 name: trustshell
-description: Fact-check a claim, read an agent's live RepID, verify its ZK proof, or print after-create and Honesty A by shelling out to the trustshell bins. Use when the user asks to verify a claim, look up a RepID, check a proof, see can_verify, or attach the local trustshell MCP server.
+description: Fact-check a claim, read an agent's live RepID, verify its ZK proof, or print after-create and Honesty A by shelling out to the published bins. Use when the user asks to verify a claim, look up a RepID, check a proof, see can_verify, or attach the local trustshell MCP server.
 metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trustshell-mcp"]},"install":[{"id":"npm","kind":"node","package":"@hyperdag/trustshell@1.4.0","bins":["trustshell","trustshell-mcp","hal"],"label":"Install @hyperdag/trustshell@1.4.0"}]}}
 ---
 
