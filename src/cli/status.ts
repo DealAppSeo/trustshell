@@ -214,6 +214,14 @@ export function receiptHumanLine(result: ReceiptResult): string | null {
   return 'receipt NOT_CHECKED';
 }
 
+/** verify --json receipt token. A skipped receipt is omitted. Never 0. */
+export function receiptToken(result: ReceiptResult): string | undefined {
+  const line = receiptHumanLine(result);
+  if (!line) return undefined;
+  const token = line.startsWith('receipt ') ? line.slice('receipt '.length) : line;
+  return token === '0' ? undefined : token;
+}
+
 /**
  * verify --json field. true when the receipt was written, false when the write
  * said it was not, NOT_CHECKED when the receipt is missing. Never 0.
