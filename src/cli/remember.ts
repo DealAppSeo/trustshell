@@ -3,9 +3,17 @@
  */
 import { insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
 
+/** Ethereum address: 0x followed by exactly 40 hex characters. */
+const WALLET_ADDRESS = /\b0x[0-9a-fA-F]{40}\b/;
+
 /** True when a value carries a secret shape and must not be stored. */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ');
+  return (
+    /sb_secret_/.test(value) ||
+    /postgresql:\/\//i.test(value) ||
+    value.includes('eyJ') ||
+    WALLET_ADDRESS.test(value)
+  );
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
