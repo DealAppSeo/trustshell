@@ -15,7 +15,9 @@
       "command": "npx",
       "args": [
         "-y",
-        "@hyperdag/trustshell-mcp"
+        "-p",
+        "@hyperdag/trustshell@1.4.0",
+        "trustshell-mcp"
       ]
     }
   }
