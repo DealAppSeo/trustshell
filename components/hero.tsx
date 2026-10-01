@@ -26,11 +26,11 @@ export function Hero() {
 
       <div className="max-w-3xl w-full min-w-0 mx-auto text-center space-y-8 relative z-10">
         <h1 className="max-w-full text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white text-wrap leading-tight">
-          A portable trust harness. Autonomy is earned.
+          AI lies. Now it has to show its work.
         </h1>
 
         <p className="max-w-xl mx-auto text-base sm:text-lg text-slate-300 text-wrap">
-          Check a claim. See the receipt. Keep your keys.
+          Check any claim. Get a receipt. Your keys stay yours.
         </p>
 
         <p className="max-w-xl mx-auto text-base text-slate-300 text-wrap">
@@ -38,7 +38,6 @@ export function Hero() {
         </p>
 
         <div className="max-w-xl w-full min-w-0 mx-auto text-left space-y-3">
-          <p className="text-sm text-slate-300">Solo PAI + CMO belt</p>
           <pre className="max-w-full overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 font-mono text-xs md:text-sm text-indigo-200 whitespace-pre-wrap break-words">
             <code>{FIRST_COMMANDS}</code>
           </pre>
