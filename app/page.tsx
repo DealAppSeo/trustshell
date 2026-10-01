@@ -3,18 +3,18 @@ import { Hero } from '@/components/hero';
 
 export const metadata: Metadata = {
   title: 'TrustShell',
-  description: 'AI lies. Now it has to show its work.',
+  description: 'A portable trust harness. Autonomy is earned.',
   keywords: ['TrustShell'],
   openGraph: {
     title: 'TrustShell',
-    description: 'AI lies. Now it has to show its work.',
+    description: 'A portable trust harness. Autonomy is earned.',
     type: 'website',
     url: 'https://trustshell.dev',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TrustShell',
-    description: 'AI lies. Now it has to show its work.',
+    description: 'A portable trust harness. Autonomy is earned.',
   },
 };
 
