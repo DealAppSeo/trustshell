@@ -164,6 +164,7 @@ export function honestyRowsLine(body: unknown): string {
 export type ReceiptResult =
   | 'skipped'
   | 'written'
+  | 'unwritten'
   | '204'
   | 'columns-missing'
   | 'receipt-missing'
@@ -181,6 +182,16 @@ export function receiptHumanLine(result: ReceiptResult): string | null {
   if (result === 'receipt-missing') return 'receipt receipt-missing';
   if (result === 'insert-error') return 'receipt insert-error';
   return 'receipt NOT_CHECKED';
+}
+
+/**
+ * verify --json field. true when the receipt was written, false when the write
+ * said it was not, NOT_CHECKED when the receipt is missing. Never 0.
+ */
+export function receiptWrittenValue(result: ReceiptResult): true | false | 'NOT_CHECKED' {
+  if (result === 'written' || result === '204') return true;
+  if (result === 'unwritten' || result === 'insert-error') return false;
+  return 'NOT_CHECKED';
 }
 
 function namedReceipt(parsed: Record<string, unknown>): ReceiptResult | null {
@@ -229,7 +240,7 @@ export async function postHalReceipt(opts: {
     }
     const named = parsed ? namedReceipt(parsed) : null;
     if (res.status === 200) {
-      if (parsed?.written === false) return named ?? 'NOT_CHECKED';
+      if (parsed?.written === false) return named ?? 'unwritten';
       return 'written';
     }
     if (named) return named;
