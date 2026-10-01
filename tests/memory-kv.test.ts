@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
+import { refusedValue } from '../src/cli/remember';
 import { memoryDbPath, readKeyed, writeKeyed } from '../src/memory/local-store';
 
 const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
@@ -114,7 +115,13 @@ describe('keyed local memory', () => {
   it('refuses a secret-shaped value and does not write or call out', async () => {
     expect(cliSrc).not.toMatch(/\bPOST\b|fetch\(|https?:\/\//);
     expect(cliSrc).not.toMatch(/HeyGen|stake/i);
-    const secrets = ['sb_secret_FAKE', 'postgresql://fake:fake@localhost/db', 'prefix eyJhbGciOiJub25lIn0 suffix'];
+    const secrets = [
+      'sb_secret_FAKE',
+      'postgresql://fake:fake@localhost/db',
+      'prefix eyJhbGciOiJub25lIn0 suffix',
+      'ghp_000000000000000000000000000000000000',
+      'github_pat_0000000000000000000000000000000000000000000000000000000000000000',
+    ];
     for (const value of secrets) {
       const result = await go(['remember', 'alpha', value]);
       expect(result.code).toBe(2);
@@ -123,9 +130,15 @@ describe('keyed local memory', () => {
       expect(result.err.join('\n')).not.toContain('sb_secret_');
       expect(result.err.join('\n')).not.toContain('postgresql://');
       expect(result.err.join('\n')).not.toContain('eyJ');
+      expect(result.err.join('\n')).not.toContain('ghp_');
+      expect(result.err.join('\n')).not.toContain('github_pat_');
     }
     expect(existsSync(db)).toBe(false);
     expect(calls).toEqual([]);
+
+    expect(refusedValue('ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')).toBe(true);
+    expect(refusedValue('github_pat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')).toBe(true);
+    expect(refusedValue('plain note')).toBe(false);
 
     expect((await go(['remember', 'alpha', 'sb_publishable_keep'])).code).toBe(0);
     expect((await go(['recall', 'alpha'])).out).toEqual(['sb_publishable_keep']);
