@@ -1,6 +1,7 @@
 /**
  * Spawn the local MCP entry over stdio. A tool named stake fails.
- * remember of sb_secret_abc is an error and the secret stays out of the result.
+ * remember of sb_secret_abc or postgresql:// is an error and the secret stays out of the result,
+ * stderr, sqlite file, and any outbound fetch body.
  */
 import { createServer as createHttp, type IncomingMessage } from 'node:http';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -11,6 +12,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const ROOT = join(__dirname, '..');
 const SECRET = 'sb_secret_abc';
+const POSTGRES = 'postgresql://fake:fake@localhost/db';
 
 const RUNNER = `
 const fs = require('fs');
@@ -100,17 +102,29 @@ describe('mcp stdio smoke', () => {
         expect(names).toContain(name);
       }
       expect(names).not.toContain('stake');
-      const result = await client.callTool({
-        name: 'remember',
-        arguments: { text: `note ${SECRET}` },
+      for (const leak of [SECRET, POSTGRES]) {
+        const result = await client.callTool({
+          name: 'remember',
+          arguments: { text: `note ${leak}` },
+        });
+        const packed = JSON.stringify(result);
+        expect(result.isError === true || packed.includes('remember refused')).toBe(true);
+        expect(packed).not.toContain(leak);
+      }
+
+      // Exercise the outbound fetch path too: redact must strip both shapes before the body is sent.
+      await client.callTool({
+        name: 'verify',
+        arguments: { text: `claim ${SECRET} connects via ${POSTGRES}` },
       });
-      const packed = JSON.stringify(result);
-      expect(result.isError === true || packed.includes('remember refused')).toBe(true);
-      expect(packed).not.toContain(SECRET);
+
       expect(bodies.join('\n')).not.toContain(SECRET);
+      expect(bodies.join('\n')).not.toContain(POSTGRES);
       expect(stderr.join('')).not.toContain(SECRET);
+      expect(stderr.join('')).not.toContain(POSTGRES);
       const stored = existsSync(db) ? readFileSync(db) : Buffer.alloc(0);
       expect(stored.includes(SECRET)).toBe(false);
+      expect(stored.includes(POSTGRES)).toBe(false);
     } finally {
       await client.close().catch(() => undefined);
       await new Promise<void>((resolve) => http.close(() => resolve()));
