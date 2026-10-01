@@ -100,6 +100,20 @@ export function firstPassObject(
   return { true: pass.TRUE, false: pass.FALSE, not_checked: pass.NOT_CHECKED };
 }
 
+/** verify --json post_hal. A missing column is omitted. A non-verdict is NOT_CHECKED, never 0. */
+export function postHalValue(body: unknown): 'TRUE' | 'FALSE' | 'NOT_CHECKED' | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const record = body as Record<string, unknown>;
+  const row =
+    Array.isArray(record.rows) && record.rows[0] && typeof record.rows[0] === 'object'
+      ? (record.rows[0] as Record<string, unknown>)
+      : null;
+  const holder = row && Object.prototype.hasOwnProperty.call(row, 'post_hal_verdict') ? row : record;
+  if (!Object.prototype.hasOwnProperty.call(holder, 'post_hal_verdict')) return undefined;
+  const word = verdictWord(holder.post_hal_verdict);
+  return word === 'TRUE' || word === 'FALSE' ? word : 'NOT_CHECKED';
+}
+
 function verdictWord(value: unknown): string {
   return value === 'TRUE' || value === 'FALSE' ? value : 'NOT_CHECKED';
 }
