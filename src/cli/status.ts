@@ -84,6 +84,22 @@ function passCounts(value: unknown): { TRUE: number; FALSE: number; NOT_CHECKED:
   return { TRUE: row.TRUE, FALSE: row.FALSE, NOT_CHECKED: row.NOT_CHECKED };
 }
 
+/** Counted first_pass for verify --json. Missing is omitted, never 0. */
+export function firstPassObject(
+  body: unknown,
+): { true: number; false: number; not_checked: number } | undefined {
+  if (!body || typeof body !== 'object') return undefined;
+  const record = body as Record<string, unknown>;
+  if (record.status !== 'counted') return undefined;
+  const row =
+    Array.isArray(record.rows) && record.rows[0] && typeof record.rows[0] === 'object'
+      ? (record.rows[0] as Record<string, unknown>)
+      : null;
+  const pass = passCounts(row?.first_pass) ?? passCounts(record.first_pass);
+  if (!pass) return undefined;
+  return { true: pass.TRUE, false: pass.FALSE, not_checked: pass.NOT_CHECKED };
+}
+
 function verdictWord(value: unknown): string {
   return value === 'TRUE' || value === 'FALSE' ? value : 'NOT_CHECKED';
 }
