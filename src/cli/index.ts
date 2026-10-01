@@ -40,7 +40,7 @@ import {
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
 import { buildStatusReport, familyHostVerdictLine, firstPassLines, firstPassObject, honestyRowsLine, loadHonestyBody, postHalReceipt, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
-import { classify } from './classify';
+import { resolveLayaLane } from './laya-lane';
 import { rememberKey, rememberNote } from './remember';
 import { recallKey, recallNotes } from './recall';
 import { redactKey } from './redact-key';
@@ -567,7 +567,7 @@ export async function run(
     case 'verify':
     case 'evaluate': {
       const claim = String(args.operand ?? '');
-      const lane = classify(claim);
+      const lane = await resolveLayaLane(claim, process.env, fetch);
       if (lane === 'ask') {
         io.out('ASK');
         return EXIT.ASK;
