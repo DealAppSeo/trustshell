@@ -21,8 +21,8 @@ describe('site install copy matches published 1.4.0', () => {
 
   it('hero is the one-screen win and does not interpolate package.json', () => {
     expect(hero).not.toMatch(/packageJson\.version/);
-    expect(hero).toMatch(/A portable trust harness\. Autonomy is earned\./);
-    expect(hero).toContain('Check a claim. See the receipt. Keep your keys.');
+    expect(hero).toMatch(/AI lies\. Now it has to show its work\./);
+    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('Check a claim in the chat you already use');
     expect(hero).toContain('I have a terminal');

@@ -34,7 +34,7 @@ describe('public copy ban', () => {
     }
     expect(hits).toEqual([]);
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
-    expect(hero).toContain('A portable trust harness. Autonomy is earned.');
-    expect(hero).toContain('Check a claim. See the receipt. Keep your keys.');
+    expect(hero).toContain('AI lies. Now it has to show its work.');
+    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
   });
 });
