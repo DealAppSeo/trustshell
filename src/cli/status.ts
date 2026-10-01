@@ -21,9 +21,9 @@ export function trustshellApiUrlSet(env: NodeJS.ProcessEnv): boolean {
   return (env.TRUSTSHELL_API_URL ?? '').trim().length > 0;
 }
 
+/** True only when SAYS_STAKE_LIVE is the exact string 'true'. */
 function saysStakeLive(env: NodeJS.ProcessEnv): boolean {
-  const raw = env.SAYS_STAKE_LIVE;
-  return typeof raw === 'string' && raw.trim().length > 0;
+  return env.SAYS_STAKE_LIVE === 'true';
 }
 
 function cell(value: unknown): string {

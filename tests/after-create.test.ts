@@ -98,7 +98,7 @@ describe('after-create', () => {
     expect(shadow.can_stake).toBe('shadow — not live');
 
     const labeled = await loadAfterCreate({
-      env: { ...testEnv, SAYS_STAKE_LIVE: '1' },
+      env: { ...testEnv, SAYS_STAKE_LIVE: 'true' },
       fetchImpl: async () => jsonResponse(200, body),
     });
     expect(labeled.can_stake).toBe('live');

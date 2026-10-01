@@ -29,9 +29,9 @@ export function engineBase(env: NodeJS.ProcessEnv = process.env): string | null 
   return trimmed.length > 0 ? trimmed.replace(/\/$/, '') : null;
 }
 
+/** True only when SAYS_STAKE_LIVE is the exact string 'true'. */
 export function saysStakeLive(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.SAYS_STAKE_LIVE;
-  return typeof raw === 'string' && raw.trim().length > 0;
+  return env.SAYS_STAKE_LIVE === 'true';
 }
 
 function boolCell(value: unknown): string {
@@ -40,7 +40,7 @@ function boolCell(value: unknown): string {
   return 'NOT_CHECKED';
 }
 
-/** A true can_stake stays shadow unless SAYS_STAKE_LIVE is set. This does not enable staking. */
+/** A true can_stake stays shadow unless SAYS_STAKE_LIVE is 'true'. This does not enable staking. */
 export function stakeCell(value: unknown, liveLabel: boolean): string {
   if (value === true) return liveLabel ? 'live' : 'shadow — not live';
   if (value === false) return 'false';
