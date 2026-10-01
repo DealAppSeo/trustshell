@@ -291,6 +291,17 @@ Delete the row for `<key>` from `~/.trustshell/memory.sqlite`. Prints `redacted`
 
 Read `GET /api/v1/after-create`. Print `can_bind` from that body. A true `can_stake` prints `shadow — not live`, never live. A missing or failed read is `NOT_CHECKED`. No send.
 
+### `trustshell traps`
+
+List the ten local fixture HAL claims shipped in-repo. Each row is `NOT_CHECKED` until a receipt id exists in `.trustshell/traps.json`. No scoreboard, no HAL wins, no live stake claims. Options: `--json`.
+
+```console
+$ trustshell traps
+surgeon NOT_CHECKED
+missing-dollar NOT_CHECKED
+monty NOT_CHECKED
+```
+
 ### `trustshell status`
 
 Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is set.

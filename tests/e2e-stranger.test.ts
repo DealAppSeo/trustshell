@@ -2,7 +2,7 @@
  * Stranger path: the four commands shipped in @hyperdag/trustshell@1.4.0,
  * plus every command in this repo's CLI. Engine routes are mocked.
  */
-import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
@@ -258,6 +258,23 @@ describe('stranger e2e on current main', () => {
     expect(down.out).toBe('can_bind NOT_CHECKED\ncan_stake NOT_CHECKED');
     expect(down.out).not.toMatch(/\b0\b/);
   }, 30000);
+
+  it('traps lists the ten fixture claims and stays NOT_CHECKED without receipts', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-traps-stranger-'));
+    const prevCwd = process.cwd();
+    try {
+      process.chdir(dir);
+      const r = await go(['traps']);
+      expect(r.code).toBe(0);
+      expect(r.out).toContain('surgeon NOT_CHECKED');
+      expect(r.out).toContain('ravens NOT_CHECKED');
+      expect(r.out).not.toMatch(/\b0\b/);
+      expect(r.out).not.toMatch(/scoreboard|wins|HAL|live stake|stake|PASS/i);
+    } finally {
+      process.chdir(prevCwd);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it('landing keeps the 1.4 install line and does not put status on npm', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
