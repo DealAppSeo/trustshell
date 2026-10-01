@@ -5,7 +5,12 @@ import { insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
 
 /** True when a value carries a secret shape and must not be stored. */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ');
+  return (
+    /sb_secret_/.test(value) ||
+    /postgresql:\/\//i.test(value) ||
+    value.includes('eyJ') ||
+    value.includes('xoxb-')
+  );
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
