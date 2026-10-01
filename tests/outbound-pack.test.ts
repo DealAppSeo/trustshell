@@ -43,4 +43,25 @@ describe('outbound pack', () => {
     });
     expect(calls).toEqual([]);
   });
+
+  it('redacts Authorization: Bearer tokens and sk- keys from escalate packs', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.dBjftJeZ4CVP';
+    const sk = 'sk-live-abc123def456';
+    const task = `call api Authorization: Bearer ${jwt}`;
+    const claims = [`apiKey: ${sk}`, `token Bearer ${jwt} done`];
+
+    const packed = packEscalate(task, claims);
+    expect(packed.task).not.toMatch(/\bBearer\s+\S+/);
+    expect(packed.task).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+    expect(packed.claims[0]).not.toMatch(/\bsk-[A-Za-z0-9_\-]+/);
+    expect(packed.claims[1]).not.toMatch(/\bBearer\s+\S+/);
+    expect(JSON.stringify(packed)).not.toMatch(/\bBearer\s+\S+/);
+    expect(JSON.stringify(packed)).not.toMatch(/\bsk-[A-Za-z0-9_\-]+/);
+    expect(JSON.stringify(packed)).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+
+    const viaOutbound = outboundFor('escalate', task, claims);
+    expect(viaOutbound).toEqual(packed);
+    expect(JSON.stringify(viaOutbound)).not.toMatch(/\bBearer\s+\S+/);
+    expect(JSON.stringify(viaOutbound)).not.toMatch(/\bsk-[A-Za-z0-9_\-]+/);
+  });
 });
