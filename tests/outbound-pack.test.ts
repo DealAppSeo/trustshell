@@ -43,4 +43,16 @@ describe('outbound pack', () => {
     });
     expect(calls).toEqual([]);
   });
+
+  it('redacts AKIA-prefixed AWS access key ids from escalate packs', () => {
+    const key = `AKIA${'X'.repeat(16)}`;
+    const packed = packEscalate(`ship ${key}`, [`claim ${key}`]);
+    expect(packed.task).toBe('ship ');
+    expect(packed.claims).toEqual(['claim ']);
+    expect(JSON.stringify(packed)).not.toMatch(/AKIA[A-Z0-9]{16}/);
+    expect(outboundFor('escalate', `ship ${key}`, [`claim ${key}`])).toEqual({
+      task: 'ship ',
+      claims: ['claim '],
+    });
+  });
 });
