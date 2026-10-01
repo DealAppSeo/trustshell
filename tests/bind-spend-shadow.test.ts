@@ -136,4 +136,35 @@ describe('bind/spend shadow', () => {
     expect(text).not.toMatch(/can_stake\s+live\b/);
     expect(text).toContain('can_bind false');
   });
+
+  it('can_stake true renders live only when SAYS_STAKE_LIVE is the exact string "true"', async () => {
+    const liveText = await buildStatusReport({
+      env: { ...baseEnv, SAYS_STAKE_LIVE: 'true' },
+      fetchImpl: mockFetch({
+        '/api/v1/after-create': { can_verify: true, can_bind: false, can_stake: true, can_rate_models: false },
+        '/api/v1/hal/honesty-a': { status: 'counted', rows: [{ family: 'glm', host: 'cerebras', TRUE: 1, FALSE: 0, NOT_CHECKED: 0 }] },
+        '/readiness': { exact_true: { HUMAN_AGENT_BIND_ENABLED: false } },
+      }),
+    });
+
+    expect(liveText).toContain('can_stake live');
+    expect(liveText).not.toContain('can_stake shadow — not live');
+  });
+
+  it('can_stake true stays shadow for non-exact SAYS_STAKE_LIVE values', async () => {
+    const values = ['TRUE', '1', 'yes', 'on', ' true ', '  ', ''];
+    for (const value of values) {
+      const text = await buildStatusReport({
+        env: value === '' ? baseEnv : { ...baseEnv, SAYS_STAKE_LIVE: value },
+        fetchImpl: mockFetch({
+          '/api/v1/after-create': { can_verify: true, can_bind: false, can_stake: true, can_rate_models: false },
+          '/api/v1/hal/honesty-a': { status: 'counted', rows: [{ family: 'glm', host: 'cerebras', TRUE: 1, FALSE: 0, NOT_CHECKED: 0 }] },
+          '/readiness': { exact_true: { HUMAN_AGENT_BIND_ENABLED: false } },
+        }),
+      });
+
+      expect(text).toContain('can_stake shadow — not live');
+      expect(text).not.toMatch(/can_stake\s+live\b/);
+    }
+  });
 });
