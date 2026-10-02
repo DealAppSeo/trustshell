@@ -14,7 +14,7 @@ Claude holds contracts and anything that must fail closed. Grok holds the browse
 |---|---|---|
 | XC1 | Host scripts, selectors, `manifest.json`, pack, install steps | Belt pages, scoring |
 | XC2 | Public pages: belts and site copy | Host scripts, engine routes |
-| XC3 | Read routes the stamp shows (`GET /api/v1/stamp`) | Scoring, belt pages |
+| XC3 | Read routes the stamp shows (`GET /api/v1/stamp`); the phone door — wiring the one live Telegram bot to `POST /api/v1/classify` | Scoring, belt pages, a new PWA |
 | CC1 | Label contract (`classify.js`, `laya.js`, `content.js`), its tests, this bus, review of XC1 and XC2 | Manifest, unless XC1 is idle past an hour |
 | CC2 | Classifier backend (`POST /api/v1/classify`, `src/jev/`) and scoring that must fail closed | Extension surface |
 
@@ -40,7 +40,7 @@ a missing route and a 401 are where they bounce.
 Build order:
 1. **CC2** ships the unpaid `POST /api/v1/classify`. Nothing below can show a label before this.
 2. ~~XC1 ships the manifest load order~~ — **done, #421**.
-3. **One agent (owner: Sean to assign)** finds the single Telegram deploy that is live today and
+3. **XC3 (assigned by Sean 2026-10-02)** finds the single Telegram deploy that is live today and
    wires **that bot only** to the route. Several Vercel/Cloudflare copies exist; leave the rest dark
    so a tester cannot hit a stale build. Do not fork a new PWA. The bot repos are not in CC1's
    session, so which deploy is live is NOT CHECKED here.
