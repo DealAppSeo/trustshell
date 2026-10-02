@@ -7,6 +7,9 @@ import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
 import { memoryDbPath, readKeyed, writeKeyed } from '../src/memory/local-store';
+import { refusedValue } from '../src/cli/remember';
+import { redact } from '../src/memory/redact';
+import { buildPacket } from '../src/memory/packet';
 
 const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
 const cliSrc = ['src/cli/remember.ts', 'src/cli/recall.ts', 'src/cli/redact-key.ts']
@@ -135,6 +138,31 @@ describe('keyed local memory', () => {
     expect((await go(['recall', 'alpha'])).out).toEqual(['sb_publishable_keep']);
     expect((await go(['redact', 'alpha'])).out).toEqual(['redacted']);
     expect((await go(['recall', 'alpha'])).out).toEqual(['NOT_CHECKED']);
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses and redacts token prefixes while keeping an innocent phrase', async () => {
+    for (const prefix of ['pypi-', 'glagent-', 'xoxc-']) {
+      const token = `${prefix}${'a1B2_c3-D4'.repeat(4)}`;
+      expect(refusedValue(token)).toBe(true);
+      for (const argv of [['remember', token], ['remember', 'alpha', token]]) {
+        const result = await go(argv);
+        expect(result.code).toBe(2);
+        expect(result.out).toEqual([]);
+        expect(result.err).toEqual(['remember refused']);
+      }
+      expect(existsSync(db)).toBe(false);
+      const body = `before ${token} ${token} after`;
+      expect(redact(body)).toBe('before   after');
+      expect(buildPacket({ kind: 'note', body }).body).toBe('before   after');
+    }
+
+    const phrase = 'ship the receipt';
+    expect(refusedValue(phrase)).toBe(false);
+    expect(redact(phrase)).toBe(phrase);
+    expect(buildPacket({ kind: 'note', body: phrase }).body).toBe(phrase);
+    expect((await go(['remember', 'alpha', phrase])).code).toBe(0);
+    expect((await go(['recall', 'alpha'])).out).toEqual([phrase]);
     expect(calls).toEqual([]);
   });
 });
