@@ -15,9 +15,12 @@ const GHR = /\bghr_[A-Za-z0-9]{8,}\b/;
 /** GitLab personal access tokens (`glpat-...`). Tokens are assumed to be at least 8 characters. */
 const GLPAT = /\bglpat-[A-Za-z0-9_-]{8,}\b/;
 
+/** GitLab OAuth application secrets (`gloas-...`). Secrets are assumed to be at least 8 characters. */
+const GLOAS = /\bgloas-[A-Za-z0-9_-]{8,}\b/;
+
 /** True when a value carries a secret shape and must not be stored. */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || XOXR.test(value) || GHR.test(value) || GLPAT.test(value);
+  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || XOXR.test(value) || GHR.test(value) || GLPAT.test(value) || GLOAS.test(value);
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
