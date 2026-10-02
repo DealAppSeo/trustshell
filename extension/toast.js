@@ -22,6 +22,27 @@ function toastFor(result) {
   return '';
 }
 
-const api = { CAUGHT, toastFor };
+/** Keep the toast on the reply. No click, no typing, no send. */
+function placeToast(reply, text) {
+  if (!reply || typeof reply.appendChild !== 'function' || typeof reply.querySelector !== 'function') {
+    return null;
+  }
+  const existing = reply.querySelector('#trustshell-toast');
+  if (!text) {
+    if (existing && typeof existing.remove === 'function') existing.remove();
+    return null;
+  }
+  const doc = reply.ownerDocument;
+  const toast = existing || (doc && typeof doc.createElement === 'function' ? doc.createElement('div') : null);
+  if (!toast) return null;
+  toast.id = 'trustshell-toast';
+  toast.className = 'ts-toast';
+  if (typeof toast.setAttribute === 'function') toast.setAttribute('role', 'status');
+  toast.textContent = text;
+  if (!existing) reply.appendChild(toast);
+  return toast;
+}
+
+const api = { CAUGHT, toastFor, placeToast };
 if (typeof module === 'object' && module && module.exports) module.exports = api;
 if (typeof globalThis === 'object') globalThis.trustshellToast = api;
