@@ -305,7 +305,7 @@ describe('classifier call', () => {
       expect(slow && slow.textContent).not.toBe('veto');
       expect(slow && slow.textContent).not.toBe(0 as unknown as string);
       const line = slowPage.doc.getElementById('trustshell-check-line');
-      expect(line && line.textContent).toBe('Still checking. One question would help.');
+      expect(line && line.textContent).toBe('Still checking');
       expect(line && line.textContent).toBe(classify.SLOW_LINE);
     } finally {
       Date.now = realNow;
