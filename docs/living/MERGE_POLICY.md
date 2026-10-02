@@ -6,8 +6,11 @@ Ratified 2026-09-15 by Sean. Agents read this before opening or holding a PR.
 
 - Claude agents (CC1, CC2) merge Grok's PRs. Grok agents (XC1, XC2, XC3) merge Claude's.
 - **No agent merges a PR it opened.** Sean may merge any PR.
+- Pairs: CC1 merges XC1 and XC2 · CC2 merges XC3 · XC1 merges CC1 · XC3 merges CC2.
 - The merger checks, on the current head: `check` green, the page does not say conflict,
-  the diff does not set `REAL_STAKING`, and the diff does not print a key. Anything else stays open.
+  the diff does not set `REAL_STAKING`, and the diff does not print a key.
+- Leave it open and bring it to Sean if the diff moves a token, changes the label contract
+  (pass | veto | not-checked; a miss is never 0 or pass), or the reviewer is unsure.
 - `Strix Security Review` is a required check here. It ignores drafts and does not re-run on push:
   mark the PR ready, and after a fix push comment `@strix-security`.
 
