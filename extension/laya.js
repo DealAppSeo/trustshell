@@ -15,6 +15,12 @@ const LABELS = [PASS, VETO, NOT_CHECKED];
 const SLOW_MS = 3000;
 const SLOW_LINE = 'Still checking';
 
+/** Stop waiting just past SLOW_MS. A later answer could not count anyway. */
+const TIMEOUT_MS = SLOW_MS + 100;
+
+/** A label is one short word. A larger body is not an answer. */
+const MAX_BODY_CHARS = 64 * 1024;
+
 function clock() {
   if (typeof performance === 'object' && performance && typeof performance.now === 'function') {
     return performance.now();
@@ -29,10 +35,22 @@ function labelOf(body) {
   return LABELS.includes(raw) ? raw : NOT_CHECKED;
 }
 
+/** http or https only. Anything else, or an Anthropic host, is no model. */
+function modelUrlOf(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw || /anthropic/i.test(raw)) return '';
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : '';
+  } catch {
+    return '';
+  }
+}
+
 /**
- * options.modelUrl  the Laya endpoint. Missing is not-checked.
+ * options.modelUrl  the Laya endpoint, http or https. Missing is not-checked.
  * options.fetchImpl defaults to fetch.
- * options.timeoutMs defaults to 10000.
+ * options.timeoutMs defaults to TIMEOUT_MS, just past SLOW_MS.
  * options.now       a local clock, for tests.
  * Over SLOW_MS, the label is not-checked and line is 'Still checking'.
  */
@@ -46,11 +64,11 @@ async function callLaya(text, options) {
     return { label, latency_ms };
   };
 
-  const url = typeof opts.modelUrl === 'string' ? opts.modelUrl.trim() : '';
+  const url = modelUrlOf(opts.modelUrl);
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
-  if (!url || /anthropic/i.test(url) || typeof fetchImpl !== 'function') return done(NOT_CHECKED);
+  if (!url || typeof fetchImpl !== 'function') return done(NOT_CHECKED);
 
-  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 10000;
+  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : TIMEOUT_MS;
   const controller = new AbortController();
   let timer;
   const timeout = new Promise((resolve) => {
@@ -66,10 +84,14 @@ async function callLaya(text, options) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: String(text ?? ''), labels: LABELS }),
         signal: controller.signal,
+        // No cookies ride along with the reply, and a redirect cannot move it to another host.
+        credentials: 'omit',
+        redirect: 'error',
+        cache: 'no-store',
       });
       if (!res || res.status !== 200) return null;
       const raw = await res.text();
-      if (!raw || raw.trim() === '') return null;
+      if (typeof raw !== 'string' || raw.trim() === '' || raw.length > MAX_BODY_CHARS) return null;
       return JSON.parse(raw);
     })();
     return done(labelOf(await Promise.race([call, timeout])));
@@ -80,7 +102,7 @@ async function callLaya(text, options) {
   }
 }
 
-const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, callLaya };
+const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, callLaya };
 
 if (typeof module === 'object' && module && module.exports) module.exports = api;
 if (typeof globalThis === 'object') globalThis.trustshellLaya = api;
