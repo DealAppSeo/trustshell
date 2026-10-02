@@ -10,8 +10,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return;
   }
   const read = chrome.storage && chrome.storage.local && chrome.storage.local.get;
+  const routeApi = globalThis.trustshellRoute;
+  const storageKey = routeApi && routeApi.STORAGE_KEY ? routeApi.STORAGE_KEY : 'route';
   const storedSetting = read
-    ? new Promise((resolve) => chrome.storage.local.get(['route'], (stored) => resolve(stored && stored.route)))
+    ? new Promise((resolve) => chrome.storage.local.get([storageKey], (stored) => resolve(stored && stored[storageKey])))
     : Promise.resolve(undefined);
   storedSetting.then((setting) => api.verifyLastReply(message.text, { setting })).then(
     (word) => sendResponse({ stamp: word === 'pass' || word === 'veto' ? word : 'not-checked' }),
