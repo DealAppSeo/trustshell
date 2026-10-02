@@ -13,6 +13,9 @@ const SK = /\bsk-[A-Za-z0-9_\-]+/g;
 /** GitHub personal access tokens: classic `ghp_...` and fine-grained `github_pat_...`. */
 const GHP = /\bghp_[A-Za-z0-9]{36,}\b/g;
 const GITHUB_PAT = /\bgithub_pat_[A-Za-z0-9_]+\b/g;
+/** Hugging Face API tokens. Kept separate from PREFIXED_TOKEN because remember refusal
+ *  has its own open work for `hf_`; this change only covers outbound escalate packs. */
+const HF = /\bhf_[A-Za-z0-9_-]{8,}\b/g;
 /** Shared with remember refusal. Token bodies are assumed to be at least 8 characters. */
 export const PREFIXED_TOKEN = /\b(?:pypi-|npm_|hf_|glsoat-|glagent-|glptt-|gloas-|glrt-|gldt-|glpat-|ghs_|ghr_|ghu_|gho_|xoxc-|xoxs-|xoxr-|xoxe-|xoxa-|xoxp-|xoxb-)[A-Za-z0-9_-]{8,}\b/;
 const PREFIXED_TOKENS = new RegExp(PREFIXED_TOKEN.source, 'g');
@@ -27,5 +30,6 @@ export function redact(value: string): string {
     .replace(SK, '')
     .replace(GHP, '')
     .replace(GITHUB_PAT, '')
+    .replace(HF, '')
     .replace(PREFIXED_TOKENS, '');
 }
