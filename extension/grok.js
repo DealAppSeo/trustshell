@@ -1,17 +1,56 @@
 'use strict';
 
-/** grok.com reader. The evaluate call lives in verify.js. This file does not copy it. */
+/** grok.com reader. One classifier call paints the label. This file does not sort the reply locally. */
 const STAMP_ID = 'trustshell-stamp';
 
-function verifyApi() {
-  if (typeof require === 'function') {
-    try {
-      return require('./verify.js');
-    } catch (_err) {
-      /* content script has no resolver */
-    }
+const CLASSIFY_LABELS = ['pass', 'veto', 'not-checked'];
+
+/**
+ * One classifier call. The last line is not read as a label.
+ * A missing endpoint, a timeout, and an empty body are not-checked, never 0, never pass.
+ * The reply text is not printed.
+ */
+function classifyReply(text, options) {
+  const opts = options || {};
+  const started = Date.now();
+  function finish(label) {
+    const safe = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
+    return { label: safe, latency_ms: Date.now() - started };
   }
-  return globalThis.trustshellVerify;
+  const endpoint = Object.prototype.hasOwnProperty.call(opts, 'endpoint')
+    ? opts.endpoint
+    : String(opts.baseUrl || 'https://repid-engine-production.up.railway.app').replace(/\/$/, '') + '/api/v1/classify';
+  const fetchImpl = opts.fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : null);
+  if (typeof endpoint !== 'string' || endpoint.trim() === '' || /anthropic/i.test(endpoint) || typeof fetchImpl !== 'function') {
+    return Promise.resolve(finish('not-checked'));
+  }
+  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = setTimeout(() => {
+    if (controller) controller.abort();
+  }, timeoutMs);
+  return Promise.resolve()
+    .then(() => fetchImpl(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: String(text == null ? '' : text), labels: CLASSIFY_LABELS }),
+      signal: controller ? controller.signal : undefined,
+    }))
+    .then((res) => {
+      if (!res || res.status !== 200 || typeof res.json !== 'function') return finish('not-checked');
+      return Promise.resolve()
+        .then(() => res.json())
+        .then((body) => {
+          if (body == null || body === '' || typeof body !== 'object') return finish('not-checked');
+          return finish(typeof body.label === 'string' ? body.label.trim().toLowerCase() : 'not-checked');
+        })
+        .catch(() => finish('not-checked'));
+    })
+    .catch(() => finish('not-checked'))
+    .then((row) => {
+      clearTimeout(timer);
+      return row;
+    });
 }
 
 function lastAssistant(doc) {
@@ -48,23 +87,14 @@ function paint(element, word) {
 }
 
 async function ask(text, options) {
-  const opts = options || {};
   if (typeof text !== 'string' || text.trim().length === 0) return 'not-checked';
-  if (opts.fetchImpl || opts.timeoutMs != null || opts.baseUrl || opts.verify) {
-    const api = opts.verify || verifyApi();
-    return api.verifyLastReply(text, opts);
-  }
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'trustshell-verify', text }, (res) => {
-        resolve(res && res.stamp ? res.stamp : 'not-checked');
-      });
-    });
-  }
-  return verifyApi().verifyLastReply(text, opts);
+  const row = await classifyReply(text, options);
+  const label = row && row.label;
+  if (label === 'pass' || label === 'veto' || label === 'not-checked') return label;
+  return 'not-checked';
 }
 
-/** Stamp the last grok reply. A timeout from verify.js paints not-checked, never pass. */
+/** Stamp the last grok reply. A timeout paints not-checked, never pass. */
 async function stampText(text, options) {
   const opts = options || {};
   let word = 'not-checked';
@@ -136,5 +166,5 @@ if (typeof document !== 'undefined' && !(typeof module === 'object' && module &&
 }
 
 if (typeof module === 'object' && module && module.exports) {
-  module.exports = { stampText, lastAssistant, readText };
+  module.exports = { stampText, lastAssistant, readText, classifyReply };
 }

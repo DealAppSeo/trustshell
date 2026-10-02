@@ -34,37 +34,67 @@ function readText(node) {
   return ((copy && copy.textContent) || '').trim();
 }
 
-function verifyApi() {
-  if (typeof globalThis !== 'undefined' && globalThis.trustshellVerify) return globalThis.trustshellVerify;
-  if (typeof require === 'function') {
-    try {
-      return require('./verify.js');
-    } catch (err) {
-      return null;
-    }
-  }
-  return null;
-}
+var CLASSIFY_LABELS = ['pass', 'veto', 'not-checked'];
 
-/** The last line is not the stamp. verify.js decides. A timeout or a miss is not-checked, never 0. */
-function shownStamp(word) {
-  if (word === 0 || word === '0') return 'not-checked';
-  if (word === 'pass' || word === 'veto') return word;
-  return 'not-checked';
+/**
+ * One classifier call. The last line is not read as a label.
+ * A missing endpoint, a timeout, and an empty body are not-checked, never 0, never pass.
+ * The reply text is not printed.
+ */
+function classifyReply(text, options) {
+  var opts = options || {};
+  var started = Date.now();
+  function finish(label) {
+    var safe = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
+    return { label: safe, latency_ms: Date.now() - started };
+  }
+  var endpoint = Object.prototype.hasOwnProperty.call(opts, 'endpoint')
+    ? opts.endpoint
+    : String(opts.baseUrl || 'https://repid-engine-production.up.railway.app').replace(/\/$/, '') + '/api/v1/classify';
+  if (typeof endpoint !== 'string' || endpoint.trim() === '' || /anthropic/i.test(endpoint)) {
+    return Promise.resolve(finish('not-checked'));
+  }
+  var fetchImpl = opts.fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : null);
+  if (typeof fetchImpl !== 'function') return Promise.resolve(finish('not-checked'));
+  var timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
+  var controller = typeof AbortController === 'function' ? new AbortController() : null;
+  var timer = setTimeout(function () {
+    if (controller) controller.abort();
+  }, timeoutMs);
+  return Promise.resolve()
+    .then(function () {
+      return fetchImpl(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: String(text == null ? '' : text), labels: CLASSIFY_LABELS }),
+        signal: controller ? controller.signal : undefined,
+      });
+    })
+    .then(function (res) {
+      if (!res || res.status !== 200 || typeof res.json !== 'function') return finish('not-checked');
+      return Promise.resolve()
+        .then(function () { return res.json(); })
+        .then(function (body) {
+          if (body == null || body === '') return finish('not-checked');
+          if (typeof body !== 'object') return finish('not-checked');
+          return finish(typeof body.label === 'string' ? body.label.trim().toLowerCase() : 'not-checked');
+        })
+        .catch(function () { return finish('not-checked'); });
+    })
+    .catch(function () { return finish('not-checked'); })
+    .then(function (row) {
+      clearTimeout(timer);
+      return row;
+    });
 }
 
 function ask(text, options) {
   if (typeof text !== 'string' || text.trim().length === 0) return Promise.resolve('not-checked');
-  var api = verifyApi();
-  if (!api || typeof api.verifyLastReply !== 'function') return Promise.resolve('not-checked');
-  return Promise.resolve()
-    .then(function () {
-      return api.verifyLastReply(text, options || {});
-    })
-    .then(shownStamp)
-    .catch(function () {
-      return 'not-checked';
-    });
+  return classifyReply(text, options).then(function (row) {
+    var label = row && row.label;
+    if (label === 'pass' || label === 'veto' || label === 'not-checked') return label;
+    return 'not-checked';
+  });
 }
 
 function toastApi() {
@@ -165,6 +195,7 @@ function install(doc) {
 var api = {
   lastClaude: lastClaude,
   readText: readText,
+  classifyReply: classifyReply,
   claudeReply: claudeReply,
   draw: draw,
   install: install,
