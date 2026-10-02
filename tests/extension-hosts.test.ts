@@ -9,7 +9,7 @@ const claude = require('../extension/claude.js') as {
   claudeReply: (doc: { querySelectorAll: (sel: string) => HostReply[] }) => { text: string; stamp: string };
   draw: (
     doc: HostDoc,
-    options?: { fetchImpl: () => Promise<{ status: number; json: () => Promise<{ decision: string }> }> },
+    options?: { fetchImpl: () => Promise<{ status: number; json: () => Promise<{ label: string }> }> },
   ) => Promise<HostStamp | null>;
 };
 const gemini = require('../extension/gemini.js') as {
@@ -119,7 +119,7 @@ describe('extension hosts', () => {
   it('a veto still shows the toast', async () => {
     const page = hostVetoPage();
     const stamp = await claude.draw(page.doc, {
-      fetchImpl: async () => ({ status: 200, json: async () => ({ decision: 'vetoed' }) }),
+      fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'veto' }) }),
     });
     const toast = page.reply.querySelector('#trustshell-toast');
     expect(stamp && stamp.textContent).toBe('veto');
