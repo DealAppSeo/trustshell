@@ -17,6 +17,8 @@ const GITHUB_PAT = /\bgithub_pat_[A-Za-z0-9_]+\b/g;
 const GHR = /\bghr_[A-Za-z0-9]{36,}\b/g;
 /** GitHub App user-to-server tokens: `ghu_...`. */
 const GHU = /\bghu_[A-Za-z0-9]{36,}\b/g;
+/** GitLab SCIM / service-account OAuth tokens: `glsoat-...`. */
+const GLSOAT = /\bglsoat-[A-Za-z0-9_-]{8,}\b/g;
 
 export function redact(value: string): string {
   return value
@@ -29,5 +31,6 @@ export function redact(value: string): string {
     .replace(GHP, '')
     .replace(GITHUB_PAT, '')
     .replace(GHR, '')
-    .replace(GHU, '');
+    .replace(GHU, '')
+    .replace(GLSOAT, '');
 }
