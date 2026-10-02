@@ -15,8 +15,16 @@ function settingOf(value) {
 function orderFor(value) {
   const checks = OPEN_SOURCE_HOSTS.map((host) => ({ host, role: 'check' }));
   const mine = { host: WRITER, role: 'writer' };
-  if (settingOf(value) === CHEAP_FIRST) return checks.concat([mine]);
-  return [mine].concat(checks);
+  const rows = settingOf(value) === CHEAP_FIRST ? checks.concat([mine]) : [mine].concat(checks);
+  return rows.filter((row) => !/anthropic/i.test(row.host));
+}
+
+/** A missing key is not-checked, never a pass. Anthropic is not called. */
+function keyStamp(host, keys) {
+  if (/anthropic/i.test(String(host || ''))) return 'not-checked';
+  const key = keys && keys[host];
+  if (typeof key !== 'string' || key.trim() === '') return 'not-checked';
+  return 'present';
 }
 
 /** Either setting still runs the check. */
@@ -34,6 +42,7 @@ const api = {
   OPEN_SOURCE_HOSTS,
   WRITER,
   orderFor,
+  keyStamp,
 };
 
 if (typeof module === 'object' && module && module.exports) module.exports = api;
