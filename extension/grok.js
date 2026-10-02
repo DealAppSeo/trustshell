@@ -3,54 +3,25 @@
 /** grok.com reader. One classifier call paints the label. This file does not sort the reply locally. */
 const STAMP_ID = 'trustshell-stamp';
 
-const CLASSIFY_LABELS = ['pass', 'veto', 'not-checked'];
+function classifyApi() {
+  if (typeof globalThis !== 'undefined' && globalThis.trustshellClassify && globalThis.trustshellClassify.classifyReply) {
+    return globalThis.trustshellClassify;
+  }
+  if (typeof require === 'function') {
+    try {
+      return require('./classify.js');
+    } catch (_err) {
+      return null;
+    }
+  }
+  return null;
+}
 
-/**
- * One classifier call. The last line is not read as a label.
- * A missing endpoint, a timeout, and an empty body are not-checked, never 0, never pass.
- * The reply text is not printed.
- */
+/** Paint the classifier label. The last line of the reply is not a label. */
 function classifyReply(text, options) {
-  const opts = options || {};
-  const started = Date.now();
-  function finish(label) {
-    const safe = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
-    return { label: safe, latency_ms: Date.now() - started };
-  }
-  const endpoint = Object.prototype.hasOwnProperty.call(opts, 'endpoint')
-    ? opts.endpoint
-    : String(opts.baseUrl || 'https://repid-engine-production.up.railway.app').replace(/\/$/, '') + '/api/v1/classify';
-  const fetchImpl = opts.fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : null);
-  if (typeof endpoint !== 'string' || endpoint.trim() === '' || /anthropic/i.test(endpoint) || typeof fetchImpl !== 'function') {
-    return Promise.resolve(finish('not-checked'));
-  }
-  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
-  const controller = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = setTimeout(() => {
-    if (controller) controller.abort();
-  }, timeoutMs);
-  return Promise.resolve()
-    .then(() => fetchImpl(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: String(text == null ? '' : text), labels: CLASSIFY_LABELS }),
-      signal: controller ? controller.signal : undefined,
-    }))
-    .then((res) => {
-      if (!res || res.status !== 200 || typeof res.json !== 'function') return finish('not-checked');
-      return Promise.resolve()
-        .then(() => res.json())
-        .then((body) => {
-          if (body == null || body === '' || typeof body !== 'object') return finish('not-checked');
-          return finish(typeof body.label === 'string' ? body.label.trim().toLowerCase() : 'not-checked');
-        })
-        .catch(() => finish('not-checked'));
-    })
-    .catch(() => finish('not-checked'))
-    .then((row) => {
-      clearTimeout(timer);
-      return row;
-    });
+  const api = classifyApi();
+  if (!api) return Promise.resolve({ label: 'not-checked', latency_ms: 0 });
+  return api.classifyReply(text, options);
 }
 
 function lastAssistant(doc) {
@@ -73,7 +44,7 @@ function readText(node) {
   return (copy.textContent || '').trim();
 }
 
-/** verify.js decides. A timeout or a miss is not-checked, never 0. */
+/** The classifier decides. A timeout or a miss is not-checked, never 0. */
 function shownStamp(word) {
   if (word === 0 || word === '0') return 'not-checked';
   return word === 'pass' || word === 'veto' ? word : 'not-checked';
@@ -87,24 +58,33 @@ function paint(element, word) {
 }
 
 async function ask(text, options) {
-  if (typeof text !== 'string' || text.trim().length === 0) return 'not-checked';
+  if (typeof text !== 'string' || text.trim().length === 0) return { label: 'not-checked', latency_ms: 0 };
   const row = await classifyReply(text, options);
   const label = row && row.label;
-  if (label === 'pass' || label === 'veto' || label === 'not-checked') return label;
-  return 'not-checked';
+  const safe = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
+  return {
+    label: safe,
+    latency_ms: row && typeof row.latency_ms === 'number' ? row.latency_ms : 0,
+  };
 }
 
-/** Stamp the last grok reply. A timeout paints not-checked, never pass. */
+/** Stamp the last grok reply. A call over 3 seconds paints not-checked and the check line. */
 async function stampText(text, options) {
   const opts = options || {};
-  let word = 'not-checked';
+  let row = { label: 'not-checked', latency_ms: 0 };
   try {
-    word = await ask(text, opts);
+    row = await ask(text, opts);
   } catch (_err) {
-    word = 'not-checked';
+    row = { label: 'not-checked', latency_ms: 0 };
   }
-  const shown = shownStamp(word);
-  if (opts.element) paint(opts.element, shown);
+  const shown = shownStamp(row.label);
+  const api = classifyApi();
+  const line = api && typeof api.lineFor === 'function' ? api.lineFor(row) : '';
+  if (opts.element) {
+    paint(opts.element, shown);
+    if (api && typeof api.showCheckLine === 'function' && opts.doc) api.showCheckLine(opts.doc, opts.element, line);
+    else if (line) opts.element.textContent = shown + '\n' + line;
+  }
   return shown;
 }
 
@@ -135,14 +115,15 @@ function install(doc) {
     const stamp = ensureStamp(doc, node);
     if (!text) {
       paint(stamp, 'not-checked');
+      const api = classifyApi();
+      if (api && typeof api.showCheckLine === 'function') api.showCheckLine(doc, stamp, '');
       return;
     }
     if (text === painted || text === pending) return;
     pending = text;
-    const word = await stampText(text);
+    await stampText(text, { element: stamp, doc: doc });
     if (pending !== text) return;
     painted = text;
-    paint(stamp, word);
   }
 
   function schedule() {

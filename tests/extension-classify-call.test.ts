@@ -4,6 +4,15 @@
  */
 export {};
 
+const deepseek = require('../extension/deepseek.js') as {
+  draw: (
+    doc: TrackDoc,
+    options?: {
+      fetchImpl: (url: string, init: { body?: string }) => Promise<{ status: number; json: () => Promise<{ label?: string }> }>;
+    },
+  ) => Promise<{ textContent: string } | null>;
+};
+
 const claude = require('../extension/claude.js') as {
   classifyReply: (
     text: string,
@@ -49,6 +58,96 @@ interface CallDoc {
   createElement: (tag: string) => CallStamp;
   querySelector: (sel: string) => null;
   body: { appendChild: (el: CallStamp) => CallStamp };
+}
+
+interface TrackEl {
+  id: string;
+  className: string;
+  textContent: string;
+  dataset: { stamp?: string };
+  parentNode: TrackReply | null;
+  previousElementSibling: TrackReply | TrackEl | null;
+  setAttribute: (name: string, value: string) => void;
+  remove: () => void;
+  insertAdjacentElement: (where: string, el: TrackEl) => TrackEl;
+}
+
+interface TrackReply {
+  textContent: string;
+  children: TrackEl[];
+  ownerDocument: { createElement: (tag: string) => TrackEl };
+  appendChild: (child: TrackEl) => TrackEl;
+  querySelector: (sel: string) => TrackEl | null;
+  querySelectorAll: (sel: string) => Array<{ closest: (sel: string) => null }>;
+  cloneNode: (deep: boolean) => { textContent: string; querySelectorAll: (sel: string) => TrackEl[] };
+  contains: (node: TrackReply | TrackEl | null) => boolean;
+  insertAdjacentElement: (where: string, el: TrackEl) => TrackEl;
+}
+
+interface TrackDoc {
+  querySelectorAll: (sel: string) => TrackReply[];
+  getElementById: (id: string) => TrackEl | null;
+  createElement: (tag: string) => TrackEl;
+  querySelector: (sel: string) => null;
+  body: { appendChild: (el: TrackEl) => TrackEl };
+}
+
+function tracked(text: string, host: 'claude' | 'deepseek'): { doc: TrackDoc; reply: TrackReply } {
+  const created: TrackEl[] = [];
+  const reply = {} as TrackReply;
+  reply.textContent = text;
+  reply.children = [];
+  reply.ownerDocument = { createElement: () => replyDocCreate() };
+  reply.querySelectorAll = (sel) => (host === 'deepseek' && sel === '.ds-markdown' ? [{ closest: () => null }] : []);
+  reply.querySelector = (sel) => {
+    if (sel !== '#trustshell-toast') return null;
+    return reply.children.find((child) => child.id === 'trustshell-toast') || null;
+  };
+  reply.cloneNode = () => ({ textContent: text, querySelectorAll: () => [] });
+  reply.contains = () => false;
+  reply.appendChild = (child) => {
+    child.parentNode = reply;
+    reply.children.push(child);
+    return child;
+  };
+  reply.insertAdjacentElement = (_where, el) => {
+    el.previousElementSibling = reply;
+    return el;
+  };
+
+  function replyDocCreate(): TrackEl {
+    const el: TrackEl = {
+      id: '',
+      className: '',
+      textContent: '',
+      dataset: {},
+      parentNode: null,
+      previousElementSibling: null,
+      setAttribute() {},
+      remove() {
+        const at = created.indexOf(el);
+        if (at >= 0) created.splice(at, 1);
+      },
+      insertAdjacentElement(_where, child) {
+        child.previousElementSibling = el;
+        return child;
+      },
+    };
+    created.push(el);
+    return el;
+  }
+
+  const doc: TrackDoc = {
+    querySelectorAll: (sel) => {
+      if (host === 'deepseek' && sel !== '.ds-message') return [];
+      return [reply];
+    },
+    getElementById: (id) => created.find((el) => el.id === id) || null,
+    createElement: () => replyDocCreate(),
+    querySelector: () => null,
+    body: { appendChild: (el) => el },
+  };
+  return { doc, reply };
 }
 
 function page(text: string): CallDoc {
@@ -160,5 +259,56 @@ describe('classifier call', () => {
       fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'veto' }) }),
     });
     expect(vetoed && vetoed.textContent).toBe('veto');
+  });
+
+  it('a missing endpoint, a veto word, and a 3 second call', async () => {
+    const classify = require('../extension/classify.js') as {
+      classifyReply: (text: string, options?: { endpoint?: string }) => Promise<{ label: string; latency_ms: number }>;
+      SLOW_LINE: string;
+    };
+    const missing = await classify.classifyReply('noted reply\nveto', { endpoint: '' });
+    expect(missing.label).toBe('not-checked');
+    expect(missing.label).not.toBe(0);
+    expect(missing.label).not.toBe('pass');
+
+    const claudePage = tracked('noted\nveto', 'claude');
+    const passed = await claude.draw(claudePage.doc as unknown as CallDoc, {
+      fetchImpl: async (_url, init) => {
+        const body = JSON.parse(init.body || '{}') as { text?: string; labels?: string[] };
+        expect(String(body.text || '').trim().toLowerCase().endsWith('veto')).toBe(true);
+        expect(body.labels).toEqual(['pass', 'veto', 'not-checked']);
+        return { status: 200, json: async () => ({ label: 'pass' }) };
+      },
+    });
+    expect(passed && passed.textContent).toBe('pass');
+    expect(claudePage.doc.getElementById('trustshell-check-line')).toBeNull();
+
+    const deepPage = tracked('noted\nveto', 'deepseek');
+    const deepPassed = await deepseek.draw(deepPage.doc, {
+      fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'pass' }) }),
+    });
+    expect(deepPassed && deepPassed.textContent).toBe('pass');
+    expect(deepPassed && deepPassed.textContent).not.toBe('veto');
+
+    const realNow = Date.now;
+    let clock = realNow();
+    Date.now = () => clock;
+    try {
+      const slowPage = tracked('noted\nveto', 'claude');
+      const slow = await claude.draw(slowPage.doc as unknown as CallDoc, {
+        fetchImpl: async () => {
+          clock += 3001;
+          return { status: 200, json: async () => ({ label: 'veto' }) };
+        },
+      });
+      expect(slow && slow.textContent).toBe('not-checked');
+      expect(slow && slow.textContent).not.toBe('veto');
+      expect(slow && slow.textContent).not.toBe(0 as unknown as string);
+      const line = slowPage.doc.getElementById('trustshell-check-line');
+      expect(line && line.textContent).toBe('Still checking. One question would help.');
+      expect(line && line.textContent).toBe(classify.SLOW_LINE);
+    } finally {
+      Date.now = realNow;
+    }
   });
 });

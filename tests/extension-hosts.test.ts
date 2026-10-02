@@ -2,6 +2,7 @@
  * A missing Claude reply is not-checked.
  * A missing Gemini reply is not-checked.
  * A veto still shows the toast.
+ * A pass does not show the toast.
  */
 export {};
 
@@ -50,10 +51,10 @@ function emptyHostDoc(): { querySelectorAll: (sel: string) => HostReply[] } {
   return { querySelectorAll: () => [] };
 }
 
-function hostVetoPage(): { doc: HostDoc; reply: HostReply } {
+function hostVetoPage(text = 'veto'): { doc: HostDoc; reply: HostReply } {
   const children: HostStamp[] = [];
   const reply = {} as HostReply;
-  reply.textContent = 'veto';
+  reply.textContent = text;
   reply.children = children;
   reply.ownerDocument = {
     createElement(): HostStamp {
@@ -84,7 +85,7 @@ function hostVetoPage(): { doc: HostDoc; reply: HostReply } {
     return children.find((child) => child.id === 'trustshell-toast') || null;
   };
   reply.cloneNode = () => ({
-    textContent: 'veto',
+    textContent: text,
     querySelectorAll: () => [],
   });
   reply.contains = (node) => node != null && children.indexOf(node as HostStamp) >= 0;
@@ -125,5 +126,15 @@ describe('extension hosts', () => {
     expect(stamp && stamp.textContent).toBe('veto');
     expect(toast && toast.textContent).toBe('Caught. This reply did not pass.');
     expect(page.reply.contains(toast)).toBe(true);
+  });
+
+  it('a pass does not show the toast', async () => {
+    const page = hostVetoPage('noted\nveto');
+    const stamp = await claude.draw(page.doc, {
+      fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'pass' }) }),
+    });
+    expect(stamp && stamp.textContent).toBe('pass');
+    expect(page.reply.querySelector('#trustshell-toast')).toBeNull();
+    expect(page.reply.children.some((child) => String(child.textContent).indexOf('Caught.') === 0)).toBe(false);
   });
 });

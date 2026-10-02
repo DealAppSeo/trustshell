@@ -34,58 +34,25 @@ function readText(node) {
   return ((copy && copy.textContent) || '').trim();
 }
 
-var CLASSIFY_LABELS = ['pass', 'veto', 'not-checked'];
+function classifyApi() {
+  if (typeof globalThis !== 'undefined' && globalThis.trustshellClassify && globalThis.trustshellClassify.classifyReply) {
+    return globalThis.trustshellClassify;
+  }
+  if (typeof require === 'function') {
+    try {
+      return require('./classify.js');
+    } catch (err) {
+      return null;
+    }
+  }
+  return null;
+}
 
-/**
- * One classifier call. The last line is not read as a label.
- * A missing endpoint, a timeout, and an empty body are not-checked, never 0, never pass.
- * The reply text is not printed.
- */
+/** Paint the classifier label. The last line of the reply is not a label. */
 function classifyReply(text, options) {
-  var opts = options || {};
-  var started = Date.now();
-  function finish(label) {
-    var safe = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
-    return { label: safe, latency_ms: Date.now() - started };
-  }
-  var endpoint = Object.prototype.hasOwnProperty.call(opts, 'endpoint')
-    ? opts.endpoint
-    : String(opts.baseUrl || 'https://repid-engine-production.up.railway.app').replace(/\/$/, '') + '/api/v1/classify';
-  if (typeof endpoint !== 'string' || endpoint.trim() === '' || /anthropic/i.test(endpoint)) {
-    return Promise.resolve(finish('not-checked'));
-  }
-  var fetchImpl = opts.fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : null);
-  if (typeof fetchImpl !== 'function') return Promise.resolve(finish('not-checked'));
-  var timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
-  var controller = typeof AbortController === 'function' ? new AbortController() : null;
-  var timer = setTimeout(function () {
-    if (controller) controller.abort();
-  }, timeoutMs);
-  return Promise.resolve()
-    .then(function () {
-      return fetchImpl(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: String(text == null ? '' : text), labels: CLASSIFY_LABELS }),
-        signal: controller ? controller.signal : undefined,
-      });
-    })
-    .then(function (res) {
-      if (!res || res.status !== 200 || typeof res.json !== 'function') return finish('not-checked');
-      return Promise.resolve()
-        .then(function () { return res.json(); })
-        .then(function (body) {
-          if (body == null || body === '') return finish('not-checked');
-          if (typeof body !== 'object') return finish('not-checked');
-          return finish(typeof body.label === 'string' ? body.label.trim().toLowerCase() : 'not-checked');
-        })
-        .catch(function () { return finish('not-checked'); });
-    })
-    .catch(function () { return finish('not-checked'); })
-    .then(function (row) {
-      clearTimeout(timer);
-      return row;
-    });
+  var api = classifyApi();
+  if (!api) return Promise.resolve({ label: 'not-checked', latency_ms: 0 });
+  return api.classifyReply(text, options);
 }
 
 function ask(text, options) {
@@ -116,14 +83,22 @@ function showToast(reply, word) {
   toast.placeToast(reply, toast.toastFor(word));
 }
 
-function paint(doc, reply, word) {
+function showLine(doc, stamp, line) {
+  var api = classifyApi();
+  if (api && typeof api.showCheckLine === 'function') api.showCheckLine(doc, stamp, line || '');
+}
+
+function paint(doc, reply, word, line) {
   var stamp = typeof doc.getElementById === 'function' ? doc.getElementById('trustshell-stamp') : null;
   var placed = false;
   if (stamp && stamp.dataset && stamp.dataset.stamp === word && stamp.textContent === word) {
     if (reply) placed = stamp.previousElementSibling === reply;
     else placed = stamp.parentNode === ((doc.querySelector && doc.querySelector('main')) || doc.body);
   }
-  if (placed) return stamp;
+  if (placed) {
+    showLine(doc, stamp, line);
+    return stamp;
+  }
 
   if (!stamp && typeof doc.createElement === 'function') {
     stamp = doc.createElement('div');
@@ -139,10 +114,12 @@ function paint(doc, reply, word) {
   if (reply && typeof reply.insertAdjacentElement === 'function') {
     reply.insertAdjacentElement('afterend', stamp);
     showToast(reply, word);
+    showLine(doc, stamp, line);
     return stamp;
   }
   var host = (typeof doc.querySelector === 'function' && doc.querySelector('main')) || doc.body;
   if (host && typeof host.appendChild === 'function') host.appendChild(stamp);
+  showLine(doc, stamp, line);
   return stamp;
 }
 
@@ -150,18 +127,22 @@ function paint(doc, reply, word) {
 function claudeReply(doc, options) {
   var node = lastClaude(doc);
   var text = node ? readText(node) : '';
-  if (!node || text.length === 0) return { text: '', stamp: 'not-checked', node: node };
-  return ask(text, options).then(function (stamp) {
-    return { text: text, stamp: stamp, node: node };
+  if (!node || text.length === 0) return { text: '', stamp: 'not-checked', node: node, line: '' };
+  return classifyReply(text, options).then(function (row) {
+    var api = classifyApi();
+    var label = row && row.label;
+    var stamp = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
+    var line = api && typeof api.lineFor === 'function' ? api.lineFor(row) : '';
+    return { text: text, stamp: stamp, node: node, line: line };
   });
 }
 
 function draw(doc, options) {
   if (!doc) return Promise.resolve(null);
   var read = claudeReply(doc, options);
-  if (!read || typeof read.then !== 'function') return Promise.resolve(paint(doc, read.node, read.stamp));
+  if (!read || typeof read.then !== 'function') return Promise.resolve(paint(doc, read.node, read.stamp, read.line));
   return read.then(function (row) {
-    return paint(doc, row.node, row.stamp);
+    return paint(doc, row.node, row.stamp, row.line);
   });
 }
 
