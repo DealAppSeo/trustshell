@@ -11,10 +11,12 @@ function loadRoute() {
   return globalThis.trustshellRoute;
 }
 
-/** One line each. No belt. No wallet. */
+/** One line each: what the switch does. */
 function lines() {
-  const route = loadRoute();
-  return [route.MY_MODEL, route.CHEAP_FIRST];
+  return [
+    'My model: the check still runs.',
+    'Cheap first: open-source hosts first, their model only checks.',
+  ];
 }
 
 function bind(doc, storage) {
