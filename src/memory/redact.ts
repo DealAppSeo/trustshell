@@ -14,7 +14,7 @@ const SK = /\bsk-[A-Za-z0-9_\-]+/g;
 const GHP = /\bghp_[A-Za-z0-9]{36,}\b/g;
 const GITHUB_PAT = /\bgithub_pat_[A-Za-z0-9_]+\b/g;
 /** Shared with remember refusal. Token bodies are assumed to be at least 8 characters. */
-export const PREFIXED_TOKEN = /\b(?:pypi-|npm_|glsoat-|glagent-|glptt-|gloas-|glrt-|gldt-|glpat-|ghs_|ghr_|ghu_|gho_|xoxc-|xoxs-|xoxr-|xoxe-|xoxa-|xoxp-|xoxb-)[A-Za-z0-9_-]{8,}\b/;
+export const PREFIXED_TOKEN = /\b(?:pypi-|npm_|hf_|glsoat-|glagent-|glptt-|gloas-|glrt-|gldt-|glpat-|ghs_|ghr_|ghu_|gho_|xoxc-|xoxs-|xoxr-|xoxe-|xoxa-|xoxp-|xoxb-)[A-Za-z0-9_-]{8,}\b/;
 const PREFIXED_TOKENS = new RegExp(PREFIXED_TOKEN.source, 'g');
 
 export function redact(value: string): string {

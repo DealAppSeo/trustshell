@@ -117,7 +117,7 @@ describe('keyed local memory', () => {
   it('refuses a secret-shaped value and does not write or call out', async () => {
     expect(cliSrc).not.toMatch(/\bPOST\b|fetch\(|https?:\/\//);
     expect(cliSrc).not.toMatch(/HeyGen|stake/i);
-    const secrets = ['sb_secret_FAKE', 'postgresql://fake:fake@localhost/db', 'prefix eyJhbGciOiJub25lIn0 suffix', 'xoxr-12345-abcdef', 'ghr_1234567890abcdef', 'glpat-1234567890abcdef', 'gloas-1234567890abcdef'];
+    const secrets = ['sb_secret_FAKE', 'postgresql://fake:fake@localhost/db', 'prefix eyJhbGciOiJub25lIn0 suffix', 'xoxr-12345-abcdef', 'ghr_1234567890abcdef', 'glpat-1234567890abcdef', 'gloas-1234567890abcdef', 'hf_1234567890abcdef'];
     for (const value of secrets) {
       const result = await go(['remember', 'alpha', value]);
       expect(result.code).toBe(2);
@@ -130,6 +130,7 @@ describe('keyed local memory', () => {
       expect(result.err.join('\n')).not.toContain('ghr_');
       expect(result.err.join('\n')).not.toContain('glpat-');
       expect(result.err.join('\n')).not.toContain('gloas-');
+      expect(result.err.join('\n')).not.toContain('hf_');
     }
     expect(existsSync(db)).toBe(false);
     expect(calls).toEqual([]);
@@ -142,7 +143,7 @@ describe('keyed local memory', () => {
   });
 
   it('refuses and redacts token prefixes while keeping an innocent phrase', async () => {
-    for (const prefix of ['pypi-', 'glagent-', 'xoxc-']) {
+    for (const prefix of ['pypi-', 'glagent-', 'xoxc-', 'hf_']) {
       const token = `${prefix}${'a1B2_c3-D4'.repeat(4)}`;
       expect(refusedValue(token)).toBe(true);
       for (const argv of [['remember', token], ['remember', 'alpha', token]]) {
