@@ -3,56 +3,58 @@
  * A missing Gemini reply is not-checked.
  * A veto still shows the toast.
  */
+export {};
+
 const claude = require('../extension/claude.js') as {
-  claudeReply: (doc: { querySelectorAll: (sel: string) => ReplyBox[] }) => { text: string; stamp: string };
-  draw: (doc: HostDoc) => StampEl | null;
+  claudeReply: (doc: { querySelectorAll: (sel: string) => HostReply[] }) => { text: string; stamp: string };
+  draw: (doc: HostDoc) => HostStamp | null;
 };
 const gemini = require('../extension/gemini.js') as {
-  geminiReply: (doc: { querySelectorAll: (sel: string) => ReplyBox[] }) => { text: string; stamp: string };
+  geminiReply: (doc: { querySelectorAll: (sel: string) => HostReply[] }) => { text: string; stamp: string };
 };
 
-interface StampEl {
+interface HostStamp {
   id: string;
   className: string;
   textContent: string;
   dataset: { stamp?: string };
-  parentNode: ReplyBox | null;
-  previousElementSibling: ReplyBox | null;
+  parentNode: HostReply | null;
+  previousElementSibling: HostReply | null;
   setAttribute: (name: string, value: string) => void;
   remove: () => void;
 }
 
-interface ReplyBox {
+interface HostReply {
   textContent: string;
-  children: StampEl[];
-  ownerDocument: { createElement: (tag: string) => StampEl };
-  appendChild: (child: StampEl) => StampEl;
-  querySelector: (sel: string) => StampEl | null;
-  cloneNode: (deep: boolean) => { textContent: string; querySelectorAll: (sel: string) => StampEl[] };
-  contains: (node: ReplyBox | StampEl | null) => boolean;
-  insertAdjacentElement: (where: string, el: StampEl) => StampEl;
+  children: HostStamp[];
+  ownerDocument: { createElement: (tag: string) => HostStamp };
+  appendChild: (child: HostStamp) => HostStamp;
+  querySelector: (sel: string) => HostStamp | null;
+  cloneNode: (deep: boolean) => { textContent: string; querySelectorAll: (sel: string) => HostStamp[] };
+  contains: (node: HostReply | HostStamp | null) => boolean;
+  insertAdjacentElement: (where: string, el: HostStamp) => HostStamp;
 }
 
 interface HostDoc {
-  querySelectorAll: (sel: string) => ReplyBox[];
-  getElementById: (id: string) => StampEl | null;
-  createElement: (tag: string) => StampEl;
+  querySelectorAll: (sel: string) => HostReply[];
+  getElementById: (id: string) => HostStamp | null;
+  createElement: (tag: string) => HostStamp;
   querySelector: (sel: string) => null;
-  body: { appendChild: (el: StampEl) => StampEl };
+  body: { appendChild: (el: HostStamp) => HostStamp };
 }
 
-function emptyDoc(): { querySelectorAll: (sel: string) => ReplyBox[] } {
+function emptyHostDoc(): { querySelectorAll: (sel: string) => HostReply[] } {
   return { querySelectorAll: () => [] };
 }
 
-function vetoPage(): { doc: HostDoc; reply: ReplyBox } {
-  const children: StampEl[] = [];
-  const reply = {} as ReplyBox;
+function hostVetoPage(): { doc: HostDoc; reply: HostReply } {
+  const children: HostStamp[] = [];
+  const reply = {} as HostReply;
   reply.textContent = 'veto';
   reply.children = children;
   reply.ownerDocument = {
-    createElement(): StampEl {
-      const el: StampEl = {
+    createElement(): HostStamp {
+      const el: HostStamp = {
         id: '',
         className: '',
         textContent: '',
@@ -69,7 +71,7 @@ function vetoPage(): { doc: HostDoc; reply: ReplyBox } {
       return el;
     },
   };
-  reply.appendChild = (child: StampEl) => {
+  reply.appendChild = (child: HostStamp) => {
     child.parentNode = reply;
     children.push(child);
     return child;
@@ -82,7 +84,7 @@ function vetoPage(): { doc: HostDoc; reply: ReplyBox } {
     textContent: 'veto',
     querySelectorAll: () => [],
   });
-  reply.contains = (node) => node != null && children.indexOf(node as StampEl) >= 0;
+  reply.contains = (node) => node != null && children.indexOf(node as HostStamp) >= 0;
   reply.insertAdjacentElement = (_where, el) => {
     el.previousElementSibling = reply;
     return el;
@@ -100,19 +102,19 @@ function vetoPage(): { doc: HostDoc; reply: ReplyBox } {
 
 describe('extension hosts', () => {
   it('a missing Claude reply is not-checked', () => {
-    const read = claude.claudeReply(emptyDoc());
+    const read = claude.claudeReply(emptyHostDoc());
     expect(read.text).toBe('');
     expect(read.stamp).toBe('not-checked');
   });
 
   it('a missing Gemini reply is not-checked', () => {
-    const read = gemini.geminiReply(emptyDoc());
+    const read = gemini.geminiReply(emptyHostDoc());
     expect(read.text).toBe('');
     expect(read.stamp).toBe('not-checked');
   });
 
   it('a veto still shows the toast', () => {
-    const page = vetoPage();
+    const page = hostVetoPage();
     const stamp = claude.draw(page.doc);
     const toast = page.reply.querySelector('#trustshell-toast');
     expect(stamp && stamp.textContent).toBe('veto');
