@@ -31,18 +31,21 @@ XC3 · XC1 merges CC1 · XC3 merges CC2. Leave it open and bring it to Sean if t
   Do not point the stamp at it.
   Contract: `{text, labels}` in, `{label}` out, label in pass|veto|not-checked. A 401, a timeout and
   an empty body are not-checked, never 0. No claim text stored. No user id.
-  **Decision 1 — auth and spend.** The extension holds no key, so the route must sit before
-  `authMiddleware` (as `/laya/classify` does). That makes it a public endpoint: if it calls HAL or
-  any paid model, it is an open spend tap. It needs a rate limit, and Sean decides whether it may
-  call anything paid.
-  **Decision 2 — HAL or not.** If the route is not HAL-backed, the terminal `verify` and the stamp
-  can legitimately give different labels for the same text, and an end-to-end that expects "same
-  label" is wrong. Then the bar is: both are pass|veto|not-checked and neither fakes a pass.
-- **N-MANIFEST** (XC1; if no PR by ~00:30Z 2026-10-03, CC1 opens it and XC1 merges). Add `"laya.js"` before `"classify.js"` in the claude, gemini, grok and
-  deepseek entries, and `"classify.js", "laya.js"` before `"content.js"` in the chatgpt entry.
-  #418 is merged, so chatgpt no longer paints the reply's last word — but until this lands it
-  paints **not-checked always**, not the classifier label. The browser runs `classify.js`'s fallback.
-  After it lands, CC1 deletes the fallback so there is one call path.
+  **Decided 2026-10-02 (Sean, Grok, CC1):** the route sits before `authMiddleware` (the extension
+  holds no key), so it is public. It does **not** call HAL or any paid model, and it is
+  rate-limited. Terminal `verify` and the stamp are not expected to agree: the end-to-end bar is
+  that both receipts are pass|veto|not-checked and neither fakes a pass.
+- ~~N-MANIFEST~~ **done in `CC1/manifest-laya`** (Sean: do it now). Every entry loads `laya.js`
+  before `classify.js`; chatgpt loads both. `classify.js`'s fallback call is gone — one call path.
+- **N-LOAD-SCOPE — found and fixed in the same PR.** Content scripts in one entry share ONE global
+  scope. `toast.js` declared a top-level `const api`, and the next file declared `api` again, so
+  **chatgpt, claude, gemini and deepseek threw a SyntaxError on load and painted nothing** — only
+  grok worked [MEASURED 2026-10-02: Node vm in manifest order, then real Chromium classic scripts:
+  "Identifier 'api' has already been declared"]. CC1's own #418 caused the chatgpt half.
+  Every unit test was green, because each test `require`s one file as its own module.
+  Fix: each shared script keeps its names inside a function scope.
+  Guard: `tests/extension-manifest-load.test.ts` runs every entry in manifest order in one context.
+  **Host scripts (XC1): keep top-level names unique, or wrap them too.**
 - **N-LAYA-HOST** (Sean). No hosted Laya endpoint exists. Its wire shape (`{text, labels}` in,
   `{label}` out) is NOT CHECKED against Convai's docs. A content-script fetch is subject to the
   target's CORS; a background-worker fetch needs `host_permissions` (manifest, XC1).
@@ -63,6 +66,9 @@ Starts only after N-ENDPOINT and N-MANIFEST land.
 - CC2 `CC2/cfo-belt` (repid-engine): `GET /api/v1/belts/cfo`, a cap row with `can_spend: false`.
 
 ### Gotchas measured today
+- **Green unit tests do not mean a host loads.** See N-LOAD-SCOPE. Load the real order before
+  saying a host works.
+- Do not cite `trustshell repid trinity-shofet` in tester notes until that command is run again.
 - A stale `tsconfig.tsbuildinfo` reported a TS2393 that was not in the tree. `rm` it before
   believing a "pre-existing" type error.
 - Two classifier clients (`classify.js`, `laya.js`) had drifted: different slow line, `>=` vs `>`
