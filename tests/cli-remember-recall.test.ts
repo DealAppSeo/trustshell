@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
+import { refusedValue } from '../src/cli/remember';
 import { listNotes } from '../src/memory/local-store';
 
 const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
@@ -66,5 +67,22 @@ describe('cli remember and recall', () => {
     expect(out).toEqual(['ship the receipt\nthen look at it\ndo_not_send COUNT 0']);
     expect(calls).toEqual([]);
     expect(existsSync(homeDb) ? statSync(homeDb).mtimeMs : null).toBe(beforeHome);
+  });
+
+  it('refuses GitLab pipeline trigger tokens (glptt-) without printing them', async () => {
+    const token = 'glptt-fakepipeline123456789';
+    expect(refusedValue(token)).toBe(true);
+
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: CliIO = { out: (s) => out.push(s), err: (s) => err.push(s) };
+    expect(await run(parseArgs(['remember', token]), {} as never, io)).toBe(2);
+    expect(out.join('\n')).not.toContain(token);
+    expect(err.join('\n')).not.toContain(token);
+    expect(err).toContain('remember refused');
+
+    const stored = existsSync(db) ? readFileSync(db) : Buffer.alloc(0);
+    expect(stored.includes(token)).toBe(false);
+    expect(listNotes(db)).toEqual([]);
   });
 });
