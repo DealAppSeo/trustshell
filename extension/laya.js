@@ -11,6 +11,10 @@ const VETO = 'veto';
 const NOT_CHECKED = 'not-checked';
 const LABELS = [PASS, VETO, NOT_CHECKED];
 
+/** Over this, the answer is too late to count. It is not-checked, never a pass. */
+const SLOW_MS = 3000;
+const SLOW_LINE = 'Still checking';
+
 function clock() {
   if (typeof performance === 'object' && performance && typeof performance.now === 'function') {
     return performance.now();
@@ -29,11 +33,18 @@ function labelOf(body) {
  * options.modelUrl  the Laya endpoint. Missing is not-checked.
  * options.fetchImpl defaults to fetch.
  * options.timeoutMs defaults to 10000.
+ * options.now       a local clock, for tests.
+ * Over SLOW_MS, the label is not-checked and line is 'Still checking'.
  */
 async function callLaya(text, options) {
   const opts = options || {};
-  const start = clock();
-  const done = (label) => ({ label, latency_ms: Math.max(0, Math.round(clock() - start)) });
+  const now = typeof opts.now === 'function' ? opts.now : clock;
+  const start = now();
+  const done = (label) => {
+    const latency_ms = Math.max(0, Math.round(now() - start));
+    if (latency_ms > SLOW_MS) return { label: NOT_CHECKED, latency_ms, line: SLOW_LINE };
+    return { label, latency_ms };
+  };
 
   const url = typeof opts.modelUrl === 'string' ? opts.modelUrl.trim() : '';
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
@@ -69,7 +80,7 @@ async function callLaya(text, options) {
   }
 }
 
-const api = { PASS, VETO, NOT_CHECKED, LABELS, callLaya };
+const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, callLaya };
 
 if (typeof module === 'object' && module && module.exports) module.exports = api;
 if (typeof globalThis === 'object') globalThis.trustshellLaya = api;
