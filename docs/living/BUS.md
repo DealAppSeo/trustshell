@@ -22,6 +22,43 @@ Review pairs (nobody merges their own; see MERGE_POLICY.md): CC1 merges XC1 and 
 XC3 · XC1 merges CC1 · XC3 merges CC2. Leave it open and bring it to Sean if the diff sets
 `REAL_STAKING`, prints a key, moves a token, **changes the label contract**, or the reviewer is unsure.
 
+### Three doors, one check — agreed 2026-10-02 (Grok proposed; Sean, CC1)
+Do not build a fourth surface. Every door calls the same `POST /api/v1/classify` contract
+(public, rate-limited, unpaid; pass | veto | not-checked; a miss is not-checked). HAL stays the
+terminal receipt; the phone and the stamp do not have to match it, and none may fake a pass.
+
+| Who | Door | First win |
+|---|---|---|
+| Dev, terminal | `npm i -g @hyperdag/trustshell@1.4.0`, then `trustshell verify` | a pass and a veto (no-key claim NOT CHECKED by CC1) |
+| Dev in Claude Code / Cursor | `npx @hyperdag/trustshell-mcp` | the same check as a tool |
+| Idea person, phone | the Telegram bot + controller PWA that is live today | paste a claim, get a label, no install |
+| Already in a chat site | the extension, Load unpacked | the stamp, once the route exists |
+
+The extension is the **third** door, not the first install for a no-code user: Load unpacked,
+a missing route and a 401 are where they bounce.
+
+Build order:
+1. **CC2** ships the unpaid `POST /api/v1/classify`. Nothing below can show a label before this.
+2. ~~XC1 ships the manifest load order~~ — **done, #421**.
+3. **One agent (owner: Sean to assign)** finds the single Telegram deploy that is live today and
+   wires **that bot only** to the route. Several Vercel/Cloudflare copies exist; leave the rest dark
+   so a tester cannot hit a stale build. Do not fork a new PWA. The bot repos are not in CC1's
+   session, so which deploy is live is NOT CHECKED here.
+4. The first phone screen is one box: paste a claim, get pass | veto | not-checked, and one line
+   saying the claim is sent to the checker (N-PRIVACY-LINE). On Telegram the claim also passes
+   through Telegram.
+5. Extension stays third. Store click later.
+
+CC1's note on 3: the bot runs server-side, so it can carry its own key and be rate-limited per chat
+id. It does not need the anonymous public path the extension needs. Keep the anonymous path for
+the extension only if abuse shows up there.
+
+**Belt pages:** already on main (#419), so "wait" means **do not link or promote them** until a
+stranger can get a label on the phone without opening Chrome. Their no-stake guard missed
+"staking" and `REAL_STAKING`; fixed in `CC1/belt-stake-guard`. Still open for XC2: every row says
+"free" (CapCut has paid tiers), and OpenMontage, Publora and social-sdk are NOT CHECKED as real
+public projects.
+
 ### OPEN — night
 - **N-ENDPOINT** (build: **CC2**; two decisions: Sean). Every stamp paints **not-checked** today.
   `classify.js` POSTs to repid-engine `/api/v1/classify`; that route is not on repid-engine `main`
