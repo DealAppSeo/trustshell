@@ -10,12 +10,15 @@ const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/g;
 const EYJ = /\beyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*/g;
 /** Agent/API keys with an `sk-` prefix, as used for agent apiKey values in this repo. */
 const SK = /\bsk-[A-Za-z0-9_\-]+/g;
+/** GitHub OAuth access tokens (`gho_`). Process before the generic Bearer rule so the whole token is removed. */
+const GHO = /\bgho_[A-Za-z0-9]{36,}/g;
 
 export function redact(value: string): string {
   return value
     .replace(SECRET, '')
     .replace(ADDRESS, '')
     .replace(POSTGRES, '')
+    .replace(GHO, '')
     .replace(BEARER, '')
     .replace(EYJ, '')
     .replace(SK, '');
