@@ -77,5 +77,43 @@ describe('extension laya', () => {
     });
     expect(edge).toEqual({ label: 'pass', latency_ms: 3000 });
   });
+
+  it('the default wait stops just past 3000 ms and says Still checking', async () => {
+    jest.useFakeTimers();
+    try {
+      let t = 0;
+      const fetchImpl = jest.fn(() => new Promise(() => undefined));
+      const pending = laya.callLaya(REPLY, { modelUrl: MODEL_URL, fetchImpl, now: () => t });
+      t = 3100;
+      jest.advanceTimersByTime(3100);
+      const out = await pending;
+      expect(out).toEqual({ label: 'not-checked', latency_ms: 3100, line: 'Still checking' });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a non-http model address is no model', async () => {
+    for (const modelUrl of ['file:///etc/passwd', 'javascript:alert(1)', 'not a url', 'https://api.anthropic.com/v1']) {
+      const fetchImpl = answer(200, '{"label":"pass"}');
+      const out = await laya.callLaya(REPLY, { modelUrl, fetchImpl });
+      expect(out.label).toBe('not-checked');
+      expect(fetchImpl).not.toHaveBeenCalled();
+    }
+  });
+
+  it('sends no cookies and refuses a redirect', async () => {
+    const sent = answer(200, '{"label":"pass"}');
+    await laya.callLaya(REPLY, { modelUrl: MODEL_URL, fetchImpl: sent });
+    const init = (sent.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(init.credentials).toBe('omit');
+    expect(init.redirect).toBe('error');
+  });
+
+  it('an oversized body is not-checked, not pass', async () => {
+    const big = JSON.stringify({ label: 'pass', pad: 'x'.repeat(70000) });
+    const out = await laya.callLaya(REPLY, { modelUrl: MODEL_URL, fetchImpl: answer(200, big) });
+    expect(out.label).toBe('not-checked');
+  });
 });
 export {};
