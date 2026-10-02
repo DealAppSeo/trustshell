@@ -90,6 +90,10 @@ async function callLaya(text, options) {
         cache: 'no-store',
       });
       if (!res || res.status !== 200) return null;
+      if (typeof res.text !== 'function') {
+        // Some callers hand back only json(). An empty or non-object body is still not-checked.
+        return typeof res.json === 'function' ? res.json() : null;
+      }
       const raw = await res.text();
       if (typeof raw !== 'string' || raw.trim() === '' || raw.length > MAX_BODY_CHARS) return null;
       return JSON.parse(raw);
