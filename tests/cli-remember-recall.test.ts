@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
+import { refusedValue, rememberKey } from '../src/cli/remember';
 import { listNotes } from '../src/memory/local-store';
 
 const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
@@ -66,5 +67,16 @@ describe('cli remember and recall', () => {
     expect(out).toEqual(['ship the receipt\nthen look at it\ndo_not_send COUNT 0']);
     expect(calls).toEqual([]);
     expect(existsSync(homeDb) ? statSync(homeDb).mtimeMs : null).toBe(beforeHome);
+  });
+
+  it('refuses GitHub OAuth access tokens (gho_*) and still accepts innocent strings', () => {
+    const token = 'gho_abc123def456ghi789jkl012mno345pqr678stu';
+    expect(refusedValue(token)).toBe(true);
+    expect(refusedValue(`prefix ${token} suffix`)).toBe(true);
+    expect(rememberKey('github-token', token)).toBe(false);
+
+    expect(refusedValue('gho_')).toBe(false);
+    expect(refusedValue('gho_short1')).toBe(false);
+    expect(refusedValue('the gho_ prefix is documented here')).toBe(false);
   });
 });
