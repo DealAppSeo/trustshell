@@ -142,7 +142,7 @@ describe('keyed local memory', () => {
   });
 
   it('refuses and redacts token prefixes while keeping an innocent phrase', async () => {
-    for (const prefix of ['pypi-', 'glagent-', 'xoxc-']) {
+    for (const prefix of ['pypi-', 'glagent-', 'xoxc-', 'sk_test_']) {
       const token = `${prefix}${'a1B2_c3-D4'.repeat(4)}`;
       expect(refusedValue(token)).toBe(true);
       for (const argv of [['remember', token], ['remember', 'alpha', token]]) {
