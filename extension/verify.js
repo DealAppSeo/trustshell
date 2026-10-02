@@ -8,6 +8,17 @@ const DEFAULT_BASE = 'https://repid-engine-production.up.railway.app';
 
 const NOT_CHECKED = 'not-checked';
 
+function loadRoute() {
+  if (typeof require === 'function') {
+    try {
+      return require('./route.js');
+    } catch (_err) {
+      /* service worker loads route.js via importScripts */
+    }
+  }
+  return globalThis.trustshellRoute;
+}
+
 function hasLateVote(body) {
   const responses = Array.isArray(body.provider_responses) ? body.provider_responses : [];
   if (responses.some((row) => row && row.late === true)) return true;
@@ -41,11 +52,14 @@ async function verifyLastReply(text, options) {
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const route = loadRoute();
+  const setting = route.settingOf(opts.setting);
+  const order = route.orderFor(setting).map((row) => row.host);
   try {
     const res = await fetchImpl(base + VERIFY_PATH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: String(text ?? ''), strictness: 2 }),
+      body: JSON.stringify({ text: String(text ?? ''), strictness: 2, route: setting, order }),
       signal: controller.signal,
     });
     if (!res || res.status !== 200) return NOT_CHECKED;

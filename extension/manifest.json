@@ -6,6 +6,10 @@
   "host_permissions": [
     "https://repid-engine-production.up.railway.app/*"
   ],
+  "permissions": ["storage"],
+  "options_ui": {
+    "page": "options.html"
+  },
   "background": {
     "service_worker": "background.js"
   },
