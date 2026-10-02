@@ -13,12 +13,9 @@ const SK = /\bsk-[A-Za-z0-9_\-]+/g;
 /** GitHub personal access tokens: classic `ghp_...` and fine-grained `github_pat_...`. */
 const GHP = /\bghp_[A-Za-z0-9]{36,}\b/g;
 const GITHUB_PAT = /\bgithub_pat_[A-Za-z0-9_]+\b/g;
-/** GitHub refresh tokens: `ghr_...`. */
-const GHR = /\bghr_[A-Za-z0-9]{36,}\b/g;
-/** GitHub App user-to-server tokens: `ghu_...`. */
-const GHU = /\bghu_[A-Za-z0-9]{36,}\b/g;
-/** npm access tokens: `npm_...` followed by a hex secret. */
-const NPM = /\bnpm_[0-9a-fA-F]{36}\b/g;
+/** Shared with remember refusal. Token bodies are assumed to be at least 8 characters. */
+export const PREFIXED_TOKEN = /\b(?:pypi-|npm_|glsoat-|glagent-|glptt-|gloas-|glrt-|gldt-|glpat-|ghs_|ghr_|ghu_|gho_|xoxc-|xoxs-|xoxr-|xoxe-|xoxa-|xoxp-|xoxb-)[A-Za-z0-9_-]{8,}\b/;
+const PREFIXED_TOKENS = new RegExp(PREFIXED_TOKEN.source, 'g');
 
 export function redact(value: string): string {
   return value
@@ -30,7 +27,5 @@ export function redact(value: string): string {
     .replace(SK, '')
     .replace(GHP, '')
     .replace(GITHUB_PAT, '')
-    .replace(GHR, '')
-    .replace(GHU, '')
-    .replace(NPM, '');
+    .replace(PREFIXED_TOKENS, '');
 }
