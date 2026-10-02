@@ -28,16 +28,23 @@ function apply(doc, value) {
   return selected;
 }
 
-/** A missing stored switch stays my model. */
+function hideKey(doc) {
+  const field = keyField(doc);
+  if (field) field.value = '';
+}
+
+/** A missing stored switch stays my model. The key stays off the page. */
 function reload(doc, storage) {
   const route = loadRoute();
   const local = storage && storage.local;
+  hideKey(doc);
   if (!local || typeof local.get !== 'function') {
     apply(doc, undefined);
     return;
   }
   local.get([route.STORAGE_KEY], (stored) => {
     apply(doc, stored && stored[route.STORAGE_KEY]);
+    hideKey(doc);
   });
 }
 
