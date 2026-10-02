@@ -2,7 +2,7 @@
 
 const POPUP_KEY = 'popupLine';
 
-/** pass, veto, or not-checked. A missing verdict is not-checked, not 0. */
+/** Classifier label: pass, veto, or not-checked. A miss is not-checked, not 0. */
 function popupLine(word) {
   if (word === 0 || word === '0') return 'not-checked';
   if (word === 'pass' || word === 'veto' || word === 'not-checked') return word;
