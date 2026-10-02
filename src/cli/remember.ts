@@ -6,9 +6,12 @@ import { insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
 /** Authorization header tokens, including `Bearer <jwt>`. Tokens are assumed to be at least 8 characters. */
 const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/;
 
+/** GitHub App server-to-server tokens. Tokens are assumed to be at least 8 characters after the prefix. */
+const GITHUB_APP_S2S = /\bghs_[A-Za-z0-9]{8,}/;
+
 /** True when a value carries a secret shape and must not be stored. */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value);
+  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || GITHUB_APP_S2S.test(value);
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
