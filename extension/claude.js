@@ -34,16 +34,36 @@ function readText(node) {
   return ((copy && copy.textContent) || '').trim();
 }
 
-function stampWord(text) {
-  if (typeof text !== 'string' || text.trim().length === 0) return 'not-checked';
-  var lines = text.split(/\r?\n/);
-  var last = '';
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i].trim().toLowerCase();
-    if (line.length > 0) last = line;
+function verifyApi() {
+  if (typeof globalThis !== 'undefined' && globalThis.trustshellVerify) return globalThis.trustshellVerify;
+  if (typeof require === 'function') {
+    try {
+      return require('./verify.js');
+    } catch (err) {
+      return null;
+    }
   }
-  if (last === 'pass' || last === 'veto' || last === 'not-checked') return last;
+  return null;
+}
+
+/** The last line is not the stamp. verify.js decides. A timeout is not-checked. */
+function shownStamp(word) {
+  if (word === 'pass' || word === 'veto') return word;
   return 'not-checked';
+}
+
+function ask(text, options) {
+  if (typeof text !== 'string' || text.trim().length === 0) return Promise.resolve('not-checked');
+  var api = verifyApi();
+  if (!api || typeof api.verifyLastReply !== 'function') return Promise.resolve('not-checked');
+  return Promise.resolve()
+    .then(function () {
+      return api.verifyLastReply(text, options || {});
+    })
+    .then(shownStamp)
+    .catch(function () {
+      return 'not-checked';
+    });
 }
 
 function toastApi() {
@@ -95,18 +115,23 @@ function paint(doc, reply, word) {
   return stamp;
 }
 
-/** A missing reply is not-checked. A present reply uses the chatgpt.com last-line stamp. */
-function claudeReply(doc) {
+/** A missing reply is not-checked and is not sent to verify.js. */
+function claudeReply(doc, options) {
   var node = lastClaude(doc);
   var text = node ? readText(node) : '';
   if (!node || text.length === 0) return { text: '', stamp: 'not-checked', node: node };
-  return { text: text, stamp: stampWord(text), node: node };
+  return ask(text, options).then(function (stamp) {
+    return { text: text, stamp: stamp, node: node };
+  });
 }
 
-function draw(doc) {
-  if (!doc) return null;
-  var read = claudeReply(doc);
-  return paint(doc, read.node, read.stamp);
+function draw(doc, options) {
+  if (!doc) return Promise.resolve(null);
+  var read = claudeReply(doc, options);
+  if (!read || typeof read.then !== 'function') return Promise.resolve(paint(doc, read.node, read.stamp));
+  return read.then(function (row) {
+    return paint(doc, row.node, row.stamp);
+  });
 }
 
 function install(doc) {
@@ -139,7 +164,6 @@ function install(doc) {
 var api = {
   lastClaude: lastClaude,
   readText: readText,
-  stampWord: stampWord,
   claudeReply: claudeReply,
   draw: draw,
   install: install,

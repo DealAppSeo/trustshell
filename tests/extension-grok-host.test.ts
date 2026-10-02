@@ -5,7 +5,12 @@ export {};
 
 const grok = require('../extension/grok-host.js') as {
   grokReply: (doc: { querySelectorAll: (sel: string) => GrokReply[] }) => { text: string; stamp: string };
-  draw: (doc: GrokDoc) => GrokStamp | null;
+  draw: (
+    doc: GrokDoc,
+    options?: {
+      fetchImpl: () => Promise<{ status: number; json: () => Promise<{ decision: string }> }>;
+    },
+  ) => Promise<GrokStamp | null>;
 };
 
 interface GrokStamp {
@@ -92,13 +97,15 @@ function grokVetoPage(): { doc: GrokDoc; reply: GrokReply } {
 }
 
 describe('grok.com host', () => {
-  it('a missing reply is not-checked and a veto shows the toast', () => {
+  it('a missing reply is not-checked and a veto shows the toast', async () => {
     const missing = grok.grokReply({ querySelectorAll: () => [] });
     expect(missing.text).toBe('');
     expect(missing.stamp).toBe('not-checked');
 
     const page = grokVetoPage();
-    const stamp = grok.draw(page.doc);
+    const stamp = await grok.draw(page.doc, {
+      fetchImpl: async () => ({ status: 200, json: async () => ({ decision: 'vetoed' }) }),
+    });
     const toast = page.reply.querySelector('#trustshell-toast');
     expect(stamp && stamp.textContent).toBe('veto');
     expect(toast && toast.textContent).toBe('Caught. This reply did not pass.');
