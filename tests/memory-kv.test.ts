@@ -114,7 +114,7 @@ describe('keyed local memory', () => {
   it('refuses a secret-shaped value and does not write or call out', async () => {
     expect(cliSrc).not.toMatch(/\bPOST\b|fetch\(|https?:\/\//);
     expect(cliSrc).not.toMatch(/HeyGen|stake/i);
-    const secrets = ['sb_secret_FAKE', 'postgresql://fake:fake@localhost/db', 'prefix eyJhbGciOiJub25lIn0 suffix', 'xoxr-12345-abcdef'];
+    const secrets = ['sb_secret_FAKE', 'postgresql://fake:fake@localhost/db', 'prefix eyJhbGciOiJub25lIn0 suffix', 'xoxr-12345-abcdef', 'ghr_1234567890abcdef'];
     for (const value of secrets) {
       const result = await go(['remember', 'alpha', value]);
       expect(result.code).toBe(2);
@@ -124,6 +124,7 @@ describe('keyed local memory', () => {
       expect(result.err.join('\n')).not.toContain('postgresql://');
       expect(result.err.join('\n')).not.toContain('eyJ');
       expect(result.err.join('\n')).not.toContain('xoxr-');
+      expect(result.err.join('\n')).not.toContain('ghr_');
     }
     expect(existsSync(db)).toBe(false);
     expect(calls).toEqual([]);
