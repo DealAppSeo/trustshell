@@ -57,6 +57,7 @@ async function verifyLastReply(text, options) {
   let order = route.orderFor(setting).map((row) => row.host).filter((host) => !/anthropic/i.test(host));
   try {
     if (/anthropic/i.test(base)) return NOT_CHECKED;
+    if (typeof opts.key === 'string' && opts.key.trim() === '') return NOT_CHECKED;
     if (opts.keys && typeof opts.keys === 'object') {
       order = order.filter((host) => route.keyStamp(host, opts.keys) === 'present');
       if (order.length === 0) return NOT_CHECKED;

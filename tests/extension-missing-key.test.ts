@@ -9,6 +9,7 @@ const verify = require('../extension/verify.js') as {
     options?: {
       setting?: string;
       keys?: Record<string, string>;
+      key?: string;
       baseUrl?: string;
       fetchImpl?: (url: string, init: { body?: string }) => Promise<{ status: number; json: () => Promise<unknown> }>;
     },
@@ -38,6 +39,26 @@ describe('extension missing key', () => {
     expect(missing).not.toBe('pass');
     expect(missing).not.toBe(0);
     expect(missing).not.toBe('0');
+
+    const emptyCalls: string[] = [];
+    const empty = await verify.verifyLastReply('the last reply', {
+      setting: 'cheap first',
+      key: '',
+      fetchImpl: cleanFetch(emptyCalls),
+    });
+    expect(emptyCalls).toEqual([]);
+    expect(empty).toBe('not-checked');
+    expect(empty).not.toBe('pass');
+    expect(empty).not.toBe(0);
+
+    const blankCalls: string[] = [];
+    const blank = await verify.verifyLastReply('the last reply', {
+      key: '   ',
+      baseUrl: 'https://api.anthropic.com',
+      fetchImpl: cleanFetch(blankCalls),
+    });
+    expect(blankCalls).toEqual([]);
+    expect(blank).toBe('not-checked');
 
     const anthropicCalls: string[] = [];
     const blocked = await verify.verifyLastReply('the last reply', {
