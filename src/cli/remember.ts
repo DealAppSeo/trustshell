@@ -1,36 +1,49 @@
 /**
  * Write one local note, or one value under a key. No network.
+ * New secret shapes are added to SECRET_PREFIXES. Not a new pull request.
  */
 import { insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
 
-/** Authorization header tokens, including `Bearer <jwt>`. Tokens are assumed to be at least 8 characters. */
-const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/;
-
-/** Slack refresh tokens (`xoxr-...`). Tokens are assumed to be at least 8 characters. */
-const XOXR = /\bxoxr-[A-Za-z0-9_-]{8,}\b/;
-
-/** GitHub refresh tokens (`ghr_...`). Tokens are assumed to be at least 8 characters. */
-const GHR = /\bghr_[A-Za-z0-9]{8,}\b/;
-
-/** GitLab personal access tokens (`glpat-...`). Tokens are assumed to be at least 8 characters. */
-const GLPAT = /\bglpat-[A-Za-z0-9_-]{8,}\b/;
-
-/** GitLab OAuth application secrets (`gloas-...`). Secrets are assumed to be at least 8 characters. */
-const GLOAS = /\bgloas-[A-Za-z0-9_-]{8,}\b/;
+const SECRET_PREFIXES = [
+  'sb_secret_',
+  'postgresql://',
+  'eyJ',
+  'Bearer ',
+  'xoxb-',
+  'xoxp-',
+  'xoxa-',
+  'xoxe-',
+  'xoxc-',
+  'xoxr-',
+  'xoxs-',
+  'ghr_',
+  'ghs_',
+  'ghu_',
+  'gho_',
+  'ghp_',
+  'github_pat_',
+  'glpat-',
+  'gloas-',
+  'glsoat-',
+  'glagent-',
+  'glptt-',
+  'glrt-',
+  'gldt-',
+  'npm_',
+  'pypi-',
+  'sk-',
+  'AKIA',
+];
 
 /** True when a value carries a secret shape and must not be stored. */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || XOXR.test(value) || GHR.test(value) || GLPAT.test(value) || GLOAS.test(value);
+  return SECRET_PREFIXES.some((prefix) => value.includes(prefix));
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
   insertMemory(memoryDbPath(env), 'note', text);
 }
 
-/**
- * Save one value under key in the same local file.
- * A secret-shaped value is refused and nothing is written. No network.
- */
 export function rememberKey(key: string, value: string, env: NodeJS.ProcessEnv = process.env): boolean {
   if (refusedValue(value)) return false;
   writeKeyed(memoryDbPath(env), key, value);
