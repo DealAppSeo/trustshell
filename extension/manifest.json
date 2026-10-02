@@ -16,31 +16,31 @@
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-      "js": ["toast.js", "content.js"],
+      "js": ["toast.js", "laya.js", "classify.js", "content.js"],
       "css": ["stamp.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://grok.com/*"],
-      "js": ["classify.js", "grok.js"],
+      "js": ["laya.js", "classify.js", "grok.js"],
       "css": ["stamp.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://claude.ai/*"],
-      "js": ["toast.js", "classify.js", "claude.js"],
+      "js": ["toast.js", "laya.js", "classify.js", "claude.js"],
       "css": ["stamp.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://gemini.google.com/*"],
-      "js": ["toast.js", "classify.js", "gemini.js"],
+      "js": ["toast.js", "laya.js", "classify.js", "gemini.js"],
       "css": ["stamp.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://deepseek.com/*", "https://chat.deepseek.com/*"],
-      "js": ["toast.js", "classify.js", "deepseek.js"],
+      "js": ["toast.js", "laya.js", "classify.js", "deepseek.js"],
       "css": ["stamp.css"],
       "run_at": "document_idle"
     }
