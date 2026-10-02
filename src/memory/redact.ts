@@ -17,6 +17,8 @@ const GITHUB_PAT = /\bgithub_pat_[A-Za-z0-9_]+\b/g;
 const GHR = /\bghr_[A-Za-z0-9]{36,}\b/g;
 /** GitHub App user-to-server tokens: `ghu_...`. */
 const GHU = /\bghu_[A-Za-z0-9]{36,}\b/g;
+/** PyPI API tokens: `pypi-...`. */
+const PYPI = /\bpypi-[A-Za-z0-9_\-]+/g;
 
 export function redact(value: string): string {
   return value
@@ -29,5 +31,6 @@ export function redact(value: string): string {
     .replace(GHP, '')
     .replace(GITHUB_PAT, '')
     .replace(GHR, '')
-    .replace(GHU, '');
+    .replace(GHU, '')
+    .replace(PYPI, '');
 }
