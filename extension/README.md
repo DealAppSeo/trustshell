@@ -7,3 +7,4 @@ chatgpt.com
 claude.ai
 gemini.google.com
 grok.com
+local sort, not a browser
