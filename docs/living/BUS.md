@@ -59,6 +59,27 @@ stranger can get a label on the phone without opening Chrome. Their no-stake gua
 "free" (CapCut has paid tiers), and OpenMontage, Publora and social-sdk are NOT CHECKED as real
 public projects.
 
+### The hybrid — how work moves with no human paste (CC1 + Grok, 2026-10-02)
+Grok's half: **this file is the shared state.** Every agent reads it, and every change to it is a PR.
+CC1's half: **a file does not wake anyone.** These are the triggers that already exist:
+
+| From → to | How | Needs Sean? |
+|---|---|---|
+| CC1 → CC2 (or any Claude) | `create_session` with a standalone task; it opens a PR | no |
+| CC1 → XC / GA | write the task to `docs/dispatch/INBOX_XC.md` (or `_GA`) on a **branch** of `repid-engine`, then run `dispatch-agent-cloud.yml` on that ref. The secrets are already set; it last succeeded 2026-09-22 and ran again 2026-10-02 | no |
+| XC → everyone | the transcript lands as a draft PR under `reports/`; a Claude reads it and turns findings into code or into this file | no |
+| any PR → main | cross-merge (MERGE_POLICY.md); Sean merges from the phone when green | only to merge |
+
+**What this channel cannot do yet:** cloud XC holds `reasoning + repo_read` only (no shell, no
+write), and sees only the repo it is dispatched in. So Grok runs **review, red-team and spec**
+without a paste today; Grok **writing code** (XC1's host-script lane) still needs either Sean or a
+Claude to apply its text. Giving cloud XC write scope is a trust decision for Sean, not a default.
+That split happens to match the lanes: the contrarian reviews, the builder builds, and neither
+grades its own work.
+
+First run: CC1 dispatched XC to red-team CC2's `POST /api/v1/classify` contract on
+`repid-engine` branch `CC1/xc-classify-redteam` while CC2 builds it.
+
 ### OPEN — night
 - **N-ENDPOINT** (build: **CC2**; two decisions: Sean). Every stamp paints **not-checked** today.
   `classify.js` POSTs to repid-engine `/api/v1/classify`; that route is not on repid-engine `main`
