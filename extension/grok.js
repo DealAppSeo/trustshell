@@ -34,7 +34,9 @@ function readText(node) {
   return (copy.textContent || '').trim();
 }
 
+/** verify.js decides. A timeout or a miss is not-checked, never 0. */
 function shownStamp(word) {
+  if (word === 0 || word === '0') return 'not-checked';
   return word === 'pass' || word === 'veto' ? word : 'not-checked';
 }
 

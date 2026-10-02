@@ -61,6 +61,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "pack-extension": "node scripts/pack-extension.mjs",
     "sdk:clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "sdk:build": "npm run sdk:clean && tsc --project tsconfig.sdk.json",
     "sdk:test": "jest --testPathIgnorePatterns /node_modules/ tests/e2e/ --passWithNoTests",
