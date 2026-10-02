@@ -1,33 +1,40 @@
 /**
- * Reads the last assistant reply on gemini.google.com.
+ * Reads the last assistant reply on deepseek.com.
  * A missing or empty reply is not-checked.
  * This script does not click, type, or send.
  */
 'use strict';
 
-var SELECTOR = 'model-response, message-content.model-response-text, .model-response-text';
-
-function outermost(nodes) {
-  return nodes.filter(function (node) {
-    return !nodes.some(function (other) {
-      return other !== node && other.contains && other.contains(node);
-    });
-  });
+function answerBlock(node) {
+  if (!node || typeof node.querySelectorAll !== 'function') return null;
+  var blocks = node.querySelectorAll('.ds-markdown');
+  for (var i = 0; i < blocks.length; i++) {
+    var block = blocks[i];
+    if (!block) continue;
+    if (typeof block.closest === 'function' && block.closest('.ds-think-content')) continue;
+    return block;
+  }
+  return null;
 }
 
-function lastGemini(doc) {
+function lastDeepseek(doc) {
   if (!doc || typeof doc.querySelectorAll !== 'function') return null;
-  var nodes = outermost(Array.prototype.slice.call(doc.querySelectorAll(SELECTOR)));
-  return nodes.length > 0 ? nodes[nodes.length - 1] : null;
+  var nodes = Array.prototype.slice.call(doc.querySelectorAll('.ds-message'));
+  var assistants = nodes.filter(function (node) {
+    return answerBlock(node) != null;
+  });
+  return assistants.length > 0 ? assistants[assistants.length - 1] : null;
 }
 
 function readText(node) {
   if (!node || typeof node.cloneNode !== 'function') return '';
   var copy = node.cloneNode(true);
   if (copy && typeof copy.querySelectorAll === 'function') {
-    var stamps = copy.querySelectorAll('#trustshell-stamp, .ts-stamp, #trustshell-toast, .ts-toast');
-    for (var i = 0; i < stamps.length; i++) {
-      if (stamps[i] && typeof stamps[i].remove === 'function') stamps[i].remove();
+    var hidden = copy.querySelectorAll(
+      '.ds-think-content, #trustshell-stamp, .ts-stamp, #trustshell-toast, .ts-toast, #trustshell-check-line',
+    );
+    for (var i = 0; i < hidden.length; i++) {
+      if (hidden[i] && typeof hidden[i].remove === 'function') hidden[i].remove();
     }
   }
   return ((copy && copy.textContent) || '').trim();
@@ -122,9 +129,9 @@ function paint(doc, reply, word, line) {
   return stamp;
 }
 
-/** A missing reply is not-checked and is not sent to verify.js. */
-function geminiReply(doc, options) {
-  var node = lastGemini(doc);
+/** A missing reply is not-checked and is not sent. */
+function deepseekReply(doc, options) {
+  var node = lastDeepseek(doc);
   var text = node ? readText(node) : '';
   if (!node || text.length === 0) return { text: '', stamp: 'not-checked', node: node, line: '' };
   return classifyReply(text, options).then(function (row) {
@@ -138,7 +145,7 @@ function geminiReply(doc, options) {
 
 function draw(doc, options) {
   if (!doc) return Promise.resolve(null);
-  var read = geminiReply(doc, options);
+  var read = deepseekReply(doc, options);
   if (!read || typeof read.then !== 'function') return Promise.resolve(paint(doc, read.node, read.stamp, read.line));
   return read.then(function (row) {
     return paint(doc, row.node, row.stamp, row.line);
@@ -173,10 +180,10 @@ function install(doc) {
 }
 
 var api = {
-  lastGemini: lastGemini,
+  lastDeepseek: lastDeepseek,
   readText: readText,
   classifyReply: classifyReply,
-  geminiReply: geminiReply,
+  deepseekReply: deepseekReply,
   draw: draw,
   install: install,
 };
