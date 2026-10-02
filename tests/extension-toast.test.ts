@@ -1,22 +1,24 @@
 /**
  * A veto shows the toast. A pass does not. A timeout does not.
  */
+export {};
+
 const toast = require('../extension/toast.js') as {
   CAUGHT: string;
   toastFor: (result: string | { score?: number | null; line?: number }) => string;
-  placeToast: (reply: ReplyBox, text: string) => ToastEl | null;
+  placeToast: (reply: ToastReply, text: string) => ToastEl | null;
 };
 
 interface ToastEl {
   id: string;
   className: string;
   textContent: string;
-  parentNode: ReplyBox | null;
+  parentNode: ToastReply | null;
   setAttribute: (name: string, value: string) => void;
   remove: () => void;
 }
 
-interface ReplyBox {
+interface ToastReply {
   children: ToastEl[];
   ownerDocument: { createElement: (tag: string) => ToastEl };
   appendChild: (child: ToastEl) => ToastEl;
@@ -24,9 +26,9 @@ interface ReplyBox {
   contains: (node: ToastEl | null) => boolean;
 }
 
-function replyNode(): ReplyBox {
+function toastReply(): ToastReply {
   const children: ToastEl[] = [];
-  const reply: ReplyBox = {
+  const reply: ToastReply = {
     children,
     ownerDocument: {
       createElement(): ToastEl {
@@ -63,7 +65,7 @@ function replyNode(): ReplyBox {
 
 describe('extension toast', () => {
   it('shows the toast for a veto', () => {
-    const reply = replyNode();
+    const reply = toastReply();
     const text = toast.toastFor('veto');
     const node = toast.placeToast(reply, text);
     expect(text).toBe('Caught. This reply did not pass.');
@@ -74,7 +76,7 @@ describe('extension toast', () => {
   });
 
   it('shows nothing for a pass', () => {
-    const reply = replyNode();
+    const reply = toastReply();
     const text = toast.toastFor('pass');
     const node = toast.placeToast(reply, text);
     expect(text).toBe('');
@@ -86,7 +88,7 @@ describe('extension toast', () => {
   });
 
   it('shows nothing for a timeout', () => {
-    const reply = replyNode();
+    const reply = toastReply();
     const text = toast.toastFor('timeout');
     const node = toast.placeToast(reply, text);
     expect(text).toBe('');
