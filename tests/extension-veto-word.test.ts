@@ -48,7 +48,7 @@ interface FetchInit {
 
 interface VerifyOpts {
   timeoutMs?: number;
-  fetchImpl: (url: string, init: FetchInit) => Promise<{ status: number; json: () => Promise<{ decision?: string }> }>;
+  fetchImpl: (url: string, init: FetchInit) => Promise<{ status: number; json: () => Promise<{ label?: string }> }>;
 }
 
 interface HostDrawer {
@@ -109,14 +109,14 @@ function cleanFetch(url: string, init: FetchInit) {
   expect(url).not.toMatch(/anthropic/i);
   const body = JSON.parse(init.body || '{}') as { text?: string };
   expect(String(body.text || '').trim().toLowerCase().endsWith('veto')).toBe(true);
-  return Promise.resolve({ status: 200, json: async () => ({ decision: 'clean' }) });
+  return Promise.resolve({ status: 200, json: async () => ({ label: 'pass' }) });
 }
 
 function vetoFetch(url: string, init: FetchInit) {
   expect(url).not.toMatch(/anthropic/i);
   const body = JSON.parse(init.body || '{}') as { text?: string };
   expect(String(body.text || '').trim().toLowerCase().endsWith('veto')).toBe(true);
-  return Promise.resolve({ status: 200, json: async () => ({ decision: 'vetoed' }) });
+  return Promise.resolve({ status: 200, json: async () => ({ label: 'veto' }) });
 }
 
 function timeoutFetch(url: string, init: FetchInit) {
