@@ -22,7 +22,7 @@
 
   function readText(node) {
     var copy = node.cloneNode(true);
-    var stamps = copy.querySelectorAll('#' + STAMP_ID + ', .ts-stamp');
+    var stamps = copy.querySelectorAll('#' + STAMP_ID + ', .ts-stamp, #trustshell-toast, .ts-toast');
     for (var i = 0; i < stamps.length; i++) stamps[i].remove();
     return (copy.textContent || '').trim();
   }
@@ -37,6 +37,24 @@
     }
     if (last === 'pass' || last === 'veto' || last === 'not-checked') return last;
     return 'not-checked';
+  }
+
+  function toastApi() {
+    if (typeof globalThis !== 'undefined' && globalThis.trustshellToast) return globalThis.trustshellToast;
+    if (typeof require === 'function') {
+      try {
+        return require('./toast.js');
+      } catch (err) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  function showToast(reply, word) {
+    var api = toastApi();
+    if (!api || !reply || typeof api.placeToast !== 'function' || typeof api.toastFor !== 'function') return;
+    api.placeToast(reply, api.toastFor(word));
   }
 
   function draw() {
@@ -62,6 +80,7 @@
 
     if (last) {
       last.insertAdjacentElement('afterend', stamp);
+      showToast(last, word);
       return;
     }
     var host = document.querySelector('main') || document.body;
