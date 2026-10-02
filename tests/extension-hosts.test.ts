@@ -7,7 +7,10 @@ export {};
 
 const claude = require('../extension/claude.js') as {
   claudeReply: (doc: { querySelectorAll: (sel: string) => HostReply[] }) => { text: string; stamp: string };
-  draw: (doc: HostDoc) => HostStamp | null;
+  draw: (
+    doc: HostDoc,
+    options?: { fetchImpl: () => Promise<{ status: number; json: () => Promise<{ decision: string }> }> },
+  ) => Promise<HostStamp | null>;
 };
 const gemini = require('../extension/gemini.js') as {
   geminiReply: (doc: { querySelectorAll: (sel: string) => HostReply[] }) => { text: string; stamp: string };
@@ -113,9 +116,11 @@ describe('extension hosts', () => {
     expect(read.stamp).toBe('not-checked');
   });
 
-  it('a veto still shows the toast', () => {
+  it('a veto still shows the toast', async () => {
     const page = hostVetoPage();
-    const stamp = claude.draw(page.doc);
+    const stamp = await claude.draw(page.doc, {
+      fetchImpl: async () => ({ status: 200, json: async () => ({ decision: 'vetoed' }) }),
+    });
     const toast = page.reply.querySelector('#trustshell-toast');
     expect(stamp && stamp.textContent).toBe('veto');
     expect(toast && toast.textContent).toBe('Caught. This reply did not pass.');
