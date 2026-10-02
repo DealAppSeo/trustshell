@@ -28,16 +28,23 @@ function apply(doc, value) {
   return selected;
 }
 
-/** A missing stored switch stays my model. */
+function hideKey(doc) {
+  const field = keyField(doc);
+  if (field) field.value = '';
+}
+
+/** A missing stored switch stays my model. The key stays off the page. */
 function reload(doc, storage) {
   const route = loadRoute();
   const local = storage && storage.local;
+  hideKey(doc);
   if (!local || typeof local.get !== 'function') {
     apply(doc, undefined);
     return;
   }
   local.get([route.STORAGE_KEY], (stored) => {
     apply(doc, stored && stored[route.STORAGE_KEY]);
+    hideKey(doc);
   });
 }
 
@@ -49,13 +56,52 @@ function save(storage, value) {
   return true;
 }
 
+function keyField(doc) {
+  if (!doc || typeof doc.querySelectorAll !== 'function') return null;
+  const inputs = doc.querySelectorAll('input[name="key"]');
+  for (let i = 0; i < inputs.length; i++) {
+    if (inputs[i] && inputs[i].name === 'key') return inputs[i];
+  }
+  return null;
+}
+
+/** Store the key. The page text stays free of it. */
+function saveKey(doc, storage) {
+  const route = loadRoute();
+  const local = storage && storage.local;
+  if (!local || typeof local.set !== 'function') return false;
+  const field = keyField(doc);
+  const value = field && typeof field.value === 'string' ? field.value : '';
+  local.set({ [route.KEY_STORAGE]: value });
+  if (field) field.value = '';
+  const note = typeof doc.querySelector === 'function' ? doc.querySelector('#key-note') : null;
+  if (note) note.textContent = 'Saved.';
+  return true;
+}
+
+function pageText(doc) {
+  if (!doc) return '';
+  if (doc.body && typeof doc.body.textContent === 'string') return doc.body.textContent;
+  if (typeof doc.textContent === 'string') return doc.textContent;
+  const note = typeof doc.querySelector === 'function' ? doc.querySelector('#key-note') : null;
+  return note && typeof note.textContent === 'string' ? note.textContent : '';
+}
+
 function bind(doc, storage) {
   reload(doc, storage);
   const inputs = doc.querySelectorAll('input[name="route"]');
   for (let i = 0; i < inputs.length; i++) {
+    if (!inputs[i] || typeof inputs[i].addEventListener !== 'function') continue;
+    if (inputs[i].name === 'key') continue;
     inputs[i].addEventListener('change', () => {
       if (!inputs[i].checked) return;
       save(storage, inputs[i].value);
+    });
+  }
+  const button = typeof doc.querySelector === 'function' ? doc.querySelector('#save-key') : null;
+  if (button && typeof button.addEventListener === 'function') {
+    button.addEventListener('click', () => {
+      saveKey(doc, storage);
     });
   }
 }
@@ -65,5 +111,5 @@ if (typeof document !== 'undefined' && !(typeof module === 'object' && module &&
 }
 
 if (typeof module === 'object' && module && module.exports) {
-  module.exports = { lines, bind, reload, save };
+  module.exports = { lines, bind, reload, save, saveKey, pageText };
 }
