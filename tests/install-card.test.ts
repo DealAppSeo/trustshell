@@ -7,14 +7,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const STEPS = [
+  'git pull',
   'chrome://extensions',
   'Developer mode',
   'Load unpacked',
-  'this folder',
-  'the stamp checks the last reply',
+  'pick the extension folder',
 ];
 
-const HOSTS = ['chatgpt.com', 'claude.ai', 'gemini.google.com', 'grok.com'];
+const HOSTS = ['chatgpt.com', 'claude.ai', 'gemini.google.com', 'grok.com', 'chat.deepseek.com'];
 
 describe('install card', () => {
   it('the page does not contain stake now', () => {
