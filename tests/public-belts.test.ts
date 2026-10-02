@@ -26,3 +26,30 @@ describe('public belts', () => {
     expect('mistakes happen').not.toMatch(STAKE);
   });
 });
+
+describe('belt rows', () => {
+  const ALLOWED = new Set(['free', 'paid', 'free tier, paid plans']);
+  const ours = /^(trustshell|cap|receipt|invoice check|grants|redact|present_proof|secret-shape check|proof --verify|trustshell verify|trustshell status)$/;
+
+  function rows(name: string): string[][] {
+    const html = readFileSync(join(__dirname, '../public/belts', name), 'utf8');
+    return [...html.matchAll(/<tr>(.*?)<\/tr>/g)]
+      .map((m) => [...m[1]!.matchAll(/<td>(.*?)<\/td>/g)].map((c) => c[1]!.trim()))
+      .filter((cells) => cells.length === 4);
+  }
+
+  it('every row says free, paid, or free tier, paid plans', () => {
+    for (const name of PAGES) {
+      for (const cells of rows(name)) expect(ALLOWED).toContain(cells[3]);
+    }
+  });
+
+  it('a third-party tool, skill or repo names where it lives', () => {
+    for (const name of PAGES) {
+      for (const [label, kind] of rows(name)) {
+        if (kind === 'method' || ours.test(label!)) continue;
+        expect(label).toMatch(/\((github\.com\/[\w.-]+\/[\w.-]+|[\w-]+\.[a-z]{2,})\)$/);
+      }
+    }
+  });
+});
