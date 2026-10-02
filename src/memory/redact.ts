@@ -10,6 +10,8 @@ const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/g;
 const EYJ = /\beyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*/g;
 /** Agent/API keys with an `sk-` prefix, as used for agent apiKey values in this repo. */
 const SK = /\bsk-[A-Za-z0-9_\-]+/g;
+/** Stripe test secret keys with an `sk_test_` prefix. Distinct from the `sk-` hyphen rule. */
+const SK_TEST = /\bsk_test_[A-Za-z0-9_\-]+\b/g;
 /** GitHub personal access tokens: classic `ghp_...` and fine-grained `github_pat_...`. */
 const GHP = /\bghp_[A-Za-z0-9]{36,}\b/g;
 const GITHUB_PAT = /\bgithub_pat_[A-Za-z0-9_]+\b/g;
@@ -25,6 +27,7 @@ export function redact(value: string): string {
     .replace(BEARER, '')
     .replace(EYJ, '')
     .replace(SK, '')
+    .replace(SK_TEST, '')
     .replace(GHP, '')
     .replace(GITHUB_PAT, '')
     .replace(PREFIXED_TOKENS, '');
