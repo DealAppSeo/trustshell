@@ -54,8 +54,13 @@ async function verifyLastReply(text, options) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const route = loadRoute();
   const setting = route.settingOf(opts.setting);
-  const order = route.orderFor(setting).map((row) => row.host);
+  let order = route.orderFor(setting).map((row) => row.host).filter((host) => !/anthropic/i.test(host));
   try {
+    if (/anthropic/i.test(base)) return NOT_CHECKED;
+    if (opts.keys && typeof opts.keys === 'object') {
+      order = order.filter((host) => route.keyStamp(host, opts.keys) === 'present');
+      if (order.length === 0) return NOT_CHECKED;
+    }
     const res = await fetchImpl(base + VERIFY_PATH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
