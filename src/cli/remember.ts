@@ -9,9 +9,12 @@ const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/;
 /** Slack refresh tokens (`xoxr-...`). Tokens are assumed to be at least 8 characters. */
 const XOXR = /\bxoxr-[A-Za-z0-9_-]{8,}\b/;
 
+/** GitLab deploy tokens (`gldt-...`). Tokens are assumed to be at least 8 characters. */
+const GLDT = /\bgldt-[A-Za-z0-9_-]{8,}\b/;
+
 /** True when a value carries a secret shape and must not be stored. */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || XOXR.test(value);
+  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || XOXR.test(value) || GLDT.test(value);
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
