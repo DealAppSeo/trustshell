@@ -207,7 +207,8 @@ describe('verify hal receipt POST', () => {
       body: honestyBody(),
       verdict: 'PASS',
     });
-    expect(result).toBe('skipped');
+    expect(result.status).toBe('skipped');
+    expect(result.receiptId).toBe('NOT_CHECKED');
     expect(calls).toBe(0);
 
     const seen = install(() => jsonResponse(200, { written: true }));

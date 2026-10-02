@@ -611,12 +611,13 @@ export async function run(
         );
         const body = await honestyPromise;
         const pass = passFrom(body);
-        const receipt = await postHalReceipt({
+        const posted = await postHalReceipt({
           env: process.env,
           fetchImpl: fetch,
           body,
           verdict: r.verdict,
         });
+        const receipt = posted.status;
         if (args.json) {
           const offline = process.env.OFFLINE === '1';
           const verdictLine = offline ? 'NOT_CHECKED' : familyHostVerdictLine(body, r.verdict);
@@ -626,6 +627,7 @@ export async function run(
             ...(offline ? {} : r),
             firstPass: pass,
           };
+          payload.receipt_id = posted.receiptId;
           const counted = offline ? undefined : firstPassObject(body);
           if (counted) payload.first_pass = counted;
           const postHal = offline ? undefined : postHalValue(body);
@@ -636,11 +638,11 @@ export async function run(
         } else {
           io.out(formatVerify(r));
           io.out(pass);
-          io.out(familyHostVerdictLine(body, r.verdict));
           if (trustshellApiUrlSet(process.env)) io.out(honestyRowsLine(body));
+          io.out(`receipt-id ${posted.receiptId}`);
           const receiptLine = receiptHumanLine(receipt);
           if (receiptLine) io.out(receiptLine);
-          if (receipt === 'written') io.out(familyHostVerdictLine(body, r.verdict));
+          io.out(familyHostVerdictLine(body, r.verdict));
         }
         return verdictExitCode(r.verdict);
       } catch (e: any) {
