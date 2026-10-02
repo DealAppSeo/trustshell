@@ -3,6 +3,7 @@
 const MY_MODEL = 'my model';
 const CHEAP_FIRST = 'cheap first';
 const DEFAULT_SETTING = MY_MODEL;
+const STORAGE_KEY = 'route';
 
 /** Open-source hosts. Their model is the check, not the writer. */
 const OPEN_SOURCE_HOSTS = ['groq', 'cerebras', 'deepseek', 'mistral', 'qwen'];
@@ -37,6 +38,7 @@ const api = {
   MY_MODEL,
   CHEAP_FIRST,
   DEFAULT_SETTING,
+  STORAGE_KEY,
   settingOf,
   checkRuns,
   OPEN_SOURCE_HOSTS,

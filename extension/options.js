@@ -19,21 +19,43 @@ function lines() {
   ];
 }
 
-function bind(doc, storage) {
-  const local = storage && storage.local;
+function apply(doc, value) {
+  const selected = loadRoute().settingOf(value);
   const inputs = doc.querySelectorAll('input[name="route"]');
-  if (local && typeof local.get === 'function') {
-    local.get(['route'], (stored) => {
-      const selected = loadRoute().settingOf(stored && stored.route);
-      for (let i = 0; i < inputs.length; i++) {
-        inputs[i].checked = inputs[i].value === selected;
-      }
-    });
+  for (let i = 0; i < inputs.length; i++) {
+    inputs[i].checked = inputs[i].value === selected;
   }
+  return selected;
+}
+
+/** A missing stored switch stays my model. */
+function reload(doc, storage) {
+  const route = loadRoute();
+  const local = storage && storage.local;
+  if (!local || typeof local.get !== 'function') {
+    apply(doc, undefined);
+    return;
+  }
+  local.get([route.STORAGE_KEY], (stored) => {
+    apply(doc, stored && stored[route.STORAGE_KEY]);
+  });
+}
+
+function save(storage, value) {
+  const route = loadRoute();
+  const local = storage && storage.local;
+  if (!local || typeof local.set !== 'function') return false;
+  local.set({ [route.STORAGE_KEY]: route.settingOf(value) });
+  return true;
+}
+
+function bind(doc, storage) {
+  reload(doc, storage);
+  const inputs = doc.querySelectorAll('input[name="route"]');
   for (let i = 0; i < inputs.length; i++) {
     inputs[i].addEventListener('change', () => {
-      if (!inputs[i].checked || !local || typeof local.set !== 'function') return;
-      local.set({ route: loadRoute().settingOf(inputs[i].value) });
+      if (!inputs[i].checked) return;
+      save(storage, inputs[i].value);
     });
   }
 }
@@ -43,5 +65,5 @@ if (typeof document !== 'undefined' && !(typeof module === 'object' && module &&
 }
 
 if (typeof module === 'object' && module && module.exports) {
-  module.exports = { lines, bind };
+  module.exports = { lines, bind, reload, save };
 }
