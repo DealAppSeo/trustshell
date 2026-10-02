@@ -13,6 +13,8 @@ const SK = /\bsk-[A-Za-z0-9_\-]+/g;
 /** GitHub personal access tokens: classic `ghp_...` and fine-grained `github_pat_...`. */
 const GHP = /\bghp_[A-Za-z0-9]{36,}\b/g;
 const GITHUB_PAT = /\bgithub_pat_[A-Za-z0-9_]+\b/g;
+/** GitHub App server-to-server tokens, e.g. `ghs_...` installation access tokens. */
+const GHS = /\bghs_[A-Za-z0-9]{36,}\b/g;
 
 export function redact(value: string): string {
   return value
@@ -23,5 +25,6 @@ export function redact(value: string): string {
     .replace(EYJ, '')
     .replace(SK, '')
     .replace(GHP, '')
-    .replace(GITHUB_PAT, '');
+    .replace(GITHUB_PAT, '')
+    .replace(GHS, '');
 }
