@@ -36,7 +36,11 @@ function mapBody(body) {
 async function verifyLastReply(text, options) {
   const opts = options || {};
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
-  const base = String(opts.baseUrl || process.env.TRUSTSHELL_API_URL || DEFAULT_BASE).replace(/\/$/, '');
+  const envBase =
+    typeof process !== 'undefined' && process.env && process.env.TRUSTSHELL_API_URL
+      ? process.env.TRUSTSHELL_API_URL
+      : '';
+  const base = String(opts.baseUrl || envBase || DEFAULT_BASE).replace(/\/$/, '');
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -57,7 +61,14 @@ async function verifyLastReply(text, options) {
   }
 }
 
-module.exports = {
+const api = {
   VERIFY_PATH,
   verifyLastReply,
 };
+
+if (typeof module === 'object' && module.exports) {
+  module.exports = api;
+}
+if (typeof globalThis !== 'undefined') {
+  globalThis.trustshellVerify = api;
+}

@@ -3,10 +3,15 @@
   "name": "TrustShell stamp",
   "version": "1.0.0",
   "description": "Reads the last assistant reply and stamps pass, veto, or not-checked.",
+  "host_permissions": ["https://repid-engine-production.up.railway.app/*"],
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*"
+      ],
+      "js": ["verify.js", "content.js"],
       "css": ["stamp.css"],
       "run_at": "document_idle"
     }
