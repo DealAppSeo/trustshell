@@ -4,8 +4,8 @@
 const laya = require('../extension/laya.js') as {
   callLaya: (
     text: unknown,
-    options?: { modelUrl?: string; fetchImpl?: unknown; timeoutMs?: number },
-  ) => Promise<{ label: string; latency_ms: number }>;
+    options?: { modelUrl?: string; fetchImpl?: unknown; timeoutMs?: number; now?: () => number },
+  ) => Promise<{ label: string; latency_ms: number; line?: string }>;
 };
 
 const MODEL_URL = 'http://localhost:8080/classify';
@@ -57,6 +57,25 @@ describe('extension laya', () => {
     expect(Object.keys(out).sort()).toEqual(['label', 'latency_ms']);
     const body = JSON.parse((sent.mock.calls[0] as unknown as [string, { body: string }])[1].body);
     expect(body).toEqual({ text: REPLY, labels: ['pass', 'veto', 'not-checked'] });
+  });
+
+  it('over 3000 ms is not-checked and says Still checking', async () => {
+    const clock = (step: number) => {
+      let t = 0;
+      return () => (t += step);
+    };
+    const slow = await laya.callLaya(REPLY, {
+      modelUrl: MODEL_URL,
+      fetchImpl: answer(200, '{"label":"pass"}'),
+      now: clock(3001),
+    });
+    expect(slow).toEqual({ label: 'not-checked', latency_ms: 3001, line: 'Still checking' });
+    const edge = await laya.callLaya(REPLY, {
+      modelUrl: MODEL_URL,
+      fetchImpl: answer(200, '{"label":"pass"}'),
+      now: clock(3000),
+    });
+    expect(edge).toEqual({ label: 'pass', latency_ms: 3000 });
   });
 });
 export {};
