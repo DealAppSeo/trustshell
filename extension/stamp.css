@@ -1,0 +1,33 @@
+.ts-stamp {
+  display: block;
+  clear: both;
+  width: fit-content;
+  margin: 8px 0 12px;
+  padding: 2px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 2px;
+  background: transparent;
+  color: #9ca3af;
+  font: 600 11px/1.4 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ts-stamp[data-stamp="pass"] {
+  color: #111827;
+  border-color: #111827;
+}
+
+.ts-stamp[data-stamp="veto"] {
+  color: #111827;
+  border-color: #111827;
+  text-decoration: line-through;
+}
+
+.ts-stamp[data-stamp="not-checked"] {
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  text-decoration: none;
+}
