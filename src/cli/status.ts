@@ -211,6 +211,28 @@ export type ReceiptResult =
 
 const NAMED_RECEIPT = new Set(['columns-missing', 'receipt-missing', 'insert-error']);
 
+/** A receipt id from a response. Missing, blank, and 0 are NOT_CHECKED. */
+export function receiptIdToken(value: unknown): string {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) return String(value);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0 && trimmed !== '0') return trimmed;
+  }
+  return 'NOT_CHECKED';
+}
+
+export interface HalReceiptPost {
+  status: ReceiptResult;
+  receiptId: string;
+}
+
+function halReceiptPost(
+  status: ReceiptResult,
+  parsed?: Record<string, unknown> | null,
+): HalReceiptPost {
+  return { status, receiptId: receiptIdToken(parsed?.receipt_id) };
+}
+
 /** Human line for a receipt result. OFFLINE prints nothing. Missing is never 0. */
 export function receiptHumanLine(result: ReceiptResult): string | null {
   if (result === 'skipped') return null;
@@ -251,12 +273,14 @@ export async function postHalReceipt(opts: {
   fetchImpl: typeof fetch;
   body: unknown;
   verdict: HalVerdict;
-}): Promise<ReceiptResult> {
-  if (opts.env.OFFLINE === '1') return 'skipped';
+}): Promise<HalReceiptPost> {
+  if (opts.env.OFFLINE === '1') return halReceiptPost('skipped');
   const base = engineBase(opts.env);
-  if (!base) return 'NOT_CHECKED';
+  if (!base) return halReceiptPost('NOT_CHECKED');
   const fields = quorumReceipt(opts.body, opts.verdict);
-  if (!fields) return opts.body && typeof opts.body === 'object' ? 'columns-missing' : 'NOT_CHECKED';
+  if (!fields) {
+    return halReceiptPost(opts.body && typeof opts.body === 'object' ? 'columns-missing' : 'NOT_CHECKED');
+  }
   try {
     const res = await opts.fetchImpl(`${base}/api/v1/hal/receipt`, {
       method: 'POST',
@@ -264,28 +288,28 @@ export async function postHalReceipt(opts: {
       body: JSON.stringify(fields),
       signal: AbortSignal.timeout(8000),
     });
-    if (res.status === 204) return '204';
+    if (res.status === 204) return halReceiptPost('204');
     const raw = await res.text();
     let parsed: Record<string, unknown> | null = null;
     if (raw.trim()) {
       try {
         const body = JSON.parse(raw) as unknown;
         parsed = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
-        if (!parsed) return 'NOT_CHECKED';
+        if (!parsed) return halReceiptPost('NOT_CHECKED');
       } catch {
-        return 'NOT_CHECKED';
+        return halReceiptPost('NOT_CHECKED');
       }
     }
     const named = parsed ? namedReceipt(parsed) : null;
     if (res.status === 200) {
-      if (parsed?.written === false) return named ?? 'unwritten';
-      return 'written';
+      if (parsed?.written === false) return halReceiptPost(named ?? 'unwritten', parsed);
+      return halReceiptPost('written', parsed);
     }
-    if (named) return named;
-    if (res.status === 404) return 'receipt-missing';
-    return 'NOT_CHECKED';
+    if (named) return halReceiptPost(named, parsed);
+    if (res.status === 404) return halReceiptPost('receipt-missing', parsed);
+    return halReceiptPost('NOT_CHECKED', parsed);
   } catch {
-    return 'NOT_CHECKED';
+    return halReceiptPost('NOT_CHECKED');
   }
 }
 
