@@ -395,3 +395,14 @@ describe('one sentence, two claims', () => {
     expect(md).toMatch(/\| \*\*tests\*\*: tsc is clean/);
   });
 });
+
+describe('single-quoted text is quoted, not claimed', () => {
+  it('a commit message quoting a claim in single quotes has no claim', () => {
+    expect(kinds("Seen on the receipt: 'tsc is clean and all tests pass locally' rendered as two rows.")).toEqual([]);
+    expect(kinds('It reads ‘all tests pass’ as a claim.')).toEqual([]);
+  });
+  it("an apostrophe does not open a quote", () => {
+    expect(kinds("It's ready: all tests pass.")).toContain('tests');
+    expect(kinds("The PR's tests pass.")).toContain('tests');
+  });
+});

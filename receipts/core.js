@@ -111,7 +111,12 @@ function stripQuoted(text) {
     // Measured on this action's own first live receipt, which read four quoted examples
     // as four claims. Straight and curly quotes, kept on one line.
     .replace(/"[^"\n]{0,200}"/g, ' ')
-    .replace(/“[^”\n]{0,200}”/g, ' ');
+    .replace(/“[^”\n]{0,200}”/g, ' ')
+    // Single quotes too, but only a quote that OPENS after a space or punctuation, so an
+    // apostrophe ("don't", "PR's") never starts one. Measured on #433: a commit message
+    // quoting 'tsc is clean and all tests pass locally' was read as two claims.
+    .replace(/(^|[^\w'])'[^'\n]{1,200}?'(?![\w])/g, '$1 ')
+    .replace(/‘[^’\n]{0,200}’/g, ' ');
 }
 
 function sentences(text) {
