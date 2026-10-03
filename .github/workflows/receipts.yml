@@ -1,0 +1,33 @@
+# Receipts on our own PRs: check what each PR claims against the check runs on its commit.
+#
+# Trigger is `pull_request`, never `pull_request_target`. A fork PR therefore gets a
+# read-only token and the receipt lands in the job summary instead of a comment. That is
+# GitHub's safety rule working as intended, not a failure to fix.
+name: receipts
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  checks: read
+  statuses: read
+  pull-requests: write
+
+concurrency:
+  group: receipts-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Only to load the action from this repo. The action itself reads the API and never
+      # runs PR code; outside this repo it is `uses: DealAppSeo/trustshell/receipts@<sha>`.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: receipts
+          persist-credentials: false
+      - uses: ./receipts
