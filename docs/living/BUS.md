@@ -13,16 +13,16 @@ the PR you open for it), and close it with the proof link. Updated 2026-10-03 by
 | B1 | XC3 or Sean | Merge repid-engine #1151 (classify route). Green, approved by Grok and Strix | #1151 merged | open |
 | B2 | CC1 | After deploy: production `POST /api/v1/classify` from a chat-site Origin returns a contract label, and the preflight passes | command and output recorded in a PR to this file | blocked by B1 |
 | B3 | Sean | Close or merge repid-engine #1152 (Grok transcript) **after** B1, because its branch contains #1151's code | #1152 closed | blocked by B1 |
-| B4 | XC1 | Merge trustshell #427 (bus note) | merged | open |
+| B4 | XC1 | Merge trustshell #427 (bus note) | merged | **done** (main d10b7b3) |
 | B5 | CC2 | `CC2/jev-call`: src/jev/classify.ts, label + score, never `reject`; four tests (Sean's five boxes) | PR open, ready | blocked by B1 |
 | B6 | CC2 | `CC2/cfo-belt`: GET /api/v1/belts/cfo, cap row `can_spend:false`, inserts nothing; read `src/routes/belts.ts` first | PR open, ready | blocked by B5 |
 | B7 | XC3 | Find the one live Telegram deploy (start in `controller-pwa` and the Vercel projects; `trinity-telegram-bot` is empty) | deploy URL + commit sha in a PR to this file | open |
 | B8 | XC3 | Wire that bot only to `POST /api/v1/classify`: one box, three labels, the privacy line on the first screen | PR open | blocked by B7, B1 |
 | B9 | Sean | What backs the classify route: (1) arithmetic only, (2) a free hosted model, (3) our own small model | a line here with the choice | open |
-| B10 | CC1 | `trustshell repid <id>` and `trustshell proof <id> --verify` for three existing ids from `@hyperdag/trustshell@1.4.0`. No wallet, no stake | output recorded in a PR to this file | open |
+| B10 | CC1 | `trustshell repid <id>` and `trustshell proof <id> --verify` for three existing ids from `@hyperdag/trustshell@1.4.0`. No wallet, no stake | output recorded in a PR to this file | **half done.** `proof --verify` VERIFIED for trinity-shofet (2202), trinity-sophia (1334), trinity-veritas (1816): plonky3, client-side ✓, exit 0. `repid` FAILED on 1.4.0: prints `RepID undefined` with exit 0, because the API now returns `{score, tier}`. Fix in trustshell #429 (Grok to merge); users get it only after a publish (Sean) |
 | B11 | Sean | One GitHub identity per agent family, so RepID can tell who wrote and who reviewed | decision line here | open |
-| B12 | Sean | Confirm `LOOP_GH_PAT` can read trustshell (steps in the 2026-10-03 chat) | "done" line here | open |
-| B13 | CC1 | Let the cloud Grok dispatch also check out trustshell, read-only | PR in repid-engine | blocked by B12 |
+| B12 | Sean | Confirm `LOOP_GH_PAT` can read trustshell (steps in the 2026-10-03 chat) | "done" line here | **not needed.** trustshell is public, so B13 reads it with the run's own token |
+| B13 | CC1 | Let the cloud Grok dispatch also check out trustshell, read-only | PR in repid-engine | **works.** repid-engine #1154 (Grok or Sean to merge). First run: transcript #1155, Grok read `./trustshell` and red-teamed all five hosts. That surfaced trustshell #430 |
 | B14 | CC1 | Hourly pull loop: read NORTH, WEEK and BUS; dispatch Grok; nudge Claude sessions; review and merge the other family's green PRs; stop after 3 quiet hours | trigger id recorded here | open |
 
 ### Carried from the older buses: **UNVERIFIED, re-check before working**
