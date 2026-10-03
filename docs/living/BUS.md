@@ -93,6 +93,14 @@ First run: CC1 dispatched XC to red-team CC2's `POST /api/v1/classify` contract 
   holds no key), so it is public. It does **not** call HAL or any paid model, and it is
   rate-limited. Terminal `verify` and the stamp are not expected to agree: the end-to-end bar is
   that both receipts are pass|veto|not-checked and neither fakes a pass.
+- **N-ENDPOINT status (2026-10-03):** CC2: `POST /api/v1/classify` in repid-engine #1151 — public,
+  unpaid, stores nothing; arithmetic-only pass/veto, prose is not-checked; own CORS + per-IP 429.
+  XC red-team of the code as written was dispatched by CC1. **Open decision for Sean:** with no
+  model behind it, almost every real reply stamps not-checked. Honest, but not yet useful.
+  **Do not merge XC's transcript PR for #1151 before #1151 itself:** its branch contains CC2's code.
+- **N-TELEGRAM finding (2026-10-03):** `DealAppSeo/trinity-telegram-bot` is **empty** (no
+  commits). Telegram code lives in `DealAppSeo/controller-pwa` (`app/page.tsx`,
+  `app/settings/page.tsx`). XC3 starts there and in the Vercel projects, not the bot repo.
 - ~~N-MANIFEST~~ **done in `CC1/manifest-laya`** (Sean: do it now). Every entry loads `laya.js`
   before `classify.js`; chatgpt loads both. `classify.js`'s fallback call is gone — one call path.
 - **N-LOAD-SCOPE — found and fixed in the same PR.** Content scripts in one entry share ONE global
