@@ -64,16 +64,52 @@ describe('laya wired into the stamp', () => {
     }
   });
 
-  it('a not-checked answer is not cached, so the next redraw retries', async () => {
+  it('a not-checked answer is kept for 15 s, then the next redraw retries', async () => {
     const realFetch = globalThis.fetch;
+    const realNow = Date.now;
+    let now = 1_000_000;
+    Date.now = () => now;
     const fetchImpl = jest.fn(async () => ({ status: 401, json: async () => ({}) }));
     globalThis.fetch = fetchImpl as unknown as typeof fetch;
     try {
       expect((await classify.classifyReply('retry me')).label).toBe('not-checked');
+      // Redraws inside the window (a keystroke, a hover) do not send the reply again.
+      for (let i = 0; i < 20; i++) {
+        now += 500;
+        expect((await classify.classifyReply('retry me')).label).toBe('not-checked');
+      }
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      now += 5001; // past 15 s since the answer
       expect((await classify.classifyReply('retry me')).label).toBe('not-checked');
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      // A new reply is never held back by the old one's window.
+      await classify.classifyReply('a new reply');
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    } finally {
+      globalThis.fetch = realFetch;
+      Date.now = realNow;
+    }
+  });
+
+  it('a retry that comes back pass replaces the kept not-checked', async () => {
+    const realFetch = globalThis.fetch;
+    const realNow = Date.now;
+    let now = 2_000_000;
+    Date.now = () => now;
+    let label = 'not-checked';
+    const fetchImpl = jest.fn(async () => ({ status: 200, json: async () => ({ label }) }));
+    globalThis.fetch = fetchImpl as unknown as typeof fetch;
+    try {
+      expect((await classify.classifyReply('2 + 2 = 4')).label).toBe('not-checked');
+      label = 'pass';
+      now += 15001;
+      expect((await classify.classifyReply('2 + 2 = 4')).label).toBe('pass');
+      now += 60000;
+      expect((await classify.classifyReply('2 + 2 = 4')).label).toBe('pass');
       expect(fetchImpl).toHaveBeenCalledTimes(2);
     } finally {
       globalThis.fetch = realFetch;
+      Date.now = realNow;
     }
   });
 });
