@@ -124,3 +124,66 @@ describe('the receipt never accuses', () => {
     expect(core.render([], { sha: 'abc' })).toMatch(/No claims/);
   });
 });
+
+describe('red-team findings (Grok, repid-engine dispatch 2026-10-03)', () => {
+  it.each(['attestation', 'contest-results', 'latest-deploy', 'protest', 'rebuild-cache-warm'])(
+    'a check named %s is not evidence for a tests claim',
+    (name) => {
+      const [r] = one('All tests pass.', [ok(name)]);
+      expect(r!.verdict).toBe('NOT_CHECKED');
+    },
+  );
+
+  it.each(['test', 'unit-tests', 'e2e (chromium)', 'jest', 'Test Suite', 'ci / test'])('a check named %s is', (name) => {
+    const [r] = one('All tests pass.', [ok(name)]);
+    expect(r!.verdict).toBe('VERIFIED');
+  });
+
+  it('PR text cannot ping, link, embed or break the table', () => {
+    const md = core.render(
+      one('All tests pass @everyone ![x](https://t.example/p.png) [l](https://e.example) <img src=x> | col', []),
+      { sha: 'abc' },
+    );
+    const row = md.split('\n').find((l) => l.startsWith('| All'))!;
+    expect(row).not.toMatch(/(^|[^​])@everyone/);
+    expect(row).not.toMatch(/!\[x\]\(/);
+    expect(row).not.toMatch(/(^|[^\\])\[l\]\(/);
+    expect(row).not.toMatch(/(^|[^\\])<img/);
+    expect(row.split(/(?<!\\)\|/).length).toBe(6);
+  });
+});
+
+describe('the comment it edits must be its own', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('skips a marker comment written by a person and posts a new one', async () => {
+    const calls: { url: string; method: string }[] = [];
+    globalThis.fetch = (async (url: string, init: { method?: string } = {}) => {
+      calls.push({ url, method: init.method || 'GET' });
+      if (url.endsWith('/comments?per_page=100')) {
+        return new Response(JSON.stringify([{ id: 7, body: `${core.MARKER}\nplanted`, user: { type: 'User' } }]), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: 9 }), { status: 201 });
+    }) as unknown as typeof fetch;
+    const idx = require('../receipts/index.js') as { upsertComment: (r: string, n: number, t: string, b: string) => Promise<string> };
+    expect(await idx.upsertComment('o/r', 1, 't', `${core.MARKER}\nreceipt`)).toBe('posted');
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+  });
+
+  it('updates its own bot comment in place', async () => {
+    const calls: { url: string; method: string }[] = [];
+    globalThis.fetch = (async (url: string, init: { method?: string } = {}) => {
+      calls.push({ url, method: init.method || 'GET' });
+      if (url.endsWith('/comments?per_page=100')) {
+        return new Response(JSON.stringify([{ id: 7, body: `${core.MARKER}\nold`, user: { type: 'Bot' } }]), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: 7 }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const idx = require('../receipts/index.js') as { upsertComment: (r: string, n: number, t: string, b: string) => Promise<string> };
+    expect(await idx.upsertComment('o/r', 1, 't', `${core.MARKER}\nnew`)).toBe('updated');
+    expect(calls.find((c) => c.method === 'PATCH')!.url).toMatch(/\/issues\/comments\/7$/);
+  });
+});

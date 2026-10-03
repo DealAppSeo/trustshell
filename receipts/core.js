@@ -27,7 +27,7 @@ const KINDS = {
       /\b(?:npm|yarn|pnpm)\s+(?:run\s+)?test\s+(?:pass(?:es|ed)?|is\s+green|succeed(?:s|ed)?)\b/i,
       /\b(?:jest|vitest|pytest|mocha|cargo\s+test|go\s+test)\b[^.\n]{0,24}\b(?:pass(?:es|ed|ing)?|green)\b/i,
     ],
-    run: /test|jest|vitest|pytest|spec\b|mocha|e2e|unit/i,
+    run: /(?:^|[^a-z])(?:tests?|jest|vitest|pytest|specs?|mocha|e2e|unit)(?:[^a-z]|$)/i,
   },
   build: {
     label: 'build',
@@ -35,21 +35,21 @@ const KINDS = {
       /\bbuild(?:s)?\s+(?:is\s+|now\s+)?(?:pass(?:es|ed|ing)?|succeed(?:s|ed)?|green|clean)\b/i,
       /\bcompiles?\s+(?:cleanly|successfully|fine|without\s+errors)\b/i,
     ],
-    run: /build|compile/i,
+    run: /(?:^|[^a-z])(?:build|compile)(?:[^a-z]|$)/i,
   },
   typecheck: {
     label: 'type check',
     claim: [
       /\b(?:tsc|typecheck(?:ing)?|type[- ]check(?:s|ing)?|mypy|pyright)\b[^.\n]{0,24}\b(?:pass(?:es|ed|ing)?|clean|green|no\s+errors)\b/i,
     ],
-    run: /tsc|typecheck|type-check|types\b|mypy|pyright/i,
+    run: /(?:^|[^a-z])(?:tsc|typecheck|type-check|types|mypy|pyright)(?:[^a-z]|$)/i,
   },
   lint: {
     label: 'lint',
     claim: [
       /\b(?:lint(?:er|ing)?|eslint|ruff|flake8|clippy)\b[^.\n]{0,24}\b(?:pass(?:es|ed|ing)?|clean|green|no\s+(?:errors|warnings))\b/i,
     ],
-    run: /lint|eslint|ruff|flake8|clippy|prettier/i,
+    run: /(?:^|[^a-z])(?:lint|eslint|ruff|flake8|clippy|prettier)(?:[^a-z]|$)/i,
   },
 };
 
@@ -168,8 +168,16 @@ const DOES_NOT_PROVE = [
   'Claims are read from the PR description and commit messages by plain patterns. A claim worded unusually is not seen; quoted text and code blocks are ignored on purpose.',
 ];
 
+/**
+ * Text from the PR is echoed into a comment the bot posts, so it must not act there:
+ * no table break, no @mention ping, no link or image (a tracking pixel), no HTML, no
+ * forged marker. Words stay readable; only their power to do something is removed.
+ */
 function escapeCell(s) {
-  return String(s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  return String(s)
+    .replace(/\r?\n/g, ' ')
+    .replace(/[\\`*_[\]()<>!|#~]/g, (c) => `\\${c}`)
+    .replace(/@/g, '@\u200b');
 }
 
 /** The receipt as markdown. `sha` is the commit the evidence belongs to. */

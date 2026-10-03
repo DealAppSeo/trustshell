@@ -85,7 +85,11 @@ function summary(markdown) {
 
 async function upsertComment(repo, number, token, body) {
   const comments = await gh(`/repos/${repo}/issues/${number}/comments?per_page=100`, token);
-  const mine = (comments || []).find((c) => typeof c.body === 'string' && c.body.startsWith(core.MARKER));
+  // Only a comment a bot wrote can be ours. Anyone can post a comment that starts with the
+  // marker; editing it would fail (403) and the receipt would never post. Skip those.
+  const mine = (comments || []).find(
+    (c) => typeof c.body === 'string' && c.body.startsWith(core.MARKER) && c.user && c.user.type === 'Bot',
+  );
   if (mine) {
     await gh(`/repos/${repo}/issues/comments/${mine.id}`, token, { method: 'PATCH', body: JSON.stringify({ body }) });
     return 'updated';
@@ -146,4 +150,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { main, evidenceFor };
+module.exports = { main, evidenceFor, upsertComment };
