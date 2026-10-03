@@ -63,20 +63,32 @@
    * The hosts redraw on every DOM change, and painting the stamp is itself a DOM change.
    * Without this, one finished reply is sent to the classifier again on every redraw.
    * Only the browser path (no options) is cached: one call in flight per text, and a
-   * pass or veto is kept for that text. not-checked is not kept, so the next redraw retries.
+   * pass or veto is kept for that text.
+   *
+   * not-checked is kept too, but only for RETRY_MS, after which the next redraw retries.
+   * It used to be kept for no time at all. Once the route answers not-checked for most prose
+   * (repid-engine #1151 decides only whole-text arithmetic), that meant the last reply was
+   * re-sent on EVERY DOM change: on chatgpt, every keystroke typed into the next prompt.
+   * That spends the route's per-IP limit (30 a minute) in seconds, and the limit is shared
+   * with every other door on the same connection. It also sends the reply again and again.
    */
-  const memo = { text: null, promise: null, row: null };
+  const RETRY_MS = 15000;
+  const memo = { text: null, promise: null, row: null, at: 0 };
 
   function classifyOnce(text) {
     const key = String(text == null ? '' : text);
-    if (memo.text === key && memo.row) return Promise.resolve(memo.row);
+    if (memo.text === key && memo.row) {
+      const decided = memo.row.label === 'pass' || memo.row.label === 'veto';
+      if (decided || Date.now() - memo.at < RETRY_MS) return Promise.resolve(memo.row);
+    }
     if (memo.text === key && memo.promise) return memo.promise;
     memo.text = key;
     memo.row = null;
     const promise = callClassifier(key, {}).then((row) => {
       if (memo.text === key && memo.promise === promise) {
         memo.promise = null;
-        if (row.label === 'pass' || row.label === 'veto') memo.row = row;
+        memo.row = row;
+        memo.at = Date.now();
       }
       return row;
     });
