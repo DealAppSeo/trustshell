@@ -14,9 +14,9 @@ inputs:
     required: false
     default: '600'
   self-pattern:
-    description: 'Check names matching this pattern are ignored as evidence (the receipt job itself).'
+    description: 'Check names matching this pattern are ignored as evidence (the receipt job itself). Anchored by default so a check like receipt-tests still counts.'
     required: false
-    default: 'receipt'
+    default: '^receipts?$'
   comment-when-empty:
     description: 'Post a comment even when the PR makes no claims. Default writes only the job summary.'
     required: false

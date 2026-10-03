@@ -16,18 +16,33 @@
  * whoever opened the PR cannot talk it into a verdict.
  */
 
+/*
+ * DESIGN RULE: every doubt resolves to NOT CHECKED, never to VERIFIED.
+ * A hand-kept word list fails silently in whichever direction its gaps point. CC2's review
+ * of 33f78ea measured nine false VERIFIEDs, all from gaps (a failing `integration` or
+ * `playwright` check that no list named, so it was never evidence). So VERIFIED now needs
+ * a positive match AND a commit with no failing check anywhere; a gap can only ever cost a
+ * VERIFIED, not grant one.
+ */
+
+/** Test-ish subtypes a claim may name. A named subtype must appear in the check's name. */
+const SUBTYPES = ['unit', 'e2e', 'integration', 'end-to-end', 'smoke', 'contract', 'acceptance'];
+
 const KINDS = {
   tests: {
     label: 'tests',
     claim: [
-      /\b(?:all\s+)?(?:\d+\s*(?:\/\s*\d+\s*)?)?(?:unit\s+|e2e\s+|integration\s+)?tests?\s+(?:are\s+|now\s+|all\s+|still\s+)?(?:pass(?:es|ed|ing)?|green|succeed(?:s|ed)?)\b/i,
+      /\b(?:all\s+)?(?:\d+\s*(?:\/\s*\d+\s*)?)?(?:(?:unit|e2e|integration|end-to-end|smoke|contract|acceptance)\s+)?tests?\s+(?:are\s+|now\s+|all\s+|still\s+)?(?:pass(?:es|ed|ing)?|green|succeed(?:s|ed)?)\b/i,
       /\b\d+\s*\/\s*\d+\s+(?:tests?\s+)?pass(?:es|ed|ing)?\b/i,
       /\btest\s+suite\s+(?:is\s+)?(?:pass(?:es|ed|ing)?|green)\b/i,
       /\b\d+\s+(?:test\s+)?suites?\s+(?:all\s+)?pass(?:es|ed|ing)?\b/i,
       /\b(?:npm|yarn|pnpm)\s+(?:run\s+)?test\s+(?:pass(?:es|ed)?|is\s+green|succeed(?:s|ed)?)\b/i,
       /\b(?:jest|vitest|pytest|mocha|cargo\s+test|go\s+test)\b[^.\n]{0,24}\b(?:pass(?:es|ed|ing)?|green)\b/i,
     ],
-    run: /(?:^|[^a-z])(?:tests?|jest|vitest|pytest|specs?|mocha|e2e|unit)(?:[^a-z]|$)/i,
+    // A test word must be present; bare `unit`, `spec`, `types` no longer count.
+    run: /(?:^|[^a-z])(?:tests?|jest|vitest|pytest|mocha|playwright|cypress|e2e|integration|rspec|phpunit|ctest)(?:[^a-z]|$)/i,
+    // Names that mention tests without running them, or run something else.
+    notRun: /upload|report|results?\b|artifact|coverage|label|lint|summary|comment|notify/i,
   },
   build: {
     label: 'build',
@@ -36,13 +51,15 @@ const KINDS = {
       /\bcompiles?\s+(?:cleanly|successfully|fine|without\s+errors)\b/i,
     ],
     run: /(?:^|[^a-z])(?:build|compile)(?:[^a-z]|$)/i,
+    notRun: /upload|report|artifact|label|cache|summary|notify|preview\s+comment/i,
   },
   typecheck: {
     label: 'type check',
     claim: [
       /\b(?:tsc|typecheck(?:ing)?|type[- ]check(?:s|ing)?|mypy|pyright)\b[^.\n]{0,24}\b(?:pass(?:es|ed|ing)?|clean|green|no\s+errors)\b/i,
     ],
-    run: /(?:^|[^a-z])(?:tsc|typecheck|type-check|types|mypy|pyright)(?:[^a-z]|$)/i,
+    run: /(?:^|[^a-z])(?:tsc|typecheck|type-check|mypy|pyright)(?:[^a-z]|$)/i,
+    notRun: /label|report|summary|notify/i,
   },
   lint: {
     label: 'lint',
@@ -50,22 +67,27 @@ const KINDS = {
       /\b(?:lint(?:er|ing)?|eslint|ruff|flake8|clippy)\b[^.\n]{0,24}\b(?:pass(?:es|ed|ing)?|clean|green|no\s+(?:errors|warnings))\b/i,
     ],
     run: /(?:^|[^a-z])(?:lint|eslint|ruff|flake8|clippy|prettier)(?:[^a-z]|$)/i,
+    notRun: /label|report|summary|notify/i,
   },
 };
 
 /** Words that make the sentence a condition or a plan, not a claim: "merge once tests pass". */
-const NOT_A_CLAIM = /\b(?:if|once|when|until|unless|after|should|will|must|need(?:s)?\s+to|make\s+sure|ensure|verify\s+that|check\s+that|whether|expect(?:ed|s)?\s+to)\b/i;
+const NOT_A_CLAIM = /\b(?:if|once|when|until|unless|after|should|will|must|need(?:s)?\s+to|make\s+sure|ensure|verify\s+that|check\s+that|whether|expect(?:ed|s)?\s+to|confirm|hopefully|maybe|probably|might|hope|before|previously|earlier|used\s+to)\b/i;
 /**
  * Words that make the phrase a description or an example, not a claim: "a check named test
  * passed", "reads what a PR claims (tests pass, build succeeds)". Both measured on this
  * action's own receipt, where they were read as claims.
  */
 const DESCRIBING = /\b(?:named|called|claims?|claimed|such\s+as|e\.g\.|for\s+example|like)\b/i;
-
-/** Negation directly in front of the claim: "not all tests pass", "doesn't build cleanly". */
-const NEGATED_BEFORE = /(?:\bnot|n't|\bnever|\bno\s+longer)\s+(?:\w+\s+)?$/i;
+/** Negation or limitation before the claim: "not all of the tests pass", "only 3 tests pass". */
+const NEGATED_BEFORE = /\b(?:not|never|no\s+longer|none|neither|only|few|no)\b|n't/i;
 /** Negation inside the matched words: "tests do not pass" never matches, but be explicit. */
 const NEGATED_INSIDE = /\b(?:not|never)\b|n't/i;
+/** A qualifier after the claim makes it something other than a clean claim. */
+const QUALIFIED_AFTER = /\b(?:only\s+because|except|excluding|but|skipp(?:ed|ing)|disabled|ignored|flaky)\b/i;
+/** About another place than this commit's CI: "on main", "locally", "on my machine". */
+const ELSEWHERE = /\b(?:on\s+main|on\s+master|in\s+main)\b/i;
+const LOCAL = /\b(?:locally|on\s+my\s+machine|on\s+my\s+laptop|in\s+my\s+env(?:ironment)?)\b/i;
 
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out']);
 const MAX_TEXT = 64 * 1024;
@@ -87,7 +109,7 @@ function stripQuoted(text) {
     // Measured on this action's own first live receipt, which read four quoted examples
     // as four claims. Straight and curly quotes, kept on one line.
     .replace(/"[^"\n]{0,200}"/g, ' ')
-    .replace(/\u201c[^\u201d\n]{0,200}\u201d/g, ' ');
+    .replace(/“[^”\n]{0,200}”/g, ' ');
 }
 
 function sentences(text) {
@@ -95,6 +117,12 @@ function sentences(text) {
     .split(/(?<=[.!?])\s+|\n+/)
     .map((s) => s.replace(/^[\s*\-+#>|]+/, '').trim())
     .filter((s) => s.length > 0 && s.length <= 400);
+}
+
+/** "3/10 tests pass" reports a failure; only "10/10" is a claim. */
+function unequalRatio(match) {
+  const r = match.match(/(\d+)\s*\/\s*(\d+)/);
+  return Boolean(r && r[1] !== r[2]);
 }
 
 /**
@@ -105,22 +133,34 @@ function sentences(text) {
 function extractClaims(text, source) {
   const out = [];
   for (const sentence of sentences(text)) {
+    if (/\?\s*$/.test(sentence)) continue; // a question is not a claim
     for (const [kind, def] of Object.entries(KINDS)) {
       for (const re of def.claim) {
         const m = sentence.match(re);
         if (!m) continue;
-        // Only the words just before the claim can turn it into a plan or a negation.
+        // Only words near the claim can turn it into a plan, a description or a negation.
         // A wider window drops real claims: "Fixed the failing test; all tests pass".
         const before = sentence.slice(0, m.index);
+        const after = sentence.slice(m.index + m[0].length);
         if (
           NOT_A_CLAIM.test(before.slice(-48)) ||
           DESCRIBING.test(before.slice(-64)) ||
-          NEGATED_BEFORE.test(before) ||
-          NEGATED_INSIDE.test(m[0])
+          NEGATED_BEFORE.test(before.slice(-32)) ||
+          NEGATED_INSIDE.test(m[0]) ||
+          QUALIFIED_AFTER.test(after) ||
+          ELSEWHERE.test(sentence) ||
+          unequalRatio(m[0])
         ) {
           break;
         }
-        out.push({ kind, quote: sentence.length > 160 ? sentence.slice(0, 157) + '...' : sentence, source });
+        const sub = SUBTYPES.find((t) => new RegExp(`\\b${t}\\b`, 'i').test(m[0])) || null;
+        out.push({
+          kind,
+          subtype: sub,
+          local: LOCAL.test(sentence),
+          quote: sentence.length > 160 ? sentence.slice(0, 157) + '...' : sentence,
+          source,
+        });
         break;
       }
     }
@@ -128,39 +168,43 @@ function extractClaims(text, source) {
   return out;
 }
 
-/** One claim per kind is enough for a verdict; keep the first quote and every source. */
+/** One claim per kind (and subtype); keep the first quote and every source. */
 function groupClaims(claims) {
-  const byKind = new Map();
+  const byKey = new Map();
   for (const c of claims) {
-    const g = byKind.get(c.kind);
-    if (!g) byKind.set(c.kind, { kind: c.kind, quote: c.quote, sources: [c.source] });
+    const key = `${c.kind}:${c.subtype || ''}:${c.local ? 'local' : 'ci'}`;
+    const g = byKey.get(key);
+    if (!g) byKey.set(key, { kind: c.kind, subtype: c.subtype || null, local: Boolean(c.local), quote: c.quote, sources: [c.source] });
     else if (!g.sources.includes(c.source)) g.sources.push(c.source);
   }
-  return [...byKind.values()];
+  return [...byKey.values()];
 }
+
+/** The receipt's own job is excluded by exact name, not substring: a `receipt-tests` check is evidence. */
+const DEFAULT_SELF = /^receipts?$/i;
 
 /**
  * Decide each claim against the commit's check runs.
- * @param {Array<{kind:string}>} grouped
+ * @param {Array<{kind:string, subtype?:string|null, local?:boolean}>} grouped
  * @param {Array<{name:string,status:string,conclusion:string|null,html_url?:string}>} runs
  * @param {{ selfPattern?: RegExp }} [opts]
  */
 function judge(grouped, runs, opts = {}) {
-  const self = opts.selfPattern || /receipt/i;
+  const self = opts.selfPattern || DEFAULT_SELF;
   const evidence = (runs || []).filter((r) => r && typeof r.name === 'string' && !self.test(r.name));
+  const anyFailed = evidence.filter((r) => r.status === 'completed' && FAILED_CONCLUSIONS.has(r.conclusion));
   return grouped.map((claim) => {
     const def = KINDS[claim.kind];
-    const matched = evidence.filter((r) => def.run.test(r.name));
-    const base = { ...claim, label: def.label, runs: matched };
+    const what = claim.subtype ? `${claim.subtype} ${def.label}` : def.label;
+    const base = { ...claim, label: def.label };
+    if (claim.local) {
+      return { ...base, runs: [], verdict: 'NOT_CHECKED', why: `Claimed for a local run. Checks on this commit cannot confirm what ran on someone's machine.` };
+    }
+    let matched = evidence.filter((r) => def.run.test(r.name) && !(def.notRun && def.notRun.test(r.name)));
+    if (claim.subtype) matched = matched.filter((r) => new RegExp(`\\b${claim.subtype}\\b`, 'i').test(r.name));
+    base.runs = matched;
     if (matched.length === 0) {
-      const othersGreen = evidence.length > 0 && evidence.every((r) => r.status === 'completed' && r.conclusion === 'success');
-      return {
-        ...base,
-        verdict: 'NOT_CHECKED',
-        why: othersGreen
-          ? `No check named for ${def.label} ran on this commit. ${evidence.length} other check(s) passed, but a receipt cannot tell whether they ran ${def.label}.`
-          : `No check named for ${def.label} ran on this commit.`,
-      };
+      return { ...base, verdict: 'NOT_CHECKED', why: `No check named for ${what} ran on this commit. A receipt cannot tell whether other checks ran ${what}.` };
     }
     const failed = matched.filter((r) => r.status === 'completed' && FAILED_CONCLUSIONS.has(r.conclusion));
     if (failed.length > 0) {
@@ -174,7 +218,16 @@ function judge(grouped, runs, opts = {}) {
     if (notGreen.length > 0) {
       return { ...base, verdict: 'NOT_CHECKED', why: `${notGreen.map((r) => `${r.name} (${r.conclusion})`).join(', ')}: ended without a pass or a fail.` };
     }
-    return { ...base, verdict: 'VERIFIED', why: `${matched.map((r) => r.name).join(', ')} passed on this commit.` };
+    // A matched check passed, but another check on this commit failed. It may cover this
+    // claim under a name no list knows, so the receipt cannot say VERIFIED.
+    if (anyFailed.length > 0) {
+      return {
+        ...base,
+        verdict: 'NOT_CHECKED',
+        why: `${matched.map((r) => r.name).join(', ')} passed, but ${anyFailed.map((r) => r.name).join(', ')} failed on this commit and may cover the same ground.`,
+      };
+    }
+    return { ...base, verdict: 'VERIFIED', why: `${matched.map((r) => r.name).join(', ')} passed on this commit, and no check on it failed.` };
   });
 }
 
@@ -226,4 +279,4 @@ function render(results, { sha, repoUrl } = {}) {
   return lines.join('\n');
 }
 
-module.exports = { KINDS, MARKER, DOES_NOT_PROVE, stripQuoted, extractClaims, groupClaims, judge, render };
+module.exports = { KINDS, MARKER, DEFAULT_SELF, DOES_NOT_PROVE, stripQuoted, extractClaims, groupClaims, judge, render };

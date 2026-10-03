@@ -55,7 +55,7 @@ That is the whole setup: no key, no account, no install.
 | `wait-seconds` | `600` | wait for other checks on the commit before writing the receipt |
 | `fail-on-failed` | `false` | fail the job when a claim is contradicted by a failed check |
 | `comment-when-empty` | `false` | comment even when the PR makes no claims |
-| `self-pattern` | `receipt` | check names ignored as evidence (this job) |
+| `self-pattern` | `^receipts?$` | check names ignored as evidence (this job). Anchored, so `receipt-tests` still counts |
 
 Zero dependencies, Node 20. The logic is `core.js` (pure, tested in `tests/receipts-core.test.ts`);
 `index.js` is the GitHub I/O.

@@ -88,8 +88,13 @@ describe('each claim is judged only by check runs on the commit', () => {
   });
 
   it('the receipt job is never its own evidence', () => {
-    const [r] = one('All tests pass.', [ok('receipt test')]);
+    const [r] = one('All tests pass.', [ok('receipt')]);
     expect(r!.verdict).toBe('NOT_CHECKED');
+  });
+
+  it('a check merely containing "receipt" is still evidence', () => {
+    const [r] = one('All tests pass.', [ok('test'), bad('receipt-tests')]);
+    expect(r!.verdict).toBe('FAILED');
   });
 
   it('one claim per kind, with every place it was said', () => {
@@ -104,11 +109,10 @@ describe('each claim is judged only by check runs on the commit', () => {
 });
 
 describe('the receipt never accuses', () => {
-  const md = core.render(one('All tests pass. Build succeeds.', [bad('test'), ok('build')]), {
-    sha: 'abcdef1234567',
-    repoUrl: 'https://github.com/o/r',
-  });
-
+  const md = [
+    core.render(one('All tests pass.', [bad('test')]), { sha: 'abc' }),
+    core.render(one('Build succeeds.', [ok('build')]), { sha: 'abc' }),
+  ].join('\n');
   it('carries the marker so the comment is updated, not duplicated', () => {
     expect(md.startsWith(core.MARKER)).toBe(true);
   });
@@ -191,5 +195,97 @@ describe('the comment it edits must be its own', () => {
     const idx = require('../receipts/index.js') as { upsertComment: (r: string, n: number, t: string, b: string) => Promise<string> };
     expect(await idx.upsertComment('o/r', 1, 't', `${core.MARKER}\nnew`)).toBe('updated');
     expect(calls.find((c) => c.method === 'PATCH')!.url).toMatch(/\/issues\/comments\/7$/);
+  });
+});
+
+// CC2's review of 33f78ea, every row reproduced against core.js at that head. Each was a false
+// FAILED or false VERIFIED; each must now be NOT a verdict, or NOT CHECKED.
+describe('CC2 review: text that is not a claim gets no verdict', () => {
+  it.each([
+    'Do all tests pass?',
+    'Could you confirm the tests pass?',
+    'Hopefully all tests pass now.',
+    'Before this PR, all tests passed on main.',
+    'Not all of the tests pass.',
+    'None of the tests pass yet.',
+    'Only 3/10 tests pass.',
+    'Tests pass only because I skipped the flaky ones.',
+  ])('%s', (text) => {
+    expect(kinds(text)).toEqual([]);
+  });
+
+  it('a local claim is NOT CHECKED, never judged against CI', () => {
+    for (const runs of [[bad('test')], [ok('test')]]) {
+      const [r] = one('Tests passed locally.', runs);
+      expect(r!.verdict).toBe('NOT_CHECKED');
+      expect(r!.why).toMatch(/local run/);
+    }
+  });
+
+  it('10/10 is still a claim', () => {
+    expect(kinds('10/10 tests pass.')).toContain('tests');
+  });
+});
+
+describe('CC2 review: check names cannot grant a false VERIFIED', () => {
+  const cases: [string, Run[]][] = [
+    ['Integration tests pass.', [ok('unit'), bad('integration')]],
+    ['All tests pass.', [ok('test'), bad('playwright')]],
+    ['E2E tests pass.', [ok('e2e-lint'), bad('cypress')]],
+    ['All tests pass.', [ok('test (lint)'), bad('receipt-tests')]],
+    ['tsc is clean.', [ok('PR types label')]],
+    ['All tests pass.', [ok('Upload test results')]],
+    ['Tests pass.', [ok('unit-price-sync')]],
+    ['All tests pass.', [ok('spec-gate')]],
+  ];
+  it.each(cases)('%s with %j is not VERIFIED', (text, runs) => {
+    const [r] = one(text, runs);
+    expect(r!.verdict).not.toBe('VERIFIED');
+  });
+
+  it('a unit-only claim is not FAILED by a failing e2e check', () => {
+    const [r] = one('Unit tests pass.', [ok('unit tests'), bad('e2e')]);
+    expect(r!.verdict).not.toBe('FAILED');
+  });
+
+  it('a failing integration check fails an integration claim', () => {
+    const [r] = one('Integration tests pass.', [bad('integration tests')]);
+    expect(r!.verdict).toBe('FAILED');
+  });
+
+  it('any failed check on the commit blocks VERIFIED', () => {
+    const [r] = one('Build succeeds.', [ok('build'), bad('deploy-preview')]);
+    expect(r!.verdict).toBe('NOT_CHECKED');
+    expect(r!.why).toMatch(/deploy-preview failed/);
+  });
+});
+
+describe('the wait settles before it judges', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('a check created late is still waited for, not missed', async () => {
+    let poll = 0;
+    globalThis.fetch = (async (url: string) => {
+      if (url.includes('/status')) return new Response(JSON.stringify({ statuses: [] }), { status: 200 });
+      poll += 1;
+      // Poll 1: only `test`, done. Poll 2: a late `integration` appears, still running. Then it fails.
+      const runs =
+        poll === 1
+          ? [{ name: 'test', status: 'completed', conclusion: 'success' }]
+          : poll === 2
+            ? [{ name: 'test', status: 'completed', conclusion: 'success' }, { name: 'integration', status: 'in_progress', conclusion: null }]
+            : [{ name: 'test', status: 'completed', conclusion: 'success' }, { name: 'integration', status: 'completed', conclusion: 'failure' }];
+      return new Response(JSON.stringify({ check_runs: runs }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const idx = require('../receipts/index.js') as {
+      waitForOthers: (r: string, s: string, t: string, p: RegExp, timeout: number, poll: number, floor: number) => Promise<Run[]>;
+    };
+    const ev = await idx.waitForOthers('o/r', 'sha', 't', /^receipts?$/i, 5000, 1, 0);
+    expect(ev.map((r) => r.name)).toContain('integration');
+    const [r] = core.judge(core.groupClaims(core.extractClaims('All tests pass.', 'PR description')), ev);
+    expect(r!.verdict).toBe('FAILED');
   });
 });

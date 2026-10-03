@@ -66,15 +66,25 @@ async function evidenceFor(repo, sha, token) {
   return out;
 }
 
-async function waitForOthers(repo, sha, token, selfPattern, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
+/**
+ * Wait until the other checks on the commit are done AND have stopped appearing. Some checks
+ * (third-party apps, workflow_run triggers) are created late, so "nothing pending right now"
+ * is not "done": require a floor, then two quiet polls in a row with the same check count.
+ */
+async function waitForOthers(repo, sha, token, selfPattern, timeoutMs, pollMs = 15000, floorMs = 30000) {
+  const start = Date.now();
+  const deadline = start + timeoutMs;
+  let quiet = 0;
+  let lastCount = -1;
   for (;;) {
     const ev = await evidenceFor(repo, sha, token);
     const others = ev.filter((r) => !selfPattern.test(r.name));
     const pending = others.filter((r) => r.status !== 'completed');
-    if (pending.length === 0 || Date.now() >= deadline) return ev;
-    log(`waiting on ${pending.length} check(s): ${pending.map((r) => r.name).join(', ')}`);
-    await new Promise((r) => setTimeout(r, 15000));
+    quiet = pending.length === 0 && others.length === lastCount ? quiet + 1 : 0;
+    lastCount = others.length;
+    if ((quiet >= 2 && Date.now() - start >= floorMs) || Date.now() >= deadline) return ev;
+    if (pending.length) log(`waiting on ${pending.length} check(s): ${pending.map((r) => r.name).join(', ')}`);
+    await new Promise((r) => setTimeout(r, pollMs));
   }
 }
 
@@ -109,14 +119,16 @@ async function main() {
     log('No pull request in this event; nothing to check.');
     return 0;
   }
-  const selfPattern = new RegExp(input('self-pattern', 'receipt'), 'i');
+  const selfPattern = new RegExp(input('self-pattern', '^receipts?$'), 'i');
   const timeoutMs = Math.max(0, Number(input('wait-seconds', '600')) || 0) * 1000;
 
   const pr = await gh(`/repos/${repo}/pulls/${number}`, token);
   const sha = pr.head.sha;
   const claims = core.extractClaims(pr.body || '', 'PR description');
-  const commits = await gh(`/repos/${repo}/pulls/${number}/commits?per_page=100`, token);
-  for (const c of commits || []) claims.push(...core.extractClaims(c.commit && c.commit.message, `commit ${String(c.sha).slice(0, 7)}`));
+  // Only the head commit's message: a claim in an older commit was about that older commit,
+  // and judging it against the head's checks would be judging the wrong code.
+  const head = await gh(`/repos/${repo}/commits/${sha}`, token);
+  claims.push(...core.extractClaims(head && head.commit && head.commit.message, `commit ${String(sha).slice(0, 7)}`));
   const grouped = core.groupClaims(claims);
 
   const ev = grouped.length > 0 ? await waitForOthers(repo, sha, token, selfPattern, timeoutMs) : [];
@@ -150,4 +162,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { main, evidenceFor, upsertComment };
+module.exports = { main, evidenceFor, upsertComment, waitForOthers };
