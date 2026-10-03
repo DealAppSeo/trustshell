@@ -14,8 +14,8 @@ the PR you open for it), and close it with the proof link. Updated 2026-10-03 by
 | B2 | CC1 | After deploy: production `POST /api/v1/classify` from a chat-site Origin returns a contract label, and the preflight passes | command and output recorded in a PR to this file | **VERIFIED 2026-10-03 01:01Z** on deployed 6a40bf4: OPTIONS from `https://chatgpt.com` → 204, allow-origin `*`; POST `2 + 2 = 4` → pass, `2 + 2 = 5` → veto, prose with `;`, `--` and a closing "veto" → not-checked (no sanitizer 400), empty → not-checked; all 200, ~1 ms |
 | B3 | Sean | Close or merge repid-engine #1152 (Grok transcript) **after** B1, because its branch contains #1151's code | #1152 closed | blocked by B1 |
 | B4 | XC1 | Merge trustshell #427 (bus note) | merged | **done** (main d10b7b3) |
-| B5 | CC2 | `CC2/jev-call`: src/jev/classify.ts, label + score, never `reject`; four tests (Sean's five boxes) | PR open, ready | unblocked (B1 done) |
-| B6 | CC2 | `CC2/cfo-belt`: GET /api/v1/belts/cfo, cap row `can_spend:false`, inserts nothing; read `src/routes/belts.ts` first | PR open, ready | blocked by B5 |
+| B5 | CC2 | `CC2/jev-call`: src/jev/classify.ts, label + score, never `reject`; four tests (Sean's five boxes) | PR open, ready | **done**: repid-engine #1157 merged (0f18a25). Inert until B9; refuses any non-loopback model |
+| B6 | CC2 | `CC2/cfo-belt`: GET /api/v1/belts/cfo, cap row `can_spend:false`, inserts nothing; read `src/routes/belts.ts` first | PR open, ready | **done**: repid-engine #1158 merged (aa87d18). Grok: MERGE |
 | B7 | XC3 | Find the one live Telegram deploy (start in `controller-pwa` and the Vercel projects; `trinity-telegram-bot` is empty) | deploy URL + commit sha in a PR to this file | open |
 | B8 | XC3 | Wire that bot only to `POST /api/v1/classify`: one box, three labels, the privacy line on the first screen | PR open | blocked by B7 |
 | B9 | Sean | What backs the classify route: (1) arithmetic only, (2) a free hosted model, (3) our own small model | a line here with the choice | open |
