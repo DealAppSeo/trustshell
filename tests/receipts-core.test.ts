@@ -396,12 +396,14 @@ describe('one sentence, two claims', () => {
   });
 });
 
-describe('single quotes never hide a claim (CC2 at ac442ff)', () => {
+describe('a quote mark never hides a claim (CC2 at ac442ff, 58b5899)', () => {
   it.each([
     "Rewrote the '90s-era parser; all tests pass on the maintainers' branch.",
     "Fixed the 'flaky test. All tests pass in the reviewers' CI run.",
     'Renamed the ‘check job; all tests pass and it’s green.',
     "It's ready: all tests pass.",
+    'Bumped the 12" timeout. All tests pass and the 24" one too.',
+    'Use "strict. All tests pass. Done "here".',
   ])('%s is still a claim', (text) => {
     expect(kinds(text)).toContain('tests');
   });

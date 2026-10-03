@@ -110,8 +110,10 @@ function stripQuoted(text) {
     // Text in double quotes is being quoted, not claimed: 'it reads "all tests pass"'.
     // Measured on this action's own first live receipt, which read four quoted examples
     // as four claims. Straight and curly quotes, kept on one line.
-    .replace(/"[^"\n]{0,200}"/g, ' ')
-    .replace(/“[^”\n]{0,200}”/g, ' ');
+    // A quoted span never crosses sentence punctuation: " is also the inch mark, and an
+    // unmatched one must not swallow the claim in the next sentence (CC2 at 58b5899).
+    .replace(/"[^"\n.!?;]{0,200}"/g, ' ')
+    .replace(/“[^”\n.!?;]{0,200}”/g, ' ');
     // Single quotes are NOT stripped. ' is also an apostrophe ('90s, maintainers', it’s), so
     // a single-quote span can swallow a real claim and the FAILED under it. Reading a quoted
     // claim is visible on the receipt; hiding a real one is not (CC2, #433 at ac442ff).
