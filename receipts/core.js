@@ -55,6 +55,13 @@ const KINDS = {
 
 /** Words that make the sentence a condition or a plan, not a claim: "merge once tests pass". */
 const NOT_A_CLAIM = /\b(?:if|once|when|until|unless|after|should|will|must|need(?:s)?\s+to|make\s+sure|ensure|verify\s+that|check\s+that|whether|expect(?:ed|s)?\s+to)\b/i;
+/**
+ * Words that make the phrase a description or an example, not a claim: "a check named test
+ * passed", "reads what a PR claims (tests pass, build succeeds)". Both measured on this
+ * action's own receipt, where they were read as claims.
+ */
+const DESCRIBING = /\b(?:named|called|claims?|claimed|such\s+as|e\.g\.|for\s+example|like)\b/i;
+
 /** Negation directly in front of the claim: "not all tests pass", "doesn't build cleanly". */
 const NEGATED_BEFORE = /(?:\bnot|n't|\bnever|\bno\s+longer)\s+(?:\w+\s+)?$/i;
 /** Negation inside the matched words: "tests do not pass" never matches, but be explicit. */
@@ -105,7 +112,14 @@ function extractClaims(text, source) {
         // Only the words just before the claim can turn it into a plan or a negation.
         // A wider window drops real claims: "Fixed the failing test; all tests pass".
         const before = sentence.slice(0, m.index);
-        if (NOT_A_CLAIM.test(before.slice(-48)) || NEGATED_BEFORE.test(before) || NEGATED_INSIDE.test(m[0])) break;
+        if (
+          NOT_A_CLAIM.test(before.slice(-48)) ||
+          DESCRIBING.test(before.slice(-64)) ||
+          NEGATED_BEFORE.test(before) ||
+          NEGATED_INSIDE.test(m[0])
+        ) {
+          break;
+        }
         out.push({ kind, quote: sentence.length > 160 ? sentence.slice(0, 157) + '...' : sentence, source });
         break;
       }

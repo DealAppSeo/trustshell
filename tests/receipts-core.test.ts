@@ -33,6 +33,7 @@ describe('claims are read from what the PR says', () => {
     ['tsc --noEmit is clean', 'typecheck'],
     ['eslint passes with no errors', 'lint'],
     ['`tsc --noEmit` is clean.', 'typecheck'],
+    ['A note: tsc is clean and all tests pass locally.', 'tests'],
     ['Full jest run: 680 suites passed, 0 failed.', 'tests'],
   ])('%s -> %s', (text, kind) => {
     expect(kinds(text)).toContain(kind);
@@ -49,6 +50,9 @@ describe('claims are read from what the PR says', () => {
     '<!-- tests pass -->',
     'Receipts reads what a PR claims: "all tests pass", "build succeeds", "tsc is clean".',
     'The agent wrote \u201call tests pass\u201d in its summary.',
+    'is VERIFIED, because a check named `test` passed.',
+    'Reads what a PR claims (tests pass, build succeeds, tsc clean, lint passes)',
+    'Catches phrases such as tests pass or build succeeds.',
   ])('not a claim: %s', (text) => {
     expect(kinds(text)).toEqual([]);
   });
