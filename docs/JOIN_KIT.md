@@ -5,7 +5,7 @@ A portable trust harness. Autonomy is earned.
 One screen for an ERC-8004 agent. Verify a claim. Read the receipt line.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.4.0
+npm i -g @hyperdag/trustshell@1.4.1
 trustshell verify "The capital of France is Paris."
 ```
 

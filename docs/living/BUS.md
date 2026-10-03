@@ -19,7 +19,7 @@ the PR you open for it), and close it with the proof link. Updated 2026-10-03 by
 | B7 | XC3 | Find the one live Telegram deploy (start in `controller-pwa` and the Vercel projects; `trinity-telegram-bot` is empty) | deploy URL + commit sha in a PR to this file | open |
 | B8 | XC3 | Wire that bot only to `POST /api/v1/classify`: one box, three labels, the privacy line on the first screen | PR open | blocked by B7 |
 | B9 | Sean | What backs the classify route: (1) arithmetic only, (2) a free hosted model, (3) our own small model | a line here with the choice | open |
-| B10 | CC1 | `trustshell repid <id>` and `trustshell proof <id> --verify` for three existing ids from `@hyperdag/trustshell@1.4.0`. No wallet, no stake | output recorded in a PR to this file | **half done.** `proof --verify` VERIFIED for trinity-shofet (2202), trinity-sophia (1334), trinity-veritas (1816): plonky3, client-side ✓, exit 0. `repid` FAILED on 1.4.0: prints `RepID undefined` with exit 0, because the API now returns `{score, tier}`. Fix in trustshell #429 (Grok to merge); users get it only after a publish (Sean) |
+| B10 | CC1 | `trustshell repid <id>` and `trustshell proof <id> --verify` for three existing ids, run on the published 1.4.0 package (2026-10-03). No wallet, no stake | output recorded in a PR to this file | **half done.** `proof --verify` VERIFIED for trinity-shofet (2202), trinity-sophia (1334), trinity-veritas (1816): plonky3, client-side ✓, exit 0. `repid` FAILED on 1.4.0: prints `RepID undefined` with exit 0, because the API now returns `{score, tier}`. Fix in trustshell #429 (Grok to merge); users get it only after a publish (Sean) |
 | B11 | Sean | One GitHub identity per agent family, so RepID can tell who wrote and who reviewed | decision line here | open |
 | B12 | Sean | Confirm `LOOP_GH_PAT` can read trustshell (steps in the 2026-10-03 chat) | "done" line here | **not needed.** trustshell is public, so B13 reads it with the run's own token |
 | B13 | CC1 | Let the cloud Grok dispatch also check out trustshell, read-only | PR in repid-engine | **works.** repid-engine #1154 (Grok or Sean to merge). First run: transcript #1155, Grok read `./trustshell` and red-teamed all five hosts. That surfaced trustshell #430 |
@@ -69,7 +69,7 @@ terminal receipt; the phone and the stamp do not have to match it, and none may 
 
 | Who | Door | First win |
 |---|---|---|
-| Dev, terminal | `npm i -g @hyperdag/trustshell@1.4.0`, then `trustshell verify` | a pass and a veto (no-key claim NOT CHECKED by CC1) |
+| Dev, terminal | `npm i -g @hyperdag/trustshell@1.4.1`, then `trustshell verify` | a pass and a veto (no-key claim NOT CHECKED by CC1) |
 | Dev in Claude Code / Cursor | `npx @hyperdag/trustshell-mcp` | the same check as a tool |
 | Idea person, phone | the Telegram bot + controller PWA that is live today | paste a claim, get a label, no install |
 | Already in a chat site | the extension, Load unpacked | the stamp, once the route exists |

@@ -5,6 +5,9 @@
  * From S-SDK1 spec + S-BUILD implementation.
  */
 import type { AgentTurnOrigin } from './origin';
+import type { Grounding } from './honest-contract';
+/** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
+export declare function hashProofBytes(proofBytes: string): string;
 /** TrustKeys `readAllowance` signature. Unset agent → undefined (fail closed). */
 export type ReadAllowance = (agentId: string) => bigint | undefined;
 export interface TrustShellConfig {
@@ -59,6 +62,14 @@ export interface VerifyResult {
     lastAnchorTx: string | null;
     latestProofHash: string | null;
     provenanceChain: any[];
+    /** Honest contract (T4): real on-chain mint? null = endpoint didn't say (see reasons). */
+    minted: boolean | null;
+    /** Publishing signer address when exposed; else null (see reasons). */
+    signer: string | null;
+    /** Scoring lane from a real response field; else null (see reasons). */
+    scoreLane: string | null;
+    /** Why any of the above is null. Never empty when a field is null. */
+    reasons: Record<string, string>;
 }
 export interface AuditResult {
     chainStatus: 'VALID' | 'CHAIN_BREAK';
@@ -79,6 +90,12 @@ export interface VerifyOutputResult {
     decisionReason: string;
     /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
     evidence: string[];
+    /** How this verdict is grounded: 'hal' when a real provider quorum spoke, 'none' when HAL could not check. */
+    grounding: Grounding;
+    /** The REAL provider quorum behind the verdict — a MEASURED count (evidence length), never a constant. */
+    providersUsed: number;
+    /** Dispatch name for the same field — so copy cannot write "6" again. */
+    providers_used: number;
     /**
      * SBFA consensus fields. Populated from the backend `sbfa` object (SBFA v0.2 shadow) when present;
      * left undefined when the backend doesn't supply them. Never fabricated (except `confidence`, which
@@ -177,6 +194,14 @@ export interface RepIDResult {
     /** On-chain tx hash, or the coded reason `NOT_ANCHORED`. Never silent null. */
     lastAnchorTx: string;
     latestProofHash: string | null;
+    /** Honest contract (T4): real on-chain mint? `null` = the endpoint didn't say (see `reasons`). Never defaults to true. */
+    minted: boolean | null;
+    /** Publishing signer address when the endpoint exposes it; else `null` (see `reasons`). */
+    signer: string | null;
+    /** Scoring lane from a real response field; else `null` (see `reasons`). */
+    scoreLane: string | null;
+    /** For every field above that is `null`: the reason it is unavailable. Never empty when a field is null. */
+    reasons: Record<string, string>;
 }
 /** Reveal tiers (ZKP_REVEAL_TIERS). `postcard` is production-real; others are capability-gated. */
 export type ProofTier = 'postcard' | 'envelope' | 'letter' | 'package';
@@ -196,6 +221,14 @@ export interface ProofPresentation {
         tier: string;
     } | null;
     createdAt: string | null;
+    /** Honest contract (T4): the engine's publishing signer when the payload carries it; else null (see `reasons`). */
+    signer: string | null;
+    /** A presented proof is an engine-signed postcard — NOT an aggregate of registry rows. Fixed, honest label. */
+    note: 'not a registry aggregate';
+    /** Why `signer` is null, when it is. */
+    reasons: Record<string, string>;
+    /** EAS uid or sha256(proofBytes). Set whenever proof bytes exist. */
+    proofHash?: string | null;
     /** populated by presentProof({ verify: true }) — client-side WASM verification result. */
     verification?: {
         verified: boolean;
@@ -222,6 +255,13 @@ export interface RegisterParams {
     walletAddress?: string;
     /** true → register as an anonymous HUMAN rather than an EXTERNAL_AGENT. */
     isHuman?: boolean;
+    /**
+     * Where this create-PAI turn came from — provenance stamped on the first commit (the register).
+     * The hosted create-PAI page passes `'Site'`; the CLI `init-pai` passes `'Cli'`. Forwarded to the
+     * backend as `origin`; unlike a payment, registration is not origin-gated, so this is a record of
+     * the surface, not a permission.
+     */
+    origin?: AgentTurnOrigin;
 }
 /**
  * Result of `register()`.

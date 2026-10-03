@@ -25,7 +25,20 @@ const scan = require('../scripts/check-doc-version.cjs') as {
   scanRepo: (root?: string) => { status: string; reason: string | null; hits: unknown[]; stats: { md: number } | null };
   isFloor: (line: string, idx: number) => boolean;
   isCurrentClaim: (line: string, version: string, idx: number) => boolean;
+  isHistoricalPlan: (text: string) => boolean;
 };
+
+describe('a dated record can say so, explicitly', () => {
+  it('the marker in the head exempts the file', () => {
+    expect(scan.isHistoricalPlan('# Release draft\n<!-- doc-version: historical -->\nnpm i @hyperdag/trustshell@1.4.0')).toBe(true);
+  });
+  it('a marker buried past the head does not', () => {
+    expect(scan.isHistoricalPlan('# Live doc\n' + 'x'.repeat(1300) + '\n<!-- doc-version: historical -->')).toBe(false);
+  });
+  it('no marker, no exemption', () => {
+    expect(scan.isHistoricalPlan('# Getting started\nnpm i @hyperdag/trustshell@1.4.0')).toBe(false);
+  });
+});
 
 describe('discovery — a walk, not a list', () => {
   it('finds markdown files by walking the tree', () => {

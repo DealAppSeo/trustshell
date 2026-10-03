@@ -5,7 +5,7 @@ const ROOT = join(__dirname, '..');
 const QUESTION = 'Where do you already talk to AI?';
 const CLIENTS = ['Claude', 'ChatGPT', 'Grok', 'Cursor'];
 const COMMANDS = [
-  'npm i -g @hyperdag/trustshell@1.4.0',
+  'npm i -g @hyperdag/trustshell@1.4.1',
   'trustshell verify "paste your own claim"',
   'trustshell repid trinity-shofet',
 ];

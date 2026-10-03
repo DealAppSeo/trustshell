@@ -1,5 +1,5 @@
 /**
- * Stranger path: the four commands shipped in @hyperdag/trustshell@1.4.0,
+ * Stranger path: the four commands shipped in @hyperdag/trustshell@1.4.1,
  * plus every command in this repo's CLI. Engine routes are mocked.
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
@@ -283,7 +283,7 @@ describe('stranger e2e on current main', () => {
     expect(hero).toContain('AI lies. Now it has to show its work.');
     expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).toContain('Check a claim in the chat you already use: Claude, ChatGPT, Grok, Cursor');
-    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
+    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.1');
     expect(hero).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.4\.0[^\n]*status/);
     expect(landing).not.toContain('E:\\TrustDisk');
     expect(landing).not.toContain('Loading live scores');

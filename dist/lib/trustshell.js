@@ -40,11 +40,19 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrustShell = exports.TrustShellError = void 0;
+exports.hashProofBytes = hashProofBytes;
 exports.envelope = envelope;
 exports.assertPaymentCap = assertPaymentCap;
 exports.capFromAllowance = capFromAllowance;
 exports.buildX402Payment = buildX402Payment;
+const node_crypto_1 = require("node:crypto");
+const redact_1 = require("../memory/redact");
 const origin_1 = require("./origin");
+const honest_contract_1 = require("./honest-contract");
+/** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
+function hashProofBytes(proofBytes) {
+    return (0, node_crypto_1.createHash)('sha256').update(proofBytes, 'utf8').digest('hex');
+}
 /** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
 function envelope(p) {
     const s = p.statement;
@@ -121,7 +129,7 @@ class TrustShell {
         // { response, ... }. strictness 2 selects the cross-provider fact-check quorum (the real
         // HAL), not the style-only extractor. (Fixes the prior 400 "text is required".)
         const body = {
-            text: response,
+            text: (0, redact_1.redact)(response),
             strictness: 2,
         };
         const controller = new AbortController();
@@ -223,13 +231,26 @@ class TrustShell {
             throw new TrustShellError(`RepID lookup failed: ${res.status}`, res.status);
         }
         const data = await res.json();
+        // Honest contract (T4): derive mint/signer/lane from the REAL response, null-with-reason otherwise.
+        const honesty = (0, honest_contract_1.repidHonesty)(data);
+        // The live /api/v1/repid/:id returns `{ score, tier }` [MEASURED 2026-10-03], and `score`
+        // is the string 'NOT_CHECKED' when the engine has no number. 1.4.0 read only `repid_score`,
+        // so every lookup printed "RepID undefined" and exited 0: we-did-not-look reported as a
+        // result. The first finite number wins; none at all is an error, never undefined and never 0.
+        const repid = [data.score, data.repid_score, data.repid, data.current_repid].find((v) => typeof v === 'number' && Number.isFinite(v));
+        if (repid === undefined) {
+            throw new TrustShellError(`RepID not checked: the backend returned no score for ${agentId}`, res.status);
+        }
         return {
-            // The live /api/v1/repid/:id returns `repid_score` (cached read); keep the legacy fallbacks.
-            repid: data.repid_score ?? data.repid ?? data.current_repid,
+            repid,
             tier: data.tier,
             lastAnchorTx: data.last_anchor_tx || null,
             latestProofHash: data.latest_proof_hash || null,
             provenanceChain: data.provenance || [],
+            minted: honesty.minted,
+            signer: honesty.signer,
+            scoreLane: honesty.scoreLane,
+            reasons: honesty.reasons,
         };
     }
     /**
@@ -258,6 +279,10 @@ class TrustShell {
             signals: r.signals,
             decisionReason: r.decisionReason,
             evidence: r.evidence,
+            // Honest grounding contract (T4): grounding + the REAL quorum, both from the actual evidence.
+            grounding: (0, honest_contract_1.verifyOutputGrounding)(r.evidence.length),
+            providersUsed: (0, honest_contract_1.countProviders)({ evidence: r.evidence }),
+            providers_used: (0, honest_contract_1.countProviders)({ evidence: r.evidence }),
             belief: r.belief, // real DST belief mass, or undefined (never fabricated)
             ignoranceMass: r.ignoranceMass, // real DST ignorance, or undefined (never derived)
             confidence: r.confidence ?? derivedConfidence, // real SBFA confidence; else DERIVED proxy
@@ -307,12 +332,26 @@ class TrustShell {
     }
     async getRepID(agentId) {
         const v = await this.verify(agentId);
+        let latestProofHash = v.latestProofHash;
+        if (!latestProofHash) {
+            try {
+                const p = await this.presentProof(agentId);
+                latestProofHash = p.proofHash ?? (p.proofBytes ? hashProofBytes(p.proofBytes) : null);
+            }
+            catch {
+                latestProofHash = null;
+            }
+        }
         return {
             agentId,
             repid: v.repid,
             tier: v.tier,
             lastAnchorTx: v.lastAnchorTx || 'NOT_ANCHORED',
-            latestProofHash: v.latestProofHash,
+            latestProofHash,
+            minted: v.minted,
+            signer: v.signer,
+            scoreLane: v.scoreLane,
+            reasons: v.reasons,
         };
     }
     async getLeaderboard(board) {
@@ -450,13 +489,20 @@ class TrustShell {
             throw new TrustShellError(`Proof lookup failed: ${res.status}`, res.status);
         }
         const data = await res.json();
+        const proofH = (0, honest_contract_1.proofHonesty)(data);
+        const proofBytes = data.proof_bytes || '';
+        const uid = typeof data.eas?.attestation_uid === 'string' ? data.eas.attestation_uid : null;
         const presentation = {
             agentId,
             tier,
-            proofBytes: data.proof_bytes || '',
+            proofBytes,
             scheme: data.scheme ?? null,
             statement: data.statement ?? null,
             createdAt: data.created_at ?? null,
+            signer: proofH.signer,
+            note: proofH.note,
+            reasons: proofH.reasons,
+            proofHash: uid || (proofBytes ? hashProofBytes(proofBytes) : null),
         };
         if (opts.verify && presentation.proofBytes && presentation.statement) {
             presentation.verification = await this.verifyProof(presentation);
@@ -646,6 +692,7 @@ class TrustShell {
             ...(params.llmModel !== undefined ? { llm_model: params.llmModel } : {}),
             ...(params.walletAddress !== undefined ? { wallet_address: params.walletAddress } : {}),
             ...(params.isHuman !== undefined ? { is_human: params.isHuman } : {}),
+            ...(params.origin !== undefined ? { origin: params.origin } : {}),
         };
         const res = await fetch(url, {
             method: 'POST',

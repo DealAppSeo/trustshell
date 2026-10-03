@@ -35,7 +35,7 @@ describe('public landing source', () => {
     expect(hero).toContain('AI lies. Now it has to show its work.');
     expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
-    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
+    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.1');
     expect(hero).toContain('trustshell status');
     expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     expect(page).toContain('<Hero');

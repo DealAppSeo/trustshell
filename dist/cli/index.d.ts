@@ -35,8 +35,10 @@ export declare const EXIT: {
     readonly USAGE: 2;
     /** Runtime error (network / backend / timeout). */
     readonly RUNTIME: 3;
+    /** Laya ask. A person has to answer. HAL was not called. */
+    readonly ASK: 4;
 };
-export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'check' | 'inspect' | 'init' | 'report' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'bind-status' | 'traps' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -49,12 +51,22 @@ export interface ParsedArgs {
     verify: boolean;
     /** init: replace an existing profile. Without it, an existing profile is left untouched. */
     force?: boolean;
+    /** init: run scripts/init-pai.mjs (PAI FACE — live register) instead of the blank profile. */
+    pai?: boolean;
+    /** init --pai: print NOT_MINTED and do not spawn the register script. No network. */
+    dryRun?: boolean;
+    /** init --pai: forwarded to scripts/init-pai.mjs */
+    name?: string;
+    /** init --pai: forwarded to scripts/init-pai.mjs (`job|cost|brain`) */
+    answers?: string;
     /** inspect: read a foreign log through an adapter. Adapters always yield UNCHAINED. */
     from?: string;
     /** report: path to the session log. */
     session?: string;
     /** report: path to saved `check --json` output. `report` never fetches. */
     evidence?: string;
+    /** remember/recall/redact: a local sqlite key. Absent on the one-argument note path. */
+    key?: string;
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }
@@ -71,6 +83,32 @@ export interface ParsedArgs {
  * reported version was reading a two-release-old number.
  */
 export declare const VERSION: string;
+/** Repo-relative path the published CLI must be able to spawn. */
+export declare const INIT_PAI_SCRIPT = "scripts/init-pai.mjs";
+/** The path a stranger can run from a clone when the script is not in this install. */
+export declare const INIT_PAI_DOC = "node scripts/init-pai.mjs --name <n>";
+/** `cliDir` is src/cli or dist/cli — both sit two levels below the package root. */
+export declare function resolveInitPai(cliDir: string): string;
+export interface InitPaiFs {
+    exists(p: string): boolean;
+    spawn(cmd: string, args: string[]): {
+        status: number | null;
+    };
+}
+/**
+ * Spawn scripts/init-pai.mjs. Missing script → USAGE, never silent 0
+ * (the unpublished-bin failure class).
+ */
+export declare function runInitPai(impl: InitPaiFs, opts: {
+    cliDir: string;
+    name?: string;
+    answers?: string;
+    force?: boolean;
+}): {
+    code: number;
+    missing: boolean;
+    script: string;
+};
 /**
  * Parse CLI arguments into a {@link ParsedArgs}. PURE — no I/O, no network — so the
  * command routing + option handling can be unit-tested directly.

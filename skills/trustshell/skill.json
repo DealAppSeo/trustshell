@@ -18,9 +18,9 @@
         {
           "id": "npm",
           "kind": "node",
-          "package": "@hyperdag/trustshell@1.4.0",
+          "package": "@hyperdag/trustshell@1.4.1",
           "bins": ["trustshell", "trustshell-mcp", "hal"],
-          "label": "Install @hyperdag/trustshell@1.4.0"
+          "label": "Install @hyperdag/trustshell@1.4.1"
         }
       ]
     }

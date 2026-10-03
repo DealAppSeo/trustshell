@@ -22,6 +22,17 @@ exports.main = main;
  *   - getLeaderboard — the live model or agent trust leaderboard.
  *   - getRepID       — an agent's live RepID score + tier (keyless).
  *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
+ *   - remember       — write a note into the local sqlite file. No network.
+ *   - recall         — list saved notes from that file. No network.
+ *   - redact         — delete one keyed row. Missing is NOT_CHECKED. No network.
+ *   - repid          — alias of get_repid / getRepID.
+ *   - verify_output  — canonical name for verify/evaluate (SDK verifyOutput).
+ *   - get_repid      — canonical name for getRepID.
+ *   - verify_proof   — client-side WASM proof verification (SDK verifyProof). Nothing leaves the host.
+ *   - status         — `trustshell status` parity; calls src/cli/status.ts so the two cannot drift.
+ *
+ * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
+ * already published with them live, so renaming would break existing agent configs.
  *
  * Transport: stdio (the Claude Desktop / Cursor default). Configure with:
  *   { "mcpServers": { "trustshell": { "command": "npx",
@@ -35,7 +46,12 @@ const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const zod_1 = require("zod");
 const trustshell_1 = require("../lib/trustshell");
+const redact_1 = require("../memory/redact");
 const version_1 = require("../lib/version");
+const status_1 = require("../cli/status");
+const redact_key_1 = require("../cli/redact-key");
+const remember_1 = require("../cli/remember");
+const memory_1 = require("./memory");
 /**
  * Package version — read from package.json at runtime, never retyped here.
  *
@@ -75,18 +91,9 @@ function createServer(client = makeClient()) {
     // it under `strict` trips TS2589 ("excessively deep"). Bind to a loose signature — our handlers
     // are still explicitly typed below, so we keep type-safety where it matters (the tool payloads).
     const registerTool = server.registerTool.bind(server);
-    // --- verify: HAL cross-provider fact-check quorum -----------------------------------------
-    registerTool('verify', {
-        title: 'HAL verify',
-        description: 'Run text through the live HAL cross-provider fact-check quorum (strictness 2). Returns ' +
-            'PASS / FLAG / VETO, a 0–100 trust score, the decision reason, and per-provider evidence. ' +
-            'Use it to check a claim before acting on it.',
-        inputSchema: {
-            text: zod_1.z.string().min(1).describe('The claim or output text to fact-check.'),
-        },
-    }, async ({ text }) => {
+    const verifyHandler = async ({ text }) => {
         try {
-            const r = await client.verifyOutput(text);
+            const r = await client.verifyOutput((0, redact_1.redact)(text));
             return jsonResult({
                 verdict: r.verdict,
                 ok: r.ok,
@@ -99,7 +106,23 @@ function createServer(client = makeClient()) {
         catch (e) {
             return errorResult(`verify failed: ${e?.message ?? String(e)}`);
         }
-    });
+    };
+    // --- verify / evaluate: HAL cross-provider fact-check quorum ------------------------------
+    const verifySchema = {
+        text: zod_1.z.string().min(1).describe('The claim or output text to fact-check.'),
+    };
+    registerTool('verify', {
+        title: 'HAL verify',
+        description: 'Run text through the live HAL cross-provider fact-check quorum (strictness 2). Returns ' +
+            'PASS / FLAG / VETO, a 0–100 trust score, the decision reason, and per-provider evidence. ' +
+            'Use it to check a claim before acting on it.',
+        inputSchema: verifySchema,
+    }, verifyHandler);
+    registerTool('evaluate', {
+        title: 'HAL evaluate',
+        description: 'Alias of verify. Same live HAL quorum. Exists so every public surface names evaluate().',
+        inputSchema: verifySchema,
+    }, verifyHandler);
     // --- getLeaderboard: live model / agent trust leaderboard ---------------------------------
     registerTool('getLeaderboard', {
         title: 'Trust leaderboard',
@@ -152,6 +175,147 @@ function createServer(client = makeClient()) {
         }
         catch (e) {
             return errorResult(`present_proof failed: ${e?.message ?? String(e)}`);
+        }
+    });
+    registerTool('remember', {
+        title: 'Local remember',
+        description: 'Write a note into the local sqlite memory. No network. The row kind is note.',
+        inputSchema: {
+            text: zod_1.z.string().min(1).describe('The note to store.'),
+        },
+    }, async ({ text }) => {
+        if ((0, remember_1.refusedValue)(text))
+            return errorResult('remember refused');
+        try {
+            return jsonResult((0, memory_1.rememberLocal)(text));
+        }
+        catch (e) {
+            const message = e?.message === 'remember refused' ? 'remember refused' : `remember failed: ${e?.message ?? String(e)}`;
+            return errorResult(message);
+        }
+    });
+    registerTool('recall', {
+        title: 'Local recall',
+        description: 'List saved notes from the local sqlite memory. do_not_send rows are a count only. No network.',
+        inputSchema: {},
+    }, async () => {
+        try {
+            return jsonResult((0, memory_1.recallLocal)());
+        }
+        catch (e) {
+            return errorResult(`recall failed: ${e?.message ?? String(e)}`);
+        }
+    });
+    registerTool('redact', {
+        title: 'Local redact',
+        description: 'Delete one KEY row from the local sqlite memory. Missing is NOT_CHECKED. No network.',
+        inputSchema: {
+            key: zod_1.z.string().min(1).describe('The key whose row to delete.'),
+        },
+    }, async ({ key }) => {
+        try {
+            return jsonResult({ result: (0, redact_key_1.redactKey)(key) });
+        }
+        catch (e) {
+            return errorResult(`redact failed: ${e?.message ?? String(e)}`);
+        }
+    });
+    // --- 1.4 CLI parity: snake_case names -----------------------------------------------------
+    //
+    // The CLI and SDK are the naming authority; the MCP surface had drifted to camelCase for two
+    // tools and omitted two more. These are ADDITIONS, not renames: @hyperdag/trustshell@1.4.0 is
+    // already published with `verify` / `evaluate` / `getLeaderboard` / `getRepID` live, so
+    // renaming would break every agent config already pointing at them. The camelCase names stay
+    // as aliases and the snake_case ones are canonical.
+    registerTool('verify_output', {
+        title: 'Verify output',
+        description: 'Canonical name for verify/evaluate — matches SDK verifyOutput() and `trustshell verify`. ' +
+            'Runs text through the live HAL cross-provider fact-check quorum and returns PASS / FLAG / ' +
+            'VETO, a 0-100 trust score, the decision reason, and per-provider evidence.',
+        inputSchema: verifySchema,
+    }, verifyHandler);
+    const getRepidHandler = async ({ agentId }) => {
+        try {
+            return jsonResult(await client.getRepID(agentId));
+        }
+        catch (e) {
+            return errorResult(`get_repid failed: ${e?.message ?? String(e)}`);
+        }
+    };
+    registerTool('get_repid', {
+        title: 'Get RepID',
+        description: "Canonical name for getRepID — matches `trustshell repid`. Fetches an agent's live RepID " +
+            'score and tier from the public repid-engine (keyless).',
+        inputSchema: {
+            agentId: zod_1.z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
+        },
+    }, getRepidHandler);
+    registerTool('repid', {
+        title: 'RepID',
+        description: "Alias of get_repid. Fetches an agent's live RepID score and tier from the public repid-engine (keyless).",
+        inputSchema: {
+            agentId: zod_1.z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
+        },
+    }, getRepidHandler);
+    registerTool('verify_proof', {
+        title: 'Verify RepID proof',
+        description: 'Verify a RepID range proof CLIENT-SIDE with the WASM verifier (SDK verifyProof()). Takes ' +
+            'either a full presentation object from present_proof, or raw proof bytes plus the ' +
+            'statement they were produced against. Nothing is sent to the backend — this is a local ' +
+            'check, which is the point: it is what lets a verifier trust a proof without trusting us.',
+        inputSchema: {
+            presentation: zod_1.z
+                .unknown()
+                .optional()
+                .describe('A full presentation object as returned by present_proof. Preferred.'),
+            proofBytes: zod_1.z
+                .string()
+                .optional()
+                .describe('Raw proof bytes, if you do not have the full presentation.'),
+            statement: zod_1.z
+                .unknown()
+                .optional()
+                .describe('The statement the proof was produced against. Required with proofBytes.'),
+        },
+    }, async ({ presentation, proofBytes, statement, }) => {
+        // Refuse rather than guess: verifyProof(undefined) would throw deep in the WASM path with a
+        // message that does not name the caller's mistake.
+        if (presentation === undefined && proofBytes === undefined) {
+            return errorResult('verify_proof failed: pass either `presentation` (from present_proof) or `proofBytes` + `statement`.');
+        }
+        try {
+            const r = presentation !== undefined
+                ? await client.verifyProof(presentation)
+                : await client.verifyProof(proofBytes, statement);
+            return jsonResult(r);
+        }
+        catch (e) {
+            return errorResult(`verify_proof failed: ${e?.message ?? String(e)}`);
+        }
+    });
+    // `status` is here ONLY because `trustshell status` exists in this same repo (src/cli/status.ts)
+    // and this calls that module rather than reimplementing it — so the MCP answer and the CLI
+    // answer cannot drift. buildStatusReport already returns NOT_CHECKED lines when the engine is
+    // unreachable or OFFLINE=1; those are passed through untouched, never collapsed into a pass.
+    registerTool('status', {
+        title: 'TrustShell status',
+        description: 'Live capability + honesty report for the configured HyperDAG backend, identical to ' +
+            '`trustshell status`. Reports can_verify / can_bind / can_stake / can_rate_models, the ' +
+            'Honesty-A line and counted first-pass fields. NOT_CHECKED is a real outcome here and ' +
+            'means the value could not be read — it never means false and never means passing.',
+        inputSchema: {
+            json: zod_1.z
+                .boolean()
+                .optional()
+                .describe('Return the parsed JSON view instead of the human-readable lines.'),
+        },
+    }, async ({ json }) => {
+        try {
+            const text = await (0, status_1.buildStatusReport)({ env: process.env, fetchImpl: fetch });
+            return jsonResult(json === true ? (0, status_1.statusJsonFromText)(text) : { status: text });
+        }
+        catch (e) {
+            return errorResult(`status failed: ${e?.message ?? String(e)}`);
         }
     });
     return server;

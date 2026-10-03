@@ -10,7 +10,7 @@ Check any claim. Get a receipt. Your keys stay yours.
 Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists: `E:\TrustDisk\video\trustshell-demo-20s.mp4`. The player is hidden until that file is there.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.4.0
+npm i -g @hyperdag/trustshell@1.4.1
 trustshell verify "paste your own claim"
 trustshell repid trinity-shofet
 ```
@@ -33,7 +33,7 @@ trustshell repid trinity-shofet
 
 | | Today |
 |---|---|
-| npm `latest` | **1.4.0** (`npm view @hyperdag/trustshell version`, 2026-09-24). |
+| npm `latest` | **1.4.1** (`npm view @hyperdag/trustshell version`, released 2026-10-03). |
 | HAL quorum | **2 answering / 8 configured** (measured). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
@@ -430,10 +430,10 @@ Run `trustshell --help` for the full reference.
 
 ## Agent skill
 
-OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.4.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
+OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.4.1` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.4.0
+npm i -g @hyperdag/trustshell@1.4.1
 
 trustshell verify "<claim>"
 trustshell repid <id>

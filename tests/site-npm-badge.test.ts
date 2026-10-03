@@ -26,7 +26,7 @@ describe('site install copy matches published 1.4.0', () => {
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('Check a claim in the chat you already use');
     expect(hero).toContain('I have a terminal');
-    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.0');
+    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.4.1');
     expect(hero).toContain('trustshell status');
     expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);

@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 
-const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
+const WIN_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.1
 trustshell status`;
 
-const FIRST_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
+const FIRST_COMMANDS = `npm i -g @hyperdag/trustshell@1.4.1
 trustshell verify "paste your own claim"
 trustshell repid trinity-shofet`;
 

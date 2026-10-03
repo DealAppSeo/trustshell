@@ -8,7 +8,7 @@ const CLIENTS = ['Claude', 'ChatGPT', 'Grok', 'Cursor'] as const;
 
 const PASTE = '{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }';
 
-const COMMANDS = `npm i -g @hyperdag/trustshell@1.4.0
+const COMMANDS = `npm i -g @hyperdag/trustshell@1.4.1
 trustshell verify "paste your own claim"
 trustshell repid trinity-shofet`;
 
