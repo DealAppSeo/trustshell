@@ -25,4 +25,21 @@ describe('install card', () => {
     for (const step of STEPS) expect(html).toContain(step);
     for (const host of HOSTS) expect(page).toContain(host);
   });
+
+  // The reply leaves the browser. A tester is told before the steps, on both install surfaces.
+  const SENT = 'the text of that reply is sent to the classifier';
+
+  it('both install surfaces say the reply is sent, before the first step', () => {
+    const html = readFileSync(join(__dirname, '../public/install.html'), 'utf8');
+    const readme = readFileSync(join(__dirname, '../extension/README.md'), 'utf8');
+    expect(html).toContain(SENT);
+    expect(readme).toContain(SENT);
+    expect(html.indexOf(SENT)).toBeLessThan(html.indexOf('<ol>'));
+    expect(readme.indexOf(SENT)).toBeLessThan(readme.indexOf('chrome://extensions'));
+  });
+
+  it('the install card does not say HAL checks the stamp', () => {
+    const html = readFileSync(join(__dirname, '../public/install.html'), 'utf8');
+    expect(html).not.toMatch(/HAL checks the reply/);
+  });
 });
