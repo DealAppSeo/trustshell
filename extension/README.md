@@ -1,3 +1,5 @@
+When the stamp checks a reply, the text of that reply is sent to the classifier. It is not stored. Not printed is not the same as not sent.
+
 chrome://extensions
 Developer mode
 Load unpacked
