@@ -1,5 +1,45 @@
-# BUS — TrustShell MVP → shippable E2E
-Updated 2026-10-02 (night lane added by CC1). The 2026-09-15 sections below are unchanged.
+# BUS — the next ticket, granular (tier 1 of 3)
+
+Read `NORTH.md` (where we are going) and then `WEEK.md` (this week's sprints), then act from
+here. This is the **one** bus: the `BUS.md` / `NEXT.md` copies in repid-engine and
+hyperdag-protocol now point here. **A Loop is one ticket worked until a PR or a URL proves
+it.** Take the top `open` ticket in your lane, set it to `CLAIMED by <you>` in a PR (or on
+the PR you open for it), and close it with the proof link. Updated 2026-10-03 by CC1.
+
+## Tickets
+
+| ID | Lane | Loop | Done when (proof) | Status |
+|---|---|---|---|---|
+| B1 | XC3 or Sean | Merge repid-engine #1151 (classify route). Green, approved by Grok and Strix | #1151 merged | **done** (merged 00:59Z, main 1a1d1cb) |
+| B2 | CC1 | After deploy: production `POST /api/v1/classify` from a chat-site Origin returns a contract label, and the preflight passes | command and output recorded in a PR to this file | **VERIFIED 2026-10-03 01:01Z** on deployed 6a40bf4: OPTIONS from `https://chatgpt.com` → 204, allow-origin `*`; POST `2 + 2 = 4` → pass, `2 + 2 = 5` → veto, prose with `;`, `--` and a closing "veto" → not-checked (no sanitizer 400), empty → not-checked; all 200, ~1 ms |
+| B3 | Sean | Close or merge repid-engine #1152 (Grok transcript) **after** B1, because its branch contains #1151's code | #1152 closed | blocked by B1 |
+| B4 | XC1 | Merge trustshell #427 (bus note) | merged | **done** (main d10b7b3) |
+| B5 | CC2 | `CC2/jev-call`: src/jev/classify.ts, label + score, never `reject`; four tests (Sean's five boxes) | PR open, ready | unblocked (B1 done) |
+| B6 | CC2 | `CC2/cfo-belt`: GET /api/v1/belts/cfo, cap row `can_spend:false`, inserts nothing; read `src/routes/belts.ts` first | PR open, ready | blocked by B5 |
+| B7 | XC3 | Find the one live Telegram deploy (start in `controller-pwa` and the Vercel projects; `trinity-telegram-bot` is empty) | deploy URL + commit sha in a PR to this file | open |
+| B8 | XC3 | Wire that bot only to `POST /api/v1/classify`: one box, three labels, the privacy line on the first screen | PR open | blocked by B7 |
+| B9 | Sean | What backs the classify route: (1) arithmetic only, (2) a free hosted model, (3) our own small model | a line here with the choice | open |
+| B10 | CC1 | `trustshell repid <id>` and `trustshell proof <id> --verify` for three existing ids from `@hyperdag/trustshell@1.4.0`. No wallet, no stake | output recorded in a PR to this file | **half done.** `proof --verify` VERIFIED for trinity-shofet (2202), trinity-sophia (1334), trinity-veritas (1816): plonky3, client-side ✓, exit 0. `repid` FAILED on 1.4.0: prints `RepID undefined` with exit 0, because the API now returns `{score, tier}`. Fix in trustshell #429 (Grok to merge); users get it only after a publish (Sean) |
+| B11 | Sean | One GitHub identity per agent family, so RepID can tell who wrote and who reviewed | decision line here | open |
+| B12 | Sean | Confirm `LOOP_GH_PAT` can read trustshell (steps in the 2026-10-03 chat) | "done" line here | **not needed.** trustshell is public, so B13 reads it with the run's own token |
+| B13 | CC1 | Let the cloud Grok dispatch also check out trustshell, read-only | PR in repid-engine | **works.** repid-engine #1154 (Grok or Sean to merge). First run: transcript #1155, Grok read `./trustshell` and red-teamed all five hosts. That surfaced trustshell #430 |
+| B14 | CC1 | Hourly pull loop: read NORTH, WEEK and BUS; dispatch Grok; nudge Claude sessions; review and merge the other family's green PRs; stop after 3 quiet hours | trigger id recorded here | open |
+
+### Carried from the older buses: **UNVERIFIED, re-check before working**
+These were OPEN on 2026-09-15 to 09-19 in repid-engine and hyperdag-protocol. Some may already
+be done. Check main, npm and the DB first, and close with the evidence; do not redo them blind.
+- **Sean-only:** F-DDL (apply `migrations/2026-09-15_kind_custody.sql`), F-PUBLISH / F-E2E-PUB
+  / F-SITE (npm and site version), F-LIVE-SETTLE (one Sepolia `service_contracts` row
+  `settled`), F-PINS, F-DISCUSSIONS, F-FRIENDS, F-EXPERTS, F-GROUND-ENFORCE.
+- **Engine:** HYP-10 (wrap type-B callsites; CLAUDE.md now says CALLSITES = 0, which suggests
+  this is done), HYP-11, HYP-7 (freshness stall), HYP-8 (register Map). Sean product holds:
+  #743 and #739.
+- **Protocol:** L1 (example-agent refresh), L3 (honest STATUS block), L10 (release notes), L4
+  to L6, L11, L12.
+
+---
+
+## Reference: decisions and notes behind the tickets (kept, not tickets)
 
 ## 2026-10-02 NIGHT — the stamp on five hosts
 
@@ -143,18 +183,4 @@ Starts only after N-ENDPOINT and N-MANIFEST land.
 - chatgpt's `content.js` read the verdict from the reply's own last line, so a reply ending in
   "veto" painted veto. Fixed: it paints only the classifier's label.
 
-## Closed on branches (not published)
-E1 unique evidence_id. E2 exclusive floor + window. E3 SQL written not applied. E4 happy-path settle fixtures. E5 score_lane. E6 C9/C10 scratch. S1 A7 filter. S2 #156-158 green. S3 measured quorum or 503. S4 extra cases #756. S5/S11 envelope exported on verify. S6 present_proof on packed tree. S8 README pin 1.3.0. S10 evaluate=verifyOutput alias. S12 local e2e:mvp on pack. #159 refuse eyJ fallback.
-
-## OPEN
-F-PUBLISH — Sean: npm publish packed candidate after audit.
-F-DDL — Sean: apply unique-on-evidence_id after reading SQL.
-F-E2E-PUB — after publish, e2e:mvp against @latest.
-F-LIVE-SETTLE — one production service_contracts row reaches settled.
-F-STACK-GH — TrustShell stack exists on GitHub as one PR, not only local feat/xc2-2026-09-15-stack.
-F-754-CLEAN — rebase #754 if dirty; fold #756; merge when CI green (policy allows if no version bump / no apply-SQL).
-F-SITE — site version = published @latest after publish.
-
-## Locks
-XC1: repid-engine #754 branch only.
-XC2: trustshell stack only. Never #754 scoring files.
+(The 2026-09-15 OPEN and Locks lists that used to sit here are carried into the ticket table above as UNVERIFIED.)

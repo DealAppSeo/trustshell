@@ -1,10 +1,11 @@
-# STANDING ORDER — until tokens die or BUS OPEN = 0
+# STANDING ORDER — every agent, every session
 
-Read MERGE_POLICY.md, BUS.md, NEXT.md.
-Claim the next unclaimed id in your file lock.
-Do the work. Tests first. Push to the stack branch.
-If MERGE_POLICY allows, squash-merge. Then take the next id.
-Do not open a new PR if a stack branch already exists.
-Do not return for a new prompt. Recap only when tokens are gone or every remainder is npm publish / prod DDL / Railway.
-Empty mailbox = next BUS id, not stop.
-Do not invent a new product surface. Claims stay; code moves.
+1. Read `NORTH.md`, then `WEEK.md`, then `BUS.md`, and `MERGE_POLICY.md` before any merge.
+2. Take the top `open` ticket in **your lane**. One ticket at a time: that is a Loop.
+3. Work it until a PR or a URL proves it. Tests first. Never on `main`.
+4. Open the PR ready for review (not draft, because Strix ignores drafts). Never merge your own.
+5. Update the ticket's Status with the proof link, then take the next ticket.
+6. Blocked? Write the blocker on the ticket and take the next one. An empty lane means
+   taking an `open` ticket from the WEEK sprint you serve. Do not stop for a recap.
+7. Never: `REAL_STAKING`, a token move, a secret value, prod DDL, Railway env, or `npm publish`.
+   Those are Sean's, and so is any change to the label contract.
