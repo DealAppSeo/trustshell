@@ -280,7 +280,9 @@ function render(results, { sha, repoUrl } = {}) {
       '|---|---|---|---|',
     );
     for (const r of results) {
-      lines.push(`| ${escapeCell(r.quote)} | ${escapeCell(r.sources.join(', '))} | ${escapeCell(r.why)} | ${MARK[r.verdict]} |`);
+      // One sentence can hold two claims ("tsc is clean and tests pass"); name which this row is.
+      const what = r.subtype ? `${r.subtype} ${r.label}` : r.label;
+      lines.push(`| **${escapeCell(what)}**: ${escapeCell(r.quote)} | ${escapeCell(r.sources.join(', '))} | ${escapeCell(r.why)} | ${MARK[r.verdict]} |`);
     }
   }
   lines.push('', '<details><summary>What this receipt does not prove</summary>', '');

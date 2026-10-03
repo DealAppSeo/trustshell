@@ -154,7 +154,7 @@ describe('red-team findings (Grok, repid-engine dispatch 2026-10-03)', () => {
       one('All tests pass @everyone ![x](https://t.example/p.png) [l](https://e.example) <img src=x> | col', []),
       { sha: 'abc' },
     );
-    const row = md.split('\n').find((l) => l.startsWith('| All'))!;
+    const row = md.split('\n').find((l) => l.startsWith('| **tests**: All'))!;
     expect(row).not.toMatch(/(^|[^​])@everyone/);
     expect(row).not.toMatch(/!\[x\]\(/);
     expect(row).not.toMatch(/(^|[^\\])\[l\]\(/);
@@ -385,5 +385,13 @@ describe('every page of checks is read', () => {
     const [r] = core.judge(core.groupClaims(core.extractClaims('All tests pass.', 'PR description')), ev);
     expect(r!.verdict).toBe('NOT_CHECKED');
     expect(r!.why).toMatch(/not read/);
+  });
+});
+
+describe('one sentence, two claims', () => {
+  it('each row names the claim it judges', () => {
+    const md = core.render(one('tsc is clean and all tests pass.', [ok('test'), ok('tsc')]), { sha: 'abc1234' });
+    expect(md).toMatch(/\| \*\*type check\*\*: tsc is clean/);
+    expect(md).toMatch(/\| \*\*tests\*\*: tsc is clean/);
   });
 });
