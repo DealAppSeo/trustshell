@@ -40,7 +40,7 @@ That is the whole setup: no key, no account, no install.
 - **Reads** the PR description, its commit messages, and the check runs and statuses on the
   head commit. **Writes** one comment, updated in place. **Talks to** the GitHub API only.
 - **No model reads your PR.** Claims are found by plain patterns, so PR text cannot argue its
-  way to a verdict. Quoted text, code blocks and HTML comments are ignored on purpose.
+  way to a verdict. Text in double quotes, code blocks, block quotes and HTML comments is ignored on purpose. Text in single quotes is read, because a single quote is also an apostrophe.
 - **Never runs PR code.** Keep it on `pull_request`. Do not pair it with
   `pull_request_target` plus a checkout of the PR head.
 - **Fork PRs** get a read-only token from GitHub, so the receipt goes to the job summary

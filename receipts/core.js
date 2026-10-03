@@ -111,12 +111,10 @@ function stripQuoted(text) {
     // Measured on this action's own first live receipt, which read four quoted examples
     // as four claims. Straight and curly quotes, kept on one line.
     .replace(/"[^"\n]{0,200}"/g, ' ')
-    .replace(/“[^”\n]{0,200}”/g, ' ')
-    // Single quotes too, but only a quote that OPENS after a space or punctuation, so an
-    // apostrophe ("don't", "PR's") never starts one. Measured on #433: a commit message
-    // quoting 'tsc is clean and all tests pass locally' was read as two claims.
-    .replace(/(^|[^\w'])'[^'\n]{1,200}?'(?![\w])/g, '$1 ')
-    .replace(/‘[^’\n]{0,200}’/g, ' ');
+    .replace(/“[^”\n]{0,200}”/g, ' ');
+    // Single quotes are NOT stripped. ' is also an apostrophe ('90s, maintainers', it’s), so
+    // a single-quote span can swallow a real claim and the FAILED under it. Reading a quoted
+    // claim is visible on the receipt; hiding a real one is not (CC2, #433 at ac442ff).
 }
 
 function sentences(text) {
@@ -251,7 +249,7 @@ const MARKER = '<!-- trustshell-receipt -->';
 const DOES_NOT_PROVE = [
   'A green check proves that check passed on this commit. It does not prove the check tested this change.',
   'Checks are matched to claims by their names. A check named `test` that runs nothing would still read as tests.',
-  'Claims are read from the PR description and the latest commit message by plain patterns. A claim worded unusually is not seen; quoted text and code blocks are ignored on purpose.',
+  'Claims are read from the PR description and the latest commit message by plain patterns. A claim worded unusually is not seen. Text in double quotes, code blocks and block quotes is ignored on purpose; text in single quotes is read, because a single quote is also an apostrophe.',
   'A check created after this receipt was written is not counted until the receipt runs again.',
 ];
 

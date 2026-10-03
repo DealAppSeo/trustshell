@@ -396,13 +396,13 @@ describe('one sentence, two claims', () => {
   });
 });
 
-describe('single-quoted text is quoted, not claimed', () => {
-  it('a commit message quoting a claim in single quotes has no claim', () => {
-    expect(kinds("Seen on the receipt: 'tsc is clean and all tests pass locally' rendered as two rows.")).toEqual([]);
-    expect(kinds('It reads ‘all tests pass’ as a claim.')).toEqual([]);
-  });
-  it("an apostrophe does not open a quote", () => {
-    expect(kinds("It's ready: all tests pass.")).toContain('tests');
-    expect(kinds("The PR's tests pass.")).toContain('tests');
+describe('single quotes never hide a claim (CC2 at ac442ff)', () => {
+  it.each([
+    "Rewrote the '90s-era parser; all tests pass on the maintainers' branch.",
+    "Fixed the 'flaky test. All tests pass in the reviewers' CI run.",
+    'Renamed the ‘check job; all tests pass and it’s green.',
+    "It's ready: all tests pass.",
+  ])('%s is still a claim', (text) => {
+    expect(kinds(text)).toContain('tests');
   });
 });
