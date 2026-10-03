@@ -9,8 +9,8 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
   # Re-run when the gating workflow finishes, so a check that finished (or was created) after
-  # the first receipt is counted. Safe: this job never checks out or runs PR code; the
-  # checkout below loads the action from the base commit or the default branch.
+  # the first receipt is counted. The checkout below loads the action from the base
+  # commit or the default branch, never from the PR's receipts/.
   workflow_run:
     workflows: [check]
     types: [completed]
@@ -32,9 +32,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # Load the action from TRUSTED code: the PR's base commit, or the default branch on
-      # workflow_run. Never the PR's own copy, or a PR could change the code that judges it
-      # (Strix, #433). Outside this repo it is `uses: DealAppSeo/trustshell/receipts@<sha>`.
+      # Load the action from trusted code: the PR's base commit, or the default branch on
+      # workflow_run, not the PR's copy of receipts/ (Strix, #433). Limit: on pull_request
+      # GitHub runs THIS FILE from the PR, so a same-repo PR that edits it can change what
+      # runs on its own event. The workflow_run refresh always uses the default branch's
+      # file. Outside this repo it is `uses: DealAppSeo/trustshell/receipts@<sha>`.
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
