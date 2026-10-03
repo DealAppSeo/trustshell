@@ -47,8 +47,14 @@ async function gh(path, token, init = {}) {
 
 /** Check runs plus legacy commit statuses, as one list of {name, status, conclusion}. */
 async function evidenceFor(repo, sha, token) {
-  const runs = await gh(`/repos/${repo}/commits/${sha}/check-runs?per_page=100`, token);
-  const out = (runs.check_runs || []).map((r) => ({ name: r.name, status: r.status, conclusion: r.conclusion, html_url: r.html_url }));
+  // Every page, up to 1000 runs: a failing run on page 2 must still block VERIFIED.
+  const out = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const runs = await gh(`/repos/${repo}/commits/${sha}/check-runs?per_page=100&page=${page}`, token);
+    const batch = runs.check_runs || [];
+    out.push(...batch.map((r) => ({ name: r.name, status: r.status, conclusion: r.conclusion, html_url: r.html_url })));
+    if (batch.length < 100) break;
+  }
   try {
     const st = await gh(`/repos/${repo}/commits/${sha}/status`, token);
     for (const s of st.statuses || []) {
@@ -114,7 +120,13 @@ async function main() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!repo || !eventPath) throw new Error('run this inside GitHub Actions (GITHUB_REPOSITORY and GITHUB_EVENT_PATH are unset)');
   const event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
-  const number = Number(input('pr-number', (event.pull_request && event.pull_request.number) || (event.issue && event.issue.number) || ''));
+  // workflow_run: re-run after another workflow finishes, so a check created after the first
+  // receipt is counted. Fork PRs are not listed in workflow_run.pull_requests; they keep the
+  // receipt from their pull_request run.
+  const fromRun = event.workflow_run && Array.isArray(event.workflow_run.pull_requests) && event.workflow_run.pull_requests[0];
+  const number = Number(
+    input('pr-number', (event.pull_request && event.pull_request.number) || (event.issue && event.issue.number) || (fromRun && fromRun.number) || ''),
+  );
   if (!Number.isInteger(number) || number <= 0) {
     log('No pull request in this event; nothing to check.');
     return 0;

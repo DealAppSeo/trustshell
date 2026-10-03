@@ -8,6 +8,12 @@ name: receipts
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  # Re-run when the gating workflow finishes, so a check that finished (or was created) after
+  # the first receipt is counted. Safe: this job never checks out or runs PR code, and on
+  # workflow_run the checkout below loads the action from the default branch.
+  workflow_run:
+    workflows: [check]
+    types: [completed]
 
 permissions:
   contents: read
@@ -16,7 +22,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: receipts-${{ github.event.pull_request.number }}
+  group: receipts-${{ github.event.pull_request.number || github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:

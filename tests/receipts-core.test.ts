@@ -289,3 +289,27 @@ describe('the wait settles before it judges', () => {
     expect(r!.verdict).toBe('FAILED');
   });
 });
+
+describe('every page of checks is read', () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('a failing check on page 2 still blocks VERIFIED', async () => {
+    globalThis.fetch = (async (url: string) => {
+      if (url.includes('/status')) return new Response(JSON.stringify({ statuses: [] }), { status: 200 });
+      const page = Number(new URL(url).searchParams.get('page'));
+      const runs =
+        page === 1
+          ? Array.from({ length: 100 }, (_, i) => ({ name: i === 0 ? 'test' : `job-${i}`, status: 'completed', conclusion: 'success' }))
+          : [{ name: 'deploy-check', status: 'completed', conclusion: 'failure' }];
+      return new Response(JSON.stringify({ check_runs: runs }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const idx = require('../receipts/index.js') as { evidenceFor: (r: string, s: string, t: string) => Promise<Run[]> };
+    const ev = await idx.evidenceFor('o/r', 'sha', 't');
+    expect(ev).toHaveLength(101);
+    const [r] = core.judge(core.groupClaims(core.extractClaims('All tests pass.', 'PR description')), ev);
+    expect(r!.verdict).toBe('NOT_CHECKED');
+  });
+});

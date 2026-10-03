@@ -237,7 +237,8 @@ const MARKER = '<!-- trustshell-receipt -->';
 const DOES_NOT_PROVE = [
   'A green check proves that check passed on this commit. It does not prove the check tested this change.',
   'Checks are matched to claims by their names. A check named `test` that runs nothing would still read as tests.',
-  'Claims are read from the PR description and commit messages by plain patterns. A claim worded unusually is not seen; quoted text and code blocks are ignored on purpose.',
+  'Claims are read from the PR description and the latest commit message by plain patterns. A claim worded unusually is not seen; quoted text and code blocks are ignored on purpose.',
+  'A check created after this receipt was written is not counted until the receipt runs again.',
 ];
 
 /**
