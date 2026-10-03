@@ -125,6 +125,10 @@ function isFloor(line, matchIndex) {
  */
 function isHistoricalPlan(text) {
   const head = text.slice(0, 1200);
+  // An explicit, greppable opt-out for a dated record (a release draft, a sprint status, a
+  // plan). Without it every release fails on files that truthfully say "1.4.0 was cut".
+  // It must be in the head, so a live doc cannot hide a stale claim at the bottom.
+  if (/<!--\s*doc-version:\s*historical\s*-->/i.test(head)) return true;
   return /version-bump plan/i.test(head) && /(?:staged|do not publish)/i.test(head);
 }
 

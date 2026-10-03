@@ -2,6 +2,10 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.4.1 — 2026-10-03
+
+- `trustshell repid <id>` reads the live `{ score, tier }` response. 1.4.0 printed `RepID undefined` and exited 0; a missing score now exits 3 with `RepID not checked`, never undefined and never 0.
+
 ## 1.4.0 — 2026-09-23
 
 ### Security / x402 spend guards — published surface
