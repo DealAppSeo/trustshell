@@ -1,0 +1,47 @@
+# Receipts on our own PRs: check what each PR claims against the check runs on its commit.
+#
+# Trigger is `pull_request`, never `pull_request_target`. A fork PR therefore gets a
+# read-only token and the receipt lands in the job summary instead of a comment. That is
+# GitHub's safety rule working as intended, not a failure to fix.
+name: receipts
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  # Re-run when the gating workflow finishes, so a check that finished (or was created) after
+  # the first receipt is counted. The checkout below loads the action from the base
+  # commit or the default branch, never from the PR's receipts/.
+  workflow_run:
+    workflows: [check]
+    types: [completed]
+
+permissions:
+  contents: read
+  checks: read
+  statuses: read
+  pull-requests: write
+
+concurrency:
+  # One group per PR on both triggers, or a pull_request run and a workflow_run refresh
+  # race and both post a first receipt.
+  group: receipts-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Load the action from trusted code: the PR's base commit, or the default branch on
+      # workflow_run, not the PR's copy of receipts/ (Strix, #433). Limit: on pull_request
+      # GitHub runs THIS FILE from the PR, so a same-repo PR that edits it can change what
+      # runs on its own event. The workflow_run refresh always uses the default branch's
+      # file. Outside this repo it is `uses: DealAppSeo/trustshell/receipts@<sha>`.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          sparse-checkout: receipts
+          persist-credentials: false
+      # Until the action exists on the base (the PR that adds it), there is nothing trusted to run.
+      - if: hashFiles('receipts/action.yml') != ''
+        uses: ./receipts

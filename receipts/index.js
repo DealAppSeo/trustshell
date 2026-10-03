@@ -1,0 +1,196 @@
+'use strict';
+/**
+ * Receipts — the GitHub Action entry. Zero dependencies, Node 20+ (global fetch).
+ *
+ * Reads: the PR (description, commits) and the check runs + statuses on its head commit.
+ * Writes: one PR comment, updated in place, or the job summary when it may not comment.
+ * Talks to: the GitHub API named by GITHUB_API_URL and nothing else. No telemetry.
+ *
+ * It never checks out or runs PR code, so it is safe on any trigger. Do NOT pair it with
+ * `pull_request_target` + a checkout of the PR head; that is the classic Actions hole and
+ * this action does not need it.
+ */
+const fs = require('node:fs');
+const core = require('./core.js');
+
+const API = (process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
+const SERVER = (process.env.GITHUB_SERVER_URL || 'https://github.com').replace(/\/$/, '');
+
+function input(name, fallback) {
+  const v = process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`];
+  return v === undefined || v === '' ? fallback : v;
+}
+
+function log(msg) {
+  process.stdout.write(`${msg}\n`);
+}
+
+async function gh(path, token, init = {}) {
+  const res = await fetch(`${API}${path}`, {
+    ...init,
+    redirect: 'error',
+    headers: {
+      accept: 'application/vnd.github+json',
+      'x-github-api-version': '2022-11-28',
+      'user-agent': 'trustshell-receipts',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(init.body ? { 'content-type': 'application/json' } : {}),
+    },
+  });
+  if (!res.ok) {
+    const err = new Error(`GitHub API ${init.method || 'GET'} ${path} -> ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+const MAX_PAGES = 10;
+
+/** Check runs plus legacy commit statuses, as one list of {name, status, conclusion}. */
+async function evidenceFor(repo, sha, token) {
+  // Every page, up to 1000 runs: a failing run on page 2 must still block VERIFIED.
+  const out = [];
+  let full = true;
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const runs = await gh(`/repos/${repo}/commits/${sha}/check-runs?per_page=100&page=${page}`, token);
+    const batch = runs.check_runs || [];
+    out.push(...batch.map((r) => ({ name: r.name, status: r.status, conclusion: r.conclusion, html_url: r.html_url })));
+    if (batch.length < 100) { full = false; break; }
+  }
+  // More runs than were read: the unread ones could be red, so the commit is not settled.
+  if (full) out.push({ name: `check runs beyond the first ${MAX_PAGES * 100} (not read)`, status: 'queued', conclusion: null });
+  try {
+    // The combined-status endpoint pages at 30 by default; read all of it the same way.
+    let statusFull = true;
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
+      const st = await gh(`/repos/${repo}/commits/${sha}/status?per_page=100&page=${page}`, token);
+      const batch = st.statuses || [];
+      for (const s of batch) {
+        const state = s.state;
+        out.push({
+          name: s.context,
+          status: state === 'pending' ? 'in_progress' : 'completed',
+          conclusion: state === 'success' ? 'success' : state === 'pending' ? null : state === 'error' ? 'failure' : state,
+          html_url: s.target_url,
+        });
+      }
+      if (batch.length < 100) { statusFull = false; break; }
+    }
+    if (statusFull) out.push({ name: `statuses beyond the first ${MAX_PAGES * 100} (not read)`, status: 'queued', conclusion: null });
+  } catch {
+    // Statuses are optional evidence; a missing permission is not a verdict.
+  }
+  return out;
+}
+
+/**
+ * Wait until the other checks on the commit are done AND have stopped appearing. Some checks
+ * (third-party apps, workflow_run triggers) are created late, so "nothing pending right now"
+ * is not "done": require a floor, then two quiet polls in a row with the same check count.
+ */
+async function waitForOthers(repo, sha, token, selfPattern, timeoutMs, pollMs = 15000, floorMs = 30000) {
+  const start = Date.now();
+  const deadline = start + timeoutMs;
+  let quiet = 0;
+  let lastCount = -1;
+  for (;;) {
+    const ev = await evidenceFor(repo, sha, token);
+    const others = ev.filter((r) => !selfPattern.test(r.name));
+    const pending = others.filter((r) => r.status !== 'completed');
+    quiet = pending.length === 0 && others.length === lastCount ? quiet + 1 : 0;
+    lastCount = others.length;
+    if ((quiet >= 2 && Date.now() - start >= floorMs) || Date.now() >= deadline) return ev;
+    if (pending.length) log(`waiting on ${pending.length} check(s): ${pending.map((r) => r.name).join(', ')}`);
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+}
+
+function summary(markdown) {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (file) fs.appendFileSync(file, `${markdown}\n`);
+}
+
+async function upsertComment(repo, number, token, body) {
+  // Every page: on a long thread our comment can sit past the first 100, and missing it
+  // would post a duplicate receipt.
+  const comments = [];
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const batch = (await gh(`/repos/${repo}/issues/${number}/comments?per_page=100&page=${page}`, token)) || [];
+    comments.push(...batch);
+    if (batch.length < 100) break;
+  }
+  // Only a comment a bot wrote can be ours. Anyone can post a comment that starts with the
+  // marker; editing it would fail (403) and the receipt would never post. Skip those.
+  const mine = (comments || []).find(
+    (c) => typeof c.body === 'string' && c.body.startsWith(core.MARKER) && c.user && c.user.type === 'Bot',
+  );
+  if (mine) {
+    await gh(`/repos/${repo}/issues/comments/${mine.id}`, token, { method: 'PATCH', body: JSON.stringify({ body }) });
+    return 'updated';
+  }
+  await gh(`/repos/${repo}/issues/${number}/comments`, token, { method: 'POST', body: JSON.stringify({ body }) });
+  return 'posted';
+}
+
+async function main() {
+  const token = input('github-token', process.env.GITHUB_TOKEN || '');
+  const repo = process.env.GITHUB_REPOSITORY;
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!repo || !eventPath) throw new Error('run this inside GitHub Actions (GITHUB_REPOSITORY and GITHUB_EVENT_PATH are unset)');
+  const event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
+  // workflow_run: re-run after another workflow finishes, so a check created after the first
+  // receipt is counted. Fork PRs are not listed in workflow_run.pull_requests; they keep the
+  // receipt from their pull_request run.
+  const fromRun = event.workflow_run && Array.isArray(event.workflow_run.pull_requests) && event.workflow_run.pull_requests[0];
+  const number = Number(
+    input('pr-number', (event.pull_request && event.pull_request.number) || (event.issue && event.issue.number) || (fromRun && fromRun.number) || ''),
+  );
+  if (!Number.isInteger(number) || number <= 0) {
+    log('No pull request in this event; nothing to check.');
+    return 0;
+  }
+  const selfPattern = new RegExp(input('self-pattern', '^receipts?$'), 'i');
+  const timeoutMs = Math.max(0, Number(input('wait-seconds', '600')) || 0) * 1000;
+
+  const pr = await gh(`/repos/${repo}/pulls/${number}`, token);
+  const sha = pr.head.sha;
+  const claims = core.extractClaims(pr.body || '', 'PR description');
+  // Only the head commit's message: a claim in an older commit was about that older commit,
+  // and judging it against the head's checks would be judging the wrong code.
+  const head = await gh(`/repos/${repo}/commits/${sha}`, token);
+  claims.push(...core.extractClaims(head && head.commit && head.commit.message, `commit ${String(sha).slice(0, 7)}`));
+  const grouped = core.groupClaims(claims);
+
+  const ev = grouped.length > 0 ? await waitForOthers(repo, sha, token, selfPattern, timeoutMs) : [];
+  const results = core.judge(grouped, ev, { selfPattern });
+  const body = core.render(results, { sha, repoUrl: `${SERVER}/${repo}` });
+  summary(body);
+
+  if (grouped.length === 0 && input('comment-when-empty', 'false') !== 'true') {
+    log('No claims found; receipt written to the job summary only.');
+    return 0;
+  }
+  try {
+    log(`receipt ${await upsertComment(repo, number, token, body)} on #${number}`);
+  } catch (e) {
+    // A PR from a fork gets a read-only token, so it cannot comment. That is GitHub's
+    // safety rule working, not a failure: the receipt is in the job summary.
+    if (e.status === 403 || e.status === 404) log(`could not comment (${e.status}); receipt is in the job summary`);
+    else throw e;
+  }
+  const failed = results.filter((r) => r.verdict === 'FAILED').length;
+  return input('fail-on-failed', 'false') === 'true' && failed > 0 ? 1 : 0;
+}
+
+if (require.main === module) {
+  main().then(
+    (code) => process.exit(code),
+    (e) => {
+      process.stdout.write(`::error::receipts: ${e && e.message ? e.message : String(e)}\n`);
+      process.exit(1);
+    },
+  );
+}
+
+module.exports = { main, evidenceFor, upsertComment, waitForOthers };

@@ -1,0 +1,34 @@
+name: 'TrustShell Receipts'
+description: 'Checks what a PR claims ("all tests pass") against the check runs GitHub holds for that commit. Verified, not checked, or failed.'
+author: 'HyperDAG'
+branding:
+  icon: 'check-square'
+  color: 'green'
+inputs:
+  github-token:
+    description: 'Token to read the PR and check runs and to post one comment. The default job token is enough.'
+    required: false
+    default: ${{ github.token }}
+  wait-seconds:
+    description: 'How long to wait for the other checks on this commit to finish before writing the receipt.'
+    required: false
+    default: '600'
+  self-pattern:
+    description: 'Check names matching this pattern are ignored as evidence (the receipt job itself). Anchored by default so a check like receipt-tests still counts.'
+    required: false
+    default: '^receipts?$'
+  comment-when-empty:
+    description: 'Post a comment even when the PR makes no claims. Default writes only the job summary.'
+    required: false
+    default: 'false'
+  fail-on-failed:
+    description: 'Fail this job when a claim is contradicted by a failed check. Default never fails.'
+    required: false
+    default: 'false'
+  pr-number:
+    description: 'PR number, when the event is not a pull_request event.'
+    required: false
+    default: ''
+runs:
+  using: 'node20'
+  main: 'index.js'
