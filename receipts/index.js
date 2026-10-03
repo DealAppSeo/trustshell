@@ -45,27 +45,39 @@ async function gh(path, token, init = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+const MAX_PAGES = 10;
+
 /** Check runs plus legacy commit statuses, as one list of {name, status, conclusion}. */
 async function evidenceFor(repo, sha, token) {
   // Every page, up to 1000 runs: a failing run on page 2 must still block VERIFIED.
   const out = [];
-  for (let page = 1; page <= 10; page += 1) {
+  let full = true;
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
     const runs = await gh(`/repos/${repo}/commits/${sha}/check-runs?per_page=100&page=${page}`, token);
     const batch = runs.check_runs || [];
     out.push(...batch.map((r) => ({ name: r.name, status: r.status, conclusion: r.conclusion, html_url: r.html_url })));
-    if (batch.length < 100) break;
+    if (batch.length < 100) { full = false; break; }
   }
+  // More runs than were read: the unread ones could be red, so the commit is not settled.
+  if (full) out.push({ name: `check runs beyond the first ${MAX_PAGES * 100} (not read)`, status: 'queued', conclusion: null });
   try {
-    const st = await gh(`/repos/${repo}/commits/${sha}/status`, token);
-    for (const s of st.statuses || []) {
-      const state = s.state;
-      out.push({
-        name: s.context,
-        status: state === 'pending' ? 'in_progress' : 'completed',
-        conclusion: state === 'success' ? 'success' : state === 'pending' ? null : state === 'error' ? 'failure' : state,
-        html_url: s.target_url,
-      });
+    // The combined-status endpoint pages at 30 by default; read all of it the same way.
+    let statusFull = true;
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
+      const st = await gh(`/repos/${repo}/commits/${sha}/status?per_page=100&page=${page}`, token);
+      const batch = st.statuses || [];
+      for (const s of batch) {
+        const state = s.state;
+        out.push({
+          name: s.context,
+          status: state === 'pending' ? 'in_progress' : 'completed',
+          conclusion: state === 'success' ? 'success' : state === 'pending' ? null : state === 'error' ? 'failure' : state,
+          html_url: s.target_url,
+        });
+      }
+      if (batch.length < 100) { statusFull = false; break; }
     }
+    if (statusFull) out.push({ name: `statuses beyond the first ${MAX_PAGES * 100} (not read)`, status: 'queued', conclusion: null });
   } catch {
     // Statuses are optional evidence; a missing permission is not a verdict.
   }
@@ -100,7 +112,14 @@ function summary(markdown) {
 }
 
 async function upsertComment(repo, number, token, body) {
-  const comments = await gh(`/repos/${repo}/issues/${number}/comments?per_page=100`, token);
+  // Every page: on a long thread our comment can sit past the first 100, and missing it
+  // would post a duplicate receipt.
+  const comments = [];
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const batch = (await gh(`/repos/${repo}/issues/${number}/comments?per_page=100&page=${page}`, token)) || [];
+    comments.push(...batch);
+    if (batch.length < 100) break;
+  }
   // Only a comment a bot wrote can be ours. Anyone can post a comment that starts with the
   // marker; editing it would fail (403) and the receipt would never post. Skip those.
   const mine = (comments || []).find(

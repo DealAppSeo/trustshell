@@ -42,7 +42,7 @@ const KINDS = {
     // A test word must be present; bare `unit`, `spec`, `types` no longer count.
     run: /(?:^|[^a-z])(?:tests?|jest|vitest|pytest|mocha|playwright|cypress|e2e|integration|rspec|phpunit|ctest)(?:[^a-z]|$)/i,
     // Names that mention tests without running them, or run something else.
-    notRun: /upload|report|results?\b|artifact|coverage|label|lint|summary|comment|notify/i,
+    notRun: /upload|report|results?\b|artifact|coverage|label|lint|summary|comment|notify|deploy|preview|release|publish|docs?\b/i,
   },
   build: {
     label: 'build',
@@ -51,7 +51,7 @@ const KINDS = {
       /\bcompiles?\s+(?:cleanly|successfully|fine|without\s+errors)\b/i,
     ],
     run: /(?:^|[^a-z])(?:build|compile)(?:[^a-z]|$)/i,
-    notRun: /upload|report|artifact|label|cache|summary|notify|preview\s+comment/i,
+    notRun: /upload|report|artifact|label|cache|summary|notify|preview|deploy|release|publish|docs?\b/i,
   },
   typecheck: {
     label: 'type check',
@@ -90,6 +90,8 @@ const ELSEWHERE = /\b(?:on\s+main|on\s+master|in\s+main)\b/i;
 const LOCAL = /\b(?:locally|on\s+my\s+machine|on\s+my\s+laptop|in\s+my\s+env(?:ironment)?)\b/i;
 
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out']);
+/** Conclusions that do not unsettle the commit. Conditional jobs skip all the time. */
+const SETTLED_OK = new Set(['success', 'skipped', 'neutral']);
 const MAX_TEXT = 64 * 1024;
 
 /** Drop text that is quoted rather than claimed: fenced code, block quotes, HTML comments. */
@@ -192,7 +194,10 @@ const DEFAULT_SELF = /^receipts?$/i;
 function judge(grouped, runs, opts = {}) {
   const self = opts.selfPattern || DEFAULT_SELF;
   const evidence = (runs || []).filter((r) => r && typeof r.name === 'string' && !self.test(r.name));
-  const anyFailed = evidence.filter((r) => r.status === 'completed' && FAILED_CONCLUSIONS.has(r.conclusion));
+  // Any check that did not finish green (or skipped/neutral) leaves the commit unsettled:
+  // failed, still running, cancelled, stale or awaiting approval. CC2 measured `test` green
+  // plus a provider-named check `in_progress` or `cancelled` reading VERIFIED.
+  const unsettled = evidence.filter((r) => !(r.status === 'completed' && SETTLED_OK.has(r.conclusion)));
   return grouped.map((claim) => {
     const def = KINDS[claim.kind];
     const what = claim.subtype ? `${claim.subtype} ${def.label}` : def.label;
@@ -200,8 +205,11 @@ function judge(grouped, runs, opts = {}) {
     if (claim.local) {
       return { ...base, runs: [], verdict: 'NOT_CHECKED', why: `Claimed for a local run. Checks on this commit cannot confirm what ran on someone's machine.` };
     }
-    let matched = evidence.filter((r) => def.run.test(r.name) && !(def.notRun && def.notRun.test(r.name)));
-    if (claim.subtype) matched = matched.filter((r) => new RegExp(`\\b${claim.subtype}\\b`, 'i').test(r.name));
+    const excluded = (r) => Boolean(def.notRun && def.notRun.test(r.name));
+    // A subtype claim matches on the subtype word itself: a check named just `unit` ran
+    // unit tests, even though bare `unit` is too weak to count as a generic test check.
+    const subRe = claim.subtype ? new RegExp(`\\b${claim.subtype}\\b`, 'i') : null;
+    const matched = evidence.filter((r) => !excluded(r) && (subRe ? subRe.test(r.name) : def.run.test(r.name)));
     base.runs = matched;
     if (matched.length === 0) {
       return { ...base, verdict: 'NOT_CHECKED', why: `No check named for ${what} ran on this commit. A receipt cannot tell whether other checks ran ${what}.` };
@@ -218,16 +226,17 @@ function judge(grouped, runs, opts = {}) {
     if (notGreen.length > 0) {
       return { ...base, verdict: 'NOT_CHECKED', why: `${notGreen.map((r) => `${r.name} (${r.conclusion})`).join(', ')}: ended without a pass or a fail.` };
     }
-    // A matched check passed, but another check on this commit failed. It may cover this
-    // claim under a name no list knows, so the receipt cannot say VERIFIED.
-    if (anyFailed.length > 0) {
+    // A matched check passed, but another check on this commit did not finish green. It may
+    // cover this claim under a name no list knows, so the receipt cannot say VERIFIED.
+    if (unsettled.length > 0) {
+      const desc = (r) => `${r.name} (${r.status === 'completed' ? r.conclusion : r.status})`;
       return {
         ...base,
         verdict: 'NOT_CHECKED',
-        why: `${matched.map((r) => r.name).join(', ')} passed, but ${anyFailed.map((r) => r.name).join(', ')} failed on this commit and may cover the same ground.`,
+        why: `${matched.map((r) => r.name).join(', ')} passed, but ${unsettled.map(desc).join(', ')} did not finish green on this commit and may cover the same ground.`,
       };
     }
-    return { ...base, verdict: 'VERIFIED', why: `${matched.map((r) => r.name).join(', ')} passed on this commit, and no check on it failed.` };
+    return { ...base, verdict: 'VERIFIED', why: `${matched.map((r) => r.name).join(', ')} passed on this commit, and every other check on it finished green, skipped or neutral.` };
   });
 }
 

@@ -173,7 +173,7 @@ describe('the comment it edits must be its own', () => {
     const calls: { url: string; method: string }[] = [];
     globalThis.fetch = (async (url: string, init: { method?: string } = {}) => {
       calls.push({ url, method: init.method || 'GET' });
-      if (url.endsWith('/comments?per_page=100')) {
+      if (url.includes('/comments?per_page=100')) {
         return new Response(JSON.stringify([{ id: 7, body: `${core.MARKER}\nplanted`, user: { type: 'User' } }]), { status: 200 });
       }
       return new Response(JSON.stringify({ id: 9 }), { status: 201 });
@@ -187,7 +187,7 @@ describe('the comment it edits must be its own', () => {
     const calls: { url: string; method: string }[] = [];
     globalThis.fetch = (async (url: string, init: { method?: string } = {}) => {
       calls.push({ url, method: init.method || 'GET' });
-      if (url.endsWith('/comments?per_page=100')) {
+      if (url.includes('/comments?per_page=100')) {
         return new Response(JSON.stringify([{ id: 7, body: `${core.MARKER}\nold`, user: { type: 'Bot' } }]), { status: 200 });
       }
       return new Response(JSON.stringify({ id: 7 }), { status: 200 });
@@ -256,7 +256,7 @@ describe('CC2 review: check names cannot grant a false VERIFIED', () => {
   it('any failed check on the commit blocks VERIFIED', () => {
     const [r] = one('Build succeeds.', [ok('build'), bad('deploy-preview')]);
     expect(r!.verdict).toBe('NOT_CHECKED');
-    expect(r!.why).toMatch(/deploy-preview failed/);
+    expect(r!.why).toMatch(/deploy-preview \(failure\)/);
   });
 });
 
@@ -290,6 +290,47 @@ describe('the wait settles before it judges', () => {
   });
 });
 
+describe('CC2 pass 2: a check that did not finish green blocks VERIFIED', () => {
+  const run = (name: string, status: string, conclusion: string | null): Run => ({ name, status, conclusion });
+  it.each([
+    ['in_progress', null],
+    ['queued', null],
+    ['completed', 'cancelled'],
+    ['completed', 'action_required'],
+    ['completed', 'stale'],
+  ])('another check %s/%s → NOT_CHECKED', (status, conclusion) => {
+    const [r] = one('All tests pass.', [ok('test'), run('ci/circleci: build-and-verify', status, conclusion)]);
+    expect(r!.verdict).toBe('NOT_CHECKED');
+  });
+  it.each(['skipped', 'neutral'])('another check %s still allows VERIFIED', (conclusion) => {
+    const [r] = one('All tests pass.', [ok('test'), run('Buildkite', 'completed', conclusion)]);
+    expect(r!.verdict).toBe('VERIFIED');
+  });
+});
+
+describe('CC2 pass 2: deploy, preview and docs jobs are not test or build evidence', () => {
+  it('a failing integration-deploy does not FAIL an integration claim', () => {
+    const [r] = one('Integration tests pass.', [bad('integration-deploy')]);
+    expect(r!.verdict).toBe('NOT_CHECKED');
+  });
+  it.each([
+    ['E2E tests pass.', 'e2e-preview-deploy'],
+    ['All tests pass.', 'test-deploy-preview'],
+    ['Build passes.', 'build-docs'],
+  ])('%s against a green %s is NOT_CHECKED', (text, name) => {
+    const [r] = one(text, [ok(name)]);
+    expect(r!.verdict).toBe('NOT_CHECKED');
+  });
+});
+
+describe('CC2 pass 2: a subtype claim reads a check named only for the subtype', () => {
+  it('Unit tests pass, with unit red, is FAILED', () => {
+    const [r] = one('Unit tests pass.', [bad('unit'), ok('test')]);
+    expect(r!.verdict).toBe('FAILED');
+    expect(r!.why).toMatch(/^unit finished failure/);
+  });
+});
+
 describe('every page of checks is read', () => {
   const realFetch = globalThis.fetch;
   afterEach(() => {
@@ -311,5 +352,38 @@ describe('every page of checks is read', () => {
     expect(ev).toHaveLength(101);
     const [r] = core.judge(core.groupClaims(core.extractClaims('All tests pass.', 'PR description')), ev);
     expect(r!.verdict).toBe('NOT_CHECKED');
+  });
+
+  it('statuses are paged too: a red status on page 2 blocks VERIFIED', async () => {
+    globalThis.fetch = (async (url: string) => {
+      const page = Number(new URL(url).searchParams.get('page'));
+      if (url.includes('/status')) {
+        expect(new URL(url).searchParams.get('per_page')).toBe('100');
+        const statuses =
+          page === 1
+            ? Array.from({ length: 100 }, (_, i) => ({ context: `ctx-${i}`, state: 'success' }))
+            : [{ context: 'legacy-ci', state: 'failure' }];
+        return new Response(JSON.stringify({ statuses }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ check_runs: [ok('test')] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const idx = require('../receipts/index.js') as { evidenceFor: (r: string, s: string, t: string) => Promise<Run[]> };
+    const ev = await idx.evidenceFor('o/r', 'sha', 't');
+    expect(ev.some((r) => r.name === 'legacy-ci')).toBe(true);
+    const [r] = core.judge(core.groupClaims(core.extractClaims('All tests pass.', 'PR description')), ev);
+    expect(r!.verdict).toBe('NOT_CHECKED');
+  });
+
+  it('more check runs than it reads leaves the commit unsettled, never VERIFIED', async () => {
+    globalThis.fetch = (async (url: string) => {
+      if (url.includes('/status')) return new Response(JSON.stringify({ statuses: [] }), { status: 200 });
+      const runs = Array.from({ length: 100 }, (_, i) => ({ name: i === 0 ? 'test' : `job-${i}`, status: 'completed', conclusion: 'success' }));
+      return new Response(JSON.stringify({ check_runs: runs }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const idx = require('../receipts/index.js') as { evidenceFor: (r: string, s: string, t: string) => Promise<Run[]> };
+    const ev = await idx.evidenceFor('o/r', 'sha', 't');
+    const [r] = core.judge(core.groupClaims(core.extractClaims('All tests pass.', 'PR description')), ev);
+    expect(r!.verdict).toBe('NOT_CHECKED');
+    expect(r!.why).toMatch(/not read/);
   });
 });
