@@ -47,6 +47,8 @@ describe('claims are read from what the PR says', () => {
     '```\nall tests pass\n```',
     '> all tests pass',
     '<!-- tests pass -->',
+    'Receipts reads what a PR claims: "all tests pass", "build succeeds", "tsc is clean".',
+    'The agent wrote \u201call tests pass\u201d in its summary.',
   ])('not a claim: %s', (text) => {
     expect(kinds(text)).toEqual([]);
   });

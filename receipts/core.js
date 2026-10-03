@@ -75,7 +75,12 @@ function stripQuoted(text) {
     .replace(/`([^`\n]*)`/g, '$1')
     .split('\n')
     .filter((line) => !/^\s*>/.test(line))
-    .join('\n');
+    .join('\n')
+    // Text in double quotes is being quoted, not claimed: 'it reads "all tests pass"'.
+    // Measured on this action's own first live receipt, which read four quoted examples
+    // as four claims. Straight and curly quotes, kept on one line.
+    .replace(/"[^"\n]{0,200}"/g, ' ')
+    .replace(/\u201c[^\u201d\n]{0,200}\u201d/g, ' ');
 }
 
 function sentences(text) {
