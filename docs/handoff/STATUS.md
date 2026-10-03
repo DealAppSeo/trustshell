@@ -1,4 +1,5 @@
 # TrustShell MVP status — LOOP SPRINTS Sprint 1
+<!-- doc-version: historical -->
 
 Date: 2026-09-09
 Sprint: 1 of 6 (Sprint 0 STATUS written from `ad507d6`; this section is the leftover check).

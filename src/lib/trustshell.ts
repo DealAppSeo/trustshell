@@ -714,9 +714,21 @@ export class TrustShell {
     const data = await res.json();
     // Honest contract (T4): derive mint/signer/lane from the REAL response, null-with-reason otherwise.
     const honesty = repidHonesty(data);
+    // The live /api/v1/repid/:id returns `{ score, tier }` [MEASURED 2026-10-03], and `score`
+    // is the string 'NOT_CHECKED' when the engine has no number. 1.4.0 read only `repid_score`,
+    // so every lookup printed "RepID undefined" and exited 0: we-did-not-look reported as a
+    // result. The first finite number wins; none at all is an error, never undefined and never 0.
+    const repid = [data.score, data.repid_score, data.repid, data.current_repid].find(
+      (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v),
+    );
+    if (repid === undefined) {
+      throw new TrustShellError(
+        `RepID not checked: the backend returned no score for ${agentId}`,
+        res.status,
+      );
+    }
     return {
-      // The live /api/v1/repid/:id returns `repid_score` (cached read); keep the legacy fallbacks.
-      repid: data.repid_score ?? data.repid ?? data.current_repid,
+      repid,
       tier: data.tier,
       lastAnchorTx: data.last_anchor_tx || null,
       latestProofHash: data.latest_proof_hash || null,
