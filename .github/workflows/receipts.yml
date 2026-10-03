@@ -9,8 +9,8 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
   # Re-run when the gating workflow finishes, so a check that finished (or was created) after
-  # the first receipt is counted. Safe: this job never checks out or runs PR code, and on
-  # workflow_run the checkout below loads the action from the default branch.
+  # the first receipt is counted. Safe: this job never checks out or runs PR code; the
+  # checkout below loads the action from the base commit or the default branch.
   workflow_run:
     workflows: [check]
     types: [completed]
@@ -32,10 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # Only to load the action from this repo. The action itself reads the API and never
-      # runs PR code; outside this repo it is `uses: DealAppSeo/trustshell/receipts@<sha>`.
+      # Load the action from TRUSTED code: the PR's base commit, or the default branch on
+      # workflow_run. Never the PR's own copy, or a PR could change the code that judges it
+      # (Strix, #433). Outside this repo it is `uses: DealAppSeo/trustshell/receipts@<sha>`.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
           sparse-checkout: receipts
           persist-credentials: false
-      - uses: ./receipts
+      # Until the action exists on the base (the PR that adds it), there is nothing trusted to run.
+      - if: hashFiles('receipts/action.yml') != ''
+        uses: ./receipts
