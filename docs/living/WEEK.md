@@ -18,8 +18,9 @@ they serve is in `NORTH.md`. Replaces `NEXT.md`.
 - [x] Extension loads on all five hosts (#421; it had been crashing on four).
 - [x] The reply's own last word is never the label (#418).
 - [x] The tester is told the reply is sent (#426).
-- [ ] Public classify route merged (repid-engine #1151) and deployed. BUS **B1** and **B2**.
-- [ ] Production check: a real POST from a chat-site origin gets a contract label. BUS **B2**.
+- [x] A not-checked answer is not re-sent on every redraw (#430).
+- [x] Public classify route merged (repid-engine #1151) and deployed (6a40bf4). BUS **B1**.
+- [x] Production check: a real POST from a chat-site origin gets a contract label (2026-10-03 01:01Z). BUS **B2**.
 - [ ] Decide what backs the route (Sean). Today it decides arithmetic only, so prose comes
       back not-checked. BUS **B9**.
 
@@ -39,7 +40,7 @@ they serve is in `NORTH.md`. Replaces `NEXT.md`.
 - [x] Grok red-teams from the cloud with no paste (repid-engine #1150, #1152).
 - [x] Claude starts and briefs Claude sessions with no paste (CC2 built #1151).
 - [ ] Hourly pull loop runs from this file set. BUS **B14**.
-- [ ] Grok can read trustshell as well as repid-engine. BUS **B12** and **B13**.
+- [x] Grok can read trustshell as well as repid-engine (repid-engine #1154; first run #1155). BUS **B13**.
 
 ## Not this week
 1.5.0 publish (after Sprints A to C are green), on-chain receipts end to end (after GO
