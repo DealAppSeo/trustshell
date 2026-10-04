@@ -87,7 +87,18 @@ jobs:
       # No `npm ci`: the gate installs the PUBLISHED package into a temp directory on purpose.
       # Building from this checkout would test the source, which is not the question it asks.
       - name: Cold-install acceptance gate, diffed against its baseline
+        env:
+          RECEIPT_DIR: receipts
         run: npm run test:acceptance-baseline
+
+      # A green or red tick is not a receipt. The gate's per-leg verdicts are kept as a file.
+      - name: Keep the acceptance receipt
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipts-acceptance
+          path: receipts/
+          if-no-files-found: warn
 
   honesty:
     runs-on: ubuntu-latest
@@ -155,17 +166,43 @@ jobs:
       # If a suite reports it here — where a browser and a server are both
       # present — the environment did not do what this workflow exists to
       # provide, and that is a failure of the workflow, not an absence of signal.
+      # The phone door (trustshell.dev/check). Stubbed proves the page tells the truth about every
+      # answer shape; live proves real Groq and Cerebras votes reach a phone-sized browser today.
+      - name: Phone door, stubbed
+        id: checkwalk
+        if: ${{ always() }}
+        env:
+          RECEIPT_DIR: receipts
+        run: npm run test:check-walk
+
+      - name: Phone door, live against production
+        id: checkwalklive
+        if: ${{ always() }}
+        env:
+          RECEIPT_DIR: receipts
+        run: npm run test:check-walk -- --live
+
+      - name: Keep the browser receipts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipts-browser
+          path: receipts/
+          if-no-files-found: warn
+
       - name: A NOT_CHECKED here is a failure of this workflow
         if: ${{ always() }}
         run: |
+          checkwalk='${{ steps.checkwalk.outcome }}'
+          checkwalklive='${{ steps.checkwalklive.outcome }}'
           mvp='${{ steps.mvp.outcome }}'
           grants='${{ steps.grants.outcome }}'
           campaign='${{ steps.campaign.outcome }}'
           roles='${{ steps.roles.outcome }}'
           onboarding='${{ steps.onboarding.outcome }}'
-          echo "mvp-walk: $mvp | grants-fail-closed: $grants | campaign-honesty: $campaign | roles-honesty: $roles | onboarding-honesty: $onboarding"
+          echo "mvp-walk: $mvp | grants-fail-closed: $grants | campaign-honesty: $campaign | roles-honesty: $roles | onboarding-honesty: $onboarding | check-walk: $checkwalk | check-walk live: $checkwalklive"
           failed=''
-          for pair in "mvp-walk:$mvp" "grants-fail-closed:$grants" "campaign-honesty:$campaign" "roles-honesty:$roles" "onboarding-honesty:$onboarding"; do
+          for pair in "mvp-walk:$mvp" "grants-fail-closed:$grants" "campaign-honesty:$campaign" "roles-honesty:$roles" "onboarding-honesty:$onboarding" "check-walk:$checkwalk" "check-walk-live:$checkwalklive"; do
             name="${pair%%:*}"; outcome="${pair#*:}"
             [ "$outcome" = 'success' ] || failed="$failed $name($outcome)"
           done

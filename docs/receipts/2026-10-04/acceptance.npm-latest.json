@@ -1,0 +1,177 @@
+{
+  "suite": "harness-acceptance",
+  "requested": "latest",
+  "installed": "1.4.0",
+  "engine": "https://repid-engine-production.up.railway.app",
+  "ran_at": "2026-10-04T08:20:49.318Z",
+  "counts": {
+    "measured": 10,
+    "not_checked": 3,
+    "failed": 6
+  },
+  "legs": [
+    {
+      "leg": "install",
+      "verdict": "MEASURED",
+      "detail": "npm i @hyperdag/trustshell@latest into an empty dir (installed 1.4.0)"
+    },
+    {
+      "leg": "engine.reachable",
+      "verdict": "MEASURED",
+      "detail": "https://repid-engine-production.up.railway.app answered 200"
+    },
+    {
+      "leg": "hal.verify",
+      "verdict": "MEASURED",
+      "detail": "PASS, 3 providers responded"
+    },
+    {
+      "leg": "hal.discrimination",
+      "verdict": "MEASURED",
+      "detail": "true-claim → 'pass' (not vetoed), false-claim → 'veto' (vetoed) — HAL discriminates"
+    },
+    {
+      "leg": "claim.check",
+      "verdict": "FAILED",
+      "detail": "want pass/0 and veto/1, got \"\"/2 and \"\"/2 — check failed: need https://github.com/owner/repo/actions/runs/123\n",
+      "evidence": {
+        "t": {
+          "code": 2,
+          "label": "",
+          "err": "check failed: need https://github.com/owner/repo/actions/runs/123\n"
+        },
+        "f": {
+          "code": 2,
+          "label": "",
+          "err": "check failed: need https://github.com/owner/repo/actions/runs/123\n"
+        }
+      }
+    },
+    {
+      "leg": "repid.read",
+      "verdict": "FAILED",
+      "detail": "no score field in --json output"
+    },
+    {
+      "leg": "zkrepid.proof",
+      "verdict": "MEASURED",
+      "detail": "plonky3_range_check verified client-side by 0.2.0"
+    },
+    {
+      "leg": "zkrepid.privacy",
+      "verdict": "FAILED",
+      "detail": "the exact score is a PUBLIC circuit input while the badge claims it attests the threshold, not the score — fix the copy now; making the score private is a new circuit and a new verifier major, not a payload edit",
+      "evidence": {
+        "threshold": 999,
+        "public_input": "statement.repid_score"
+      }
+    },
+    {
+      "leg": "zkrepid.tamper_evidence",
+      "verdict": "MEASURED",
+      "detail": "falsifying agent_id, repid_score or threshold each breaks verification — all three are bound public inputs"
+    },
+    {
+      "leg": "zkrepid.statement_binding_scope",
+      "verdict": "MEASURED",
+      "detail": "unknown statement keys are IGNORED by the verifier — anything beyond the four canonical keys commits to nothing",
+      "evidence": {
+        "bound": [
+          "agent_id",
+          "repid_score",
+          "threshold"
+        ],
+        "ignored_examples": [
+          "expires_at",
+          "not_a_real_field"
+        ]
+      }
+    },
+    {
+      "leg": "zkrepid.freshness",
+      "verdict": "FAILED",
+      "detail": "the served proof is 10 days old — CAUSE NOT CHECKED FROM HERE. This gate measures age only. To tell the candidates apart: is repid_zkp_proofs still taking rows (store write healthy, this agent simply not re-proved) and is proof-drain-worker draining (repid_proof_queue pending count falling)?",
+      "evidence": {
+        "createdAt": "2026-09-24T12:02:05.09251+00:00",
+        "attested": 1334,
+        "live": null,
+        "ageDays": 9.8
+      }
+    },
+    {
+      "leg": "zkrepid.expiry_binding",
+      "verdict": "FAILED",
+      "detail": "the proof commits to no validity window — a bound window means valid_from/valid_until as circuit public inputs, i.e. a verifier major AND a matching prover, not a key added to the statement JSON",
+      "evidence": {
+        "statement_keys": [
+          "agent_id",
+          "repid_score",
+          "threshold",
+          "tier"
+        ],
+        "createdAt_is_bound": false
+      }
+    },
+    {
+      "leg": "badge",
+      "verdict": "MEASURED",
+      "detail": "self-contained SVG in the verified state"
+    },
+    {
+      "leg": "x402.discovery",
+      "verdict": "MEASURED",
+      "detail": "5 purchasable service(s) visible without a key",
+      "evidence": {
+        "count": 38,
+        "priceRangeUsdcRaw": {
+          "min": 100000,
+          "max": 500000
+        }
+      }
+    },
+    {
+      "leg": "x402.payment_header",
+      "verdict": "MEASURED",
+      "detail": "a valid EIP-3009 authorization is produced from a cold install and its signature recovers to the payer; SDK defaults are still Base Sepolia USDC (84532)",
+      "evidence": {
+        "fields": 7,
+        "validForSeconds": 3600
+      }
+    },
+    {
+      "leg": "x402.settlement",
+      "verdict": "NOT_CHECKED",
+      "detail": "not attempted by design — releasing an authorization moves real testnet USDC. Run it with a funded Base Sepolia key against POST /api/v1/contracts/:id/escrow, outside this gate"
+    },
+    {
+      "leg": "chain.reachable",
+      "verdict": "NOT_CHECKED",
+      "detail": "no egress to https://sepolia.base.org from here — rerun with --rpc <reachable endpoint>, or from CI/a host with outbound HTTP"
+    },
+    {
+      "leg": "erc8004.registry",
+      "verdict": "NOT_CHECKED",
+      "detail": "chain unreachable — see chain.reachable"
+    },
+    {
+      "leg": "erc8004.identity_for_new_user",
+      "verdict": "FAILED",
+      "detail": "BY DESIGN, now documented: register() is keyless and never mints; POST /agents/:id/mint is key-gated. A stranger finishes onboarding with no on-chain identity — reputation, proofs and badge all work without one",
+      "evidence": {
+        "registerRoute": "src/routes/agents-external.ts",
+        "mintRoute": "src/routes/agents-onchain.ts (auth required)",
+        "documented": "README keyless-vs-keyed table + Honest limits",
+        "decision": "2026-08-30 — keyed step, report NOT_MINTED honestly"
+      }
+    }
+  ],
+  "perf": {
+    "engine_health_ms": 799,
+    "hal_verify_ms": 829,
+    "hal_quorum_size": 3,
+    "hal_discrimination_ms": 1801,
+    "proof_verify_ms": 19,
+    "x402_header_build_ms": 22,
+    "x402_recover_ms": 6
+  }
+}

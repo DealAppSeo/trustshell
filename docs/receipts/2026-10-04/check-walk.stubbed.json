@@ -1,0 +1,89 @@
+{
+  "suite": "check-walk",
+  "mode": "stubbed",
+  "transport": "stub",
+  "engine": "http://127.0.0.1:4611",
+  "git_sha": "2571858bd50300f1537326867982120d9f292310",
+  "ran_at": "2026-10-04T08:24:25.079Z",
+  "verdict": "VERIFIED",
+  "checks": [
+    {
+      "name": "the page names all three answers",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "the privacy line names where the text goes",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "Check is disabled until something is typed",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "no sideways scroll on a 390px phone",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "pass shows pass",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "the request is the shared contract: the text and the three labels",
+      "pass": true,
+      "note": "{\"text\":\"Paris is the capital of France.\",\"labels\":[\"pass\",\"veto\",\"not-checked\"]}",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "veto shows veto",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "not-checked shows not-checked",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "a label outside the contract is not-checked, never shown as given",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "a server error is not-checked, never pass",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "a checker that never answers is not-checked after the timeout",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "a pasted secret is scrubbed before it leaves the phone",
+      "pass": true,
+      "note": "My key is  and Paris is in France.",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "no page errors",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    }
+  ]
+}
