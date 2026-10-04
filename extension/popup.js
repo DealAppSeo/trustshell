@@ -1,3 +1,5 @@
+/* Service worker scripts share one global scope. Names stay inside this function. */
+(function () {
 'use strict';
 
 const POPUP_KEY = 'popupLine';
@@ -32,3 +34,4 @@ if (typeof document !== 'undefined' && !(typeof module === 'object' && module &&
 const api = { POPUP_KEY, popupLine, render, load };
 if (typeof module === 'object' && module && module.exports) module.exports = api;
 if (typeof globalThis === 'object') globalThis.trustshellPopup = api;
+})();

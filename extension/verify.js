@@ -1,3 +1,5 @@
+/* Service worker scripts share one global scope. Names stay inside this function. */
+(function () {
 'use strict';
 
 /** Same POST the CLI verify command uses. */
@@ -81,3 +83,4 @@ async function verifyLastReply(text, options) {
 const api = { VERIFY_PATH, verifyLastReply };
 if (typeof module === 'object' && module && module.exports) module.exports = api;
 if (typeof globalThis === 'object') globalThis.trustshellVerify = api;
+})();
