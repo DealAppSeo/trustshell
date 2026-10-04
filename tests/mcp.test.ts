@@ -49,6 +49,7 @@ describe('trustshell MCP server', () => {
     const server: any = createServer(mockClient());
     const names = Object.keys(server._registeredTools ?? {}).sort();
     expect(names).toEqual([
+      'check_claim',
       'evaluate',
       'getLeaderboard',
       'getRepID',
