@@ -31,7 +31,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -39,7 +39,9 @@ import { pathToFileURL } from 'node:url';
 
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
-const VERSION = arg('--version', '1.3.0');
+// What npm serves a stranger today. This defaulted to a pinned '1.3.0' until 2026-10-04, so the
+// daily e2e-honesty run kept certifying a version npm no longer installs (latest was 1.4.0).
+const VERSION = arg('--version', 'latest');
 const RPC = arg('--rpc', process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org');
 const ENGINE = arg('--engine', process.env.REPID_ENGINE_URL || 'https://repid-engine-production.up.railway.app');
 const AGENT = arg('--agent', 'trinity-sophia');
@@ -98,11 +100,13 @@ const run = (cmd, args, opts = {}) =>
  * borrowing one from here.
  */
 const coldRequire = createRequire(join(dir, 'package.json'));
+let resolvedVersion = null;
 const fromColdInstall = (specifier) => import(pathToFileURL(coldRequire.resolve(specifier)).href);
 
 try {
   run('npm', ['install', `@hyperdag/trustshell@${VERSION}`, '--no-audit', '--no-fund']);
-  record('install', 'MEASURED', `npm i @hyperdag/trustshell@${VERSION} into an empty dir`);
+  try { resolvedVersion = JSON.parse(readFileSync(join(dir, 'node_modules', '@hyperdag', 'trustshell', 'package.json'), 'utf8')).version ?? null; } catch { /* left null: the receipt says unknown */ }
+  record('install', 'MEASURED', `npm i @hyperdag/trustshell@${VERSION} into an empty dir${resolvedVersion ? ` (installed ${resolvedVersion})` : ''}`);
 } catch (e) {
   record('install', 'FAILED', String(e.message).slice(0, 200));
   finish();
@@ -226,6 +230,34 @@ try {
   }
 } catch (e) {
   recordEngineLeg('hal.discrimination', e);
+}
+
+// THE TERMINAL DOOR: `trustshell check "<sentence>"` must give the same label the Chrome extension
+// and trustshell.dev/check give, from the package npm serves. NORTH milestone 1 names it. Exit codes
+// are the CLI's contract: pass 0, veto 1, not-checked 2. A version without the command answers with
+// the CLI's usage error, which is FAILED here — the advertised door does not exist in that package.
+const claimOf = (sentence) => {
+  try {
+    const out = run('npx', ['trustshell', 'check', sentence], { timeout: 60000 });
+    return { code: 0, label: out.split('\n')[0].trim() };
+  } catch (e) {
+    return { code: e.status ?? null, label: String(e.stdout ?? '').split('\n')[0].trim(), err: String(e.stderr ?? '').slice(0, 160) };
+  }
+};
+try {
+  requireEngine();
+  const t = claimOf('Paris is the capital of France.');
+  const f = claimOf('The Moon is made of cheese.');
+  if (t.code === 0 && t.label === 'pass' && f.code === 1 && f.label === 'veto') {
+    record('claim.check', 'MEASURED', 'check "<true>" → pass (exit 0), check "<false>" → veto (exit 1)');
+  } else if (t.label === 'not-checked' && f.label === 'not-checked') {
+    record('claim.check', 'NOT_CHECKED', 'the command ran and the classifier answered not-checked for both sentences', { t, f });
+  } else {
+    record('claim.check', 'FAILED',
+      `want pass/0 and veto/1, got "${t.label}"/${t.code} and "${f.label}"/${f.code}${t.err ? ` — ${t.err}` : ''}`, { t, f });
+  }
+} catch (e) {
+  recordEngineLeg('claim.check', e);
 }
 
 // RepID: keyless read.
@@ -623,7 +655,19 @@ function finish() {
   try { rmSync(dir, { recursive: true, force: true }); } catch {}
   const failed = legs.filter((l) => l.verdict === 'FAILED');
   const unchecked = legs.filter((l) => l.verdict === 'NOT_CHECKED');
-  if (JSON_OUT) console.log(JSON.stringify({ version: VERSION, legs, perf }, null, 2));
+  // RECEIPT: with RECEIPT_DIR set, the run leaves a file a stranger can read later, not just a log.
+  if (process.env.RECEIPT_DIR) {
+    try {
+      mkdirSync(process.env.RECEIPT_DIR, { recursive: true });
+      writeFileSync(join(process.env.RECEIPT_DIR, `acceptance.${resolvedVersion ?? 'unknown'}.json`), JSON.stringify({
+        suite: 'harness-acceptance', requested: VERSION, installed: resolvedVersion, engine: ENGINE,
+        ran_at: new Date().toISOString(),
+        counts: { measured: legs.length - failed.length - unchecked.length, not_checked: unchecked.length, failed: failed.length },
+        legs, perf,
+      }, null, 2) + '\n');
+    } catch (e) { console.error(`receipt not written: ${e.message}`); }
+  }
+  if (JSON_OUT) console.log(JSON.stringify({ version: VERSION, installed: resolvedVersion, legs, perf }, null, 2));
   else {
     const shown = Object.entries(perf).filter(([, v]) => v != null);
     if (shown.length) {
