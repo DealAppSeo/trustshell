@@ -29,6 +29,7 @@ import { runEnvelopedAction } from '../lib/action-envelope';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
+import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT } from '../lib/claim';
 import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
 import {
   verifyChain,
@@ -186,6 +187,12 @@ COMMANDS
                              plainly what it does NOT prove. No account, no key, no backend —
                              talks to api.github.com and nothing else.
                              EXIT 0 COMPLETE, 1 FAILED/INCONSISTENT, 3 INCONCLUSIVE.
+  check "<sentence>"         Label one sentence pass / veto / not-checked — the same label the
+                             Chrome extension shows (POST <backend>/api/v1/classify). Any
+                             operand that is not a URL is a sentence. Prints the label, then
+                             one line of explanation; --json prints the response object.
+                             EXIT 0 pass, 1 veto, 2 not-checked, 3 error. A timeout (6 s),
+                             network failure, non-200 or off-contract body is not-checked.
 
   inspect [<path>]           Verify an append-only tool-call log. Reads a local file and
                              computes hashes; opens NO socket. INTACT (0) / BROKEN (1) /
@@ -230,7 +237,8 @@ EXIT CODES
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
-  check                            api.github.com only — no backend, no account
+  check <runUrl>                   api.github.com only — no backend, no account
+  check "<sentence>"               the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/classify only
   inspect                          NOTHING. Reads a local file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
@@ -317,7 +325,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
           cmd === 'verify' || cmd === 'evaluate'
             ? '"<text>"'
             : cmd === 'check'
-              ? '<github-actions-run-url>'
+              ? '<github-actions-run-url> or "<sentence>"'
               : '<agentIdOrSlug>';
         return {
           command: cmd,
@@ -327,7 +335,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
           error: `\`trustshell ${cmd}\` requires ${what}`,
         };
       }
-      return { command: cmd, operand, json, verify, markdown: flags.has('markdown') };
+      // `check` with a non-URL operand is a sentence: join the words so an unquoted
+      // sentence is checked whole rather than as its first word.
+      const full = cmd === 'check' && !isUrlOperand(operand) ? rest.join(' ') : operand;
+      return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
     }
     case 'status':
       return { command: 'status', json, verify };
@@ -713,6 +724,9 @@ export async function run(
     }
 
     case 'check': {
+      if (!isUrlOperand(String(args.operand ?? ''))) {
+        return runClaimCheck(String(args.operand ?? ''), args.json, io);
+      }
       // GitHub-only. Deliberately does NOT touch `client` — no backend, no key,
       // no account. That independence is the command's entire value.
       try {
@@ -840,6 +854,36 @@ export async function run(
     default:
       io.out(HELP);
       return EXIT.OK;
+  }
+}
+
+/**
+ * `trustshell check "<sentence>"` — the sentence form. Calls {@link classifyClaim}, the
+ * SAME function the MCP `check_claim` tool calls, so the two cannot drift.
+ * Exit codes: pass 0, veto 1, not-checked 2, error 3 (nothing was sent).
+ */
+export async function runClaimCheck(
+  sentence: string,
+  json: boolean,
+  io: CliIO,
+): Promise<number> {
+  try {
+    const r = await classifyClaim(sentence);
+    if (json) {
+      io.out(JSON.stringify(r, null, 2));
+    } else {
+      io.out(r.label);
+      io.out(explainClaim(r));
+    }
+    return claimExitCode(r.label);
+  } catch (e: any) {
+    const msg = e instanceof ClaimError ? e.message : `unexpected: ${e?.message ?? String(e)}`;
+    if (json) io.out(JSON.stringify({ label: 'error', error: msg }, null, 2));
+    else {
+      io.out('error');
+      io.out(`Could not check: ${msg}. Nothing was labelled.`);
+    }
+    return CLAIM_EXIT.error;
   }
 }
 

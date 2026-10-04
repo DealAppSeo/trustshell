@@ -230,6 +230,28 @@ command retries anonymously rather than failing. Options: `--json`.
 A queued or in-progress run is `INCONCLUSIVE`, never `FAILED`: an unfinished build has not failed,
 it has not answered.
 
+### `trustshell check "<sentence>"`
+
+When the operand is **not a URL**, `check` labels one sentence `pass`, `veto` or `not-checked` by
+asking the same public endpoint the TrustShell Chrome extension asks
+(`POST <backend>/api/v1/classify`, backend = `TRUSTSHELL_API_URL` or the live HyperDAG backend).
+The MCP server's `check_claim` tool calls the same function, so a terminal, an agent and the
+extension get the same label for the same sentence. Any operand with a URL scheme (or a bare
+`github.com/...`) still goes to the GitHub run check above, unchanged.
+
+It prints the label on its own line, then one line of explanation; `--json` prints the response
+object (`{label, latency_ms}`, plus `reason` when the label was decided locally).
+
+| Label | Exit |
+|---|---|
+| `pass` | `0` |
+| `veto` | `1` |
+| `not-checked` | `2` — **never** a pass |
+| error (nothing was sent: empty sentence, invalid `TRUSTSHELL_API_URL`) | `3` |
+
+A timeout (6 s), a network failure, a non-200 or a body outside the contract is `not-checked`.
+Known secret shapes are stripped from the sentence before it is sent.
+
 ### `trustshell inspect [<path>] [--from <format>]`
 
 Verify an append-only tool-call log and report what it can and cannot establish. Reads a local
@@ -340,6 +362,7 @@ a run or a session that happened — run these against your own and read the rea
 | `proof` | HyperDAG backend (`--verify` runs the verifier **locally**) | keyless |
 | `badge` | HyperDAG backend (rendering + verification are **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
+| `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
 | `inspect` | **none** — reads a local file | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |

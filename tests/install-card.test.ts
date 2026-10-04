@@ -27,7 +27,7 @@ describe('install card', () => {
   });
 
   // The reply leaves the browser. A tester is told before the steps, on both install surfaces.
-  const SENT = 'The reply text is sent to our checker, Groq';
+  const SENT = 'The reply text is sent to our checkers, Groq and Cerebras';
 
   it('both install surfaces say the reply is sent, before the first step', () => {
     const html = readFileSync(join(__dirname, '../public/install.html'), 'utf8');

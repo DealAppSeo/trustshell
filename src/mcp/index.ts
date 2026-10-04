@@ -24,6 +24,9 @@
  *   - get_repid      — canonical name for getRepID.
  *   - verify_proof   — client-side WASM proof verification (SDK verifyProof). Nothing leaves the host.
  *   - status         — `trustshell status` parity; calls src/cli/status.ts so the two cannot drift.
+ *   - check_claim    — `trustshell check "<sentence>"` parity: pass / veto / not-checked, the same
+ *                      label the Chrome extension shows. Calls src/lib/claim.ts classifyClaim, the
+ *                      one function the CLI also calls.
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.
@@ -46,6 +49,7 @@ import { buildStatusReport, statusJsonFromText } from '../cli/status';
 import { redactKey } from '../cli/redact-key';
 import { refusedValue } from '../cli/remember';
 import { recallLocal, rememberLocal } from './memory';
+import { classifyClaim } from '../lib/claim';
 
 /**
  * Package version — read from package.json at runtime, never retyped here.
@@ -394,6 +398,32 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         return jsonResult(json === true ? statusJsonFromText(text) : { status: text });
       } catch (e: any) {
         return errorResult(`status failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  // `check_claim` is `trustshell check "<sentence>"` for agents. It calls classifyClaim — the
+  // one implementation the CLI also calls — so an agent and a terminal get the same label for
+  // the same sentence, and both get the label the Chrome extension shows. not-checked is
+  // returned as a normal result (it is an answer: "we could not check"), never as pass.
+  registerTool(
+    'check_claim',
+    {
+      title: 'Check a sentence',
+      description:
+        'Label one sentence pass / veto / not-checked via the public classify endpoint — the same ' +
+        'label the TrustShell Chrome extension shows and `trustshell check "<sentence>"` prints. ' +
+        'Returns {label, latency_ms} (plus reason when not-checked was decided locally). A timeout, ' +
+        'network failure or off-contract answer is not-checked, which never means pass.',
+      inputSchema: {
+        text: z.string().min(1).describe('The sentence to check.'),
+      },
+    },
+    async ({ text }: { text: string }) => {
+      try {
+        return jsonResult(await classifyClaim(text));
+      } catch (e: any) {
+        return errorResult(`check_claim failed: ${e?.message ?? String(e)}`);
       }
     },
   );
