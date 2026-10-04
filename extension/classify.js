@@ -73,7 +73,22 @@
    * with every other door on the same connection. It also sends the reply again and again.
    */
   const RETRY_MS = 15000;
+  const QUIET_MS = 1000;
   const memo = { text: null, promise: null, row: null, at: 0 };
+  let quietTimer = null;
+
+  /**
+   * A streaming reply changes on every token. Call run only after the text has
+   * stopped changing for about a second. A newer call cancels the one still waiting.
+   */
+  function whenSettled(run, ms) {
+    const wait = Number.isFinite(ms) ? ms : QUIET_MS;
+    if (quietTimer) clearTimeout(quietTimer);
+    quietTimer = setTimeout(() => {
+      quietTimer = null;
+      if (typeof run === 'function') run();
+    }, wait);
+  }
 
   function classifyOnce(text) {
     const key = String(text == null ? '' : text);
@@ -129,7 +144,7 @@
     return node;
   }
 
-  const api = { LABELS, SLOW_MS, SLOW_LINE, classifyReply, lineFor, showCheckLine };
+  const api = { LABELS, SLOW_MS, SLOW_LINE, QUIET_MS, classifyReply, lineFor, showCheckLine, whenSettled };
 
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellClassify = api;

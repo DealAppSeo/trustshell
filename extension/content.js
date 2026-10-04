@@ -135,18 +135,10 @@
 
   function install(doc) {
     if (!doc || !doc.documentElement) return;
-    var scheduled = false;
-    var view = doc.defaultView;
     function schedule() {
-      if (scheduled) return;
-      scheduled = true;
-      var raf = view && view.requestAnimationFrame;
-      var run = function () {
-        scheduled = false;
-        draw(doc);
-      };
-      if (typeof raf === 'function') raf.call(view, run);
-      else run();
+      var api = load('trustshellClassify', './classify.js');
+      if (api && typeof api.whenSettled === 'function') api.whenSettled(function () { draw(doc); });
+      else draw(doc);
     }
     schedule();
     if (typeof MutationObserver === 'function') {
