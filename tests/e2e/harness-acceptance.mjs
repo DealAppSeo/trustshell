@@ -248,10 +248,16 @@ try {
   requireEngine();
   const t = claimOf('Paris is the capital of France.');
   const f = claimOf('The Moon is made of cheese.');
-  if (t.code === 0 && t.label === 'pass' && f.code === 1 && f.label === 'veto') {
+  const EXIT = { pass: 0, veto: 1, 'not-checked': 2 };
+  const contractHeld = [t, f].every((r) => r.label in EXIT && r.code === EXIT[r.label]);
+  const wrongWay = t.label === 'veto' || f.label === 'pass';
+  if (t.label === 'pass' && f.label === 'veto' && contractHeld) {
     record('claim.check', 'MEASURED', 'check "<true>" → pass (exit 0), check "<false>" → veto (exit 1)');
-  } else if (t.label === 'not-checked' && f.label === 'not-checked') {
-    record('claim.check', 'NOT_CHECKED', 'the command ran and the classifier answered not-checked for both sentences', { t, f });
+  } else if (contractHeld && !wrongWay) {
+    // An abstention (a voter over its per-minute budget, a timeout) is the product answering
+    // honestly that it could not check. Not a pass, and not a wrong answer either.
+    record('claim.check', 'NOT_CHECKED',
+      `the command works, but the classifier abstained: "${t.label}" and "${f.label}" — re-run when /api/v1/classify/stats shows no budget abstains`, { t, f });
   } else {
     record('claim.check', 'FAILED',
       `want pass/0 and veto/1, got "${t.label}"/${t.code} and "${f.label}"/${f.code}${t.err ? ` — ${t.err}` : ''}`, { t, f });

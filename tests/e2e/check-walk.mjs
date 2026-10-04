@@ -23,7 +23,8 @@
  * verdict, the git sha, the engine it talked to and the time. A green line in a log is not a
  * receipt; a file a stranger can read later is.
  *
- * Exit: 0 every check passed · 1 any failed · 2 NOT_CHECKED (no browser, or a port already busy).
+ * Exit: 0 every check passed · 1 any failed · 2 NOT_CHECKED (no browser, a port already busy, or a live
+ *       voter abstained — the route answered not-checked where a definite label was expected).
  */
 
 import { createServer } from 'node:http';
@@ -77,9 +78,10 @@ const engine = createServer((req, res) => {
 });
 
 const results = [];
+// pass: true | false | null (null = NOT_CHECKED: the check could not be decided here).
 const check = (name, pass, note = '') => {
-  results.push({ name, pass, note });
-  console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${note ? ` — ${note}` : ''}`);
+  results.push({ name, pass, note, verdict: pass === null ? 'NOT_CHECKED' : pass ? 'VERIFIED' : 'FAILED' });
+  console.log(`${pass === null ? 'NOT_CHECKED' : pass ? 'PASS' : 'FAIL'}  ${name}${note ? ` — ${note}` : ''}`);
 };
 
 async function waitForApp(url, timeoutMs = 90_000) {
@@ -188,7 +190,12 @@ try {
       ['Pizza is the best food.', 'not-checked'],
     ]) {
       const got = await ask(page, sentence);
-      check(`live: "${sentence}" gives ${want}`, got === want, `got ${got}${netFailures.length ? `; network: ${netFailures.join(' | ')}` : ''}`);
+      // A voter that abstains (per-minute budget, timeout) makes the route answer not-checked. That
+      // is the product being honest, so it is NOT_CHECKED here, never PASS and never FAIL. A WRONG
+      // label (pass for the false sentence, anything but not-checked for the opinion) is a FAIL.
+      const abstained = got === 'not-checked' && want !== 'not-checked';
+      check(`live: "${sentence}" gives ${want}`, abstained ? null : got === want,
+        `got ${got}${abstained ? ' (abstained: see /api/v1/classify/stats)' : ''}${netFailures.length ? `; network: ${netFailures.join(' | ')}` : ''}`);
     }
   } else {
     check('pass shows pass', (await ask(page, 'Paris is the capital of France.')) === 'pass');
@@ -219,8 +226,9 @@ try {
   engine.close();
 }
 
-const failed = results.filter((r) => !r.pass);
-console.log(`\n${results.length - failed.length}/${results.length} checks passed (${MODE}, engine ${ENGINE}, transport ${TRANSPORT})`);
+const failed = results.filter((r) => r.pass === false);
+const unchecked = results.filter((r) => r.pass === null);
+console.log(`\n${results.length - failed.length - unchecked.length}/${results.length} checks passed, ${unchecked.length} not checked (${MODE}, engine ${ENGINE}, transport ${TRANSPORT})`);
 
 if (process.env.RECEIPT_DIR) {
   let sha = null;
@@ -229,7 +237,7 @@ if (process.env.RECEIPT_DIR) {
   writeFileSync(
     join(process.env.RECEIPT_DIR, `check-walk.${MODE}.json`),
     JSON.stringify({ suite: 'check-walk', mode: MODE, transport: TRANSPORT, engine: ENGINE, git_sha: sha, ran_at: new Date().toISOString(),
-      verdict: failed.length === 0 ? 'VERIFIED' : 'FAILED', checks: results }, null, 2) + '\n',
+      verdict: failed.length ? 'FAILED' : unchecked.length ? 'NOT_CHECKED' : 'VERIFIED', checks: results }, null, 2) + '\n',
   );
 }
-process.exit(failed.length === 0 ? 0 : 1);
+process.exit(failed.length ? 1 : unchecked.length ? 2 : 0);
