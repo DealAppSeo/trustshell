@@ -25,6 +25,7 @@ const scan = require('../scripts/check-doc-version.cjs') as {
   scanRepo: (root?: string) => { status: string; reason: string | null; hits: unknown[]; stats: { md: number } | null };
   isFloor: (line: string, idx: number) => boolean;
   isCurrentClaim: (line: string, version: string, idx: number) => boolean;
+  isHistoricalRecord: (text: string) => boolean;
 };
 
 describe('discovery — a walk, not a list', () => {
@@ -72,6 +73,35 @@ describe('what is a current package-version claim', () => {
     const line = '# → 1.3.0   (the installed package version)';
     const hits = scan.scanFile(line + '\n', 'docs/getting-started.md', '1.4.0');
     expect(hits.map((h) => h.version)).toEqual(['1.3.0']);
+  });
+});
+
+describe('a dated record is marked, not rewritten', () => {
+  const install = 'npm install @hyperdag/trustshell@1.4.0';
+
+  it('still flags an unmarked install line behind package.json', () => {
+    expect(scan.scanFile(install + '\n', 'docs/WALKTHROUGH.md', '1.5.0').map((h) => h.version)).toEqual(['1.4.0']);
+  });
+
+  it('skips one line marked doc-version: historical, and only that line', () => {
+    const text = `${install} <!-- doc-version: historical -->\n${install}\n`;
+    expect(scan.scanFile(text, 'docs/living/BUS.md', '1.5.0').map((h) => h.line)).toEqual([2]);
+  });
+
+  it('skips a whole file marked in its head, and not one marked only further down', () => {
+    expect(scan.isHistoricalRecord(`<!-- doc-version: historical -->\n# Draft v1.4.0\n${install}\n`)).toBe(true);
+    expect(scan.isHistoricalRecord(`# Guide\n${'x'.repeat(1300)}\n<!-- doc-version: historical -->\n`)).toBe(false);
+  });
+
+  it('a marked file in a repo is not scanned; an unmarked one beside it is', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'doc-ver-'));
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '1.5.0' }));
+    mkdirSync(join(dir, 'docs'));
+    writeFileSync(join(dir, 'docs', 'RELEASE_OLD.md'), `<!-- doc-version: historical -->\n${install}\n`);
+    writeFileSync(join(dir, 'docs', 'GUIDE.md'), `${install}\n`);
+    const r = scan.scanRepo(dir) as { status: string; hits: { file: string }[] };
+    expect(r.status).toBe('FAILED');
+    expect(r.hits.map((h) => h.file)).toEqual(['docs/GUIDE.md']);
   });
 });
 

@@ -26,7 +26,7 @@ describe('e2e CLI smoke (no engine)', () => {
     const { io, out } = capture();
     const code = await run(parseArgs(['--version']), {} as never, io);
     expect(code).toBe(0);
-    expect(out.join('\n')).toMatch(/1\.4/);
+    expect(out.join('\n')).toMatch(/1\.5/);
   });
 
   it('help lists verify, repid, and proof', async () => {

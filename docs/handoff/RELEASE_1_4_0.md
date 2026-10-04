@@ -1,3 +1,4 @@
+<!-- doc-version: historical — a dated record of the 1.4.0 work. Its version strings say what was true then; do not bump them. -->
 # Draft — GitHub Release `v1.4.0`
 
 **Do not `gh release create`.** Sean cuts the GitHub Release the same hour as F-PUBLISH (`npm publish @hyperdag/trustshell@1.4.0`). This file is the draft only.

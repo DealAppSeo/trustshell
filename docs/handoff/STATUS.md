@@ -1,3 +1,4 @@
+<!-- doc-version: historical — a dated record of the 1.4.0 work. Its version strings say what was true then; do not bump them. -->
 # TrustShell MVP status — LOOP SPRINTS Sprint 1
 
 Date: 2026-09-09
