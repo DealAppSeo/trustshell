@@ -13,11 +13,18 @@
  *                      and Cerebras votes decide. Proves the door works end to end today, for three
  *                      sentences whose answers are not in doubt. The text sent is those sentences.
  *
+ *   --deployed[=URL]   no build and no local server: drives the page that is actually deployed
+ *                      (default https://www.trustshell.dev/check) against whatever engine its
+ *                      shipped bundle calls. --live proves the code works; this proves the thing a
+ *                      stranger opens works. It also checks the bundle calls the production engine,
+ *                      which catches a NEXT_PUBLIC_* that was missing when Vercel built it.
+ *
  * Every case runs at a phone viewport (390 x 844), because a door nobody can use on a phone is not
  * the phone door.
  *
- *     npm run test:check-walk            # stubbed
- *     npm run test:check-walk -- --live  # production
+ *     npm run test:check-walk               # stubbed
+ *     npm run test:check-walk -- --live     # production engine, this checkout's page
+ *     npm run test:check-walk -- --deployed # production engine, the deployed page
  *
  * RECEIPT. With RECEIPT_DIR set, the run writes check-walk.<mode>.json there: every check with its
  * verdict, the git sha, the engine it talked to and the time. A green line in a log is not a
@@ -35,8 +42,11 @@ import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit } from './chr
 
 const { chromium } = await loadPlaywrightOrExit();
 
-const LIVE = process.argv.includes('--live');
-const MODE = LIVE ? 'live' : 'stubbed';
+const DEPLOYED_ARG = process.argv.find((a) => a === '--deployed' || a.startsWith('--deployed='));
+const DEPLOYED = !!DEPLOYED_ARG;
+const DEPLOYED_BASE = (DEPLOYED_ARG?.includes('=') ? DEPLOYED_ARG.slice('--deployed='.length) : 'https://www.trustshell.dev').replace(/\/+$/, '');
+const LIVE = DEPLOYED || process.argv.includes('--live');
+const MODE = DEPLOYED ? 'deployed' : LIVE ? 'live' : 'stubbed';
 const ENGINE_PORT = 4611;
 const APP_PORT = 3111;
 const PROD_ENGINE = 'https://repid-engine-production.up.railway.app';
@@ -98,30 +108,45 @@ async function waitForApp(url, timeoutMs = 90_000) {
 
 if (!LIVE) engine.listen(ENGINE_PORT);
 
-// Build in-suite: NEXT_PUBLIC_* is inlined at build time, so the engine URL must be set for the
-// build, and the bundle under test is then the one that ships.
-const buildEnv = { ...process.env, NEXT_PUBLIC_REPID_ENGINE_URL: ENGINE };
-const build = spawn('npx', ['next', 'build'], { env: buildEnv, stdio: 'ignore' });
-const buildCode = await new Promise((r) => build.on('exit', r));
-if (buildCode !== 0) {
-  console.error(`FATAL: next build exited ${buildCode}`);
-  engine.close();
-  process.exit(1);
+const PAGE_URL = DEPLOYED ? `${DEPLOYED_BASE}/check` : `http://127.0.0.1:${APP_PORT}/check`;
+let killApp = () => {};
+
+// --deployed tests a bundle someone else built, so there is nothing to build or serve here.
+if (!DEPLOYED) {
+  // Build in-suite: NEXT_PUBLIC_* is inlined at build time, so the engine URL must be set for the
+  // build, and the bundle under test is then the one that ships.
+  const buildEnv = { ...process.env, NEXT_PUBLIC_REPID_ENGINE_URL: ENGINE };
+  const build = spawn('npx', ['next', 'build'], { env: buildEnv, stdio: 'ignore' });
+  const buildCode = await new Promise((r) => build.on('exit', r));
+  if (buildCode !== 0) {
+    console.error(`FATAL: next build exited ${buildCode}`);
+    engine.close();
+    process.exit(1);
+  }
+
+  let portBusy = false;
+  try {
+    portBusy = !!(await fetch(`http://127.0.0.1:${APP_PORT}/`, { signal: AbortSignal.timeout(2000) }));
+  } catch { /* nothing listening — the state we want */ }
+  if (portBusy) {
+    console.error(`NOT_CHECKED: port ${APP_PORT} is already serving; this suite tests only a server it started.`);
+    engine.close();
+    process.exit(2);
+  }
+
+  const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], { env: buildEnv, stdio: 'ignore', detached: true });
+  killApp = () => { try { process.kill(-app.pid, 'SIGKILL'); } catch { try { app.kill('SIGKILL'); } catch {} } };
+  process.on('exit', killApp);
 }
 
-let portBusy = false;
-try {
-  portBusy = !!(await fetch(`http://127.0.0.1:${APP_PORT}/`, { signal: AbortSignal.timeout(2000) }));
-} catch { /* nothing listening — the state we want */ }
-if (portBusy) {
-  console.error(`NOT_CHECKED: port ${APP_PORT} is already serving; this suite tests only a server it started.`);
-  engine.close();
-  process.exit(2);
+// Which commit is the deployed page? The checkout's git sha says nothing about it.
+let deployedCommit = null;
+if (DEPLOYED) {
+  try {
+    const v = await (await fetch(`${DEPLOYED_BASE}/api/version`, { signal: AbortSignal.timeout(10_000), cache: 'no-store' })).json();
+    deployedCommit = typeof v?.commit === 'string' ? v.commit : null;
+  } catch { /* recorded as null: not known, not assumed */ }
 }
-
-const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], { env: buildEnv, stdio: 'ignore', detached: true });
-const killApp = () => { try { process.kill(-app.pid, 'SIGKILL'); } catch { try { app.kill('SIGKILL'); } catch {} } };
-process.on('exit', killApp);
 
 // TRANSPORT. On a CI runner the browser calls production itself ("browser-direct"). In an agent
 // sandbox it cannot do that within the product's 6 s timeout: through the sandbox relay Chromium's
@@ -129,7 +154,9 @@ process.on('exit', killApp);
 // [MEASURED 2026-10-04]. So with HTTPS_PROXY set, live mode intercepts the page's classify call and
 // replays its exact body to production with curl ("relayed-by-runner"). The label shown is still
 // production's own answer; only the hop from the browser is replaced, and the receipt says so.
-const RELAY = LIVE && !!process.env.HTTPS_PROXY;
+// --deployed never relays: its point is the browser loading the real page and making the real call.
+// Where the browser cannot reach the page at all, it says NOT_CHECKED instead.
+const RELAY = LIVE && !DEPLOYED && !!process.env.HTTPS_PROXY;
 const TRANSPORT = !LIVE ? 'stub' : RELAY ? 'relayed-by-runner' : 'browser-direct';
 const launchOpts = { executablePath: chromiumExecutablePath(), args: LAUNCH_ARGS };
 
@@ -148,6 +175,9 @@ function relayToProduction(route) {
   return route.fulfill({ status: Number(out.slice(cut + 1)) || 502, headers: { ...cors, 'content-type': 'application/json' }, body: out.slice(0, cut) });
 }
 
+// Thrown to stop the walk once a check has said NOT_CHECKED for everything after it.
+class SkipRest extends Error {}
+
 async function ask(page, sentence) {
   await page.fill('#claim', sentence);
   await page.click('button[type=submit]');
@@ -158,7 +188,7 @@ async function ask(page, sentence) {
 
 let browser;
 try {
-  if (!(await waitForApp(`http://127.0.0.1:${APP_PORT}/check`))) {
+  if (!DEPLOYED && !(await waitForApp(PAGE_URL))) {
     console.error('FATAL: the app never became ready');
     process.exit(1);
   }
@@ -174,8 +204,23 @@ try {
   page.on('pageerror', (e) => pageErrors.push(String(e)));
   const netFailures = [];
   page.on('requestfailed', (r) => netFailures.push(`${r.method()} ${r.url()} ${r.failure()?.errorText ?? ''}`));
+  const classifyCalls = [];
+  page.on('request', (r) => { if (r.method() === 'POST' && r.url().includes('/api/v1/classify')) classifyCalls.push(r.url()); });
 
-  await page.goto(`http://127.0.0.1:${APP_PORT}/check`, { waitUntil: 'networkidle' });
+  let response;
+  try {
+    response = await page.goto(PAGE_URL, { waitUntil: 'networkidle', timeout: 45_000 });
+  } catch (e) {
+    if (!DEPLOYED) throw e;
+    // The browser never got an answer from the host: nothing about the page was observed.
+    check('the deployed page loads in this browser', null, `${PAGE_URL}: ${String(e).split('\n')[0]}`);
+    throw new SkipRest();
+  }
+  if (DEPLOYED) {
+    const status = response?.status() ?? null;
+    check('the deployed page answers 200', status === 200, `${PAGE_URL} → ${status ?? 'no response'}`);
+    if (status !== 200) throw new SkipRest(); // a 404 page has no form to walk; that one FAILED says it
+  }
   const body = await page.locator('body').innerText();
   check('the page names all three answers', ['pass', 'veto', 'not-checked'].every((w) => body.includes(w)));
   check('the privacy line names where the text goes', /sent to our checkers, Groq and Cerebras/.test(body));
@@ -196,6 +241,13 @@ try {
       const abstained = got === 'not-checked' && want !== 'not-checked';
       check(`live: "${sentence}" gives ${want}`, abstained ? null : got === want,
         `got ${got}${abstained ? ' (abstained: see /api/v1/classify/stats)' : ''}${netFailures.length ? `; network: ${netFailures.join(' | ')}` : ''}`);
+    }
+    if (DEPLOYED) {
+      // An unset NEXT_PUBLIC_REPID_ENGINE_URL at build time does not fail the build; the bundle just
+      // calls whatever the fallback was. Name the engine the shipped page actually called.
+      const want = `${ENGINE}/api/v1/classify`;
+      check('the deployed page calls the production engine', classifyCalls.length > 0 && classifyCalls.every((u) => u === want),
+        classifyCalls.length ? [...new Set(classifyCalls)].join(', ') : 'no classify call was made');
     }
   } else {
     check('pass shows pass', (await ask(page, 'Paris is the capital of France.')) === 'pass');
@@ -220,6 +272,8 @@ try {
   if (process.env.SHOT_DIR) {
     await page.screenshot({ path: join(process.env.SHOT_DIR, `check-${MODE}.png`), fullPage: true });
   }
+} catch (e) {
+  if (!(e instanceof SkipRest)) throw e;
 } finally {
   if (browser) await browser.close();
   killApp();
@@ -228,7 +282,7 @@ try {
 
 const failed = results.filter((r) => r.pass === false);
 const unchecked = results.filter((r) => r.pass === null);
-console.log(`\n${results.length - failed.length - unchecked.length}/${results.length} checks passed, ${unchecked.length} not checked (${MODE}, engine ${ENGINE}, transport ${TRANSPORT})`);
+console.log(`\n${results.length - failed.length - unchecked.length}/${results.length} checks passed, ${unchecked.length} not checked (${MODE}, page ${PAGE_URL}${DEPLOYED ? ` @ ${deployedCommit ?? 'unknown commit'}` : ''}, engine ${ENGINE}, transport ${TRANSPORT})`);
 
 if (process.env.RECEIPT_DIR) {
   let sha = null;
@@ -236,7 +290,8 @@ if (process.env.RECEIPT_DIR) {
   mkdirSync(process.env.RECEIPT_DIR, { recursive: true });
   writeFileSync(
     join(process.env.RECEIPT_DIR, `check-walk.${MODE}.json`),
-    JSON.stringify({ suite: 'check-walk', mode: MODE, transport: TRANSPORT, engine: ENGINE, git_sha: sha, ran_at: new Date().toISOString(),
+    JSON.stringify({ suite: 'check-walk', mode: MODE, transport: TRANSPORT, engine: ENGINE, page: PAGE_URL,
+      ...(DEPLOYED ? { deployed_commit: deployedCommit } : {}), git_sha: sha, ran_at: new Date().toISOString(),
       verdict: failed.length ? 'FAILED' : unchecked.length ? 'NOT_CHECKED' : 'VERIFIED', checks: results }, null, 2) + '\n',
   );
 }

@@ -182,6 +182,16 @@ jobs:
           RECEIPT_DIR: receipts
         run: npm run test:check-walk -- --live
 
+      # The page a stranger actually opens. --live builds THIS checkout's page; this drives the
+      # deployed www.trustshell.dev/check, records the commit it serves, and checks its bundle calls
+      # the production engine (an unset NEXT_PUBLIC_* at Vercel build time would not fail the build).
+      - name: Phone door, the deployed page
+        id: checkwalkdeployed
+        if: ${{ always() }}
+        env:
+          RECEIPT_DIR: receipts
+        run: npm run test:check-walk -- --deployed
+
       - name: Keep the browser receipts
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -195,14 +205,15 @@ jobs:
         run: |
           checkwalk='${{ steps.checkwalk.outcome }}'
           checkwalklive='${{ steps.checkwalklive.outcome }}'
+          checkwalkdeployed='${{ steps.checkwalkdeployed.outcome }}'
           mvp='${{ steps.mvp.outcome }}'
           grants='${{ steps.grants.outcome }}'
           campaign='${{ steps.campaign.outcome }}'
           roles='${{ steps.roles.outcome }}'
           onboarding='${{ steps.onboarding.outcome }}'
-          echo "mvp-walk: $mvp | grants-fail-closed: $grants | campaign-honesty: $campaign | roles-honesty: $roles | onboarding-honesty: $onboarding | check-walk: $checkwalk | check-walk live: $checkwalklive"
+          echo "mvp-walk: $mvp | grants-fail-closed: $grants | campaign-honesty: $campaign | roles-honesty: $roles | onboarding-honesty: $onboarding | check-walk: $checkwalk | check-walk live: $checkwalklive | check-walk deployed: $checkwalkdeployed"
           failed=''
-          for pair in "mvp-walk:$mvp" "grants-fail-closed:$grants" "campaign-honesty:$campaign" "roles-honesty:$roles" "onboarding-honesty:$onboarding" "check-walk:$checkwalk" "check-walk-live:$checkwalklive"; do
+          for pair in "mvp-walk:$mvp" "grants-fail-closed:$grants" "campaign-honesty:$campaign" "roles-honesty:$roles" "onboarding-honesty:$onboarding" "check-walk:$checkwalk" "check-walk-live:$checkwalklive" "check-walk-deployed:$checkwalkdeployed"; do
             name="${pair%%:*}"; outcome="${pair#*:}"
             [ "$outcome" = 'success' ] || failed="$failed $name($outcome)"
           done
