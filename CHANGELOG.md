@@ -2,7 +2,14 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## 1.5.0 — unreleased (it publishes when the `v1.5.0` tag is pushed)
+## Unreleased
+
+- **Releases publish through npm trusted publishing.** CI publishes with a short-lived token that
+  GitHub's OIDC identity earns for this one package, not a stored npm token. npm also attaches a
+  provenance attestation linking each version to the workflow run that built it. `package.json`
+  now names the repository, which that check requires. The CLI and MCP tools are unchanged.
+
+## 1.5.0 — 2026-10-04
 
 **Why 1.5.0 and not 1.4.1.** This release adds commands and MCP tools, which makes it a minor
 release. The list below is MEASURED, not read from the git log: npm's 1.4.0 was cut on 2026-09-23

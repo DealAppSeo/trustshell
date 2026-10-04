@@ -115,5 +115,9 @@
     "tailwindcss": "^4",
     "ts-jest": "^29",
     "typescript": "^5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DealAppSeo/trustshell.git"
   }
 }

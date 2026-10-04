@@ -2,7 +2,10 @@
 #
 # Trigger:  push a version tag matching package.json (e.g. `git tag v1.2.0 && git push --tags`)
 #           or run manually from the Actions tab (with an optional dry-run).
-# Requires: repo secret NPM_TOKEN = an npm "Automation" access token (npmjs.com → Access Tokens).
+# Requires: an npm TRUSTED PUBLISHER for @hyperdag/trustshell (npmjs.com → the package →
+#           Settings → Trusted publishing): GitHub Actions, DealAppSeo / trustshell,
+#           workflow `publish-sdk.yml`, environment blank. No npm token is used or needed.
+#           The fields are case-sensitive, and renaming this file breaks the trust.
 #
 # The prepublishOnly script (sdk:build && sdk:test) is intentionally bypassed on publish
 # (--ignore-scripts) because we run build + test as explicit, individually-visible steps first.
@@ -30,9 +33,23 @@
 #    Fixed with an explicit credential step that reports VERIFIED / NOT CHECKED /
 #    FAILED into the job summary and FAILS THE RUN when it cannot check. An
 #    unverifiable credential must never share an exit code with a verified one.
-#    It also catches the specific accident of NPM_TOKEN being stored in the
-#    Variables tab instead of Secrets, where `${{ secrets.NPM_TOKEN }}` silently
-#    resolves to an empty string with no error at all.
+#    (That step checked a long-lived npm token. Defect 3 replaced the token.)
+#
+# 3. It published with a long-lived npm token in a repository secret. A token like
+#    that can leak, never expires on its own, and works from anywhere.
+#
+#    Now it publishes through npm trusted publishing (OIDC): GitHub vouches for this
+#    workflow and npm hands back a short-lived token for this one package. There is
+#    no npm token in this file, deliberately. npm's OIDC step never fails out loud
+#    (npm/cli lib/utils/oidc.js is "intended to never throw"); it falls back to
+#    whatever token is configured. With no real token here, a broken trust makes
+#    the publish fail, and nothing ships on an old credential by accident.
+#
+#    That silence is also why the credential step does the exchange itself.
+#    `npm publish --dry-run` runs the same exchange and hides the result, and npm
+#    says `npm whoami` "is not a check of trusted publishing permissions". So the
+#    rehearsal asks the registry directly and reports VERIFIED / NOT CHECKED /
+#    FAILED, as before.
 name: publish-sdk
 
 on:
@@ -54,12 +71,20 @@ on:
         type: boolean
         default: false
 
+# Read-only for the whole run. Only the `publish` job, which installs nothing, may ask
+# GitHub for an OIDC token (see that job).
 permissions:
   contents: read
 
 jobs:
-  publish:
+  # Installs dependencies and runs their scripts, so it gets NO OIDC permission. A
+  # dependency's install script here cannot ask npm for a publish token.
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.tag.outputs.name }}
+      version: ${{ steps.tag.outputs.version }}
+      dist_tag: ${{ steps.tag.outputs.dist_tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,7 +96,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install deps
         run: npm install --legacy-peer-deps
@@ -137,6 +161,7 @@ jobs:
             fi
           fi
 
+          echo "name=$(node -p "require('./package.json').name")" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION"       >> "$GITHUB_OUTPUT"
           echo "dist_tag=$DIST_TAG"     >> "$GITHUB_OUTPUT"
           echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
@@ -150,33 +175,6 @@ jobs:
             echo "| **dist-tag** | **\`$DIST_TAG\`** ($ORIGIN) |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
-
-      # THE CREDENTIAL LINE. Read this, not the green tick — that instruction only
-      # means something if the run actually checks, which it did not before.
-      - name: Credential check
-        id: cred
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -uo pipefail
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            # An empty string here almost always means NPM_TOKEN was saved under
-            # Settings → Secrets and variables → **Variables** instead of
-            # **Secrets**. `secrets.NPM_TOKEN` then resolves to "" with no error.
-            echo "- npm credential: **NOT CHECKED — NPM_TOKEN resolved to an empty string**" >> "$GITHUB_STEP_SUMMARY"
-            echo "  Check Settings → Secrets and variables → **Actions → Secrets** (not the Variables tab)." >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::NPM_TOKEN is empty. NOT CHECKED is not a pass — failing rather than reporting green."
-            exit 1
-          fi
-          if WHO=$(npm whoami 2>&1); then
-            echo "- npm credential: **VERIFIED** — authenticated as \`$WHO\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "npm credential VERIFIED as $WHO"
-          else
-            echo "- npm credential: **FAILED** — the token did not authenticate" >> "$GITHUB_STEP_SUMMARY"
-            echo "  \`npm whoami\` said: $WHO" >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::npm whoami failed: $WHO"
-            exit 1
-          fi
 
       - name: Build SDK
         run: npm run sdk:build
@@ -200,20 +198,116 @@ jobs:
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The exact bytes the publish job ships. --ignore-scripts as on publish (there are no
+      # pack-time scripts today); the build and tests above already ran as visible steps.
+      - name: Pack
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/pkg"
+          ls -l "$RUNNER_TEMP/pkg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  # The only job that can get an npm publish token. It installs no dependencies and runs no
+  # package scripts: it checks the trust, then publishes the tarball the build job packed.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets this job ask GitHub for the OIDC token npm trusted publishing exchanges
+    env:
+      PKG: ${{ needs.build.outputs.name }}
+      VERSION: ${{ needs.build.outputs.version }}
+      DIST_TAG: ${{ needs.build.outputs.dist_tag }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-tarball
+          path: pkg
+
+      # THE CREDENTIAL LINE. Read this, not the green tick. It does the same token exchange
+      # `npm publish` does (npm/cli lib/utils/oidc.js) and reports the answer, because npm
+      # itself swallows a failed exchange. The npm token it gets back is thrown away.
+      - name: Credential check (trusted publisher)
+        id: cred
+        run: |
+          set -uo pipefail
+          say() { echo "$1" >> "$GITHUB_STEP_SUMMARY"; }
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            say "- npm credential: **NOT CHECKED — this job cannot ask GitHub for an OIDC token** (\`permissions: id-token: write\` is missing)"
+            echo "::error::No GitHub OIDC token available. NOT CHECKED is not a pass — failing rather than reporting green."
+            exit 1
+          fi
+          ID_TOKEN=$(curl -sS --fail -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r '.value // empty')
+          if [ -z "$ID_TOKEN" ]; then
+            say "- npm credential: **NOT CHECKED — GitHub did not issue an OIDC token**"
+            echo "::error::GitHub returned no OIDC token. NOT CHECKED is not a pass."
+            exit 1
+          fi
+          echo "::add-mask::$ID_TOKEN"
+          URL="https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${PKG/\//%2f}"
+          BODY=$(mktemp)
+          CODE=$(curl -sS -o "$BODY" -w '%{http_code}' -X POST -H "Authorization: Bearer $ID_TOKEN" "$URL") || CODE=000
+          TOKEN=$(jq -r '.token // empty' "$BODY" 2>/dev/null)
+          [ -n "$TOKEN" ] && echo "::add-mask::$TOKEN"
+          MSG=$(jq -r '.message // empty' "$BODY" 2>/dev/null)
+          rm -f "$BODY"
+          case "$CODE" in
+            2??)
+              if [ -n "$TOKEN" ]; then
+                say "- npm credential: **VERIFIED** — npm's trusted publisher for \`$PKG\` accepted this workflow (no npm token stored anywhere)"
+                say "  Whether it may \`npm publish\` directly, not only stage, is decided by the trusted publisher's *Allowed actions* and shows only at the real publish."
+                echo "trusted publisher VERIFIED for $PKG"
+              else
+                say "- npm credential: **NOT CHECKED — npm answered $CODE without a token**"
+                echo "::error::npm answered $CODE with no token. NOT CHECKED is not a pass."
+                exit 1
+              fi ;;
+            4??)
+              say "- npm credential: **FAILED** — npm refused this workflow for \`$PKG\` ($CODE: ${MSG:-no message})"
+              say "  Check npmjs.com → the package → Settings → Trusted publishing: GitHub Actions, \`DealAppSeo\` / \`trustshell\`, workflow \`publish-sdk.yml\`, environment blank. The fields are case-sensitive."
+              echo "::error::npm trusted publisher refused this workflow: $CODE ${MSG:-}"
+              exit 1 ;;
+            *)
+              say "- npm credential: **NOT CHECKED — the npm registry did not answer ($CODE)**"
+              echo "::error::npm registry unreachable or erroring ($CODE). NOT CHECKED is not a pass."
+              exit 1 ;;
+          esac
+
+      # Trusted publishing needs npm 11.5.1+, and Node 22 ships npm 10. This job installs nothing
+      # else, so the upgrade cannot change what the build job tested.
+      - name: npm that can publish through OIDC
+        run: |
+          set -euo pipefail
+          npm install -g npm@^11.5.1
+          echo "- toolchain: node \`$(node --version)\`, npm \`$(npm --version)\`" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish — dry-run (manual only)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm publish --dry-run --access public --ignore-scripts --tag "${{ steps.tag.outputs.dist_tag }}"
-          echo "- result: **DRY RUN** — nothing was published. dist-tag would be \`${{ steps.tag.outputs.dist_tag }}\`." >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          npm publish pkg/*.tgz --dry-run --access public --ignore-scripts --tag "$DIST_TAG"
+          echo "- result: **DRY RUN** — nothing was published. dist-tag would be \`$DIST_TAG\`." >> "$GITHUB_STEP_SUMMARY"
 
+      # No NODE_AUTH_TOKEN: npm exchanges this job's OIDC token itself. For a public repo and
+      # package it also adds a provenance attestation, which needs package.json
+      # `repository.url` to match this repository exactly.
       - name: Publish to npm
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         run: |
-          npm publish --access public --ignore-scripts --tag "${{ steps.tag.outputs.dist_tag }}"
-          echo "- result: **PUBLISHED** \`${{ steps.tag.outputs.version }}\` to dist-tag \`${{ steps.tag.outputs.dist_tag }}\`." >> "$GITHUB_STEP_SUMMARY"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # Optional supply-chain provenance later: add `--provenance` above
-          # and `id-token: write` under `permissions:`.
+          set -euo pipefail
+          npm publish pkg/*.tgz --access public --ignore-scripts --tag "$DIST_TAG"
+          echo "- result: **PUBLISHED** \`$VERSION\` to dist-tag \`$DIST_TAG\`." >> "$GITHUB_STEP_SUMMARY"
