@@ -1,3 +1,33 @@
+# WEEK — goals and sprints (week of 2026-10-05 to 2026-10-11)
+
+**Tier 2 of 3.** Written 2026-10-04 by CC2 from Sean's decisions that night (recorded at the top of
+`BUS.md`). The previous week is kept below it, unchanged.
+
+## Goal: a stranger gets a real label for a real sentence, then V1 starts the same night
+
+### Sprint E: the check is real (owner CC2, red-team Grok)
+- [ ] B15: prose gets pass or veto from two free votes; any miss is not-checked.
+- [ ] B16: the route heals itself (per-host health, canary, public skip rate).
+- [ ] B17 (CC1): the terminal gives the same label as Chrome.
+
+### Sprint F: every door (owners XC3, XC1, CC1)
+- [ ] B7 + B8: the public phone bot, separate from the operator bot.
+- [ ] B18: the privacy line and debounce; B19: any website by right-click.
+- [ ] B22: the five hosts are tested in CI, not by hand.
+
+### Sprint G: agents that work for free (owner CC2)
+- [ ] B14: an hourly heartbeat that merges, dispatches and stops on quiet.
+- [ ] B21: T12 runs a real job on a loopback model inside a free GitHub runner.
+
+### Sprint H: V1 (the V1 queue in `BUS.md`)
+zkRepID in the popup, TrustMarket deployed with "Check a claim", belts with early access, the Store
+listing, 1.4.1, one GitHub App per agent family, a third voter, Stripe for payments.
+
+## Not this week
+Mainnet, live stake, `REAL_STAKING`, public "launched" language (Sean only).
+
+---
+
 # WEEK — goals and sprints (week of 2026-09-28 to 2026-10-04)
 
 **Tier 2 of 3.** Goals and objectives for this week, as sprints. Each sprint is 2 to 4 loops
