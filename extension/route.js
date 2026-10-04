@@ -1,3 +1,5 @@
+/* Service worker scripts share one global scope. Names stay inside this function. */
+(function () {
 'use strict';
 
 const MY_MODEL = 'my model';
@@ -51,3 +53,4 @@ const api = {
 
 if (typeof module === 'object' && module && module.exports) module.exports = api;
 if (typeof globalThis === 'object') globalThis.trustshellRoute = api;
+})();
