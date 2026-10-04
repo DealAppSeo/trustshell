@@ -175,12 +175,19 @@ function relayToProduction(route) {
   return route.fulfill({ status: Number(out.slice(cut + 1)) || 502, headers: { ...cors, 'content-type': 'application/json' }, body: out.slice(0, cut) });
 }
 
+// One rolling budget window (60 s) plus a second. Overridable only so the retry path can be tested
+// without a minute's wait.
+const ABSTAIN_RETRY_MS = Number(process.env.CHECK_WALK_RETRY_MS) || 61_000;
+
 // Thrown to stop the walk once a check has said NOT_CHECKED for everything after it.
 class SkipRest extends Error {}
 
 async function ask(page, sentence) {
   await page.fill('#claim', sentence);
   await page.click('button[type=submit]');
+  // The form clears the last answer on submit. Wait for that, so asking the same sentence again
+  // can never read the previous label.
+  await page.waitForSelector('[data-testid=check-label]', { state: 'detached', timeout: 5_000 }).catch(() => {});
   await page.waitForSelector('[data-testid=check-label], [data-testid=check-error]', { timeout: 20_000 });
   const label = await page.locator('[data-testid=check-label]').textContent().catch(() => null);
   return label?.trim() ?? null;
@@ -234,13 +241,25 @@ try {
       ['The Moon is made of cheese.', 'veto'],
       ['Pizza is the best food.', 'not-checked'],
     ]) {
-      const got = await ask(page, sentence);
+      let got = await ask(page, sentence);
       // A voter that abstains (per-minute budget, timeout) makes the route answer not-checked. That
       // is the product being honest, so it is NOT_CHECKED here, never PASS and never FAIL. A WRONG
       // label (pass for the false sentence, anything but not-checked for the opinion) is a FAIL.
+      //
+      // ONE RETRY, after the budget window. Cerebras gets 4 calls in a rolling 60 s
+      // (repid-engine src/classify/free-votes.ts), and the daily job runs --live and --deployed
+      // back to back, so the second walk abstained on its own budget the first time it ran in CI
+      // (run 37232890795). Only an abstention is retried; a wrong label is never asked again.
+      let retried = '';
+      if (got === 'not-checked' && want !== 'not-checked') {
+        await page.waitForTimeout(ABSTAIN_RETRY_MS);
+        const again = await ask(page, sentence);
+        retried = ` (abstained, then asked again after ${Math.round(ABSTAIN_RETRY_MS / 1000)} s)`;
+        got = again;
+      }
       const abstained = got === 'not-checked' && want !== 'not-checked';
       check(`live: "${sentence}" gives ${want}`, abstained ? null : got === want,
-        `got ${got}${abstained ? ' (abstained: see /api/v1/classify/stats)' : ''}${netFailures.length ? `; network: ${netFailures.join(' | ')}` : ''}`);
+        `got ${got}${retried}${abstained ? ' (abstained twice: see /api/v1/classify/stats)' : ''}${netFailures.length ? `; network: ${netFailures.join(' | ')}` : ''}`);
     }
     if (DEPLOYED) {
       // An unset NEXT_PUBLIC_REPID_ENGINE_URL at build time does not fail the build; the bundle just

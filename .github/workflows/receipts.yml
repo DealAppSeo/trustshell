@@ -20,28 +20,54 @@ permissions:
   checks: read
   statuses: read
   pull-requests: write
+  actions: read # the refresh asks whether the PR's own receipt run is still going
 
+# WHY EVERY PR USED TO SHOW `receipt: cancelled`. Both triggers shared one group with
+# cancel-in-progress. The PR's run waits up to 10 minutes for the other checks, so it is still
+# running when `check` finishes, and that finish starts the workflow_run refresh, which cancelled
+# it. The refresh then ran against the default branch's commit, so its success never showed on the
+# PR. The only receipt row a PR ever kept was the cancelled one (trustshell #441, `unstable`).
+#
+# Now: separate groups, so a refresh can never cancel the PR's run. A PR run cancels an older one
+# only on a new commit (`synchronize`), when the old run is on the old commit. An edit or
+# ready_for_review on the same commit queues behind it. The race the shared group guarded against
+# (two runs posting a first receipt) is handled by the refresh stepping aside while the PR's own
+# run for that commit is still going, below.
 concurrency:
-  # One group per PR on both triggers, or a pull_request run and a workflow_run refresh
-  # race and both post a first receipt.
-  group: receipts-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
-  cancel-in-progress: true
+  group: receipts-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_sha }}
+  cancel-in-progress: ${{ github.event_name == 'workflow_run' || github.event.action == 'synchronize' }}
 
 jobs:
   receipt:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # A refresh is redundant while the PR's own run for this commit is queued or running: that
+      # run waits for the checks and will count this one. Stepping aside also means the two never
+      # post a first receipt at the same moment.
+      - name: Step aside if the PR's own receipt run is still going
+        id: busy
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          n=$(gh api "repos/$REPO/actions/workflows/receipts.yml/runs?event=pull_request&head_sha=$HEAD_SHA&per_page=20" \
+            --jq '[.workflow_runs[] | select(.status != "completed")] | length')
+          echo "pull_request receipt runs still going on $HEAD_SHA: $n"
+          if [ "$n" -gt 0 ]; then echo "busy=true" >> "$GITHUB_OUTPUT"; else echo "busy=false" >> "$GITHUB_OUTPUT"; fi
       # Load the action from trusted code: the PR's base commit, or the default branch on
       # workflow_run, not the PR's copy of receipts/ (Strix, #433). Limit: on pull_request
       # GitHub runs THIS FILE from the PR, so a same-repo PR that edits it can change what
       # runs on its own event. The workflow_run refresh always uses the default branch's
       # file. Outside this repo it is `uses: DealAppSeo/trustshell/receipts@<sha>`.
-      - uses: actions/checkout@v4
+      - if: steps.busy.outputs.busy != 'true'
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
           sparse-checkout: receipts
           persist-credentials: false
       # Until the action exists on the base (the PR that adds it), there is nothing trusted to run.
-      - if: hashFiles('receipts/action.yml') != ''
+      - if: steps.busy.outputs.busy != 'true' && hashFiles('receipts/action.yml') != ''
         uses: ./receipts
