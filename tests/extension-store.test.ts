@@ -50,6 +50,8 @@ describe('store package', () => {
     expect(privacy.toLowerCase()).not.toContain('stake');
     expect(privacy).not.toMatch(/launched/i);
     expect(privacy).not.toMatch(/is not sent/);
+    expect(listing).toContain('Check with TrustShell');
+    expect(privacy).toContain('Check with TrustShell');
   });
 
   it('the three shots are 1280 by 800', () => {
@@ -67,8 +69,15 @@ describe('store package', () => {
     expect(packed.equals(readFileSync(join(ROOT, 'extension/manifest.json')))).toBe(true);
     expect(names.some((name) => name === '.env' || name.endsWith('/.env'))).toBe(false);
     expect(names.some((name) => name.split('/').includes('node_modules'))).toBe(false);
-    const manifest = JSON.parse(packed.toString('utf8')) as { host_permissions: string[] };
+    const manifest = JSON.parse(packed.toString('utf8')) as {
+      host_permissions: string[];
+      permissions: string[];
+    };
     expect(JSON.stringify(manifest)).not.toContain('<all_urls>');
     expect(manifest.host_permissions).toEqual(['https://repid-engine-production.up.railway.app/*']);
+    expect(manifest.permissions).toEqual(['storage', 'contextMenus', 'activeTab', 'scripting']);
+    const popup = entries.find((entry) => entry.name === 'popup.html')!.data.toString('utf8');
+    expect(popup).toContain(SENT);
+    expect(names).toContain('select.js');
   });
 });

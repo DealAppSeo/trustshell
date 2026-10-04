@@ -22,6 +22,8 @@ A veto shows: Caught. This reply did not pass. A pass does not add a line. not-c
 
 The reply text is sent to our checker, Groq. It is not stored. Not printed is not the same as not sent.
 
+On any other page, select text and choose Check with TrustShell. That selection is sent to the same checker, and only after that click. The label appears in a small toast.
+
 The extension does not click, type, or send the chat.
 
 Privacy policy page: public/privacy.html
