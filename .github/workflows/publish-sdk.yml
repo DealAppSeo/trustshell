@@ -63,9 +63,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The SAME Node as the merge gate (check.yml). This was '20' while check.yml ran 22, so the
+      # suite that is green on every PR failed here: the local-memory commands use the built-in
+      # `node:sqlite` (Node 22.5+), and on 20 they answer NOT_CHECKED by design. Run 37235430913
+      # (2026-10-04) stopped at Test SDK with 12 failures in exactly those suites, before any
+      # publish step. tests/publish-node-version.test.ts keeps the two in step.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install deps
