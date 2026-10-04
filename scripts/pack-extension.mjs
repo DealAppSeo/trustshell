@@ -72,15 +72,18 @@ for (const full of files) {
     name,
     data,
   ]);
+  // Central directory header (APPNOTE 4.3.12): version made by, version needed, flags, method,
+  // time, date. Five 16-bit fields before the date, not six: one extra field here shifted every
+  // central record by two bytes, so `unzip`, Python and any store reading the central directory
+  // saw a corrupt archive while a reader walking only the local headers saw a fine one.
   centrals.push(
     Buffer.concat([
       u32(0x02014b50),
-      u16(20),
-      u16(20),
-      u16(0),
-      u16(0),
-      u16(0),
-      u16(0),
+      u16(20), // version made by
+      u16(20), // version needed
+      u16(0), // flags
+      u16(0), // method: stored
+      u16(0), // time
       u16(dosDate),
       u32(crc),
       u32(data.length),

@@ -23,6 +23,52 @@ function zipNames(buf: Buffer): string[] {
   return names;
 }
 
+function crc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of buf) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return ~crc >>> 0;
+}
+
+/**
+ * Read the archive the way `unzip`, Python and the Chrome Web Store do: end record, then the central
+ * directory, then each local header it points at. `zipNames` above walks local headers only, and it
+ * passed for as long as the central directory was corrupt (one extra 16-bit field per record), so a
+ * zip every real reader rejected looked fine here. Throws on the first inconsistency.
+ */
+function readThroughCentralDirectory(buf: Buffer): { name: string; data: Buffer }[] {
+  const eocd = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (eocd < 0) throw new Error('no end-of-central-directory record');
+  const count = buf.readUInt16LE(eocd + 10);
+  const cdSize = buf.readUInt32LE(eocd + 12);
+  let p = buf.readUInt32LE(eocd + 16);
+  const cdEnd = p + cdSize;
+  const out: { name: string; data: Buffer }[] = [];
+  for (let i = 0; i < count; i++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error(`central record ${i}: bad signature`);
+    const crc = buf.readUInt32LE(p + 16);
+    const size = buf.readUInt32LE(p + 24);
+    const nameLen = buf.readUInt16LE(p + 28);
+    const extraLen = buf.readUInt16LE(p + 30);
+    const commentLen = buf.readUInt16LE(p + 32);
+    const local = buf.readUInt32LE(p + 42);
+    const name = buf.slice(p + 46, p + 46 + nameLen).toString('utf8');
+    if (buf.readUInt32LE(local) !== 0x04034b50) throw new Error(`${name}: central record points at no local header`);
+    const localNameLen = buf.readUInt16LE(local + 26);
+    const localExtraLen = buf.readUInt16LE(local + 28);
+    if (buf.slice(local + 30, local + 30 + localNameLen).toString('utf8') !== name) throw new Error(`${name}: local name differs`);
+    const start = local + 30 + localNameLen + localExtraLen;
+    const data = buf.slice(start, start + size);
+    if (crc32(data) !== crc) throw new Error(`${name}: CRC in the central directory does not match the data`);
+    out.push({ name, data });
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  if (p !== cdEnd) throw new Error(`central directory is ${cdEnd - (cdEnd - cdSize)} bytes but its records end at ${p - (cdEnd - cdSize)}`);
+  return out;
+}
+
 describe('pack-extension', () => {
   it('the zip contains manifest.json and does not contain a .env file', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ts-pack-'));
@@ -44,6 +90,21 @@ describe('pack-extension', () => {
     expect(names).toContain('manifest.json');
     expect(names.some((name) => name === '.env' || name.endsWith('/.env'))).toBe(false);
     expect(names.some((name) => name.split('/').includes('node_modules'))).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('a real zip reader can open it: every central record matches its local header and data', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-pack-'));
+    const zip = join(dir, 'extension.zip');
+    const result = spawnSync(process.execPath, [join(ROOT, 'scripts/pack-extension.mjs'), join(ROOT, 'extension'), zip], {
+      encoding: 'utf8',
+      timeout: 60000,
+    });
+    expect(result.status).toBe(0);
+    const entries = readThroughCentralDirectory(readFileSync(zip));
+    const manifest = entries.find((e) => e.name === 'manifest.json');
+    expect(manifest?.data.equals(readFileSync(join(ROOT, 'extension', 'manifest.json')))).toBe(true);
+    expect(entries.length).toBeGreaterThan(5);
     rmSync(dir, { recursive: true, force: true });
   });
 });
