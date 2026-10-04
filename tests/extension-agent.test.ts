@@ -23,14 +23,15 @@ function stubFetch(routes: Record<string, unknown>) {
   const impl = async (url: string, init: RequestInit) => {
     seen.push(url);
     expect(init.credentials).toBe('omit');
-    const key = Object.keys(routes).find((k) => url.endsWith(k));
+    const path = url.split('?')[0]!;
+    const key = Object.keys(routes).find((k) => path.endsWith(k));
     if (!key || routes[key] === undefined) return { ok: false, json: async () => ({}) };
     return { ok: true, json: async () => routes[key] };
   };
   return { impl, seen };
 }
 
-const LIVE = { score: 1334, tier: 'ESTABLISHED' };
+const LIVE = { score: 1334, tier: 'ESTABLISHED', agent_id: FIXTURE.statement.agent_id };
 
 describe('checkAgent', () => {
   it('verified only when the verifier says verified, with live and proven score kept apart', async () => {
@@ -94,6 +95,34 @@ describe('checkAgent', () => {
     for (const outcome of ['not-verified', 'not-checked']) {
       expect(agent.agentLines({ id: 'a', score: 1, outcome }).join(' ')).not.toMatch(/Proof verified/);
     }
+  });
+});
+
+describe('binding: the proof must belong to the agent that was asked about (Strix, #437)', () => {
+  it('a valid proof for a different agent is not-verified, and the verifier is never asked', async () => {
+    const { impl } = stubFetch({
+      '/api/v1/repid/a': { ...LIVE, agent_id: 'the-agent-you-asked-about' },
+      '/api/v1/repid/a/proof': FIXTURE,
+    });
+    const verify = jest.fn(async () => ({ verified: true }));
+    const r = await agent.checkAgent('a', { fetchImpl: impl, verify });
+    expect(r).toMatchObject({ outcome: 'not-verified', reason: 'statement_for_other_agent' });
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it('with no resolved id to compare (an engine without ?with=id) it is not-checked, never verified', async () => {
+    const { impl } = stubFetch({
+      '/api/v1/repid/a': { score: 1334, tier: 'ESTABLISHED' },
+      '/api/v1/repid/a/proof': FIXTURE,
+    });
+    const r = await agent.checkAgent('a', { fetchImpl: impl, verify: async () => ({ verified: true }) });
+    expect(r).toMatchObject({ outcome: 'not-checked', reason: 'binding_unavailable' });
+  });
+
+  it('asks the live route for the resolved id', async () => {
+    const { impl, seen } = stubFetch({ '/api/v1/repid/a': LIVE, '/api/v1/repid/a/proof': FIXTURE });
+    await agent.checkAgent('a', { fetchImpl: impl, verify: async () => ({ verified: true }) });
+    expect(seen).toContain('https://repid-engine-production.up.railway.app/api/v1/repid/a?with=id');
   });
 });
 

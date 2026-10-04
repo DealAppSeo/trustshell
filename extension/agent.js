@@ -57,7 +57,7 @@
     const timeoutMs = Number.isFinite(o.timeoutMs) ? o.timeoutMs : 10000;
     const enc = encodeURIComponent(id);
     const [live, proof] = await Promise.all([
-      getJson(fetchImpl, `${base}/api/v1/repid/${enc}`, timeoutMs),
+      getJson(fetchImpl, `${base}/api/v1/repid/${enc}?with=id`, timeoutMs),
       getJson(fetchImpl, `${base}/api/v1/repid/${enc}/proof`, timeoutMs),
     ]);
     const score = live && typeof live.score === 'number' ? live.score : null;
@@ -69,6 +69,16 @@
     const statement = proof.statement;
     // A proof for another agent is not this agent's proof, whatever it verifies to.
     if (proof.agent_id && statement.agent_id && proof.agent_id !== statement.agent_id) {
+      return { ...base_, outcome: 'not-verified', reason: 'statement_for_other_agent' };
+    }
+    // Bind the proof to the agent that was ASKED ABOUT (Strix on #437, CWE-345): the two ids
+    // inside the proof agreeing with each other proves nothing about whose proof it is. The
+    // live route names the agent the typed id resolved to (?with=id); a proof for any other
+    // agent is not-verified. With no resolved id to compare against, the binding is not
+    // checked, so the outcome is not-checked: never "verified" for an agent we cannot tie it to.
+    const resolved = live && typeof live.agent_id === 'string' ? live.agent_id : null;
+    if (!resolved) return { ...base_, outcome: 'not-checked', reason: 'binding_unavailable' };
+    if (statement.agent_id !== resolved || (proof.agent_id && proof.agent_id !== resolved)) {
       return { ...base_, outcome: 'not-verified', reason: 'statement_for_other_agent' };
     }
     if (typeof o.verify !== 'function') return { ...base_, outcome: 'not-checked', reason: 'no_verifier' };
@@ -102,6 +112,8 @@
       if (r.attestation) lines.push(`On-chain receipt: ${r.attestation.slice(0, 10)}…`);
     } else if (r.outcome === 'not-verified') {
       lines.push('Proof NOT verified. Do not treat this score as proven.');
+    } else if (r.reason === 'binding_unavailable') {
+      lines.push('Proof not checked: a proof exists, but the engine did not say which agent this name is, so it cannot be tied to this agent yet. Not checked is not the same as verified.');
     } else {
       lines.push('Proof not checked: no proof could be read or verified here. Not checked is not the same as verified.');
     }
