@@ -1,0 +1,7 @@
+OK   install packed tarball
+OK   verify PASS (Paris) — exit=0 ✓ PASS  trust 100/100
+OK   verify VETO (Rome) — exit=1 ✗ VETO  trust 0/100
+OK   getRepID — exit=0
+OK   proof --verify — hash=0x71be6bc1d5
+OK   latestProofHash not null when CLI has a proof — latest=0x71be6bc1d5e8fa83a429a75321e31b9ac64677f9f9cfa426e80c6d7f0eb55b84
+OK   CLI and MCP same proof hash — cli=0x71be6bc1d5 mcp=0x71be6bc1d5

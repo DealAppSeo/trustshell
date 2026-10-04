@@ -1,0 +1,59 @@
+{
+  "suite": "check-walk",
+  "mode": "live",
+  "transport": "relayed-by-runner",
+  "engine": "https://repid-engine-production.up.railway.app",
+  "git_sha": "2571858bd50300f1537326867982120d9f292310",
+  "ran_at": "2026-10-04T08:25:30.398Z",
+  "verdict": "VERIFIED",
+  "checks": [
+    {
+      "name": "the page names all three answers",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "the privacy line names where the text goes",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "Check is disabled until something is typed",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "no sideways scroll on a 390px phone",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "live: \"Paris is the capital of France.\" gives pass",
+      "pass": true,
+      "note": "got pass",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "live: \"The Moon is made of cheese.\" gives veto",
+      "pass": true,
+      "note": "got veto",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "live: \"Pizza is the best food.\" gives not-checked",
+      "pass": true,
+      "note": "got not-checked",
+      "verdict": "VERIFIED"
+    },
+    {
+      "name": "no page errors",
+      "pass": true,
+      "note": "",
+      "verdict": "VERIFIED"
+    }
+  ]
+}
