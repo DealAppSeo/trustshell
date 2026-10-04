@@ -46,7 +46,7 @@ describe('store package', () => {
     expect(summary).toContain(SENT);
     expect(listing).not.toMatch(/launched/i);
     expect(listing.toLowerCase()).not.toContain('stake');
-    expect(listing).not.toContain('npx @hyperdag/trustshell@1.4.0');
+    expect(listing).not.toContain('npx @hyperdag/trustshell@1.5.0');
     expect(privacy).toContain(SENT);
     expect(privacy).toContain('It is not stored. Not printed is not the same as not sent.');
     expect(privacy.toLowerCase()).not.toContain('stake');

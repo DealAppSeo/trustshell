@@ -26,7 +26,7 @@ describe('home default panel', () => {
     expect(chat).toBeGreaterThan(copy);
     const first = hero.match(/const FIRST_COMMANDS = `([\s\S]*?)`;/);
     expect(first?.[1].replace(/\r/g, '').split('\n')).toEqual([
-      'npm i -g @hyperdag/trustshell@1.4.0',
+      'npm i -g @hyperdag/trustshell@1.5.0',
       'trustshell verify "paste your own claim"',
       'trustshell repid trinity-shofet',
     ]);

@@ -11,7 +11,7 @@ import { TrustShell } from '../src/lib/trustshell';
 const ROOT = join(__dirname, '..');
 const ENGINE = 'https://engine.test';
 const CLAIM = 'paste-your-own-claim-9f3c';
-const INSTALL = 'npm i -g @hyperdag/trustshell@1.4.0';
+const INSTALL = 'npm i -g @hyperdag/trustshell@1.5.0';
 
 type ProofFixture = {
   agentId: string;

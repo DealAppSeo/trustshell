@@ -41,6 +41,6 @@ describe('trustshell skill lists status', () => {
     expect(skill).toContain('Claude, ChatGPT, Grok, and Cursor');
     expect(skill).toContain('I have a terminal');
     expect(skill).not.toMatch(/memory\.sqlite/);
-    expect(skill).not.toMatch(/npx @hyperdag\/trustshell@1\.4\.0/);
+    expect(skill).not.toMatch(/npx @hyperdag\/trustshell@1\.5\.0/);
   });
 });

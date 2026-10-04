@@ -128,8 +128,20 @@ function isHistoricalPlan(text) {
   return /version-bump plan/i.test(head) && /(?:staged|do not publish)/i.test(head);
 }
 
+/**
+ * A dated record — a release draft, a sprint status, a closed ticket row — says what WAS true, and
+ * rewriting its version on every bump would falsify it. Its author marks it `doc-version:
+ * historical`, in the first 1200 characters for the whole file or on the one line. The mark is
+ * explicit and greppable on purpose: an unmarked install line is still a current claim.
+ */
+const HISTORICAL_MARK = /doc-version:\s*historical/i;
+function isHistoricalRecord(text) {
+  return HISTORICAL_MARK.test(text.slice(0, 1200));
+}
+
 function isCurrentClaim(line, version, matchIndex) {
   if (isFloor(line, matchIndex)) return false;
+  if (HISTORICAL_MARK.test(line)) return false;
   if (/(?:version-bump plan|staged\b|do not publish)/i.test(line)) return false;
 
   if (/installed package version/i.test(line)) return true;
@@ -203,7 +215,7 @@ function scanRepo(root = ROOT) {
     } catch {
       continue;
     }
-    if (isHistoricalPlan(text)) continue;
+    if (isHistoricalPlan(text) || isHistoricalRecord(text)) continue;
     hits.push(...scanFile(text, relPosix(root, f), pkg.version));
   }
   const stats = { md: files.length, version: pkg.version, hits: hits.length };
@@ -253,6 +265,7 @@ module.exports = {
   isFloor,
   isCurrentClaim,
   isHistoricalPlan,
+  isHistoricalRecord,
   cmpSemver,
 };
 

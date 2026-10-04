@@ -31,7 +31,7 @@ describe('home renders no top nav', () => {
     expect(hero).toContain("setPanel('terminal')");
     const block = hero.match(/const WIN_COMMANDS = `([\s\S]*?)`;/);
     expect(block?.[1].replace(/\r/g, '').split('\n')).toEqual([
-      'npm i -g @hyperdag/trustshell@1.4.0',
+      'npm i -g @hyperdag/trustshell@1.5.0',
       'trustshell status',
     ]);
     const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);

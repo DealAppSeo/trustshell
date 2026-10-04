@@ -1,3 +1,4 @@
+<!-- doc-version: historical — a dated record of the 1.4.0 work. Its version strings say what was true then; do not bump them. -->
 # TrustShell MVP close — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (this session: the named implementer runs inline after Sean says yes). Superpowers TDD is mandatory for any production change. Steps use checkbox (`- [ ]`) syntax for tracking.

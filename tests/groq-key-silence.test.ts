@@ -93,7 +93,7 @@ describe('GROQ_API_KEY stays out of CLI output', () => {
     expect(run.status).toBe(0);
     expect(run.stdout).not.toContain(SECRET);
     expect(run.stderr).not.toContain(SECRET);
-    expect(run.stdout).toMatch(/1\.4/);
+    expect(run.stdout).toMatch(/1\.5/);
   });
 
   it('a thrown error does not print the key', () => {

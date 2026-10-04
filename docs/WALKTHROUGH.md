@@ -9,7 +9,7 @@ Screenshot placeholders below are names only. The pictures are not in this repo.
 ## 1. Install
 
 ```bash
-npm i -g @hyperdag/trustshell@1.4.0
+npm i -g @hyperdag/trustshell@1.5.0
 ```
 
 Then:
