@@ -148,21 +148,10 @@ function draw(doc, options) {
 
 function install(doc) {
   if (!doc || !doc.documentElement) return;
-  var scheduled = false;
   function schedule() {
-    if (scheduled) return;
-    scheduled = true;
-    var view = doc.defaultView;
-    var raf = view && view.requestAnimationFrame;
-    if (typeof raf === 'function') {
-      raf.call(view, function () {
-        scheduled = false;
-        draw(doc);
-      });
-      return;
-    }
-    scheduled = false;
-    draw(doc);
+    var api = classifyApi();
+    if (api && typeof api.whenSettled === 'function') api.whenSettled(function () { draw(doc); });
+    else draw(doc);
   }
   schedule();
   if (typeof MutationObserver === 'function') {

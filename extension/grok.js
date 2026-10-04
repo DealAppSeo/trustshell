@@ -105,7 +105,6 @@ function ensureStamp(doc, after) {
 }
 
 function install(doc) {
-  let scheduled = false;
   let pending = '';
   let painted = '';
 
@@ -127,15 +126,9 @@ function install(doc) {
   }
 
   function schedule() {
-    if (scheduled) return;
-    scheduled = true;
-    const frame = doc.defaultView && doc.defaultView.requestAnimationFrame;
-    const run = () => {
-      scheduled = false;
-      draw();
-    };
-    if (frame) frame(run);
-    else run();
+    const api = classifyApi();
+    if (api && typeof api.whenSettled === 'function') api.whenSettled(() => { draw(); });
+    else draw();
   }
 
   schedule();
@@ -147,5 +140,5 @@ if (typeof document !== 'undefined' && !(typeof module === 'object' && module &&
 }
 
 if (typeof module === 'object' && module && module.exports) {
-  module.exports = { stampText, lastAssistant, readText, classifyReply };
+  module.exports = { stampText, lastAssistant, readText, classifyReply, install };
 }
