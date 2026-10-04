@@ -48,6 +48,13 @@ describe('publish-sdk.yml publishes through npm trusted publishing', () => {
     expect(publish).toMatch(/npm publish pkg\/\*\.tgz .*--ignore-scripts/);
   });
 
+  it('asks for provenance explicitly, so a provenance failure stops the publish', () => {
+    // npm 11 enables it by itself for a public repo, but swallows any error doing so (oidc.js).
+    const publishes = job('publish').split('\n').filter((l) => /^\s*npm publish /.test(l));
+    expect(publishes).toHaveLength(2);
+    for (const line of publishes) expect(line).toContain('--provenance');
+  });
+
   it('uses an npm that can publish through OIDC (11.5.1+)', () => {
     expect(job('publish')).toMatch(/npm install -g npm@\^11\.5\.1/);
   });

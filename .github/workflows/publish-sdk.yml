@@ -299,15 +299,17 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
           set -euo pipefail
-          npm publish pkg/*.tgz --dry-run --access public --ignore-scripts --tag "$DIST_TAG"
+          npm publish pkg/*.tgz --dry-run --provenance --access public --ignore-scripts --tag "$DIST_TAG"
           echo "- result: **DRY RUN** — nothing was published. dist-tag would be \`$DIST_TAG\`." >> "$GITHUB_STEP_SUMMARY"
 
-      # No NODE_AUTH_TOKEN: npm exchanges this job's OIDC token itself. For a public repo and
-      # package it also adds a provenance attestation, which needs package.json
-      # `repository.url` to match this repository exactly.
+      # No NODE_AUTH_TOKEN: npm exchanges this job's OIDC token itself.
+      # --provenance is explicit on purpose. npm 11 turns provenance on by itself for a public repo
+      # and package, but inside a catch that only logs at verbose level (oidc.js), so a failure there
+      # would ship the version without provenance and say nothing. Explicit, it fails the publish.
+      # Provenance needs package.json `repository.url` to match this repository exactly.
       - name: Publish to npm
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         run: |
           set -euo pipefail
-          npm publish pkg/*.tgz --access public --ignore-scripts --tag "$DIST_TAG"
+          npm publish pkg/*.tgz --provenance --access public --ignore-scripts --tag "$DIST_TAG"
           echo "- result: **PUBLISHED** \`$VERSION\` to dist-tag \`$DIST_TAG\`." >> "$GITHUB_STEP_SUMMARY"
