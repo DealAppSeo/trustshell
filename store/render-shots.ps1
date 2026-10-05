@@ -27,17 +27,16 @@ function New-Shot([string]$path, [string]$reply, [string]$stamp, [string]$extra)
 
   $stampColor = $ink
   $stampPen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(17, 24, 39)), 1
-  if ($stamp -eq 'not-checked') {
+  if ($stamp -eq 'Not checked') {
     $stampColor = $muted
     $stampPen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(229, 231, 235)), 1
   }
-  $g.DrawRectangle($stampPen, 240, 390, 140, 28)
+  $g.DrawRectangle($stampPen, 240, 390, 200, 28)
   $format = New-Object System.Drawing.StringFormat
   $format.Alignment = [System.Drawing.StringAlignment]::Center
   $format.LineAlignment = [System.Drawing.StringAlignment]::Center
-  $box = New-Object System.Drawing.RectangleF 240, 390, 140, 28
+  $box = New-Object System.Drawing.RectangleF 240, 390, 200, 28
   $g.DrawString($stamp, $stampFont, $stampColor, $box, $format)
-  if ($stamp -eq 'veto') { $g.DrawLine($stampPen, 258, 404, 362, 404) }
   if ($extra) { $g.DrawString($extra, $bodyFont, $ink, 240, 440) }
 
   $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -48,6 +47,6 @@ function New-Shot([string]$path, [string]$reply, [string]$stamp, [string]$extra)
   $stampFont.Dispose()
 }
 
-New-Shot (Join-Path $outDir 'pass.png') '2 + 2 = 4.' 'pass' ''
-New-Shot (Join-Path $outDir 'veto.png') 'This answer invents a source.' 'veto' 'Caught. This reply did not pass.'
-New-Shot (Join-Path $outDir 'not-checked.png') '' 'not-checked' 'No reply was there to check.'
+New-Shot (Join-Path $outDir 'pass.png') '2 + 2 = 4.' 'Checks out' ''
+New-Shot (Join-Path $outDir 'veto.png') 'This answer invents a source.' 'Caught' 'Checked and found false.'
+New-Shot (Join-Path $outDir 'not-checked.png') '' 'Not checked' 'No reply was there to check.'

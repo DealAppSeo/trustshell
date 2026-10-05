@@ -1,6 +1,24 @@
-# AI lies. Now it has to show its work.
+# Paste something an AI told you and see if it checks out.
 
-Check any claim. Get a receipt. Your keys stay yours.
+```powershell
+npx @hyperdag/trustshell check "If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph."
+```
+
+```
+veto
+The classifier labelled this sentence veto — do not rely on it (356 ms).
+```
+
+That run exited 1.
+
+```mermaid
+flowchart TD
+  sentence[A sentence] --> arithmetic{Whole sentence is arithmetic?}
+  arithmetic -->|yes| exact[Exact result. No model.]
+  arithmetic -->|no| checkers[Two checkers, Groq and Cerebras]
+  exact --> label[pass, veto, or not-checked]
+  checkers --> label
+```
 
 <!--
   Embed slot. The player stays out of the README until the file is in the repo.
@@ -8,12 +26,6 @@ Check any claim. Get a receipt. Your keys stay yours.
 -->
 
 Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists: `E:\TrustDisk\video\trustshell-demo-20s.mp4`. The player is hidden until that file is there.
-
-```bash
-npm i -g @hyperdag/trustshell@1.6.0
-trustshell verify "paste your own claim"
-trustshell repid trinity-shofet
-```
 
 <div align="center">
 

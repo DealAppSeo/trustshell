@@ -39,14 +39,28 @@ describe('store package', () => {
   const listing = readFileSync(join(ROOT, 'store/LISTING.md'), 'utf8');
   const privacy = readFileSync(join(ROOT, 'public/privacy.html'), 'utf8');
 
-  it('the summary names the three labels and Groq, and fits the short field', () => {
+  it('the summary uses the stamp words a stranger sees, and fits the short field', () => {
     const summary = listing.split('## Summary')[1].split('## Description')[0].trim();
+    const description = listing.split('## Description')[1].split('## Screenshots')[0];
     expect(summary.length).toBeLessThanOrEqual(132);
-    expect(summary).toContain('pass, veto, or not-checked');
+    expect(summary).toContain('Checks out');
+    expect(summary).toContain('Caught');
+    expect(summary).toContain('Not checked');
+    expect(summary).not.toContain('pass, veto, or not-checked');
     expect(summary).toContain(SENT);
+    expect(description).toContain('Do not paste secrets');
+    expect(description).toContain('after the reply is on screen');
+    expect(description).toContain('Known key and personal-data formats are removed before sending.');
+    expect(description).not.toContain('The stamp is pass, veto, or not-checked.');
     expect(listing).not.toMatch(/launched/i);
     expect(listing.toLowerCase()).not.toContain('stake');
     expect(listing).not.toContain('npx @hyperdag/trustshell@1.6.0');
+    expect(listing).not.toMatch(/filtered before it reaches you/i);
+    expect(listing).not.toMatch(/private by default/i);
+    expect(listing).not.toMatch(/\bLaya\b/);
+    expect(listing).not.toMatch(/\bJev\b/);
+    expect(listing).not.toMatch(/receipt/i);
+    expect(listing).not.toMatch(/\d+\s*%/);
     expect(privacy).toContain(SENT);
     expect(privacy).toContain('It is not stored. Not printed is not the same as not sent.');
     expect(privacy.toLowerCase()).not.toContain('stake');
@@ -54,9 +68,24 @@ describe('store package', () => {
     expect(privacy).not.toMatch(/is not sent/);
     expect(listing).toContain('Check with TrustShell');
     expect(privacy).toContain('Check with TrustShell');
+    const manifest = JSON.parse(readFileSync(join(ROOT, 'extension/manifest.json'), 'utf8')) as {
+      action?: { default_popup?: string };
+    };
+    if (!manifest.action || manifest.action.default_popup !== 'popup.html') {
+      expect(listing).not.toMatch(/click the icon/i);
+    }
   });
 
-  it('the three shots are 1280 by 800', () => {
+  it('the three shots are 1280 by 800 and the script draws the stamp words', () => {
+    const script = readFileSync(join(ROOT, 'store/render-shots.ps1'), 'utf8');
+    expect(script).toContain("'Checks out'");
+    expect(script).toContain("'Caught'");
+    expect(script).toContain("'Not checked'");
+    expect(script).toContain('Checked and found false.');
+    expect(script).not.toMatch(/'pass'/);
+    expect(script).not.toMatch(/'veto'/);
+    expect(script).not.toMatch(/'not-checked'/);
+    expect(script).not.toMatch(/Paris/);
     for (const name of ['pass.png', 'veto.png', 'not-checked.png']) {
       const size = pngSize(readFileSync(join(ROOT, 'store/screenshots', name)));
       expect(size).toEqual({ width: 1280, height: 800 });

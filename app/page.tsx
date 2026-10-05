@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { Hero } from '@/components/hero';
+import { HomeAgent } from '@/components/home-agent';
+import { HomeWhere } from '@/components/home-where';
+import { StickyCheck } from '@/components/sticky-check';
 
 export const metadata: Metadata = {
   title: 'TrustShell',
@@ -22,6 +25,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       <Hero />
+      <HomeAgent />
+      <HomeWhere />
+      <StickyCheck />
     </main>
   );
 }

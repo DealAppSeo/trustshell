@@ -221,6 +221,39 @@ try {
     check("context menu 'trustshell-check' exists", menu === 'ok',
       menu === 'ok' ? 'contextMenus.update returned no lastError' : 'contextMenus.update set lastError — the menu was never created');
 
+    // The toolbar icon's popup is an extension page, not a content script. Opening it by the
+    // extension id is how Chromium shows default_popup without a real toolbar click.
+    const popupPage = await context.newPage();
+    const popupErrors = [];
+    popupPage.on('pageerror', (err) => popupErrors.push(String(err && err.message)));
+    try {
+      const extId = new URL(sw.url()).host;
+      await popupPage.goto(`chrome-extension://${extId}/popup.html`, { waitUntil: 'load', timeout: 15000 });
+      const info = await popupPage.evaluate(() => {
+        const text = document.body ? document.body.innerText : '';
+        const words = text.split(/\s+/).filter(Boolean);
+        return {
+          words: words.length,
+          text,
+          line: Boolean(document.getElementById('popup-line')),
+          form: Boolean(document.getElementById('agent-form')),
+        };
+      });
+      check('toolbar popup opens',
+        info.form && !info.line && info.words > 0 && info.words < 80 &&
+          info.text.includes('Groq and Cerebras') &&
+          info.text.includes('after the reply is on screen') &&
+          info.text.includes('not stored') &&
+          info.text.includes('Do not paste secrets') &&
+          info.text.includes('Check with TrustShell') &&
+          info.text.includes('RepID') &&
+          popupErrors.length === 0,
+        `${info.words} words, line=${info.line}, errors=${popupErrors.slice(0, 2).join(' | ') || 'none'}`);
+    } catch (err) {
+      record('toolbar popup opens', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    await popupPage.close();
+
     // ---- b. B19: onMenuClick inside the worker, nothing real called ------------------------
     const b19 = await sw.evaluate(async () => {
       const calls = [];
@@ -255,6 +288,7 @@ try {
     record('every importScripts global is defined', 'NOT_CHECKED', 'no service worker to ask');
     record("context menu 'trustshell-check' exists", 'NOT_CHECKED', 'no service worker to ask');
     record('B19 menu click returns veto', 'NOT_CHECKED', 'no service worker to ask');
+    record('toolbar popup opens', 'NOT_CHECKED', 'no service worker to ask');
   }
 
   // ---- c. content scripts on the five hosts ---------------------------------------------------
@@ -300,6 +334,11 @@ try {
     }
     check(`${host.name}: no redeclared name, no page error`, declared.length === 0 && errors.length === 0,
       errors.length ? errors.slice(0, 3).join(' | ') : 'none');
+    if (host.name === 'chatgpt') {
+      const leaked = await page.evaluate(() => document.body && document.body.innerText.includes('Do not paste secrets')).catch(() => null);
+      check('chatgpt: the toolbar popup is not injected into the page', leaked === false,
+        leaked === null ? 'could not read the page' : leaked ? 'popup copy is on the host page' : 'host page has no popup copy');
+    }
     await page.close();
   }
 
