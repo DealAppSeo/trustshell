@@ -24,7 +24,7 @@
  * The pure functions (parseArgs, verdictExitCode, formatting) are exported so the
  * arg-parsing + exit-code logic is unit-testable with NO network (mirrors the MCP).
  */
-import { TrustShell, type VerifyOutputResult, type ProofPresentation } from '../lib/trustshell';
+import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export declare const EXIT: {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -33,10 +33,18 @@ export declare const EXIT: {
     readonly VETO: 1;
     /** Usage / argument error. */
     readonly USAGE: 2;
+    /**
+     * HAL did not decide (abstain, no decision, or no provider consulted). Shares 2 with USAGE on
+     * purpose: `check "<sentence>"` already exits 2 for not-checked, and a CI gate written as
+     * `trustshell verify … || exit 1` must fail on it, never pass.
+     */
+    readonly NOT_CHECKED: 2;
     /** Runtime error (network / backend / timeout). */
     readonly RUNTIME: 3;
+    /** Laya ask. A person has to answer. HAL was not called. */
+    readonly ASK: 4;
 };
-export type Command = 'verify' | 'repid' | 'proof' | 'badge' | 'check' | 'inspect' | 'init' | 'report' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'bind-status' | 'traps' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -49,12 +57,22 @@ export interface ParsedArgs {
     verify: boolean;
     /** init: replace an existing profile. Without it, an existing profile is left untouched. */
     force?: boolean;
+    /** init: run scripts/init-pai.mjs (PAI FACE — live register) instead of the blank profile. */
+    pai?: boolean;
+    /** init --pai: print NOT_MINTED and do not spawn the register script. No network. */
+    dryRun?: boolean;
+    /** init --pai: forwarded to scripts/init-pai.mjs */
+    name?: string;
+    /** init --pai: forwarded to scripts/init-pai.mjs (`job|cost|brain`) */
+    answers?: string;
     /** inspect: read a foreign log through an adapter. Adapters always yield UNCHAINED. */
     from?: string;
     /** report: path to the session log. */
     session?: string;
     /** report: path to saved `check --json` output. `report` never fetches. */
     evidence?: string;
+    /** remember/recall/redact: a local sqlite key. Absent on the one-argument note path. */
+    key?: string;
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }
@@ -71,6 +89,32 @@ export interface ParsedArgs {
  * reported version was reading a two-release-old number.
  */
 export declare const VERSION: string;
+/** Repo-relative path the published CLI must be able to spawn. */
+export declare const INIT_PAI_SCRIPT = "scripts/init-pai.mjs";
+/** The path a stranger can run from a clone when the script is not in this install. */
+export declare const INIT_PAI_DOC = "node scripts/init-pai.mjs --name <n>";
+/** `cliDir` is src/cli or dist/cli — both sit two levels below the package root. */
+export declare function resolveInitPai(cliDir: string): string;
+export interface InitPaiFs {
+    exists(p: string): boolean;
+    spawn(cmd: string, args: string[]): {
+        status: number | null;
+    };
+}
+/**
+ * Spawn scripts/init-pai.mjs. Missing script → USAGE, never silent 0
+ * (the unpublished-bin failure class).
+ */
+export declare function runInitPai(impl: InitPaiFs, opts: {
+    cliDir: string;
+    name?: string;
+    answers?: string;
+    force?: boolean;
+}): {
+    code: number;
+    missing: boolean;
+    script: string;
+};
 /**
  * Parse CLI arguments into a {@link ParsedArgs}. PURE — no I/O, no network — so the
  * command routing + option handling can be unit-tested directly.
@@ -80,14 +124,20 @@ export declare const VERSION: string;
 export declare function parseArgs(argv: string[]): ParsedArgs;
 /**
  * Map a HAL verdict to a process exit code. PURE + testable.
- * VETO fails the build (exit 1); PASS and FLAG both succeed (exit 0) — a soft FLAG is
- * informational, not a gate failure, matching the SDK's `ok = verdict !== 'VETO'`.
+ * VETO fails the build (exit 1); NOT_CHECKED exits 2, never 0; PASS and FLAG succeed (exit 0) —
+ * a soft FLAG is informational, not a gate failure, matching the SDK's `ok`.
  */
-export declare function verdictExitCode(verdict: 'PASS' | 'FLAG' | 'VETO'): number;
+export declare function verdictExitCode(verdict: Verdict): number;
 /** Human-readable one-line verdict banner (no color deps — plain, CI-log-safe). */
 export declare function formatVerdictLine(r: Pick<VerifyOutputResult, 'verdict' | 'trustScore'>): string;
-/** Format a full verify result for human terminal output. */
-export declare function formatVerify(r: VerifyOutputResult): string;
+/**
+ * Format a full verify result for human terminal output. "You have a receipt." is printed only
+ * when a receipt was actually written: it used to print on every PASS, including runs whose
+ * receipt line said NOT_CHECKED.
+ */
+export declare function formatVerify(r: VerifyOutputResult, opts?: {
+    receiptWritten?: boolean;
+}): string;
 /** Format a RepID result for human terminal output. */
 export declare function formatRepid(agentId: string, repid: number, tier: string): string;
 /** Format a proof presentation for human terminal output. */
@@ -104,6 +154,12 @@ export interface CliIO {
  * The client is injected so tests can pass a mock (no live network).
  */
 export declare function run(args: ParsedArgs, client: TrustShell, io?: CliIO): Promise<number>;
+/**
+ * `trustshell check "<sentence>"` — the sentence form. Calls {@link classifyClaim}, the
+ * SAME function the MCP `check_claim` tool calls, so the two cannot drift.
+ * Exit codes: pass 0, veto 1, not-checked 2, error 3 (nothing was sent).
+ */
+export declare function runClaimCheck(sentence: string, json: boolean, io: CliIO): Promise<number>;
 /** Entry point: parse argv, run, exit with the returned code. */
 export declare function main(argv?: string[]): Promise<void>;
 /**

@@ -28,7 +28,7 @@ In the popup, type an agent id to see its RepID and a proof checked in your brow
 
 The extension does not click, type, or send the chat.
 
-Privacy policy page: public/privacy.html
+Privacy policy page: https://www.trustshell.dev/privacy.html (public/privacy.html). That URL answers today. Paste it after this wording is what the URL shows.
 
 ## Screenshots
 
