@@ -46,7 +46,7 @@ const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extens
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
 const CAUGHT = 'Caught\nChecked and found false.';
 const CHECKING = 'Checking with Groq and Cerebras';
-const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellLaya', 'trustshellSelect'];
+const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
 
 /**
@@ -236,8 +236,10 @@ try {
       check('B19 menu click returns veto', false, b19.error);
     } else {
       check('B19 menu click returns veto', b19.label === 'veto' && b19.shown === 'veto', `label=${b19.label} shown=${b19.shown}`);
-      check('B19 paints with paintLabel(["veto"]) on the clicked tab',
-        b19.count === 1 && b19.isPaintLabel && b19.tabId === 1 && JSON.stringify(b19.args) === '["veto"]',
+      // The toast text comes from classify.js inside the worker, so this also proves it loaded there.
+      check('B19 paints the stamp words, with veto as the tooltip label, on the clicked tab',
+        b19.count === 1 && b19.isPaintLabel && b19.tabId === 1 &&
+          JSON.stringify(b19.args) === JSON.stringify(['Caught\nChecked and found false.', 'veto']),
         `executeScript calls=${b19.count} func=paintLabel:${b19.isPaintLabel} tabId=${b19.tabId} args=${JSON.stringify(b19.args)}`);
     }
   } else {

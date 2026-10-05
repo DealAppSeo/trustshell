@@ -47,6 +47,10 @@ All notable changes to the `@hyperdag/trustshell` package.
   An endpoint that does not report it gets no line; nothing is guessed. The extension's chatgpt
   and grok scripts used to rebuild each answer and drop every field but the label, so they could
   never have shown it. `tests/claim-path-parity.test.ts` keeps the CLI and extension wording identical.
+- **The right-click check speaks the stamp's words.** "Check with TrustShell" on selected text
+  used to show a bare `pass`, `veto` or `not-checked`. It now shows Checks out / Caught / Not
+  checked plus the line saying what produced it, with the machine label in the tooltip. The
+  words come from the same file as the stamp, so the two cannot disagree.
 - **`TRUSTSHELL_MEMORY_ENCRYPT=on` now encrypts.** The setting existed and nothing read it, so
   every note went to disk in plain text while the setting said otherwise. `remember`, `recall` and
   the MCP `remember` / `recall` tools now seal notes and values with AES-256-GCM under

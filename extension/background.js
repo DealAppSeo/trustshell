@@ -1,6 +1,6 @@
 'use strict';
 
-importScripts('route.js', 'verify.js', 'popup.js', 'scrub.js', 'laya.js', 'select.js');
+importScripts('route.js', 'verify.js', 'popup.js', 'scrub.js', 'laya.js', 'classify.js', 'select.js');
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.type !== 'trustshell-verify') return;
