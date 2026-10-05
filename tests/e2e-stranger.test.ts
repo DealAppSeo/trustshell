@@ -283,7 +283,7 @@ describe('stranger e2e on current main', () => {
     expect(hero).toContain('Every answer gets checks you can see.');
     expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).not.toContain('Check a claim in the chat you already use');
-    expect(hero).toContain('npx @hyperdag/trustshell check "The Eiffel Tower is in Berlin."');
+    expect(hero).toContain('const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.5.0');
     expect(hero).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.5\.0[^\n]*status/);
     expect(landing).not.toContain('E:\\TrustDisk');

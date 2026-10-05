@@ -18,8 +18,7 @@ import { join } from 'node:path';
 import type { ReactElement } from 'react';
 
 const ROOT = join(__dirname, '..');
-const FALSE_SAMPLE = 'The Eiffel Tower is in Berlin.';
-const TRUE_SAMPLE = 'Paris is the capital of France.';
+import { HOME_SAMPLES, SPEED_TRAP } from '../lib/home-samples';
 const PRIVACY =
   'What you type is sent to our checkers, Groq and Cerebras. It is not stored. Do not paste anything private.';
 const NOT_YET = 'ChatGPT and Grok: not yet.';
@@ -75,25 +74,36 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(home.calls).toHaveLength(0);
   });
 
-  it('renders the check form prefilled with the false sample, Check ready to click', () => {
+  it('renders the check form prefilled with the speed trap, Check ready to click', () => {
     expect(home.html).toContain('data-testid="check-form"');
     const box = home.html.match(/<textarea\b[^>]*\bid="claim"[^>]*>([\s\S]*?)<\/textarea>/);
-    expect(box?.[1]).toBe(FALSE_SAMPLE);
+    expect(box?.[1]).toBe(SPEED_TRAP);
     const submit = buttons(home.html).filter((b) => /type="submit"/.test(b));
     expect(submit).toHaveLength(1);
     expect(words(submit[0] ?? '')).toBe('Check');
     expect(submit[0]).not.toMatch(/\sdisabled=""/); // the attribute, not the disabled: classes
   });
 
-  it('offers the true sample as a swap, and no swap control can submit the form', () => {
+  it('offers every measured sample as a swap, and no swap control can submit the form', () => {
     const samples = buttons(home.html).filter((b) => b.includes('data-testid="check-sample"'));
-    expect(samples.map((b) => b.match(/data-sample="([^"]*)"/)?.[1])).toEqual([FALSE_SAMPLE, TRUE_SAMPLE]);
+    const decode = (v: string) => v.replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+    expect(samples.map((b) => decode(b.match(/data-sample="([^"]*)"/)?.[1] ?? ''))).toEqual(HOME_SAMPLES.map((x) => x.text));
     // A <button> in a form defaults to submit. Every one that is not Check must say type="button".
     for (const b of samples) expect(b).toMatch(/type="button"/);
     expect(samples[0]).toMatch(/aria-pressed="true"/);
-    expect(samples[1]).toMatch(/aria-pressed="false"/);
-    // Check plus the two samples: no other button competes with Check.
-    expect(buttons(home.html)).toHaveLength(3);
+    for (const b of samples.slice(1)) expect(b).toMatch(/aria-pressed="false"/);
+    // Check plus the samples: no other button competes with Check.
+    expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length);
+  });
+
+  it('teaches all three answers: at least one sample each for Caught, Checks out and Not checked', () => {
+    const expected = HOME_SAMPLES.map((x) => x.why?.when ?? 'not-checked');
+    expect(expected).toEqual(expect.arrayContaining(['veto', 'pass', 'not-checked']));
+  });
+
+  it('renders no explanation before a check: a why line appears only after the checkers answer', () => {
+    expect(home.html).not.toContain('data-testid="check-why-sample"');
+    for (const x of HOME_SAMPLES) if (x.why) expect(text).not.toContain(x.why.text);
   });
 
   it('puts the privacy sentence, once, above the Check button', () => {
@@ -120,7 +130,7 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     const formEnd = home.html.indexOf('</form>');
     const after = words(home.html.slice(formEnd));
     expect(after).toContain('Use it in your terminal');
-    expect(after).toContain('npx @hyperdag/trustshell check "The Eiffel Tower is in Berlin."');
+    expect(after).toContain(`npx @hyperdag/trustshell check "${SPEED_TRAP}"`);
     expect(after).toContain('Add it to your agent');
     expect(after).toContain('For Claude Desktop and Cursor.');
     const steps = home.html.slice(formEnd).match(/<ol\b[^>]*>([\s\S]*?)<\/ol>/)?.[1] ?? '';

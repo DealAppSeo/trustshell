@@ -25,11 +25,10 @@ describe('site install copy matches published 1.4.0', () => {
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.5.0');
     // Pinned to the same version as the install line: `check "<sentence>"` ships in 1.5.0.
-    expect(hero).toContain('npx @hyperdag/trustshell check "The Eiffel Tower is in Berlin."');
+    expect(hero).toContain('const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
     expect(hero).not.toContain('trustshell status');
     expect(hero.match(/@hyperdag\/trustshell@(\d+\.\d+\.\d+)/g)).toEqual(['@hyperdag/trustshell@1.5.0']);
-    const withoutSamples = hero.split('The Eiffel Tower is in Berlin.').join('').split('Paris is the capital of France.').join('');
-    expect(withoutSamples).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
+    expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
     expect(paste?.[1]).toBe('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
     expect(paste?.[1] ?? '').not.toMatch(/npm/i);
