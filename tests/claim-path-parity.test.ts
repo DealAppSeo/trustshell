@@ -148,3 +148,78 @@ describe('end to end through each door, with the endpoint stubbed', () => {
     expect(classify.lineFor(row)).toBe('');
   });
 });
+
+/**
+ * XC1's red-team finding (night bus #449, X1): a 200 whose `by` is out of contract kept its label,
+ * so `{"label":"pass","by":"skipped"}` painted Checks out. The server never sends that shape
+ * (repid-engine answerOf turns it into not-checked), so a client that receives it is not reading
+ * this server, and its label decides nothing. An answer with no `by` at all is an older endpoint
+ * and keeps its label, as before.
+ */
+describe('an answer that names a path it does not have is not checked, at every door', () => {
+  const realFetch = (globalThis as { fetch?: unknown }).fetch;
+  afterEach(() => {
+    (globalThis as { fetch?: unknown }).fetch = realFetch;
+  });
+
+  const OUT_OF_CONTRACT: unknown[] = [
+    { label: 'pass', by: 'skipped' },
+    { label: 'pass', by: 'deadline' },
+    { label: 'pass', by: 'votes', voters: [] },
+    { label: 'pass', by: 'votes' },
+    { label: 'pass', by: 'not-a-path' },
+    { label: 'veto', by: 'skipped' },
+    { label: 'veto', by: 'votes', voters: [] },
+    { label: 'pass', by: null },
+    { label: 'pass', by: 'votes', voters: ['Groq <b>'] },
+  ];
+
+  for (const body of OUT_OF_CONTRACT) {
+    it(`${JSON.stringify(body)} is not-checked through claim.ts and the extension`, async () => {
+      (globalThis as { fetch?: unknown }).fetch = stub(body);
+      const r = await classifyClaim('The Moon is made of cheese.', { apiUrl: 'http://localhost:9' });
+      expect(r.label).toBe('not-checked');
+      expect(r).not.toHaveProperty('by');
+      const row = await classify.classifyReply('The Moon is made of cheese.', {
+        endpoint: 'http://localhost:9/api/v1/classify',
+        fetchImpl: stub(body),
+      });
+      expect(row.label).toBe('not-checked');
+      expect(row).not.toHaveProperty('by');
+      expect(classify.lineFor(row)).toBe('');
+    });
+  }
+
+  it('the reason says the answer was out of contract', async () => {
+    (globalThis as { fetch?: unknown }).fetch = stub({ label: 'pass', by: 'skipped' });
+    const r = await classifyClaim('x is y', { apiUrl: 'http://localhost:9' });
+    expect(r.reason).toMatch(/out of contract/);
+  });
+
+  it('a well-formed path keeps its label, and no by at all keeps it too', async () => {
+    for (const body of [
+      { label: 'pass', by: 'votes', voters: ['groq', 'cerebras'] },
+      { label: 'veto', by: 'arithmetic' },
+      { label: 'not-checked', by: 'skipped' },
+      { label: 'pass' },
+    ]) {
+      (globalThis as { fetch?: unknown }).fetch = stub(body);
+      const r = await classifyClaim('x is y', { apiUrl: 'http://localhost:9' });
+      expect(r.label).toBe((body as { label: string }).label);
+      const row = await laya.callLaya('x is y', { modelUrl: 'http://localhost:9/api/v1/classify', fetchImpl: stub(body) });
+      expect(row.label).toBe((body as { label: string }).label);
+    }
+  });
+
+  for (const body of BODIES) {
+    for (const label of LABELS) {
+      const full = body && typeof body === 'object' ? { ...(body as object), label } : body;
+      it(`both sides give one label for ${JSON.stringify(full)}`, async () => {
+        (globalThis as { fetch?: unknown }).fetch = stub(full);
+        const r = await classifyClaim('x is y', { apiUrl: 'http://localhost:9' });
+        const row = await laya.callLaya('x is y', { modelUrl: 'http://localhost:9/api/v1/classify', fetchImpl: stub(full) });
+        expect(row.label).toBe(r.label);
+      });
+    }
+  }
+});

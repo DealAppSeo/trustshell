@@ -54,6 +54,43 @@ export interface ClaimResult {
   by?: ClaimPath;
   /** Only with by === 'votes': the voters the claim was sent to, as the endpoint named them. */
   voters?: string[];
+  /**
+   * One clarifying question, present ONLY when the endpoint asked one (repid-engine
+   * CLASSIFY_QUESTIONS): a not-checked from the votes, where both voters were unsure and one fact
+   * would let them decide. It comes from the API or it does not appear; nothing here invents one.
+   */
+  question?: string;
+}
+
+const QUESTION_MIN = 10;
+const QUESTION_MAX = 160;
+/** Defence in depth: the server already parses strictly; this client refuses the same shapes. */
+const QUESTION_REFUSED = /[@<>[\]`*_#~|\\]|https?:|www\.|\b[a-z0-9-]+\.(com|org|net|io|dev|ai|app|co)\b/i;
+
+/** The question, or undefined when absent, malformed, or attached to anything but a votes not-checked. PURE. */
+export function questionOf(body: unknown, label: ClaimLabel, by: ClaimPath | undefined): string | undefined {
+  if (label !== 'not-checked' || by !== 'votes') return undefined;
+  if (!body || typeof body !== 'object') return undefined;
+  const raw = (body as { question?: unknown }).question;
+  if (typeof raw !== 'string') return undefined;
+  const q = raw.normalize('NFKC').trim();
+  if (q.length < QUESTION_MIN || q.length > QUESTION_MAX || !q.endsWith('?')) return undefined;
+  if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(q) || QUESTION_REFUSED.test(q)) return undefined;
+  return q;
+}
+
+/** The longest answer a person may give to the one question. */
+export const ANSWER_MAX_CHARS = 200;
+
+/**
+ * The sentence to check again once the person answers: the claim, then their answer as the
+ * assumption the checkers lacked. PURE. Throws ClaimError on an empty answer: nothing is sent.
+ */
+export function withAnswer(claim: string, answer: string): string {
+  const a = String(answer ?? '').trim().slice(0, ANSWER_MAX_CHARS);
+  if (!a) throw new ClaimError('nothing to add: the answer is empty');
+  const c = String(claim ?? '').trim().replace(/[.!?]*$/, '');
+  return `${c}. Assume: ${a.replace(/[.!?]*$/, '')}.`;
 }
 
 export const CLAIM_PATHS = ['arithmetic', 'votes', 'skipped', 'deadline'] as const;
@@ -232,7 +269,15 @@ export async function classifyClaim(text: string, opts: ClaimOptions = {}): Prom
       if (!label) return notChecked('endpoint label is outside the contract (pass | veto | not-checked)');
       const reported = (body as { latency_ms?: unknown }).latency_ms;
       const latency_ms = typeof reported === 'number' && Number.isFinite(reported) ? reported : elapsed();
-      return mark({ label, latency_ms, ...pathOf(body, label) });
+      const path = pathOf(body, label);
+      // A `by` this server never sends ({"label":"pass","by":"skipped"}) means the answer is not
+      // the server's, so its label decides nothing (XC1, night bus #449). No `by` at all is an
+      // older endpoint and keeps its label.
+      if ((body as { by?: unknown }).by !== undefined && path.by === undefined) {
+        return notChecked('endpoint said what produced the label, out of contract (by / voters)');
+      }
+      const question = questionOf(body, label, path.by);
+      return mark({ label, latency_ms, ...path, ...(question ? { question } : {}) });
     })();
     const out = await Promise.race([call, timedOut]);
     if (out === 'timeout') {

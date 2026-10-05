@@ -194,10 +194,16 @@ describe('nothing in the form sends on its own (the source half)', () => {
     }
   });
 
-  it('calls classifyClaim once, inside onSubmit, and the swap handler calls nothing', () => {
-    expect(form.match(/classifyClaim\(/g)).toHaveLength(1);
-    const onSubmit = form.slice(form.indexOf('async function onSubmit'), form.indexOf('const meaning ='));
-    expect(onSubmit).toContain('classifyClaim(');
+  it('calls classifyClaim only from a person\'s click: onSubmit, and recheck after they answer the one question', () => {
+    expect(form.match(/classifyClaim\(/g)).toHaveLength(2);
+    const onSubmit = form.slice(form.indexOf('async function onSubmit'), form.indexOf('async function recheck'));
+    expect(onSubmit.match(/classifyClaim\(/g)).toHaveLength(1);
+    const recheck = form.slice(form.indexOf('async function recheck'), form.indexOf('const meaning ='));
+    expect(recheck.match(/classifyClaim\(/g)).toHaveLength(1);
+    // recheck runs only from the Check again click or Enter in the answer box, never on its own.
+    expect(form.match(/void recheck\(\)/g)).toHaveLength(2);
+    expect(form).toMatch(/onClick=\{\(\) => void recheck\(\)\}/);
+    expect(form).toMatch(/if \(e\.key === 'Enter'\) \{\s*e\.preventDefault\(\);\s*void recheck\(\);/);
     const swap = form.slice(form.indexOf('function swapIn'), form.indexOf('async function onSubmit'));
     expect(swap).toContain('setText(sample)');
     expect(swap).not.toMatch(/classifyClaim|fetch|submit|setBusy/i);
