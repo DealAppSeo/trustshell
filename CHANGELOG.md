@@ -47,6 +47,12 @@ All notable changes to the `@hyperdag/trustshell` package.
   An endpoint that does not report it gets no line; nothing is guessed. The extension's chatgpt
   and grok scripts used to rebuild each answer and drop every field but the label, so they could
   never have shown it. `tests/claim-path-parity.test.ts` keeps the CLI and extension wording identical.
+- **The privacy table is enforced for more commands.** `check:egress` now runs `remember`,
+  `recall` and `redact` with the network stubbed (`remember` with encryption on), and runs
+  `check "<sentence>"`: it fails unless the sentence form reaches only the backend's
+  `/api/v1/classify`, once, with a pasted email removed from what was sent. The three memory
+  commands are now rows in the egress table in the README and the API reference.
+- The npm page now links the site and the issue tracker (`homepage`, `bugs`).
 - **The right-click check speaks the stamp's words.** "Check with TrustShell" on selected text
   used to show a bare `pass`, `veto` or `not-checked`. It now shows Checks out / Caught / Not
   checked plus the line saying what produced it, with the machine label in the tooltip. The

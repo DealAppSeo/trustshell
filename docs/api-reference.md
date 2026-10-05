@@ -376,6 +376,9 @@ a run or a session that happened — run these against your own and read the rea
 | `inspect` | **none** — reads a local file | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `remember` | **none** — writes the local memory file | none |
+| `recall` | **none** — reads the local memory file | none |
+| `redact` | **none** — deletes one row from the local memory file | none |
 
 `init` is the only command that writes to your working directory, and it writes exactly one file:
 `.trustshell/profile.md`.
