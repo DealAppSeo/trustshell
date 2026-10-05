@@ -6,18 +6,18 @@ import { StickyCheck } from '@/components/sticky-check';
 
 export const metadata: Metadata = {
   title: 'TrustShell',
-  description: 'A portable trust harness. Autonomy is earned.',
+  description: 'AI sounds sure. It is often wrong. Now it has to show its work.',
   keywords: ['TrustShell'],
   openGraph: {
     title: 'TrustShell',
-    description: 'A portable trust harness. Autonomy is earned.',
+    description: 'AI sounds sure. It is often wrong. Now it has to show its work.',
     type: 'website',
     url: 'https://trustshell.dev',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TrustShell',
-    description: 'A portable trust harness. Autonomy is earned.',
+    description: 'AI sounds sure. It is often wrong. Now it has to show its work.',
   },
 };
 

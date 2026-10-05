@@ -21,7 +21,7 @@ const ROOT = join(__dirname, '..');
 import { HOME_SAMPLES, SPEED_TRAP } from '../lib/home-samples';
 const PRIVACY =
   'What you type is sent to our checkers, Groq and Cerebras. It is not stored. Do not paste anything private.';
-const NOT_YET = 'ChatGPT and Grok: not yet.';
+const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
 /** Render a page module with fetch stubbed, counting every call made while loading and rendering it. */
 function render(modulePath: string): { html: string; calls: unknown[] } {
@@ -126,41 +126,57 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(privacyAt).toBeLessThan(home.html.indexOf('type="submit"'));
   });
 
-  it('says the headline, then Act when they pass., then the plain line', () => {
+  it('says the pain, then the fear, then the solution, then the live example, then why it is the obvious one', () => {
+    // Sean said GO 2026-10-05 for this order (Grok's structure, with the example made live).
+    const FEAR = 'You are about to ship, buy, or repeat something an AI was sure about. You cannot see why it said it. The lab that made it will not be the one to tell you.';
+    const SOLUTION = 'Before you act on it, two checkers read it. You see what they said: Checks out, Caught, or Not checked.';
     const h1 = home.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
-    expect(words(h1?.[1] ?? '')).toBe('Every answer gets checks you can see.');
-    expect(words(h1?.[3] ?? '')).toBe('Act when they pass.');
+    expect(words(h1?.[1] ?? '')).toBe('AI sounds sure. It is often wrong.');
+    expect(words(h1?.[3] ?? '')).toBe('Now it has to show its work.');
     const lines = text.split('\n');
     const at = (line: string) => lines.indexOf(line);
-    expect(at('Every answer gets checks you can see.')).toBeGreaterThan(-1);
-    expect(at('Act when they pass.')).toBe(at('Every answer gets checks you can see.') + 1);
-    expect(at('Paste something an AI told you. See if it checks out.')).toBe(at('Act when they pass.') + 1);
-    expect(at('No signup. No wallet. Leave whenever you want.')).toBeGreaterThan(-1);
-    expect(at('No signup. No wallet. Leave whenever you want.')).toBeLessThan(at('One sentence'));
+    expect(at('AI sounds sure. It is often wrong.')).toBeGreaterThan(-1);
+    expect(at('Now it has to show its work.')).toBe(at('AI sounds sure. It is often wrong.') + 1);
+    expect(at(FEAR)).toBe(at('Now it has to show its work.') + 1);
+    expect(at(SOLUTION)).toBe(at(FEAR) + 1);
+    expect(at('A sure answer. The average is not 45. Press Check.')).toBe(at(SOLUTION) + 1);
+    expect(at('One sentence')).toBeGreaterThan(at(SOLUTION));
+    const glass = at('The black box becomes a glass box: you see who checked it, and what they said.');
+    expect(glass).toBeGreaterThan(at('One sentence'));
+    expect(at('No signup. No wallet. Leave whenever you want.')).toBeGreaterThan(glass);
+    expect(at('Add it to the AI you already use')).toBeGreaterThan(glass);
+    // The first screen makes no promise the code does not keep.
+    const firstScreen = lines.slice(0, at('Add it to the AI you already use') + 1).join('\n');
+    expect(firstScreen).not.toMatch(/receipt|autonomy|\bkeys?\b|\bHAL\b|\blies\b/i);
   });
 
-  it('shows the two quiet next steps below the form, with real commands', () => {
-    const formEnd = home.html.indexOf('</form>');
-    const after = words(home.html.slice(formEnd));
-    expect(after).toContain('Use it in your terminal');
-    expect(after).toContain(`npx @hyperdag/trustshell check "${SPEED_TRAP}"`);
-    expect(after).toContain('Add it to your agent');
-    expect(after).toContain('For Claude Desktop and Cursor.');
-    const steps = home.html.slice(formEnd).match(/<ol\b[^>]*>([\s\S]*?)<\/ol>/)?.[1] ?? '';
-    const items = steps.match(/<li\b/g) ?? [];
-    expect(items).toHaveLength(3);
-    expect(words(steps)).toContain('npm i -g @hyperdag/trustshell@1.6.0');
-    expect(words(steps)).toContain('trustshell-mcp');
-    expect(words(steps)).toContain('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
-    expect(words(steps)).toContain('Restart the app.');
-    expect(after).toContain(NOT_YET);
+  it('puts every door on screen 3, in order: Chrome, the MCP apps, the terminal, with real commands', () => {
+    const add = home.html.indexOf('id="add-agent"');
+    expect(add).toBeGreaterThan(home.html.indexOf('</form>'));
+    const screen3 = words(home.html.slice(add, home.html.indexOf('id="where"')));
+    const chrome = screen3.indexOf('In Chrome');
+    const mcp = screen3.indexOf('In Claude Desktop, Cursor or Claude Code');
+    const terminal = screen3.indexOf('In your terminal');
+    expect(chrome).toBeGreaterThan(-1);
+    expect(mcp).toBeGreaterThan(chrome);
+    expect(terminal).toBeGreaterThan(mcp);
+    expect(screen3).toContain(`npx @hyperdag/trustshell check "${SPEED_TRAP}"`);
+    expect(screen3).toContain('npm i -g @hyperdag/trustshell@1.6.0');
+    expect(screen3).toContain('trustshell-mcp');
+    expect(screen3).toContain(NOT_YET);
+    // Until the store listing is live the page says so, and offers the checked test build.
+    expect(screen3).toContain('In Chrome Web Store review.');
+    expect(home.html).toContain('href="https://github.com/DealAppSeo/trustshell/releases/download/extension-latest/extension.zip"');
+    expect(home.html).not.toContain('data-testid="add-to-chrome"');
   });
 
-  it('names ChatGPT and Grok only to say not yet', () => {
-    // Once in the hero, once on screen 3. Nowhere else, including screen 4.
-    expect(text.split(NOT_YET)).toHaveLength(3);
+  it('names ChatGPT and Grok only where it is true: the Chrome stamp, and the apps that are not yet', () => {
+    // The extension stamps both websites; their apps do not load MCP servers.
+    expect(text.split(NOT_YET)).toHaveLength(2);
     const rest = text.split(NOT_YET).join('');
-    expect(rest).not.toMatch(/ChatGPT|\bGrok\b/);
+    expect(rest.match(/ChatGPT/g)).toHaveLength(1);
+    expect(rest.match(/\bGrok\b/g)).toHaveLength(1);
+    expect(rest).toContain('Every reply on ChatGPT, Claude, Gemini, Grok and DeepSeek gets a stamp');
   });
 
   it('shows no speed number, no receipt promise, and none of the removed lines', () => {

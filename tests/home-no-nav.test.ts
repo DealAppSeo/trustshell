@@ -10,6 +10,8 @@ import { join } from 'node:path';
 const ROOT = join(__dirname, '..');
 const nav = readFileSync(join(ROOT, 'components/top-nav.tsx'), 'utf8');
 const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
+// Screen 3 carries the install steps since the 2026-10-05 home page.
+const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
 const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
 
 const STRANGER = [
@@ -38,21 +40,19 @@ describe('stranger nav', () => {
   });
 
   it('keeps the hero check, and does not put the other labels back on the home source', () => {
-    expect(hero).toContain('Every answer gets checks you can see.');
-    expect(hero).toContain('Act when they pass.');
-    expect(hero).toContain('Paste something an AI told you. See if it checks out.');
+    expect(hero).toContain('AI sounds sure. It is often wrong.');
+    expect(hero).toContain('Now it has to show its work.');
+    expect(hero).toContain('You are about to ship, buy, or repeat something an AI was sure about.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('<CheckForm');
-    expect(hero).toContain('Use it in your terminal');
-    expect(hero).toContain('const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
-    expect(hero).toContain('Add it to your agent');
-    expect(hero).toContain("const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';");
-    const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
-    expect(paste?.[1]).toBe('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
-    expect(hero).toContain('For Claude Desktop and Cursor.');
-    expect(hero).toContain('ChatGPT and Grok: not yet.');
+    expect(hero).toContain('Add it to the AI you already use');
+    expect(agentScreen).toContain('In your terminal');
+    expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
+    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';");
+    expect(agentScreen).toContain('In Claude Desktop, Cursor or Claude Code');
+    expect(agentScreen).toContain('ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.');
     expect(hero).not.toContain('Claude, ChatGPT, Grok, Cursor');
-    expect(hero).not.toContain('trustshell status');
+    expect(`${hero}\n${agentScreen}`).not.toContain('trustshell status');
     expect(hero).not.toMatch(/stake now/i);
     const home = `${page}\n${hero}`;
     for (const label of ['Market', 'Leaderboard', 'Claim', 'Preview', 'RepID', 'History', 'Settings']) {

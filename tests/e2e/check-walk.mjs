@@ -246,7 +246,7 @@ async function shown(page) {
 // Must match lib/home-samples.ts: the prefilled speed trap (Caught) and the 40 mph swap (no stored why).
 const FALSE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph.';
 const TRUE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.';
-const NOT_YET = 'ChatGPT and Grok: not yet.';
+const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
 /** Count every way the page could send something: fetch, XHR and beacon, wrapped before any script runs. */
 function countSends() {
@@ -297,7 +297,11 @@ async function walkHome(browser, phone, pageErrors) {
   check('home: Check is ready to click on the prefilled sentence', !(await home.locator('button[type=submit]').isDisabled()));
   check('home: no sideways scroll on a 390px phone', (await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
   const text = await home.locator('body').innerText();
-  check('home: ChatGPT and Grok appear only in the not-yet line', text.split(NOT_YET).length === 3 && !/ChatGPT|\bGrok\b/.test(text.split(NOT_YET).join('')));
+  // The extension stamps their websites; their apps do not load MCP servers (2026-10-05 home page).
+  const rest = text.split(NOT_YET).join('');
+  check('home: ChatGPT and Grok appear only in the Chrome stamp line and the not-yet line',
+    text.split(NOT_YET).length === 2 && (rest.match(/ChatGPT/g) ?? []).length === 1 && (rest.match(/\bGrok\b/g) ?? []).length === 1
+      && rest.includes('Every reply on ChatGPT, Claude, Gemini, Grok and DeepSeek gets a stamp'));
   check('home: screen 3 is the agent you already use', text.includes('Add it to the agent you already use') && ['Claude Desktop', 'Cursor', 'Claude Code'].every((name) => text.includes(name)));
   check('home: screen 4 is where this goes', text.includes('Where this goes') && text.includes('Known key and personal-data formats are removed before sending.'));
   check('home: a sticky Check is on screen at 390px', await home.locator('[data-testid=sticky-check]').isVisible());

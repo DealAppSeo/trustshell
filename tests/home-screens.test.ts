@@ -49,7 +49,7 @@ describe('home screens below the hero', () => {
 
   it('names Claude Desktop, Cursor and Claude Code, then says not yet', () => {
     expect(agent.AGENT_TABS.map((tab) => tab.label)).toEqual(['Claude Desktop', 'Cursor', 'Claude Code']);
-    expect(agent.NOT_YET).toBe('ChatGPT and Grok: not yet.');
+    expect(agent.NOT_YET).toBe('ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.');
     const html = renderHome();
     expect(html).toContain('Add it to the agent you already use');
     expect(html).toContain('id="add-agent"');
@@ -64,7 +64,7 @@ describe('home screens below the hero', () => {
     expect(sticky).not.toMatch(/type="submit"/);
     const addAt = html.indexOf('Add it to the agent you already use');
     const whereAt = html.indexOf('Where this goes');
-    const heroAt = html.indexOf('Every answer gets checks you can see.');
+    const heroAt = html.indexOf('AI sounds sure. It is often wrong.');
     expect(heroAt).toBeGreaterThan(-1);
     expect(addAt).toBeGreaterThan(heroAt);
     expect(whereAt).toBeGreaterThan(addAt);

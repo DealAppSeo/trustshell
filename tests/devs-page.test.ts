@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
 const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8').replace(/\r/g, '');
+// The terminal step is on screen 3 since the 2026-10-05 home page.
+const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8').replace(/\r/g, '');
 const devs = readFileSync(join(ROOT, 'app/devs/page.tsx'), 'utf8').replace(/\r/g, '');
 const nav = readFileSync(join(ROOT, 'components/top-nav.tsx'), 'utf8');
 const footer = readFileSync(join(ROOT, 'components/footer.tsx'), 'utf8');
@@ -10,12 +12,13 @@ const home = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
 
 describe('/devs', () => {
   it('is linked only from the terminal step', () => {
-    const termAt = hero.indexOf('data-step="terminal"');
-    const termEnd = hero.indexOf('</section>', termAt);
+    const termAt = agentScreen.indexOf('data-step="terminal"');
+    const termEnd = agentScreen.indexOf('</section>', termAt);
     expect(termAt).toBeGreaterThan(-1);
     expect(termEnd).toBeGreaterThan(termAt);
-    expect(hero.match(/href="\/devs"/g)).toEqual(['href="/devs"']);
-    expect(hero.slice(termAt, termEnd)).toContain('href="/devs"');
+    expect(agentScreen.match(/href="\/devs"/g)).toEqual(['href="/devs"']);
+    expect(agentScreen.slice(termAt, termEnd)).toContain('href="/devs"');
+    expect(hero).not.toContain('/devs');
     expect(nav).not.toContain('/devs');
     expect(footer).not.toContain('/devs');
     expect(home).not.toContain('/devs');

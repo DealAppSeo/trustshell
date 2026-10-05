@@ -13,6 +13,8 @@ const ROOT = join(__dirname, '..');
 describe('site install copy matches published 1.4.0', () => {
   const npmLatest = readFileSync(join(ROOT, 'lib/npm-latest.ts'), 'utf8');
   const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
+  // Screen 3 carries the install steps since the 2026-10-05 home page.
+  const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
   const earned = readFileSync(join(ROOT, 'components/earned-trust.tsx'), 'utf8');
 
   it('NPM_LATEST is the published 1.4.0', () => {
@@ -21,17 +23,20 @@ describe('site install copy matches published 1.4.0', () => {
 
   it('hero is the one-screen win and does not interpolate package.json', () => {
     expect(hero).not.toMatch(/packageJson\.version/);
-    expect(hero).toContain('Every answer gets checks you can see.');
+    expect(agentScreen).not.toMatch(/packageJson\.version/);
+    expect(hero).toContain('AI sounds sure. It is often wrong.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
-    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.6.0');
+    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';");
     // Pinned to the same version as the install line: `check "<sentence>"` ships in 1.5.0 and later.
-    expect(hero).toContain('const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
-    expect(hero).not.toContain('trustshell status');
-    expect(hero.match(/@hyperdag\/trustshell@(\d+\.\d+\.\d+)/g)).toEqual(['@hyperdag/trustshell@1.6.0']);
+    expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
+    expect(`${hero}\n${agentScreen}`).not.toContain('trustshell status');
+    // Every version the landing names is the published one.
+    const named = `${hero}\n${agentScreen}`.match(/@hyperdag\/trustshell@(\d+\.\d+\.\d+)/g) ?? [];
+    expect(named.length).toBeGreaterThan(0);
+    expect(new Set(named)).toEqual(new Set(['@hyperdag/trustshell@1.6.0']));
     expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
-    const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
-    expect(paste?.[1]).toBe('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
-    expect(paste?.[1] ?? '').not.toMatch(/npm/i);
+    // The hero no longer carries an install block or an MCP paste; screen 3 does (tests/home-screens.test.ts).
+    expect(hero).not.toMatch(/MCP_PASTE|npm i -g/);
     expect(hero).not.toContain('Demo file is not in the repo');
     expect(hero).not.toContain('E:\\TrustDisk');
     expect(hero).not.toMatch(/showDemo|<video/);
