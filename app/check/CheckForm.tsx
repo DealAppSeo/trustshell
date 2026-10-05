@@ -10,22 +10,24 @@ const MAX_CHARS = 1500;
 
 // The words a stranger reads are the same words the extension stamp shows. The machine label
 // (pass / veto / not-checked) stays on the page, in the title and the small "label" line, for
-// anyone comparing with the CLI or the API. A veto needs both voters to say FALSE and a pass
-// needs both to say TRUE (repid-engine src/classify/free-votes.ts), so these lines are true.
+// anyone comparing with the CLI or the API. The lines name no voter: a whole-text equation is
+// checked by exact calculation before any model is asked (repid-engine src/routes/classify.ts),
+// and an over-long text is not sent to them at all, and the response does not say which path
+// answered. So each line below is true on every path.
 const MEANING: Record<ClaimLabel, { title: string; body: string; tone: string }> = {
   pass: {
     title: 'Checks out',
-    body: 'Groq and Cerebras both said this is true.',
+    body: 'Checked and found true.',
     tone: 'text-emerald-400 border-emerald-500/40',
   },
   veto: {
     title: 'Caught',
-    body: 'Groq and Cerebras both said this is false. Do not rely on it.',
+    body: 'Checked and found false. Do not rely on it.',
     tone: 'text-red-400 border-red-500/40',
   },
   'not-checked': {
     title: 'Not checked',
-    body: 'Groq and Cerebras could not decide. Opinions and predictions land here, and so does a checker that did not answer. Not checked never means it checks out.',
+    body: 'Not decided. Opinions and predictions land here, and so does a check that could not finish. Not checked never means it checks out.',
     tone: 'text-amber-400 border-amber-500/40',
   },
 };

@@ -24,8 +24,10 @@
    * Not checked: a timeout, a skip, a non-200, a network error, an unreadable body, an unknown
    * label. Nothing paints Checks out by default.
    * The machine label (pass / veto / not-checked) goes in the tooltip, never in place of the words.
-   * A veto needs BOTH voters to answer FALSE (repid-engine src/classify/free-votes.ts), so the
-   * veto line is true whenever the stamp says Caught.
+   * The second line on Caught names no voter on purpose. /classify checks a whole-text equation
+   * by exact calculation BEFORE any model is asked (repid-engine src/routes/classify.ts), and the
+   * response does not say which path answered, so "Groq and Cerebras both said this is false"
+   * would be false for "2 + 2 = 5". Name the voters only once the API reports who answered.
    */
   const STAMP_WORDS = {
     checking: 'Checking with Groq and Cerebras',
@@ -33,7 +35,7 @@
     veto: 'Caught',
     'not-checked': 'Not checked',
   };
-  const VETO_LINE = 'Groq and Cerebras both said this is false.';
+  const VETO_LINE = 'Checked and found false.';
 
   function finish(started, label) {
     const elapsed = Date.now() - started;

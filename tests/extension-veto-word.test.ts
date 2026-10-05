@@ -135,7 +135,7 @@ async function hostCase(draw: HostDrawer['draw'], miss: string | number) {
   expect(passed && passed.textContent).not.toContain('Caught');
 
   const vetoed = await draw(pageEndingInVeto(), { fetchImpl: vetoFetch });
-  expect(vetoed && vetoed.textContent).toBe('Caught\nGroq and Cerebras both said this is false.');
+  expect(vetoed && vetoed.textContent).toBe('Caught\nChecked and found false.');
 
   const timed = await draw(pageEndingInVeto(), { timeoutMs: 20, fetchImpl: timeoutFetch });
   expect(timed && timed.textContent).toBe('Not checked');

@@ -323,11 +323,11 @@ try {
     got = await ask(page, 'The Moon is made of cheese.');
     card = await shown(page);
     check('veto shows Caught and says both checkers said false', got === 'veto' && card.words === 'Caught' && card.title === 'veto' &&
-      card.card.includes('Groq and Cerebras both said this is false.'), JSON.stringify(card));
+      card.card.includes('Checked and found false.'), JSON.stringify(card));
     got = await ask(page, 'Pizza is the best food.');
     card = await shown(page);
-    check('the checkers\' own not-checked shows Not checked and says they could not decide', got === 'not-checked' &&
-      card.words === 'Not checked' && card.source === 'checkers' && card.cause === null && /could not decide/.test(card.card), JSON.stringify(card));
+    check('the checkers\' own not-checked shows Not checked and says it was not decided', got === 'not-checked' &&
+      card.words === 'Not checked' && card.source === 'checkers' && card.cause === null && /Not decided/.test(card.card), JSON.stringify(card));
 
     // Every not-checked the PAGE decided says which, and none of them ever shows Checks out.
     for (const [sentence, cause, name] of [
@@ -341,7 +341,7 @@ try {
       card = await shown(page);
       check(`${name} is Not checked and names its cause (${cause}), never Checks out`,
         got === 'not-checked' && card.words === 'Not checked' && card.title === 'not-checked' && card.source === 'local' &&
-          card.cause === cause && !/could not decide/.test(card.card) && !card.card.includes('Checks out'),
+          card.cause === cause && !/Not decided/.test(card.card) && !card.card.includes('Checks out'),
         JSON.stringify(card));
     }
     await ask(page, 'My key is sb_secret_abcdefghijklmnop and Paris is in France.');

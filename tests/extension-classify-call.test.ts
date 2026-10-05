@@ -258,7 +258,7 @@ describe('classifier call', () => {
     const vetoed = await claude.draw(page('noted\nveto'), {
       fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'veto' }) }),
     });
-    expect(vetoed && vetoed.textContent).toBe('Caught\nGroq and Cerebras both said this is false.');
+    expect(vetoed && vetoed.textContent).toBe('Caught\nChecked and found false.');
   });
 
   it('a missing endpoint, a veto word, and a 3 second call', async () => {

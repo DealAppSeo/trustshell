@@ -44,7 +44,7 @@ const { chromium } = await loadPlaywrightOrExit();
 
 const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extension');
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
-const CAUGHT = 'Caught\nGroq and Cerebras both said this is false.';
+const CAUGHT = 'Caught\nChecked and found false.';
 const CHECKING = 'Checking with Groq and Cerebras';
 const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellLaya', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;

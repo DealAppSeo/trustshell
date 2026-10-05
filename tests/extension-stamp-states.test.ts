@@ -25,7 +25,7 @@ const toast = require('../extension/toast.js') as { CAUGHT: string };
 
 const CHECKING = 'Checking with Groq and Cerebras';
 const CHECKS_OUT = 'Checks out';
-const CAUGHT = 'Caught\nGroq and Cerebras both said this is false.';
+const CAUGHT = 'Caught\nChecked and found false.';
 const NOT_CHECKED = 'Not checked';
 
 // ---- a small DOM, enough for the five host scripts ------------------------------------------
@@ -224,7 +224,7 @@ describe.each(HOSTS)('%s stamp', (_name, draw) => {
     const doc = new Doc('The Moon is made of cheese.');
     await draw(doc, { fetchImpl: said('veto') });
     expect(doc.stamp()!.textContent).toBe(CAUGHT);
-    expect(doc.stamp()!.textContent.split('\n')).toEqual(['Caught', 'Groq and Cerebras both said this is false.']);
+    expect(doc.stamp()!.textContent.split('\n')).toEqual(['Caught', 'Checked and found false.']);
     expect(doc.stamp()!.title).toBe('veto');
   });
 

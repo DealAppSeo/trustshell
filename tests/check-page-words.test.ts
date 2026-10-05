@@ -2,7 +2,7 @@
  * /check speaks the same stranger words as the extension stamp: Checks out, Caught, Not checked.
  * The machine label stays on the page. The privacy sentence is read before the Check button.
  * A not-checked the PAGE decided (timeout, network, non-200, unreadable body) names its cause, so
- * "the network failed" never looks like "the checkers could not decide". No speed numbers.
+ * "the network failed" never looks like "not decided". No speed numbers.
  *
  * Source-level, like the other page tests here: jest does not render TSX in this repo. The
  * behaviour is driven in a real browser by tests/e2e/check-walk.mjs (npm run test:check-walk).
