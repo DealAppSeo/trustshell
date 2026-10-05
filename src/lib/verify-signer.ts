@@ -11,6 +11,8 @@
  * It recommends no policy. It presents both signers and lets the caller decide.
  */
 
+import { loadEthers } from './optional-ethers';
+
 /** One entry in the signer allowlist — an address and the role it plays for our engine. */
 export interface SignerEntry {
   address: string;
@@ -75,7 +77,7 @@ export async function onchainFeedbackClients(
   tokenId: string,
   opts: { rpcUrl?: string; reputationRegistry?: string } = {},
 ): Promise<string[]> {
-  const { JsonRpcProvider, Contract } = await import('ethers');
+  const { JsonRpcProvider, Contract } = await loadEthers('Reading feedback clients on chain (verifySigner)');
   const provider = new JsonRpcProvider(opts.rpcUrl ?? DEFAULT_RPC);
   const abi = ['function getClients(uint256 agentId) view returns (address[])'];
   const registry = new Contract(opts.reputationRegistry ?? REPUTATION_REGISTRY_BASE_SEPOLIA, abi, provider);
