@@ -1,0 +1,94 @@
+# One link to the Chrome extension, rebuilt from main.
+#
+# WHY. Loading the extension, for a test or for the Chrome Web Store upload (BUS S12, S28), meant
+# downloading the whole repository, or installing Node and running scripts/pack-extension.mjs by
+# hand. Sean, 2026-10-05: "There has to be an easier way?" This job builds the same zip on every
+# change to extension/ on main and attaches it to one rolling pre-release, so the newest build is
+# always at:
+#
+#   https://github.com/DealAppSeo/trustshell/releases/download/extension-latest/extension.zip
+#
+# WHAT IT IS NOT. Not an npm release: publish-sdk.yml runs on `v*` tags only, and this tag is
+# `extension-latest`. Not the store listing: users install from the Chrome Web Store. The release is
+# marked pre-release and is never "Latest". Its notes name the commit the zip was built from.
+#
+# BEFORE IT UPLOADS, the zip must hold manifest.json at its root (the store and Load unpacked both
+# require that) and exactly the files in extension/ (pack-extension leaves out node_modules and
+# .env). A zip that fails either is not uploaded, and the last good one stays up.
+
+name: extension-zip
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'extension/**'
+      - 'scripts/pack-extension.mjs'
+      - '.github/workflows/extension-zip.yml'
+  workflow_dispatch:
+    inputs:
+      ref_note:
+        description: 'Why this manual run? (recorded on the run itself)'
+        required: false
+        default: 'manual extension zip build'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extension-zip
+  cancel-in-progress: false
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build extension.zip
+        run: node scripts/pack-extension.mjs extension extension.zip
+
+      - name: Check the zip before anyone can download it
+        run: |
+          python3 - <<'PY'
+          import os, sys, zipfile
+          z = zipfile.ZipFile('extension.zip')
+          names = set(z.namelist())
+          if z.testzip() is not None:
+              sys.exit('FAILED: a file in extension.zip is corrupt')
+          if 'manifest.json' not in names:
+              sys.exit('FAILED: manifest.json is not at the root of extension.zip')
+          want = set()
+          for root, dirs, files in os.walk('extension'):
+              dirs[:] = [d for d in dirs if d != 'node_modules']
+              for f in files:
+                  if f != '.env':
+                      want.add(os.path.relpath(os.path.join(root, f), 'extension').replace(os.sep, '/'))
+          if names != want:
+              sys.exit(f'FAILED: zip and folder differ; missing {sorted(want - names)[:5]}, extra {sorted(names - want)[:5]}')
+          print(f'VERIFIED: {len(names)} files, manifest.json at the root')
+          PY
+
+      - name: Attach it to the extension-latest pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          version=$(node -p "require('./extension/manifest.json').version")
+          notes="Test build of the TrustShell Chrome extension (manifest ${version}), built from ${SHA}.
+
+          To try it: download extension.zip, right-click it and choose Extract All, then in Chrome open chrome://extensions, turn on Developer mode, click Load unpacked and choose the extracted folder.
+
+          Users install the extension from the Chrome Web Store, not from here."
+          if ! gh release view extension-latest >/dev/null 2>&1; then
+            gh release create extension-latest --prerelease --latest=false --target "$SHA" \
+              --title 'Chrome extension: test build from main' --notes "$notes"
+          else
+            gh release edit extension-latest --prerelease --latest=false --notes "$notes"
+          fi
+          gh release upload extension-latest extension.zip --clobber
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/extension-latest/extension.zip" >> "$GITHUB_STEP_SUMMARY"
