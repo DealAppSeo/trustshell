@@ -24,7 +24,7 @@
  * The pure functions (parseArgs, verdictExitCode, formatting) are exported so the
  * arg-parsing + exit-code logic is unit-testable with NO network (mirrors the MCP).
  */
-import { TrustShell, type VerifyOutputResult, type ProofPresentation } from '../lib/trustshell';
+import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { runEnvelopedAction } from '../lib/action-envelope';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
@@ -58,6 +58,12 @@ export const EXIT = {
   VETO: 1,
   /** Usage / argument error. */
   USAGE: 2,
+  /**
+   * HAL did not decide (abstain, no decision, or no provider consulted). Shares 2 with USAGE on
+   * purpose: `check "<sentence>"` already exits 2 for not-checked, and a CI gate written as
+   * `trustshell verify … || exit 1` must fail on it, never pass.
+   */
+  NOT_CHECKED: 2,
   /** Runtime error (network / backend / timeout). */
   RUNTIME: 3,
   /** Laya ask. A person has to answer. HAL was not called. */
@@ -435,28 +441,36 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
 /**
  * Map a HAL verdict to a process exit code. PURE + testable.
- * VETO fails the build (exit 1); PASS and FLAG both succeed (exit 0) — a soft FLAG is
- * informational, not a gate failure, matching the SDK's `ok = verdict !== 'VETO'`.
+ * VETO fails the build (exit 1); NOT_CHECKED exits 2, never 0; PASS and FLAG succeed (exit 0) —
+ * a soft FLAG is informational, not a gate failure, matching the SDK's `ok`.
  */
-export function verdictExitCode(verdict: 'PASS' | 'FLAG' | 'VETO'): number {
-  return verdict === 'VETO' ? EXIT.VETO : EXIT.OK;
+export function verdictExitCode(verdict: Verdict): number {
+  if (verdict === 'VETO') return EXIT.VETO;
+  if (verdict === 'PASS' || verdict === 'FLAG') return EXIT.OK;
+  return EXIT.NOT_CHECKED;
 }
 
 /** Human-readable one-line verdict banner (no color deps — plain, CI-log-safe). */
 export function formatVerdictLine(r: Pick<VerifyOutputResult, 'verdict' | 'trustScore'>): string {
+  // NOT_CHECKED gets no check mark and no trust number: nothing was earned.
+  if (r.verdict === 'NOT_CHECKED') return '○ NOT_CHECKED  HAL did not decide. This is not a pass.';
   const mark = r.verdict === 'VETO' ? '✗' : r.verdict === 'FLAG' ? '⚠' : '✓';
   return `${mark} ${r.verdict}  trust ${r.trustScore}/100`;
 }
 
-/** Format a full verify result for human terminal output. */
-export function formatVerify(r: VerifyOutputResult): string {
+/**
+ * Format a full verify result for human terminal output. "You have a receipt." is printed only
+ * when a receipt was actually written: it used to print on every PASS, including runs whose
+ * receipt line said NOT_CHECKED.
+ */
+export function formatVerify(r: VerifyOutputResult, opts: { receiptWritten?: boolean } = {}): string {
   const lines: string[] = [formatVerdictLine(r)];
   if (r.decisionReason) lines.push(`  ${r.decisionReason}`);
   if (r.evidence && r.evidence.length) {
     lines.push('  evidence:');
     for (const e of r.evidence) lines.push(`    - ${e}`);
   }
-  if (r.verdict === 'PASS') lines.push('You have a receipt. Paste another claim when you want.');
+  if (r.verdict === 'PASS' && opts.receiptWritten === true) lines.push('You have a receipt. Paste another claim when you want.');
   return lines.join('\n');
 }
 
@@ -610,7 +624,8 @@ export async function run(
         } else {
           io.out(verdictLine);
         }
-        return EXIT.OK;
+        // Laya's cheap lane sends nothing to HAL, so nothing was checked: exit 2, never the PASS code.
+        return EXIT.NOT_CHECKED;
       }
       const honestyPromise = loadHonestyBody({ env: process.env, fetchImpl: fetch });
       const passFrom = (body: unknown | null): string =>
@@ -647,7 +662,7 @@ export async function run(
           if (honestyRows !== undefined) payload.honesty_rows = honestyRows;
           io.out(JSON.stringify(payload, null, 2));
         } else {
-          io.out(formatVerify(r));
+          io.out(formatVerify(r, { receiptWritten: receiptWrittenValue(receipt) === true }));
           io.out(pass);
           if (trustshellApiUrlSet(process.env)) io.out(honestyRowsLine(body));
           io.out(`receipt-id ${posted.receiptId}`);

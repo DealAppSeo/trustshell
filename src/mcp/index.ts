@@ -126,7 +126,8 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       title: 'HAL verify',
       description:
         'Run text through the live HAL cross-provider fact-check quorum (strictness 2). Returns ' +
-        'PASS / FLAG / VETO, a 0–100 trust score, the decision reason, and per-provider evidence. ' +
+        'PASS / FLAG / VETO, or NOT_CHECKED when HAL did not decide (never a pass), a 0–100 trust score, ' +
+        'the decision reason, and per-provider evidence. ' +
         'Use it to check a claim before acting on it.',
       inputSchema: verifySchema,
     },
@@ -281,7 +282,8 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       description:
         'Canonical name for verify/evaluate — matches SDK verifyOutput() and `trustshell verify`. ' +
         'Runs text through the live HAL cross-provider fact-check quorum and returns PASS / FLAG / ' +
-        'VETO, a 0-100 trust score, the decision reason, and per-provider evidence.',
+        'VETO, or NOT_CHECKED when HAL did not decide (never a pass), a 0-100 trust score, the ' +
+        'decision reason, and per-provider evidence.',
       inputSchema: verifySchema,
     },
     verifyHandler,

@@ -37,6 +37,28 @@ export interface TrustShellConfig {
   readAllowance?: ReadAllowance;
 }
 
+/**
+ * HAL's answer as the SDK reports it. NOT_CHECKED is its own state: HAL abstained, returned no
+ * decision or one this client does not know, or no provider was consulted (the extractor
+ * fallback). None of those is a PASS. Until 1.5.0 every one of them fell through to 'PASS'.
+ */
+export type Verdict = 'PASS' | 'FLAG' | 'VETO' | 'NOT_CHECKED';
+
+/**
+ * Map a /api/v1/hal/evaluate response to a {@link Verdict}. PURE, so it is testable.
+ * Only the decisions HAL actually makes map to PASS / FLAG / VETO; everything else is
+ * NOT_CHECKED. A fallback that consulted no provider is NOT_CHECKED whatever it decided:
+ * a verdict nobody earned is not a verdict.
+ */
+export function verdictFromHal(data: { decision?: unknown; hal_verdict?: unknown; mode?: unknown; degraded_mode?: unknown }): Verdict {
+  if (data.mode === 'extractor-fallback' || data.mode === 'extractor' || data.degraded_mode === true) return 'NOT_CHECKED';
+  const decision = data.decision ?? data.hal_verdict;
+  if (decision === 'vetoed' || decision === 'VETO') return 'VETO';
+  if (decision === 'flagged' || decision === 'FLAG') return 'FLAG';
+  if (decision === 'clean' || decision === 'PASS') return 'PASS';
+  return 'NOT_CHECKED';
+}
+
 export interface ScoreOptions {
   prompt?: string;
   provider?: string;
@@ -53,7 +75,7 @@ export interface ScoreResult {
     scopeAppropriateness: number;
     certaintyAtClaim: number;
   };
-  verdict: 'PASS' | 'FLAG' | 'VETO';
+  verdict: Verdict;
   flaggedHallucination: boolean;
   provider: string;
   model: string;
@@ -100,10 +122,11 @@ export interface AuditResult {
 }
 
 export interface VerifyOutputResult {
-  /** true when HAL did not hard-veto the output (PASS or soft FLAG). */
+  /** true only when HAL checked and did not hard-veto (PASS or soft FLAG). NOT_CHECKED is not ok. */
   ok: boolean;
-  verdict: 'PASS' | 'FLAG' | 'VETO';
-  trustScore: number; // 0-100
+  verdict: Verdict;
+  /** 0-100; 0 when NOT_CHECKED, because no trust was earned. */
+  trustScore: number;
   halScore: number; // 0-1
   /** present when HAL soft-flagged rather than vetoed (e.g. opinion/time-sensitive). */
   soft: boolean;
@@ -622,14 +645,11 @@ export class TrustShell {
       const data = await res.json();
 
       const halScore = typeof data.hal_score === 'number' ? data.hal_score : 0;
-      const trustScore = Math.round((1 - halScore) * 100);
 
-      // Real contract returns decision: 'vetoed' | 'flagged' | 'clean' (legacy: hal_verdict).
-      const decision: string | undefined = data.decision ?? data.hal_verdict;
-      const verdict: 'PASS' | 'FLAG' | 'VETO' =
-        decision === 'vetoed' || decision === 'VETO' ? 'VETO'
-        : decision === 'flagged' || decision === 'FLAG' ? 'FLAG'
-        : 'PASS';
+      // Real contract returns decision: 'vetoed' | 'flagged' | 'clean' | 'abstain' (legacy: hal_verdict).
+      // Anything that is not a decision HAL made is NOT_CHECKED, never PASS (verdictFromHal).
+      const verdict = verdictFromHal(data);
+      const trustScore = verdict === 'NOT_CHECKED' ? 0 : Math.round((1 - halScore) * 100);
 
       // Quorum (strictness-2) returns `signals` with provider/family info; the style-only
       // extractor returns harm/epistemic fields. Read both shapes defensively.
@@ -743,7 +763,8 @@ export class TrustShell {
 
   /**
    * Verify an agent output through HAL and return a simple ok/verdict.
-   * `ok` is true unless HAL hard-vetoed (so a category-aware soft FLAG still passes).
+   * `ok` is true when HAL checked and did not hard-veto (so a category-aware soft FLAG still
+   * passes). NOT_CHECKED is not ok: HAL did not decide.
    *
    * Task C — SBFA honesty fields: `belief`, `ignoranceMass`, `confidence`, `tierDistribution`
    * are populated from the backend response when present. When the backend does not supply them
@@ -762,7 +783,7 @@ export class TrustShell {
         : (1 - r.halScore) * 0.5; // single-provider fallback: half-weight
 
     const result: VerifyOutputResult = {
-      ok: r.verdict !== 'VETO',
+      ok: r.verdict === 'PASS' || r.verdict === 'FLAG',
       verdict: r.verdict,
       trustScore: r.trustScore,
       halScore: r.halScore,

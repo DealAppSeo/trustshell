@@ -4,6 +4,19 @@ All notable changes to the `@hyperdag/trustshell` package.
 
 ## Unreleased
 
+- **A miss never reads as a pass.** HAL can answer without deciding: it abstains, returns no
+  decision, or falls back to a mode that asked no provider. Until now `verify`, the MCP `verify`
+  tools and `verifyOutput()` reported every one of those as `PASS`, "trust 100/100", exit 0, and
+  `wrapExecute` released the output even with `onUnavailable: 'withhold'`. They are now a fourth
+  verdict, `NOT_CHECKED`:
+  - `verify` exits **2**, the same code `check "<sentence>"` uses for not-checked, so a CI gate
+    written as `trustshell verify … || exit 1` fails on it instead of passing.
+  - `verifyOutput().ok` is `false`, and `trustScore` is 0: no trust was earned.
+  - `wrapExecute` treats it as HAL not deciding, so `onUnavailable` chooses.
+  - "You have a receipt." prints only when a receipt was actually written.
+  - The opt-in Laya lane (`TRUSTSHELL_LAYA`) exits 2 for its "not checked" line, not 0.
+- An accuracy figure cited in `wrap-execute.ts` and the reference agent ("82.6%, 95/115
+  TruthEval") is removed: no stored run reproduces it.
 - **Releases publish through npm trusted publishing.** CI publishes with a short-lived token that
   GitHub's OIDC identity earns for this one package, not a stored npm token. npm also attaches a
   provenance attestation linking each version to the workflow run that built it. `package.json`

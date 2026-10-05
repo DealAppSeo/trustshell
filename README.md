@@ -464,7 +464,7 @@ trustshell repid <id>
 trustshell proof <id> --verify
 ```
 
-`trustshell verify` exits 0 on PASS or FLAG and 1 on VETO. The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
+`trustshell verify` exits 0 on PASS or FLAG, 1 on VETO, and 2 when HAL did not decide (NOT_CHECKED, never a pass). The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
 
 ---
 
