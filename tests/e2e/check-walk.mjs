@@ -87,6 +87,12 @@ const engine = createServer((req, res) => {
     try { body = JSON.parse(raw); } catch { /* recorded as-is below */ }
     seen.push(body);
     const text = String(body.text ?? '');
+    // The one clarifying question: an underspecified claim gets not-checked plus a question; the
+    // same claim with the person's answer added ("Assume: …") comes back decided.
+    if (/always switch\. Assume: /.test(text)) return json(200, { label: 'pass', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
+    if (/you should always switch/.test(text)) {
+      return json(200, { label: 'not-checked', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'], question: 'Does the host always open a door with a goat behind it?' });
+    }
     // The home page's measured samples (lib/home-samples.ts): the 45 mph trap and its 40 mph twin.
     if (/average speed for the trip is 45 mph/.test(text)) return json(200, { label: 'veto', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/average speed for the trip is 40 mph/.test(text)) return json(200, { label: 'pass', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
@@ -448,6 +454,24 @@ try {
     got = await ask(page, 'Paris is the capital of France.');
     check('an answer that does not say what produced it gets no path line', got === 'pass' &&
       (await page.locator('[data-testid=check-path]').count()) === 0);
+    // The adaptive step: one question, the person's answer, one more check. Nothing sends on typing.
+    const SWITCH = 'After you pick a door and the host opens another door showing a goat, you should always switch.';
+    got = await ask(page, SWITCH);
+    const qText = await page.locator('[data-testid=check-question]').textContent().catch(() => null);
+    check('an underspecified claim shows Not checked and the one question from the API', got === 'not-checked' &&
+      /One question: Does the host always open a door with a goat behind it\?/.test(qText ?? ''), String(qText));
+    const beforeAnswer = seen.length;
+    await page.fill('[data-testid=check-answer]', 'the host always opens a goat door');
+    await page.waitForTimeout(300);
+    check('typing the answer sends nothing', seen.length === beforeAnswer, `sent ${seen.length - beforeAnswer}`);
+    await page.click('[data-testid=check-again]');
+    await page.waitForSelector('[data-testid=check-label][data-label=pass]', { timeout: 20_000 }).catch(() => {});
+    const again = await page.locator('[data-testid=check-label]').getAttribute('data-label').catch(() => null);
+    const resent = String(seen.at(-1)?.text ?? '');
+    check('Check again sends the claim with the answer once, and shows the new answer', again === 'pass' &&
+      seen.length === beforeAnswer + 1 && resent === `${SWITCH} Assume: the host always opens a goat door.`, JSON.stringify({ again, resent }));
+    check('the box now holds what was checked', (await page.inputValue('#claim')) === resent);
+
     got = await ask(page, 'Pizza is the best food.');
     card = await shown(page);
     check('the checkers\' own not-checked shows Not checked and says it was not decided', got === 'not-checked' &&

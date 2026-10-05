@@ -197,13 +197,22 @@ try {
     sw ? new URL(sw.url()).pathname : 'no worker in 15s — importScripts threw (a redeclared name does exactly this) or the manifest is invalid');
 
   if (sw) {
-    const present = await sw.evaluate((names) => names.filter((n) => Boolean(globalThis[n])), SW_GLOBALS);
+    // The worker can be handed over before its top-level script has run, so one evaluate may see
+    // an empty scope: CI on 2026-10-05 reported every global missing, then chrome.contextMenus
+    // undefined, 170 ms after start, on a PR that touched nothing in extension/. Poll instead. A
+    // script that threw (the redeclared-name case) never defines them, so this still fails.
+    let present = [];
+    await poll(async () => {
+      present = await sw.evaluate((names) => names.filter((n) => Boolean(globalThis[n])), SW_GLOBALS);
+      return present.length === SW_GLOBALS.length;
+    });
     const missing = SW_GLOBALS.filter((n) => !present.includes(n));
     check('every importScripts global is defined', missing.length === 0,
       missing.length ? `missing: ${missing.join(', ')}` : SW_GLOBALS.join(', '));
 
     // removeAll(create) is async; poll until the menu exists rather than racing it.
     const menu = await poll(() => sw.evaluate(() => new Promise((done) => {
+      if (!chrome.contextMenus) return done('');
       chrome.contextMenus.update('trustshell-check', {}, () => {
         const err = chrome.runtime.lastError;
         done(err ? '' : 'ok');

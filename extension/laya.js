@@ -105,7 +105,13 @@
     const done = (label, body) => {
       const latency_ms = Math.max(0, Math.round(now() - start));
       if (latency_ms > SLOW_MS) return { label: NOT_CHECKED, latency_ms, line: SLOW_LINE };
-      return Object.assign({ label, latency_ms }, body === undefined ? {} : pathOf(body, label));
+      if (body === undefined) return { label, latency_ms };
+      const path = pathOf(body, label);
+      // A `by` the server never sends ({"label":"pass","by":"skipped"}) means the answer is not the
+      // server's, so its label decides nothing (XC1, night bus #449), as src/lib/claim.ts. No `by`
+      // at all is an older endpoint and keeps its label.
+      if (body.by !== undefined && !path.by) return { label: NOT_CHECKED, latency_ms };
+      return Object.assign({ label, latency_ms }, path);
     };
 
     const url = modelUrlOf(opts.modelUrl);

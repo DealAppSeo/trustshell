@@ -891,6 +891,7 @@ export async function runClaimCheck(
       io.out(explainClaim(r));
       const path = pathLine(r);
       if (path) io.out(path);
+      if (r.question) io.out(`One question: ${r.question} Answer it by checking the sentence again with your answer added.`);
       if (r.scrubbed) io.out(SCRUBBED_LINE);
     }
     return claimExitCode(r.label);
