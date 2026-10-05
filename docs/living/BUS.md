@@ -286,17 +286,9 @@ What was verified from here, all on 2026-10-05 against `main` and production:
 
 NOT CHECKABLE from here: the real, logged-in pages. That is what these steps check.
 
-**1. Get the extension.** Paste into PowerShell, one line at a time:
+Users will not do any of this: once the Chrome Web Store listing is live (S12) they click **Add to Chrome**. Until then, Load unpacked is the only way in.
 
-```powershell
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$ProgressPreference = 'SilentlyContinue'
-Invoke-WebRequest -Uri https://github.com/DealAppSeo/trustshell/archive/refs/heads/main.zip -OutFile "$env:USERPROFILE\Downloads\trustshell-main.zip"
-Expand-Archive -Path "$env:USERPROFILE\Downloads\trustshell-main.zip" -DestinationPath "$env:USERPROFILE\Downloads\trustshell-main" -Force
-Test-Path "$env:USERPROFILE\Downloads\trustshell-main\trustshell-main\extension\manifest.json"
-```
-
-Correct result: the last line prints `True`.
+**1. Get the extension.** No PowerShell. Click this link in Chrome: <https://github.com/DealAppSeo/trustshell/archive/refs/heads/main.zip>. It downloads `trustshell-main.zip`. In File Explorer, right-click it → **Extract All…** → **Extract**.
 
 **2. Load it.** In Chrome, open `chrome://extensions`, turn on **Developer mode** (top right), click **Load unpacked**, and choose `Downloads\trustshell-main\trustshell-main\extension`. Correct result: a "TrustShell stamp" card with no red **Errors** button. Pin it from the puzzle-piece icon.
 
