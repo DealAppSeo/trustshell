@@ -56,7 +56,7 @@ Not a launch announcement.
 
 ## The portable agentic trust harness
 
-Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass. That is the difference between *another LLM judge* and a *trust rail*.
+Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass from 1.6.0. Until that version is published, the npm package can still read an all-abstain answer as a pass. That is the difference between *another LLM judge* and a *trust rail*.
 
 **One `npm install` gives any agent three protocols in one wrapper:**
 
@@ -75,8 +75,6 @@ TrustShell gives an AI agent (or the dev building one) three things against the 
 1. **Verify an output** — run any text through a real cross-provider HAL fact-check quorum and get a `PASS` / `FLAG` / `VETO` verdict with evidence. **No API key.**
 2. **Look up reputation** — fetch any agent's current RepID score + tier. **No API key.**
 3. **Discover → buy → receipt** — browse the live agent-service marketplace, purchase a service agent-to-agent, and poll for a verifiable settlement receipt. **Needs an API key + a funded Base Sepolia wallet** (it moves real testnet value).
-
-Time-to-first-real-call: **~7 seconds** (verified: `init` → two live HAL verdicts in 6.7s — see [Quick start](#quick-start)).
 
 ### What runs keyless vs. what needs a key
 
@@ -113,7 +111,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 | `register()` | live | Keyless. Creates an agent and a RepID. It does not mint ERC-8004. |
 | `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. Live 2026-09-15: 2 answering / 8 configured. HAL is weaker on paraphrases than on record-grounded facts. |
 | ERC-8004 identity mint | paused/blocked | Key-gated, separate call. A keyless `register()` leaves `NOT_MINTED`. |
-| On-chain reputation writes | paused/blocked | History is real (last write 2026-06-22); writes are not landing now. |
+| On-chain reputation writes | live-degraded | Recorded, each with a transaction hash. On 2026-10-05 the public counter reported 114 rows with a real transaction hash on the reputation registry. That is not a receipt check of every row. |
 | x402 `executeA2A()` | paused/blocked | Protocol exists on Base Sepolia (chain id 84532). Needs an API key and a funded testnet wallet. Not mainnet. |
 
 ### Honest limits
@@ -122,7 +120,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 - **ERC-8004 identity is a keyed step, and `register()` is not it.** Registration is keyless and gives you an agent with a live RepID — reputation, proofs and the badge all work from there. The on-chain identity token is minted by a separate, key-gated call. So a keyless onboarding ends with **no token on chain**, and we report that as `NOT_MINTED` rather than showing an identity that is not there. Ask for a key if you need the on-chain identity. (Measured 2026-08-30: the registration path never reaches the minter — this is the documented design, not an outage.)
 - **HAL** — record-grounded fact-check detection is strong; the heuristic signal classes are honestly weaker on paraphrase. The cross-provider quorum above is real and live.
 - **Behavioral-integrity / deception layer** — **shadow-only** today: it computes and logs, but does **not** mutate live RepID (enforcement is off).
-- **On-chain writes** — currently paused; see [On-chain today](#on-chain-today-base-sepolia-chain-id-84532).
+- **On-chain writes** — recorded, each with a transaction hash. See [On-chain today](#on-chain-today-base-sepolia-chain-id-84532).
 
 ---
 
@@ -188,15 +186,25 @@ if (!health.ok) throw new Error('backend unreachable');
 // 2) verifyOutput() — is this agent output trustworthy?
 const good = await client.verifyOutput('The capital of France is Paris.');
 console.log(good.verdict, good.trustScore, good.evidence);
-// → PASS 100 [ 'gemini:TRUE (...)', 'mistral:TRUE (...)', 'openrouter:TRUE (...)' ]
+// Recorded 2026-10-05:
+// → PASS 100 [
+//   'cerebras:TRUE (Paris is the capital of France.)',
+//   'groq:TRUE (Paris is the capital of France.)',
+//   'zai:UNCERTAIN (NOT_CHECKED: late after 2-family agreement)',
+// ]
 
 const bad = await client.verifyOutput('The Eiffel Tower is located in Rome, Italy.');
 console.log(bad.verdict, bad.trustScore, bad.evidence);
-// → VETO 0 [ 'gemini:FALSE (Eiffel Tower is in Paris, France)', ... ]
+// Recorded 2026-10-05:
+// → VETO 0 [
+//   'cerebras:FALSE (It is in Paris, France.)',
+//   'groq:FALSE (Eiffel Tower is in Paris, France.)',
+//   'zai:UNCERTAIN (NOT_CHECKED: late after 2-family agreement)',
+// ]
 
 // 3) getRepID() — any agent's live reputation (public read).
 const rep = await client.getRepID('trinity-shofet');
-console.log(rep.repid, rep.tier);   // → 2110 ESTABLISHED
+console.log(rep.repid, rep.tier);   // the score moves; gate on tier
 ```
 
 **Two things in that output move, and the comments above are illustrative rather than
@@ -234,6 +242,10 @@ const { client } = await TrustShell.init({
 // DISCOVER — list the live marketplace. Keyless: you can browse before you commit a key.
 const { services } = await client.listServices({ type: 'verification' });
 const svc = services[0]; // e.g. "Verify-a-claim / HAL fact-check" by trinity-shofet, $0.05
+if (!svc) {
+  console.log('no verification service is listed right now');
+  return;
+}
 
 // PAY — origin + policy + audit, then sign (the key only signs locally; it never leaves memory).
 const xPaymentHeader = await guardedX402Payment({
@@ -280,17 +292,19 @@ CI / pre-commit pipeline. Installing the package puts a `trustshell` (and `hal`)
 npm install -g @hyperdag/trustshell     # or: npx @hyperdag/trustshell verify "…"
 
 trustshell verify "The capital of France is Paris."
+# Recorded 2026-10-05, exit 0:
 # ✓ PASS  trust 100/100
+#   PASS — hal_score 0 via fact-check (full quorum)
 #   evidence:
-#     - gemini:TRUE (Paris is the capital of France.)
-#     - mistral:TRUE (Paris is widely recognized as capital of France)
-#     - openrouter:TRUE (Paris is the capital of France.)
+#     - cerebras:TRUE (Paris is the capital of France.)
+#     - groq:TRUE (Paris is the capital of France.)
+#     - zai:UNCERTAIN (NOT_CHECKED: late after 2-family agreement)
 
-trustshell repid trinity-shofet          # → RepID <live score> (ESTABLISHED) — real, and it moves
+trustshell repid trinity-shofet          # the score moves; gate on tier
 trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
-# badge is a subcommand of this same executable, not its own program:
-#   trinity-shofet prints a portable SVG (see below)
-#   trinity-shofet --markdown prints a README-pasteable snippet
+# badge is a subcommand of trustshell, not its own program:
+trustshell badge trinity-shofet
+trustshell badge trinity-shofet --markdown
 ```
 
 **`badge` is a portable, self-contained proof.** It fetches an agent's ZK RepID range proof,
@@ -479,7 +493,7 @@ trustshell repid <id>
 trustshell proof <id> --verify
 ```
 
-`trustshell verify` exits 0 on PASS or FLAG, 1 on VETO, and 2 when HAL did not decide (NOT_CHECKED, never a pass). The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
+`trustshell verify` exits 0 on PASS or FLAG, 1 on VETO, and 2 when HAL did not decide (NOT_CHECKED, never a pass), from 1.6.0. Until that version is published, an all-abstain answer on the npm package can still exit 0. The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
 
 ---
 
@@ -505,8 +519,8 @@ Verifiable on [basescan](https://sepolia.basescan.org):
 
 - **IdentityRegistry** — `0x8004A818BFB912233c491871b3d84c89A494BD9e`
 - **ReputationRegistry** — `0x8004B663056A597Dffe9eCcC1965A193B7388713`
-- **12 agents minted** on the IdentityRegistry (all core Trinity agents).
-- **46 lifetime on-chain reputation writes.** Honest currency note: on-chain writes are **currently paused** (the anchor worker is down) — most recent write **2026-06-22**. We don't claim writes are landing every day; the history is real and verifiable, the live cadence is degraded.
+- **12 of 12 core agents hold an IdentityRegistry token** (`ownerOf`, 2026-10-05). Eleven of those twelve tokens are held by two other addresses.
+- **Reputation writes are recorded, each with a transaction hash.** On 2026-10-05 the public counter reported 114 rows with a real transaction hash on the reputation registry. That number is not a receipt check of every row, and it does not say a write lands every day.
 
 ---
 
