@@ -4,6 +4,28 @@ All notable changes to the `@hyperdag/trustshell` package.
 
 ## Unreleased
 
+- **BEHAVIOR CHANGE: `ethers` is an optional peer dependency.** Measured on the published 1.5.0 it
+  was 23 of the 50 MB every install pulled, yet only two SDK functions use it: signing an x402
+  payment (`buildX402Payment` / `guardedX402Payment`) and the on-chain read behind `verifySigner`.
+  `verify`, `check`, `repid`, `proof`, `badge` and the MCP server never load it. A clean install of
+  the package now measures 27 MB and 4.2 s, against 50 MB and 5.2 s, with every keyless command
+  working. **If you sign payments, install it next to trustshell: `npm i ethers@^6`.** Without
+  it those two functions throw `MissingDependencyError`, which says exactly that, instead of a
+  module-resolution stack trace.
+- **`TrustShell.init()` no longer waits forever.** Its `/health` probe had no deadline, so a
+  backend that accepted the connection and never answered hung `init()` for good. It now gives up
+  after 3 s (`HEALTH_TIMEOUT_MS`; set `healthTimeoutMs` to change it) and reports
+  `health.ok: false` with the reason. The probe also cost 0.71 s before the first real call
+  (measured on 1.5.0; the call itself took 0.18 s): pass `healthCheck: false` to skip it, and
+  `health` then reads `{ ok: false, checked: false }`, i.e. not checked. `health.checked` is new.
+- **Deprecated, still working until 2.0:**
+  - The seven bare global commands `remember`, `recall`, `redact`, `verify`, `repid`, `proof` and
+    `status`. Each is the same as `trustshell <command>`, and a bare global name can collide with
+    another package's (npm will not install over a bin it does not own). On a terminal they print
+    one line to stderr saying so; piped or in CI they print nothing new.
+  - The MCP aliases `verify` and `evaluate` (use `verify_output`) and `getRepID` and `repid` (use
+    `get_repid`). Their descriptions now say so, so an agent choosing by description picks the
+    canonical tool. The server lists the same 14 tools.
 - **A miss never reads as a pass.** HAL can answer without deciding: it abstains, returns no
   decision, or falls back to a mode that asked no provider. Until now `verify`, the MCP `verify`
   tools and `verifyOutput()` reported every one of those as `PASS`, "trust 100/100", exit 0, and

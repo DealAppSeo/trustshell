@@ -77,6 +77,20 @@ describe('trustshell MCP server', () => {
     }
   });
 
+  // 1.6.0: 14 tools did 10 jobs, and every connected agent carries all 14 in its context. The
+  // aliases stay until 2.0 (above), but each says it is deprecated and names the canonical tool,
+  // so an agent picking by description picks the canonical one.
+  it('each alias says it is deprecated and names its canonical tool; the canonical ones do not', () => {
+    const server: any = createServer(mockClient());
+    const aliases: Record<string, string> = { verify: 'verify_output', evaluate: 'verify_output', getRepID: 'get_repid', repid: 'get_repid' };
+    for (const [alias, canonical] of Object.entries(aliases)) {
+      expect(getTool(server, alias).description).toMatch(new RegExp(`^Deprecated alias of ${canonical} \\(removed in 2\\.0\\)`));
+    }
+    for (const name of Object.keys(server._registeredTools)) {
+      if (!(name in aliases)) expect(getTool(server, name).description).not.toMatch(/deprecated/i);
+    }
+  });
+
   it('verify_output is the canonical name for verify and hits the same SDK call', async () => {
     const client = mockClient();
     const server: any = createServer(client);
