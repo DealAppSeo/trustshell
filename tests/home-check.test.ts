@@ -167,7 +167,9 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(screen3).toContain('trustshell-mcp');
     expect(screen3).toContain(NOT_YET);
     // Until the store listing is live the page says so, and offers the checked test build.
-    expect(screen3).toContain('In Chrome Web Store review.');
+    // True before submission and during review alike; "in review" was not true until S12 is done.
+    expect(screen3).toContain('Coming to the Chrome Web Store.');
+    expect(screen3).not.toMatch(/in (Chrome Web Store )?review/i);
     expect(home.html).toContain('href="https://github.com/DealAppSeo/trustshell/releases/download/extension-latest/extension.zip"');
     expect(home.html).not.toContain('data-testid="add-to-chrome"');
   });

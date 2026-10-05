@@ -2,7 +2,7 @@
  * Where a stranger gets the Chrome extension.
  *
  * CHROME_STORE_URL is null until the Chrome Web Store listing is approved (BUS S12). While it is
- * null the home page says the extension is in review and offers the test build; the day the
+ * null the home page says it is coming to the store and offers the test build; the day the
  * listing is live, set it here and the page shows one "Add to Chrome" button instead. Nothing else
  * changes, so the switch is one line.
  *

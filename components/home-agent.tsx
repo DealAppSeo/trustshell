@@ -87,7 +87,7 @@ export function HomeAgent() {
             </a>
           ) : (
             <p className="text-sm text-slate-400 break-words" data-testid="chrome-in-review">
-              In Chrome Web Store review. To try it now, download the{' '}
+              Coming to the Chrome Web Store. To try it now, download the{' '}
               <a href={TEST_BUILD_ZIP} className="underline underline-offset-4 hover:text-white">
                 test build
               </a>

@@ -151,7 +151,8 @@ export function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters'>): strin
       const all = !many ? '' : r.voters.length === 2 ? ' both' : ' all';
       if (r.label === 'pass') return `${names}${all} said true.`;
       if (r.label === 'veto') return `${names}${all} said false.`;
-      return `Asked ${names}. No agreed answer.`;
+      // Mid-sentence, so "Two Groq models" is lower-cased: "Asked two Groq models."
+      return `Asked ${names.replace(/^Two /, 'two ')}. No agreed answer.`;
     }
     default:
       return '';

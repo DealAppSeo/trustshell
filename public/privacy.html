@@ -12,6 +12,8 @@
     <p>That text is sent to https://repid-engine-production.up.railway.app/api/v1/classify after the reply is on screen. Known key and personal-data formats are removed before sending. The stamp says Checks out, Caught, or Not checked. A missing reply is Not checked.</p>
     <p>When you choose Check with TrustShell on text you selected, that selection is sent to the same checkers. The extension sends it only after that click.</p>
     <p>When you type an agent id in the popup, that id is sent to the same engine to read the agent's public RepID and its proof. The proof is checked in your browser.</p>
+    <p>If you type a key on the extension's Options page, it is kept in your browser's extension storage on this device. The extension never sends it.</p>
+    <p>Like any website, the engine sees the IP address of each request. It uses it only to limit how many checks one connection can send; that count is kept in memory and cleared within a day. Our host, Railway, keeps standard request logs, which can include the IP address.</p>
     <p>The extension does not click, type, or send the chat.</p>
   </article>
 </body>

@@ -1,5 +1,5 @@
 /**
- * The listing package: text, 1280x800 shots, the privacy page, and the zip.
+ * The listing package: text, 1280x800 shots, promo tiles, the icon, the privacy page, and the zip.
  * Nothing here submits the package.
  */
 export {};
@@ -76,19 +76,34 @@ describe('store package', () => {
     }
   });
 
-  it('the three shots are 1280 by 800 and the script draws the stamp words', () => {
-    const script = readFileSync(join(ROOT, 'store/render-shots.ps1'), 'utf8');
-    expect(script).toContain("'Checks out'");
-    expect(script).toContain("'Caught'");
-    expect(script).toContain("'Not checked'");
-    expect(script).toContain('Checked and found false.');
-    expect(script).not.toMatch(/'pass'/);
-    expect(script).not.toMatch(/'veto'/);
-    expect(script).not.toMatch(/'not-checked'/);
+  it('the shots are the real extension stamping, and every image is the size the store asks for', () => {
+    // render-store-images.mjs loads this extension in Chromium and saves a shot only when the stamp
+    // reads the word it is meant to show. The drawn mock-ups it replaced (render-shots.ps1) did not.
+    const script = readFileSync(join(ROOT, 'store/render-store-images.mjs'), 'utf8');
+    expect(script).toContain("word: 'Checks out'");
+    expect(script).toContain("word: 'Caught'");
+    expect(script).toContain("word: 'Not checked'");
+    expect(script).toContain('--load-extension=');
     expect(script).not.toMatch(/Paris/);
     for (const name of ['pass.png', 'veto.png', 'not-checked.png']) {
       const size = pngSize(readFileSync(join(ROOT, 'store/screenshots', name)));
       expect(size).toEqual({ width: 1280, height: 800 });
+    }
+    expect(pngSize(readFileSync(join(ROOT, 'store/promo-small.png')))).toEqual({ width: 440, height: 280 });
+    expect(pngSize(readFileSync(join(ROOT, 'store/promo-marquee.png')))).toEqual({ width: 1400, height: 560 });
+  });
+
+  // The store refuses a package without a 128 by 128 icon, and nothing else in this repo would notice.
+  it('the package carries the icons the manifest names, at their sizes', () => {
+    const manifest = JSON.parse(readFileSync(join(ROOT, 'extension/manifest.json'), 'utf8')) as {
+      icons?: Record<string, string>;
+      action?: { default_icon?: Record<string, string> };
+    };
+    expect(Object.keys(manifest.icons ?? {})).toContain('128');
+    const named = { ...(manifest.icons ?? {}), ...(manifest.action?.default_icon ?? {}) };
+    for (const [px, file] of Object.entries(named)) {
+      const size = pngSize(readFileSync(join(ROOT, 'extension', file)));
+      expect(size).toEqual({ width: Number(px), height: Number(px) });
     }
   });
 

@@ -197,7 +197,8 @@
         const all = !p.many ? '' : row.voters.length === 2 ? ' both' : ' all';
         if (row.label === 'pass') return p.names + all + ' said true.';
         if (row.label === 'veto') return p.names + all + ' said false.';
-        return 'Asked ' + p.names + '. No agreed answer.';
+        // Mid-sentence, so "Two Groq models" is lower-cased: "Asked two Groq models."
+        return 'Asked ' + p.names.replace(/^Two /, 'two ') + '. No agreed answer.';
       }
       default:
         return '';
