@@ -74,11 +74,8 @@ async function ask(text, options) {
     latency_ms: row && typeof row.latency_ms === 'number' ? row.latency_ms : 0,
   };
   // What produced the label (the line under the stamp) rides only with a label the endpoint sent.
-  if (known && typeof row.by === 'string') {
-    out.by = row.by;
-    if (Array.isArray(row.voters)) out.voters = row.voters.slice();
-  }
-  return out;
+  const api = classifyApi();
+  return known && api ? api.copyPath(row, out) : out;
 }
 
 /**

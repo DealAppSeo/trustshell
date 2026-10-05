@@ -261,7 +261,7 @@ describe('classifier call', () => {
     expect(vetoed && vetoed.textContent).toBe('Caught\nChecked and found false.');
   });
 
-  it('a missing endpoint, a veto word, and a 3 second call', async () => {
+  it('a missing endpoint, a veto word, and a 6 second call', async () => {
     const classify = require('../extension/classify.js') as {
       classifyReply: (text: string, options?: { endpoint?: string }) => Promise<{ label: string; latency_ms: number }>;
       SLOW_LINE: string;
@@ -297,11 +297,11 @@ describe('classifier call', () => {
       const slowPage = tracked('noted\nveto', 'claude');
       const slow = await claude.draw(slowPage.doc as unknown as CallDoc, {
         fetchImpl: async () => {
-          clock += 3001;
+          clock += 6001;
           return { status: 200, json: async () => ({ label: 'veto' }) };
         },
       });
-      // Past the 3 s cap the classifier's own veto does not count: the claim is Not checked.
+      // Past the 6 s cap the classifier's own veto does not count: the claim is Not checked.
       expect(slow && slow.textContent).toBe('Not checked');
       expect(slow && slow.textContent).not.toContain('Caught');
       expect(slow && slow.textContent).not.toBe(0 as unknown as string);

@@ -59,7 +59,7 @@ describe('extension laya', () => {
     expect(body).toEqual({ text: REPLY, labels: ['pass', 'veto', 'not-checked'] });
   });
 
-  it('over 3000 ms is not-checked and says Still checking', async () => {
+  it('over 6000 ms is not-checked and says Still checking', async () => {
     const clock = (step: number) => {
       let t = 0;
       return () => (t += step);
@@ -67,27 +67,28 @@ describe('extension laya', () => {
     const slow = await laya.callLaya(REPLY, {
       modelUrl: MODEL_URL,
       fetchImpl: answer(200, '{"label":"pass"}'),
-      now: clock(3001),
+      now: clock(6001),
     });
-    expect(slow).toEqual({ label: 'not-checked', latency_ms: 3001, line: 'Still checking' });
+    expect(slow).toEqual({ label: 'not-checked', latency_ms: 6001, line: 'Still checking' });
     const edge = await laya.callLaya(REPLY, {
       modelUrl: MODEL_URL,
       fetchImpl: answer(200, '{"label":"pass"}'),
-      now: clock(3000),
+      now: clock(6000),
     });
-    expect(edge).toEqual({ label: 'pass', latency_ms: 3000 });
+    expect(edge).toEqual({ label: 'pass', latency_ms: 6000 });
   });
 
-  it('the default wait stops just past 3000 ms and says Still checking', async () => {
+  it('the default wait stops just past 6000 ms and says Still checking', async () => {
     jest.useFakeTimers();
     try {
       let t = 0;
       const fetchImpl = jest.fn(() => new Promise(() => undefined));
       const pending = laya.callLaya(REPLY, { modelUrl: MODEL_URL, fetchImpl, now: () => t });
-      t = 3100;
-      jest.advanceTimersByTime(3100);
+      // The wait matches the website and the CLI: the engine may ask another checker inside it.
+      t = 6100;
+      jest.advanceTimersByTime(6100);
       const out = await pending;
-      expect(out).toEqual({ label: 'not-checked', latency_ms: 3100, line: 'Still checking' });
+      expect(out).toEqual({ label: 'not-checked', latency_ms: 6100, line: 'Still checking' });
     } finally {
       jest.useRealTimers();
     }

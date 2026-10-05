@@ -8,6 +8,7 @@
   <article>
     <h1>TrustShell privacy</h1>
     <p>The reply text is sent to our checkers, Groq and Cerebras. It is not stored. Not printed is not the same as not sent.</p>
+    <p>If one of them cannot answer (it is busy, down or out of capacity), a backup checker takes its turn, from this list and no other: OpenRouter, which we ask to use only providers that neither store nor train on what they are sent; and, only while we have paid checkers switched on, Mistral, Together and Fireworks. A backup is used only after it has answered our test claims correctly, and the two answers that decide a stamp always come from two different model families. Before any other host is added, this page changes first.</p>
     <p>The extension reads the last assistant reply on chatgpt.com, chat.openai.com, claude.ai, gemini.google.com, grok.com, deepseek.com, and chat.deepseek.com.</p>
     <p>That text is sent to https://repid-engine-production.up.railway.app/api/v1/classify after the reply is on screen. Known key and personal-data formats are removed before sending. The stamp says Checks out, Caught, or Not checked. A missing reply is Not checked.</p>
     <p>When you choose Check with TrustShell on text you selected, that selection is sent to the same checkers. The extension sends it only after that click.</p>

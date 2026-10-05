@@ -4,6 +4,7 @@
  * and an unknown label all paint Not checked, never Checks out.
  *
  *   in flight    Checking with Groq and Cerebras   (title: checking)
+ *   2.5 s on     Still checking. Two checkers must agree.   (title: checking)
  *   pass         Checks out                        (title: pass)
  *   veto         Caught + the voter line           (title: veto)
  *   anything else Not checked                      (title: not-checked)
@@ -15,7 +16,9 @@ const classify = require('../extension/classify.js') as {
   STAMP_WORDS: Record<string, string>;
   VETO_LINE: string;
   SLOW_LINE: string;
-  stampText: (label: unknown) => string;
+  stampText: (label: unknown, since?: number, now?: number) => string;
+  STILL_MS: number;
+  CHECKING_LONGER: string;
   stampState: (label: unknown) => string;
   paintStamp: (stamp: { dataset?: Record<string, string>; textContent: string; title?: string }, label: unknown) => unknown;
   knownRow: (text: string) => { label: string } | null;
@@ -245,7 +248,7 @@ describe.each(HOSTS)('%s stamp', (_name, draw) => {
     expect(doc.stamp()!.title).toBe('not-checked');
   });
 
-  it('a pass past the 3 s cap paints Not checked', async () => {
+  it('a pass past the 6 s cap paints Not checked', async () => {
     const realNow = Date.now;
     let clock = realNow();
     Date.now = () => clock;
@@ -253,7 +256,7 @@ describe.each(HOSTS)('%s stamp', (_name, draw) => {
       const doc = new Doc('A slow reply.');
       await draw(doc, {
         fetchImpl: async () => {
-          clock += 3001;
+          clock += 6001;
           return { status: 200, text: async () => '{"label":"pass"}' };
         },
       });
@@ -407,6 +410,41 @@ describe('stamp.css', () => {
   it('styles every state', () => {
     for (const state of ['checking', 'pass', 'veto', 'not-checked']) {
       expect(css).toContain(`.ts-stamp[data-stamp="${state}"]`);
+    }
+  });
+});
+
+describe('latency as opportunity: a long Checking says why the wait is worth it', () => {
+  it('Checking for STILL_MS or more reads CHECKING_LONGER, and nothing else changes', () => {
+    expect(classify.STILL_MS).toBe(2500);
+    expect(classify.stampText('checking', 1000, 1000 + classify.STILL_MS - 1)).toBe(CHECKING);
+    expect(classify.stampText('checking', 1000, 1000 + classify.STILL_MS)).toBe(classify.CHECKING_LONGER);
+    expect(classify.CHECKING_LONGER).toBe('Still checking. Two checkers must agree.');
+    // Only Checking grows a second wording: a settled label never does.
+    expect(classify.stampText('pass', 0, 1e9)).toBe(CHECKS_OUT);
+    expect(classify.stampText('not-checked', 0, 1e9)).toBe(NOT_CHECKED);
+  });
+
+  it('the painted stamp switches on its own at STILL_MS, and a settled label clears the clock', () => {
+    jest.useFakeTimers();
+    try {
+      const stamp: { dataset: Record<string, string>; textContent: string; title?: string } = { dataset: {}, textContent: '' };
+      classify.paintStamp(stamp, 'checking');
+      expect(stamp.textContent).toBe(CHECKING);
+      jest.advanceTimersByTime(classify.STILL_MS);
+      expect(stamp.textContent).toBe(classify.CHECKING_LONGER);
+      expect(stamp.title).toBe('checking');
+      // A redraw while still checking keeps the longer line instead of flickering back.
+      classify.paintStamp(stamp, 'checking');
+      expect(stamp.textContent).toBe(classify.CHECKING_LONGER);
+      classify.paintStamp(stamp, 'pass');
+      expect(stamp.textContent).toBe(CHECKS_OUT);
+      expect(stamp.dataset.checkingSince).toBeUndefined();
+      // The timer of an earlier Checking cannot overwrite a settled stamp.
+      jest.advanceTimersByTime(classify.STILL_MS);
+      expect(stamp.textContent).toBe(CHECKS_OUT);
+    } finally {
+      jest.useRealTimers();
     }
   });
 });

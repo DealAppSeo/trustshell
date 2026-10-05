@@ -10,7 +10,8 @@
    * The reply text is not printed.
    */
   const LABELS = ['pass', 'veto', 'not-checked'];
-  const SLOW_MS = 3000;
+  /** Past this the call is over and the stamp is Not checked. The same wait as laya.js. */
+  const SLOW_MS = 6000;
   /**
    * Shown under a Not checked stamp when the answer came past SLOW_MS. It used to read
    * 'Still checking', which sat under a stamp saying the opposite: past the cap the call is
@@ -39,21 +40,40 @@
   const VETO_LINE = 'Checked and found false.';
 
   /**
+   * LATENCY AS OPPORTUNITY (Sean, 2026-10-05). When the first checkers are busy the engine asks
+   * another, and the answer can take a few seconds. Past STILL_MS the Checking stamp says why the
+   * wait is worth it instead of looking stuck. It is true whether or not a stand-in was asked, so
+   * it claims nothing the response has not said yet.
+   */
+  const STILL_MS = 2500;
+  const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
+
+  /**
    * The row a host paints. `by` / `voters` (what produced the label, from laya.js pathOf) ride
    * along only when the label is the endpoint's own and in time; a label this file overrode
    * carries no path, because the endpoint's path described a different answer.
    */
+  /**
+   * Copies what produced the label (`by`, `voters`, `deciders`) from a row onto `out`. The ONE
+   * place these fields are copied: content.js, grok.js and select.js each used to copy `voters`
+   * by hand, and when `deciders` arrived (2026-10-05) the browser stamp dropped it while every unit
+   * test passed, so a stand-in's answer read "Groq, Cerebras and OpenRouter all said false". The
+   * extension e2e caught it. A new field is added here once, not in four files.
+   */
+  function copyPath(row, out) {
+    if (!row || typeof row !== 'object' || typeof row.by !== 'string') return out;
+    out.by = row.by;
+    if (Array.isArray(row.voters)) out.voters = row.voters.slice();
+    if (Array.isArray(row.deciders)) out.deciders = row.deciders.slice();
+    return out;
+  }
+
   function finish(started, row) {
     const elapsed = Date.now() - started;
     const label = row && typeof row === 'object' ? row.label : row;
     const known = label === 'pass' || label === 'veto' || label === 'not-checked';
     if (!known || elapsed > SLOW_MS) return { label: 'not-checked', latency_ms: elapsed };
-    const out = { label, latency_ms: elapsed };
-    if (row && typeof row === 'object' && typeof row.by === 'string') {
-      out.by = row.by;
-      if (Array.isArray(row.voters)) out.voters = row.voters.slice();
-    }
-    return out;
+    return copyPath(row, { label, latency_ms: elapsed });
   }
 
   /** laya.js is the hardened call: http(s) only, no cookies, no redirects, a body cap. */
@@ -168,6 +188,11 @@
     cerebras: 'Cerebras',
     'nvidia-nim': 'NVIDIA NIM',
     'workers-ai': 'Cloudflare Workers AI',
+    openrouter: 'OpenRouter',
+    zai: 'Z.ai',
+    mistral: 'Mistral',
+    together: 'Together',
+    fireworks: 'Fireworks',
   };
 
   function voterPhrase(voters) {
@@ -192,9 +217,11 @@
       case 'deadline':
         return 'No answer in time.';
       case 'votes': {
-        if (!Array.isArray(row.voters) || row.voters.length === 0) return '';
-        const p = voterPhrase(row.voters);
-        const all = !p.many ? '' : row.voters.length === 2 ? ' both' : ' all';
+        // Who answered, when the endpoint says; else everyone it was sent to (an older endpoint).
+        const who = Array.isArray(row.deciders) && row.deciders.length > 0 ? row.deciders : row.voters;
+        if (!Array.isArray(who) || who.length === 0) return '';
+        const p = voterPhrase(who);
+        const all = !p.many ? '' : who.length === 2 ? ' both' : ' all';
         if (row.label === 'pass') return p.names + all + ' said true.';
         if (row.label === 'veto') return p.names + all + ' said false.';
         // Mid-sentence, so "Two Groq models" is lower-cased: "Asked two Groq models."
@@ -206,7 +233,7 @@
   }
 
   /**
-   * The one line under the stamp: why it is Not checked when the call took over 3 seconds, else
+   * The one line under the stamp: why it is Not checked when the call took over SLOW_MS, else
    * what produced the label when the endpoint said so, else nothing.
    */
   function lineFor(row) {
@@ -241,16 +268,30 @@
     return label === 'pass' || label === 'veto' || label === 'checking' ? label : 'not-checked';
   }
 
-  /** The words for a state. Caught carries a second line that says who voted. */
-  function stampText(label) {
+  /**
+   * The words for a state. Caught carries a second line that says who voted. A stamp that has been
+   * Checking for STILL_MS or more says so (CHECKING_LONGER); `since` is when it started checking.
+   */
+  function stampText(label, since, now) {
     const state = stampState(label);
-    return state === 'veto' ? STAMP_WORDS.veto + '\n' + VETO_LINE : STAMP_WORDS[state];
+    if (state === 'veto') return STAMP_WORDS.veto + '\n' + VETO_LINE;
+    if (state === 'checking' && Number.isFinite(since) && (now === undefined ? Date.now() : now) - since >= STILL_MS) {
+      return CHECKING_LONGER;
+    }
+    return STAMP_WORDS[state];
+  }
+
+  function checkingSince(stamp) {
+    const raw = stamp && stamp.dataset ? Number(stamp.dataset.checkingSince) : NaN;
+    return Number.isFinite(raw) ? raw : undefined;
   }
 
   /** True when the stamp already shows this state, so painting it again would be a DOM change for nothing. */
   function stampShows(stamp, label) {
     const state = stampState(label);
-    return Boolean(stamp && stamp.dataset && stamp.dataset.stamp === state && stamp.textContent === stampText(state));
+    return Boolean(
+      stamp && stamp.dataset && stamp.dataset.stamp === state && stamp.textContent === stampText(state, checkingSince(stamp)),
+    );
   }
 
   /**
@@ -261,8 +302,20 @@
     if (!stamp) return stamp;
     const state = stampState(label);
     if (!stamp.dataset) stamp.dataset = {};
+    const wasChecking = stamp.dataset.stamp === 'checking';
     stamp.dataset.stamp = state;
-    stamp.textContent = stampText(state);
+    if (state !== 'checking') {
+      delete stamp.dataset.checkingSince;
+    } else if (!wasChecking || checkingSince(stamp) === undefined) {
+      stamp.dataset.checkingSince = String(Date.now());
+      // One timer per stretch of Checking: if the stamp is still Checking at STILL_MS, say why.
+      if (typeof setTimeout === 'function') {
+        setTimeout(() => {
+          if (stamp.dataset && stamp.dataset.stamp === 'checking') stamp.textContent = stampText('checking', checkingSince(stamp));
+        }, STILL_MS);
+      }
+    }
+    stamp.textContent = stampText(state, checkingSince(stamp));
     stamp.title = state;
     return stamp;
   }
@@ -274,6 +327,9 @@
     QUIET_MS,
     STAMP_WORDS,
     VETO_LINE,
+    STILL_MS,
+    CHECKING_LONGER,
+    copyPath,
     classifyReply,
     knownRow,
     lineFor,

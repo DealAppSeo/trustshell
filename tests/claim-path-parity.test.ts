@@ -33,6 +33,12 @@ const BODIES: unknown[] = [
   { by: 'votes', voters: ['Groq <b>'] },
   { by: 'votes', voters: Array(9).fill('groq') },
   { by: 'votes', voters: [1, 2] },
+  // The checker pool (repid-engine, 2026-10-05): `deciders` names the two that answered.
+  { by: 'votes', voters: ['groq', 'cerebras', 'openrouter'], deciders: ['groq', 'openrouter'] },
+  { by: 'votes', voters: ['groq', 'groq', 'openrouter'], deciders: ['groq', 'openrouter'] },
+  { by: 'votes', voters: ['groq', 'cerebras'], deciders: ['groq', 'mistral'] },
+  { by: 'votes', voters: ['groq', 'cerebras'], deciders: ['groq'] },
+  { by: 'votes', voters: ['zai', 'mistral', 'together', 'fireworks'], deciders: ['together', 'fireworks'] },
   { by: 'magic' },
   { by: 42 },
   null,
@@ -68,6 +74,25 @@ describe('the words', () => {
     expect(line('pass', { by: 'votes', voters: ['groq', 'cerebras', 'workers-ai'] })).toBe(
       'Groq, Cerebras and Cloudflare Workers AI all said true.',
     );
+  });
+  it('when a backup stood in, the line names the two that decided, not everyone the text reached', () => {
+    const body = { by: 'votes', voters: ['groq', 'cerebras', 'openrouter'], deciders: ['groq', 'openrouter'] };
+    expect(line('veto', body)).toBe('Groq and OpenRouter both said false.');
+    expect(line('pass', body)).toBe('Groq and OpenRouter both said true.');
+    expect(line('not-checked', body)).toBe('Asked Groq and OpenRouter. No agreed answer.');
+    expect(pathOf(body, 'veto')).toEqual({ by: 'votes', voters: ['groq', 'cerebras', 'openrouter'], deciders: ['groq', 'openrouter'] });
+  });
+  it('deciders that are not exactly two of the voters are ignored, never half-used', () => {
+    for (const deciders of [['groq'], ['groq', 'mistral'], ['groq', 'cerebras', 'groq'], 'groq', [1, 2]]) {
+      const body = { by: 'votes', voters: ['groq', 'cerebras'], deciders };
+      expect(pathOf(body, 'veto')).toEqual({ by: 'votes', voters: ['groq', 'cerebras'] });
+      expect(line('veto', body)).toBe('Groq and Cerebras both said false.');
+    }
+  });
+  it('every checker in the pool has a name people can read', () => {
+    const body = { by: 'votes', voters: ['zai', 'mistral', 'together', 'fireworks'], deciders: ['zai', 'mistral'] };
+    expect(line('pass', body)).toBe('Z.ai and Mistral both said true.');
+    expect(line('pass', { by: 'votes', voters: ['together', 'fireworks'] })).toBe('Together and Fireworks both said true.');
   });
   it('skipped and deadline say why nothing was decided', () => {
     expect(line('not-checked', { by: 'skipped' })).toBe('No checker was asked.');
@@ -224,4 +249,34 @@ describe('an answer that names a path it does not have is not checked, at every 
       });
     }
   }
+});
+
+describe('one place copies what produced the label', () => {
+  // 2026-10-05: three host scripts copied `voters` by hand, and when `deciders` arrived the browser
+  // stamp dropped it while every unit test passed. Only the extension e2e caught it.
+  it('no extension file but classify.js copies voters or deciders by hand', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('node:fs') as typeof import('node:fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('node:path') as typeof import('node:path');
+    const dir = path.join(__dirname, '..', 'extension');
+    const offenders = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.js') && f !== 'classify.js' && f !== 'laya.js')
+      .filter((f) => /row\.(voters|deciders)\.slice\(/.test(fs.readFileSync(path.join(dir, f), 'utf8')));
+    expect(offenders).toEqual([]);
+  });
+
+  it('copyPath carries by, voters and deciders, and nothing from a row without a path', () => {
+    const c = classify as unknown as { copyPath: (row: unknown, out: Record<string, unknown>) => Record<string, unknown> };
+    const row = { label: 'veto', by: 'votes', voters: ['groq', 'cerebras', 'openrouter'], deciders: ['groq', 'openrouter'], extra: 1 };
+    expect(c.copyPath(row, { label: 'veto' })).toEqual({
+      label: 'veto',
+      by: 'votes',
+      voters: ['groq', 'cerebras', 'openrouter'],
+      deciders: ['groq', 'openrouter'],
+    });
+    expect(c.copyPath({ label: 'pass' }, { label: 'pass' })).toEqual({ label: 'pass' });
+    expect(c.copyPath('not-checked', { label: 'not-checked' })).toEqual({ label: 'not-checked' });
+  });
 });
