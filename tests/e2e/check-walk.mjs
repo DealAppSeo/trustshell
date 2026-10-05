@@ -45,10 +45,10 @@
  */
 
 import { createServer } from 'node:http';
-import { spawn, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
+import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit, spawnNext } from './chromium-path.mjs';
 
 const { chromium } = await loadPlaywrightOrExit();
 
@@ -134,7 +134,7 @@ if (!DEPLOYED) {
   // Build in-suite: NEXT_PUBLIC_* is inlined at build time, so the engine URL must be set for the
   // build, and the bundle under test is then the one that ships.
   const buildEnv = { ...process.env, NEXT_PUBLIC_REPID_ENGINE_URL: ENGINE };
-  const build = spawn('npx', ['next', 'build'], { env: buildEnv, stdio: 'ignore' });
+  const build = spawnNext(['build'], { env: buildEnv, stdio: 'ignore' });
   const buildCode = await new Promise((r) => build.on('exit', r));
   if (buildCode !== 0) {
     console.error(`FATAL: next build exited ${buildCode}`);
@@ -152,7 +152,7 @@ if (!DEPLOYED) {
     process.exit(2);
   }
 
-  const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], { env: buildEnv, stdio: 'ignore', detached: true });
+  const app = spawnNext(['start', '--port', String(APP_PORT)], { env: buildEnv, stdio: 'ignore', detached: true });
   killApp = () => { try { process.kill(-app.pid, 'SIGKILL'); } catch { try { app.kill('SIGKILL'); } catch {} } };
   process.on('exit', killApp);
 }
@@ -290,7 +290,10 @@ async function walkHome(browser, phone, pageErrors) {
   check('home: Check is ready to click on the prefilled sentence', !(await home.locator('button[type=submit]').isDisabled()));
   check('home: no sideways scroll on a 390px phone', (await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
   const text = await home.locator('body').innerText();
-  check('home: ChatGPT and Grok appear only in the not-yet line', text.split(NOT_YET).length === 2 && !/ChatGPT|\bGrok\b/.test(text.replace(NOT_YET, '')));
+  check('home: ChatGPT and Grok appear only in the not-yet line', text.split(NOT_YET).length === 3 && !/ChatGPT|\bGrok\b/.test(text.split(NOT_YET).join('')));
+  check('home: screen 3 is the agent you already use', text.includes('Add it to the agent you already use') && ['Claude Desktop', 'Cursor', 'Claude Code'].every((name) => text.includes(name)));
+  check('home: screen 4 is where this goes', text.includes('Where this goes') && text.includes('Known key and personal-data formats are removed before sending.'));
+  check('home: a sticky Check is on screen at 390px', await home.locator('[data-testid=sticky-check]').isVisible());
   check('home: no number followed by ms anywhere on the page', !/\d\s*ms\b/i.test(text), (text.match(/[^\n]*\d\s*ms\b[^\n]*/i) ?? [''])[0]);
   check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status/.test(text));
   if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390.png'), fullPage: true });
@@ -334,8 +337,14 @@ async function walkHome(browser, phone, pageErrors) {
   await desk.addInitScript(countSends);
   await desk.goto(HOME_URL, { waitUntil: 'networkidle' });
   const deskSent = await desk.evaluate(() => window.__sent.slice());
+  const deskNav = await desk.locator('header').innerText();
+  check('home: at 1440px the nav is Check, Add to your agent, Docs, Why',
+    ['Check', 'Add to your agent', 'Docs', 'Why'].every((label) => deskNav.includes(label)) &&
+      !/Leaderboard|Market|Stake/.test(deskNav), deskNav);
+  const overflow = await desk.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   check('home: at 1440px, no sideways scroll and nothing sent on load',
-    (await desk.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false && deskSent.length === 0, JSON.stringify(deskSent));
+    overflow === false && deskSent.length === 0, JSON.stringify({ overflow, deskSent }));
+  check('home: the sticky Check is not on screen at 1440px', (await desk.locator('[data-testid=sticky-check]').isVisible()) === false);
   if (process.env.SHOT_DIR) await desk.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-1440.png'), fullPage: true });
   await wide.close();
 }

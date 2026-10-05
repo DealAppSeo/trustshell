@@ -24,32 +24,27 @@ import { join } from 'node:path';
 const SOURCE = readFileSync(join(__dirname, '..', 'components', 'top-nav.tsx'), 'utf8');
 
 /**
- * Measured 2026-09-01: 13 links need 1110–1126px, so the row may only appear at xl and above.
- *
- * Re-measured 2026-10-05 for 14 links (Check added first), on a production build in an agent
- * sandbox, same two methods: bisect 1152px, direct 1168px. The same run on 13 links (Check removed
- * from the DOM) gave 1081/1097 here, 29px under the 2026-09-01 figures, so Check costs ~71px.
- * Taken on the older, larger baseline that is ~1181–1197px: under xl (1280) with at least 83px
- * to spare, about one more link. Unforced, the row is hidden at 1279 and shows at 1280 with no
- * overflow.
+ * Measured by the label budget, 2026-10-05, after the row shrank to four links
+ * (Check, Add to your agent, Docs, Why). The long label is about 170px; the row
+ * with the wordmark lands near 510px. md (768) clears that with more than 200px
+ * to spare. The row stays hidden below md, which is every 390px phone.
+ * Re-measure on a production build if a label grows, then update BREAKPOINT.
  */
-const MEASURED_LINK_COUNT = 14;
-const BREAKPOINT = 'xl';
+const MEASURED_LINK_COUNT = 4;
+const BREAKPOINT = 'md';
 
 describe('top nav fits the viewport it appears in', () => {
   it('still has the number of links the breakpoint was measured against', () => {
     const links = SOURCE.match(/\{\s*href:\s*'/g)?.length ?? 0;
     expect(links).toBe(MEASURED_LINK_COUNT);
-    // If this failed because you added or removed a link: at 14 links the row needed up to
-    // ~1197px, leaving ~83px of slack under xl — roughly one more link. Re-measure the rendered row
-    // (force it visible, bisect the viewport) and either keep xl, tighten the per-link padding,
-    // or move the link into the dropdown — then update MEASURED_LINK_COUNT.
+    // If this failed because you added or removed a link: four links were budgeted near 510px
+    // and shown from md. Re-measure the rendered row and update MEASURED_LINK_COUNT and BREAKPOINT.
   });
 
   it('shows the desktop row only at the breakpoint wide enough to hold it', () => {
     expect(SOURCE).toContain(`hidden ${BREAKPOINT}:flex`);
-    // md would put an 1110px-wide row into a 768px viewport, which is the bug this pins.
-    expect(SOURCE).not.toContain('hidden md:flex');
+    // sm would be one long rename away from the overflow this file exists to catch.
+    expect(SOURCE).not.toContain('hidden sm:flex');
   });
 
   it('switches the row, the toggle and the dropdown at one and the same breakpoint', () => {
