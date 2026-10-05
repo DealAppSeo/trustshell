@@ -69,6 +69,18 @@ describe('what is a current package-version claim', () => {
     expect(scan.scanFile(line + '\n', 'docs/api-reference.md', '1.4.0')).toEqual([]);
   });
 
+  // @hyperdag/trustshell-mcp is a separate npm package with its own version line (1.0.0). The
+  // guard read its name as this package's and failed a dated note about it.
+  it('does not read @hyperdag/trustshell-mcp as this package', () => {
+    const line = '**`@hyperdag/trustshell-mcp` 1.0.0** was published by hand on 2026-07-08.';
+    expect(scan.scanFile(line + '\n', 'docs/living/BUS.md', '1.6.0')).toEqual([]);
+  });
+
+  it('still flags this package when it is named right after', () => {
+    const line = 'npm install @hyperdag/trustshell@1.5.0 (not @hyperdag/trustshell-mcp)';
+    expect(scan.scanFile(line + '\n', 'README.md', '1.6.0').map((h) => h.version)).toEqual(['1.5.0']);
+  });
+
   it('flags an installed --version example that is behind package.json', () => {
     const line = '# → 1.3.0   (the installed package version)';
     const hits = scan.scanFile(line + '\n', 'docs/getting-started.md', '1.4.0');

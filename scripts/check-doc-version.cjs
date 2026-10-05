@@ -147,11 +147,12 @@ function isCurrentClaim(line, version, matchIndex) {
   if (/installed package version/i.test(line)) return true;
   if (
     new RegExp(String.raw`\bv?${version.replace(/\./g, '\\.')}\s+surface\b`, 'i').test(line) &&
-    /(?:published|@hyperdag\/trustshell)/i.test(line)
+    /(?:published|@hyperdag\/trustshell(?!-))/i.test(line)
   ) {
     return true;
   }
-  if (/@hyperdag\/trustshell/.test(line)) return true;
+  // `(?!-)`: @hyperdag/trustshell-mcp is a different package, with its own versions.
+  if (/@hyperdag\/trustshell(?!-)/.test(line)) return true;
   if (/trustshell --version/i.test(line)) return true;
   return false;
 }
@@ -169,7 +170,7 @@ function scanFile(text, fileRel, pkgVersion) {
       if (isFloor(line, idx)) {
         // A floor is only a claim about THIS package when the package is named.
         // `>=18.0.0` is Node; comparing it to package.json 1.4.0 is nonsense.
-        if (/@hyperdag\/trustshell/.test(line) && cmpSemver(version, pkgVersion) > 0) {
+        if (/@hyperdag\/trustshell(?!-)/.test(line) && cmpSemver(version, pkgVersion) > 0) {
           hits.push({
             file: fileRel,
             line: i + 1,
