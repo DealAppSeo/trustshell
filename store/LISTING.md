@@ -16,6 +16,8 @@ TrustShell stamps the last assistant reply.
 
 It runs on chatgpt.com, chat.openai.com, claude.ai, gemini.google.com, grok.com, deepseek.com, and chat.deepseek.com.
 
+Click the icon. The popup opens.
+
 The stamp says Checks out, Caught, or Not checked. A missing reply is Not checked. A reply that ends in the word veto is not Caught unless the checker says it is false.
 
 Caught adds a toast: Caught. This reply did not pass. Checks out does not add a toast. Not checked does not add a toast.

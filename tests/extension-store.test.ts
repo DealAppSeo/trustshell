@@ -73,6 +73,9 @@ describe('store package', () => {
     };
     if (!manifest.action || manifest.action.default_popup !== 'popup.html') {
       expect(listing).not.toMatch(/click the icon/i);
+    } else {
+      expect(description).toMatch(/click the icon/i);
+      expect(description).toContain('The popup opens');
     }
   });
 
