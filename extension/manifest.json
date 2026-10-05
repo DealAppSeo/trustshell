@@ -3,9 +3,19 @@
   "name": "TrustShell stamp",
   "version": "1.0.0",
   "description": "Reads the last assistant reply and stamps Checks out, Caught, or Not checked.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
     "default_title": "TrustShell",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
   },
   "host_permissions": [
     "https://repid-engine-production.up.railway.app/*"

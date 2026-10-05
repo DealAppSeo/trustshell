@@ -34,8 +34,8 @@ describe('public copy ban', () => {
     }
     expect(hits).toEqual([]);
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
-    expect(hero).toContain('Every answer gets checks you can see.');
-    expect(hero).toContain('Act when they pass.');
-    expect(hero).toContain('Paste something an AI told you. See if it checks out.');
+    expect(hero).toContain('AI lies.');
+    expect(hero).toContain('Now it has to answer to other models, so the truth comes out.');
+    expect(hero).toContain('TrustShell is a portable trust harness.');
   });
 });

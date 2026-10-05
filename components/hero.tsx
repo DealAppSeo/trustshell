@@ -2,97 +2,75 @@ import CheckForm from '@/app/check/CheckForm';
 import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';
 
 /**
- * The home page IS /check moved up: the same form, the same three answers, the same privacy line
- * above the button. Not a second form — CheckForm with a prefill and the samples.
+ * Screens 1 and 2: the fear, then the stamp. (Sean said GO on 2026-10-05 for Grok's order: pain,
+ * fear, solution, the obvious choice. The page used to lead with the mechanism.)
  *
- * The samples (lib/home-samples.ts) are traps people actually fall into, each measured against
- * production before it went on this page. They are text for the box, nothing more: prefilling
- * sends nothing and neither does swapping. A request happens only when the visitor clicks Check,
- * so a crawler or a page load never spends the shared checker budget.
+ * The headline is "AI lies.", Sean's call on 2026-10-05, overruling an earlier softer line ("AI
+ * sounds sure. It is often wrong."). The next two lines are his, worded to what is live today:
+ *   - "answer to other models", not a line about putting its reputation at risk: the model that
+ *     wrote a chat reply has no score here and risks nothing. Two other models read it, and that is
+ *     the whole claim this line makes.
+ *   - the harness line leaves out "your context, preferences and settings" and "saving you money":
+ *     the first is a "Next" line on screen 4 (home-where.tsx) and the second was never measured. A
+ *     first screen that says a plan in the present tense contradicts the page's own "Next" list.
+ *
+ * THE EXAMPLE IS LIVE, NOT PRINTED. The box is prefilled with the speed trap, a sure answer that is
+ * wrong, and Check sends it to the same checkers as any sentence. It came back Caught on three of
+ * three production calls on 2026-10-05 (lib/home-samples.ts measured the same). So the two checker
+ * lines under the stamp are the real answer, and nothing on this page is a fixture that needs an
+ * EXAMPLE label. Prefilling sends nothing: a request happens only when the visitor clicks Check.
+ *
+ * One door per screen. The install steps moved to the next screen (#add-agent); this one has the
+ * check and one link down to it. No logo here: the nav already carries it, and a second one pushed
+ * the fear off a phone screen.
  */
-// npm 1.6.0 ships `trustshell check "<sentence>"`: exit 0 checks out, 1 caught, 2 not checked.
-const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;
-
-// A global install of 1.6.0 puts `trustshell-mcp` on PATH, which is what this config runs.
-const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';
-const MCP_PASTE = `{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }`;
-
-const CODE =
-  'max-w-full overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs sm:text-sm text-indigo-200 whitespace-pre-wrap break-words';
-
 export function Hero() {
   return (
-    <section className="relative px-4 sm:px-6 py-20 md:py-28 bg-slate-950 text-white overflow-hidden">
+    <section className="relative px-4 sm:px-6 pt-12 pb-16 md:pt-20 md:pb-20 bg-slate-950 text-white overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_70%)] pointer-events-none" />
 
-      <div className="absolute top-6 left-4 sm:left-6 flex items-center gap-2">
-        <span className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-          <span className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-xs">⚡</span>
-          TrustShell
-        </span>
-      </div>
-
-      <div className="max-w-3xl w-full min-w-0 mx-auto space-y-10 relative z-10">
+      <div className="max-w-3xl w-full min-w-0 mx-auto space-y-8 relative z-10">
         <div className="text-center space-y-4">
           <h1 className="max-w-full text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white text-wrap leading-tight">
-            Every answer gets checks you can see.
+            AI lies.
           </h1>
           <p className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-indigo-300 text-wrap" data-testid="hero-act">
-            Act when they pass.
+            Now it has to answer to other models, so the truth comes out.
           </p>
-          <p className="max-w-xl mx-auto pt-2 text-base sm:text-lg text-slate-300 text-wrap">
-            Paste something an AI told you. See if it checks out.
+          <p className="max-w-xl mx-auto pt-2 text-base sm:text-lg text-slate-300 text-wrap" data-testid="hero-harness">
+            TrustShell is a portable trust harness. Your agent can use any model, with no vendor lock-in,
+            and a wrong answer gets caught before it costs you.
           </p>
-          <p className="max-w-xl mx-auto text-sm sm:text-base text-slate-400 text-wrap">
-            No signup. No wallet. Leave whenever you want.
+          <p className="max-w-xl mx-auto text-base sm:text-lg text-slate-200 text-wrap" data-testid="hero-solution">
+            Before you act on an answer, two checkers read it. You see what they said: Checks out, Caught, or
+            Not checked.
           </p>
         </div>
 
-        <div className="max-w-xl w-full min-w-0 mx-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 text-left">
+        <div className="max-w-xl w-full min-w-0 mx-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 text-left space-y-3">
+          <p className="text-sm font-semibold text-amber-400" data-testid="hero-example-caption">
+            A sure answer. The average is not 45. Press Check.
+          </p>
           <CheckForm initialText={SPEED_TRAP} samples={HOME_SAMPLES} />
         </div>
 
-        {/* Two quiet next steps. Headings and code, no buttons: nothing here competes with Check. */}
-        <div className="max-w-xl w-full min-w-0 mx-auto text-left space-y-8 text-sm text-slate-300">
-          <section aria-labelledby="next-terminal" data-step="terminal" className="space-y-2">
-            <h2 id="next-terminal" className="text-base font-semibold text-white">
-              Use it in your terminal
-            </h2>
-            <pre className={CODE}>
-              <code>{TERMINAL_COMMAND}</code>
-            </pre>
-            <p className="text-slate-400">
-              Exits 0 when it checks out, 1 when caught, 2 when not checked.{' '}
-              <a href="/devs" className="underline underline-offset-4 hover:text-white">
-                What is a terminal?
-              </a>
-            </p>
-          </section>
-
-          <section aria-labelledby="next-agent" data-step="agent" className="space-y-2">
-            <h2 id="next-agent" className="text-base font-semibold text-white">
-              Add it to your agent
-            </h2>
-            <p className="text-slate-400">For Claude Desktop and Cursor.</p>
-            <ol className="list-decimal pl-5 space-y-3 marker:text-slate-500">
-              <li className="space-y-2">
-                <p>Install it. This gives you the <code className="font-mono text-indigo-200">trustshell-mcp</code> command.</p>
-                <pre className={CODE}>
-                  <code>{INSTALL}</code>
-                </pre>
-              </li>
-              <li className="space-y-2">
-                <p>Paste this into the app&apos;s MCP config.</p>
-                <pre className={CODE}>
-                  <code>{MCP_PASTE}</code>
-                </pre>
-              </li>
-              <li>
-                <p>Restart the app.</p>
-              </li>
-            </ol>
-            <p className="text-slate-400" data-testid="not-yet">ChatGPT and Grok: not yet.</p>
-          </section>
+        <div className="max-w-xl w-full min-w-0 mx-auto text-center space-y-3" data-testid="hero-glass">
+          <p className="text-base sm:text-lg text-slate-200 text-wrap">
+            The black box becomes a glass box: you see who checked it, and what they said.
+          </p>
+          <p className="text-sm text-slate-400 text-wrap">
+            NVIDIA OpenShell cages what an agent can touch. TrustShell checks what it says.
+          </p>
+          <p className="text-sm text-slate-400">No signup. No wallet. Leave whenever you want.</p>
+          <p className="pt-2">
+            <a
+              href="#add-agent"
+              data-testid="hero-add"
+              className="inline-flex items-center justify-center rounded-lg border border-amber-600 px-5 py-3 text-sm font-bold text-amber-400 hover:bg-amber-600 hover:text-white transition-colors"
+            >
+              Add it to the AI you already use
+            </a>
+          </p>
         </div>
       </div>
     </section>

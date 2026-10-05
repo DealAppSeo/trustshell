@@ -279,13 +279,15 @@ describe('stranger e2e on current main', () => {
   it('landing keeps the 1.6.0 install line and does not put status on npm', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
-    const landing = `${page}\n${hero}`;
-    expect(hero).toContain('Every answer gets checks you can see.');
+    // The install steps are on screen 3 since the 2026-10-05 home page.
+    const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
+    const landing = `${page}\n${hero}\n${agentScreen}`;
+    expect(hero).toContain('AI lies.');
     expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).not.toContain('Check a claim in the chat you already use');
-    expect(hero).toContain('const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
-    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.6.0');
-    expect(hero).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.6\.0[^\n]*status/);
+    expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
+    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.6.0');
+    expect(landing).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.6\.0[^\n]*status/);
     expect(landing).not.toContain('E:\\TrustDisk');
     expect(landing).not.toContain('Loading live scores');
     const shown = [...landing.matchAll(/\btrustshell\s+([a-z][a-z0-9-]*)/g)].map((m) => m[1] as string);

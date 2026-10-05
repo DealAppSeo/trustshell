@@ -32,9 +32,11 @@ const MEANING: Record<ClaimLabel, { title: string; body: string; tone: string }>
   },
 };
 
-type LocalCause = 'timeout' | 'network' | 'http' | 'body' | 'unknown';
+type LocalCause = 'limit' | 'timeout' | 'network' | 'http' | 'body' | 'unknown';
 
 const LOCAL_LINE: Record<LocalCause, string> = {
+  // 429: the per-minute limit, or the free checks for today (repid-engine's daily cap per visitor).
+  limit: 'Too many checks from this connection for now. Try again later.',
   timeout: 'No answer in time.',
   network: 'The network request failed.',
   http: 'The check service answered with an error.',
@@ -49,6 +51,7 @@ const LOCAL_LINE: Record<LocalCause, string> = {
  * reword it, and an unrecognised reason still gets a local line, never the checkers' wording.
  */
 function localCause(reason: string): LocalCause {
+  if (/\bHTTP 429\b/.test(reason)) return 'limit';
   if (/no answer within|time ?out|timed out/i.test(reason)) return 'timeout';
   if (/network|no fetch|failed to fetch/i.test(reason)) return 'network';
   if (/\bHTTP\b/i.test(reason)) return 'http';

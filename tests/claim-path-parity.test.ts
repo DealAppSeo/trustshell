@@ -63,6 +63,8 @@ describe('the words', () => {
     expect(line('veto', { by: 'votes', voters: ['groq', 'cerebras'] })).toBe('Groq and Cerebras both said false.');
     expect(line('not-checked', { by: 'votes', voters: ['groq', 'cerebras'] })).toBe('Asked Groq and Cerebras. No agreed answer.');
     expect(line('veto', { by: 'votes', voters: ['groq', 'groq'] })).toBe('Two Groq models both said false.');
+    // Seen in the store screenshot run, 2026-10-05: the fallback put both votes on Groq.
+    expect(line('not-checked', { by: 'votes', voters: ['groq', 'groq'] })).toBe('Asked two Groq models. No agreed answer.');
     expect(line('pass', { by: 'votes', voters: ['groq', 'cerebras', 'workers-ai'] })).toBe(
       'Groq, Cerebras and Cloudflare Workers AI all said true.',
     );

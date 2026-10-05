@@ -12,17 +12,16 @@ import { join } from 'node:path';
 const hero = readFileSync(join(__dirname, '../components/hero.tsx'), 'utf8').replace(/\r/g, '');
 
 describe('home default view', () => {
-  it('is the check form, prefilled, before the two next steps, with no panel to open', () => {
+  it('is the check form, prefilled, before the one link down to the next steps, with no panel to open', () => {
     const start = hero.indexOf('return (');
     expect(start).toBeGreaterThan(-1);
     const view = hero.slice(start);
     const form = view.indexOf('<CheckForm');
-    const terminal = view.indexOf('Use it in your terminal');
-    const agent = view.indexOf('Add it to your agent');
+    // Since the 2026-10-05 home page the terminal and agent steps are on screen 3 (#add-agent).
+    const add = view.indexOf('href="#add-agent"');
     expect(form).toBeGreaterThan(-1);
-    expect(terminal).toBeGreaterThan(form);
-    expect(agent).toBeGreaterThan(terminal);
-    expect(view.slice(form, terminal)).toContain('initialText={SPEED_TRAP} samples={HOME_SAMPLES}');
+    expect(add).toBeGreaterThan(form);
+    expect(view.slice(form, add)).toContain('initialText={SPEED_TRAP} samples={HOME_SAMPLES}');
     expect(hero).toContain("import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';");
 
     // Gone: the reveal panels and the old first block.

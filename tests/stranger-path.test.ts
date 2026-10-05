@@ -53,8 +53,9 @@ describe('stranger path', () => {
   });
 
   it('names the install line, verify, status, and proof --verify', async () => {
-    const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
-    expect(hero).toContain(INSTALL);
+    // The install line is on screen 3 since the 2026-10-05 home page.
+    const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
+    expect(agentScreen).toContain(INSTALL);
     const helpCap = capture();
     const helpCode = await run(parseArgs(['--help']), new TrustShell({ apiUrl: ENGINE }), helpCap.io);
     expect(helpCode).toBe(0);

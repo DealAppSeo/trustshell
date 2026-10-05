@@ -45,6 +45,7 @@ describe('/check words', () => {
 
   it('names a not-checked the page decided itself, one plain line per cause', () => {
     for (const line of [
+      'Too many checks from this connection for now. Try again later.',
       'No answer in time.',
       'The network request failed.',
       'The check service answered with an error.',
@@ -56,6 +57,10 @@ describe('/check words', () => {
     }
     // The cause line replaces the checkers' line; it never sits under a pass or a veto.
     expect(form).toMatch(/result\.label === 'not-checked' && result\.reason/);
+    // A 429 (the per-minute limit, or the free checks for today) is its own cause, matched first,
+    // so a visitor who is over the limit is not told the service is broken.
+    expect(form.indexOf("return 'limit'")).toBeGreaterThan(-1);
+    expect(form.indexOf("return 'limit'")).toBeLessThan(form.indexOf("return 'http'"));
   });
 
   it('keeps the request shape: the shared classifyClaim, nothing hand-rolled', () => {

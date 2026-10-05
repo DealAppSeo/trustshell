@@ -8,7 +8,9 @@ import { linksForLanding } from '../lib/landing-nav';
 const ROOT = join(__dirname, '..');
 const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
 const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
-const source = `${page}\n${hero}`;
+// Screen 3 carries the install steps since the 2026-10-05 home page (the hero keeps the fear and the check).
+const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
+const source = `${page}\n${hero}\n${agentScreen}`;
 
 /** The home page's two check samples, removed so a city named anywhere else still fails. */
 function withoutSamples(text: string): string {
@@ -37,11 +39,11 @@ const BANNED = [
 
 describe('public landing source', () => {
   it('keeps the one screen and none of the measured leaks', () => {
-    expect(hero).toContain('Every answer gets checks you can see.');
-    expect(hero).toContain('Act when they pass.');
+    expect(hero).toContain('AI lies.');
+    expect(hero).toContain('Now it has to answer to other models, so the truth comes out.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
-    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.6.0');
-    expect(hero).not.toContain('trustshell status');
+    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.6.0');
+    expect(source).not.toContain('trustshell status');
     // The two check samples are the only sentences that may name a city, and only as a sample.
     expect(withoutSamples(hero)).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     expect(page).toContain('<Hero');
