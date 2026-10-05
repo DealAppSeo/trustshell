@@ -30,6 +30,11 @@ describe('privacy page stamp words', () => {
     expect(privacy).not.toMatch(/receipt/i);
   });
 
+  it('the listing names the public privacy URL', () => {
+    const listing = readFileSync(join(ROOT, 'store/LISTING.md'), 'utf8');
+    expect(listing).toContain('https://www.trustshell.dev/privacy.html');
+  });
+
   it('the extension description uses those words and fits the Chrome field', () => {
     expect(manifest.description).toBe(
       'Reads the last assistant reply and stamps Checks out, Caught, or Not checked.',
