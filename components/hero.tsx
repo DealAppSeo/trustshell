@@ -1,19 +1,17 @@
 import CheckForm from '@/app/check/CheckForm';
+import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';
 
 /**
  * The home page IS /check moved up: the same form, the same three answers, the same privacy line
- * above the button. Not a second form — CheckForm with a prefill and two samples.
+ * above the button. Not a second form — CheckForm with a prefill and the samples.
  *
- * The samples are text for the box, nothing more. Prefilling sends nothing and neither does
- * swapping: a request happens only when the visitor clicks Check, so a crawler or a page load
- * never spends the shared checker budget. They are the only place this page names a city, and
- * only as a sentence for a person to check.
+ * The samples (lib/home-samples.ts) are traps people actually fall into, each measured against
+ * production before it went on this page. They are text for the box, nothing more: prefilling
+ * sends nothing and neither does swapping. A request happens only when the visitor clicks Check,
+ * so a crawler or a page load never spends the shared checker budget.
  */
-const FALSE_SAMPLE = 'The Eiffel Tower is in Berlin.';
-const TRUE_SAMPLE = 'Paris is the capital of France.';
-
 // npm 1.5.0 ships `trustshell check "<sentence>"`: exit 0 checks out, 1 caught, 2 not checked.
-const TERMINAL_COMMAND = 'npx @hyperdag/trustshell check "The Eiffel Tower is in Berlin."';
+const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;
 
 // A global install of 1.5.0 puts `trustshell-mcp` on PATH, which is what this config runs.
 const INSTALL = 'npm i -g @hyperdag/trustshell@1.5.0';
@@ -51,13 +49,7 @@ export function Hero() {
         </div>
 
         <div className="max-w-xl w-full min-w-0 mx-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 text-left">
-          <CheckForm
-            initialText={FALSE_SAMPLE}
-            samples={[
-              { label: 'a false one', text: FALSE_SAMPLE },
-              { label: 'a true one', text: TRUE_SAMPLE },
-            ]}
-          />
+          <CheckForm initialText={SPEED_TRAP} samples={HOME_SAMPLES} />
         </div>
 
         {/* Two quiet next steps. Headings and code, no buttons: nothing here competes with Check. */}

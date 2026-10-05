@@ -22,9 +22,8 @@ describe('home default view', () => {
     expect(form).toBeGreaterThan(-1);
     expect(terminal).toBeGreaterThan(form);
     expect(agent).toBeGreaterThan(terminal);
-    expect(view.slice(form, terminal)).toContain('initialText={FALSE_SAMPLE}');
-    expect(hero).toContain("const FALSE_SAMPLE = 'The Eiffel Tower is in Berlin.';");
-    expect(hero).toContain("const TRUE_SAMPLE = 'Paris is the capital of France.';");
+    expect(view.slice(form, terminal)).toContain('initialText={SPEED_TRAP} samples={HOME_SAMPLES}');
+    expect(hero).toContain("import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';");
 
     // Gone: the reveal panels and the old first block.
     expect(hero).not.toMatch(/useState|setPanel|aria-expanded/);

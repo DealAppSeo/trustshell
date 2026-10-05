@@ -87,10 +87,12 @@ const engine = createServer((req, res) => {
     try { body = JSON.parse(raw); } catch { /* recorded as-is below */ }
     seen.push(body);
     const text = String(body.text ?? '');
+    // The home page's measured samples (lib/home-samples.ts): the 45 mph trap and its 40 mph twin.
+    if (/average speed for the trip is 45 mph/.test(text)) return json(200, { label: 'veto', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
+    if (/average speed for the trip is 40 mph/.test(text)) return json(200, { label: 'pass', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/Paris/.test(text)) return json(200, { label: 'pass', latency_ms: 210 });
     if (/cheese/.test(text)) return json(200, { label: 'veto', latency_ms: 230, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/^2 \+ 2 = 5$/.test(text)) return json(200, { label: 'veto', latency_ms: 1, by: 'arithmetic' });
-    if (/Berlin/.test(text)) return json(200, { label: 'veto', latency_ms: 220 }); // the home page's false sample
     if (/pizza/i.test(text)) return json(200, { label: 'not-checked', latency_ms: 190 });
     if (/maybe-label/.test(text)) return json(200, { label: 'probably', latency_ms: 5 });
     if (/server-error/.test(text)) return json(500, { error: 'boom' });
@@ -234,8 +236,9 @@ async function shown(page) {
   });
 }
 
-const FALSE_SAMPLE = 'The Eiffel Tower is in Berlin.';
-const TRUE_SAMPLE = 'Paris is the capital of France.';
+// Must match lib/home-samples.ts: the prefilled speed trap (Caught) and its true twin (Checks out).
+const FALSE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph.';
+const TRUE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.';
 const NOT_YET = 'ChatGPT and Grok: not yet.';
 
 /** Count every way the page could send something: fetch, XHR and beacon, wrapped before any script runs. */
@@ -311,6 +314,10 @@ async function walkHome(browser, phone, pageErrors) {
     posts.length === 1 && fetches.length === 1 && seen.length === before + 1 && seen.at(-1)?.text === FALSE_SAMPLE &&
       card.words === 'Caught' && card.title === 'veto' && /veto/.test(card.machine ?? ''),
     JSON.stringify({ posts, fetches, sentText: seen.at(-1)?.text, card }));
+  const whyLine = await home.locator('[data-testid=check-why-sample]').textContent().catch(() => null);
+  check('home: the sample explains itself once the checkers agree with it', /120 miles in 3 hours is 40 mph/.test(whyLine ?? ''), String(whyLine));
+  const pathText = await home.locator('[data-testid=check-path]').textContent().catch(() => null);
+  check('home: the answer names the voters that answered', pathText === 'Groq and Cerebras both said false.', String(pathText));
   if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390-caught.png'), fullPage: true });
 
   // The answer belonged to the false sentence; after a swap it must not stand next to the true one.

@@ -57,7 +57,8 @@ function localCause(reason: string): LocalCause {
 }
 
 /** A sentence the visitor can put in the box with one tap. `label` is the button text. */
-export type CheckSample = { label: string; text: string };
+export type { CheckSample } from '@/lib/check-sample';
+import type { CheckSample } from '@/lib/check-sample';
 
 type CheckFormProps = {
   /** What the box starts with. Prefill only: nothing is sent until the visitor clicks Check. */
@@ -76,7 +77,15 @@ type CheckFormProps = {
 export default function CheckForm({ initialText = '', samples }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ label: ClaimLabel; reason?: string; scrubbed?: boolean; by?: ClaimPath; voters?: string[] } | null>(null);
+  const [result, setResult] = useState<{
+    label: ClaimLabel;
+    reason?: string;
+    scrubbed?: boolean;
+    by?: ClaimPath;
+    voters?: string[];
+    /** The exact text that was sent, so a sample's explanation is matched to what was checked. */
+    asked: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Swapping a sample changes the box and nothing else: no request. The last answer belonged to
@@ -94,7 +103,7 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
     setBusy(true);
     try {
       const r = await classifyClaim(text, { apiUrl: ENGINE, env: {} });
-      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true, by: r.by, voters: r.voters });
+      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true, by: r.by, voters: r.voters, asked: text });
     } catch (err) {
       setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
     } finally {
@@ -107,6 +116,9 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
   const cause = result && result.label === 'not-checked' && result.reason ? localCause(result.reason) : null;
   // What produced the label, when the endpoint said so. Never shown for a not-checked this page decided.
   const path = result && !cause ? pathLine(result) : '';
+  // A sample's explanation, only when the checkers agreed with it on exactly that sentence.
+  const sample = result ? samples?.find((s) => s.text.trim() === result.asked.trim()) : undefined;
+  const why = result && !cause && sample?.why && sample.why.when === result.label ? sample.why.text : '';
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" data-testid="check-form">
@@ -173,6 +185,11 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
             </p>
           ) : (
             <p className="text-[#cbd5e1]">{meaning.body}</p>
+          )}
+          {why && (
+            <p className="text-[#cbd5e1]" data-testid="check-why-sample">
+              {why}
+            </p>
           )}
           {path && (
             <p className="text-sm text-[#94a3b8]" data-testid="check-path" data-by={result.by}>
