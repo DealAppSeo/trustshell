@@ -38,7 +38,7 @@ export function HomeWhere() {
           </h3>
           <ul className="list-disc pl-5 space-y-2 text-slate-300 marker:text-slate-500">
             <li>
-              A trust record that is yours: your checks, settings and preferences, carried to any model. Take
+              A trust record that is yours: your checks, context, settings and preferences, carried to any model. Take
               it with you when you leave.
             </li>
             <li>An agent with a good record earns a longer leash, and only as long as you allow.</li>

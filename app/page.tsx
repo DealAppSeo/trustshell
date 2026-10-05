@@ -6,18 +6,18 @@ import { StickyCheck } from '@/components/sticky-check';
 
 export const metadata: Metadata = {
   title: 'TrustShell',
-  description: 'AI sounds sure. It is often wrong. Now it has to show its work.',
+  description: 'AI lies. Now it has to answer to other models, so the truth comes out.',
   keywords: ['TrustShell'],
   openGraph: {
     title: 'TrustShell',
-    description: 'AI sounds sure. It is often wrong. Now it has to show its work.',
+    description: 'AI lies. Now it has to answer to other models, so the truth comes out.',
     type: 'website',
     url: 'https://trustshell.dev',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'TrustShell',
-    description: 'AI sounds sure. It is often wrong. Now it has to show its work.',
+    description: 'AI lies. Now it has to answer to other models, so the truth comes out.',
   },
 };
 

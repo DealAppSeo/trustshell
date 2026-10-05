@@ -282,7 +282,7 @@ describe('stranger e2e on current main', () => {
     // The install steps are on screen 3 since the 2026-10-05 home page.
     const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
     const landing = `${page}\n${hero}\n${agentScreen}`;
-    expect(hero).toContain('AI sounds sure. It is often wrong.');
+    expect(hero).toContain('AI lies.');
     expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).not.toContain('Check a claim in the chat you already use');
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');

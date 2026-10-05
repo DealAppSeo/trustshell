@@ -64,7 +64,7 @@ describe('home screens below the hero', () => {
     expect(sticky).not.toMatch(/type="submit"/);
     const addAt = html.indexOf('Add it to the agent you already use');
     const whereAt = html.indexOf('Where this goes');
-    const heroAt = html.indexOf('AI sounds sure. It is often wrong.');
+    const heroAt = html.indexOf('<h1');
     expect(heroAt).toBeGreaterThan(-1);
     expect(addAt).toBeGreaterThan(heroAt);
     expect(whereAt).toBeGreaterThan(addAt);

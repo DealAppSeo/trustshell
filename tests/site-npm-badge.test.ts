@@ -24,7 +24,7 @@ describe('site install copy matches published 1.4.0', () => {
   it('hero is the one-screen win and does not interpolate package.json', () => {
     expect(hero).not.toMatch(/packageJson\.version/);
     expect(agentScreen).not.toMatch(/packageJson\.version/);
-    expect(hero).toContain('AI sounds sure. It is often wrong.');
+    expect(hero).toContain('AI lies.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';");
     // Pinned to the same version as the install line: `check "<sentence>"` ships in 1.5.0 and later.

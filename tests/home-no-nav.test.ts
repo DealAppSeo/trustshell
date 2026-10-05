@@ -40,9 +40,9 @@ describe('stranger nav', () => {
   });
 
   it('keeps the hero check, and does not put the other labels back on the home source', () => {
-    expect(hero).toContain('AI sounds sure. It is often wrong.');
-    expect(hero).toContain('Now it has to show its work.');
-    expect(hero).toContain('You are about to ship, buy, or repeat something an AI was sure about.');
+    expect(hero).toContain('AI lies.');
+    expect(hero).toContain('Now it has to answer to other models, so the truth comes out.');
+    expect(hero).toContain('TrustShell is a portable trust harness.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('<CheckForm');
     expect(hero).toContain('Add it to the AI you already use');

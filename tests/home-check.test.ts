@@ -126,28 +126,30 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(privacyAt).toBeLessThan(home.html.indexOf('type="submit"'));
   });
 
-  it('says the pain, then the fear, then the solution, then the live example, then why it is the obvious one', () => {
+  it('says the pain, then what TrustShell is, then the solution, then the live example, then why it is the obvious one', () => {
     // Sean said GO 2026-10-05 for this order (Grok's structure, with the example made live).
-    const FEAR = 'You are about to ship, buy, or repeat something an AI was sure about. You cannot see why it said it. The lab that made it will not be the one to tell you.';
-    const SOLUTION = 'Before you act on it, two checkers read it. You see what they said: Checks out, Caught, or Not checked.';
+    // Sean, 2026-10-05: the headline is "AI lies.", and the next line is his, worded to what is live.
+    const HARNESS = 'TrustShell is a portable trust harness. Your agent can use any model, with no vendor lock-in, and a wrong answer gets caught before it costs you.';
+    const SOLUTION = 'Before you act on an answer, two checkers read it. You see what they said: Checks out, Caught, or Not checked.';
     const h1 = home.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
-    expect(words(h1?.[1] ?? '')).toBe('AI sounds sure. It is often wrong.');
-    expect(words(h1?.[3] ?? '')).toBe('Now it has to show its work.');
+    expect(words(h1?.[1] ?? '')).toBe('AI lies.');
+    expect(words(h1?.[3] ?? '')).toBe('Now it has to answer to other models, so the truth comes out.');
     const lines = text.split('\n');
     const at = (line: string) => lines.indexOf(line);
-    expect(at('AI sounds sure. It is often wrong.')).toBeGreaterThan(-1);
-    expect(at('Now it has to show its work.')).toBe(at('AI sounds sure. It is often wrong.') + 1);
-    expect(at(FEAR)).toBe(at('Now it has to show its work.') + 1);
-    expect(at(SOLUTION)).toBe(at(FEAR) + 1);
+    expect(at('AI lies.')).toBeGreaterThan(-1);
+    expect(at('Now it has to answer to other models, so the truth comes out.')).toBe(at('AI lies.') + 1);
+    expect(at(HARNESS)).toBe(at('Now it has to answer to other models, so the truth comes out.') + 1);
+    expect(at(SOLUTION)).toBe(at(HARNESS) + 1);
     expect(at('A sure answer. The average is not 45. Press Check.')).toBe(at(SOLUTION) + 1);
     expect(at('One sentence')).toBeGreaterThan(at(SOLUTION));
     const glass = at('The black box becomes a glass box: you see who checked it, and what they said.');
     expect(glass).toBeGreaterThan(at('One sentence'));
     expect(at('No signup. No wallet. Leave whenever you want.')).toBeGreaterThan(glass);
     expect(at('Add it to the AI you already use')).toBeGreaterThan(glass);
-    // The first screen makes no promise the code does not keep.
+    // The first screen makes no promise the code does not keep. The model that wrote a reply stakes
+    // nothing today, and the portable record and any saving are not live or not measured.
     const firstScreen = lines.slice(0, at('Add it to the AI you already use') + 1).join('\n');
-    expect(firstScreen).not.toMatch(/receipt|autonomy|\bkeys?\b|\bHAL\b|\blies\b/i);
+    expect(firstScreen).not.toMatch(/receipt|autonomy|\bkeys?\b|\bHAL\b|\bstakes?\b|preferences|sav(e|es|ing) you money/i);
   });
 
   it('puts every door on screen 3, in order: Chrome, the MCP apps, the terminal, with real commands', () => {

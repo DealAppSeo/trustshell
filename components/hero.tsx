@@ -5,9 +5,14 @@ import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';
  * Screens 1 and 2: the fear, then the stamp. (Sean said GO on 2026-10-05 for Grok's order: pain,
  * fear, solution, the obvious choice. The page used to lead with the mechanism.)
  *
- * The headline is "AI sounds sure. It is often wrong.", not "AI lies.": a lie claims intent, and a
- * check that sells precision should not open on an overstatement. That line was already kept off
- * this page once (tests/hero-no-pai.test.ts).
+ * The headline is "AI lies.", Sean's call on 2026-10-05, overruling an earlier softer line ("AI
+ * sounds sure. It is often wrong."). The next two lines are his, worded to what is live today:
+ *   - "answer to other models", not a line about putting its reputation at risk: the model that
+ *     wrote a chat reply has no score here and risks nothing. Two other models read it, and that is
+ *     the whole claim this line makes.
+ *   - the harness line leaves out "your context, preferences and settings" and "saving you money":
+ *     the first is a "Next" line on screen 4 (home-where.tsx) and the second was never measured. A
+ *     first screen that says a plan in the present tense contradicts the page's own "Next" list.
  *
  * THE EXAMPLE IS LIVE, NOT PRINTED. The box is prefilled with the speed trap, a sure answer that is
  * wrong, and Check sends it to the same checkers as any sentence. It came back Caught on three of
@@ -27,17 +32,17 @@ export function Hero() {
       <div className="max-w-3xl w-full min-w-0 mx-auto space-y-8 relative z-10">
         <div className="text-center space-y-4">
           <h1 className="max-w-full text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white text-wrap leading-tight">
-            AI sounds sure. It is often wrong.
+            AI lies.
           </h1>
           <p className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-indigo-300 text-wrap" data-testid="hero-act">
-            Now it has to show its work.
+            Now it has to answer to other models, so the truth comes out.
           </p>
-          <p className="max-w-xl mx-auto pt-2 text-base sm:text-lg text-slate-300 text-wrap" data-testid="hero-fear">
-            You are about to ship, buy, or repeat something an AI was sure about. You cannot see why it
-            said it. The lab that made it will not be the one to tell you.
+          <p className="max-w-xl mx-auto pt-2 text-base sm:text-lg text-slate-300 text-wrap" data-testid="hero-harness">
+            TrustShell is a portable trust harness. Your agent can use any model, with no vendor lock-in,
+            and a wrong answer gets caught before it costs you.
           </p>
           <p className="max-w-xl mx-auto text-base sm:text-lg text-slate-200 text-wrap" data-testid="hero-solution">
-            Before you act on it, two checkers read it. You see what they said: Checks out, Caught, or
+            Before you act on an answer, two checkers read it. You see what they said: Checks out, Caught, or
             Not checked.
           </p>
         </div>
@@ -50,9 +55,6 @@ export function Hero() {
         </div>
 
         <div className="max-w-xl w-full min-w-0 mx-auto text-center space-y-3" data-testid="hero-glass">
-          <p className="text-base sm:text-lg text-slate-200 text-wrap">
-            A harness that stays with your agent. Any model. No vendor lock-in.
-          </p>
           <p className="text-base sm:text-lg text-slate-200 text-wrap">
             The black box becomes a glass box: you see who checked it, and what they said.
           </p>
