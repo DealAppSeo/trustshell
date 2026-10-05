@@ -22,6 +22,10 @@ describe('questionOf', () => {
   it('keeps a well-formed question on a votes not-checked', () => {
     expect(questionOf({ question: Q }, 'not-checked', 'votes')).toBe(Q);
   });
+  it('keeps a bare ampersand in plain words', () => {
+    const q = 'Do the host & the contestant both know where the car is?';
+    expect(questionOf({ question: q }, 'not-checked', 'votes')).toBe(q);
+  });
   it.each([
     ['pass', 'votes'],
     ['veto', 'votes'],
@@ -40,6 +44,10 @@ describe('questionOf', () => {
     ['an email', 'Should I ask jane@example.com about it?'],
     ['markup', 'Is the **host** always opening a goat door?'],
     ['a newline', 'Does the host\nalways open a goat door?'],
+    // Same rule as repid-engine parseQuestion: an entity-encoded tag is markup (Strix on #1205).
+    ['a named character reference', 'Does the host &lt;b&gt;always&lt;/b&gt; open a goat door?'],
+    ['a decimal character reference', 'Does the host &#60;b&#62; open a goat door?'],
+    ['a hex character reference', 'Does the host &#x3c;b&#x3e; open a goat door?'],
     ['not a string', 42],
   ])('refuses %s', (_why, q) => {
     expect(questionOf({ question: q }, 'not-checked', 'votes')).toBeUndefined();
