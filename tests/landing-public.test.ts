@@ -10,6 +10,11 @@ const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
 const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
 const source = `${page}\n${hero}`;
 
+/** The home page's two check samples, removed so a city named anywhere else still fails. */
+function withoutSamples(text: string): string {
+  return text.split('The Eiffel Tower is in Berlin.').join('').split('Paris is the capital of France.').join('');
+}
+
 const BANNED = [
   'TrustRepID',
   'TrustChat',
@@ -32,12 +37,13 @@ const BANNED = [
 
 describe('public landing source', () => {
   it('keeps the one screen and none of the measured leaks', () => {
-    expect(hero).toContain('AI lies. Now it has to show its work.');
-    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
+    expect(hero).toContain('Every answer gets checks you can see.');
+    expect(hero).toContain('Act when they pass.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.5.0');
-    expect(hero).toContain('trustshell status');
-    expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
+    expect(hero).not.toContain('trustshell status');
+    // The two check samples are the only sentences that may name a city, and only as a sample.
+    expect(withoutSamples(hero)).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     expect(page).toContain('<Hero');
     expect(page).not.toMatch(/AfterAgent|Footer|Ecosystem|LiveTrustScores|LiveOnChain|StatusStrip|RoadmapV15|BuilderWaitlist|LandingClose/);
     for (const banned of BANNED) {

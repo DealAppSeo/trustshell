@@ -56,11 +56,36 @@ function localCause(reason: string): LocalCause {
   return 'unknown';
 }
 
-export default function CheckForm() {
-  const [text, setText] = useState('');
+/** A sentence the visitor can put in the box with one tap. `label` is the button text. */
+export type CheckSample = { label: string; text: string };
+
+type CheckFormProps = {
+  /** What the box starts with. Prefill only: nothing is sent until the visitor clicks Check. */
+  initialText?: string;
+  /** Sentences the visitor can swap into the box. Swapping only changes the box; it sends nothing. */
+  samples?: readonly CheckSample[];
+};
+
+/**
+ * With no props this is exactly the /check form. The home page passes a prefill and two samples.
+ *
+ * NOTHING HERE SENDS ON ITS OWN. There is no effect and no auto-submit: classifyClaim runs only in
+ * onSubmit, i.e. when a person clicks Check. A prefilled box on the home page is read by every
+ * crawler and every page load, and each of those would otherwise spend the shared checker budget.
+ */
+export default function CheckForm({ initialText = '', samples }: CheckFormProps = {}) {
+  const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ label: ClaimLabel; reason?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Swapping a sample changes the box and nothing else: no request. The last answer belonged to
+  // the other sentence, so it is cleared rather than left standing next to text it never judged.
+  function swapIn(sample: string) {
+    setText(sample);
+    setResult(null);
+    setError(null);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -98,6 +123,27 @@ export default function CheckForm() {
         aria-describedby="check-privacy"
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors resize-y"
       />
+      {samples && samples.length > 0 && (
+        <p className="text-sm text-[#94a3b8]" data-testid="check-samples">
+          Try a sample:{' '}
+          {samples.map((s, i) => (
+            <span key={s.text}>
+              {i > 0 && ' or '}
+              <button
+                type="button"
+                onClick={() => swapIn(s.text)}
+                disabled={busy}
+                aria-pressed={text === s.text}
+                data-testid="check-sample"
+                data-sample={s.text}
+                className="underline underline-offset-4 text-[#cbd5e1] hover:text-white aria-pressed:text-amber-400 aria-pressed:no-underline disabled:opacity-50"
+              >
+                {s.label}
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
       <p id="check-privacy" className="text-sm text-[#94a3b8]">
         What you type is sent to our checkers, Groq and Cerebras. It is not stored. Do not paste anything private.
       </p>

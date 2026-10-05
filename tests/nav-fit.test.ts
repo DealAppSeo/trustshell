@@ -23,16 +23,25 @@ import { join } from 'node:path';
 
 const SOURCE = readFileSync(join(__dirname, '..', 'components', 'top-nav.tsx'), 'utf8');
 
-/** Measured 2026-09-01: 13 links need 1110–1126px, so the row may only appear at xl and above. */
-const MEASURED_LINK_COUNT = 13;
+/**
+ * Measured 2026-09-01: 13 links need 1110–1126px, so the row may only appear at xl and above.
+ *
+ * Re-measured 2026-10-05 for 14 links (Check added first), on a production build in an agent
+ * sandbox, same two methods: bisect 1152px, direct 1168px. The same run on 13 links (Check removed
+ * from the DOM) gave 1081/1097 here, 29px under the 2026-09-01 figures, so Check costs ~71px.
+ * Taken on the older, larger baseline that is ~1181–1197px: under xl (1280) with at least 83px
+ * to spare, about one more link. Unforced, the row is hidden at 1279 and shows at 1280 with no
+ * overflow.
+ */
+const MEASURED_LINK_COUNT = 14;
 const BREAKPOINT = 'xl';
 
 describe('top nav fits the viewport it appears in', () => {
   it('still has the number of links the breakpoint was measured against', () => {
     const links = SOURCE.match(/\{\s*href:\s*'/g)?.length ?? 0;
     expect(links).toBe(MEASURED_LINK_COUNT);
-    // If this failed because you added or removed a link: at 13 links the row needed ~1126px,
-    // leaving 154px of slack under xl — roughly two more links. Re-measure the rendered row
+    // If this failed because you added or removed a link: at 14 links the row needed up to
+    // ~1197px, leaving ~83px of slack under xl — roughly one more link. Re-measure the rendered row
     // (force it visible, bisect the viewport) and either keep xl, tighten the per-link padding,
     // or move the link into the dropdown — then update MEASURED_LINK_COUNT.
   });

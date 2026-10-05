@@ -9,11 +9,13 @@ const footer = readFileSync(join(ROOT, 'components/footer.tsx'), 'utf8');
 const home = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
 
 describe('/devs', () => {
-  it('is linked only from the terminal panel', () => {
-    const termAt = hero.indexOf("{panel === 'terminal'");
+  it('is linked only from the terminal step', () => {
+    const termAt = hero.indexOf('data-step="terminal"');
+    const termEnd = hero.indexOf('</section>', termAt);
     expect(termAt).toBeGreaterThan(-1);
-    expect(hero.slice(0, termAt)).not.toContain('/devs');
-    expect(hero.slice(termAt).match(/href="\/devs"/g)).toEqual(['href="/devs"']);
+    expect(termEnd).toBeGreaterThan(termAt);
+    expect(hero.match(/href="\/devs"/g)).toEqual(['href="/devs"']);
+    expect(hero.slice(termAt, termEnd)).toContain('href="/devs"');
     expect(nav).not.toContain('/devs');
     expect(footer).not.toContain('/devs');
     expect(home).not.toContain('/devs');

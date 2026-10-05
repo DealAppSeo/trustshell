@@ -1,6 +1,6 @@
 /**
- * "/" renders no top nav. Other routes keep the measured link row.
- * The command box is the three published lines plus trustshell status.
+ * "/" renders no top nav. Other routes keep the measured link row, with Check first.
+ * The home page is the check form, then the terminal command and the agent config.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,31 +16,31 @@ describe('home renders no top nav', () => {
   it('returns null on / and keeps the other-route links', () => {
     expect(nav).toMatch(/if\s*\(\s*pathname\s*===\s*'\/'\s*\)\s*return null;/);
     expect(nav).toContain('linksForLanding');
-    for (const label of ['PAI', 'Mission', 'Agents', 'Connect', 'Run', ...OFF_HOME]) {
+    for (const label of ['Check', 'PAI', 'Mission', 'Agents', 'Connect', 'Run', ...OFF_HOME]) {
       expect(nav).toContain(`label: '${label}'`);
     }
+    // Check is the first link: it is the door a stranger uses.
+    expect(nav.match(/\{\s*href:\s*'([^']+)',\s*label:\s*'([^']+)'\s*\}/)?.slice(1)).toEqual(['/check', 'Check']);
   });
 
-  it('shows the chat paste or the four commands, and not the other labels', () => {
-    expect(hero).toContain('AI lies. Now it has to show its work.');
-    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
+  it('shows the check form, the terminal command and the agent config, and not the other labels', () => {
+    expect(hero).toContain('Every answer gets checks you can see.');
+    expect(hero).toContain('Act when they pass.');
+    expect(hero).toContain('Paste something an AI told you. See if it checks out.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
-    expect(hero).toContain('Check a claim in the chat you already use');
-    expect(hero).toContain("setPanel('mcp')");
-    expect(hero).toContain('I have a terminal');
-    expect(hero).toContain("setPanel('terminal')");
-    const block = hero.match(/const WIN_COMMANDS = `([\s\S]*?)`;/);
-    expect(block?.[1].replace(/\r/g, '').split('\n')).toEqual([
-      'npm i -g @hyperdag/trustshell@1.5.0',
-      'trustshell status',
-    ]);
+    expect(hero).toContain('<CheckForm');
+    expect(hero).toContain('Use it in your terminal');
+    expect(hero).toContain(`const TERMINAL_COMMAND = 'npx @hyperdag/trustshell check "The Eiffel Tower is in Berlin."';`);
+    expect(hero).toContain('Add it to your agent');
+    expect(hero).toContain("const INSTALL = 'npm i -g @hyperdag/trustshell@1.5.0';");
     const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
+    expect(paste?.[1]).toBe('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
     expect(paste?.[1] ?? '').not.toMatch(/npm/i);
-    const at = hero.indexOf('Claude, ChatGPT, Grok, Cursor');
-    const mcpPanel = hero.slice(at, hero.indexOf('{WIN_COMMANDS}', at));
-    expect(at).toBeGreaterThan(-1);
-    expect(mcpPanel).not.toMatch(/npm/i);
-    expect(mcpPanel).toContain('MCP_PASTE');
+    // The agent path names the two apps it works in, and says not yet for the two it does not.
+    expect(hero).toContain('For Claude Desktop and Cursor.');
+    expect(hero).toContain('ChatGPT and Grok: not yet.');
+    expect(hero).not.toContain('Claude, ChatGPT, Grok, Cursor');
+    expect(hero).not.toContain('trustshell status');
     expect(hero).not.toMatch(/stake now/i);
     expect(hero).not.toMatch(/Market|Leaderboard/);
   });

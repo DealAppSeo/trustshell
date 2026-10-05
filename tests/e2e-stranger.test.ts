@@ -276,18 +276,20 @@ describe('stranger e2e on current main', () => {
     }
   });
 
-  it('landing keeps the 1.4 install line and does not put status on npm', () => {
+  it('landing keeps the 1.5.0 install line and does not put status on npm', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
     const landing = `${page}\n${hero}`;
-    expect(hero).toContain('AI lies. Now it has to show its work.');
-    expect(hero).toContain('Check any claim. Get a receipt. Your keys stay yours.');
-    expect(hero).toContain('Check a claim in the chat you already use: Claude, ChatGPT, Grok, Cursor');
+    expect(hero).toContain('Every answer gets checks you can see.');
+    expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
+    expect(hero).not.toContain('Check a claim in the chat you already use');
+    expect(hero).toContain('npx @hyperdag/trustshell check "The Eiffel Tower is in Berlin."');
     expect(hero).toContain('npm i -g @hyperdag/trustshell@1.5.0');
     expect(hero).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.5\.0[^\n]*status/);
     expect(landing).not.toContain('E:\\TrustDisk');
     expect(landing).not.toContain('Loading live scores');
     const shown = [...landing.matchAll(/\btrustshell\s+([a-z][a-z0-9-]*)/g)].map((m) => m[1] as string);
+    expect(shown).toContain('check');
     const commands = commandsOnMain();
     for (const cmd of shown) expect(commands.has(cmd)).toBe(true);
   });
