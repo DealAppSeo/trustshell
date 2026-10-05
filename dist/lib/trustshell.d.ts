@@ -5,6 +5,9 @@
  * From S-SDK1 spec + S-BUILD implementation.
  */
 import type { AgentTurnOrigin } from './origin';
+import type { Grounding } from './honest-contract';
+/** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
+export declare function hashProofBytes(proofBytes: string): string;
 /** TrustKeys `readAllowance` signature. Unset agent → undefined (fail closed). */
 export type ReadAllowance = (agentId: string) => bigint | undefined;
 export interface TrustShellConfig {
@@ -12,12 +15,50 @@ export interface TrustShellConfig {
     apiUrl?: string;
     timeout?: number;
     /**
+     * `init()` only: probe `/health` before returning (default true). Pass false to skip the round
+     * trip; `health` then reads `{ ok: false, checked: false }`, i.e. not checked, never reachable.
+     */
+    healthCheck?: boolean;
+    /** `init()` only: deadline for the `/health` probe, in ms. Defaults to {@link HEALTH_TIMEOUT_MS}. */
+    healthTimeoutMs?: number;
+    /**
      * TrustKeys `readAllowance` (DealAppSeo/trustkeys, process-local there).
      * Pass the function in; this package does not import that store.
      * Unset → `getAllowance` stays fail-closed (`no_allowance_set`).
      */
     readAllowance?: ReadAllowance;
 }
+/**
+ * HAL's answer as the SDK reports it. NOT_CHECKED is its own state: HAL abstained, returned no
+ * decision or one this client does not know, or no provider was consulted (the extractor
+ * fallback). None of those is a PASS. Until 1.5.0 every one of them fell through to 'PASS'.
+ */
+export type Verdict = 'PASS' | 'FLAG' | 'VETO' | 'NOT_CHECKED';
+/** Deadline for `TrustShell.init()`'s `/health` probe. Short on purpose: it gates nothing. */
+export declare const HEALTH_TIMEOUT_MS = 3000;
+/**
+ * What `TrustShell.init()` learned about the backend. `checked: false` means the probe was skipped
+ * (`healthCheck: false`): not checked, which is not the same as reachable or down.
+ */
+export interface InitHealth {
+    ok: boolean;
+    checked: boolean;
+    status?: string;
+    error?: string;
+}
+/**
+ * Map a /api/v1/hal/evaluate response to a {@link Verdict}. PURE, so it is testable.
+ * Only the decisions HAL actually makes map to PASS / FLAG / VETO; everything else is
+ * NOT_CHECKED. A fallback that consulted no provider is NOT_CHECKED whatever it decided:
+ * a verdict nobody earned is not a verdict.
+ */
+export declare function verdictFromHal(data: {
+    decision?: unknown;
+    hal_verdict?: unknown;
+    mode?: unknown;
+    degraded_mode?: unknown;
+    provider_responses?: unknown;
+}): Verdict;
 export interface ScoreOptions {
     prompt?: string;
     provider?: string;
@@ -33,7 +74,7 @@ export interface ScoreResult {
         scopeAppropriateness: number;
         certaintyAtClaim: number;
     };
-    verdict: 'PASS' | 'FLAG' | 'VETO';
+    verdict: Verdict;
     flaggedHallucination: boolean;
     provider: string;
     model: string;
@@ -59,6 +100,14 @@ export interface VerifyResult {
     lastAnchorTx: string | null;
     latestProofHash: string | null;
     provenanceChain: any[];
+    /** Honest contract (T4): real on-chain mint? null = endpoint didn't say (see reasons). */
+    minted: boolean | null;
+    /** Publishing signer address when exposed; else null (see reasons). */
+    signer: string | null;
+    /** Scoring lane from a real response field; else null (see reasons). */
+    scoreLane: string | null;
+    /** Why any of the above is null. Never empty when a field is null. */
+    reasons: Record<string, string>;
 }
 export interface AuditResult {
     chainStatus: 'VALID' | 'CHAIN_BREAK';
@@ -67,9 +116,10 @@ export interface AuditResult {
     verifiedAt: string;
 }
 export interface VerifyOutputResult {
-    /** true when HAL did not hard-veto the output (PASS or soft FLAG). */
+    /** true only when HAL checked and did not hard-veto (PASS or soft FLAG). NOT_CHECKED is not ok. */
     ok: boolean;
-    verdict: 'PASS' | 'FLAG' | 'VETO';
+    verdict: Verdict;
+    /** 0-100; 0 when NOT_CHECKED, because no trust was earned. */
     trustScore: number;
     halScore: number;
     /** present when HAL soft-flagged rather than vetoed (e.g. opinion/time-sensitive). */
@@ -79,6 +129,12 @@ export interface VerifyOutputResult {
     decisionReason: string;
     /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
     evidence: string[];
+    /** How this verdict is grounded: 'hal' when a real provider quorum spoke, 'none' when HAL could not check. */
+    grounding: Grounding;
+    /** The REAL provider quorum behind the verdict — a MEASURED count (evidence length), never a constant. */
+    providersUsed: number;
+    /** Dispatch name for the same field — so copy cannot write "6" again. */
+    providers_used: number;
     /**
      * SBFA consensus fields. Populated from the backend `sbfa` object (SBFA v0.2 shadow) when present;
      * left undefined when the backend doesn't supply them. Never fabricated (except `confidence`, which
@@ -177,6 +233,14 @@ export interface RepIDResult {
     /** On-chain tx hash, or the coded reason `NOT_ANCHORED`. Never silent null. */
     lastAnchorTx: string;
     latestProofHash: string | null;
+    /** Honest contract (T4): real on-chain mint? `null` = the endpoint didn't say (see `reasons`). Never defaults to true. */
+    minted: boolean | null;
+    /** Publishing signer address when the endpoint exposes it; else `null` (see `reasons`). */
+    signer: string | null;
+    /** Scoring lane from a real response field; else `null` (see `reasons`). */
+    scoreLane: string | null;
+    /** For every field above that is `null`: the reason it is unavailable. Never empty when a field is null. */
+    reasons: Record<string, string>;
 }
 /** Reveal tiers (ZKP_REVEAL_TIERS). `postcard` is production-real; others are capability-gated. */
 export type ProofTier = 'postcard' | 'envelope' | 'letter' | 'package';
@@ -196,6 +260,14 @@ export interface ProofPresentation {
         tier: string;
     } | null;
     createdAt: string | null;
+    /** Honest contract (T4): the engine's publishing signer when the payload carries it; else null (see `reasons`). */
+    signer: string | null;
+    /** A presented proof is an engine-signed postcard — NOT an aggregate of registry rows. Fixed, honest label. */
+    note: 'not a registry aggregate';
+    /** Why `signer` is null, when it is. */
+    reasons: Record<string, string>;
+    /** EAS uid or sha256(proofBytes). Set whenever proof bytes exist. */
+    proofHash?: string | null;
     /** populated by presentProof({ verify: true }) — client-side WASM verification result. */
     verification?: {
         verified: boolean;
@@ -222,6 +294,13 @@ export interface RegisterParams {
     walletAddress?: string;
     /** true → register as an anonymous HUMAN rather than an EXTERNAL_AGENT. */
     isHuman?: boolean;
+    /**
+     * Where this create-PAI turn came from — provenance stamped on the first commit (the register).
+     * The hosted create-PAI page passes `'Site'`; the CLI `init-pai` passes `'Cli'`. Forwarded to the
+     * backend as `origin`; unlike a payment, registration is not origin-gated, so this is a record of
+     * the surface, not a permission.
+     */
+    origin?: AgentTurnOrigin;
 }
 /**
  * Result of `register()`.
@@ -455,14 +534,15 @@ export declare class TrustShell {
     /**
      * Construct a TrustShell and confirm the backend is reachable (real connectivity check, not a
      * stub). Returns the client; `health` reflects the live `/health` probe so callers can fail fast.
+     *
+     * The probe has its own deadline ({@link HEALTH_TIMEOUT_MS} unless `healthTimeoutMs` says
+     * otherwise). Until 1.6.0 it had none, so a backend that accepted the connection and never
+     * answered hung `init()` for good; measured on 1.5.0 the probe also cost 0.71 s against 0.18 s
+     * for the first real call. `healthCheck: false` skips it, and `health` then says not checked.
      */
     static init(config?: TrustShellConfig): Promise<{
         client: TrustShell;
-        health: {
-            ok: boolean;
-            status?: string;
-            error?: string;
-        };
+        health: InitHealth;
     }>;
     /**
      * Subscribe to client-side lifecycle events emitted when SDK calls complete. Real (not faked):
@@ -476,7 +556,8 @@ export declare class TrustShell {
     verify(agentId: string): Promise<VerifyResult>;
     /**
      * Verify an agent output through HAL and return a simple ok/verdict.
-     * `ok` is true unless HAL hard-vetoed (so a category-aware soft FLAG still passes).
+     * `ok` is true when HAL checked and did not hard-veto (so a category-aware soft FLAG still
+     * passes). NOT_CHECKED is not ok: HAL did not decide.
      *
      * Task C — SBFA honesty fields: `belief`, `ignoranceMass`, `confidence`, `tierDistribution`
      * are populated from the backend response when present. When the backend does not supply them

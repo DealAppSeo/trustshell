@@ -39,12 +39,60 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TrustShell = exports.TrustShellError = void 0;
+exports.TrustShell = exports.TrustShellError = exports.HEALTH_TIMEOUT_MS = void 0;
+exports.hashProofBytes = hashProofBytes;
+exports.verdictFromHal = verdictFromHal;
 exports.envelope = envelope;
 exports.assertPaymentCap = assertPaymentCap;
 exports.capFromAllowance = capFromAllowance;
 exports.buildX402Payment = buildX402Payment;
+const optional_ethers_1 = require("./optional-ethers");
+const node_crypto_1 = require("node:crypto");
+const redact_1 = require("../memory/redact");
 const origin_1 = require("./origin");
+const honest_contract_1 = require("./honest-contract");
+/** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
+function hashProofBytes(proofBytes) {
+    return (0, node_crypto_1.createHash)('sha256').update(proofBytes, 'utf8').digest('hex');
+}
+/** Deadline for `TrustShell.init()`'s `/health` probe. Short on purpose: it gates nothing. */
+exports.HEALTH_TIMEOUT_MS = 3000;
+/**
+ * Map a /api/v1/hal/evaluate response to a {@link Verdict}. PURE, so it is testable.
+ * Only the decisions HAL actually makes map to PASS / FLAG / VETO; everything else is
+ * NOT_CHECKED. A fallback that consulted no provider is NOT_CHECKED whatever it decided:
+ * a verdict nobody earned is not a verdict.
+ */
+function verdictFromHal(data) {
+    if (data.mode === 'extractor-fallback' || data.mode === 'extractor' || data.degraded_mode === true)
+        return 'NOT_CHECKED';
+    if (noProviderDecided(data.provider_responses))
+        return 'NOT_CHECKED';
+    const decision = data.decision ?? data.hal_verdict;
+    if (decision === 'vetoed' || decision === 'VETO')
+        return 'VETO';
+    if (decision === 'flagged' || decision === 'FLAG')
+        return 'FLAG';
+    if (decision === 'clean' || decision === 'PASS')
+        return 'PASS';
+    return 'NOT_CHECKED';
+}
+/**
+ * True when HAL listed its providers' answers and NOT ONE of them said TRUE or FALSE: every one was
+ * UNCERTAIN or an ERROR. Nobody judged the claim, so no decision built on top of that is a verdict.
+ * The server's default score mode turns an all-UNCERTAIN answer into hal_score 0.5, which meets
+ * its 0.5 veto threshold, so it reports "vetoed" for a claim nobody judged false (BUS S20; the
+ * server-side fix is a production flag). This makes the client honest whichever way that flag is set.
+ * An absent or empty list says nothing either way, and leaves the server's decision as it was.
+ */
+function noProviderDecided(responses) {
+    if (!Array.isArray(responses) || responses.length === 0)
+        return false;
+    return !responses.some((r) => {
+        const v = r && typeof r === 'object' ? String(r.verdict ?? '').toUpperCase() : '';
+        return v === 'TRUE' || v === 'FALSE';
+    });
+}
 /** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
 function envelope(p) {
     const s = p.statement;
@@ -72,17 +120,38 @@ class TrustShell {
     /**
      * Construct a TrustShell and confirm the backend is reachable (real connectivity check, not a
      * stub). Returns the client; `health` reflects the live `/health` probe so callers can fail fast.
+     *
+     * The probe has its own deadline ({@link HEALTH_TIMEOUT_MS} unless `healthTimeoutMs` says
+     * otherwise). Until 1.6.0 it had none, so a backend that accepted the connection and never
+     * answered hung `init()` for good; measured on 1.5.0 the probe also cost 0.71 s against 0.18 s
+     * for the first real call. `healthCheck: false` skips it, and `health` then says not checked.
      */
     static async init(config = {}) {
         const client = new TrustShell(config);
+        if (config.healthCheck === false)
+            return { client, health: { ok: false, checked: false, status: 'not-checked' } };
+        const deadline = Number.isFinite(config.healthTimeoutMs) && config.healthTimeoutMs > 0
+            ? config.healthTimeoutMs
+            : exports.HEALTH_TIMEOUT_MS;
+        const controller = new AbortController();
+        let timedOut = false;
+        const timer = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, deadline);
         let health;
         try {
-            const res = await fetch(`${client.baseUrl}/health`, { headers: client.getHeaders() });
+            const res = await fetch(`${client.baseUrl}/health`, { headers: client.getHeaders(), signal: controller.signal });
             const data = res.ok ? await res.json().catch(() => ({})) : {};
-            health = { ok: res.ok, status: data.status };
+            health = { ok: res.ok, checked: true, status: data.status };
         }
         catch (err) {
-            health = { ok: false, error: err?.message ?? String(err) };
+            health = timedOut
+                ? { ok: false, checked: true, error: `no answer within ${deadline} ms` }
+                : { ok: false, checked: true, error: err?.message ?? String(err) };
+        }
+        finally {
+            clearTimeout(timer);
         }
         return { client, health };
     }
@@ -121,7 +190,7 @@ class TrustShell {
         // { response, ... }. strictness 2 selects the cross-provider fact-check quorum (the real
         // HAL), not the style-only extractor. (Fixes the prior 400 "text is required".)
         const body = {
-            text: response,
+            text: (0, redact_1.redact)(response),
             strictness: 2,
         };
         const controller = new AbortController();
@@ -138,12 +207,10 @@ class TrustShell {
             }
             const data = await res.json();
             const halScore = typeof data.hal_score === 'number' ? data.hal_score : 0;
-            const trustScore = Math.round((1 - halScore) * 100);
-            // Real contract returns decision: 'vetoed' | 'flagged' | 'clean' (legacy: hal_verdict).
-            const decision = data.decision ?? data.hal_verdict;
-            const verdict = decision === 'vetoed' || decision === 'VETO' ? 'VETO'
-                : decision === 'flagged' || decision === 'FLAG' ? 'FLAG'
-                    : 'PASS';
+            // Real contract returns decision: 'vetoed' | 'flagged' | 'clean' | 'abstain' (legacy: hal_verdict).
+            // Anything that is not a decision HAL made is NOT_CHECKED, never PASS (verdictFromHal).
+            const verdict = verdictFromHal(data);
+            const trustScore = verdict === 'NOT_CHECKED' ? 0 : Math.round((1 - halScore) * 100);
             // Quorum (strictness-2) returns `signals` with provider/family info; the style-only
             // extractor returns harm/epistemic fields. Read both shapes defensively.
             const sig = data.signals ?? data.hal_signals ?? {};
@@ -223,18 +290,32 @@ class TrustShell {
             throw new TrustShellError(`RepID lookup failed: ${res.status}`, res.status);
         }
         const data = await res.json();
+        // Honest contract (T4): derive mint/signer/lane from the REAL response, null-with-reason otherwise.
+        const honesty = (0, honest_contract_1.repidHonesty)(data);
+        // The live /api/v1/repid/:id returns `{ score, tier }` [MEASURED 2026-10-03], and `score`
+        // is the string 'NOT_CHECKED' when the engine has no number. 1.4.0 read only `repid_score`,
+        // so every lookup printed "RepID undefined" and exited 0: we-did-not-look reported as a
+        // result. The first finite number wins; none at all is an error, never undefined and never 0.
+        const repid = [data.score, data.repid_score, data.repid, data.current_repid].find((v) => typeof v === 'number' && Number.isFinite(v));
+        if (repid === undefined) {
+            throw new TrustShellError(`RepID not checked: the backend returned no score for ${agentId}`, res.status);
+        }
         return {
-            // The live /api/v1/repid/:id returns `repid_score` (cached read); keep the legacy fallbacks.
-            repid: data.repid_score ?? data.repid ?? data.current_repid,
+            repid,
             tier: data.tier,
             lastAnchorTx: data.last_anchor_tx || null,
             latestProofHash: data.latest_proof_hash || null,
             provenanceChain: data.provenance || [],
+            minted: honesty.minted,
+            signer: honesty.signer,
+            scoreLane: honesty.scoreLane,
+            reasons: honesty.reasons,
         };
     }
     /**
      * Verify an agent output through HAL and return a simple ok/verdict.
-     * `ok` is true unless HAL hard-vetoed (so a category-aware soft FLAG still passes).
+     * `ok` is true when HAL checked and did not hard-veto (so a category-aware soft FLAG still
+     * passes). NOT_CHECKED is not ok: HAL did not decide.
      *
      * Task C — SBFA honesty fields: `belief`, `ignoranceMass`, `confidence`, `tierDistribution`
      * are populated from the backend response when present. When the backend does not supply them
@@ -250,7 +331,7 @@ class TrustShell {
             ? (quorum / (quorum + 1)) * (1 - r.halScore)
             : (1 - r.halScore) * 0.5; // single-provider fallback: half-weight
         const result = {
-            ok: r.verdict !== 'VETO',
+            ok: r.verdict === 'PASS' || r.verdict === 'FLAG',
             verdict: r.verdict,
             trustScore: r.trustScore,
             halScore: r.halScore,
@@ -258,6 +339,10 @@ class TrustShell {
             signals: r.signals,
             decisionReason: r.decisionReason,
             evidence: r.evidence,
+            // Honest grounding contract (T4): grounding + the REAL quorum, both from the actual evidence.
+            grounding: (0, honest_contract_1.verifyOutputGrounding)(r.evidence.length),
+            providersUsed: (0, honest_contract_1.countProviders)({ evidence: r.evidence }),
+            providers_used: (0, honest_contract_1.countProviders)({ evidence: r.evidence }),
             belief: r.belief, // real DST belief mass, or undefined (never fabricated)
             ignoranceMass: r.ignoranceMass, // real DST ignorance, or undefined (never derived)
             confidence: r.confidence ?? derivedConfidence, // real SBFA confidence; else DERIVED proxy
@@ -307,12 +392,26 @@ class TrustShell {
     }
     async getRepID(agentId) {
         const v = await this.verify(agentId);
+        let latestProofHash = v.latestProofHash;
+        if (!latestProofHash) {
+            try {
+                const p = await this.presentProof(agentId);
+                latestProofHash = p.proofHash ?? (p.proofBytes ? hashProofBytes(p.proofBytes) : null);
+            }
+            catch {
+                latestProofHash = null;
+            }
+        }
         return {
             agentId,
             repid: v.repid,
             tier: v.tier,
             lastAnchorTx: v.lastAnchorTx || 'NOT_ANCHORED',
-            latestProofHash: v.latestProofHash,
+            latestProofHash,
+            minted: v.minted,
+            signer: v.signer,
+            scoreLane: v.scoreLane,
+            reasons: v.reasons,
         };
     }
     async getLeaderboard(board) {
@@ -450,13 +549,20 @@ class TrustShell {
             throw new TrustShellError(`Proof lookup failed: ${res.status}`, res.status);
         }
         const data = await res.json();
+        const proofH = (0, honest_contract_1.proofHonesty)(data);
+        const proofBytes = data.proof_bytes || '';
+        const uid = typeof data.eas?.attestation_uid === 'string' ? data.eas.attestation_uid : null;
         const presentation = {
             agentId,
             tier,
-            proofBytes: data.proof_bytes || '',
+            proofBytes,
             scheme: data.scheme ?? null,
             statement: data.statement ?? null,
             createdAt: data.created_at ?? null,
+            signer: proofH.signer,
+            note: proofH.note,
+            reasons: proofH.reasons,
+            proofHash: uid || (proofBytes ? hashProofBytes(proofBytes) : null),
         };
         if (opts.verify && presentation.proofBytes && presentation.statement) {
             presentation.verification = await this.verifyProof(presentation);
@@ -646,6 +752,7 @@ class TrustShell {
             ...(params.llmModel !== undefined ? { llm_model: params.llmModel } : {}),
             ...(params.walletAddress !== undefined ? { wallet_address: params.walletAddress } : {}),
             ...(params.isHuman !== undefined ? { is_human: params.isHuman } : {}),
+            ...(params.origin !== undefined ? { origin: params.origin } : {}),
         };
         const res = await fetch(url, {
             method: 'POST',
@@ -869,8 +976,9 @@ async function buildX402Payment(params) {
     (0, origin_1.assertOriginCanPay)(params.origin);
     const cap = resolvePaymentCap(params);
     assertPaymentCap({ amount: params.amount, cap });
-    // Lazy import keeps ethers out of the module graph for consumers that never call this.
-    const { Wallet, getAddress } = await Promise.resolve().then(() => __importStar(require('ethers')));
+    // Lazy import keeps ethers out of the module graph for consumers that never call this, and it is
+    // an optional peer from 1.6.0: missing, it throws an error that says what to install.
+    const { Wallet, getAddress } = await (0, optional_ethers_1.loadEthers)('Signing an x402 payment');
     const chainId = params.chainId ?? 84532; // Base Sepolia
     // EIP-712 verifyingContract must be a checksummed address; normalize whatever the caller passes.
     const asset = getAddress(params.asset ?? '0x036CbD53842c5426634e7929541eC2318f3dCF7e'); // Base Sepolia USDC

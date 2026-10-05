@@ -16,6 +16,20 @@
  *   - getLeaderboard — the live model or agent trust leaderboard.
  *   - getRepID       — an agent's live RepID score + tier (keyless).
  *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
+ *   - remember       — write a note into the local sqlite file. No network.
+ *   - recall         — list saved notes from that file. No network.
+ *   - redact         — delete one keyed row. Missing is NOT_CHECKED. No network.
+ *   - repid          — alias of get_repid / getRepID.
+ *   - verify_output  — canonical name for verify/evaluate (SDK verifyOutput).
+ *   - get_repid      — canonical name for getRepID.
+ *   - verify_proof   — client-side WASM proof verification (SDK verifyProof). Nothing leaves the host.
+ *   - status         — `trustshell status` parity; calls src/cli/status.ts so the two cannot drift.
+ *   - check_claim    — `trustshell check "<sentence>"` parity: pass / veto / not-checked, the same
+ *                      label the Chrome extension shows. Calls src/lib/claim.ts classifyClaim, the
+ *                      one function the CLI also calls.
+ *
+ * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
+ * already published with them live, so renaming would break existing agent configs.
  *
  * Transport: stdio (the Claude Desktop / Cursor default). Configure with:
  *   { "mcpServers": { "trustshell": { "command": "npx",
