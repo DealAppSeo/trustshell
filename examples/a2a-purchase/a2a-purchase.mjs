@@ -79,7 +79,7 @@ if (missing.length) {
   process.exit(0); // clean exit — no crash, no faked settlement.
 }
 
-// --- 2. listServices() — keyless (public catalog read; MEASURED 38 rows 2026-09-10). Pick a "verification" service.
+// --- 2. listServices() — keyless (public catalog read; MEASURED 15 verification, 38 total, 2026-10-05). Pick a "verification" service.
 const catalog = await client.listServices({ type: 'verification' });
 log(`✓ discover: ${catalog.count} verification service(s) in the catalog`);
 if (catalog.priceRangeUsdcRaw) {
