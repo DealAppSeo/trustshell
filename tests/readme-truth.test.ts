@@ -66,14 +66,23 @@ describe('README truth pass', () => {
     expect(README).not.toMatch(/Time-to-first-real-call/);
   });
 
-  it('says never-a-pass is source and published 1.6.0, and the committed dist still exits 0', () => {
-    expect(README).toMatch(/never a pass in the source/);
-    expect(README).toMatch(/Published 1\.6\.0 matches that/);
-    expect(README).toMatch(/published 1\.6\.0 \(tarball measured 2026-10-05\), exits 0 on PASS or FLAG/);
-    expect(README).toMatch(/committed dist in this repo still exits 0 for anything that is not VETO/);
-    expect(README).not.toMatch(/published npm package, can still read an all-abstain answer as a pass/);
-    expect(README).not.toMatch(/never a pass from 1\.6\.0/);
+  // #460 rebuilt the committed dist, so it no longer differs from the source or from npm 1.6.0
+  // (measured: bin/verify.js against an all-abstain stub prints NOT_CHECKED, exit 2). A README
+  // caveat saying otherwise is now the false statement, so it must stay out.
+  it('says never-a-pass and exit 2, without the stale committed-dist caveat', () => {
+    expect(README).toMatch(/An unavailable check is never a pass\./);
+    expect(README).toMatch(/2 when HAL did not decide \(NOT_CHECKED, never a pass\)/);
+    expect(README).not.toMatch(/committed dist in this repo (still|can still)/);
+    expect(README).not.toMatch(/never a pass in the source/);
     expect(README).not.toMatch(/1\.6\.0 is published/);
     expect(README).not.toMatch(/npm latest is 1\.6\.0/i);
+  });
+
+  // A top-level `return` is a SyntaxError in an ES module, and this sample uses top-level await.
+  it('the marketplace sample stops without a top-level return', () => {
+    const sample = section('## Discover → buy → receipt');
+    const code = sample.slice(sample.indexOf('```ts'), sample.indexOf('```', sample.indexOf('```ts') + 5));
+    expect(code).toMatch(/await /);
+    expect(code).not.toMatch(/^\s*return\b/m);
   });
 });
