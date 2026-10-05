@@ -1,5 +1,7 @@
 # MVP E2E receipts, 2026-10-04
 
+<!-- doc-version: historical — a dated record of what 1.5.0 did on 2026-10-04 -->
+
 Every file here was produced by a test run, not written by hand. Each JSON names the code it
 tested (`git_sha`, or the npm version that installed), the engine it talked to, the time, and a
 verdict per check. **Three outcomes, never two:** VERIFIED / MEASURED, NOT_CHECKED, FAILED.

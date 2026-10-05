@@ -5,7 +5,7 @@ Cursor 3.23.12 is installed. The user `mcp.json` under `.cursor` was absent. The
 ## Install
 
 ```
-npm i -g @hyperdag/trustshell@1.5.0
+npm i -g @hyperdag/trustshell@1.6.0
 ```
 
 ## Config
@@ -22,4 +22,4 @@ Paste this into the user `mcp.json` or a project `.cursor/mcp.json`. It is the s
 }
 ```
 
-Outside Cursor, that `trustshell-mcp` from `@hyperdag/trustshell@1.5.0` printed `trustshell-mcp: ready (stdio)` and answered initialize as server trustshell 1.5.0.
+Outside Cursor, that `trustshell-mcp` from `@hyperdag/trustshell@1.5.0` printed `trustshell-mcp: ready (stdio)` and answered initialize as server trustshell 1.5.0. <!-- doc-version: historical — measured with 1.5.0 on 2026-10-05 -->

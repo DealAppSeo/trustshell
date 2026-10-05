@@ -2,7 +2,7 @@
 
 Chain is Base Sepolia, chain id 84532. This is not mainnet.
 
-1. Install: `npm i -g @hyperdag/trustshell@1.5.0`
+1. Install: `npm i -g @hyperdag/trustshell@1.6.0`
 2. Read `GET /api/v1/faucet/info` on the engine. `chain_id` is 84532. `dispenses` is false.
 3. The faucet is external. The engine does not send ETH.
 4. Fund a wallet from a faucet that response names. TrustShell does not send the ETH.

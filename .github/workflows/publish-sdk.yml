@@ -299,7 +299,9 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
           set -euo pipefail
-          npm publish pkg/*.tgz --dry-run --provenance --access public --ignore-scripts --tag "$DIST_TAG"
+          # ./ is required: npm 11 reads a bare `pkg/x.tgz` as the GitHub repo `pkg/x.tgz` and tries
+          # `git ls-remote ssh://git@github.com/pkg/...` (run 37267372433, 2026-10-05).
+          npm publish ./pkg/*.tgz --dry-run --provenance --access public --ignore-scripts --tag "$DIST_TAG"
           echo "- result: **DRY RUN** — nothing was published. dist-tag would be \`$DIST_TAG\`." >> "$GITHUB_STEP_SUMMARY"
 
       # No NODE_AUTH_TOKEN: npm exchanges this job's OIDC token itself.
@@ -311,5 +313,5 @@ jobs:
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         run: |
           set -euo pipefail
-          npm publish pkg/*.tgz --provenance --access public --ignore-scripts --tag "$DIST_TAG"
+          npm publish ./pkg/*.tgz --provenance --access public --ignore-scripts --tag "$DIST_TAG"
           echo "- result: **PUBLISHED** \`$VERSION\` to dist-tag \`$DIST_TAG\`." >> "$GITHUB_STEP_SUMMARY"

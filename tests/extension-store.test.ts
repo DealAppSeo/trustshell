@@ -54,7 +54,7 @@ describe('store package', () => {
     expect(description).not.toContain('The stamp is pass, veto, or not-checked.');
     expect(listing).not.toMatch(/launched/i);
     expect(listing.toLowerCase()).not.toContain('stake');
-    expect(listing).not.toContain('npx @hyperdag/trustshell@1.5.0');
+    expect(listing).not.toContain('npx @hyperdag/trustshell@1.6.0');
     expect(listing).not.toMatch(/filtered before it reaches you/i);
     expect(listing).not.toMatch(/private by default/i);
     expect(listing).not.toMatch(/\bLaya\b/);

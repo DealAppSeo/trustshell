@@ -45,7 +45,7 @@ Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists:
 
 | | Today |
 |---|---|
-| npm `latest` | **1.5.0** (`npm view @hyperdag/trustshell version`). This line ships with the v1.5.0 release; until that tag is pushed, npm still serves the previous release. |
+| npm `latest` | **1.6.0** (`npm view @hyperdag/trustshell version`). |
 | HAL quorum | **2 answering / 8 configured** (measured). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
@@ -108,7 +108,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 
 | Surface | State | Today |
 |---|---|---|
-| This package | live | v1 hosted thin client. Trust computation runs on the HyperDAG engine, not on your machine. On-device proofs are v2, not shipped. npm `latest` is 1.4.0. |
+| This package | live | v1 hosted thin client. Trust computation runs on the HyperDAG engine, not on your machine. On-device proofs are v2, not shipped. `npm view @hyperdag/trustshell version` says which version npm serves. |
 | `getRepID()` / `presentProof()` | live | Keyless. Score moves; gate on tier or your own threshold. |
 | `register()` | live | Keyless. Creates an agent and a RepID. It does not mint ERC-8004. |
 | `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. Live 2026-09-15: 2 answering / 8 configured. HAL is weaker on paraphrases than on record-grounded facts. |
@@ -469,10 +469,10 @@ Run `trustshell --help` for the full reference.
 
 ## Agent skill
 
-OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.5.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
+OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.6.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.5.0
+npm i -g @hyperdag/trustshell@1.6.0
 
 trustshell verify "<claim>"
 trustshell repid <id>

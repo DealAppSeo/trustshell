@@ -41,9 +41,9 @@ describe('home screens below the hero', () => {
     expect(agent.MCP_SERVER).toEqual(pinned);
     expect(agent.MCP_SERVER).toEqual({
       command: 'npx',
-      args: ['-y', '-p', '@hyperdag/trustshell@1.5.0', 'trustshell-mcp'],
+      args: ['-y', '-p', '@hyperdag/trustshell@1.6.0', 'trustshell-mcp'],
     });
-    expect(agent.mcpPaste()).toContain('"@hyperdag/trustshell@1.5.0"');
+    expect(agent.mcpPaste()).toContain('"@hyperdag/trustshell@1.6.0"');
     expect(agent.mcpPaste()).toContain('"trustshell-mcp"');
   });
 

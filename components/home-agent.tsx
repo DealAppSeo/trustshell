@@ -4,12 +4,12 @@ import { useState } from 'react';
 
 /**
  * Screen 3. The paste is the trustshell server from .mcp.json, which runs the
- * bin published on @hyperdag/trustshell@1.5.0 (npm view: trustshell-mcp).
+ * bin published on @hyperdag/trustshell@1.6.0 (npm view: trustshell-mcp).
  * The same JSON for each tab. Only the file it goes in changes.
  */
 export const MCP_SERVER = {
   command: 'npx',
-  args: ['-y', '-p', '@hyperdag/trustshell@1.5.0', 'trustshell-mcp'],
+  args: ['-y', '-p', '@hyperdag/trustshell@1.6.0', 'trustshell-mcp'],
 };
 
 export function mcpPaste(): string {
@@ -53,7 +53,7 @@ export function HomeAgent() {
           Add it to the agent you already use
         </h2>
         <p className="text-sm text-slate-300 break-words">
-          Paste this into the file named on the tab. It runs trustshell-mcp from the published package @hyperdag/trustshell@1.5.0.
+          Paste this into the file named on the tab. It runs trustshell-mcp from the published package @hyperdag/trustshell@1.6.0.
         </p>
         <div role="tablist" aria-label="Agents that already speak MCP" className="flex flex-wrap gap-2">
           {AGENT_TABS.map((tab) => {
