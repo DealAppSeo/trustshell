@@ -18,7 +18,7 @@ export function refusedValue(value: string): boolean {
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
-  insertMemory(memoryDbPath(env), 'note', text);
+  insertMemory(memoryDbPath(env), 'note', text, undefined, env);
 }
 
 /**
@@ -27,6 +27,6 @@ export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env)
  */
 export function rememberKey(key: string, value: string, env: NodeJS.ProcessEnv = process.env): boolean {
   if (refusedValue(value)) return false;
-  writeKeyed(memoryDbPath(env), key, value);
+  writeKeyed(memoryDbPath(env), key, value, undefined, env);
   return true;
 }

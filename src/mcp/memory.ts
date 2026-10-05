@@ -10,10 +10,10 @@ export function rememberLocal(
   env: NodeJS.ProcessEnv = process.env,
 ): { kind: 'note'; remembered: true } {
   if (refusedValue(text)) throw new Error('remember refused');
-  insertMemory(memoryDbPath(env), 'note', text);
+  insertMemory(memoryDbPath(env), 'note', text, undefined, env);
   return { kind: 'note', remembered: true };
 }
 
 export function recallLocal(env: NodeJS.ProcessEnv = process.env): { notes: string } {
-  return { notes: formatRecall(memoryDbPath(env)) };
+  return { notes: formatRecall(memoryDbPath(env), env) };
 }

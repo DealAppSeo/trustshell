@@ -298,7 +298,16 @@ it in version control.
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
 
-`trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. A value that contains `sb_secret_`, `postgresql://`, or `eyJ` is refused and nothing is written. No network.
+`trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. No network.
+
+A note or value that looks like a credential is refused and nothing is written: API keys and tokens (AWS, Google, Stripe, GitHub, npm, Slack, Hugging Face, `sk-…`, `sb_secret_…`), JWTs, private keys (64-hex and PEM), database URLs, webhook URLs and labelled passwords. These are the same shapes the outbound scrubber removes. An email or a phone number is stored: the file is local.
+
+**Encryption at rest (opt-in).** Set `TRUSTSHELL_MEMORY_ENCRYPT=on` and `TRUSTSHELL_MEMORY_KEY=<passphrase>`, and every new note and value is written with AES-256-GCM, under a key derived with scrypt from the passphrase and a random salt kept in that file.
+- With the flag on and no passphrase, `remember` fails and writes nothing. It never falls back to plain text.
+- Reading needs only the passphrase. Turning the flag off later does not lock you out of what you already saved.
+- Notes saved before you turned it on stay in plain text.
+- Without the passphrase, `recall` prints `[encrypted note: set TRUSTSHELL_MEMORY_KEY to read it]` in place of each sealed note. `recall <key>` fails rather than print a value it could not open.
+- It protects the text inside the file from someone who copies the file without the passphrase. It does not hide which kind of row exists or when it was written. A passphrase in an environment variable can be read by any process you run.
 
 ### `trustshell recall`
 

@@ -38,6 +38,12 @@ All notable changes to the `@hyperdag/trustshell` package.
     memory file. Notes holding an email or a phone number are still stored: memory is local.
   - It removes formats, not meaning. A name, an address or a health detail written in prose is
     not caught.
+- **`TRUSTSHELL_MEMORY_ENCRYPT=on` now encrypts.** The setting existed and nothing read it, so
+  every note went to disk in plain text while the setting said otherwise. `remember`, `recall` and
+  the MCP `remember` / `recall` tools now seal notes and values with AES-256-GCM under
+  `TRUSTSHELL_MEMORY_KEY` (scrypt, with a random salt per memory file). With the flag on and no
+  key, `remember` writes nothing. Without the key, `recall` shows a placeholder, never ciphertext.
+  See `docs/api-reference.md`.
 
 ## 1.5.0 — 2026-10-04
 
