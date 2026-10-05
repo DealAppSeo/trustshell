@@ -270,6 +270,12 @@ export async function classifyClaim(text: string, opts: ClaimOptions = {}): Prom
       const reported = (body as { latency_ms?: unknown }).latency_ms;
       const latency_ms = typeof reported === 'number' && Number.isFinite(reported) ? reported : elapsed();
       const path = pathOf(body, label);
+      // A `by` this server never sends ({"label":"pass","by":"skipped"}) means the answer is not
+      // the server's, so its label decides nothing (XC1, night bus #449). No `by` at all is an
+      // older endpoint and keeps its label.
+      if ((body as { by?: unknown }).by !== undefined && path.by === undefined) {
+        return notChecked('endpoint said what produced the label, out of contract (by / voters)');
+      }
       const question = questionOf(body, label, path.by);
       return mark({ label, latency_ms, ...path, ...(question ? { question } : {}) });
     })();
