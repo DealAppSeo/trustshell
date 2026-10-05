@@ -1,0 +1,52 @@
+[
+    {
+        "slug": "surgeon",
+        "title": "The surgeon",
+        "claim": "A father and son are in a car accident. The father dies and the surgeon refuses to operate because the boy is the surgeon's son. The surgeon is the boy's mother."
+    },
+    {
+        "slug": "missing-dollar",
+        "title": "Missing dollar",
+        "claim": "Three guests pay $30, $5 is returned, $2 is kept, and $1 is returned to each guest. No dollar is missing from the original $30."
+    },
+    {
+        "slug": "tuesday-boy",
+        "title": "Tuesday boy",
+        "claim": "A family has two children and at least one is a boy born on a Tuesday. The probability the other child is also a boy is 13/27."
+    },
+    {
+        "slug": "monty",
+        "title": "Monty Hall",
+        "claim": "After a goat is revealed behind one remaining door, switching doors wins the car two-thirds of the time."
+    },
+    {
+        "slug": "average-speed",
+        "title": "Average speed",
+        "claim": "A round trip at 30 mph one way and 60 mph the other averages 40 mph, not 45 mph."
+    },
+    {
+        "slug": "disease",
+        "title": "Disease test",
+        "claim": "For a 99% accurate rare-disease test with 1% false positives, most positive results are false when the disease prevalence is 1 in 10,000."
+    },
+    {
+        "slug": "ropes",
+        "title": "Burning ropes",
+        "claim": "Two ropes each burn in 60 minutes can measure 45 minutes by lighting both ends of one rope and one end of the other, then lighting the remaining end when the first finishes."
+    },
+    {
+        "slug": "two-envelope",
+        "title": "Two envelope",
+        "claim": "Swapping envelopes does not guarantee a gain; the expected-value argument that says otherwise is a trap."
+    },
+    {
+        "slug": "birthday",
+        "title": "Birthday problem",
+        "claim": "In a group of 23 randomly chosen people, the probability that some pair shares a birthday exceeds 50%."
+    },
+    {
+        "slug": "ravens",
+        "title": "Ravens paradox",
+        "claim": "Observing a white shoe is not equivalent evidence for 'all ravens are black' as observing a black raven."
+    }
+]
