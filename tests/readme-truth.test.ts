@@ -1,6 +1,6 @@
 /**
  * README truth pass (R2 items c–i).
- * Items a and b (version pins) stay on the 1.6.0 release PR.
+ * Items a and b landed in #459, which is on main. This file checks the merged README.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -66,9 +66,12 @@ describe('README truth pass', () => {
     expect(README).not.toMatch(/Time-to-first-real-call/);
   });
 
-  it('says never-a-pass is source, and the packed dist still exits 0', () => {
+  it('says never-a-pass is source and published 1.6.0, and the committed dist still exits 0', () => {
     expect(README).toMatch(/never a pass in the source/);
-    expect(README).toMatch(/committed dist still exits 0 for anything that is not VETO/);
+    expect(README).toMatch(/Published 1\.6\.0 matches that/);
+    expect(README).toMatch(/published 1\.6\.0 \(tarball measured 2026-10-05\), exits 0 on PASS or FLAG/);
+    expect(README).toMatch(/committed dist in this repo still exits 0 for anything that is not VETO/);
+    expect(README).not.toMatch(/published npm package, can still read an all-abstain answer as a pass/);
     expect(README).not.toMatch(/never a pass from 1\.6\.0/);
     expect(README).not.toMatch(/1\.6\.0 is published/);
     expect(README).not.toMatch(/npm latest is 1\.6\.0/i);
