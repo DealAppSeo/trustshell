@@ -3,6 +3,10 @@
   "name": "TrustShell stamp",
   "version": "1.0.0",
   "description": "Reads the last assistant reply and stamps pass, veto, or not-checked.",
+  "action": {
+    "default_title": "TrustShell",
+    "default_popup": "popup.html"
+  },
   "host_permissions": [
     "https://repid-engine-production.up.railway.app/*"
   ],

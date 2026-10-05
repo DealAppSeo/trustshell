@@ -41,7 +41,8 @@ describe('extension popup', () => {
     const html = readFileSync(join(__dirname, '../extension/popup.html'), 'utf8');
     expect(html).not.toContain(CLAIM);
     expect(html).not.toContain('Caught');
+    expect(html).not.toContain('popup-line');
     expect(html).toContain('The reply text is sent to our checkers, Groq and Cerebras');
-    expect(html.indexOf('popup-privacy')).toBeLessThan(html.indexOf('popup-line'));
+    expect(html.indexOf('popup-privacy')).toBeLessThan(html.indexOf('agent-form'));
   });
 });
