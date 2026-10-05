@@ -15,7 +15,7 @@ const LINES = [
   'Check any claim. Get a receipt. Your keys stay yours.',
 ];
 const COMMANDS = [
-  'npm i -g @hyperdag/trustshell@1.5.0',
+  'npm i -g @hyperdag/trustshell@1.6.0',
   'trustshell verify "paste your own claim"',
   'trustshell repid trinity-shofet',
 ];

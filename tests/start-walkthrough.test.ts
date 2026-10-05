@@ -5,7 +5,7 @@ const ROOT = join(__dirname, '..');
 const QUESTION = 'Where do you already talk to AI?';
 const CLIENTS = ['Claude', 'ChatGPT', 'Grok', 'Cursor'];
 const COMMANDS = [
-  'npm i -g @hyperdag/trustshell@1.5.0',
+  'npm i -g @hyperdag/trustshell@1.6.0',
   'trustshell verify "paste your own claim"',
   'trustshell repid trinity-shofet',
 ];
@@ -49,7 +49,7 @@ describe('/start', () => {
       page.indexOf('`;', page.indexOf('const COMMANDS')),
     );
     expect(commands.split('\n')).toEqual(COMMANDS);
-    expect(page).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.5\.0[^\n]*status/);
+    expect(page).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.6\.0[^\n]*status/);
     expect(page.match(/trustshell verify /g) ?? []).toHaveLength(1);
     expect(page).not.toMatch(/trustshell proof/);
     expect(page).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);

@@ -32,7 +32,7 @@ describe('home renders no top nav', () => {
     expect(hero).toContain('Use it in your terminal');
     expect(hero).toContain('const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
     expect(hero).toContain('Add it to your agent');
-    expect(hero).toContain("const INSTALL = 'npm i -g @hyperdag/trustshell@1.5.0';");
+    expect(hero).toContain("const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';");
     const paste = hero.match(/const MCP_PASTE = `([\s\S]*?)`;/);
     expect(paste?.[1]).toBe('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
     expect(paste?.[1] ?? '').not.toMatch(/npm/i);

@@ -1,7 +1,7 @@
 ---
 name: trustshell
 description: Fact-check a claim, read an agent's live RepID, verify its ZK proof, or print after-create and Honesty A by shelling out to the published bins. Use when the user asks to verify a claim, look up a RepID, check a proof, see can_verify, or attach the local trustshell MCP server.
-metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trustshell-mcp"]},"install":[{"id":"npm","kind":"node","package":"@hyperdag/trustshell@1.5.0","bins":["trustshell","trustshell-mcp","hal"],"label":"Install @hyperdag/trustshell@1.5.0"}]}}
+metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trustshell-mcp"]},"install":[{"id":"npm","kind":"node","package":"@hyperdag/trustshell@1.6.0","bins":["trustshell","trustshell-mcp","hal"],"label":"Install @hyperdag/trustshell@1.6.0"}]}}
 ---
 
 # Trustshell
@@ -11,7 +11,7 @@ metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trust
 The bins must already be on PATH:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.5.0
+npm i -g @hyperdag/trustshell@1.6.0
 ```
 
 That install provides `trustshell`, `hal`, and `trustshell-mcp`. If `trustshell` is not on PATH, stop and say so. Do not install another package and do not start a server.
@@ -64,7 +64,7 @@ On `/`, start in the chat the person already uses. The button is `Check a claim 
 `I have a terminal` is the other path. It shows four commands, and `trustshell status` is on its own line:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.5.0
+npm i -g @hyperdag/trustshell@1.6.0
 trustshell verify "The capital of France is Paris."
 trustshell verify "The Eiffel Tower is located in Rome, Italy."
 trustshell status

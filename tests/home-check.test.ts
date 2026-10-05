@@ -136,7 +136,7 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     const steps = home.html.slice(formEnd).match(/<ol\b[^>]*>([\s\S]*?)<\/ol>/)?.[1] ?? '';
     const items = steps.match(/<li\b/g) ?? [];
     expect(items).toHaveLength(3);
-    expect(words(steps)).toContain('npm i -g @hyperdag/trustshell@1.5.0');
+    expect(words(steps)).toContain('npm i -g @hyperdag/trustshell@1.6.0');
     expect(words(steps)).toContain('trustshell-mcp');
     expect(words(steps)).toContain('{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }');
     expect(words(steps)).toContain('Restart the app.');

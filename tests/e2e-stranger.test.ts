@@ -182,7 +182,7 @@ describe('stranger e2e on current main', () => {
   it('runs the other commands that exist on main', async () => {
     const version = await go(['--version']);
     expect(version.code).toBe(0);
-    expect(version.out).toMatch(/1\.5/);
+    expect(version.out).toMatch(/1\.6/);
 
     const help = await go(['--help']);
     expect(help.code).toBe(0);
@@ -276,7 +276,7 @@ describe('stranger e2e on current main', () => {
     }
   });
 
-  it('landing keeps the 1.5.0 install line and does not put status on npm', () => {
+  it('landing keeps the 1.6.0 install line and does not put status on npm', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
     const landing = `${page}\n${hero}`;
@@ -284,8 +284,8 @@ describe('stranger e2e on current main', () => {
     expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).not.toContain('Check a claim in the chat you already use');
     expect(hero).toContain('const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
-    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.5.0');
-    expect(hero).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.5\.0[^\n]*status/);
+    expect(hero).toContain('npm i -g @hyperdag/trustshell@1.6.0');
+    expect(hero).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.6\.0[^\n]*status/);
     expect(landing).not.toContain('E:\\TrustDisk');
     expect(landing).not.toContain('Loading live scores');
     const shown = [...landing.matchAll(/\btrustshell\s+([a-z][a-z0-9-]*)/g)].map((m) => m[1] as string);
