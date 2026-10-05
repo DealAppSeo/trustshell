@@ -1,33 +1,85 @@
+/*
+ * One stamp under each checked reply. Unmarked text reads as true, so every state is visible:
+ * Checking with Groq and Cerebras, Checks out, Caught, Not checked. classify.js paints the words
+ * and data-stamp; the machine label sits in the title tooltip, so the stamp takes the pointer.
+ * The colours carry their own background, so the stamp reads on a light or a dark host page.
+ */
 .ts-stamp {
   display: block;
   clear: both;
   width: fit-content;
+  max-width: 100%;
   margin: 8px 0 12px;
-  padding: 2px 8px;
-  border: 1px solid #e5e7eb;
-  border-radius: 2px;
-  background: transparent;
-  color: #9ca3af;
-  font: 600 11px/1.4 ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.08em;
-  text-transform: lowercase;
-  pointer-events: none;
+  padding: 3px 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f9fafb;
+  color: #4b5563;
+  font: 600 12px/1.45 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  text-decoration: none;
+  /* Caught carries a second line, written as a newline in the text. */
+  white-space: pre-line;
+  cursor: help;
+  pointer-events: auto;
   user-select: none;
 }
 
+.ts-stamp[data-stamp="checking"] {
+  color: #4b5563;
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+/* A subtle pulsing dot while the call is out. */
+.ts-stamp[data-stamp="checking"]::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+  animation: trustshell-stamp-pulse 1.2s ease-in-out infinite;
+}
+
 .ts-stamp[data-stamp="pass"] {
-  color: #111827;
-  border-color: #111827;
+  color: #065f46;
+  border-color: #34d399;
+  background: #ecfdf5;
 }
 
 .ts-stamp[data-stamp="veto"] {
-  color: #111827;
-  border-color: #111827;
-  text-decoration: line-through;
+  color: #991b1b;
+  border-color: #f87171;
+  background: #fef2f2;
+  font-weight: 500;
+}
+
+.ts-stamp[data-stamp="veto"]::first-line {
+  font-weight: 700;
 }
 
 .ts-stamp[data-stamp="not-checked"] {
-  color: #9ca3af;
-  border-color: #e5e7eb;
-  text-decoration: none;
+  color: #4b5563;
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+@keyframes trustshell-stamp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ts-stamp[data-stamp="checking"]::before {
+    animation: none;
+  }
 }

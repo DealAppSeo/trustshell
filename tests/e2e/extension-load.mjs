@@ -14,10 +14,14 @@
  *   b. B19: trustshellSelect.onMenuClick, inside the real worker, with a STUBBED classifier and a
  *      recording `scripting` stub — label veto, paintLabel injected with args ['veto']
  *   c. each of the five hosts: a fixture page served on the real host name via context.route, the
- *      classify endpoint stubbed to {"label":"veto"}, and the stamp must read `veto`. A veto is
- *      the one label every file in the entry has to cooperate on: laya.js makes the call,
- *      classify.js returns it, the host script paints it, toast.js adds the catch line. If any of
- *      them failed to load, the stamp reads not-checked or never appears.
+ *      classify endpoint stubbed to {"label":"veto"}, and the stamp must read `Caught` plus the
+ *      voter line, with `veto` in its tooltip. A veto is the one label every file in the entry has
+ *      to cooperate on: laya.js makes the call, classify.js returns it and owns the words, the host
+ *      script paints it, toast.js adds the catch line. If any of them failed to load, the stamp
+ *      reads Not checked or never appears.
+ *   d. the other states on chatgpt, in real Chromium: a 500 whose body says pass paints Not checked;
+ *      while the call is held the stamp says Checking with a pulsing dot that stops under
+ *      prefers-reduced-motion; a call held past the 3 s cap ends Not checked, never Checks out.
  *
  * NOTHING HERE TOUCHES PRODUCTION. Every request to the classify host is answered by a stub and
  * any other off-fixture request is aborted. So this proves the extension LOADS and WIRES; it does
@@ -40,6 +44,8 @@ const { chromium } = await loadPlaywrightOrExit();
 
 const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extension');
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
+const CAUGHT = 'Caught\nChecked and found false.';
+const CHECKING = 'Checking with Groq and Cerebras';
 const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellLaya', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
 
@@ -123,7 +129,11 @@ try {
   }
 
   // Every classify call is answered here. Nothing reaches production.
+  // classifyMode picks the answer: 'veto' (section c), 'error' (a 500 whose body says pass) or
+  // 'hold' (never answers, so the stamp must say Checking, then Not checked past the cap).
   const classifyCalls = [];
+  let classifyMode = 'veto';
+  const held = [];
   await context.route(CLASSIFY, async (route) => {
     const req = route.request();
     const cors = {
@@ -133,6 +143,17 @@ try {
     };
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     classifyCalls.push(req.url());
+    if (classifyMode === 'hold') {
+      await new Promise((release) => held.push(release));
+      return route.abort().catch(() => {});
+    }
+    if (classifyMode === 'error') {
+      return route.fulfill({
+        status: 500,
+        headers: { ...cors, 'content-type': 'application/json' },
+        body: JSON.stringify({ label: 'pass', latency_ms: 1 }),
+      });
+    }
     return route.fulfill({
       status: 200,
       headers: { ...cors, 'content-type': 'application/json' },
@@ -233,17 +254,18 @@ try {
       const node = document.getElementById('trustshell-stamp');
       if (!node) return null;
       const word = (node.dataset && node.dataset.stamp) || '';
-      return word === 'veto' ? { word, text: node.textContent } : null;
+      return word === 'veto' ? { word, text: node.textContent, title: node.title } : null;
     }), 10000).catch(() => null);
     const seen = stamp || await page.evaluate(() => {
       const node = document.getElementById('trustshell-stamp');
-      return node ? { word: node.dataset.stamp, text: node.textContent } : null;
+      return node ? { word: node.dataset.stamp, text: node.textContent, title: node.title } : null;
     }).catch(() => null);
     const called = classifyCalls.length - before;
     const declared = errors.filter((e) => DECLARED.test(e));
 
-    check(`${host.name}: stamp paints veto`, Boolean(stamp) && stamp.text === 'veto',
-      seen ? `#trustshell-stamp = ${JSON.stringify(seen.text)}, classify calls = ${called}`
+    check(`${host.name}: stamp paints Caught with the voter line, veto in the tooltip`,
+      Boolean(stamp) && stamp.text === CAUGHT && stamp.title === 'veto',
+      seen ? `#trustshell-stamp = ${JSON.stringify(seen.text)} title=${JSON.stringify(seen.title)}, classify calls = ${called}`
         : `no #trustshell-stamp in 10s, classify calls = ${called} — a script in this entry did not run`);
     if (host.toast) {
       const toast = await page.evaluate(() => {
@@ -254,6 +276,75 @@ try {
     }
     check(`${host.name}: no redeclared name, no page error`, declared.length === 0 && errors.length === 0,
       errors.length ? errors.slice(0, 3).join(' | ') : 'none');
+    await page.close();
+  }
+
+  // ---- d. the other states, on chatgpt ---------------------------------------------------------
+  const chatgpt = HOSTS[0];
+  const readStamp = (page) => page.evaluate(() => {
+    const node = document.getElementById('trustshell-stamp');
+    if (!node) return null;
+    const dot = getComputedStyle(node, '::before');
+    return {
+      word: node.dataset.stamp,
+      text: node.textContent,
+      title: node.title,
+      dot: dot.animationName,
+      pointer: getComputedStyle(node).pointerEvents,
+    };
+  }).catch(() => null);
+
+  {
+    classifyMode = 'error';
+    const page = await context.newPage();
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const done = await poll(async () => {
+        const s = await readStamp(page);
+        return s && s.word !== 'checking' ? s : null;
+      }, 10000);
+      check('chatgpt: a 500 whose body says pass paints Not checked, never Checks out',
+        Boolean(done) && done.text === 'Not checked' && done.title === 'not-checked',
+        done ? `${JSON.stringify(done.text)} title=${JSON.stringify(done.title)}` : 'no settled stamp in 10s');
+    } catch (err) {
+      record('chatgpt: a 500 whose body says pass paints Not checked, never Checks out', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    await page.close();
+  }
+
+  {
+    classifyMode = 'hold';
+    const page = await context.newPage();
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const checking = await poll(async () => {
+        const s = await readStamp(page);
+        return s && s.word === 'checking' ? s : null;
+      }, 5000, 50);
+      check('chatgpt: while the call is out the stamp says Checking, checking in the tooltip',
+        Boolean(checking) && checking.text === CHECKING && checking.title === 'checking',
+        checking ? JSON.stringify(checking.text) : 'never saw the checking state');
+      check('chatgpt: the checking dot pulses', Boolean(checking) && checking.dot === 'trustshell-stamp-pulse',
+        checking ? `::before animation-name = ${checking.dot}` : 'never saw the checking state');
+      check('chatgpt: the stamp takes the pointer, so its tooltip can show', Boolean(checking) && checking.pointer !== 'none',
+        checking ? `pointer-events = ${checking.pointer}` : 'never saw the checking state');
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const still = await readStamp(page);
+      check('chatgpt: under prefers-reduced-motion the dot does not pulse',
+        Boolean(still) && still.word === 'checking' && still.dot === 'none',
+        still ? `word=${still.word} ::before animation-name = ${still.dot}` : 'no stamp');
+      // laya.js stops waiting just past 3 s. Past the cap the claim is Not checked.
+      const ended = await poll(async () => {
+        const s = await readStamp(page);
+        return s && s.word !== 'checking' ? s : null;
+      }, 10000);
+      check('chatgpt: a call held past the 3 s cap ends Not checked, never Checks out',
+        Boolean(ended) && ended.text === 'Not checked',
+        ended ? JSON.stringify(ended.text) : 'still checking after 10s');
+    } catch (err) {
+      record('chatgpt: while the call is out the stamp says Checking, checking in the tooltip', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    while (held.length) held.shift()();
     await page.close();
   }
 } finally {

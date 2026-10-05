@@ -123,7 +123,7 @@ describe('extension hosts', () => {
       fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'veto' }) }),
     });
     const toast = page.reply.querySelector('#trustshell-toast');
-    expect(stamp && stamp.textContent).toBe('veto');
+    expect(stamp && stamp.textContent).toBe('Caught\nChecked and found false.');
     expect(toast && toast.textContent).toBe('Caught. This reply did not pass.');
     expect(page.reply.contains(toast)).toBe(true);
   });
@@ -133,7 +133,7 @@ describe('extension hosts', () => {
     const stamp = await claude.draw(page.doc, {
       fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'pass' }) }),
     });
-    expect(stamp && stamp.textContent).toBe('pass');
+    expect(stamp && stamp.textContent).toBe('Checks out');
     expect(page.reply.querySelector('#trustshell-toast')).toBeNull();
     expect(page.reply.children.some((child) => String(child.textContent).indexOf('Caught.') === 0)).toBe(false);
   });

@@ -72,7 +72,8 @@ Run text through the live HAL cross-provider quorum.
 - `response: string` — the text to evaluate.
 - `options?: ScoreOptions` — `{ prompt?, provider?, model? }`.
 
-Returns `ScoreResult`: `verdict` (`'PASS' | 'FLAG' | 'VETO'`), `trustScore` (0–100),
+Returns `ScoreResult`: `verdict` (`'PASS' | 'FLAG' | 'VETO' | 'NOT_CHECKED'`; NOT_CHECKED means HAL
+did not decide, and is never a pass), `trustScore` (0–100, 0 when NOT_CHECKED),
 `halScore` (0–1), the five `signals` (`harmProbability`, `epistemicUncertainty`,
 `evidenceQuality`, `scopeAppropriateness`, `certaintyAtClaim`), `decisionReason`, and
 `evidence[]` — one `"provider:VERDICT (note)"` line per provider, which is the *why* behind

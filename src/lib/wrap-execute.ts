@@ -6,13 +6,15 @@
  * this is telemetry until someone deliberately turns it into a control.
  *
  * WHY RECORD-BY-DEFAULT IS THE SHIPPING DEFAULT, not timidity:
- * HAL's measured accuracy on external, non-circular ground truth is 82.6% (95/115
- * TruthEval cases, measured 2026-08-31), and just 9.1% (1/11) on the uncertain class —
- * it almost never emits FLAG, collapsing uncertainty into clean-or-vetoed. On the same
- * day a live probe watched it VETO the true statement "Paris is the capital of France"
- * (hal_score 0.535). A detector that wrong, blocking by default, would refuse real work
- * and the product would be blamed for the refusal. So blocking is opt-in, per call, at a
- * threshold the caller names.
+ * HAL still makes real mistakes. On 2026-08-31 a live probe watched it VETO the true
+ * statement "Paris is the capital of France" (hal_score 0.535), and it rarely emits FLAG,
+ * collapsing uncertainty into clean-or-vetoed. A detector that can be that wrong, blocking
+ * by default, would refuse real work and the product would be blamed for the refusal. So
+ * blocking is opt-in, per call, at a threshold the caller names.
+ *
+ * This comment used to cite "82.6% (95/115 TruthEval cases)". No stored run reproduces that
+ * figure (checked 2026-10-05: the stored TruthEval view gives a different number on a different
+ * case count), so it is not cited. A number without its ruler is not a result.
  *
  * WHAT THIS CANNOT DO — read before you rely on it:
  * The wrapped function has ALREADY RUN by the time HAL sees anything. There is no way to
@@ -23,8 +25,9 @@
  * Calling this a safety control over side-effecting work would be a claim the code
  * cannot support.
  *
- * THREE OUTCOMES, NEVER TWO. `checked: false` means HAL could not be consulted. That is
- * NOT a pass. It is reported as its own state and, in blocking mode, resolved by an
+ * THREE OUTCOMES, NEVER TWO. `checked: false` means HAL could not be consulted, or answered
+ * without deciding (verdict NOT_CHECKED: an abstain, or a fallback that asked no provider).
+ * That is NOT a pass. It is reported as its own state and, in blocking mode, resolved by an
  * explicit `onUnavailable` choice rather than a silent default — the recurring defect in
  * this ecosystem is a system reporting success it has not earned.
  */
@@ -73,7 +76,8 @@ export interface WrapExecuteOptions extends ScoreOptions {
 
 /** The audit line for one wrapped call. Safe to persist. */
 export interface WrapExecuteRecord {
-  verdict: HalVerdict | 'UNKNOWN';
+  /** NOT_CHECKED: HAL answered but did not decide. UNKNOWN: HAL was not reached at all. */
+  verdict: HalVerdict | 'NOT_CHECKED' | 'UNKNOWN';
   /** false when HAL could not be consulted. NOT a pass. */
   checked: boolean;
   disposition: WrapDisposition;
@@ -142,7 +146,7 @@ export async function wrapExecute<T>(
 
   const scorable = typeof output === 'string' ? output : safeStringify(output);
 
-  let verdict: HalVerdict | 'UNKNOWN' = 'UNKNOWN';
+  let verdict: HalVerdict | 'NOT_CHECKED' | 'UNKNOWN' = 'UNKNOWN';
   let checked = false;
   let halScore: number | null = null;
   let trustScore: number | null = null;
@@ -159,11 +163,16 @@ export async function wrapExecute<T>(
     try {
       const result = await shell.score(scorable, scoreOptions);
       verdict = result.verdict;
-      checked = true;
-      halScore = result.halScore;
-      trustScore = result.trustScore;
-      decisionReason = result.decisionReason ?? '';
       evidence = result.evidence ?? [];
+      if (result.verdict === 'NOT_CHECKED') {
+        // HAL answered, but did not decide. Treated exactly like an unreachable HAL below.
+        error = `HAL did not decide: ${result.decisionReason || 'no decision returned'}`;
+      } else {
+        checked = true;
+        halScore = result.halScore;
+        trustScore = result.trustScore;
+        decisionReason = result.decisionReason ?? '';
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -172,7 +181,7 @@ export async function wrapExecute<T>(
 
   if (!checked) {
     decisionReason =
-      `HAL was not consulted (${error ?? 'unknown reason'}). This is NOT a pass — ` +
+      `HAL ${verdict === 'NOT_CHECKED' ? 'did not check this' : 'was not consulted'} (${error ?? 'unknown reason'}). This is NOT a pass — ` +
       (blockAtOrAbove === null
         ? 'record-only mode, so the output was released regardless.'
         : `blocking is on, so onUnavailable='${onUnavailable}' decided it.`);

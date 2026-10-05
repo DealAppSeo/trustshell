@@ -25,9 +25,10 @@
  * has not earned — sitting in the demo. This version therefore:
  *
  *   1. RECORDS by default. `blockAtOrAbove` is omitted, which is wrapExecute's shipping
- *      default and the honest one at HAL's measured accuracy: 82.6% on external ground
- *      truth (95/115) and 9.1% (1/11) on the uncertain class. A detector that wrong
- *      should annotate by default, not refuse work.
+ *      default and the honest one while HAL still makes real mistakes (it has been seen
+ *      vetoing the true Paris statement at 0.535). A detector that can be that wrong
+ *      should annotate by default, not refuse work. (An earlier "82.6%" figure here is not
+ *      reproducible from any stored run, so it is no longer cited.)
  *   2. COMPUTES its closing claim from the run and exits non-zero when reality
  *      disagrees. A demo that cannot fail is not evidence of anything.
  *   3. Shows opt-in blocking as a labelled second pass, so "annotated" and "withheld"
@@ -119,8 +120,8 @@ if (separated) {
 // Not a bug in the example. This is the example doing its job.
 console.log('HAL did NOT separate them on this run — reported rather than papered over.');
 console.log('');
-console.log('This is why the default is record-only. HAL measures 82.6% on external ground');
-console.log('truth and 9.1% on the uncertain class, and has been observed flagging the true');
-console.log('Paris statement at 0.535. Blocking on a signal that wrong refuses real work.');
+console.log('This is why the default is record-only. HAL still makes real mistakes: it has been');
+console.log('observed flagging the true Paris statement at 0.535. Blocking on a signal that');
+console.log('can be that wrong refuses real work.');
 console.log('The wrapper behaved correctly: it surfaced the verdict instead of acting on it.');
 process.exit(1);

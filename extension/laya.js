@@ -5,7 +5,9 @@
 
 
   /**
-   * Laya: Convai's single-pass classifier (Apache 2.0).
+   * The hardened call to our own classifier: POST /api/v1/classify on repid-engine, which takes
+   * two free votes (Groq and Cerebras). Both TRUE is pass, both FALSE is veto, anything else is
+   * not-checked. (This header used to call it "Convai's classifier"; it never called Convai.)
    * Sends the reply text and the three labels. Returns { label, latency_ms }.
    * A missing model, a timeout, a non-200 or an empty body is not-checked, never a pass.
    * The reply is never printed and never returned. Anthropic is not called.

@@ -253,12 +253,12 @@ describe('classifier call', () => {
         return { status: 200, json: async () => ({ label: 'pass' }) };
       },
     });
-    expect(passed && passed.textContent).toBe('pass');
+    expect(passed && passed.textContent).toBe('Checks out');
 
     const vetoed = await claude.draw(page('noted\nveto'), {
       fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'veto' }) }),
     });
-    expect(vetoed && vetoed.textContent).toBe('veto');
+    expect(vetoed && vetoed.textContent).toBe('Caught\nChecked and found false.');
   });
 
   it('a missing endpoint, a veto word, and a 3 second call', async () => {
@@ -280,15 +280,15 @@ describe('classifier call', () => {
         return { status: 200, json: async () => ({ label: 'pass' }) };
       },
     });
-    expect(passed && passed.textContent).toBe('pass');
+    expect(passed && passed.textContent).toBe('Checks out');
     expect(claudePage.doc.getElementById('trustshell-check-line')).toBeNull();
 
     const deepPage = tracked('noted\nveto', 'deepseek');
     const deepPassed = await deepseek.draw(deepPage.doc, {
       fetchImpl: async () => ({ status: 200, json: async () => ({ label: 'pass' }) }),
     });
-    expect(deepPassed && deepPassed.textContent).toBe('pass');
-    expect(deepPassed && deepPassed.textContent).not.toBe('veto');
+    expect(deepPassed && deepPassed.textContent).toBe('Checks out');
+    expect(deepPassed && deepPassed.textContent).not.toContain('Caught');
 
     const realNow = Date.now;
     let clock = realNow();
@@ -301,11 +301,12 @@ describe('classifier call', () => {
           return { status: 200, json: async () => ({ label: 'veto' }) };
         },
       });
-      expect(slow && slow.textContent).toBe('not-checked');
-      expect(slow && slow.textContent).not.toBe('veto');
+      // Past the 3 s cap the classifier's own veto does not count: the claim is Not checked.
+      expect(slow && slow.textContent).toBe('Not checked');
+      expect(slow && slow.textContent).not.toContain('Caught');
       expect(slow && slow.textContent).not.toBe(0 as unknown as string);
       const line = slowPage.doc.getElementById('trustshell-check-line');
-      expect(line && line.textContent).toBe('Still checking');
+      expect(line && line.textContent).toBe('No answer in time.');
       expect(line && line.textContent).toBe(classify.SLOW_LINE);
     } finally {
       Date.now = realNow;

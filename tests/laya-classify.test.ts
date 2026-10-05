@@ -118,14 +118,15 @@ describe('laya classify', () => {
 
     const human = capture();
     const humanCode = await run(parseArgs(['verify', 'ok']), client, human.io);
-    expect(humanCode).toBe(EXIT.OK);
+    // Nothing was checked, so not the PASS code (it was 0 until 2026-10-05).
+    expect(humanCode).toBe(EXIT.NOT_CHECKED);
     expect(human.out).toEqual(['laya cheap NOT_CHECKED']);
     expect(layaRecords().slice(before).map((row) => row.classify)).toEqual(['cheap']);
     expect(calls).toEqual([]);
 
     const json = capture();
     const jsonCode = await run(parseArgs(['verify', 'ok', '--json']), client, json.io);
-    expect(jsonCode).toBe(EXIT.OK);
+    expect(jsonCode).toBe(EXIT.NOT_CHECKED);
     const raw = json.out.join('\n');
     const body = JSON.parse(raw) as Record<string, unknown>;
     expect(body.receipt_written).toBe(false);
@@ -195,7 +196,7 @@ describe('laya classify', () => {
 
     const cheap = capture();
     const cheapCode = await run(parseArgs(['verify', PARIS, '--json']), new TrustShell({ apiUrl: ENGINE }), cheap.io);
-    expect(cheapCode).toBe(EXIT.OK);
+    expect(cheapCode).toBe(EXIT.NOT_CHECKED);
     const cheapBody = JSON.parse(cheap.out.join('\n')) as Record<string, unknown>;
     expect(cheapBody.receipt_written).toBe(false);
     expect(cheapBody.family_host_verdict).toBe('laya cheap NOT_CHECKED');
@@ -283,7 +284,7 @@ describe('laya classify', () => {
     });
     const cap = capture();
     const code = await run(parseArgs(['verify', 'ok']), { verifyOutput } as unknown as TrustShell, cap.io);
-    expect(code).toBe(EXIT.OK);
+    expect(code).toBe(EXIT.NOT_CHECKED);
     expect(cap.out).toEqual(['laya cheap NOT_CHECKED']);
     expect(verifyOutput).not.toHaveBeenCalled();
     expect(hits.filter((hit) => /groq|cerebras|z\.ai|verifyOutput|\/api\/v1\/hal\/evaluate/i.test(hit))).toEqual([]);

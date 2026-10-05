@@ -102,9 +102,9 @@ const shell = new TrustShell();
 
 const result = await shell.verifyOutput('Execute trade: buy 0.1 BTC at market');
 
-console.log(result.verdict);      // 'PASS' | 'FLAG' | 'VETO'
+console.log(result.verdict);      // 'PASS' | 'FLAG' | 'VETO' | 'NOT_CHECKED'
 console.log(result.trustScore);   // 0–100
-console.log(result.ok);           // true for PASS and soft FLAG, false for VETO
+console.log(result.ok);           // true for PASS and soft FLAG; false for VETO and NOT_CHECKED
 
 if (!result.ok) {
   console.warn('HAL vetoed — do not act:', result.decisionReason);

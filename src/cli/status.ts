@@ -156,7 +156,7 @@ function oneToken(value: unknown): string {
   return trimmed;
 }
 
-type HalVerdict = 'PASS' | 'FLAG' | 'VETO';
+type HalVerdict = 'PASS' | 'FLAG' | 'VETO' | 'NOT_CHECKED';
 
 /** family, host, and this check's verdict. Missing or multi-word tokens are absent. */
 function quorumReceipt(body: unknown, verdict: HalVerdict): { family: string; host: string; verdict: HalVerdict } | null {

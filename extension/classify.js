@@ -11,7 +11,31 @@
    */
   const LABELS = ['pass', 'veto', 'not-checked'];
   const SLOW_MS = 3000;
-  const SLOW_LINE = 'Still checking';
+  /**
+   * Shown under a Not checked stamp when the answer came past SLOW_MS. It used to read
+   * 'Still checking', which sat under a stamp saying the opposite: past the cap the call is
+   * over and nothing is still checking. It names the reason instead, with no number in it.
+   */
+  const SLOW_LINE = 'No answer in time.';
+
+  /**
+   * What a stranger reads on the stamp. Unmarked text reads as true, so every checked reply
+   * shows exactly one of these, and anything that is not exactly pass, veto or checking shows
+   * Not checked: a timeout, a skip, a non-200, a network error, an unreadable body, an unknown
+   * label. Nothing paints Checks out by default.
+   * The machine label (pass / veto / not-checked) goes in the tooltip, never in place of the words.
+   * The second line on Caught names no voter on purpose. /classify checks a whole-text equation
+   * by exact calculation BEFORE any model is asked (repid-engine src/routes/classify.ts), and the
+   * response does not say which path answered, so "Groq and Cerebras both said this is false"
+   * would be false for "2 + 2 = 5". Name the voters only once the API reports who answered.
+   */
+  const STAMP_WORDS = {
+    checking: 'Checking with Groq and Cerebras',
+    pass: 'Checks out',
+    veto: 'Caught',
+    'not-checked': 'Not checked',
+  };
+  const VETO_LINE = 'Checked and found false.';
 
   function finish(started, label) {
     const elapsed = Date.now() - started;
@@ -46,7 +70,7 @@
     }
     const fetchImpl = opts.fetchImpl || (typeof globalThis !== 'undefined' ? globalThis.fetch : null);
     if (typeof fetchImpl !== 'function') return Promise.resolve(finish(started, 'not-checked'));
-    // Unset, laya.js waits just past SLOW_MS so a late answer can still show Still checking.
+    // Unset, laya.js waits just past SLOW_MS, so an answer past the cap is shown as not-checked.
     const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : undefined;
 
     // laya.js makes the call: http(s) only, no cookies, no redirects, a body cap.
@@ -92,10 +116,8 @@
 
   function classifyOnce(text) {
     const key = String(text == null ? '' : text);
-    if (memo.text === key && memo.row) {
-      const decided = memo.row.label === 'pass' || memo.row.label === 'veto';
-      if (decided || Date.now() - memo.at < RETRY_MS) return Promise.resolve(memo.row);
-    }
+    const known = knownRow(key);
+    if (known) return Promise.resolve(known);
     if (memo.text === key && memo.promise) return memo.promise;
     memo.text = key;
     memo.row = null;
@@ -109,6 +131,18 @@
     });
     memo.promise = promise;
     return promise;
+  }
+
+  /**
+   * The row the browser cache already holds for this text, or null. A host paints the
+   * Checking stamp only when this is null: a known answer is painted straight away, so a
+   * redraw never flickers a settled stamp back to Checking.
+   */
+  function knownRow(text) {
+    const key = String(text == null ? '' : text);
+    if (memo.text !== key || !memo.row) return null;
+    const decided = memo.row.label === 'pass' || memo.row.label === 'veto';
+    return decided || Date.now() - memo.at < RETRY_MS ? memo.row : null;
   }
 
   /** The hosts call this with no options in the browser, so they all share the cache. */
@@ -144,7 +178,54 @@
     return node;
   }
 
-  const api = { LABELS, SLOW_MS, SLOW_LINE, QUIET_MS, classifyReply, lineFor, showCheckLine, whenSettled };
+  /** The state a label paints. Only exactly pass, veto or checking is itself; all else is not-checked. */
+  function stampState(label) {
+    return label === 'pass' || label === 'veto' || label === 'checking' ? label : 'not-checked';
+  }
+
+  /** The words for a state. Caught carries a second line that says who voted. */
+  function stampText(label) {
+    const state = stampState(label);
+    return state === 'veto' ? STAMP_WORDS.veto + '\n' + VETO_LINE : STAMP_WORDS[state];
+  }
+
+  /** True when the stamp already shows this state, so painting it again would be a DOM change for nothing. */
+  function stampShows(stamp, label) {
+    const state = stampState(label);
+    return Boolean(stamp && stamp.dataset && stamp.dataset.stamp === state && stamp.textContent === stampText(state));
+  }
+
+  /**
+   * Paint one state: the words, the machine label in the title tooltip, and data-stamp for the CSS.
+   * Every host paints through this, so the five of them cannot disagree about what a label says.
+   */
+  function paintStamp(stamp, label) {
+    if (!stamp) return stamp;
+    const state = stampState(label);
+    if (!stamp.dataset) stamp.dataset = {};
+    stamp.dataset.stamp = state;
+    stamp.textContent = stampText(state);
+    stamp.title = state;
+    return stamp;
+  }
+
+  const api = {
+    LABELS,
+    SLOW_MS,
+    SLOW_LINE,
+    QUIET_MS,
+    STAMP_WORDS,
+    VETO_LINE,
+    classifyReply,
+    knownRow,
+    lineFor,
+    showCheckLine,
+    whenSettled,
+    stampState,
+    stampText,
+    stampShows,
+    paintStamp,
+  };
 
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellClassify = api;

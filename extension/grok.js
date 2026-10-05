@@ -44,16 +44,23 @@ function readText(node) {
   return (copy.textContent || '').trim();
 }
 
-/** The classifier decides. A timeout or a miss is not-checked, never 0. */
+/** The classifier decides. A timeout or a miss is not-checked, never 0. checking is the call in flight. */
 function shownStamp(word) {
   if (word === 0 || word === '0') return 'not-checked';
-  return word === 'pass' || word === 'veto' ? word : 'not-checked';
+  return word === 'pass' || word === 'veto' || word === 'checking' ? word : 'not-checked';
 }
 
+/** classify.js owns the words. If it did not load, nothing was checked, whatever word arrived. */
 function paint(element, word) {
+  const api = classifyApi();
+  if (!api || typeof api.paintStamp !== 'function') {
+    element.dataset.stamp = 'not-checked';
+    element.textContent = 'Not checked';
+    element.title = 'not-checked';
+    return 'not-checked';
+  }
   const shown = shownStamp(word);
-  element.dataset.stamp = shown;
-  element.textContent = shown;
+  api.paintStamp(element, shown);
   return shown;
 }
 
@@ -68,7 +75,11 @@ async function ask(text, options) {
   };
 }
 
-/** Stamp the last grok reply. A call over 3 seconds paints not-checked and the check line. */
+/**
+ * Stamp the last grok reply. A call over 3 seconds paints not-checked and the check line.
+ * options.current, when given, says whether this answer is still the newest; an older answer
+ * is not painted, so it can never label a reply it did not read.
+ */
 async function stampText(text, options) {
   const opts = options || {};
   let row = { label: 'not-checked', latency_ms: 0 };
@@ -80,10 +91,10 @@ async function stampText(text, options) {
   const shown = shownStamp(row.label);
   const api = classifyApi();
   const line = api && typeof api.lineFor === 'function' ? api.lineFor(row) : '';
-  if (opts.element) {
+  if (opts.element && (typeof opts.current !== 'function' || opts.current())) {
     paint(opts.element, shown);
     if (api && typeof api.showCheckLine === 'function' && opts.doc) api.showCheckLine(opts.doc, opts.element, line);
-    else if (line) opts.element.textContent = shown + '\n' + line;
+    else if (line) opts.element.textContent = opts.element.textContent + '\n' + line;
   }
   return shown;
 }
@@ -113,6 +124,8 @@ function install(doc) {
     const text = node ? readText(node) : '';
     const stamp = ensureStamp(doc, node);
     if (!text) {
+      // Nothing to read now, so no answer still out may paint over this.
+      pending = '';
       paint(stamp, 'not-checked');
       const api = classifyApi();
       if (api && typeof api.showCheckLine === 'function') api.showCheckLine(doc, stamp, '');
@@ -120,7 +133,11 @@ function install(doc) {
     }
     if (text === painted || text === pending) return;
     pending = text;
-    await stampText(text, { element: stamp, doc: doc });
+    // The call is out: say so, rather than leave the reply unmarked while it runs.
+    paint(stamp, 'checking');
+    const api = classifyApi();
+    if (api && typeof api.showCheckLine === 'function') api.showCheckLine(doc, stamp, '');
+    await stampText(text, { element: stamp, doc: doc, current: () => pending === text });
     if (pending !== text) return;
     painted = text;
   }
