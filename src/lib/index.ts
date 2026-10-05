@@ -1,5 +1,6 @@
 export * from './trustshell';
 export { TrustShell as default } from './trustshell';
+export { MissingDependencyError } from './optional-ethers';
 
 /**
  * Fail-closed turn origins. `Unknown` (or an unstamped turn) may never pay — the same

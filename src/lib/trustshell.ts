@@ -5,6 +5,7 @@
  * From S-SDK1 spec + S-BUILD implementation.
  */
 
+import { loadEthers } from './optional-ethers';
 import { createHash } from 'node:crypto';
 import { redact } from '../memory/redact';
 import { assertOriginCanPay } from './origin';
@@ -30,6 +31,13 @@ export interface TrustShellConfig {
   apiUrl?: string;
   timeout?: number;
   /**
+   * `init()` only: probe `/health` before returning (default true). Pass false to skip the round
+   * trip; `health` then reads `{ ok: false, checked: false }`, i.e. not checked, never reachable.
+   */
+  healthCheck?: boolean;
+  /** `init()` only: deadline for the `/health` probe, in ms. Defaults to {@link HEALTH_TIMEOUT_MS}. */
+  healthTimeoutMs?: number;
+  /**
    * TrustKeys `readAllowance` (DealAppSeo/trustkeys, process-local there).
    * Pass the function in; this package does not import that store.
    * Unset → `getAllowance` stays fail-closed (`no_allowance_set`).
@@ -43,6 +51,20 @@ export interface TrustShellConfig {
  * fallback). None of those is a PASS. Until 1.5.0 every one of them fell through to 'PASS'.
  */
 export type Verdict = 'PASS' | 'FLAG' | 'VETO' | 'NOT_CHECKED';
+
+/** Deadline for `TrustShell.init()`'s `/health` probe. Short on purpose: it gates nothing. */
+export const HEALTH_TIMEOUT_MS = 3000;
+
+/**
+ * What `TrustShell.init()` learned about the backend. `checked: false` means the probe was skipped
+ * (`healthCheck: false`): not checked, which is not the same as reachable or down.
+ */
+export interface InitHealth {
+  ok: boolean;
+  checked: boolean;
+  status?: string;
+  error?: string;
+}
 
 /**
  * Map a /api/v1/hal/evaluate response to a {@link Verdict}. PURE, so it is testable.
@@ -591,16 +613,35 @@ export class TrustShell {
   /**
    * Construct a TrustShell and confirm the backend is reachable (real connectivity check, not a
    * stub). Returns the client; `health` reflects the live `/health` probe so callers can fail fast.
+   *
+   * The probe has its own deadline ({@link HEALTH_TIMEOUT_MS} unless `healthTimeoutMs` says
+   * otherwise). Until 1.6.0 it had none, so a backend that accepted the connection and never
+   * answered hung `init()` for good; measured on 1.5.0 the probe also cost 0.71 s against 0.18 s
+   * for the first real call. `healthCheck: false` skips it, and `health` then says not checked.
    */
-  static async init(config: TrustShellConfig = {}): Promise<{ client: TrustShell; health: { ok: boolean; status?: string; error?: string } }> {
+  static async init(config: TrustShellConfig = {}): Promise<{ client: TrustShell; health: InitHealth }> {
     const client = new TrustShell(config);
-    let health: { ok: boolean; status?: string; error?: string };
+    if (config.healthCheck === false) return { client, health: { ok: false, checked: false, status: 'not-checked' } };
+    const deadline = Number.isFinite(config.healthTimeoutMs) && (config.healthTimeoutMs as number) > 0
+      ? (config.healthTimeoutMs as number)
+      : HEALTH_TIMEOUT_MS;
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, deadline);
+    let health: InitHealth;
     try {
-      const res = await fetch(`${client.baseUrl}/health`, { headers: client.getHeaders() });
+      const res = await fetch(`${client.baseUrl}/health`, { headers: client.getHeaders(), signal: controller.signal });
       const data: any = res.ok ? await res.json().catch(() => ({})) : {};
-      health = { ok: res.ok, status: data.status };
+      health = { ok: res.ok, checked: true, status: data.status };
     } catch (err: any) {
-      health = { ok: false, error: err?.message ?? String(err) };
+      health = timedOut
+        ? { ok: false, checked: true, error: `no answer within ${deadline} ms` }
+        : { ok: false, checked: true, error: err?.message ?? String(err) };
+    } finally {
+      clearTimeout(timer);
     }
     return { client, health };
   }
@@ -1544,8 +1585,9 @@ export async function buildX402Payment(params: BuildX402PaymentParams): Promise<
   const cap = resolvePaymentCap(params);
   assertPaymentCap({ amount: params.amount, cap });
 
-  // Lazy import keeps ethers out of the module graph for consumers that never call this.
-  const { Wallet, getAddress } = await import('ethers');
+  // Lazy import keeps ethers out of the module graph for consumers that never call this, and it is
+  // an optional peer from 1.6.0: missing, it throws an error that says what to install.
+  const { Wallet, getAddress } = await loadEthers('Signing an x402 payment');
 
   const chainId = params.chainId ?? 84532; // Base Sepolia
   // EIP-712 verifyingContract must be a checksummed address; normalize whatever the caller passes.
