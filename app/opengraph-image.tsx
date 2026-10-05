@@ -91,7 +91,7 @@ export default function OpengraphImage() {
               fontWeight: 600,
             }}
           >
-            Measured · Not checked · Failed
+            Checks out · Caught · Not checked
           </div>
           <div style={{ display: 'flex', fontSize: 26, color: '#64748b' }}>
             three outcomes, never two

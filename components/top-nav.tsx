@@ -6,9 +6,11 @@ import { useState } from 'react';
 import { linksForLanding } from '@/lib/landing-nav';
 
 // Persistent app navigation. Before this existed users had to guess URLs;
-// this links the core E2E surfaces. Order mirrors the natural onboarding flow:
+// this links the core E2E surfaces. Check comes first: it is the door a stranger uses (the home
+// page is /check moved up). The rest mirrors the natural onboarding flow:
 // create agents → connect keys → run → market → repid → history → settings.
 const NAV_LINKS: { href: string; label: string }[] = [
+  { href: '/check', label: 'Check' },
   { href: '/pai', label: 'PAI' },
   { href: '/mission', label: 'Mission' },
   { href: '/agents', label: 'Agents' },
@@ -71,6 +73,9 @@ export function TopNav() {
             silently put it back. `xl` clears both figures with 154px to spare. The thirteen
             links are the real problem; until that is settled the breakpoint should be the one
             that cannot rot.
+
+            2026-10-05: fourteen, with Check first. Re-measured: Check costs ~71px, so the row
+            needs up to ~1197px and xl still clears it, with ~83px to spare.
 
             tests/nav-fit.test.ts trips if the link count changes without a re-measurement. */}
         <div className={focused ? 'hidden' : 'hidden xl:flex items-center gap-1'}>

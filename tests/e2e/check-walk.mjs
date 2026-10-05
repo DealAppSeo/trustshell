@@ -24,6 +24,14 @@
  * Every case runs at a phone viewport (390 x 844), because a door nobody can use on a phone is not
  * the phone door.
  *
+ * THE HOME PAGE IS /check MOVED UP (stubbed mode only). It is the same form, prefilled with a false
+ * sentence and with a swap to a true one. The walk counts every fetch, XHR and beacon the page makes
+ * (stubbed in the page and counted) and every request that reaches the engine: loading the page and
+ * swapping the sample must send NOTHING, because crawlers and page loads must not spend the shared
+ * checker budget. Clicking Check once is the positive control: it proves the counters can see a
+ * request at all, so their zeros mean something. Not in --live or --deployed: the deployed home
+ * page is whatever shipped last, and a live click would spend real budget.
+ *
  *     npm run test:check-walk               # stubbed
  *     npm run test:check-walk -- --live     # production engine, this checkout's page
  *     npm run test:check-walk -- --deployed # production engine, the deployed page
@@ -81,6 +89,7 @@ const engine = createServer((req, res) => {
     const text = String(body.text ?? '');
     if (/Paris/.test(text)) return json(200, { label: 'pass', latency_ms: 210 });
     if (/cheese/.test(text)) return json(200, { label: 'veto', latency_ms: 230 });
+    if (/Berlin/.test(text)) return json(200, { label: 'veto', latency_ms: 220 }); // the home page's false sample
     if (/pizza/i.test(text)) return json(200, { label: 'not-checked', latency_ms: 190 });
     if (/maybe-label/.test(text)) return json(200, { label: 'probably', latency_ms: 5 });
     if (/server-error/.test(text)) return json(500, { error: 'boom' });
@@ -224,6 +233,105 @@ async function shown(page) {
   });
 }
 
+const FALSE_SAMPLE = 'The Eiffel Tower is in Berlin.';
+const TRUE_SAMPLE = 'Paris is the capital of France.';
+const NOT_YET = 'ChatGPT and Grok: not yet.';
+
+/** Count every way the page could send something: fetch, XHR and beacon, wrapped before any script runs. */
+function countSends() {
+  window.__sent = [];
+  const f = window.fetch;
+  window.fetch = function (...a) {
+    window.__sent.push(`fetch ${String(a[0]?.url ?? a[0])}`);
+    return f.apply(this, a);
+  };
+  const open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (m, u, ...rest) {
+    window.__sent.push(`xhr ${u}`);
+    return open.call(this, m, u, ...rest);
+  };
+  if (navigator.sendBeacon) {
+    const beacon = navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon = (u, d) => {
+      window.__sent.push(`beacon ${u}`);
+      return beacon(u, d);
+    };
+  }
+}
+
+/** The home page: /check moved up. Prefill and swap send nothing; one click on Check sends one request. */
+async function walkHome(browser, phone, pageErrors) {
+  const HOME_URL = `http://127.0.0.1:${APP_PORT}/`;
+  const home = await phone.newPage();
+  home.on('pageerror', (e) => pageErrors.push(`home: ${e}`));
+  await home.addInitScript(countSends);
+  const engineHits = [];
+  home.on('request', (r) => { if (r.url().startsWith(ENGINE)) engineHits.push(`${r.method()} ${r.url()}`); });
+  const sent = () => home.evaluate(() => window.__sent.slice());
+  const before = seen.length;
+  const quiet = async () => {
+    const s = await sent();
+    return { ok: s.length === 0 && engineHits.length === 0 && seen.length === before, note: JSON.stringify({ sent: s, engineHits, engineSaw: seen.length - before }) };
+  };
+
+  await home.goto(HOME_URL, { waitUntil: 'networkidle' });
+  check('home: the check form is prefilled with the false sample', (await home.inputValue('#claim')) === FALSE_SAMPLE);
+  let q = await quiet();
+  check('home: loading the page sends no request (fetch, XHR and beacon counted, engine counted)', q.ok, q.note);
+
+  const privacyBox = await home.locator('#check-privacy').boundingBox().catch(() => null);
+  const buttonBox = await home.locator('button[type=submit]').boundingBox().catch(() => null);
+  check('home: the privacy line sits above the Check button', Boolean(privacyBox && buttonBox) && privacyBox.y + privacyBox.height <= buttonBox.y,
+    `privacy ${privacyBox ? Math.round(privacyBox.y) : 'missing'} / button ${buttonBox ? Math.round(buttonBox.y) : 'missing'}`);
+  check('home: Check is ready to click on the prefilled sentence', !(await home.locator('button[type=submit]').isDisabled()));
+  check('home: no sideways scroll on a 390px phone', (await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
+  const text = await home.locator('body').innerText();
+  check('home: ChatGPT and Grok appear only in the not-yet line', text.split(NOT_YET).length === 2 && !/ChatGPT|\bGrok\b/.test(text.replace(NOT_YET, '')));
+  check('home: no number followed by ms anywhere on the page', !/\d\s*ms\b/i.test(text), (text.match(/[^\n]*\d\s*ms\b[^\n]*/i) ?? [''])[0]);
+  check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status/.test(text));
+  if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390.png'), fullPage: true });
+
+  await home.click(`[data-testid=check-sample][data-sample="${TRUE_SAMPLE}"]`);
+  await home.waitForTimeout(500);
+  await home.waitForLoadState('networkidle');
+  check('home: the swap puts the true sample in the box', (await home.inputValue('#claim')) === TRUE_SAMPLE);
+  q = await quiet();
+  check('home: swapping the sample sends no request', q.ok, q.note);
+  await home.click(`[data-testid=check-sample][data-sample="${FALSE_SAMPLE}"]`);
+  check('home: the swap back restores the false sample', (await home.inputValue('#claim')) === FALSE_SAMPLE);
+
+  // Positive control: the counters above must be able to see a request, or their zeros prove nothing.
+  await home.click('button[type=submit]');
+  await home.waitForSelector('[data-testid=check-label], [data-testid=check-error]', { timeout: 20_000 });
+  const card = await shown(home);
+  const posts = engineHits.filter((h) => h.startsWith('POST '));
+  const fetches = (await sent()).filter((s) => s.includes('/api/v1/classify'));
+  check('home: clicking Check sends exactly one request, with the box text, and shows Caught',
+    posts.length === 1 && fetches.length === 1 && seen.length === before + 1 && seen.at(-1)?.text === FALSE_SAMPLE &&
+      card.words === 'Caught' && card.title === 'veto' && /veto/.test(card.machine ?? ''),
+    JSON.stringify({ posts, fetches, sentText: seen.at(-1)?.text, card }));
+  if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390-caught.png'), fullPage: true });
+
+  // The answer belonged to the false sentence; after a swap it must not stand next to the true one.
+  await home.click(`[data-testid=check-sample][data-sample="${TRUE_SAMPLE}"]`);
+  await home.waitForTimeout(500);
+  const stale = await home.locator('[data-testid=check-result]').count();
+  check('home: a swap after an answer clears it and sends nothing more', stale === 0 && seen.length === before + 1 &&
+    engineHits.filter((h) => h.startsWith('POST ')).length === 1, JSON.stringify({ stale, engineSaw: seen.length - before }));
+  await home.close();
+
+  const wide = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const desk = await wide.newPage();
+  desk.on('pageerror', (e) => pageErrors.push(`home 1440: ${e}`));
+  await desk.addInitScript(countSends);
+  await desk.goto(HOME_URL, { waitUntil: 'networkidle' });
+  const deskSent = await desk.evaluate(() => window.__sent.slice());
+  check('home: at 1440px, no sideways scroll and nothing sent on load',
+    (await desk.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false && deskSent.length === 0, JSON.stringify(deskSent));
+  if (process.env.SHOT_DIR) await desk.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-1440.png'), fullPage: true });
+  await wide.close();
+}
+
 let browser;
 try {
   if (!DEPLOYED && !(await waitForApp(PAGE_URL))) {
@@ -347,6 +455,8 @@ try {
     await ask(page, 'My key is sb_secret_abcdefghijklmnop and Paris is in France.');
     const last = String(seen.at(-1)?.text ?? '');
     check('a pasted secret is scrubbed before it leaves the phone', last.includes('Paris') && !last.includes('sb_secret_abcdefghijklmnop'), last);
+
+    await walkHome(browser, context, pageErrors);
   }
   check('no page errors', pageErrors.length === 0, pageErrors.join(' | '));
 
