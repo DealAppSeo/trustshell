@@ -31,10 +31,25 @@ function hasLateVote(body) {
   return false;
 }
 
+/**
+ * True when the providers' answers are listed and none said TRUE or FALSE. Same rule as
+ * src/lib/trustshell.ts noProviderDecided: nobody judged the claim, so a "vetoed" built on
+ * all-UNCERTAIN answers is not a veto.
+ */
+function noProviderDecided(body) {
+  const responses = body.provider_responses;
+  if (!Array.isArray(responses) || responses.length === 0) return false;
+  return !responses.some((r) => {
+    const v = r && typeof r === 'object' ? String(r.verdict == null ? '' : r.verdict).toUpperCase() : '';
+    return v === 'TRUE' || v === 'FALSE';
+  });
+}
+
 /** pass, veto, or not-checked. A late vote is not-checked, never a pass. */
 function mapBody(body) {
   if (!body || typeof body !== 'object') return NOT_CHECKED;
   if (hasLateVote(body)) return NOT_CHECKED;
+  if (noProviderDecided(body)) return NOT_CHECKED;
   const decision = body.decision ?? body.hal_verdict;
   if (decision === 'vetoed' || decision === 'VETO') return 'veto';
   if (decision === 'clean' || decision === 'PASS') return 'pass';

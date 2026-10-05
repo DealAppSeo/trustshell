@@ -15,6 +15,12 @@ All notable changes to the `@hyperdag/trustshell` package.
   - `wrapExecute` treats it as HAL not deciding, so `onUnavailable` chooses.
   - "You have a receipt." prints only when a receipt was actually written.
   - The opt-in Laya lane (`TRUSTSHELL_LAYA`) exits 2 for its "not checked" line, not 0.
+- **A veto nobody voted for is not a veto.** When HAL lists its providers' answers and not one
+  said TRUE or FALSE (all UNCERTAIN or errored), the result is `NOT_CHECKED`, whatever `decision`
+  says. The server's default score mode reports `vetoed` for an all-UNCERTAIN answer (it scores
+  0.5, which meets the 0.5 threshold), so `verify` printed VETO 50/100 for a claim nobody judged
+  false. The extension's verify path applies the same rule. One real TRUE or FALSE vote leaves the
+  server's decision unchanged.
 - An accuracy figure cited in `wrap-execute.ts` and the reference agent ("82.6%, 95/115
   TruthEval") is removed: no stored run reproduces it.
 - **Releases publish through npm trusted publishing.** CI publishes with a short-lived token that
