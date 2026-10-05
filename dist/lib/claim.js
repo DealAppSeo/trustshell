@@ -59,6 +59,9 @@ function questionOf(body, label, by) {
         return undefined;
     if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(q) || QUESTION_REFUSED.test(q))
         return undefined;
+    // An HTML character reference (&lt;, &#60;, &#x3c;) is markup written past the character check.
+    if (/&(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/i.test(q))
+        return undefined;
     return q;
 }
 /** The longest answer a person may give to the one question. */
