@@ -119,5 +119,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DealAppSeo/trustshell.git"
+  },
+  "homepage": "https://trustshell.dev",
+  "bugs": {
+    "url": "https://github.com/DealAppSeo/trustshell/issues"
   }
 }

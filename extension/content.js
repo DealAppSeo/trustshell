@@ -67,10 +67,17 @@
       })
       .then(function (row) {
         var label = row && row.label;
-        return {
-          label: LABELS.indexOf(label) >= 0 ? label : 'not-checked',
+        var known = LABELS.indexOf(label) >= 0;
+        var out = {
+          label: known ? label : 'not-checked',
           latency_ms: row && typeof row.latency_ms === 'number' ? row.latency_ms : 0,
         };
+        // What produced the label (the line under the stamp) rides only with a label the endpoint sent.
+        if (known && typeof row.by === 'string') {
+          out.by = row.by;
+          if (Array.isArray(row.voters)) out.voters = row.voters.slice();
+        }
+        return out;
       })
       .catch(function () {
         return { label: 'not-checked', latency_ms: 0 };

@@ -27,12 +27,40 @@
     return LABELS.indexOf(label) >= 0 ? label : 'not-checked';
   }
 
+  /** classify.js owns the stamp words, so the toast and the stamp cannot disagree. */
+  function classifyApi() {
+    if (typeof globalThis !== 'undefined' && globalThis.trustshellClassify) return globalThis.trustshellClassify;
+    if (typeof require === 'function') {
+      try {
+        return require('./classify.js');
+      } catch (_err) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * What the toast says: the stamp's words (Checks out / Caught / Not checked), then the line
+   * saying what produced the label when the endpoint said so. The machine label goes in the
+   * tooltip. Without classify.js the toast falls back to the machine label, which is still true.
+   */
+  function toastText(row) {
+    var word = labelOf(row);
+    var api = classifyApi();
+    var words = api && typeof api.stampText === 'function' ? api.stampText(word) : word;
+    var line = api && typeof api.lineFor === 'function' ? api.lineFor(row) : '';
+    return line ? words + '\n' + line : words;
+  }
+
   /**
    * Painted in the page after a menu click. Chrome copies this function alone,
-   * so it must not use anything defined outside it. The text is the label.
+   * so it must not use anything defined outside it. `text` is what a person reads;
+   * `label` (pass / veto / not-checked) goes in the tooltip and data-label.
    */
-  function paintLabel(label) {
+  function paintLabel(text, label) {
     var word = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
+    var shown = typeof text === 'string' && text.length > 0 ? text : word;
     var doc = document;
     if (!doc || typeof doc.createElement !== 'function') return word;
     var node = typeof doc.getElementById === 'function' ? doc.getElementById('trustshell-selection-toast') : null;
@@ -40,11 +68,13 @@
       node = doc.createElement('div');
       node.id = 'trustshell-selection-toast';
       if (typeof node.setAttribute === 'function') node.setAttribute('role', 'status');
-      node.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;padding:8px 12px;background:#111827;color:#fff;font:600 13px/1.4 ui-sans-serif,system-ui,sans-serif;border-radius:4px;pointer-events:none;';
+      node.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;padding:8px 12px;max-width:320px;white-space:pre-line;background:#111827;color:#fff;font:600 13px/1.4 ui-sans-serif,system-ui,sans-serif;border-radius:4px;pointer-events:none;';
       var parent = doc.body || doc.documentElement;
       if (parent && typeof parent.appendChild === 'function') parent.appendChild(node);
     }
-    node.textContent = word;
+    node.textContent = shown;
+    node.title = word;
+    if (typeof node.setAttribute === 'function') node.setAttribute('data-label', word);
     return word;
   }
 
@@ -64,18 +94,28 @@
         });
       })
       .then(function (row) {
-        return {
-          label: labelOf(row),
+        var label = labelOf(row);
+        var out = {
+          label: label,
           latency_ms: row && typeof row.latency_ms === 'number' ? row.latency_ms : 0,
         };
+        // What produced the label rides only with a label the endpoint sent.
+        if (row && row.label === label && typeof row.by === 'string') {
+          out.by = row.by;
+          if (Array.isArray(row.voters)) out.voters = row.voters.slice();
+        }
+        return out;
       })
       .catch(function () {
         return { label: 'not-checked', latency_ms: 0 };
       });
   }
 
-  function showOnTab(tab, label, scripting) {
-    var word = labelOf({ label: label });
+  /** `answer` is the row from checkSelection, or a bare label. */
+  function showOnTab(tab, answer, scripting) {
+    var row = answer && typeof answer === 'object' ? answer : { label: answer };
+    var word = labelOf(row);
+    var text = toastText(row);
     var api = scripting || (typeof chrome !== 'undefined' ? chrome.scripting : null);
     if (!api || typeof api.executeScript !== 'function' || !tab || typeof tab.id !== 'number') {
       return Promise.resolve(word);
@@ -85,7 +125,7 @@
         return api.executeScript({
           target: { tabId: tab.id },
           func: paintLabel,
-          args: [word],
+          args: [text, word],
         });
       })
       .then(function () {
@@ -100,7 +140,7 @@
     var selected = info && typeof info.selectionText === 'string' ? info.selectionText : '';
     return checkSelection(selected, tab, deps).then(function (row) {
       var scripting = deps && deps.scripting;
-      return showOnTab(tab, row.label, scripting).then(function (shown) {
+      return showOnTab(tab, row, scripting).then(function (shown) {
         return { label: row.label, latency_ms: row.latency_ms, shown: shown };
       });
     });
@@ -130,6 +170,7 @@
     MENU_TITLE: MENU_TITLE,
     CLASSIFY_URL: CLASSIFY_URL,
     paintLabel: paintLabel,
+    toastText: toastText,
     checkSelection: checkSelection,
     showOnTab: showOnTab,
     onMenuClick: onMenuClick,

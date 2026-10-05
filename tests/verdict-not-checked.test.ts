@@ -64,6 +64,48 @@ describe('verdictFromHal: only decisions HAL made are verdicts', () => {
   });
 });
 
+describe('a veto nobody voted for is not a veto', () => {
+  // The audit's case: all three checkers answered UNCERTAIN, the server's score mode turned that
+  // into hal_score 0.5 >= its 0.5 threshold, and `verify` printed VETO 50/100 for a claim nobody
+  // judged false.
+  const uncertain = (n: number) => Array.from({ length: n }, (_, i) => ({ provider: `p${i}`, verdict: 'UNCERTAIN' }));
+
+  it('all UNCERTAIN, decision vetoed → NOT_CHECKED', () => {
+    expect(verdictFromHal({ decision: 'vetoed', hal_score: 0.5, provider_responses: uncertain(3) } as never)).toBe('NOT_CHECKED');
+  });
+  it('all UNCERTAIN or ERROR, decision clean → NOT_CHECKED, never PASS', () => {
+    expect(verdictFromHal({ decision: 'clean', provider_responses: [...uncertain(2), { provider: 'x', verdict: 'ERROR' }] })).toBe('NOT_CHECKED');
+  });
+  it('one real FALSE vote keeps the veto', () => {
+    expect(verdictFromHal({ decision: 'vetoed', provider_responses: [...uncertain(2), { provider: 'x', verdict: 'FALSE' }] })).toBe('VETO');
+  });
+  it('one real TRUE vote keeps the pass (lower-case verdicts too)', () => {
+    expect(verdictFromHal({ decision: 'clean', provider_responses: [{ provider: 'x', verdict: 'true' }] })).toBe('PASS');
+  });
+  it('no provider list says nothing either way: the decision stands', () => {
+    expect(verdictFromHal({ decision: 'vetoed' })).toBe('VETO');
+    expect(verdictFromHal({ decision: 'vetoed', provider_responses: [] })).toBe('VETO');
+  });
+
+  it('`verify` on the audit\'s all-UNCERTAIN answer exits 2 and never prints VETO', async () => {
+    halReturns({ decision: 'vetoed', hal_score: 0.5, mode: 'fact-check', provider_responses: uncertain(3) });
+    const { io, out } = capture();
+    const code = await run(parseArgs(['verify', 'paste your own claim']), new TrustShell({ apiUrl: ENGINE }), io);
+    expect(code).toBe(EXIT.NOT_CHECKED);
+    expect(out.join('\n')).not.toMatch(/VETO/);
+  });
+
+  it('the extension verify door agrees', async () => {
+    const verify = require('../extension/verify.js') as {
+      verifyLastReply: (text: string, options: Record<string, unknown>) => Promise<string>;
+    };
+    const fetchImpl = async () => ({ status: 200, json: async () => ({ decision: 'vetoed', provider_responses: uncertain(3) }) });
+    expect(await verify.verifyLastReply('a claim', { baseUrl: 'http://localhost:9', fetchImpl })).toBe('not-checked');
+    const voted = async () => ({ status: 200, json: async () => ({ decision: 'vetoed', provider_responses: [{ verdict: 'FALSE' }] }) });
+    expect(await verify.verifyLastReply('a claim', { baseUrl: 'http://localhost:9', fetchImpl: voted })).toBe('veto');
+  });
+});
+
 describe('score() and verifyOutput() on an answer that is not a decision', () => {
   it('an abstain is NOT_CHECKED with no trust earned, and not ok', async () => {
     halReturns({ decision: 'abstain', hal_score: 0.5, mode: 'fact-check' });

@@ -68,11 +68,17 @@ async function ask(text, options) {
   if (typeof text !== 'string' || text.trim().length === 0) return { label: 'not-checked', latency_ms: 0 };
   const row = await classifyReply(text, options);
   const label = row && row.label;
-  const safe = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
-  return {
-    label: safe,
+  const known = label === 'pass' || label === 'veto' || label === 'not-checked';
+  const out = {
+    label: known ? label : 'not-checked',
     latency_ms: row && typeof row.latency_ms === 'number' ? row.latency_ms : 0,
   };
+  // What produced the label (the line under the stamp) rides only with a label the endpoint sent.
+  if (known && typeof row.by === 'string') {
+    out.by = row.by;
+    if (Array.isArray(row.voters)) out.voters = row.voters.slice();
+  }
+  return out;
 }
 
 /**

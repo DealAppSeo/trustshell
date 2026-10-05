@@ -50,13 +50,36 @@ export type Verdict = 'PASS' | 'FLAG' | 'VETO' | 'NOT_CHECKED';
  * NOT_CHECKED. A fallback that consulted no provider is NOT_CHECKED whatever it decided:
  * a verdict nobody earned is not a verdict.
  */
-export function verdictFromHal(data: { decision?: unknown; hal_verdict?: unknown; mode?: unknown; degraded_mode?: unknown }): Verdict {
+export function verdictFromHal(data: {
+  decision?: unknown;
+  hal_verdict?: unknown;
+  mode?: unknown;
+  degraded_mode?: unknown;
+  provider_responses?: unknown;
+}): Verdict {
   if (data.mode === 'extractor-fallback' || data.mode === 'extractor' || data.degraded_mode === true) return 'NOT_CHECKED';
+  if (noProviderDecided(data.provider_responses)) return 'NOT_CHECKED';
   const decision = data.decision ?? data.hal_verdict;
   if (decision === 'vetoed' || decision === 'VETO') return 'VETO';
   if (decision === 'flagged' || decision === 'FLAG') return 'FLAG';
   if (decision === 'clean' || decision === 'PASS') return 'PASS';
   return 'NOT_CHECKED';
+}
+
+/**
+ * True when HAL listed its providers' answers and NOT ONE of them said TRUE or FALSE: every one was
+ * UNCERTAIN or an ERROR. Nobody judged the claim, so no decision built on top of that is a verdict.
+ * The server's default score mode turns an all-UNCERTAIN answer into hal_score 0.5, which meets
+ * its 0.5 veto threshold, so it reports "vetoed" for a claim nobody judged false (BUS S20; the
+ * server-side fix is a production flag). This makes the client honest whichever way that flag is set.
+ * An absent or empty list says nothing either way, and leaves the server's decision as it was.
+ */
+function noProviderDecided(responses: unknown): boolean {
+  if (!Array.isArray(responses) || responses.length === 0) return false;
+  return !responses.some((r) => {
+    const v = r && typeof r === 'object' ? String((r as { verdict?: unknown }).verdict ?? '').toUpperCase() : '';
+    return v === 'TRUE' || v === 'FALSE';
+  });
 }
 
 export interface ScoreOptions {

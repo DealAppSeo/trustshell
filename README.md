@@ -404,6 +404,9 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `inspect` | **none** — reads a local file | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `remember` | **none** — writes the local memory file | none |
+| `recall` | **none** — reads the local memory file | none |
+| `redact` | **none** — deletes one row from the local memory file | none |
 
 No command uploads your input anywhere other than the host named above.
 

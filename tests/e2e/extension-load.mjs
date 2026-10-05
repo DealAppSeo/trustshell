@@ -46,7 +46,7 @@ const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extens
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
 const CAUGHT = 'Caught\nChecked and found false.';
 const CHECKING = 'Checking with Groq and Cerebras';
-const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellLaya', 'trustshellSelect'];
+const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
 
 /**
@@ -96,9 +96,13 @@ function check(name, ok, note = '') {
   record(name, ok ? 'VERIFIED' : 'FAILED', note);
 }
 
+/** Section e swaps in a reply carrying sensitive values; null means each host's own reply. */
+let replyOverride = null;
+
 function fixture(host) {
+  const reply = replyOverride ? replyOverride(host) : host.reply;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${host.name} fixture</title></head>` +
-    `<body><main><div data-message-author-role="user"><p>What is two plus two?</p></div>${host.reply}</main></body></html>`;
+    `<body><main><div data-message-author-role="user"><p>What is two plus two?</p></div>${reply}</main></body></html>`;
 }
 
 async function poll(fn, ms = 10000, step = 200) {
@@ -132,6 +136,7 @@ try {
   // classifyMode picks the answer: 'veto' (section c), 'error' (a 500 whose body says pass) or
   // 'hold' (never answers, so the stamp must say Checking, then Not checked past the cap).
   const classifyCalls = [];
+  const classifyBodies = [];
   let classifyMode = 'veto';
   const held = [];
   await context.route(CLASSIFY, async (route) => {
@@ -143,6 +148,7 @@ try {
     };
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     classifyCalls.push(req.url());
+    classifyBodies.push(req.postData() || '');
     if (classifyMode === 'hold') {
       await new Promise((release) => held.push(release));
       return route.abort().catch(() => {});
@@ -152,6 +158,13 @@ try {
         status: 500,
         headers: { ...cors, 'content-type': 'application/json' },
         body: JSON.stringify({ label: 'pass', latency_ms: 1 }),
+      });
+    }
+    if (classifyMode === 'votes') {
+      return route.fulfill({
+        status: 200,
+        headers: { ...cors, 'content-type': 'application/json' },
+        body: JSON.stringify({ label: 'veto', latency_ms: 1, by: 'votes', voters: ['groq', 'cerebras'] }),
       });
     }
     return route.fulfill({
@@ -223,8 +236,10 @@ try {
       check('B19 menu click returns veto', false, b19.error);
     } else {
       check('B19 menu click returns veto', b19.label === 'veto' && b19.shown === 'veto', `label=${b19.label} shown=${b19.shown}`);
-      check('B19 paints with paintLabel(["veto"]) on the clicked tab',
-        b19.count === 1 && b19.isPaintLabel && b19.tabId === 1 && JSON.stringify(b19.args) === '["veto"]',
+      // The toast text comes from classify.js inside the worker, so this also proves it loaded there.
+      check('B19 paints the stamp words, with veto as the tooltip label, on the clicked tab',
+        b19.count === 1 && b19.isPaintLabel && b19.tabId === 1 &&
+          JSON.stringify(b19.args) === JSON.stringify(['Caught\nChecked and found false.', 'veto']),
         `executeScript calls=${b19.count} func=paintLabel:${b19.isPaintLabel} tabId=${b19.tabId} args=${JSON.stringify(b19.args)}`);
     }
   } else {
@@ -345,6 +360,58 @@ try {
       record('chatgpt: while the call is out the stamp says Checking, checking in the tooltip', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
     }
     while (held.length) held.shift()();
+    await page.close();
+  }
+
+  // ---- f. the line under the stamp says who answered, when the endpoint says ---------------------
+  {
+    classifyMode = 'votes';
+    replyOverride = () => '<div data-message-author-role="assistant"><p>The Moon is made of cheese.</p></div>';
+    const page = await context.newPage();
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const line = await poll(() => page.evaluate(() => {
+        const node = document.getElementById('trustshell-check-line');
+        return node && node.textContent ? node.textContent : null;
+      }), 10000).catch(() => null);
+      check('chatgpt: a vote answer puts the voters in the line under the stamp',
+        line === 'Groq and Cerebras both said false.', JSON.stringify(line));
+    } catch (err) {
+      record('chatgpt: a vote answer puts the voters in the line under the stamp', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
+    classifyMode = 'veto';
+    await page.close();
+  }
+
+  // ---- e. the reply is scrubbed before it leaves the browser ----------------------------------
+  // scrub.js must load before laya.js in the real manifest, or laya.js sends nothing. Values are
+  // fake and assembled here so this file never holds a scanner-shaped string.
+  {
+    classifyMode = 'veto';
+    const email = 'jane.doe' + '@example.com';
+    const awsId = 'AKIA' + 'IOSFODNN7EXAMPLE';
+    replyOverride = () =>
+      `<div data-message-author-role="assistant"><p>Two plus two is five. Mail ${email} with key ${awsId}.</p></div>`;
+    const page = await context.newPage();
+    const before = classifyBodies.length;
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const sent = await poll(() => classifyBodies.length > before ? classifyBodies[classifyBodies.length - 1] : null, 10000);
+      if (!sent) {
+        record('chatgpt: the classify request carries no email and no AWS key', 'NOT_CHECKED', 'no classify call in 10s');
+      } else {
+        let text = '';
+        try { text = String(JSON.parse(sent).text || ''); } catch { text = ''; }
+        check('chatgpt: the classify request carries no email and no AWS key',
+          !sent.includes(email) && !sent.includes(awsId),
+          `body has email=${sent.includes(email)} awsKey=${sent.includes(awsId)}`);
+        check('chatgpt: the claim itself survives the scrub', text.includes('Two plus two is five.'), JSON.stringify(text));
+      }
+    } catch (err) {
+      record('chatgpt: the classify request carries no email and no AWS key', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
     await page.close();
   }
 } finally {

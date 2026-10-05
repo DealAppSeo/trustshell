@@ -40,7 +40,88 @@ export interface ClaimResult {
    * answer) — says why it is not-checked. Absent when the label is the endpoint's own.
    */
   reason?: string;
+  /**
+   * Present ONLY when the scrubber removed something (a key, an email, a card number…) before
+   * sending. The label is then about the text that was sent, not every character that was typed,
+   * and the person should be told so.
+   */
+  scrubbed?: true;
+  /**
+   * Which path the endpoint says produced the label (repid-engine POST /api/v1/classify, added
+   * 2026-10-05). Present only when the endpoint sent a well-formed one; an older endpoint sends
+   * none and nothing is invented. Never present on a not-checked this client decided itself.
+   */
+  by?: ClaimPath;
+  /** Only with by === 'votes': the voters the claim was sent to, as the endpoint named them. */
+  voters?: string[];
 }
+
+export const CLAIM_PATHS = ['arithmetic', 'votes', 'skipped', 'deadline'] as const;
+export type ClaimPath = (typeof CLAIM_PATHS)[number];
+
+/** Provider ids the endpoint may name, shown to people by these names. Unknown ids show as sent. */
+const VOTER_NAMES: Record<string, string> = {
+  groq: 'Groq',
+  cerebras: 'Cerebras',
+  'nvidia-nim': 'NVIDIA NIM',
+  'workers-ai': 'Cloudflare Workers AI',
+};
+const VOTER_ID = /^[a-z0-9-]{1,32}$/;
+const MAX_VOTERS = 8;
+
+/**
+ * The path fields of an endpoint answer, or {} when they are missing or out of contract. PURE.
+ * All or nothing: a `votes` without a usable voter list, or a `skipped` / `deadline` that claims a
+ * pass or veto, reports no path at all rather than half of one.
+ */
+export function pathOf(body: unknown, label: ClaimLabel): { by?: ClaimPath; voters?: string[] } {
+  if (!body || typeof body !== 'object') return {};
+  const { by, voters } = body as { by?: unknown; voters?: unknown };
+  if (typeof by !== 'string' || !(CLAIM_PATHS as readonly string[]).includes(by)) return {};
+  if ((by === 'skipped' || by === 'deadline') && label !== 'not-checked') return {};
+  if (by !== 'votes') return { by: by as ClaimPath };
+  if (!Array.isArray(voters) || voters.length === 0 || voters.length > MAX_VOTERS) return {};
+  if (!voters.every((v) => typeof v === 'string' && VOTER_ID.test(v))) return {};
+  return { by: 'votes', voters: [...(voters as string[])] };
+}
+
+function voterPhrase(voters: string[]): { names: string; many: boolean } {
+  const names = [...new Set(voters.map((v) => VOTER_NAMES[v] ?? v))];
+  if (names.length === 1) {
+    return voters.length > 1 ? { names: `Two ${names[0]} models`, many: true } : { names: names[0]!, many: false };
+  }
+  const last = names[names.length - 1];
+  return { names: `${names.slice(0, -1).join(', ')} and ${last}`, many: true };
+}
+
+/**
+ * One line saying what produced the label, or '' when the endpoint did not say. PURE.
+ * The same words as extension/classify.js pathLine (tests/claim-path-parity.test.ts).
+ */
+export function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters'>): string {
+  switch (r.by) {
+    case 'arithmetic':
+      return 'Decided by exact calculation. No model was asked.';
+    case 'skipped':
+      return 'No checker was asked.';
+    case 'deadline':
+      return 'No answer in time.';
+    case 'votes': {
+      if (!r.voters || r.voters.length === 0) return '';
+      const { names, many } = voterPhrase(r.voters);
+      const all = !many ? '' : r.voters.length === 2 ? ' both' : ' all';
+      if (r.label === 'pass') return `${names}${all} said true.`;
+      if (r.label === 'veto') return `${names}${all} said false.`;
+      return `Asked ${names}. No agreed answer.`;
+    }
+    default:
+      return '';
+  }
+}
+
+/** Shown wherever {@link ClaimResult.scrubbed} is set. One sentence, the same on every door. */
+export const SCRUBBED_LINE =
+  'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
 
 /** A local fault: the request could not be formed, so nothing was sent. CLI exit 3. */
 export class ClaimError extends Error {
@@ -93,19 +174,29 @@ export function labelOf(body: unknown): ClaimLabel | null {
  */
 export async function classifyClaim(text: string, opts: ClaimOptions = {}): Promise<ClaimResult> {
   // Secrets never leave the host — same scrub the MCP verify tool applies.
-  const sentence = redact(String(text ?? '')).trim();
-  if (!sentence) throw new ClaimError('nothing to check: the sentence is empty');
+  const typed = String(text ?? '').trim();
+  const sentence = redact(typed).trim();
+  const scrubbed = sentence !== typed;
+  if (!sentence) {
+    throw new ClaimError(
+      scrubbed
+        ? 'nothing to check: everything in it looked like a key or personal data, and that is never sent'
+        : 'nothing to check: the sentence is empty',
+    );
+  }
+  const mark = (r: ClaimResult): ClaimResult => (scrubbed ? { ...r, scrubbed: true } : r);
   const url = resolveClassifyUrl(opts.apiUrl, opts.env);
 
   const fetchImpl = opts.fetchImpl ?? (typeof fetch === 'function' ? fetch : undefined);
   const now = opts.now ?? Date.now;
   const start = now();
   const elapsed = () => Math.max(0, Math.round(now() - start));
-  const notChecked = (reason: string): ClaimResult => ({
-    label: 'not-checked',
-    latency_ms: elapsed(),
-    reason,
-  });
+  const notChecked = (reason: string): ClaimResult =>
+    mark({
+      label: 'not-checked',
+      latency_ms: elapsed(),
+      reason,
+    });
   if (typeof fetchImpl !== 'function') return notChecked('no fetch available in this runtime');
 
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? (opts.timeoutMs as number) : CLAIM_TIMEOUT_MS;
@@ -141,7 +232,7 @@ export async function classifyClaim(text: string, opts: ClaimOptions = {}): Prom
       if (!label) return notChecked('endpoint label is outside the contract (pass | veto | not-checked)');
       const reported = (body as { latency_ms?: unknown }).latency_ms;
       const latency_ms = typeof reported === 'number' && Number.isFinite(reported) ? reported : elapsed();
-      return { label, latency_ms };
+      return mark({ label, latency_ms, ...pathOf(body, label) });
     })();
     const out = await Promise.race([call, timedOut]);
     if (out === 'timeout') {

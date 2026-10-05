@@ -16,7 +16,7 @@ const select = require('../extension/select.js') as {
   MENU_ID: string;
   MENU_TITLE: string;
   CLASSIFY_URL: string;
-  paintLabel: (label: string) => string;
+  paintLabel: (text: string, label?: string) => string;
   onMenuClick: (
     info: { selectionText?: string; menuItemId?: string },
     tab: { id: number; url: string },
@@ -28,6 +28,7 @@ const select = require('../extension/select.js') as {
 interface SelToast {
   id: string;
   textContent: string;
+  title?: string;
   style: { cssText: string };
   setAttribute: (name: string, value: string) => void;
 }
@@ -41,7 +42,7 @@ interface SelPage {
 
 interface SelInject {
   target: { tabId: number };
-  func: (label: string) => string;
+  func: (text: string, label?: string) => string;
   args: string[];
 }
 
@@ -135,7 +136,7 @@ describe('check selection on any page', () => {
         const previous = globalThis.document;
         (globalThis as { document: SelPage }).document = doc;
         try {
-          expect(call.func(call.args[0])).toBe('pass');
+          expect(call.func(call.args[0]!, call.args[1])).toBe('pass');
         } finally {
           globalThis.document = previous;
         }
@@ -161,15 +162,16 @@ describe('check selection on any page', () => {
       text: 'hello from a page that is not one of the five\nveto',
       labels: ['pass', 'veto', 'not-checked'],
     });
-    expect(doc.getElementById('trustshell-selection-toast')!.textContent).toBe('pass');
+    // The stamp's words, not the machine label; the label is the tooltip.
+    expect(doc.getElementById('trustshell-selection-toast')!.textContent).toBe('Checks out');
     const source = readFileSync(join(EXT, 'select.js'), 'utf8');
     const background = readFileSync(join(EXT, 'background.js'), 'utf8');
     expect(source).not.toContain('fetch(');
-    expect(background).toContain("importScripts('route.js', 'verify.js', 'popup.js', 'laya.js', 'select.js')");
+    expect(background).toContain("importScripts('route.js', 'verify.js', 'popup.js', 'scrub.js', 'laya.js', 'classify.js', 'select.js')");
     expect(background).not.toContain('fetch(');
   });
 
-  it('shows veto and not-checked as those labels', async () => {
+  it('shows veto and not-checked in the stamp words, never as pass', async () => {
     async function shown(answer: { status: number; label?: string }, text: string) {
       const fetchImpl = (async () => ({
         status: answer.status,
@@ -181,7 +183,7 @@ describe('check selection on any page', () => {
           const previous = globalThis.document;
           (globalThis as { document: SelPage }).document = doc;
           try {
-            call.func(call.args[0]);
+            call.func(call.args[0]!, call.args[1]);
           } finally {
             globalThis.document = previous;
           }
@@ -197,10 +199,38 @@ describe('check selection on any page', () => {
     }
     const veto = await shown({ status: 200, label: 'veto' }, 'a plain sentence');
     expect(veto.row.label).toBe('veto');
-    expect(veto.toast).toBe('veto');
+    expect(veto.toast).toBe('Caught\nChecked and found false.');
     const missed = await shown({ status: 500 }, 'another sentence');
     expect(missed.row.label).toBe('not-checked');
-    expect(missed.toast).toBe('not-checked');
+    expect(missed.toast).toBe('Not checked');
+  });
+
+  it('the toast says what produced the label when the endpoint says, with the label in the tooltip', async () => {
+    const fetchImpl = (async () => ({
+      status: 200,
+      text: async () => JSON.stringify({ label: 'veto', by: 'votes', voters: ['groq', 'cerebras'] }),
+    })) as unknown as typeof fetch;
+    const doc = page();
+    const scripting = {
+      async executeScript(call: SelInject) {
+        const previous = globalThis.document;
+        (globalThis as { document: SelPage }).document = doc;
+        try {
+          call.func(call.args[0]!, call.args[1]);
+        } finally {
+          globalThis.document = previous;
+        }
+        return [];
+      },
+    };
+    const row = await select.onMenuClick({ selectionText: 'The Moon is made of cheese.' }, { id: 4, url: 'https://example.com/' }, {
+      fetchImpl,
+      scripting,
+    });
+    expect(row.label).toBe('veto');
+    const toast = doc.getElementById('trustshell-selection-toast')!;
+    expect(toast.textContent).toBe('Caught\nChecked and found false.\nGroq and Cerebras both said false.');
+    expect(toast.title).toBe('veto');
   });
 
   it('an empty selection is not-checked and is not sent', async () => {

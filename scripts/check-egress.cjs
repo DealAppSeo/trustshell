@@ -51,6 +51,29 @@ const NONE_PINNED = {
   report: { field: 'verdict', value: 'UNSUPPORTED', exit: 3 },
 };
 
+/**
+ * Commands whose no-network claim needs real arguments to mean anything: `remember --json` alone
+ * would fail on usage before touching storage, and a usage error opens no socket by construction.
+ * Each runs against its own temp memory file. `remember` runs with encryption on, so the
+ * sealing path is held to the same claim. Pins are on stdout text: these print plain lines.
+ */
+const NONE_RUNS = {
+  remember: {
+    args: ['remember', 'egress check note'],
+    env: { TRUSTSHELL_MEMORY_ENCRYPT: 'on', TRUSTSHELL_MEMORY_KEY: 'egress-check-passphrase' },
+    stdout: 'remembered',
+    exit: 0,
+  },
+  recall: { args: ['recall'], env: {}, stdout: 'do_not_send COUNT 0', exit: 0 },
+  redact: { args: ['redact', 'egress-check-absent-key'], env: {}, stdout: 'NOT_CHECKED', exit: 0 },
+};
+
+/** The sentence form of `check`: it must reach the backend's classify path and nothing else. */
+const SENTENCE_ROW = /^check\s+"<sentence>"$/;
+const SENTENCE_HOST = 'classify.egress-check.invalid';
+const SENTENCE_EMAIL = 'jane.doe' + '@example.com';
+const SENTENCE = `Write to ${SENTENCE_EMAIL}: Paris is the capital of France.`;
+
 const CHECK_URL_GITHUB = 'https://github.com/DealAppSeo/trustshell/actions/runs/1';
 const CHECK_URL_ELSEWHERE = 'https://example.com/DealAppSeo/trustshell/actions/runs/1';
 const ALLOW_HOST = 'api.github.com';
@@ -83,11 +106,13 @@ function extractHost(input) {
   }
 }
 
-function record(kind, dest) {
+function record(kind, dest, init) {
   const log = process.env.TRUSTSHELL_EGRESS_LOG;
   if (!log) return;
   const host = extractHost(dest);
-  appendFileSync(log, JSON.stringify({ kind, dest: String(dest), host }) + '\n');
+  // The body is logged so the sentence check can prove what LEFT, not only where it went.
+  const body = init && typeof init === 'object' && typeof init.body === 'string' ? init.body : undefined;
+  appendFileSync(log, JSON.stringify({ kind, dest: String(dest), host, body }) + '\n');
 }
 
 function allowHost() {
@@ -104,6 +129,9 @@ function isAllowed(dest) {
 
 function fakeGithubFetch(url) {
   const u = String(url);
+  if (u.includes('/api/v1/classify')) {
+    return { ok: true, status: 200, text: async () => JSON.stringify({ label: 'not-checked', latency_ms: 1 }) };
+  }
   const body = u.includes('/jobs')
     ? { total_count: 1, jobs: [{ name: 'job-0', conclusion: 'success' }] }
     : {
@@ -125,7 +153,7 @@ function wrapFn(mod, name, kind) {
   const orig = mod[name];
   if (typeof orig !== 'function') return false;
   mod[name] = function wrapped(first, ...rest) {
-    record(kind, first);
+    record(kind, first, rest[0]);
     if (isAllowed(first) && kind === 'fetch') {
       return fakeGithubFetch(first);
     }
@@ -145,8 +173,8 @@ function installStubs() {
   const installed = [];
   if (wrapFn(globalThis, 'fetch', 'fetch')) installed.push('fetch');
   else {
-    globalThis.fetch = function (first) {
-      record('fetch', first);
+    globalThis.fetch = function (first, init) {
+      record('fetch', first, init);
       if (isAllowed(first)) return fakeGithubFetch(first);
       const err = new Error(`${DENIED}:fetch:${first}`);
       err.code = DENIED;
@@ -252,9 +280,10 @@ function readLog(path) {
     });
 }
 
-function spawnCli(cli, args, { cwd, allow, logPath }) {
+function spawnCli(cli, args, { cwd, allow, logPath, extraEnv }) {
   const env = {
     ...process.env,
+    ...(extraEnv || {}),
     TRUSTSHELL_EGRESS_PRELOAD: '1',
     TRUSTSHELL_EGRESS_LOG: logPath,
     TRUSTSHELL_EGRESS_ALLOW: allow || '',
@@ -311,7 +340,11 @@ function runNoneCommand(cli, cmd) {
   const cwd = mkdtempSync(join(tmpdir(), `ts-egress-${cmd}-`));
   const logPath = join(cwd, 'egress.log');
   writeFileSync(logPath, '');
-  const result = spawnCli(cli, [cmd, '--json'], { cwd, allow: '', logPath });
+  const run = NONE_RUNS[cmd];
+  const args = run ? run.args : [cmd, '--json'];
+  // Never the real ~/.trustshell file: every memory command gets a temp one.
+  const extraEnv = { TRUSTSHELL_MEMORY: join(cwd, 'memory.sqlite'), ...(run ? run.env : {}) };
+  const result = spawnCli(cli, args, { cwd, allow: '', logPath, extraEnv });
   return { ...result, cwd, cmd };
 }
 
@@ -365,6 +398,19 @@ function main() {
     if (ran.log.length > 0) {
       const dests = ran.log.map((e) => `${e.kind} ${e.dest}`).join('; ');
       problems.push(`${cmd} reached the network: ${dests}`);
+      continue;
+    }
+    const run = NONE_RUNS[cmd];
+    if (run) {
+      if (!ran.stdout.includes(run.stdout) || ran.status !== run.exit) {
+        problems.push(
+          `${cmd} printed ${JSON.stringify(ran.stdout.trim().slice(0, 120))} (exit ${ran.status}), expected ${JSON.stringify(run.stdout)} and exit ${run.exit}`,
+        );
+      }
+      continue;
+    }
+    if (!NONE_PINNED[cmd]) {
+      problems.push(`${cmd} is published as no-network but has no run here: add it to NONE_PINNED or NONE_RUNS`);
       continue;
     }
     const body = parseJson(ran.stdout);
@@ -432,6 +478,33 @@ function main() {
     }
   }
 
+  // `check "<sentence>"`: the published row says the backend's /api/v1/classify and nothing else.
+  // Required, so deleting the row cannot turn this into a vacuous pass.
+  const sentenceRows = classes[0].c.other.filter((cmd) => SENTENCE_ROW.test(cmd));
+  if (sentenceRows.length === 0) {
+    problems.push('the egress table has no `check "<sentence>"` row, so the sentence form is held to no claim');
+  } else {
+    const cwd = mkdtempSync(join(tmpdir(), 'ts-egress-sentence-'));
+    const logPath = join(cwd, 'egress.log');
+    writeFileSync(logPath, '');
+    const ran = spawnCli(compiled.cli, ['check', SENTENCE], {
+      cwd,
+      allow: SENTENCE_HOST,
+      logPath,
+      extraEnv: { TRUSTSHELL_API_URL: `https://${SENTENCE_HOST}` },
+    });
+    const foreign = ran.log.filter((e) => e.host !== SENTENCE_HOST);
+    const offPath = ran.log.filter((e) => e.host === SENTENCE_HOST && !String(e.dest).endsWith('/api/v1/classify'));
+    const sent = ran.log.filter((e) => e.host === SENTENCE_HOST).map((e) => String(e.body || ''));
+    if (ran.error) problems.push(`check "<sentence>": spawn failed: ${ran.error.message}`);
+    else if (foreign.length) problems.push(`check "<sentence>" reached ${foreign.map((e) => e.dest).join(', ')}`);
+    else if (offPath.length) problems.push(`check "<sentence>" called a backend path other than /api/v1/classify: ${offPath.map((e) => e.dest).join(', ')}`);
+    else if (sent.length !== 1) problems.push(`check "<sentence>" made ${sent.length} classify calls, expected 1`);
+    else if (sent[0].includes(SENTENCE_EMAIL)) problems.push('check "<sentence>" sent a pasted email address unscrubbed');
+    else if (!sent[0].includes('Paris is the capital of France.')) problems.push(`check "<sentence>" did not send the claim itself: ${sent[0].slice(0, 120)}`);
+    else if (ran.status !== 2) problems.push(`check "<sentence>" got not-checked but exited ${ran.status}, expected 2`);
+  }
+
   try {
     rmSync(outDir, { recursive: true, force: true });
   } catch {
@@ -442,7 +515,7 @@ function main() {
 
   console.log('VERIFIED');
   console.log(
-    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com`,
+    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com; check "<sentence>" reached only /api/v1/classify, once, with a pasted email removed`,
   );
   process.exit(EXIT_VERIFIED);
 }
@@ -456,6 +529,7 @@ module.exports = {
   extractHost,
   installStubs,
   NONE_PINNED,
+  NONE_RUNS,
   DOC_PATHS,
   ALLOW_HOST,
 };

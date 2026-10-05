@@ -88,7 +88,8 @@ const engine = createServer((req, res) => {
     seen.push(body);
     const text = String(body.text ?? '');
     if (/Paris/.test(text)) return json(200, { label: 'pass', latency_ms: 210 });
-    if (/cheese/.test(text)) return json(200, { label: 'veto', latency_ms: 230 });
+    if (/cheese/.test(text)) return json(200, { label: 'veto', latency_ms: 230, by: 'votes', voters: ['groq', 'cerebras'] });
+    if (/^2 \+ 2 = 5$/.test(text)) return json(200, { label: 'veto', latency_ms: 1, by: 'arithmetic' });
     if (/Berlin/.test(text)) return json(200, { label: 'veto', latency_ms: 220 }); // the home page's false sample
     if (/pizza/i.test(text)) return json(200, { label: 'not-checked', latency_ms: 190 });
     if (/maybe-label/.test(text)) return json(200, { label: 'probably', latency_ms: 5 });
@@ -432,6 +433,14 @@ try {
     card = await shown(page);
     check('veto shows Caught and says both checkers said false', got === 'veto' && card.words === 'Caught' && card.title === 'veto' &&
       card.card.includes('Checked and found false.'), JSON.stringify(card));
+    const pathText = () => page.locator('[data-testid=check-path]').textContent().catch(() => null);
+    check('a vote answer names the voters that answered', (await pathText()) === 'Groq and Cerebras both said false.', String(await pathText()));
+    got = await ask(page, '2 + 2 = 5');
+    check('an arithmetic answer says no model was asked', got === 'veto' &&
+      (await pathText()) === 'Decided by exact calculation. No model was asked.', String(await pathText()));
+    got = await ask(page, 'Paris is the capital of France.');
+    check('an answer that does not say what produced it gets no path line', got === 'pass' &&
+      (await page.locator('[data-testid=check-path]').count()) === 0);
     got = await ask(page, 'Pizza is the best food.');
     card = await shown(page);
     check('the checkers\' own not-checked shows Not checked and says it was not decided', got === 'not-checked' &&
@@ -455,6 +464,14 @@ try {
     await ask(page, 'My key is sb_secret_abcdefghijklmnop and Paris is in France.');
     const last = String(seen.at(-1)?.text ?? '');
     check('a pasted secret is scrubbed before it leaves the phone', last.includes('Paris') && !last.includes('sb_secret_abcdefghijklmnop'), last);
+    const scrubbedLine = await page.locator('[data-testid=check-scrubbed]').textContent().catch(() => null);
+    check('the answer says something was removed before sending', /Removed before sending/.test(scrubbedLine ?? ''), String(scrubbedLine));
+    const email = 'jane.doe' + '@example.com';
+    await ask(page, `Write to ${email}: Paris is in France.`);
+    const mailed = String(seen.at(-1)?.text ?? '');
+    check('a pasted email is scrubbed before it leaves the phone', mailed.includes('Paris') && !mailed.includes(email), mailed);
+    await ask(page, 'Paris is the capital of France.');
+    check('a clean sentence shows no removed-before-sending line', (await page.locator('[data-testid=check-scrubbed]').count()) === 0);
 
     await walkHome(browser, context, pageErrors);
   }
