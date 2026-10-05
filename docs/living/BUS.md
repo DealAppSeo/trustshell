@@ -28,6 +28,9 @@ Kept by CC2's heartbeat. Newest at the top. Tick a line, or tell any agent "done
 | S23 | flip | Two classify flags, both built, tested and off: (1) `CLASSIFY_ASSUMPTIONS=on` asks the voters for UNSURE when a claim rests on an unstated assumption. Today "you should always switch doors" and the Tuesday-boy "13/27" both come back **Checks out** 3/3, which the agreement rule cannot catch because both voters share the famous answer. (2) `CLASSIFY_QUESTIONS=on`, after (1), lets a both-UNSURE answer carry one clarifying question, which /check shows (trustshell #451 is merged). **Order: S24 first, then (1), then (2), one flag per measurement window**, so each change is measured on its own | Railway → repid-engine → Variables | production variable; changes live labels |
 | S24 | flip | `CLASSIFY_QWEN_REASONING=low` on the Railway `repid-engine` service, for one measurement window. #1206 turned qwen's reasoning off, which ended the empty replies. On the same 337 claims, errors fell from 9 to 6, but **false claims vetoed fell from 58% to 43%**, and the home page's 40 mph "right" sample went to Not checked 4/4 (full table: repid-engine #1206). `low` may win the vetoes back. CC2 then re-runs the 337 claims and the traps, but **only once Groq has quota for it**: 2026-10-05 the measurement runs spent Groq's 1,000 requests a day and live checks went to Not checked. The runner now reads `voters[].quota.remaining_requests_day` on `/api/v1/classify/stats` and refuses unless it covers the run plus 300 for live users, so a 337-claim re-run needs about 640 left. Unset it to go back | Railway → repid-engine → Variables | production variable; changes live labels |
 | S25 | ~~check~~ | **Answered 2026-10-05 (Sean, Cerebras console).** The key is billed per token against a **$20 credit; $0.37 used, $19.63 left**. That matches the measured cost: a classify vote is ~160 tokens in and at most 400 out, well under $0.001. Cerebras' header also reports 648,000 requests a day, so not the 5-a-minute Free Trial. Nothing is burning money; keep `qwen-3.8-27b` as the second voter. What to know: at $0 balance the API stops answering, and every check becomes Not checked. Set a low-balance alert if the console offers one, and check whether the credit expires. `BUDGET_PER_MIN.cerebras = 4` (sized for 5 a minute) is still what caps checks at about 4 a minute; raising it is now a small cost decision, not a quota one | cloud.cerebras.ai | your account and money |
+| S26 | decide | **Raise the Cerebras budget from 4 to 24 checks a minute** (repid-engine `BUDGET_PER_MIN.cerebras`, one line; CC2 opens the PR on your yes). MEASURED 2026-10-05 with the real extension in Chromium and production answering: five replies within 8 seconds gave four stamps and one Not checked, and an immediate second round gave five Not checked, with Cerebras `abstains: {budget: 6}` on `/api/v1/classify/stats`. That cap is **4 checked replies a minute for every user combined**. Cerebras' docs give `qwen-3.8-27b` **300 a minute** on the paid Developer tier (5 on the Free Trial); the 648,000-a-day header says the key is not on the trial. Check it yourself: cloud.cerebras.ai → **Limits** should show 300 RPM for qwen-3.8-27b. 24 matches Groq's budget. Cost stays under about $1 a day, because Groq's free 1,000 requests a day caps total checks anyway (both votes are needed) | cloud.cerebras.ai → Limits, then reply yes | production capacity and cost |
+| S27 | decide | **Most everyday chat replies will say Not checked.** The server votes only on replies of 1,500 characters or less (`CLASSIFY_MAX_PROSE_CHARS`); a longer reply is Not checked with no vote, and typical ChatGPT/Claude answers are longer. One realistic three-sentence reply, all true, also came back Not checked: Groq said TRUE, Cerebras said UNSURE. That is one sample, so it is not a rate. The stamp works as designed on short factual replies. Options: (a) keep it; (b) check the first few sentences only; (c) pick up to 3 checkable sentences and stamp the worst result, which spends up to 3 times the Groq quota. Recommendation: (c) after S26, and measure it on a set of real-length replies before shipping | reply with a, b or c | what users see on most replies |
+| S28 | check | **Try the stamp yourself, 10 minutes.** From here it is VERIFIED only on stand-in pages, because this sandbox cannot log in to the chat sites and its proxy blocks four of the five; a site that has changed its page layout shows **no stamp at all**. Steps: *2026-10-05: try the stamp yourself* at the end of this file. Report, per site, the word you saw (Checks out / Caught / Not checked) or "nothing" | Chrome on your PC | nothing at risk |
 | S22 | ~~decide~~ | **Done.** XC1's #452 merged: the toolbar opens a popup under 80 words with the agent RepID check | — | — |
 | S21 | ~~fix~~ | **Done 2026-10-05.** The trusted publisher had never been saved on npmjs.com, and npm 11 read `pkg/x.tgz` as a GitHub shorthand. The publisher is saved, the workflow publishes `./pkg/*.tgz`, and run 15 published 1.6.0 | — | — |
 | S20 | decide | HAL vetoes an answer it could not decide. In the default SCORE mode, an all-UNCERTAIN answer scores 0.5, which meets the veto threshold of 0.5, so `verify` says VETO for a claim nobody judged false. The fix is built and off: set `HAL_VERDICT_DRIVEN_VETO=true` (or `HAL_DECISION_MODE=verdict`) on the Railway `repid-engine` service, and such answers become not-checked. Changes live verdicts | Railway → repid-engine → Variables | production variable |
@@ -272,3 +275,37 @@ Starts only after N-ENDPOINT and N-MANIFEST land.
   "veto" painted veto. Fixed: it paints only the classifier's label.
 
 (The 2026-09-15 OPEN and Locks lists that used to sit here are carried into the ticket table above as UNVERIFIED.)
+
+## 2026-10-05: try the stamp yourself (S28)
+
+What was verified from here, all on 2026-10-05 against `main` and production:
+
+- `npm run test:extension-e2e`: 30/30 VERIFIED. The real extension in Chromium, stand-in pages on the five real host names, classify stubbed.
+- Same extension, classify relayed to production byte for byte, calls spaced 16 s apart: Paris on ChatGPT came back Not checked (Groq timed out at 2.3 s); boiling point on Claude, Checks out; Pacific smallest on Gemini, Caught plus the toast; Everest on Grok, Checks out; the Sun orbits the Earth on DeepSeek, Caught plus the toast. Production answered in 0.4 to 0.8 s and sent `access-control-allow-origin: *`. The Claude page was served under claude.ai's real `connect-src 'self'` policy and the stamp still painted.
+- Popup: `trinity-sophia` showed RepID 1359 (ESTABLISHED) and "Proof verified in your browser", from the live proof. With the proof's score raised by 1000 it said "Proof NOT verified".
+
+NOT CHECKABLE from here: the real, logged-in pages. That is what these steps check.
+
+**1. Get the extension.** Paste into PowerShell, one line at a time:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$ProgressPreference = 'SilentlyContinue'
+Invoke-WebRequest -Uri https://github.com/DealAppSeo/trustshell/archive/refs/heads/main.zip -OutFile "$env:USERPROFILE\Downloads\trustshell-main.zip"
+Expand-Archive -Path "$env:USERPROFILE\Downloads\trustshell-main.zip" -DestinationPath "$env:USERPROFILE\Downloads\trustshell-main" -Force
+Test-Path "$env:USERPROFILE\Downloads\trustshell-main\trustshell-main\extension\manifest.json"
+```
+
+Correct result: the last line prints `True`.
+
+**2. Load it.** In Chrome, open `chrome://extensions`, turn on **Developer mode** (top right), click **Load unpacked**, and choose `Downloads\trustshell-main\trustshell-main\extension`. Correct result: a "TrustShell stamp" card with no red **Errors** button. Pin it from the puzzle-piece icon.
+
+**3. On each site** (chatgpt.com, claude.ai, gemini.google.com, grok.com, chat.deepseek.com), wait about 15 seconds between messages. Faster than that hits the 4-a-minute Cerebras budget (S26) and reads Not checked.
+
+- Send: `Answer in one short sentence: what is the capital of France?` Expect "Checking with Groq and Cerebras" under the reply, then **Checks out**.
+- Send: `Reply with exactly this sentence and nothing else: The Sun orbits the Earth.` Expect **Caught**, plus the red "Caught. This reply did not pass." note. Grok shows no note, by design.
+- A long answer (say, "explain photosynthesis") reads **Not checked**. That is the 1,500-character limit (S27), not a fault.
+
+**4. The popup.** Click the TrustShell icon, type `trinity-sophia`, and press Enter. Expect a RepID line and "Proof verified in your browser".
+
+**What to send back:** for each site, the word you saw, or "nothing". "Nothing" means that site's page layout no longer matches the extension; the site name is enough to fix it.
