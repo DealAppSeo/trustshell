@@ -66,15 +66,10 @@ describe('README truth pass', () => {
     expect(README).not.toMatch(/Time-to-first-real-call/);
   });
 
-  it('qualifies never-a-pass as from 1.6.0 and does not say that version is published', () => {
-    const hits = [...README.matchAll(/never a pass/gi)];
-    expect(hits.length).toBeGreaterThan(0);
-    for (const hit of hits) {
-      const at = hit.index ?? 0;
-      const window = README.slice(Math.max(0, at - 80), at + 160);
-      expect(window).toMatch(/1\.6\.0/);
-    }
-    expect(README).toMatch(/Until that version is published/);
+  it('says never-a-pass is source, and the packed dist still exits 0', () => {
+    expect(README).toMatch(/never a pass in the source/);
+    expect(README).toMatch(/committed dist still exits 0 for anything that is not VETO/);
+    expect(README).not.toMatch(/never a pass from 1\.6\.0/);
     expect(README).not.toMatch(/1\.6\.0 is published/);
     expect(README).not.toMatch(/npm latest is 1\.6\.0/i);
   });

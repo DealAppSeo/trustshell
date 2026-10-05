@@ -56,7 +56,7 @@ Not a launch announcement.
 
 ## The portable agentic trust harness
 
-Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass from 1.6.0. Until that version is published, the npm package can still read an all-abstain answer as a pass. That is the difference between *another LLM judge* and a *trust rail*.
+Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass in the source. The committed dist, and the published npm package, can still read an all-abstain answer as a pass. That is the difference between *another LLM judge* and a *trust rail*.
 
 **One `npm install` gives any agent three protocols in one wrapper:**
 
@@ -493,7 +493,7 @@ trustshell repid <id>
 trustshell proof <id> --verify
 ```
 
-`trustshell verify` exits 0 on PASS or FLAG, 1 on VETO, and 2 when HAL did not decide (NOT_CHECKED, never a pass), from 1.6.0. Until that version is published, an all-abstain answer on the npm package can still exit 0. The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
+`trustshell verify` in source exits 0 on PASS or FLAG, 1 on VETO, and 2 when HAL did not decide (NOT_CHECKED, never a pass). The committed dist still exits 0 for anything that is not VETO. The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
 
 ---
 
