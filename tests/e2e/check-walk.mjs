@@ -24,8 +24,8 @@
  * Every case runs at a phone viewport (390 x 844), because a door nobody can use on a phone is not
  * the phone door.
  *
- * THE HOME PAGE IS /check MOVED UP (stubbed mode only). It is the same form, prefilled with a false
- * sentence and with a swap to a true one. The walk counts every fetch, XHR and beacon the page makes
+ * THE HOME PAGE IS /check MOVED UP (stubbed mode only). It is the same form, prefilled with the
+ * speed trap and with a swap to the 40 mph sentence. The walk counts every fetch, XHR and beacon the page makes
  * (stubbed in the page and counted) and every request that reaches the engine: loading the page and
  * swapping the sample must send NOTHING, because crawlers and page loads must not spend the shared
  * checker budget. Clicking Check once is the positive control: it proves the counters can see a
@@ -93,9 +93,10 @@ const engine = createServer((req, res) => {
     if (/you should always switch/.test(text)) {
       return json(200, { label: 'not-checked', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'], question: 'Does the host always open a door with a goat behind it?' });
     }
-    // The home page's measured samples (lib/home-samples.ts): the 45 mph trap and its 40 mph twin.
+    // Home samples, measured 2026-10-05: the 45 mph trap is veto. The 40 mph sentence came back
+    // not-checked, so the stub does too. The walk only swaps to it; it does not click Check on it.
     if (/average speed for the trip is 45 mph/.test(text)) return json(200, { label: 'veto', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
-    if (/average speed for the trip is 40 mph/.test(text)) return json(200, { label: 'pass', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
+    if (/average speed for the trip is 40 mph/.test(text)) return json(200, { label: 'not-checked', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/Paris/.test(text)) return json(200, { label: 'pass', latency_ms: 210 });
     if (/cheese/.test(text)) return json(200, { label: 'veto', latency_ms: 230, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/^2 \+ 2 = 5$/.test(text)) return json(200, { label: 'veto', latency_ms: 1, by: 'arithmetic' });
@@ -242,7 +243,7 @@ async function shown(page) {
   });
 }
 
-// Must match lib/home-samples.ts: the prefilled speed trap (Caught) and its true twin (Checks out).
+// Must match lib/home-samples.ts: the prefilled speed trap (Caught) and the 40 mph swap (no stored why).
 const FALSE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph.';
 const TRUE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.';
 const NOT_YET = 'ChatGPT and Grok: not yet.';

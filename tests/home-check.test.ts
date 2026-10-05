@@ -1,6 +1,6 @@
 /**
- * The home page IS /check moved up: the same CheckForm, prefilled with a false sentence, with a
- * swap to a true one. Prefill and swap send NOTHING: a request leaves only when a person clicks
+ * The home page IS /check moved up: the same CheckForm, prefilled with the speed trap, with
+ * swaps to the other measured sentences. Prefill and swap send NOTHING: a request leaves only when a person clicks
  * Check, so a crawler or a page load never spends the shared checker budget.
  *
  * RENDERED, NOT GREPPED. The other home tests read source; this one renders the real page
@@ -99,9 +99,19 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length + tabs.length);
   });
 
-  it('teaches all three answers: at least one sample each for Caught, Checks out and Not checked', () => {
-    const expected = HOME_SAMPLES.map((x) => x.why?.when ?? 'not-checked');
-    expect(expected).toEqual(expect.arrayContaining(['veto', 'pass', 'not-checked']));
+  it('keeps a why only where production returned that label on every call', () => {
+    // Measured 2026-10-05. Three production POST /api/v1/classify calls each:
+    // the speed trap and the test result came back veto; the missing dollar and
+    // the 40 mph sentence came back not-checked. Those two carry no why.
+    // A sample with no why counts as not-checked. There is no stored pass.
+    const stored = HOME_SAMPLES.map((sample) => [sample.label, sample.why?.when ?? 'not-checked']);
+    expect(stored).toEqual([
+      ['a speed trap', 'veto'],
+      ['the missing dollar', 'not-checked'],
+      ['a test result', 'veto'],
+      ['the 40 mph line', 'not-checked'],
+      ['an opinion', 'not-checked'],
+    ]);
   });
 
   it('renders no explanation before a check: a why line appears only after the checkers answer', () => {
