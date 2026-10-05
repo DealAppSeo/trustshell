@@ -42,6 +42,9 @@ export const PRIVATE_ROUTES = ['/connect', '/settings'] as const;
  */
 export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }> = [
   { path: '/', priority: 1.0 },
+  // The stranger's door: paste a sentence, get Checks out / Caught / Not checked. It was
+  // reachable only by typing the URL until 2026-10-05.
+  { path: '/check', priority: 0.9 },
   { path: '/mission', priority: 0.9 },
   { path: '/earned-trust', priority: 0.9 },
   { path: '/docs', priority: 0.9 },
