@@ -63,6 +63,12 @@ All notable changes to the `@hyperdag/trustshell` package.
   used to show a bare `pass`, `veto` or `not-checked`. It now shows Checks out / Caught / Not
   checked plus the line saying what produced it, with the machine label in the tooltip. The
   words come from the same file as the stamp, so the two cannot disagree.
+- **One clarifying question, when the checkers ask it.** When the classify endpoint returns a
+  `question` (repid-engine `CLASSIFY_QUESTIONS`, off until it is switched on), `check
+  "<sentence>"` prints it and the MCP `check_claim` result carries it. On trustshell.dev/check a box
+  appears: the person's answer is added to the claim ("… Assume: <answer>.") and checked again, on
+  their click only. A question appears only on a not-checked from the votes. The client refuses
+  links, emails, markup and anything outside 10–160 characters ending in "?".
 - **`TRUSTSHELL_MEMORY_ENCRYPT=on` now encrypts.** The setting existed and nothing read it, so
   every note went to disk in plain text while the setting said otherwise. `remember`, `recall` and
   the MCP `remember` / `recall` tools now seal notes and values with AES-256-GCM under

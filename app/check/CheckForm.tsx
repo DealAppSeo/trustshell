@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, pathLine, type ClaimLabel, type ClaimPath } from '@/src/lib/claim';
+import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, ANSWER_MAX_CHARS, pathLine, withAnswer, type ClaimLabel, type ClaimPath } from '@/src/lib/claim';
 
 // NEXT_PUBLIC_* is inlined only for a literal reference, so it is spelled out here.
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || DEFAULT_API_URL;
@@ -85,7 +85,10 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
     voters?: string[];
     /** The exact text that was sent, so a sample's explanation is matched to what was checked. */
     asked: string;
+    /** The one clarifying question, when the endpoint asked it. */
+    question?: string;
   } | null>(null);
+  const [answer, setAnswer] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Swapping a sample changes the box and nothing else: no request. The last answer belonged to
@@ -103,7 +106,34 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
     setBusy(true);
     try {
       const r = await classifyClaim(text, { apiUrl: ENGINE, env: {} });
-      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true, by: r.by, voters: r.voters, asked: text });
+      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true, by: r.by, voters: r.voters, asked: text, question: r.question });
+      setAnswer('');
+    } catch (err) {
+      setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // The adaptive step: the checkers asked one question, the person answered, and the claim with
+  // that answer is checked again. Sends only on this click (or Enter in the answer box).
+  async function recheck() {
+    if (!result?.question) return;
+    let combined: string;
+    try {
+      combined = withAnswer(result.asked, answer);
+    } catch (err) {
+      setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
+      return;
+    }
+    setText(combined);
+    setResult(null);
+    setError(null);
+    setBusy(true);
+    try {
+      const r = await classifyClaim(combined, { apiUrl: ENGINE, env: {} });
+      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true, by: r.by, voters: r.voters, asked: combined, question: r.question });
+      setAnswer('');
     } catch (err) {
       setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
     } finally {
@@ -195,6 +225,39 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
             <p className="text-sm text-[#94a3b8]" data-testid="check-path" data-by={result.by}>
               {path}
             </p>
+          )}
+          {result.question && !cause && (
+            <div className="pt-2 space-y-2" data-testid="check-question">
+              <p className="text-sm text-[#cbd5e1]">
+                <span className="font-semibold">One question:</span> {result.question}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  aria-label="Your answer"
+                  data-testid="check-answer"
+                  value={answer}
+                  maxLength={ANSWER_MAX_CHARS}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void recheck();
+                    }
+                  }}
+                  className="flex-1 min-w-0 px-3 py-2 bg-[#0b1220] border border-[#1e293b] rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  type="button"
+                  data-testid="check-again"
+                  onClick={() => void recheck()}
+                  disabled={busy || !answer.trim()}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg"
+                >
+                  Check again
+                </button>
+              </div>
+            </div>
           )}
           {result.scrubbed && (
             <p className="text-sm text-[#94a3b8]" data-testid="check-scrubbed">
