@@ -1,7 +1,9 @@
 /**
  * The phone door: a stranger on a phone opens trustshell.dev/check, pastes one sentence and gets
- * pass, veto or not-checked. NORTH milestone 1 says "a stranger gets a real label on the phone";
- * this suite is that sentence made executable.
+ * pass, veto or not-checked, shown in the stranger words Checks out, Caught or Not checked (the
+ * machine label stays on the page as data-label, the title and a small "label" line). NORTH
+ * milestone 1 says "a stranger gets a real label on the phone"; this suite is that sentence made
+ * executable.
  *
  * TWO MODES, AND THE DIFFERENCE MATTERS.
  *
@@ -82,6 +84,10 @@ const engine = createServer((req, res) => {
     if (/pizza/i.test(text)) return json(200, { label: 'not-checked', latency_ms: 190 });
     if (/maybe-label/.test(text)) return json(200, { label: 'probably', latency_ms: 5 });
     if (/server-error/.test(text)) return json(500, { error: 'boom' });
+    if (/bad-json/.test(text)) {
+      res.writeHead(200, { 'content-type': 'application/json', ...cors });
+      return res.end('pass');
+    }
     if (/hang-forever/.test(text)) return; // never answers: the page must give up, not wait or pass
     return json(200, { label: 'not-checked', latency_ms: 1 });
   });
@@ -182,6 +188,11 @@ const ABSTAIN_RETRY_MS = Number(process.env.CHECK_WALK_RETRY_MS) || 61_000;
 // Thrown to stop the walk once a check has said NOT_CHECKED for everything after it.
 class SkipRest extends Error {}
 
+/**
+ * Ask one sentence and return the MACHINE label (pass | veto | not-checked). The page shows the
+ * stranger words and carries the machine label in data-label; a page built before that change
+ * (an older deployment) showed the machine label as its text, so that is the fallback.
+ */
 async function ask(page, sentence) {
   await page.fill('#claim', sentence);
   await page.click('button[type=submit]');
@@ -189,8 +200,28 @@ async function ask(page, sentence) {
   // can never read the previous label.
   await page.waitForSelector('[data-testid=check-label]', { state: 'detached', timeout: 5_000 }).catch(() => {});
   await page.waitForSelector('[data-testid=check-label], [data-testid=check-error]', { timeout: 20_000 });
-  const label = await page.locator('[data-testid=check-label]').textContent().catch(() => null);
+  const node = page.locator('[data-testid=check-label]');
+  const label = (await node.getAttribute('data-label').catch(() => null)) ?? (await node.textContent().catch(() => null));
   return label?.trim() ?? null;
+}
+
+/** What the last answer SHOWED: the words, the tooltip, the cause line when the page decided. */
+async function shown(page) {
+  return page.evaluate(() => {
+    const q = (id) => document.querySelector(`[data-testid=${id}]`);
+    const label = q('check-label');
+    const why = q('check-why');
+    const card = q('check-result');
+    return {
+      words: label?.textContent?.trim() ?? null,
+      title: label?.getAttribute('title') ?? null,
+      machine: q('check-machine-label')?.textContent?.trim() ?? null,
+      cause: why?.getAttribute('data-cause') ?? null,
+      why: why?.textContent?.trim() ?? null,
+      source: card?.getAttribute('data-source') ?? null,
+      card: card?.textContent ?? '',
+    };
+  });
 }
 
 let browser;
@@ -229,8 +260,12 @@ try {
     if (status !== 200) throw new SkipRest(); // a 404 page has no form to walk; that one FAILED says it
   }
   const body = await page.locator('body').innerText();
-  check('the page names all three answers', ['pass', 'veto', 'not-checked'].every((w) => body.includes(w)));
+  check('the page names all three answers in the stranger words', ['Checks out', 'Caught', 'Not checked'].every((w) => body.includes(w)));
   check('the privacy line names where the text goes', /sent to our checkers, Groq and Cerebras/.test(body));
+  const privacyBox = await page.locator('#check-privacy').boundingBox().catch(() => null);
+  const buttonBox = await page.locator('button[type=submit]').boundingBox().catch(() => null);
+  check('the privacy line sits above the Check button', Boolean(privacyBox && buttonBox) && privacyBox.y + privacyBox.height <= buttonBox.y,
+    `privacy ${privacyBox ? Math.round(privacyBox.y) : 'missing'} / button ${buttonBox ? Math.round(buttonBox.y) : 'missing'}`);
   check('Check is disabled until something is typed', await page.locator('button[type=submit]').isDisabled());
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   check('no sideways scroll on a 390px phone', overflow === false);
@@ -269,7 +304,15 @@ try {
         classifyCalls.length ? [...new Set(classifyCalls)].join(', ') : 'no classify call was made');
     }
   } else {
-    check('pass shows pass', (await ask(page, 'Paris is the capital of France.')) === 'pass');
+    // A network failure has to come from the browser's side; the stub server cannot fake one.
+    await page.route(`${ENGINE}/api/v1/classify`, (route) =>
+      /network-down/.test(route.request().postData() ?? '') ? route.abort('failed') : route.continue());
+
+    let got = await ask(page, 'Paris is the capital of France.');
+    let card = await shown(page);
+    check('pass shows Checks out, with pass as the machine label', got === 'pass' && card.words === 'Checks out' && card.title === 'pass' && /pass/.test(card.machine ?? ''),
+      JSON.stringify(card));
+    check('the answer carries no speed number', card.card !== '' && !/\d|\bms\b/.test(card.card), JSON.stringify(card.card));
     const sent = seen.at(-1) ?? {};
     check(
       'the request is the shared contract: the text and the three labels',
@@ -277,11 +320,30 @@ try {
         JSON.stringify(sent.labels) === JSON.stringify(['pass', 'veto', 'not-checked']),
       JSON.stringify(sent),
     );
-    check('veto shows veto', (await ask(page, 'The Moon is made of cheese.')) === 'veto');
-    check('not-checked shows not-checked', (await ask(page, 'Pizza is the best food.')) === 'not-checked');
-    check('a label outside the contract is not-checked, never shown as given', (await ask(page, 'maybe-label')) === 'not-checked');
-    check('a server error is not-checked, never pass', (await ask(page, 'server-error')) === 'not-checked');
-    check('a checker that never answers is not-checked after the timeout', (await ask(page, 'hang-forever')) === 'not-checked');
+    got = await ask(page, 'The Moon is made of cheese.');
+    card = await shown(page);
+    check('veto shows Caught and says both checkers said false', got === 'veto' && card.words === 'Caught' && card.title === 'veto' &&
+      card.card.includes('Groq and Cerebras both said this is false.'), JSON.stringify(card));
+    got = await ask(page, 'Pizza is the best food.');
+    card = await shown(page);
+    check('the checkers\' own not-checked shows Not checked and says they could not decide', got === 'not-checked' &&
+      card.words === 'Not checked' && card.source === 'checkers' && card.cause === null && /could not decide/.test(card.card), JSON.stringify(card));
+
+    // Every not-checked the PAGE decided says which, and none of them ever shows Checks out.
+    for (const [sentence, cause, name] of [
+      ['maybe-label', 'body', 'a label outside the contract'],
+      ['bad-json', 'body', 'a body that is not JSON'],
+      ['server-error', 'http', 'a server error'],
+      ['network-down', 'network', 'a network failure'],
+      ['hang-forever', 'timeout', 'a checker that never answers (after the timeout)'],
+    ]) {
+      got = await ask(page, sentence);
+      card = await shown(page);
+      check(`${name} is Not checked and names its cause (${cause}), never Checks out`,
+        got === 'not-checked' && card.words === 'Not checked' && card.title === 'not-checked' && card.source === 'local' &&
+          card.cause === cause && !/could not decide/.test(card.card) && !card.card.includes('Checks out'),
+        JSON.stringify(card));
+    }
     await ask(page, 'My key is sb_secret_abcdefghijklmnop and Paris is in France.');
     const last = String(seen.at(-1)?.text ?? '');
     check('a pasted secret is scrubbed before it leaves the phone', last.includes('Paris') && !last.includes('sb_secret_abcdefghijklmnop'), last);

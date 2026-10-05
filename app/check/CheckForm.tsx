@@ -8,28 +8,56 @@ const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || DEFAULT_API_URL;
 // The route reads at most this much prose (repid-engine DEFAULT_MAX_PROSE_CHARS).
 const MAX_CHARS = 1500;
 
+// The words a stranger reads are the same words the extension stamp shows. The machine label
+// (pass / veto / not-checked) stays on the page, in the title and the small "label" line, for
+// anyone comparing with the CLI or the API. A veto needs both voters to say FALSE and a pass
+// needs both to say TRUE (repid-engine src/classify/free-votes.ts), so these lines are true.
 const MEANING: Record<ClaimLabel, { title: string; body: string; tone: string }> = {
   pass: {
-    title: 'pass',
-    body: 'Both checkers said this sentence is true.',
+    title: 'Checks out',
+    body: 'Groq and Cerebras both said this is true.',
     tone: 'text-emerald-400 border-emerald-500/40',
   },
   veto: {
-    title: 'veto',
-    body: 'Both checkers said this sentence is false. Do not rely on it.',
+    title: 'Caught',
+    body: 'Groq and Cerebras both said this is false. Do not rely on it.',
     tone: 'text-red-400 border-red-500/40',
   },
   'not-checked': {
-    title: 'not-checked',
-    body: 'We could not decide. Opinions and predictions land here, and so does any checker that did not answer. This is not a pass.',
+    title: 'Not checked',
+    body: 'Groq and Cerebras could not decide. Opinions and predictions land here, and so does a checker that did not answer. Not checked never means it checks out.',
     tone: 'text-amber-400 border-amber-500/40',
   },
 };
 
+type LocalCause = 'timeout' | 'network' | 'http' | 'body' | 'unknown';
+
+const LOCAL_LINE: Record<LocalCause, string> = {
+  timeout: 'No answer in time.',
+  network: 'The network request failed.',
+  http: 'The check service answered with an error.',
+  body: 'The check service sent an answer we could not read.',
+  unknown: 'No usable answer came back.',
+};
+
+/**
+ * classifyClaim sets `reason` ONLY when this page decided not-checked itself, because the
+ * service gave no usable answer. Say which, so "the network failed" and "the checkers could not
+ * decide" never look the same. Matched loosely: src/lib/claim.ts owns the reason wording and may
+ * reword it, and an unrecognised reason still gets a local line, never the checkers' wording.
+ */
+function localCause(reason: string): LocalCause {
+  if (/no answer within|time ?out|timed out/i.test(reason)) return 'timeout';
+  if (/network|no fetch|failed to fetch/i.test(reason)) return 'network';
+  if (/\bHTTP\b/i.test(reason)) return 'http';
+  if (/body|json|contract|label/i.test(reason)) return 'body';
+  return 'unknown';
+}
+
 export default function CheckForm() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ label: ClaimLabel; ms: number } | null>(null);
+  const [result, setResult] = useState<{ label: ClaimLabel; reason?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -39,7 +67,7 @@ export default function CheckForm() {
     setBusy(true);
     try {
       const r = await classifyClaim(text, { apiUrl: ENGINE, env: {} });
-      setResult({ label: r.label, ms: r.latency_ms });
+      setResult({ label: r.label, reason: r.reason });
     } catch (err) {
       setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
     } finally {
@@ -48,6 +76,8 @@ export default function CheckForm() {
   }
 
   const meaning = result ? MEANING[result.label] : null;
+  // A reason exists only when the page decided not-checked locally; a pass or veto never has one.
+  const cause = result && result.label === 'not-checked' && result.reason ? localCause(result.reason) : null;
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" data-testid="check-form">
@@ -63,27 +93,40 @@ export default function CheckForm() {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="The Eiffel Tower is in Paris."
+        aria-describedby="check-privacy"
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors resize-y"
       />
+      <p id="check-privacy" className="text-sm text-[#94a3b8]">
+        What you type is sent to our checkers, Groq and Cerebras. It is not stored. Do not paste anything private.
+      </p>
       <button
         type="submit"
         disabled={busy || !text.trim()}
         className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
       >
-        {busy ? 'Checking…' : 'Check'}
+        {busy ? 'Checking with Groq and Cerebras…' : 'Check'}
       </button>
 
       {meaning && result && (
         <div
           role="status"
           data-testid="check-result"
+          data-source={cause ? 'local' : 'checkers'}
           className={`rounded-lg border bg-[#0f172a] p-4 space-y-1 ${meaning.tone}`}
         >
-          <p className="text-2xl font-bold" data-testid="check-label">
+          <p className="text-2xl font-bold" data-testid="check-label" data-label={result.label} title={result.label}>
             {meaning.title}
           </p>
-          <p className="text-[#cbd5e1]">{meaning.body}</p>
-          <p className="text-xs text-[#475569]">Answered in {result.ms} ms.</p>
+          {cause ? (
+            <p className="text-[#cbd5e1]" data-testid="check-why" data-cause={cause}>
+              {LOCAL_LINE[cause]}
+            </p>
+          ) : (
+            <p className="text-[#cbd5e1]">{meaning.body}</p>
+          )}
+          <p className="text-xs text-[#64748b]" data-testid="check-machine-label">
+            label: <code>{result.label}</code>
+          </p>
         </div>
       )}
       {error && (
