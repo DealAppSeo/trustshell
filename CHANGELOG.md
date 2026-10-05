@@ -38,6 +38,15 @@ All notable changes to the `@hyperdag/trustshell` package.
     memory file. Notes holding an email or a phone number are still stored: memory is local.
   - It removes formats, not meaning. A name, an address or a health detail written in prose is
     not caught.
+- **Every answer says what produced it.** When the classify endpoint reports its path (`by`:
+  arithmetic, votes, skipped or deadline, and `voters` for votes), `check "<sentence>"`, the MCP
+  `check_claim` tool, trustshell.dev/check and the extension stamp show one line:
+  - "Decided by exact calculation. No model was asked."
+  - "Groq and Cerebras both said false."
+  - "No checker was asked."
+  An endpoint that does not report it gets no line; nothing is guessed. The extension's chatgpt
+  and grok scripts used to rebuild each answer and drop every field but the label, so they could
+  never have shown it. `tests/claim-path-parity.test.ts` keeps the CLI and extension wording identical.
 - **`TRUSTSHELL_MEMORY_ENCRYPT=on` now encrypts.** The setting existed and nothing read it, so
   every note went to disk in plain text while the setting said otherwise. `remember`, `recall` and
   the MCP `remember` / `recall` tools now seal notes and values with AES-256-GCM under

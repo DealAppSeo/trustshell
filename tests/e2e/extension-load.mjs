@@ -160,6 +160,13 @@ try {
         body: JSON.stringify({ label: 'pass', latency_ms: 1 }),
       });
     }
+    if (classifyMode === 'votes') {
+      return route.fulfill({
+        status: 200,
+        headers: { ...cors, 'content-type': 'application/json' },
+        body: JSON.stringify({ label: 'veto', latency_ms: 1, by: 'votes', voters: ['groq', 'cerebras'] }),
+      });
+    }
     return route.fulfill({
       status: 200,
       headers: { ...cors, 'content-type': 'application/json' },
@@ -351,6 +358,27 @@ try {
       record('chatgpt: while the call is out the stamp says Checking, checking in the tooltip', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
     }
     while (held.length) held.shift()();
+    await page.close();
+  }
+
+  // ---- f. the line under the stamp says who answered, when the endpoint says ---------------------
+  {
+    classifyMode = 'votes';
+    replyOverride = () => '<div data-message-author-role="assistant"><p>The Moon is made of cheese.</p></div>';
+    const page = await context.newPage();
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const line = await poll(() => page.evaluate(() => {
+        const node = document.getElementById('trustshell-check-line');
+        return node && node.textContent ? node.textContent : null;
+      }), 10000).catch(() => null);
+      check('chatgpt: a vote answer puts the voters in the line under the stamp',
+        line === 'Groq and Cerebras both said false.', JSON.stringify(line));
+    } catch (err) {
+      record('chatgpt: a vote answer puts the voters in the line under the stamp', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
+    classifyMode = 'veto';
     await page.close();
   }
 

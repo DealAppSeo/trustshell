@@ -29,7 +29,7 @@ import { runEnvelopedAction } from '../lib/action-envelope';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
-import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE } from '../lib/claim';
+import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE, pathLine } from '../lib/claim';
 import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
 import {
   verifyChain,
@@ -889,6 +889,8 @@ export async function runClaimCheck(
     } else {
       io.out(r.label);
       io.out(explainClaim(r));
+      const path = pathLine(r);
+      if (path) io.out(path);
       if (r.scrubbed) io.out(SCRUBBED_LINE);
     }
     return claimExitCode(r.label);

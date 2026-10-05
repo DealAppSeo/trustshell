@@ -25,9 +25,10 @@
    * label. Nothing paints Checks out by default.
    * The machine label (pass / veto / not-checked) goes in the tooltip, never in place of the words.
    * The second line on Caught names no voter on purpose. /classify checks a whole-text equation
-   * by exact calculation BEFORE any model is asked (repid-engine src/routes/classify.ts), and the
-   * response does not say which path answered, so "Groq and Cerebras both said this is false"
-   * would be false for "2 + 2 = 5". Name the voters only once the API reports who answered.
+   * by exact calculation BEFORE any model is asked (repid-engine src/routes/classify.ts), so
+   * "Groq and Cerebras both said this is false" would be false for "2 + 2 = 5". Who answered goes
+   * in the line under the stamp (lineFor / pathLine), and only when the response says so: its
+   * `by` and `voters` fields (added 2026-10-05). An endpoint that sends neither gets no line.
    */
   const STAMP_WORDS = {
     checking: 'Checking with Groq and Cerebras',
@@ -37,11 +38,22 @@
   };
   const VETO_LINE = 'Checked and found false.';
 
-  function finish(started, label) {
+  /**
+   * The row a host paints. `by` / `voters` (what produced the label, from laya.js pathOf) ride
+   * along only when the label is the endpoint's own and in time; a label this file overrode
+   * carries no path, because the endpoint's path described a different answer.
+   */
+  function finish(started, row) {
     const elapsed = Date.now() - started;
-    let safe = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
-    if (elapsed > SLOW_MS) safe = 'not-checked';
-    return { label: safe, latency_ms: elapsed };
+    const label = row && typeof row === 'object' ? row.label : row;
+    const known = label === 'pass' || label === 'veto' || label === 'not-checked';
+    if (!known || elapsed > SLOW_MS) return { label: 'not-checked', latency_ms: elapsed };
+    const out = { label, latency_ms: elapsed };
+    if (row && typeof row === 'object' && typeof row.by === 'string') {
+      out.by = row.by;
+      if (Array.isArray(row.voters)) out.voters = row.voters.slice();
+    }
+    return out;
   }
 
   /** laya.js is the hardened call: http(s) only, no cookies, no redirects, a body cap. */
@@ -79,7 +91,7 @@
     if (!laya) return Promise.resolve(finish(started, 'not-checked'));
     return laya
       .callLaya(text, { modelUrl: endpoint, fetchImpl, timeoutMs, now: () => Date.now() })
-      .then((row) => finish(started, row && row.label))
+      .then((row) => finish(started, row))
       .catch(() => finish(started, 'not-checked'));
   }
 
@@ -150,11 +162,56 @@
     return options === undefined ? classifyOnce(text) : callClassifier(text, options);
   }
 
-  /** The one line shown when the call took over 3 seconds. */
+  /** How people see each voter id. Unknown ids show as sent. Same table as src/lib/claim.ts. */
+  const VOTER_NAMES = {
+    groq: 'Groq',
+    cerebras: 'Cerebras',
+    'nvidia-nim': 'NVIDIA NIM',
+    'workers-ai': 'Cloudflare Workers AI',
+  };
+
+  function voterPhrase(voters) {
+    const names = Array.from(new Set(voters.map((v) => VOTER_NAMES[v] || v)));
+    if (names.length === 1) {
+      return voters.length > 1 ? { names: 'Two ' + names[0] + ' models', many: true } : { names: names[0], many: false };
+    }
+    return { names: names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1], many: true };
+  }
+
+  /**
+   * What produced the label, in one line, or '' when the endpoint did not say. A port of
+   * src/lib/claim.ts pathLine: tests/claim-path-parity.test.ts fails if the two disagree.
+   */
+  function pathLine(row) {
+    if (!row) return '';
+    switch (row.by) {
+      case 'arithmetic':
+        return 'Decided by exact calculation. No model was asked.';
+      case 'skipped':
+        return 'No checker was asked.';
+      case 'deadline':
+        return 'No answer in time.';
+      case 'votes': {
+        if (!Array.isArray(row.voters) || row.voters.length === 0) return '';
+        const p = voterPhrase(row.voters);
+        const all = !p.many ? '' : row.voters.length === 2 ? ' both' : ' all';
+        if (row.label === 'pass') return p.names + all + ' said true.';
+        if (row.label === 'veto') return p.names + all + ' said false.';
+        return 'Asked ' + p.names + '. No agreed answer.';
+      }
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * The one line under the stamp: why it is Not checked when the call took over 3 seconds, else
+   * what produced the label when the endpoint said so, else nothing.
+   */
   function lineFor(row) {
-    if (!row || row.label !== 'not-checked') return '';
-    if (typeof row.latency_ms !== 'number' || row.latency_ms <= SLOW_MS) return '';
-    return SLOW_LINE;
+    if (!row) return '';
+    if (row.label === 'not-checked' && typeof row.latency_ms === 'number' && row.latency_ms > SLOW_MS) return SLOW_LINE;
+    return pathLine(row);
   }
 
   function showCheckLine(doc, after, line) {
@@ -219,6 +276,7 @@
     classifyReply,
     knownRow,
     lineFor,
+    pathLine,
     showCheckLine,
     whenSettled,
     stampState,

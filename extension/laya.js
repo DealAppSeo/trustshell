@@ -41,6 +41,25 @@
     return LABELS.includes(raw) ? raw : NOT_CHECKED;
   }
 
+  /**
+   * Which path the endpoint says produced the label (`by`, and `voters` only with 'votes'), or {}
+   * when missing or out of contract. All or nothing, as src/lib/claim.ts pathOf: a 'votes' with no
+   * usable voter list, or a 'skipped' / 'deadline' claiming pass or veto, reports no path at all.
+   */
+  const PATHS = ['arithmetic', 'votes', 'skipped', 'deadline'];
+  const VOTER_ID = /^[a-z0-9-]{1,32}$/;
+  function pathOf(body, label) {
+    if (!body || typeof body !== 'object') return {};
+    const by = body.by;
+    if (typeof by !== 'string' || !PATHS.includes(by)) return {};
+    if ((by === 'skipped' || by === 'deadline') && label !== NOT_CHECKED) return {};
+    if (by !== 'votes') return { by };
+    const voters = body.voters;
+    if (!Array.isArray(voters) || voters.length === 0 || voters.length > 8) return {};
+    if (!voters.every((v) => typeof v === 'string' && VOTER_ID.test(v))) return {};
+    return { by, voters: voters.slice() };
+  }
+
   /** http or https only. Anything else, or an Anthropic host, is no model. */
   function modelUrlOf(value) {
     const raw = typeof value === 'string' ? value.trim() : '';
@@ -83,10 +102,10 @@
     const opts = options || {};
     const now = typeof opts.now === 'function' ? opts.now : clock;
     const start = now();
-    const done = (label) => {
+    const done = (label, body) => {
       const latency_ms = Math.max(0, Math.round(now() - start));
       if (latency_ms > SLOW_MS) return { label: NOT_CHECKED, latency_ms, line: SLOW_LINE };
-      return { label, latency_ms };
+      return Object.assign({ label, latency_ms }, body === undefined ? {} : pathOf(body, label));
     };
 
     const url = modelUrlOf(opts.modelUrl);
@@ -128,7 +147,12 @@
         if (typeof raw !== 'string' || raw.trim() === '' || raw.length > MAX_BODY_CHARS) return null;
         return JSON.parse(raw);
       })();
-      return done(labelOf(await Promise.race([call, timeout])));
+      const body = await Promise.race([call, timeout]);
+      // The path rides only with a label the endpoint actually sent. An off-contract label becomes
+      // not-checked here, and no path is reported for an answer this file decided.
+      const own = Boolean(body) && typeof body === 'object' && typeof body.label === 'string' &&
+        LABELS.includes(body.label.trim().toLowerCase());
+      return done(labelOf(body), own ? body : undefined);
     } catch {
       return done(NOT_CHECKED);
     } finally {
@@ -136,7 +160,7 @@
     }
   }
 
-  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, callLaya };
+  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, callLaya, pathOf };
 
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellLaya = api;
