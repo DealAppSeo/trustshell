@@ -32,13 +32,17 @@ describe('packed command bins', () => {
   });
 
   it('npm pack --dry-run lists those bins', () => {
-    const packed = spawnSync('npm', ['pack', '--dry-run'], {
+    // --json, not the human listing: that one is a log line on stderr, and `npm run -s verify`
+    // hands this child npm_config_loglevel=silent, so it printed nothing and this test failed
+    // on a tarball that had every bin. The JSON file list is output, whatever the loglevel.
+    const packed = spawnSync('npm', ['pack', '--dry-run', '--json'], {
       cwd: ROOT,
       encoding: 'utf8',
       shell: true,
     });
-    const listing = `${packed.stdout ?? ''}\n${packed.stderr ?? ''}`;
     expect(packed.status).toBe(0);
+    const [entry] = JSON.parse(packed.stdout) as { files: { path: string }[] }[];
+    const listing = (entry?.files ?? []).map((f) => f.path).join('\n');
     expect(missingPackedBins(pkg.bin, pkg.files, listing)).toEqual([]);
   }, 60000);
 

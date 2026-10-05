@@ -76,6 +76,8 @@ export function questionOf(body: unknown, label: ClaimLabel, by: ClaimPath | und
   const q = raw.normalize('NFKC').trim();
   if (q.length < QUESTION_MIN || q.length > QUESTION_MAX || !q.endsWith('?')) return undefined;
   if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(q) || QUESTION_REFUSED.test(q)) return undefined;
+  // An HTML character reference (&lt;, &#60;, &#x3c;) is markup written past the character check.
+  if (/&(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/i.test(q)) return undefined;
   return q;
 }
 
