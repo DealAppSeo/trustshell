@@ -79,6 +79,7 @@
     "test:campaign-honesty": "node tests/e2e/campaign-honesty.mjs",
     "test:roles-honesty": "node tests/e2e/roles-honesty.mjs",
     "test:check-walk": "node tests/e2e/check-walk.mjs",
+    "test:home-samples": "node --experimental-strip-types scripts/measure-home-samples.mjs",
     "test:onboarding-honesty": "node tests/e2e/onboarding-honesty.mjs",
     "test:acceptance": "node tests/e2e/harness-acceptance.mjs",
     "test:acceptance-baseline": "node tests/e2e/acceptance-baseline.mjs",

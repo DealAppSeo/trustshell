@@ -1,0 +1,22 @@
+# Re-measure the home-page sentences against production classify.
+#
+# workflow_dispatch only. A pull_request or a schedule would spend the shared
+# Cerebras budget (about 4 calls a minute) on every push. Run this when a
+# sample's why changes. The script waits 20 seconds between calls and exits 1
+# when a why does not come back on every run, or 2 when the call does not answer.
+
+name: home-samples
+
+on:
+  workflow_dispatch:
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run test:home-samples

@@ -5,15 +5,16 @@ import type { CheckSample } from './check-sample';
  * "The Eiffel Tower is in Berlin" proved the checker can tell cities apart. It did not show why
  * anyone would open it. These are the traps people actually fall into (Grok and Sean, 2026-10-05).
  *
- * MEASURED, not assumed: each sentence was sent to production POST /api/v1/classify three times on
- * 2026-10-05 (13 trap sentences, 39 calls; the table is in the PR that added this file), and only
- * those that came back the SAME, expected label all three times are here. Two famous traps were dropped because they show the opposite of what
- * a stranger should learn: "you should always switch doors" and "the Tuesday-boy answer is 13/27"
- * are underspecified, yet both checkers answered TRUE. That shared wrong template is the
- * correlated-error problem, and a page must not present it as "Checks out".
+ * MEASURED 2026-10-05. Each sentence was sent to production POST /api/v1/classify three times,
+ * one call per 20 seconds. A why is kept only when that label came back on every call:
+ * the speed trap and the test result came back veto, so they keep one.
+ * The missing dollar and the 40 mph sentence came back not-checked, so they keep none.
+ * The opinion came back not-checked and never had one.
+ * Two famous traps stay off this page ("you should always switch doors", "the Tuesday-boy
+ * answer is 13/27"). They are underspecified, and they live in examples/traps for builders.
  *
  * `why` is shown ONLY when the live checkers return `why.when` for exactly that sentence
- * (CheckForm). If production ever answers differently, the explanation disappears with it.
+ * (CheckForm). An explanation the checkers did not back is not stored here.
  *
  * Nothing is sent on load or on a swap: a request happens only when the visitor clicks Check.
  */
@@ -32,10 +33,6 @@ export const HOME_SAMPLES: readonly CheckSample[] = [
   {
     label: 'the missing dollar',
     text: 'Three guests paid $9 each, $27 in total, and the bellhop kept $2, so one dollar of the original $30 is missing.',
-    why: {
-      when: 'veto',
-      text: 'Nothing is missing. The $27 the guests paid already includes the bellhop’s $2: $25 to the hotel plus $2.',
-    },
   },
   {
     label: 'a test result',
@@ -46,9 +43,8 @@ export const HOME_SAMPLES: readonly CheckSample[] = [
     },
   },
   {
-    label: 'a true one',
+    label: 'the 40 mph line',
     text: 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.',
-    why: { when: 'pass', text: '120 miles in 3 hours is 40 mph.' },
   },
   {
     label: 'an opinion',
