@@ -92,8 +92,11 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     for (const b of samples) expect(b).toMatch(/type="button"/);
     expect(samples[0]).toMatch(/aria-pressed="true"/);
     for (const b of samples.slice(1)) expect(b).toMatch(/aria-pressed="false"/);
-    // Check plus the samples: no other button competes with Check.
-    expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length);
+    // Check submits. Sample swaps and the agent tabs are type="button" and do not.
+    const tabs = buttons(home.html).filter((b) => b.includes('data-testid="agent-tab"'));
+    expect(tabs).toHaveLength(3);
+    for (const b of tabs) expect(b).toMatch(/type="button"/);
+    expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length + tabs.length);
   });
 
   it('teaches all three answers: at least one sample each for Caught, Checks out and Not checked', () => {
@@ -144,8 +147,9 @@ describe('home page is the check form, and rendering it sends nothing', () => {
   });
 
   it('names ChatGPT and Grok only to say not yet', () => {
-    expect(text.split(NOT_YET)).toHaveLength(2);
-    const rest = text.replace(NOT_YET, '');
+    // Once in the hero, once on screen 3. Nowhere else, including screen 4.
+    expect(text.split(NOT_YET)).toHaveLength(3);
+    const rest = text.split(NOT_YET).join('');
     expect(rest).not.toMatch(/ChatGPT|\bGrok\b/);
   });
 
