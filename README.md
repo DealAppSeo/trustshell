@@ -56,7 +56,7 @@ Not a launch announcement.
 
 ## The portable agentic trust harness
 
-Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass in the source. Published 1.6.0 matches that. The committed dist in this repo can still read an all-abstain answer as a pass. That is the difference between *another LLM judge* and a *trust rail*.
+Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass. That is the difference between *another LLM judge* and a *trust rail*.
 
 **One `npm install` gives any agent three protocols in one wrapper:**
 
@@ -242,10 +242,7 @@ const { client } = await TrustShell.init({
 // DISCOVER — list the live marketplace. Keyless: you can browse before you commit a key.
 const { services } = await client.listServices({ type: 'verification' });
 const svc = services[0]; // e.g. "Verify-a-claim / HAL fact-check" by trinity-shofet, $0.05
-if (!svc) {
-  console.log('no verification service is listed right now');
-  return;
-}
+if (!svc) throw new Error('no verification service is listed right now');
 
 // PAY — origin + policy + audit, then sign (the key only signs locally; it never leaves memory).
 const xPaymentHeader = await guardedX402Payment({
@@ -493,7 +490,7 @@ trustshell repid <id>
 trustshell proof <id> --verify
 ```
 
-`trustshell verify` in source, and in published 1.6.0 (tarball measured 2026-10-05), exits 0 on PASS or FLAG, 1 on VETO, and 2 when HAL did not decide (NOT_CHECKED, never a pass). The committed dist in this repo still exits 0 for anything that is not VETO. The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
+`trustshell verify` exits 0 on PASS or FLAG, 1 on VETO, and 2 when HAL did not decide (NOT_CHECKED, never a pass), from 1.6.0. The local stdio server from that same install is `trustshell-mcp` (`{ "command": "trustshell-mcp" }`).
 
 ---
 
