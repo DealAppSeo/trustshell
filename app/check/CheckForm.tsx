@@ -192,7 +192,7 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
         </p>
       )}
       <p id="check-privacy" className="text-sm text-[#94a3b8]">
-        What you type is sent to our checkers, Groq and Cerebras. It is not stored. Do not paste anything private.
+        What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker listed in our privacy policy takes its turn. It is not stored. Do not paste anything private.
       </p>
       <button
         type="submit"

@@ -20,7 +20,7 @@ import type { ReactElement } from 'react';
 const ROOT = join(__dirname, '..');
 import { HOME_SAMPLES, SPEED_TRAP } from '../lib/home-samples';
 const PRIVACY =
-  'What you type is sent to our checkers, Groq and Cerebras. It is not stored. Do not paste anything private.';
+  'What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker listed in our privacy policy takes its turn. It is not stored. Do not paste anything private.';
 const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
 /** Render a page module with fetch stubbed, counting every call made while loading and rendering it. */

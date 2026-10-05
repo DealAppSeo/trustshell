@@ -18,7 +18,12 @@
   const LABELS = [PASS, VETO, NOT_CHECKED];
 
   /** Over this, the answer is too late to count. It is not-checked, never a pass. */
-  const SLOW_MS = 3000;
+  /**
+   * How long the stamp waits for the checkers. 6 seconds, the same as the website and the CLI
+   * (src/lib/claim.ts CLAIM_TIMEOUT_MS): the engine may now try another checker when one gives no
+   * answer, inside its own 5-second deadline, and a 3-second wait cut that off.
+   */
+  const SLOW_MS = 6000;
   const SLOW_LINE = 'Still checking';
 
   /** Stop waiting just past SLOW_MS. A later answer could not count anyway. */
@@ -57,7 +62,18 @@
     const voters = body.voters;
     if (!Array.isArray(voters) || voters.length === 0 || voters.length > 8) return {};
     if (!voters.every((v) => typeof v === 'string' && VOTER_ID.test(v))) return {};
-    return { by, voters: voters.slice() };
+    const out = { by, voters: voters.slice() };
+    // The two whose answers made the label (repid-engine's checker pool). Exactly two, each one
+    // the claim was sent to; anything else is ignored. Same rule as src/lib/claim.ts pathOf.
+    const deciders = body.deciders;
+    if (
+      Array.isArray(deciders) &&
+      deciders.length === 2 &&
+      deciders.every((d) => typeof d === 'string' && voters.includes(d))
+    ) {
+      out.deciders = deciders.slice();
+    }
+    return out;
   }
 
   /** http or https only. Anything else, or an Anthropic host, is no model. */

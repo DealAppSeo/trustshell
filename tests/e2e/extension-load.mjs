@@ -21,7 +21,8 @@
  *      reads Not checked or never appears.
  *   d. the other states on chatgpt, in real Chromium: a 500 whose body says pass paints Not checked;
  *      while the call is held the stamp says Checking with a pulsing dot that stops under
- *      prefers-reduced-motion; a call held past the 3 s cap ends Not checked, never Checks out.
+ *      prefers-reduced-motion; past 2.5 s it says why the wait is worth it; a call held past the
+ *      6 s cap ends Not checked, never Checks out.
  *
  * NOTHING HERE TOUCHES PRODUCTION. Every request to the classify host is answered by a stub and
  * any other off-fixture request is aborted. So this proves the extension LOADS and WIRES; it does
@@ -46,6 +47,7 @@ const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extens
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
 const CAUGHT = 'Caught\nChecked and found false.';
 const CHECKING = 'Checking with Groq and Cerebras';
+const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
 const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
 
@@ -165,6 +167,20 @@ try {
         status: 200,
         headers: { ...cors, 'content-type': 'application/json' },
         body: JSON.stringify({ label: 'veto', latency_ms: 1, by: 'votes', voters: ['groq', 'cerebras'] }),
+      });
+    }
+    if (classifyMode === 'standin') {
+      // Cerebras gave no answer and OpenRouter stood in: it received the text, but did not decide.
+      return route.fulfill({
+        status: 200,
+        headers: { ...cors, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          label: 'veto',
+          latency_ms: 1,
+          by: 'votes',
+          voters: ['groq', 'cerebras', 'openrouter'],
+          deciders: ['groq', 'openrouter'],
+        }),
       });
     }
     return route.fulfill({
@@ -396,14 +412,21 @@ try {
       check('chatgpt: under prefers-reduced-motion the dot does not pulse',
         Boolean(still) && still.word === 'checking' && still.dot === 'none',
         still ? `word=${still.word} ::before animation-name = ${still.dot}` : 'no stamp');
-      // laya.js stops waiting just past 3 s. Past the cap the claim is Not checked.
+      // Latency as opportunity: past 2.5 s the Checking stamp says why the wait is worth it.
+      const longer = await poll(async () => {
+        const s = await readStamp(page);
+        return s && s.word === 'checking' && s.text === CHECKING_LONGER ? s : null;
+      }, 5000, 100);
+      check('chatgpt: past 2.5 s the Checking stamp says two checkers must agree',
+        Boolean(longer), longer ? JSON.stringify(longer.text) : 'never saw the longer checking line');
+      // laya.js stops waiting just past 6 s. Past the cap the claim is Not checked.
       const ended = await poll(async () => {
         const s = await readStamp(page);
         return s && s.word !== 'checking' ? s : null;
-      }, 10000);
-      check('chatgpt: a call held past the 3 s cap ends Not checked, never Checks out',
+      }, 12000);
+      check('chatgpt: a call held past the 6 s cap ends Not checked, never Checks out',
         Boolean(ended) && ended.text === 'Not checked',
-        ended ? JSON.stringify(ended.text) : 'still checking after 10s');
+        ended ? JSON.stringify(ended.text) : 'still checking after 12s');
     } catch (err) {
       record('chatgpt: while the call is out the stamp says Checking, checking in the tooltip', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
     }
@@ -426,6 +449,25 @@ try {
         line === 'Groq and Cerebras both said false.', JSON.stringify(line));
     } catch (err) {
       record('chatgpt: a vote answer puts the voters in the line under the stamp', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
+    classifyMode = 'veto';
+    await page.close();
+  }
+  {
+    classifyMode = 'standin';
+    replyOverride = () => '<div data-message-author-role="assistant"><p>The Sun orbits the Earth.</p></div>';
+    const page = await context.newPage();
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const line = await poll(() => page.evaluate(() => {
+        const node = document.getElementById('trustshell-check-line');
+        return node && node.textContent ? node.textContent : null;
+      }), 10000).catch(() => null);
+      check('chatgpt: when a backup stood in, the line names the two that decided, not everyone asked',
+        line === 'Groq and OpenRouter both said false.', JSON.stringify(line));
+    } catch (err) {
+      record('chatgpt: when a backup stood in, the line names the two that decided, not everyone asked', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
     }
     replyOverride = null;
     classifyMode = 'veto';

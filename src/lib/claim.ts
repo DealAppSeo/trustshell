@@ -55,6 +55,12 @@ export interface ClaimResult {
   /** Only with by === 'votes': the voters the claim was sent to, as the endpoint named them. */
   voters?: string[];
   /**
+   * Only with by === 'votes': the two voters whose answers made the label (repid-engine, added with
+   * its checker pool on 2026-10-05). When a checker gives no answer and another stands in, `voters`
+   * names both and this names the one that answered, so "X and Y both said false" stays true.
+   */
+  deciders?: string[];
+  /**
    * One clarifying question, present ONLY when the endpoint asked one (repid-engine
    * CLASSIFY_QUESTIONS): a not-checked from the votes, where both voters were unsure and one fact
    * would let them decide. It comes from the API or it does not appear; nothing here invents one.
@@ -104,6 +110,11 @@ const VOTER_NAMES: Record<string, string> = {
   cerebras: 'Cerebras',
   'nvidia-nim': 'NVIDIA NIM',
   'workers-ai': 'Cloudflare Workers AI',
+  openrouter: 'OpenRouter',
+  zai: 'Z.ai',
+  mistral: 'Mistral',
+  together: 'Together',
+  fireworks: 'Fireworks',
 };
 const VOTER_ID = /^[a-z0-9-]{1,32}$/;
 const MAX_VOTERS = 8;
@@ -113,15 +124,24 @@ const MAX_VOTERS = 8;
  * All or nothing: a `votes` without a usable voter list, or a `skipped` / `deadline` that claims a
  * pass or veto, reports no path at all rather than half of one.
  */
-export function pathOf(body: unknown, label: ClaimLabel): { by?: ClaimPath; voters?: string[] } {
+export function pathOf(body: unknown, label: ClaimLabel): { by?: ClaimPath; voters?: string[]; deciders?: string[] } {
   if (!body || typeof body !== 'object') return {};
-  const { by, voters } = body as { by?: unknown; voters?: unknown };
+  const { by, voters, deciders } = body as { by?: unknown; voters?: unknown; deciders?: unknown };
   if (typeof by !== 'string' || !(CLAIM_PATHS as readonly string[]).includes(by)) return {};
   if ((by === 'skipped' || by === 'deadline') && label !== 'not-checked') return {};
   if (by !== 'votes') return { by: by as ClaimPath };
   if (!Array.isArray(voters) || voters.length === 0 || voters.length > MAX_VOTERS) return {};
   if (!voters.every((v) => typeof v === 'string' && VOTER_ID.test(v))) return {};
-  return { by: 'votes', voters: [...(voters as string[])] };
+  const out: { by: 'votes'; voters: string[]; deciders?: string[] } = { by: 'votes', voters: [...(voters as string[])] };
+  // Exactly two, each one the claim was sent to; anything else is ignored, never half-used.
+  if (
+    Array.isArray(deciders) &&
+    deciders.length === 2 &&
+    deciders.every((d) => typeof d === 'string' && (voters as string[]).includes(d))
+  ) {
+    out.deciders = [...(deciders as string[])];
+  }
+  return out;
 }
 
 function voterPhrase(voters: string[]): { names: string; many: boolean } {
@@ -137,7 +157,7 @@ function voterPhrase(voters: string[]): { names: string; many: boolean } {
  * One line saying what produced the label, or '' when the endpoint did not say. PURE.
  * The same words as extension/classify.js pathLine (tests/claim-path-parity.test.ts).
  */
-export function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters'>): string {
+export function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters' | 'deciders'>): string {
   switch (r.by) {
     case 'arithmetic':
       return 'Decided by exact calculation. No model was asked.';
@@ -146,9 +166,11 @@ export function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters'>): strin
     case 'deadline':
       return 'No answer in time.';
     case 'votes': {
-      if (!r.voters || r.voters.length === 0) return '';
-      const { names, many } = voterPhrase(r.voters);
-      const all = !many ? '' : r.voters.length === 2 ? ' both' : ' all';
+      // Who answered, when the endpoint says; else everyone it was sent to (an older endpoint).
+      const who = r.deciders ?? r.voters;
+      if (!who || who.length === 0) return '';
+      const { names, many } = voterPhrase(who);
+      const all = !many ? '' : who.length === 2 ? ' both' : ' all';
       if (r.label === 'pass') return `${names}${all} said true.`;
       if (r.label === 'veto') return `${names}${all} said false.`;
       // Mid-sentence, so "Two Groq models" is lower-cased: "Asked two Groq models."
