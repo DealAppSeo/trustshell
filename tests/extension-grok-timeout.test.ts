@@ -40,7 +40,8 @@ describe('extension grok reader', () => {
 
     expect(word).toBe('not-checked');
     expect(element.dataset.stamp).toBe('not-checked');
-    expect(element.textContent).not.toBe('pass');
+    expect(element.textContent).toBe('Not checked');
+    expect(element.textContent).not.toBe('Checks out');
     expect(element.dataset.stamp).not.toBe('pass');
   });
 });

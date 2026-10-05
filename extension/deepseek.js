@@ -82,7 +82,32 @@ function toastApi() {
   return null;
 }
 
-/** A veto shows the toast. A pass, a timeout, and not-checked show nothing. */
+/** True when the stamp already shows this state. Without classify.js only Not checked is shown. */
+function shows(stamp, word) {
+  var api = classifyApi();
+  if (api && typeof api.stampShows === 'function') return api.stampShows(stamp, word);
+  return Boolean(stamp && stamp.dataset && stamp.dataset.stamp === 'not-checked' && stamp.textContent === 'Not checked');
+}
+
+/** classify.js owns the words. If it did not load, nothing was checked, whatever word arrived. */
+function setState(stamp, word) {
+  var api = classifyApi();
+  if (api && typeof api.paintStamp === 'function') return api.paintStamp(stamp, word);
+  if (!stamp.dataset) stamp.dataset = {};
+  stamp.dataset.stamp = 'not-checked';
+  stamp.textContent = 'Not checked';
+  stamp.title = 'not-checked';
+  return stamp;
+}
+
+/** The browser path (no options) shares classify.js's cache. A row it already holds needs no Checking stamp. */
+function alreadyKnown(text, options) {
+  if (options !== undefined) return false;
+  var api = classifyApi();
+  return Boolean(api && typeof api.knownRow === 'function' && api.knownRow(text));
+}
+
+/** A veto shows the toast. A pass, a timeout, not-checked and checking show nothing. */
 function showToast(reply, word) {
   var toast = toastApi();
   if (!toast || !reply || typeof toast.placeToast !== 'function' || typeof toast.toastFor !== 'function') return;
@@ -97,7 +122,7 @@ function showLine(doc, stamp, line) {
 function paint(doc, reply, word, line) {
   var stamp = typeof doc.getElementById === 'function' ? doc.getElementById('trustshell-stamp') : null;
   var placed = false;
-  if (stamp && stamp.dataset && stamp.dataset.stamp === word && stamp.textContent === word) {
+  if (shows(stamp, word)) {
     if (reply) placed = stamp.previousElementSibling === reply;
     else placed = stamp.parentNode === ((doc.querySelector && doc.querySelector('main')) || doc.body);
   }
@@ -113,9 +138,7 @@ function paint(doc, reply, word, line) {
     if (typeof stamp.setAttribute === 'function') stamp.setAttribute('role', 'status');
   }
   if (!stamp) return null;
-  if (!stamp.dataset) stamp.dataset = {};
-  stamp.dataset.stamp = word;
-  stamp.textContent = word;
+  setState(stamp, word);
 
   if (reply && typeof reply.insertAdjacentElement === 'function') {
     reply.insertAdjacentElement('afterend', stamp);
@@ -143,13 +166,33 @@ function deepseekReply(doc, options) {
   });
 }
 
+/** Each draw takes a number. Only the newest may paint its answer. */
+var drawSeq = 0;
+
 function draw(doc, options) {
   if (!doc) return Promise.resolve(null);
+  var mine = ++drawSeq;
+  var node = lastDeepseek(doc);
+  var text = node ? readText(node) : '';
+  // The call is out: say so, rather than leave the reply unmarked while it runs.
+  if (node && text.length > 0 && !alreadyKnown(text, options)) paint(doc, node, 'checking', '');
   var read = deepseekReply(doc, options);
   if (!read || typeof read.then !== 'function') return Promise.resolve(paint(doc, read.node, read.stamp, read.line));
-  return read.then(function (row) {
-    return paint(doc, row.node, row.stamp, row.line);
-  });
+  function current() {
+    return typeof doc.getElementById === 'function' ? doc.getElementById('trustshell-stamp') : null;
+  }
+  return read.then(
+    function (row) {
+      // A newer draw owns the stamp. Painting this older answer would label text it never read.
+      if (mine !== drawSeq) return current();
+      return paint(doc, row.node, row.stamp, row.line);
+    },
+    function () {
+      // A failure is never left as Checking, and never shown as Checks out.
+      if (mine !== drawSeq) return current();
+      return paint(doc, node, 'not-checked', '');
+    }
+  );
 }
 
 function install(doc) {
