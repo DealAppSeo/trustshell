@@ -1,12 +1,12 @@
 # Claude Code
 
 Tested with Claude Code 2.1.157.
-The package was `@hyperdag/trustshell@1.5.0`. `trustshell --version` printed 1.5.0. The existing global bin was left in place. This copy was installed with npm at that exact version, and its `trustshell-mcp` was put first on PATH for the test.
+The package was `@hyperdag/trustshell@1.5.0`. `trustshell --version` printed 1.5.0. The existing global bin was left in place. This copy was installed with npm at that exact version, and its `trustshell-mcp` was put first on PATH for the test. <!-- doc-version: historical — measured with 1.5.0 on 2026-10-05 -->
 
 ## Install
 
 ```
-npm i -g @hyperdag/trustshell@1.5.0
+npm i -g @hyperdag/trustshell@1.6.0
 ```
 
 That provides `trustshell` and `trustshell-mcp`.
@@ -36,4 +36,4 @@ Claude Code 2.1.157 wrote this `.mcp.json`:
 
 `claude mcp get trustshell` reported scope project and status Pending approval. This session did not run `claude` to approve it, so no chat was opened.
 
-The same `trustshell-mcp` printed `trustshell-mcp: ready (stdio)` and answered initialize as server trustshell 1.5.0.
+The same `trustshell-mcp` printed `trustshell-mcp: ready (stdio)` and answered initialize as server trustshell 1.5.0. <!-- doc-version: historical — measured with 1.5.0 on 2026-10-05 -->

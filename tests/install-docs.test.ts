@@ -20,7 +20,7 @@ describe('install docs', () => {
 
   it('Claude Code records the version, the package, and the config it wrote', () => {
     expect(claude).toContain('2.1.157');
-    expect(claude).toContain('npm i -g @hyperdag/trustshell@1.5.0');
+    expect(claude).toContain('npm i -g @hyperdag/trustshell@1.6.0');
     expect(claude).toContain('"command": "trustshell-mcp"');
     expect(claude).toContain('Pending approval');
     expect(claude).toContain('trustshell 1.5.0');
@@ -28,14 +28,14 @@ describe('install docs', () => {
 
   it('Cursor records the installed version and that the server was not loaded', () => {
     expect(cursor).toContain('3.23.12');
-    expect(cursor).toContain('npm i -g @hyperdag/trustshell@1.5.0');
+    expect(cursor).toContain('npm i -g @hyperdag/trustshell@1.6.0');
     expect(cursor).toContain('"command": "trustshell-mcp"');
     expect(cursor).toMatch(/not loaded/i);
   });
 
   it('Claude Desktop records the installed version and that the live file was not changed', () => {
     expect(desktop).toContain('2.19675.0.0');
-    expect(desktop).toContain('npm i -g @hyperdag/trustshell@1.5.0');
+    expect(desktop).toContain('npm i -g @hyperdag/trustshell@1.6.0');
     expect(desktop).toContain('"command": "trustshell-mcp"');
     expect(desktop).toMatch(/not changed/i);
     expect(desktop).toMatch(/not loaded/i);

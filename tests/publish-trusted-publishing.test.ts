@@ -45,7 +45,9 @@ describe('publish-sdk.yml publishes through npm trusted publishing', () => {
     const publish = job('publish');
     expect(publish).not.toMatch(/npm (install|ci)(?! -g npm@)/);
     expect(publish).toContain('needs: build');
-    expect(publish).toMatch(/npm publish pkg\/\*\.tgz .*--ignore-scripts/);
+    expect(publish).toMatch(/npm publish \.\/pkg\/\*\.tgz .*--ignore-scripts/);
+    // A bare `pkg/x.tgz` is a GitHub shorthand to npm 11 (it ran git ls-remote on it, run 37267372433).
+    expect(job('publish')).not.toMatch(/npm publish pkg\//);
   });
 
   it('asks for provenance explicitly, so a provenance failure stops the publish', () => {
@@ -64,7 +66,7 @@ describe('publish-sdk.yml publishes through npm trusted publishing', () => {
     const check = publish.indexOf('/-/npm/v1/oidc/token/exchange/package/');
     expect(publish).toContain('audience=npm:registry.npmjs.org');
     expect(check).toBeGreaterThan(-1);
-    expect(check).toBeLessThan(publish.indexOf('npm publish pkg/'));
+    expect(check).toBeLessThan(publish.indexOf('npm publish ./pkg/'));
     for (const verdict of ['**VERIFIED**', '**FAILED**', '**NOT CHECKED']) expect(publish).toContain(verdict);
   });
 });

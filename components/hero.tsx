@@ -10,11 +10,11 @@ import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';
  * sends nothing and neither does swapping. A request happens only when the visitor clicks Check,
  * so a crawler or a page load never spends the shared checker budget.
  */
-// npm 1.5.0 ships `trustshell check "<sentence>"`: exit 0 checks out, 1 caught, 2 not checked.
+// npm 1.6.0 ships `trustshell check "<sentence>"`: exit 0 checks out, 1 caught, 2 not checked.
 const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;
 
-// A global install of 1.5.0 puts `trustshell-mcp` on PATH, which is what this config runs.
-const INSTALL = 'npm i -g @hyperdag/trustshell@1.5.0';
+// A global install of 1.6.0 puts `trustshell-mcp` on PATH, which is what this config runs.
+const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';
 const MCP_PASTE = `{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }`;
 
 const CODE =

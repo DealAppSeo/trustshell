@@ -16,7 +16,7 @@
       "args": [
         "-y",
         "-p",
-        "@hyperdag/trustshell@1.5.0",
+        "@hyperdag/trustshell@1.6.0",
         "trustshell-mcp"
       ]
     }

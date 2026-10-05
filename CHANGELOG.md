@@ -2,7 +2,7 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## Unreleased
+## 1.6.0 — 2026-10-05
 
 - **BEHAVIOR CHANGE: `ethers` is an optional peer dependency.** Measured on the published 1.5.0 it
   was 23 of the 50 MB every install pulled, yet only two SDK functions use it: signing an x402
