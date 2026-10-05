@@ -1,0 +1,7 @@
+{"statement":"After you pick a door and the host opens another door showing a goat, you should always switch.","expected":"Not checked"}
+{"statement":"If a parent has two children and at least one is a boy born on a Tuesday, the probability that both are boys is 13/27.","expected":"Not checked"}
+{"statement":"If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph.","expected":"Caught"}
+{"statement":"Three guests paid $9 each, $27 in total, and the bellhop kept $2, so one dollar of the original $30 is missing.","expected":"Caught"}
+{"statement":"If a disease affects 1% of people and a test for it is 99% accurate, a positive result means you almost certainly have the disease.","expected":"Caught"}
+{"statement":"If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.","expected":"Checks out"}
+{"statement":"Pizza is the best food.","expected":"Not checked"}
