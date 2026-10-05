@@ -7,6 +7,10 @@
 const { basename } = require('node:path');
 
 const command = basename(__filename, '.js');
+// Deprecated in 1.6.0: the bare global name. `trustshell <command>` is the same command, and a bare
+// global name can collide with another package's bin. Removed in 2.0. stderr and a terminal only,
+// so a script or CI log that parses output sees nothing new.
+if (process.stderr.isTTY) process.stderr.write(`note: \`${command}\` on its own is deprecated and goes away in 2.0. Use \`trustshell ${command}\`.\n`);
 let main;
 try {
   ({ main } = require('../dist/cli/index.js'));

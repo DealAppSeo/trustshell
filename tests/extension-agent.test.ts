@@ -5,6 +5,7 @@
 export {};
 
 import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -127,6 +128,11 @@ describe('binding: the proof must belong to the agent that was asked about (Stri
 });
 
 describe('the vendored WASM verifier, run for real', () => {
+  // The child is an ES module. On Windows an absolute path is not a valid import
+  // (protocol 'c:'), and a backslash inside a quoted string is an invalid escape.
+  // The import takes a file URL. readFileSync takes a path, and it does not accept that URL.
+  const importUrl = (p: string) => pathToFileURL(p).href;
+  const fsPath = (p: string) => p.replace(/\\/g, '/');
   const run = (statementPatch: string) =>
     spawnSync(
       process.execPath,
@@ -135,9 +141,9 @@ describe('the vendored WASM verifier, run for real', () => {
         '-e',
         `
 import { readFileSync } from 'node:fs';
-import { initSync, verify_proof } from '${join(ROOT, 'extension/vendor/proof-verifier/hyperdag_proof_verifier.js')}';
-initSync({ module: readFileSync('${join(ROOT, 'extension/vendor/proof-verifier/hyperdag_proof_verifier_bg.wasm')}') });
-const p = JSON.parse(readFileSync('${join(__dirname, 'fixtures', 'repid-proof-trinity-sophia.json')}', 'utf8'));
+import { initSync, verify_proof } from '${importUrl(join(ROOT, 'extension/vendor/proof-verifier/hyperdag_proof_verifier.js'))}';
+initSync({ module: readFileSync('${fsPath(join(ROOT, 'extension/vendor/proof-verifier/hyperdag_proof_verifier_bg.wasm'))}') });
+const p = JSON.parse(readFileSync('${fsPath(join(__dirname, 'fixtures', 'repid-proof-trinity-sophia.json'))}', 'utf8'));
 const statement = { ...p.statement, ${statementPatch} };
 process.stdout.write(verify_proof(JSON.stringify({ proof_bytes: p.proof_bytes, statement })));
 `,

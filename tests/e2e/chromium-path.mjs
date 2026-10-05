@@ -34,7 +34,9 @@
  * escape hatch at all. Two copies of a resolver are two things to keep in step,
  * and these two had already stopped being in step.
  */
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 /** The flat, pre-installed layout used by agent sandboxes. Not present in CI. */
 const SANDBOX_CHROMIUM = '/opt/pw-browsers/chromium';
@@ -66,6 +68,15 @@ export function chromiumExecutablePath() {
  * unconditionally rather than guessing which environment we are in.
  */
 export const LAUNCH_ARGS = ['--no-proxy-server'];
+
+/**
+ * Run this checkout's Next CLI. `spawn('npx', …)` is ENOENT on Windows: CreateProcess
+ * does not resolve npx.cmd. The bin is the same program npx would run.
+ */
+export function spawnNext(args, opts) {
+  const bin = join(process.cwd(), 'node_modules', 'next', 'dist', 'bin', 'next');
+  return spawn(process.execPath, [bin, ...args], opts);
+}
 
 /**
  * WHERE IS PLAYWRIGHT? Same shape as the question above, one level up, and it

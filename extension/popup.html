@@ -3,18 +3,23 @@
 <head>
   <meta charset="utf-8">
   <title>TrustShell</title>
+  <style>
+    body { font: 13px/1.45 system-ui, sans-serif; margin: 12px; width: 280px; color: #111827; }
+    p { margin: 0 0 10px; }
+    label { display: block; margin-bottom: 6px; }
+    input { width: 100%; box-sizing: border-box; }
+    button { margin-top: 8px; }
+  </style>
 </head>
 <body>
-  <p id="popup-privacy">The reply text is sent to our checkers, Groq and Cerebras. It is not stored.</p>
-  <p id="popup-line"></p>
-  <hr>
+  <p id="popup-privacy">The reply text is sent to our checkers, Groq and Cerebras, after the reply is on screen. It is not stored. Do not paste secrets.</p>
+  <p id="popup-menu">Right-click any page and choose Check with TrustShell.</p>
   <form id="agent-form">
     <label for="agent-id">Check an agent's RepID</label>
-    <input id="agent-id" placeholder="trinity-sophia" autocomplete="off" spellcheck="false">
+    <input id="agent-id" name="agent-id" placeholder="trinity-sophia" autocomplete="off" spellcheck="false">
     <button type="submit">Check</button>
   </form>
   <div id="agent-result"></div>
-  <script src="popup.js"></script>
   <script src="agent.js"></script>
   <script type="module" src="agent-popup.js"></script>
 </body>

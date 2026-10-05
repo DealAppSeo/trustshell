@@ -35,8 +35,7 @@
 import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { spawn } from 'node:child_process';
-import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
+import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit, spawnNext } from './chromium-path.mjs';
 
 // Playwright is deliberately not a dependency of this package (CI does not run this suite, so
 // declaring it would install a browser driver on every PR for no gating benefit). Absent, this
@@ -216,10 +215,10 @@ if (__portBusy) {
 
 await new Promise((r) => engine.listen(ENGINE_PORT, r));
 const env = { ...process.env, NEXT_PUBLIC_REPID_ENGINE_URL: `http://127.0.0.1:${ENGINE_PORT}` };
-const b = spawn('npx', ['next', 'build'], { env, stdio: 'ignore' });
+const b = spawnNext(['build'], { env, stdio: 'ignore' });
 if ((await new Promise((r) => b.on('exit', r))) !== 0) { console.error('build failed'); engine.close(); process.exit(1); }
 // `detached` puts the server in its own process GROUP so the whole tree dies with killApp().
-const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], { env, stdio: 'ignore', detached: true });
+const app = spawnNext(['start', '--port', String(APP_PORT)], { env, stdio: 'ignore', detached: true });
 const killApp = () => { try { process.kill(-app.pid, 'SIGKILL'); } catch { try { app.kill('SIGKILL'); } catch {} } };
 process.on('exit', killApp);
 const base = `http://127.0.0.1:${APP_PORT}`;

@@ -125,6 +125,7 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     {
       title: 'HAL verify',
       description:
+        'Deprecated alias of verify_output (removed in 2.0); use verify_output. ' +
         'Run text through the live HAL cross-provider fact-check quorum (strictness 2). Returns ' +
         'PASS / FLAG / VETO, or NOT_CHECKED when HAL did not decide (never a pass), a 0–100 trust score, ' +
         'the decision reason, and per-provider evidence. ' +
@@ -138,7 +139,7 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     {
       title: 'HAL evaluate',
       description:
-        'Alias of verify. Same live HAL quorum. Exists so every public surface names evaluate().',
+        'Deprecated alias of verify_output (removed in 2.0); use verify_output. Same live HAL quorum.',
       inputSchema: verifySchema,
     },
     verifyHandler,
@@ -175,6 +176,7 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     {
       title: 'Get RepID',
       description:
+        'Deprecated alias of get_repid (removed in 2.0); use get_repid. ' +
         "Fetch an agent's live RepID reputation score and tier from the public repid-engine " +
         '(keyless). Returns repid, tier, and the latest on-chain anchor / proof hash if present.',
       inputSchema: {
@@ -314,7 +316,7 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     {
       title: 'RepID',
       description:
-        "Alias of get_repid. Fetches an agent's live RepID score and tier from the public repid-engine (keyless).",
+        "Deprecated alias of get_repid (removed in 2.0); use get_repid. Fetches an agent's live RepID score and tier from the public repid-engine (keyless).",
       inputSchema: {
         agentId: z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
       },
