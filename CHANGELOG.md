@@ -21,6 +21,23 @@ All notable changes to the `@hyperdag/trustshell` package.
   GitHub's OIDC identity earns for this one package, not a stored npm token. npm also attaches a
   provenance attestation linking each version to the workflow run that built it. `package.json`
   now names the repository, which that check requires. The CLI and MCP tools are unchanged.
+- **One scrubber on every door, and it catches more.** Before anything leaves the machine, the
+  scrubber removes known secret and personal-data formats. It used to catch ten token shapes and
+  miss AWS and Google keys, Stripe `sk_live_` keys, private keys (64-hex and PEM), most database
+  URLs, labelled passwords, webhook URLs, and every personal-data shape. It now catches all of
+  them, plus emails, phone numbers written with separators, dashed US SSNs, card numbers (only when
+  Luhn-valid) and IBANs (only when the checksum holds), so ordinary numbers in a claim are kept.
+  - The Chrome extension now scrubs too. Its stamp and verify calls used to send the raw reply.
+    Each now sends only scrubbed text, and sends **nothing** if the scrubber failed to load.
+    `extension/scrub.js` ports `src/memory/redact.ts`, and `tests/scrub-parity.test.ts` fails if
+    the two disagree on any input in the corpus.
+  - `check "<sentence>"`, the MCP `check_claim` tool and trustshell.dev/check now say when
+    something was removed (`scrubbed: true` in JSON), because the label is then about what was
+    sent. A sentence that is nothing but a key is refused locally, and nothing is sent.
+  - `remember` refuses the same credential shapes, so a key is never written to the plain-text
+    memory file. Notes holding an email or a phone number are still stored: memory is local.
+  - It removes formats, not meaning. A name, an address or a health detail written in prose is
+    not caught.
 
 ## 1.5.0 — 2026-10-04
 

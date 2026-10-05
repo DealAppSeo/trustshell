@@ -41,8 +41,24 @@ function mapBody(body) {
   return NOT_CHECKED;
 }
 
+/** The scrubber (scrub.js), as in laya.js. Missing means nothing is sent. */
+function scrubberFor(opts) {
+  if (typeof opts.scrub === 'function') return opts.scrub;
+  const g = typeof globalThis === 'object' ? globalThis.trustshellScrub : null;
+  if (g && typeof g.redact === 'function') return g.redact;
+  if (typeof module === 'object' && module && typeof require === 'function') {
+    try {
+      return require('./scrub.js').redact;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
- * Send the last reply text to the CLI verify path.
+ * Send the last reply text to the CLI verify path, with known secret and personal-data formats
+ * removed first (scrub.js).
  * A timeout or a non-200 is not-checked, never 0 and never a pass.
  * No key is read or prompted.
  */
@@ -59,6 +75,10 @@ async function verifyLastReply(text, options) {
   let order = route.orderFor(setting).map((row) => row.host).filter((host) => !/anthropic/i.test(host));
   try {
     if (/anthropic/i.test(base)) return NOT_CHECKED;
+    const scrub = scrubberFor(opts);
+    if (typeof scrub !== 'function') return NOT_CHECKED;
+    const cleaned = scrub(String(text ?? ''));
+    if (cleaned.trim() === '') return NOT_CHECKED;
     if (typeof opts.key === 'string' && opts.key.trim() === '') return NOT_CHECKED;
     if (opts.keys && typeof opts.keys === 'object') {
       order = order.filter((host) => route.keyStamp(host, opts.keys) === 'present');
@@ -67,7 +87,7 @@ async function verifyLastReply(text, options) {
     const res = await fetchImpl(base + VERIFY_PATH, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: String(text ?? ''), strictness: 2, route: setting, order }),
+      body: JSON.stringify({ text: cleaned, strictness: 2, route: setting, order }),
       signal: controller.signal,
     });
     if (!res || res.status !== 200) return NOT_CHECKED;

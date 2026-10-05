@@ -40,7 +40,17 @@ export interface ClaimResult {
    * answer) — says why it is not-checked. Absent when the label is the endpoint's own.
    */
   reason?: string;
+  /**
+   * Present ONLY when the scrubber removed something (a key, an email, a card number…) before
+   * sending. The label is then about the text that was sent, not every character that was typed,
+   * and the person should be told so.
+   */
+  scrubbed?: true;
 }
+
+/** Shown wherever {@link ClaimResult.scrubbed} is set. One sentence, the same on every door. */
+export const SCRUBBED_LINE =
+  'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
 
 /** A local fault: the request could not be formed, so nothing was sent. CLI exit 3. */
 export class ClaimError extends Error {
@@ -93,19 +103,29 @@ export function labelOf(body: unknown): ClaimLabel | null {
  */
 export async function classifyClaim(text: string, opts: ClaimOptions = {}): Promise<ClaimResult> {
   // Secrets never leave the host — same scrub the MCP verify tool applies.
-  const sentence = redact(String(text ?? '')).trim();
-  if (!sentence) throw new ClaimError('nothing to check: the sentence is empty');
+  const typed = String(text ?? '').trim();
+  const sentence = redact(typed).trim();
+  const scrubbed = sentence !== typed;
+  if (!sentence) {
+    throw new ClaimError(
+      scrubbed
+        ? 'nothing to check: everything in it looked like a key or personal data, and that is never sent'
+        : 'nothing to check: the sentence is empty',
+    );
+  }
+  const mark = (r: ClaimResult): ClaimResult => (scrubbed ? { ...r, scrubbed: true } : r);
   const url = resolveClassifyUrl(opts.apiUrl, opts.env);
 
   const fetchImpl = opts.fetchImpl ?? (typeof fetch === 'function' ? fetch : undefined);
   const now = opts.now ?? Date.now;
   const start = now();
   const elapsed = () => Math.max(0, Math.round(now() - start));
-  const notChecked = (reason: string): ClaimResult => ({
-    label: 'not-checked',
-    latency_ms: elapsed(),
-    reason,
-  });
+  const notChecked = (reason: string): ClaimResult =>
+    mark({
+      label: 'not-checked',
+      latency_ms: elapsed(),
+      reason,
+    });
   if (typeof fetchImpl !== 'function') return notChecked('no fetch available in this runtime');
 
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? (opts.timeoutMs as number) : CLAIM_TIMEOUT_MS;
@@ -141,7 +161,7 @@ export async function classifyClaim(text: string, opts: ClaimOptions = {}): Prom
       if (!label) return notChecked('endpoint label is outside the contract (pass | veto | not-checked)');
       const reported = (body as { latency_ms?: unknown }).latency_ms;
       const latency_ms = typeof reported === 'number' && Number.isFinite(reported) ? reported : elapsed();
-      return { label, latency_ms };
+      return mark({ label, latency_ms });
     })();
     const out = await Promise.race([call, timedOut]);
     if (out === 'timeout') {

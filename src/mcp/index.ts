@@ -415,7 +415,8 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       description:
         'Label one sentence pass / veto / not-checked via the public classify endpoint — the same ' +
         'label the TrustShell Chrome extension shows and `trustshell check "<sentence>"` prints. ' +
-        'Returns {label, latency_ms} (plus reason when not-checked was decided locally). A timeout, ' +
+        'Returns {label, latency_ms} (plus reason when not-checked was decided locally, and ' +
+        'scrubbed: true when a key or personal data was removed before sending). A timeout, ' +
         'network failure or off-contract answer is not-checked, which never means pass.',
       inputSchema: {
         text: z.string().min(1).describe('The sentence to check.'),

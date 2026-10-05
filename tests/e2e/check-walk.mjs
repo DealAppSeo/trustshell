@@ -455,6 +455,14 @@ try {
     await ask(page, 'My key is sb_secret_abcdefghijklmnop and Paris is in France.');
     const last = String(seen.at(-1)?.text ?? '');
     check('a pasted secret is scrubbed before it leaves the phone', last.includes('Paris') && !last.includes('sb_secret_abcdefghijklmnop'), last);
+    const scrubbedLine = await page.locator('[data-testid=check-scrubbed]').textContent().catch(() => null);
+    check('the answer says something was removed before sending', /Removed before sending/.test(scrubbedLine ?? ''), String(scrubbedLine));
+    const email = 'jane.doe' + '@example.com';
+    await ask(page, `Write to ${email}: Paris is in France.`);
+    const mailed = String(seen.at(-1)?.text ?? '');
+    check('a pasted email is scrubbed before it leaves the phone', mailed.includes('Paris') && !mailed.includes(email), mailed);
+    await ask(page, 'Paris is the capital of France.');
+    check('a clean sentence shows no removed-before-sending line', (await page.locator('[data-testid=check-scrubbed]').count()) === 0);
 
     await walkHome(browser, context, pageErrors);
   }

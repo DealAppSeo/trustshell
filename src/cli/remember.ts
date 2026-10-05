@@ -2,14 +2,19 @@
  * Write one local note, or one value under a key. No network.
  */
 import { insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
-import { PREFIXED_TOKEN } from '../memory/redact';
+import { PREFIXED_TOKEN, containsSecret } from '../memory/redact';
 
 /** Authorization header tokens, including `Bearer <jwt>`. Tokens are assumed to be at least 8 characters. */
 const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/;
 
-/** True when a value carries a secret shape and must not be stored. */
+/**
+ * True when a value carries a secret shape and must not be stored. Uses the same detector as the
+ * outbound scrubber (containsSecret), so a key the checkers would never see is not written to
+ * disk either: until 2026-10-05 this list was narrower and stored `sk-…` and `AKIA…` keys.
+ * Personal data such as an email is NOT refused: local memory is the place for it.
+ */
 export function refusedValue(value: string): boolean {
-  return /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || PREFIXED_TOKEN.test(value);
+  return containsSecret(value) || /sb_secret_/.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || PREFIXED_TOKEN.test(value);
 }
 
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {

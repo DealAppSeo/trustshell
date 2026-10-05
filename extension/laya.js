@@ -60,6 +60,25 @@
    * options.now       a local clock, for tests.
    * Over SLOW_MS, the label is not-checked and line is 'Still checking'.
    */
+  /**
+   * The scrubber (extension/scrub.js). In the browser it is a global loaded before this file; under
+   * Node tests this file loads it directly. Missing means NOTHING is sent: an unscrubbed reply must
+   * never leave because a script failed to load.
+   */
+  function scrubber(opts) {
+    if (typeof opts.scrub === 'function') return opts.scrub;
+    const g = typeof globalThis === 'object' ? globalThis.trustshellScrub : null;
+    if (g && typeof g.redact === 'function') return g.redact;
+    if (typeof module === 'object' && module && typeof require === 'function') {
+      try {
+        return require('./scrub.js').redact;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
   async function callLaya(text, options) {
     const opts = options || {};
     const now = typeof opts.now === 'function' ? opts.now : clock;
@@ -73,6 +92,11 @@
     const url = modelUrlOf(opts.modelUrl);
     const fetchImpl = opts.fetchImpl || globalThis.fetch;
     if (!url || typeof fetchImpl !== 'function') return done(NOT_CHECKED);
+    // Known secret and personal-data formats are removed before anything is sent (scrub.js).
+    const scrub = scrubber(opts);
+    if (typeof scrub !== 'function') return done(NOT_CHECKED);
+    const cleaned = scrub(String(text ?? ''));
+    if (cleaned.trim() === '') return done(NOT_CHECKED);
 
     const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : TIMEOUT_MS;
     const controller = new AbortController();
@@ -88,7 +112,7 @@
         const res = await fetchImpl(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: String(text ?? ''), labels: LABELS }),
+          body: JSON.stringify({ text: cleaned, labels: LABELS }),
           signal: controller.signal,
           // No cookies ride along with the reply, and a redirect cannot move it to another host.
           credentials: 'omit',

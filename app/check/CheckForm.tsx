@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { classifyClaim, DEFAULT_API_URL, ClaimError, type ClaimLabel } from '@/src/lib/claim';
+import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, type ClaimLabel } from '@/src/lib/claim';
 
 // NEXT_PUBLIC_* is inlined only for a literal reference, so it is spelled out here.
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || DEFAULT_API_URL;
@@ -76,7 +76,7 @@ type CheckFormProps = {
 export default function CheckForm({ initialText = '', samples }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ label: ClaimLabel; reason?: string } | null>(null);
+  const [result, setResult] = useState<{ label: ClaimLabel; reason?: string; scrubbed?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Swapping a sample changes the box and nothing else: no request. The last answer belonged to
@@ -94,7 +94,7 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
     setBusy(true);
     try {
       const r = await classifyClaim(text, { apiUrl: ENGINE, env: {} });
-      setResult({ label: r.label, reason: r.reason });
+      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true });
     } catch (err) {
       setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
     } finally {
@@ -171,6 +171,11 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
             </p>
           ) : (
             <p className="text-[#cbd5e1]">{meaning.body}</p>
+          )}
+          {result.scrubbed && (
+            <p className="text-sm text-[#94a3b8]" data-testid="check-scrubbed">
+              {SCRUBBED_LINE}
+            </p>
           )}
           <p className="text-xs text-[#64748b]" data-testid="check-machine-label">
             label: <code>{result.label}</code>

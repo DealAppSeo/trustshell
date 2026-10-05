@@ -84,6 +84,27 @@ describe('request contract', () => {
     expect(JSON.parse(calls[0]!.init.body).text).not.toContain('sb_secret_');
   });
 
+  it('says when something was removed, and only then', async () => {
+    stubFetch(() => reply(200, { label: 'pass', latency_ms: 1 }));
+    const removed = await classifyClaim('Write to jane.doe' + '@example.com about Paris.');
+    expect(removed.scrubbed).toBe(true);
+    const clean = await classifyClaim('Paris is the capital of France.');
+    expect(clean).not.toHaveProperty('scrubbed');
+  });
+
+  it('a not-checked answer still says something was removed', async () => {
+    stubFetch(() => reply(500, 'boom'));
+    const r = await classifyClaim('Call (555) 123-4567 about Paris.');
+    expect(r.label).toBe('not-checked');
+    expect(r.scrubbed).toBe(true);
+  });
+
+  it('a sentence that is only a key is a local error, and nothing is sent', async () => {
+    const { calls } = stubFetch(() => reply(200, { label: 'pass' }));
+    await expect(classifyClaim('AKIA' + 'IOSFODNN7EXAMPLE')).rejects.toThrow(/looked like a key or personal data/);
+    expect(calls).toHaveLength(0);
+  });
+
   it('a non-http base URL is a local error, and nothing is sent', async () => {
     const { calls } = stubFetch(() => reply(200, { label: 'pass' }));
     expect(() => resolveClassifyUrl('ftp://example.com', {})).toThrow(claim.ClaimError);
@@ -144,6 +165,13 @@ describe('CLI: trustshell check "<sentence>"', () => {
     expect(code).toBe(0);
     expect(io.lines[0]).toBe('pass');
     expect(io.lines).toHaveLength(2);
+  });
+
+  it('prints the removed-before-sending line only when the scrubber removed something', async () => {
+    const { io } = await cli(['check', 'Mail jane.doe' + '@example.com: Paris is in France.'], () =>
+      reply(200, { label: 'pass', latency_ms: 5 }),
+    );
+    expect(io.lines).toEqual(['pass', expect.any(String), claim.SCRUBBED_LINE]);
   });
 
   it('veto → exit 1', async () => {
