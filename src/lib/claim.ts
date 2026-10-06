@@ -153,6 +153,11 @@ function voterPhrase(voters: string[]): { names: string; many: boolean } {
   return { names: `${names.slice(0, -1).join(', ')} and ${last}`, many: true };
 }
 
+/** The people-facing names of these voters, joined: "Groq and Cerebras". PURE. */
+export function voterNames(voters: string[]): string {
+  return voterPhrase(voters).names;
+}
+
 /**
  * One line saying what produced the label, or '' when the endpoint did not say. PURE.
  * The same words as extension/classify.js pathLine (tests/claim-path-parity.test.ts).

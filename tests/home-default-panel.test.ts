@@ -1,5 +1,5 @@
 /**
- * The default view on "/" is the check form, prefilled, with nothing to open first.
+ * The default view on "/" is the check form under Try to trick it, with nothing to open first.
  *
  * It used to be an install-and-verify command block (FIRST_COMMANDS) plus "copy the family host
  * verdict line", with the chat and terminal options behind two reveal buttons. The home page is
@@ -12,7 +12,7 @@ import { join } from 'node:path';
 const hero = readFileSync(join(__dirname, '../components/hero.tsx'), 'utf8').replace(/\r/g, '');
 
 describe('home default view', () => {
-  it('is the check form, prefilled, before the one link down to the next steps, with no panel to open', () => {
+  it('is the check form with its three cards, before the one link down to the next steps, with no panel to open', () => {
     const start = hero.indexOf('return (');
     expect(start).toBeGreaterThan(-1);
     const view = hero.slice(start);
@@ -21,8 +21,11 @@ describe('home default view', () => {
     const add = view.indexOf('href="#add-agent"');
     expect(form).toBeGreaterThan(-1);
     expect(add).toBeGreaterThan(form);
-    expect(view.slice(form, add)).toContain('initialText={SPEED_TRAP} samples={HOME_SAMPLES}');
-    expect(hero).toContain("import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';");
+    expect(view.slice(form, add)).toContain('samples={HOME_SAMPLES} boxLabel="Or paste something an AI told you"');
+    expect(hero).toContain("import { HOME_SAMPLES } from '@/lib/home-samples';");
+    // Sean, 2026-10-06: no prefilled box under a caption that gives the answer away.
+    expect(hero).not.toContain('initialText=');
+    expect(hero).not.toContain('The average is not 45');
 
     // Gone: the reveal panels and the old first block.
     expect(hero).not.toMatch(/useState|setPanel|aria-expanded/);

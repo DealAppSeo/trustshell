@@ -1,5 +1,5 @@
 import CheckForm from '@/app/check/CheckForm';
-import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';
+import { HOME_SAMPLES } from '@/lib/home-samples';
 
 /**
  * Screens 1 and 2: the fear, then the stamp. (Sean said GO on 2026-10-05 for Grok's order: pain,
@@ -14,11 +14,11 @@ import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';
  *     the first is a "Next" line on screen 4 (home-where.tsx) and the second was never measured. A
  *     first screen that says a plan in the present tense contradicts the page's own "Next" list.
  *
- * THE EXAMPLE IS LIVE, NOT PRINTED. The box is prefilled with the speed trap, a sure answer that is
- * wrong, and Check sends it to the same checkers as any sentence. It came back Caught on three of
- * three production calls on 2026-10-05 (lib/home-samples.ts measured the same). So the two checker
- * lines under the stamp are the real answer, and nothing on this page is a fixture that needs an
- * EXAMPLE label. Prefilling sends nothing: a request happens only when the visitor clicks Check.
+ * TRY TO TRICK IT (Sean, 2026-10-06). The old box was prefilled with the speed trap under a caption
+ * that gave the answer away before anyone pressed Check, and read as a canned demo. Now three cards,
+ * two wrong and one right, invite a guess first; picking one checks it live, and the answer shows
+ * who checked it, how long it took and exactly what the engine sent back (CheckForm). Every card
+ * was measured against production (lib/home-samples.ts). Nothing is sent on load: only a click.
  *
  * The solution line names the moments that matter (Grok, 2026-10-06): before you ship it, cite it,
  * or let an agent act on it. Grok's "Now it has to show its work" was not taken for the line above:
@@ -53,11 +53,15 @@ export function Hero() {
           </p>
         </div>
 
-        <div className="max-w-xl w-full min-w-0 mx-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 text-left space-y-3">
-          <p className="text-sm font-semibold text-amber-400" data-testid="hero-example-caption">
-            A sure answer. The average is not 45. Press Check.
+        <div
+          className="max-w-3xl w-full min-w-0 mx-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 text-left space-y-3"
+          data-testid="hero-trick"
+        >
+          <h2 className="text-xl sm:text-2xl font-bold text-white">Try to trick it</h2>
+          <p className="text-base text-slate-300 text-wrap" data-testid="hero-trick-setup">
+            Two of these are wrong and one is right. Guess first, then pick one and watch two other AIs check it, live.
           </p>
-          <CheckForm initialText={SPEED_TRAP} samples={HOME_SAMPLES} />
+          <CheckForm samples={HOME_SAMPLES} boxLabel="Or paste something an AI told you" />
         </div>
 
         <div className="max-w-xl w-full min-w-0 mx-auto text-center space-y-3" data-testid="hero-glass">

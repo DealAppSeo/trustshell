@@ -45,7 +45,8 @@ export function HomeWhere() {
               it with you when you leave.
             </li>
             <li>An agent with a good record earns a longer leash, and only as long as you allow.</li>
-            <li>A third checker is not here yet.</li>
+            <li>When both checkers are unsure, one plain question instead of a guess.</li>
+            <li>A Why? button: each checker&apos;s reason, in one sentence, when you ask.</li>
           </ul>
         </section>
       </div>

@@ -24,12 +24,12 @@
  * Every case runs at a phone viewport (390 x 844), because a door nobody can use on a phone is not
  * the phone door.
  *
- * THE HOME PAGE IS /check MOVED UP (stubbed mode only). It is the same form, prefilled with the
- * speed trap and with a swap to the 40 mph sentence. The walk counts every fetch, XHR and beacon the page makes
- * (stubbed in the page and counted) and every request that reaches the engine: loading the page and
- * swapping the sample must send NOTHING, because crawlers and page loads must not spend the shared
- * checker budget. Clicking Check once is the positive control: it proves the counters can see a
- * request at all, so their zeros mean something. Not in --live or --deployed: the deployed home
+ * THE HOME PAGE IS TRY TO TRICK IT (stubbed mode only, Sean 2026-10-06). The same form, with three
+ * cards above an empty box: picking a card checks it. The walk counts every fetch, XHR and beacon the
+ * page makes (stubbed in the page and counted) and every request that reaches the engine: loading the
+ * page must send NOTHING, because crawlers and page loads must not spend the shared checker budget.
+ * One card click is the positive control: it proves the counters can see a request at all, so their
+ * zeros mean something. Not in --live or --deployed: the deployed home
  * page is whatever shipped last, and a live click would spend real budget.
  *
  *     npm run test:check-walk               # stubbed
@@ -97,6 +97,9 @@ const engine = createServer((req, res) => {
     // not-checked, so the stub does too. The walk only swaps to it; it does not click Check on it.
     if (/average speed for the trip is 45 mph/.test(text)) return json(200, { label: 'veto', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/average speed for the trip is 40 mph/.test(text)) return json(200, { label: 'not-checked', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'] });
+    // The birthday card, measured 2026-10-06: pass on every call. Here a backup stood in, so the
+    // steps must say so: three voters, two deciders.
+    if (/23 people/.test(text)) return json(200, { label: 'pass', latency_ms: 1400, by: 'votes', voters: ['groq', 'cerebras', 'workers-ai'], deciders: ['groq', 'workers-ai'] });
     if (/Paris/.test(text)) return json(200, { label: 'pass', latency_ms: 210 });
     if (/cheese/.test(text)) return json(200, { label: 'veto', latency_ms: 230, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/^2 \+ 2 = 5$/.test(text)) return json(200, { label: 'veto', latency_ms: 1, by: 'arithmetic' });
@@ -239,13 +242,21 @@ async function shown(page) {
       why: why?.textContent?.trim() ?? null,
       source: card?.getAttribute('data-source') ?? null,
       card: card?.textContent ?? '',
+      // The stamp and its lines, without the time of the check and the raw engine answer: those two
+      // carry numbers on purpose (when it ran, and exactly what the engine sent back).
+      stamp: card
+        ? Array.from(card.children)
+            .filter((el) => !['check-at', 'check-raw'].includes(el.getAttribute('data-testid') ?? ''))
+            .map((el) => el.textContent ?? '')
+            .join('')
+        : '',
     };
   });
 }
 
-// Must match lib/home-samples.ts: the prefilled speed trap (Caught) and the 40 mph swap (no stored why).
+// Must match lib/home-samples.ts: the road trip card (Caught) and the birthday room card (Checks out).
 const FALSE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph.';
-const TRUE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.';
+const TRUE_SAMPLE = 'In a group of 23 people, the chance that two share a birthday is better than 50%.';
 const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
 /** Count every way the page could send something: fetch, XHR and beacon, wrapped before any script runs. */
@@ -270,7 +281,7 @@ function countSends() {
   }
 }
 
-/** The home page: /check moved up. Prefill and swap send nothing; one click on Check sends one request. */
+/** The home page: Try to trick it. Loading sends nothing; one card click sends one request. */
 async function walkHome(browser, phone, pageErrors) {
   const HOME_URL = `http://127.0.0.1:${APP_PORT}/`;
   const home = await phone.newPage();
@@ -286,15 +297,17 @@ async function walkHome(browser, phone, pageErrors) {
   };
 
   await home.goto(HOME_URL, { waitUntil: 'networkidle' });
-  check('home: the check form is prefilled with the false sample', (await home.inputValue('#claim')) === FALSE_SAMPLE);
-  let q = await quiet();
+  const cards = await home.locator('[data-testid=check-card]').count();
+  check('home: Try to trick it shows three cards above an empty box', cards === 3 && (await home.inputValue('#claim')) === '' &&
+    (await home.locator('body').innerText()).includes('Two of these are wrong and one is right.'), `cards ${cards}`);
+  const q = await quiet();
   check('home: loading the page sends no request (fetch, XHR and beacon counted, engine counted)', q.ok, q.note);
 
   const privacyBox = await home.locator('#check-privacy').boundingBox().catch(() => null);
   const buttonBox = await home.locator('button[type=submit]').boundingBox().catch(() => null);
   check('home: the privacy line sits above the Check button', Boolean(privacyBox && buttonBox) && privacyBox.y + privacyBox.height <= buttonBox.y,
     `privacy ${privacyBox ? Math.round(privacyBox.y) : 'missing'} / button ${buttonBox ? Math.round(buttonBox.y) : 'missing'}`);
-  check('home: Check is ready to click on the prefilled sentence', !(await home.locator('button[type=submit]').isDisabled()));
+  check('home: Check waits for text in the empty box', await home.locator('button[type=submit]').isDisabled());
   check('home: no sideways scroll on a 390px phone', (await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
   const text = await home.locator('body').innerText();
   // The extension stamps their websites; their apps do not load MCP servers (2026-10-05 home page).
@@ -306,40 +319,57 @@ async function walkHome(browser, phone, pageErrors) {
   check('home: screen 4 is where this goes', text.includes('Where this goes') && text.includes('Known key and personal-data formats are removed before sending.'));
   check('home: a sticky Check is on screen at 390px', await home.locator('[data-testid=sticky-check]').isVisible());
   check('home: no number followed by ms anywhere on the page', !/\d\s*ms\b/i.test(text), (text.match(/[^\n]*\d\s*ms\b[^\n]*/i) ?? [''])[0]);
-  check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status/.test(text));
+  check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status|The average is not 45/.test(text));
   if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390.png'), fullPage: true });
 
-  await home.click(`[data-testid=check-sample][data-sample="${TRUE_SAMPLE}"]`);
-  await home.waitForTimeout(500);
-  await home.waitForLoadState('networkidle');
-  check('home: the swap puts the true sample in the box', (await home.inputValue('#claim')) === TRUE_SAMPLE);
-  q = await quiet();
-  check('home: swapping the sample sends no request', q.ok, q.note);
-  await home.click(`[data-testid=check-sample][data-sample="${FALSE_SAMPLE}"]`);
-  check('home: the swap back restores the false sample', (await home.inputValue('#claim')) === FALSE_SAMPLE);
-
-  // Positive control: the counters above must be able to see a request, or their zeros prove nothing.
-  await home.click('button[type=submit]');
+  // Positive control: one card click, one request, and the counters see it.
+  await home.click(`[data-testid=check-card][data-sample="${FALSE_SAMPLE}"]`);
   await home.waitForSelector('[data-testid=check-label], [data-testid=check-error]', { timeout: 20_000 });
   const card = await shown(home);
   const posts = engineHits.filter((h) => h.startsWith('POST '));
   const fetches = (await sent()).filter((s) => s.includes('/api/v1/classify'));
-  check('home: clicking Check sends exactly one request, with the box text, and shows Caught',
+  check('home: one card click sends exactly one request, with that card\'s sentence, and shows Caught',
     posts.length === 1 && fetches.length === 1 && seen.length === before + 1 && seen.at(-1)?.text === FALSE_SAMPLE &&
-      card.words === 'Caught' && card.title === 'veto' && /veto/.test(card.machine ?? ''),
+      (await home.inputValue('#claim')) === FALSE_SAMPLE && card.words === 'Caught' && card.title === 'veto' && /veto/.test(card.machine ?? ''),
     JSON.stringify({ posts, fetches, sentText: seen.at(-1)?.text, card }));
+  // On a phone the cards stack above the box: the answer must come to the person, not wait below.
+  await home.waitForTimeout(1000);
+  const inView = await home.evaluate(() => {
+    const r = document.querySelector('[data-testid=check-result]')?.getBoundingClientRect();
+    return r ? { top: Math.round(r.top), bottom: Math.round(r.bottom), h: window.innerHeight, ok: r.top < window.innerHeight && r.bottom > 0 } : null;
+  });
+  check('home: on a phone the answer is brought into view after the card click', Boolean(inView?.ok), JSON.stringify(inView));
   const whyLine = await home.locator('[data-testid=check-why-sample]').textContent().catch(() => null);
-  check('home: the sample explains itself once the checkers agree with it', /120 miles in 3 hours is 40 mph/.test(whyLine ?? ''), String(whyLine));
+  check('home: the card explains itself once the checkers agree with it', /120 miles in 3 hours is 40 mph/.test(whyLine ?? ''), String(whyLine));
   const pathText = await home.locator('[data-testid=check-path]').textContent().catch(() => null);
   check('home: the answer names the voters that answered', pathText === 'Groq and Cerebras both said false.', String(pathText));
+  const steps = await home.locator('[data-testid=check-steps] li').allTextContents().catch(() => []);
+  check('home: the steps come from the answer: who it was sent to, and the engine\'s own time',
+    steps.length === 2 && /Sent to Groq and Cerebras\./.test(steps[0] ?? '') && /Answered in 0\.3 s\./.test(steps[1] ?? ''), JSON.stringify(steps));
+  const raw = await home.locator('[data-testid=check-raw] pre').textContent().catch(() => null);
+  check('home: "What the engine answered" holds the fields the page read', /"label": "veto"/.test(raw ?? '') && /"latency_ms": 300/.test(raw ?? ''), String(raw));
+  const report = await home.locator('[data-testid=check-report]').getAttribute('href').catch(() => null);
+  check('home: a decided answer offers "Think it got this wrong?" as a public issue the person sees first',
+    (report ?? '').startsWith('https://github.com/DealAppSeo/trustshell/issues/new?title=') && decodeURIComponent(report ?? '').includes(FALSE_SAMPLE), String(report));
   if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390-caught.png'), fullPage: true });
 
-  // The answer belonged to the false sentence; after a swap it must not stand next to the true one.
-  await home.click(`[data-testid=check-sample][data-sample="${TRUE_SAMPLE}"]`);
-  await home.waitForTimeout(500);
-  const stale = await home.locator('[data-testid=check-result]').count();
-  check('home: a swap after an answer clears it and sends nothing more', stale === 0 && seen.length === before + 1 &&
-    engineHits.filter((h) => h.startsWith('POST ')).length === 1, JSON.stringify({ stale, engineSaw: seen.length - before }));
+  // The same card again: checked from scratch, and the page says the answer held.
+  await home.click(`[data-testid=check-card][data-sample="${FALSE_SAMPLE}"]`);
+  await home.waitForSelector('[data-testid=check-reaction]', { timeout: 20_000 });
+  const again = await home.locator('[data-testid=check-reaction]').textContent().catch(() => null);
+  check('home: the same card again is checked from scratch, and says the answer held',
+    again === 'Checked again from scratch: the same answer.' && seen.length === before + 2, JSON.stringify({ again, engineSaw: seen.length - before }));
+
+  // A different card, with a different answer and a backup that stood in.
+  await home.click(`[data-testid=check-card][data-sample="${TRUE_SAMPLE}"]`);
+  await home.waitForFunction(() => document.querySelector('[data-testid=check-label]')?.getAttribute('data-label') === 'pass', null, { timeout: 20_000 });
+  const changed = await home.locator('[data-testid=check-reaction]').textContent().catch(() => null);
+  const steps2 = await home.locator('[data-testid=check-steps] li').allTextContents().catch(() => []);
+  const why2 = await home.locator('[data-testid=check-why-sample]').textContent().catch(() => null);
+  check('home: a different card says the answer changed, names the backup, and explains itself',
+    changed === 'You changed the sentence, and the answer changed with it.' &&
+      steps2.some((x) => /could not answer, so a backup took its turn/.test(x)) && /253 pairs/.test(why2 ?? '') && seen.length === before + 3,
+    JSON.stringify({ changed, steps2, why2 }));
   await home.close();
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -448,7 +478,9 @@ try {
     let card = await shown(page);
     check('pass shows Checks out, with pass as the machine label', got === 'pass' && card.words === 'Checks out' && card.title === 'pass' && /pass/.test(card.machine ?? ''),
       JSON.stringify(card));
-    check('the answer carries no speed number', card.card !== '' && !/\d|\bms\b/.test(card.card), JSON.stringify(card.card));
+    // No promised speed in the stamp or its lines (Sean said GO 2026-10-06 for the time of the check
+    // and the engine's own answer, which sit apart; this endpoint named no path, so no steps either).
+    check('the answer carries no speed number', card.stamp !== '' && !/\d|\bms\b/.test(card.stamp), JSON.stringify(card.stamp));
     const sent = seen.at(-1) ?? {};
     check(
       'the request is the shared contract: the text and the three labels',

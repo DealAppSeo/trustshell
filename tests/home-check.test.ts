@@ -74,24 +74,33 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(home.calls).toHaveLength(0);
   });
 
-  it('renders the check form prefilled with the speed trap, Check ready to click', () => {
+  it('renders Try to trick it: three cards ready to click, then an empty box for your own', () => {
+    // Sean, 2026-10-06: the prefilled box under "The average is not 45" read as a canned demo.
     expect(home.html).toContain('data-testid="check-form"');
+    expect(text).toContain('Try to trick it');
+    expect(text).toContain('Two of these are wrong and one is right. Guess first, then pick one and watch two other AIs check it, live.');
     const box = home.html.match(/<textarea\b[^>]*\bid="claim"[^>]*>([\s\S]*?)<\/textarea>/);
-    expect(box?.[1]).toBe(SPEED_TRAP);
+    expect(box?.[1]).toBe('');
+    expect(text).toContain('Or paste something an AI told you');
     const submit = buttons(home.html).filter((b) => /type="submit"/.test(b));
     expect(submit).toHaveLength(1);
     expect(words(submit[0] ?? '')).toBe('Check');
-    expect(submit[0]).not.toMatch(/\sdisabled=""/); // the attribute, not the disabled: classes
+    // Empty box: Check waits for text. The cards are the first thing to click.
+    expect(submit[0]).toMatch(/\sdisabled=""/);
+    expect(home.html.indexOf('data-testid="check-cards"')).toBeLessThan(home.html.indexOf('id="claim"'));
   });
 
-  it('offers every measured sample as a swap, and no swap control can submit the form', () => {
-    const samples = buttons(home.html).filter((b) => b.includes('data-testid="check-sample"'));
+  it('offers every measured card, each a type="button" that shows exactly the sentence it checks', () => {
+    const samples = buttons(home.html).filter((b) => b.includes('data-testid="check-card"'));
     const decode = (v: string) => v.replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"');
     expect(samples.map((b) => decode(b.match(/data-sample="([^"]*)"/)?.[1] ?? ''))).toEqual(HOME_SAMPLES.map((x) => x.text));
     // A <button> in a form defaults to submit. Every one that is not Check must say type="button".
     for (const b of samples) expect(b).toMatch(/type="button"/);
-    expect(samples[0]).toMatch(/aria-pressed="true"/);
-    for (const b of samples.slice(1)) expect(b).toMatch(/aria-pressed="false"/);
+    for (const [i, b] of samples.entries()) {
+      expect(words(b)).toContain(HOME_SAMPLES[i]!.label);
+      expect(b).toMatch(/aria-pressed="false"/);
+      expect(b).not.toMatch(/\sdisabled=""/);
+    }
     // Check submits. Sample swaps and the agent tabs are type="button" and do not.
     const tabs = buttons(home.html).filter((b) => b.includes('data-testid="agent-tab"'));
     expect(tabs).toHaveLength(3);
@@ -99,18 +108,16 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length + tabs.length);
   });
 
-  it('keeps a why only where production returned that label on every call', () => {
-    // Measured 2026-10-05. Three production POST /api/v1/classify calls each:
-    // the speed trap and the test result came back veto; the missing dollar and
-    // the 40 mph sentence came back not-checked. Those two carry no why.
-    // A sample with no why counts as not-checked. There is no stored pass.
-    const stored = HOME_SAMPLES.map((sample) => [sample.label, sample.why?.when ?? 'not-checked']);
+  it('keeps a card, and its why, only where production returned that label on every call', () => {
+    // Measured 2026-10-06. Three production POST /api/v1/classify calls each: the road trip and the
+    // medical test came back veto every time, the birthday room pass every time. Two wrong, one
+    // right, which is also the arithmetic: the setup line says so because the sentences are what
+    // they are, not because of what the checkers said.
+    const stored = HOME_SAMPLES.map((sample) => [sample.label, sample.why?.when ?? 'none']);
     expect(stored).toEqual([
-      ['a speed trap', 'veto'],
-      ['the missing dollar', 'not-checked'],
-      ['a test result', 'veto'],
-      ['the 40 mph line', 'not-checked'],
-      ['an opinion', 'not-checked'],
+      ['The road trip', 'veto'],
+      ['The medical test', 'veto'],
+      ['The birthday room', 'pass'],
     ]);
   });
 
@@ -131,6 +138,7 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     // Sean, 2026-10-05: the headline is "AI lies.", and the next line is his, worded to what is live.
     const HARNESS = 'TrustShell is a portable trust harness. Your agent can use any model, with no vendor lock-in, and a wrong answer gets caught before it costs you.';
     const SOLUTION = 'Before you ship it, cite it, or let an agent act on it, two checkers read it. You see what they said: Checks out, Caught, or Not checked.';
+    const SETUP = 'Two of these are wrong and one is right. Guess first, then pick one and watch two other AIs check it, live.';
     const h1 = home.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
     expect(words(h1?.[1] ?? '')).toBe('AI lies.');
     expect(words(h1?.[3] ?? '')).toBe('Now it has to answer to other models, so the truth comes out.');
@@ -140,10 +148,11 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(at('Now it has to answer to other models, so the truth comes out.')).toBe(at('AI lies.') + 1);
     expect(at(HARNESS)).toBe(at('Now it has to answer to other models, so the truth comes out.') + 1);
     expect(at(SOLUTION)).toBe(at(HARNESS) + 1);
-    expect(at('A sure answer. The average is not 45. Press Check.')).toBe(at(SOLUTION) + 1);
-    expect(at('One sentence')).toBeGreaterThan(at(SOLUTION));
+    expect(at('Try to trick it')).toBe(at(SOLUTION) + 1);
+    expect(at(SETUP)).toBe(at('Try to trick it') + 1);
+    expect(at('Or paste something an AI told you')).toBeGreaterThan(at(SETUP));
     const glass = at('The black box becomes a glass box: you see who checked it, and what they said.');
-    expect(glass).toBeGreaterThan(at('One sentence'));
+    expect(glass).toBeGreaterThan(at('Or paste something an AI told you'));
     expect(at('No signup. No wallet. Leave whenever you want.')).toBeGreaterThan(glass);
     expect(at('Add it to the AI you already use')).toBeGreaterThan(glass);
     // The first screen makes no promise the code does not keep. The model that wrote a reply stakes
@@ -205,14 +214,15 @@ describe('home page is the check form, and rendering it sends nothing', () => {
 describe('/check is unchanged by the props the home page uses', () => {
   const check = render('../app/check/page');
 
-  it('starts empty with Check disabled, shows no sample control, and sends nothing', () => {
+  it('starts empty with Check disabled, shows no card, and sends nothing', () => {
     expect(check.calls).toHaveLength(0);
     const box = check.html.match(/<textarea\b[^>]*\bid="claim"[^>]*>([\s\S]*?)<\/textarea>/);
     expect(box?.[1]).toBe('');
     const submit = buttons(check.html).filter((b) => /type="submit"/.test(b));
     expect(submit).toHaveLength(1);
     expect(submit[0]).toMatch(/\sdisabled=""/);
-    expect(check.html).not.toContain('data-testid="check-samples"');
+    expect(check.html).not.toContain('data-testid="check-cards"');
+    expect(words(check.html)).toContain('One sentence');
     expect(words(check.html).split(PRIVACY)).toHaveLength(2);
   });
 });
@@ -228,19 +238,23 @@ describe('nothing in the form sends on its own (the source half)', () => {
     }
   });
 
-  it('calls classifyClaim only from a person\'s click: onSubmit, and recheck after they answer the one question', () => {
-    expect(form.match(/classifyClaim\(/g)).toHaveLength(2);
-    const onSubmit = form.slice(form.indexOf('async function onSubmit'), form.indexOf('async function recheck'));
-    expect(onSubmit.match(/classifyClaim\(/g)).toHaveLength(1);
-    const recheck = form.slice(form.indexOf('async function recheck'), form.indexOf('const meaning ='));
-    expect(recheck.match(/classifyClaim\(/g)).toHaveLength(1);
-    // recheck runs only from the Check again click or Enter in the answer box, never on its own.
-    expect(form.match(/void recheck\(\)/g)).toHaveLength(2);
-    expect(form).toMatch(/onClick=\{\(\) => void recheck\(\)\}/);
-    expect(form).toMatch(/if \(e\.key === 'Enter'\) \{\s*e\.preventDefault\(\);\s*void recheck\(\);/);
-    const swap = form.slice(form.indexOf('function swapIn'), form.indexOf('async function onSubmit'));
-    expect(swap).toContain('setText(sample)');
-    expect(swap).not.toMatch(/classifyClaim|fetch|submit|setBusy/i);
+  it('calls classifyClaim in one place, reached only from a person\'s click: Check, a card, or Check again', () => {
+    expect(form.match(/classifyClaim\(/g)).toHaveLength(1);
+    const check = form.slice(form.indexOf('async function check('), form.indexOf('function onSubmit'));
+    expect(check.match(/classifyClaim\(/g)).toHaveLength(1);
+    // check() has exactly three callers, each a click handler.
+    expect(form.match(/void check\(/g)).toHaveLength(3);
+    const onSubmit = form.slice(form.indexOf('function onSubmit'), form.indexOf('function pick('));
+    expect(onSubmit).toContain('void check(text)');
+    const pick = form.slice(form.indexOf('function pick('), form.indexOf('function recheck('));
+    expect(pick).toContain('void check(sample.text)');
+    const recheck = form.slice(form.indexOf('function recheck('), form.indexOf('const meaning ='));
+    expect(recheck).toContain('void check(combined)');
+    // pick runs only from a card's onClick; recheck only from Check again or Enter in the answer box.
+    expect(form.match(/onClick=\{\(\) => pick\(s\)\}/g)).toHaveLength(1);
+    expect(form.match(/(=> |;\s*)recheck\(\)/g)).toHaveLength(2);
+    expect(form).toMatch(/onClick=\{\(\) => recheck\(\)\}/);
+    expect(form).toMatch(/if \(e\.key === 'Enter'\) \{\s*e\.preventDefault\(\);\s*recheck\(\);/);
   });
 });
 
