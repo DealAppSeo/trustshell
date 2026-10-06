@@ -20,6 +20,12 @@ import { HOME_SAMPLES, SPEED_TRAP } from '@/lib/home-samples';
  * lines under the stamp are the real answer, and nothing on this page is a fixture that needs an
  * EXAMPLE label. Prefilling sends nothing: a request happens only when the visitor clicks Check.
  *
+ * The solution line names the moments that matter (Grok, 2026-10-06): before you ship it, cite it,
+ * or let an agent act on it. Grok's "Now it has to show its work" was not taken for the line above:
+ * the stamp shows who checked and what they said, not any reasoning, so "show its work" would claim
+ * more than the page delivers. Three questions sit still under the hero (components/home-questions.tsx);
+ * lib/why-questions.ts says why they do not rotate.
+ *
  * One door per screen. The install steps moved to the next screen (#add-agent); this one has the
  * check and one link down to it. No logo here: the nav already carries it, and a second one pushed
  * the fear off a phone screen.
@@ -42,8 +48,8 @@ export function Hero() {
             and a wrong answer gets caught before it costs you.
           </p>
           <p className="max-w-xl mx-auto text-base sm:text-lg text-slate-200 text-wrap" data-testid="hero-solution">
-            Before you act on an answer, two checkers read it. You see what they said: Checks out, Caught, or
-            Not checked.
+            Before you ship it, cite it, or let an agent act on it, two checkers read it. You see what they said:
+            Checks out, Caught, or Not checked.
           </p>
         </div>
 

@@ -63,6 +63,10 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   { path: '/pai', priority: 0.6 },
   { path: '/agents', priority: 0.6 },
   { path: '/start', priority: 0.6 },
+  // The three pieces the home page's question cards open (lib/why-questions.ts).
+  { path: '/why/cost', priority: 0.7 },
+  { path: '/why/blame', priority: 0.7 },
+  { path: '/why/harness', priority: 0.7 },
   { path: '/run', priority: 0.5 },
   { path: '/history', priority: 0.4 },
 ];
