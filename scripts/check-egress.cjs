@@ -66,6 +66,9 @@ const NONE_RUNS = {
   },
   recall: { args: ['recall'], env: {}, stdout: 'do_not_send COUNT 0', exit: 0 },
   redact: { args: ['redact', 'egress-check-absent-key'], env: {}, stdout: 'NOT_CHECKED', exit: 0 },
+  // traps prints a plain list (its --json is an array, not a verdict object), so it is pinned on
+  // stdout here. Run in an empty cwd, every fixture row has no receipt and reads NOT_CHECKED.
+  traps: { args: ['traps'], env: {}, stdout: 'NOT_CHECKED', exit: 0 },
 };
 
 /** The sentence form of `check`: it must reach the backend's classify path and nothing else. */

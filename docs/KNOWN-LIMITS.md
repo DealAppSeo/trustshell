@@ -116,16 +116,24 @@ filing rather than in a footnote.
 
 ## Limits in the trust engine
 
-### Sprint-3 stubs: constitutional audit, ZKP, EAS attestation
+### Sprint-3 stubs: constitutional audit, and where ZKP and EAS stand
 
-Several layers are deliberate contract surfaces awaiting real implementations:
+Some layers are deliberate contract surfaces awaiting real implementations:
 
 - **Constitutional audit** — currently a stub. Gated behind
   `CONSTITUTIONAL_AUDIT_ENABLED`, **default off**, and non-load-bearing: while
   disabled its output influences no score, no verdict and no tool gate. A stub
   that always passes must never steer anything or be reported as a measurement.
-- **ZKP** — a stub prover is always-on; the real wiring is not.
-- **EAS attestation** — stubbed in the same way.
+- **ZKP** — the RepID proof is real, not a stub. MEASURED 2026-10-06:
+  `GET /api/v1/repid/trinity-shofet/proof` returned a `plonky3_range_check` proof
+  (`proof_type: POSTCARD`, `status: anchored`, `cryptographically_verifiable: true`), and it
+  verified client-side with the verifier bundled in 1.6.0. Still true: the score is a public
+  input, so the proof's statement carries it. And the engine's separate `/prove/trade_auth` bridge
+  falls back to a non-ZK HMAC (marked `is_real: false`) when no prover URL is configured; whether
+  one is configured in production is not checked here.
+- **EAS attestation** — the constitutional-audit layer's EAS step is still a stub. The RepID proof
+  batches are a different path: the proof above carries an EAS attestation uid that the endpoint
+  reports as anchored on Base Sepolia.
 
 These are not bugs to be "fixed" by hardcoding a passing result. That would
 convert an honest absence into a false measurement, which is worse than the gap.

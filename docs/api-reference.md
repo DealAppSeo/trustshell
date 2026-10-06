@@ -46,14 +46,19 @@ constructor, or the `TRUSTSHELL_API_URL` environment variable).
 import { TrustShell } from '@hyperdag/trustshell';
 
 const shell = new TrustShell({
-  apiKey?: string,   // optional — score/verify/getRepID/presentProof are keyless
-  apiUrl?: string,   // defaults to the production engine
-  timeout?: number,  // ms
+  apiKey?: string,           // optional — score/verify/getRepID/presentProof are keyless
+  apiUrl?: string,           // defaults to the production engine
+  timeout?: number,          // ms, HAL requests (default 30000)
+  healthCheck?: boolean,     // init() only: false skips the /health probe
+  healthTimeoutMs?: number,  // init() only: /health deadline (default 3000)
+  readAllowance?: Function,  // TrustKeys allowance reader for getAllowance (fail-closed when unset)
 });
 ```
 
-That is the whole config surface (`TrustShellConfig`). The read paths are **keyless**; a key is
-only needed for the write paths (`executeA2A`, `register`).
+That is the whole config surface (`TrustShellConfig`). The read paths are **keyless**, and so are
+service discovery (`listServices`, `getService`) and `register` (`POST /api/v1/agents/register`).
+A key is needed to buy: `executeA2A` and the contract reads after it (`getContractStatus`,
+`pollUntilSettled`).
 
 ### `TrustShell.init(config?) → Promise<{ client, health }>`
 
@@ -134,19 +139,30 @@ Also available, same client: `verify(agentId)`, `getFactCheckCount()`, `getRepID
 npm install -g @hyperdag/trustshell
 ```
 
-Two binaries, same program: `trustshell` and `hal`.
+The bins `package.json` ships:
+
+| Bin | What it is |
+|---|---|
+| `trustshell`, `hal` | the CLI — two names, same program |
+| `trustshell-mcp` | the MCP stdio server |
+| `verify`, `repid`, `proof`, `status`, `remember`, `recall`, `redact` | **deprecated** bare-name shims, each forwarding to `trustshell <command>`. They print a deprecation note on a terminal and go away in 2.0 |
 
 **Environment:** `REPID_API_KEY` (optional — `verify`/`repid`/`proof` are keyless),
-`TRUSTSHELL_API_URL` (override the backend origin). There is no config file.
+`TRUSTSHELL_API_URL` (override the backend origin). The full list is in
+[`getting-started.md` §6](./getting-started.md#6-configuration-reference). The CLI reads no config
+file; `init` writes `.trustshell/profile.md`, which only `report` reads.
 
-**Exit codes** — the reason this works as a CI gate:
+**Exit codes for `verify` / `evaluate`** — the reason this works as a CI gate:
 
 | code | meaning |
 |---|---|
 | `0` | HAL PASS, or soft FLAG — safe to proceed |
 | `1` | HAL VETO — fail the build |
-| `2` | usage / bad arguments |
+| `2` | HAL did not decide (`NOT_CHECKED`) — never a pass. Also usage / bad arguments |
 | `3` | runtime error (network / backend / timeout) |
+| `4` | `ASK` — only when `TRUSTSHELL_LAYA` is set: a person has to answer. HAL was not called |
+
+Other commands keep their own codes, listed under each one below.
 
 <a id="cli-verify"></a>
 
@@ -155,16 +171,17 @@ Two binaries, same program: `trustshell` and `hal`.
 Runs the claim through the live HAL cross-provider quorum. Options: `--json`.
 
 ```console
-$ trustshell verify "The Earth orbits the Sun."
+$ trustshell verify "The capital of France is Paris."
 ✓ PASS  trust 100/100
   PASS — hal_score 0 via fact-check (full quorum)
   evidence:
-    - groq:TRUE (Scientific consensus supported by astronomical observations)
-    - cerebras:TRUE (Fundamental astronomical fact.)
-    - gemini:TRUE (The Earth revolves around the Sun.)
-    - mistral:TRUE (Heliocentric model confirmed by astronomy)
-    - openrouter:TRUE (Earth orbits the Sun, established scientific fact.)
+    - cerebras:TRUE (Paris is the capital of France.)
+    - groq:TRUE (Paris is the capital of France.)
+    - zai:UNCERTAIN (NOT_CHECKED: late after 2-family agreement)
 ```
+
+Recorded 2026-10-05 (the README's sample). Which providers answer, and how many, changes with the
+live quorum.
 
 Use it as a gate:
 
@@ -240,8 +257,21 @@ The MCP server's `check_claim` tool calls the same function, so a terminal, an a
 extension get the same label for the same sentence. Any operand with a URL scheme (or a bare
 `github.com/...`) still goes to the GitHub run check above, unchanged.
 
-It prints the label on its own line, then one line of explanation; `--json` prints the response
-object (`{label, latency_ms}`, plus `reason` when the label was decided locally).
+It prints the label on its own line, then one line of explanation. When the endpoint says what
+produced the label, the next line names it: who decided (for example `Groq and Cerebras both said
+false.`), `Decided by exact calculation. No model was asked.`, `No checker was asked.` or
+`No answer in time.` If the endpoint asked a clarifying question, it follows on its own line, and
+a last line says so when text that looked like a key or personal data was removed before sending.
+
+`--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters`, `deciders` and
+`question` when the endpoint sent them, `reason` when the label was decided locally, and
+`scrubbed: true` when something was removed.
+
+The endpoint itself (`POST /api/v1/classify`, public) answers `{label, latency_ms, by}`, plus
+`voters` and `deciders` when `by` is `votes`, and `question` only on a not-checked from the votes
+when the server has questions turned on (`CLASSIFY_QUESTIONS=on`; off by default). By default each
+visitor gets 100 checks per UTC day (`CLASSIFY_DAILY_LIMIT`); past that the endpoint answers 429,
+which the CLI reports as `not-checked`.
 
 | Label | Exit |
 |---|---|
@@ -363,7 +393,9 @@ a run or a session that happened — run these against your own and read the rea
 
 ### What each command talks to
 
-`--json` works on every command. Across all of them, **exit `3` means NOT CHECKED** — never a pass.
+`--json` gives machine-readable output on most commands; `remember`, `recall`, `redact` and
+`bind-status` print plain lines. **No command exits `0` on NOT CHECKED.** `verify` / `evaluate` and
+`check "<sentence>"` exit `2` for it; `check <runUrl>`, `inspect` and `report` exit `3`.
 
 | Command | Network egress | Auth |
 |---|---|---|
@@ -379,6 +411,9 @@ a run or a session that happened — run these against your own and read the rea
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
+| `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
+| `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
+| `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
 
 `init` is the only command that writes to your working directory, and it writes exactly one file:
 `.trustshell/profile.md`.
@@ -524,37 +559,45 @@ curl https://repid-engine-production.up.railway.app/api/v1/hal/stats
 
 ### `GET /api/v1/repid/:agentId`
 
-Per-agent RepID lookup by **UUID** (the engine's internal agent id, not the ERC-8004 tokenId).
+Per-agent RepID lookup. `:agentId` may be the engine's agent UUID, an agent name or slug
+(`trinity-shofet`, or bare `shofet`), or a numeric ERC-8004 token id.
 
 **Path parameters:**
 
 | Name | Type | Required | Description |
 |---|---|---|---|
-| `agentId` | `string (UUID)` | yes | The engine-internal agent UUID. Found via the engine's agent registry or the `agent_id` field of any `repid_score_events` row. |
+| `agentId` | `string` | yes | Agent UUID, name/slug, or ERC-8004 token id. |
 
-**Example request:**
+**Query parameters:**
+
+| Name | Effect |
+|---|---|
+| `with=id` | Adds `agent_id`, the UUID the id resolved to. Without it the body is only `score` and `tier`. |
+
+**Example requests:**
 
 ```bash
-curl https://repid-engine-production.up.railway.app/api/v1/repid/f3ef0bf8-5cdc-4fad-bce8-5144f01dc271
+curl https://repid-engine-production.up.railway.app/api/v1/repid/trinity-shofet
+curl "https://repid-engine-production.up.railway.app/api/v1/repid/trinity-shofet?with=id"
 ```
 
-**Example response:**
+**Example responses (MEASURED 2026-10-06; the score moves):**
 
 ```json
-{
-  "agent_id": "f3ef0bf8-5cdc-4fad-bce8-5144f01dc271",
-  "repid_score": 9451,
-  "tier": "VETERAN",
-  "last_updated": "2026-05-27T05:41:49.63+00:00",
-  "source": "cached"
-}
+{ "score": 2202, "tier": "ESTABLISHED" }
+```
+
+```json
+{ "score": 2202, "tier": "ESTABLISHED", "agent_id": "32e0e809-c1c4-4405-913f-135c8a2d6626" }
 ```
 
 **Tier scale:** `PROBATIONARY` (0–499) → `EARNING` (500–999) → `ESTABLISHED` (1,000–4,999) → `AUTONOMOUS` (5,000–7,999) → `VETERAN` (8,000–10,000).
 
-**Possible errors:**
-- `404 AGENT_NOT_FOUND` if `agentId` is not a valid UUID or doesn't exist.
-- `400` if the path segment fails UUID parsing.
+**Unknown agent:** an id that matches no agent answers `200` with
+`{"score":"NOT_CHECKED","tier":"NOT_CHECKED"}` — not a 404, and never a 0. The SDK's `verify()` /
+`getRepID()` throw `RepID not checked` on that body rather than return a number.
+
+**Possible errors:** `404 AGENT_NOT_FOUND` when the lookup itself fails for another reason.
 
 ---
 
@@ -736,7 +779,7 @@ Common HTTP statuses across the SDK + REST surfaces:
 | `400` | API key request | Validation failed (missing email, invalid use_case) |
 | `401` | Authed routes | API key missing or wrong header format |
 | `403` | Authed routes | Key revoked or wrong tier |
-| `404` | `/repid/:agentId` | UUID not found, or non-UUID path segment |
+| `404` | `/repid/:agentId` | the lookup failed (an unknown id is `200` with `NOT_CHECKED`, not 404) |
 | `429` | Score-event, API key request | Rate limit (1 key-request per email per hour) |
 | `500` | Any | Engine error — retry once, then [open an issue](https://github.com/DealAppSeo/trustshell/issues) if persistent |
 
@@ -744,4 +787,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v1.6.0 surface and the production `repid-engine` deployment. Full CLI walkthrough: [`examples/cli-walkthrough.md`](../examples/cli-walkthrough.md).
+> Reflects the published `@hyperdag/trustshell` v1.6.0 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).

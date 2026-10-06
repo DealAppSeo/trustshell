@@ -11,14 +11,7 @@ The classifier labelled this sentence veto — do not rely on it (356 ms).
 
 That run exited 1.
 
-```mermaid
-flowchart TD
-  sentence[A sentence] --> arithmetic{Whole sentence is arithmetic?}
-  arithmetic -->|yes| exact[Exact result. No model.]
-  arithmetic -->|no| checkers[Two checkers, Groq and Cerebras]
-  exact --> label[pass, veto, or not-checked]
-  checkers --> label
-```
+![How a check works: your sentence is scrubbed on your device; an equation such as 2 + 2 = 5 is worked out with no model; anything else goes to two checkers from different model families; both TRUE is Checks out, both FALSE is Caught, anything else is Not checked.](public/how-a-check-works.svg)
 
 <!--
   Embed slot. The player stays out of the README until the file is in the repo.
@@ -46,7 +39,7 @@ Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists:
 | | Today |
 |---|---|
 | npm `latest` | **1.6.0** (`npm view @hyperdag/trustshell version`). |
-| HAL quorum | **2 answering / 8 configured** (measured). Not a constant 6. |
+| HAL quorum | **3 answering / 5 configured** (MEASURED 2026-10-06, `GET /api/v1/hal/stats` → `quorum_health`, 24-hour window). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
 
@@ -109,7 +102,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 | This package | live | v1 hosted thin client. Trust computation runs on the HyperDAG engine, not on your machine. On-device proofs are v2, not shipped. `npm view @hyperdag/trustshell version` says which version npm serves. |
 | `getRepID()` / `presentProof()` | live | Keyless. Score moves; gate on tier or your own threshold. |
 | `register()` | live | Keyless. Creates an agent and a RepID. It does not mint ERC-8004. |
-| `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. Live 2026-09-15: 2 answering / 8 configured. HAL is weaker on paraphrases than on record-grounded facts. |
+| `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. MEASURED 2026-10-06: 3 answering / 5 configured (24-hour window). HAL is weaker on paraphrases than on record-grounded facts. |
 | ERC-8004 identity mint | paused/blocked | Key-gated, separate call. A keyless `register()` leaves `NOT_MINTED`. |
 | On-chain reputation writes | live-degraded | Recorded, each with a transaction hash. On 2026-10-05 the public counter reported 114 rows with a real transaction hash on the reputation registry. That is not a receipt check of every row. |
 | x402 `executeA2A()` | paused/blocked | Protocol exists on Base Sepolia (chain id 84532). Needs an API key and a funded testnet wallet. Not mainnet. |
@@ -132,31 +125,35 @@ npm install @hyperdag/trustshell
 
 This is the one live, published install today. It delivers all three protocols in one wrapper — **HAL** verification, **ERC-8004** portable RepID, and **x402** agent-to-agent payments — against the live backend.
 
-Ships as a lean package (only `dist/` — no Next.js/React tree). The one runtime dep beyond `ethers` is `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent).
+The package does not carry the Next.js/React site. The 1.6.0 tarball is 91 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.6.0 dependencies peerDependencies dist.fileCount`)
 
 ### Which package do I install?
 
 | If you're… | Install | What you get |
 |---|---|---|
 | A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — HAL verification + ERC-8004 RepID + x402 payments, in your TypeScript/JS |
-| Using an **AI tool** (Claude Desktop, Cursor, Windsurf), **no code** | `npx @hyperdag/trustshell-mcp` | The same three protocols as AI-callable tools — zero terminal |
+| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.6.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
 | Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone Plonky3 proof checking (usually bundled with trustshell — rarely installed directly) |
 
-**Most people want `@hyperdag/trustshell` (building in code) or `@hyperdag/trustshell-mcp` (adding trust to your AI, no code). `proof-verifier` is a building block that ships inside trustshell.**
+**Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a building block that ships inside trustshell.**
 
-### AI-native install (no terminal) — LIVE
+### MCP server for AI tools
 
-The same three protocols — **HAL** verification, **ERC-8004** RepID, and **x402** payments — are now live as an MCP server that an AI (**Claude Desktop / Cursor**) can call directly as tools: **[`@hyperdag/trustshell-mcp`](https://www.npmjs.com/package/@hyperdag/trustshell-mcp)**.
+The MCP server is the `trustshell-mcp` bin inside `@hyperdag/trustshell`. A global install puts it on PATH:
 
 ```bash
-npx @hyperdag/trustshell-mcp
+npm i -g @hyperdag/trustshell@1.6.0
 ```
 
-Or add it to your Claude Desktop / Cursor config:
+Then add it to your Claude Desktop / Cursor / Claude Code config:
 
 ```json
-{"mcpServers":{"trustshell":{"command":"npx","args":["-y","@hyperdag/trustshell-mcp"]}}}
+{ "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
+
+In 1.6.0 its tools are `check_claim`, `verify_output`, `get_repid`, `present_proof`, `verify_proof`, `status`, and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate` and `repid`). It has no purchase tool; buying is the SDK's `executeA2A`.
+
+The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
 ### Install straight from GitHub (no npm registry) — LIVE
 
@@ -208,8 +205,8 @@ console.log(rep.repid, rep.tier);   // the score moves; gate on tier
 ```
 
 **Two things in that output move, and the comments above are illustrative rather than
-promised.** *Which providers* answer is chosen by the live quorum — you may see
-`groq`/`cerebras` instead of the three shown, and the count varies with availability;
+promised.** *Which providers* answer is chosen by the live quorum — your run may name
+different providers from the three shown, and the count varies with availability;
 what is fixed is that the verdict is backed by named cross-provider evidence, each with
 a reason. And `repid` is a **live score that changes** — gate on `tier`, or on your own
 threshold against `repid`, never on a specific number copied from a README.
@@ -271,7 +268,7 @@ console.log(settled.status, settled.result);
 Env it needs:
 
 ```bash
-REPID_API_KEY=...             # your agent API key (repid.dev/start) — also gates discovery
+REPID_API_KEY=...             # your agent API key (repid.dev/start) — for the buy; discovery is keyless
 TRUSTSHELL_BUYER_AGENT=...    # the buyer agent UUID the key is bound to
 TRUSTSHELL_PAYER_KEY=0x...    # a Base Sepolia wallet funded with test USDC
 ```
@@ -334,20 +331,25 @@ The SVG has no external references, so it renders offline and cannot phone home.
 From the SDK:
 
 ```ts
-import TrustShell, { renderProofBadge } from '@hyperdag/trustshell';
+import { TrustShell, renderProofBadge } from '@hyperdag/trustshell';
 const shell = new TrustShell();
 const proof = await shell.presentProof('trinity-shofet', { verify: true });
-const svg = renderProofBadge(proof, { href: 'https://trustrepid.dev/agent/trinity-shofet' });
+const svg = renderProofBadge(proof, { href: 'https://www.trustshell.dev/passport/trinity-shofet' });
 ```
 
-**`verify` is a CI gate.** It exits **0** on `PASS`/`FLAG` and **non-zero (1)** on `VETO`, so you
-can fail a build the moment HAL vetoes a claim — no glue code:
+Use the named import. A default import (`import TrustShell from …`) does not give the class in
+native ESM — see [`docs/KNOWN-LIMITS.md`](docs/KNOWN-LIMITS.md). The snippet above ran against
+1.6.0 in a `.mjs` file on 2026-10-06.
+
+**`verify` is a CI gate.** It exits **0** on `PASS`/`FLAG`, **1** on `VETO`, and **2** when HAL
+did not decide (`NOT_CHECKED`), so a gate written as `|| exit 1` fails on a veto and on a miss —
+no glue code:
 
 ```bash
 # .github/workflows/*.yml  (or a pre-commit hook)
-# Fail the build if HAL vetoes a claim in the release notes.
+# Fail the build unless HAL passes every claim in the release notes.
 trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
-  echo "HAL vetoed a claim — not shipping."; exit 1;
+  echo "HAL did not pass a claim — not shipping."; exit 1;
 }
 ```
 
@@ -355,8 +357,9 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
 |---|---|
 | `0` | HAL `PASS` (or soft `FLAG`) — safe to proceed |
 | `1` | HAL `VETO` — the claim did not pass; fail the build |
-| `2` | usage / bad arguments |
+| `2` | HAL did not decide (`NOT_CHECKED`) — never a pass. Also usage / bad arguments |
 | `3` | runtime error (network / backend / timeout) |
+| `4` | `ASK` — only when `TRUSTSHELL_LAYA` is set: a person has to answer. HAL was not called |
 
 ### `check` — ask GitHub what it can confirm, with no account
 
@@ -397,8 +400,20 @@ The MCP server's `check_claim` tool calls the same function, so a terminal, an a
 extension get the same label for the same sentence. Any operand with a URL scheme (or a bare
 `github.com/...`) still goes to the GitHub run check above, unchanged.
 
-It prints the label on its own line, then one line of explanation; `--json` prints the response
-object (`{label, latency_ms}`, plus `reason` when the label was decided locally).
+It prints the label on its own line, then one line of explanation. When the endpoint says what
+produced the label, the next line names it: who decided (for example `Groq and Cerebras both said
+false.`), `Decided by exact calculation. No model was asked.`, `No checker was asked.` or
+`No answer in time.` If the endpoint asked a clarifying question, it follows on its own line, and
+a last line says so when text that looked like a key or personal data was removed before sending.
+
+`--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters`, `deciders` and
+`question` when the endpoint sent them, `reason` when the label was decided locally, and
+`scrubbed: true` when something was removed.
+
+The endpoint itself answers `{label, latency_ms, by}`, plus `voters` and `deciders` when `by` is
+`votes`, and `question` only on a not-checked from the votes when the server has questions turned
+on (`CLASSIFY_QUESTIONS=on`; off by default). By default each visitor gets 100 checks per UTC day
+(`CLASSIFY_DAILY_LIMIT`); past that the endpoint answers 429, which the CLI reports as `not-checked`.
 
 | Label | Exit |
 |---|---|
@@ -430,6 +445,9 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
+| `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
+| `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
+| `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
 
 No command uploads your input anywhere other than the host named above.
 
@@ -473,8 +491,8 @@ Add `--json` to any command for machine-readable output. `verify` / `repid` / `p
 **keyless**; set `REPID_API_KEY` to attach a key and `TRUSTSHELL_API_URL` to point at another backend.
 Run `trustshell --help` for the full reference.
 
-> Three ways in, one trust layer: **SDK** (`import`) for code · **MCP**
-> (`@hyperdag/trustshell-mcp`) for AI agents · **CLI** (`trustshell`) for the terminal + CI.
+> Three ways in, one trust layer, one package: **SDK** (`import`) for code · **MCP**
+> (the `trustshell-mcp` bin) for AI agents · **CLI** (`trustshell`) for the terminal + CI.
 
 ---
 

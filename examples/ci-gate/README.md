@@ -31,12 +31,17 @@ That's it. Nothing to configure, no secret to add — `verify` is keyless.
 |---|---|---|
 | `0` | HAL `PASS` (or soft `FLAG`) | build proceeds |
 | `1` | HAL `VETO` — the claim did not pass | **build fails** |
-| `2` | usage / bad arguments | warning |
-| `3` | backend / network / timeout | warning, **not** counted as a veto* |
+| `2` | HAL did not decide (`NOT_CHECKED`), or usage / bad arguments | **build fails** — a miss is never a pass* |
+| `3` | backend / network / timeout | **build fails**, reported as an outage, not a veto* |
+| `4` | `ASK` — only when `TRUSTSHELL_LAYA` is set | **build fails** |
 
-\* A transient backend outage should not read as "your claim is false." The workflow treats
-exit `3` as a non-blocking infra warning by default; set `STRICT: '1'` in the workflow env to
-make infra errors fail the build too (fully fail-closed).
+\* Both are opt-outs in the workflow env, off by default. `NOT_CHECKED_WARN: '1'` turns exit `2`
+into a warning, which lets an unchecked claim through. `STRICT: '0'` turns exit `3` into a warning,
+so a transient outage does not stop the build.
+
+Before 2026-10-06 the header of `trust-gate.yml` said exit `3` was a warning by default. It never
+was: GitHub runs `shell: bash` with `-e`, so the first non-zero `verify` ended the step. The
+workflow now captures the code explicitly, and the defaults keep that fail-closed behaviour.
 
 ## Then: earn a verifiable badge
 

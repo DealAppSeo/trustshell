@@ -15,7 +15,7 @@ Three primitives: **RepID** (reputation), **HAL** (hallucination defense), **x40
 | **Node.js** | `>=18.0.0` | The CLI bin uses Node 18+ runtime features. |
 | **npm** | bundled with Node 18 | Yarn / pnpm should work but aren't tested. |
 | **Base Sepolia ETH** (testnet) | optional, only for on-chain writes | You **do not** need any ETH to (a) run HAL evaluation, (b) look up a RepID, or (c) read on-chain history. ETH is only needed if you plan to *write* reputation attestations yourself, which is rare for SDK consumers — most users let the engine handle on-chain writes. |
-| **An API key (free, testnet)** | *not* required for HAL | HAL scoring, RepID reads and proofs are keyless. A key is only needed for write paths (`executeA2A`, `register`). See §4. |
+| **An API key (free, testnet)** | *not* required for HAL | HAL scoring, RepID reads, proofs, service discovery and `register` are keyless. A key is needed to buy (`executeA2A`, and reading the contract after it). `register` returns a key for the agent it creates. See §4. |
 | **`curl` + `jq` (optional)** | nice-to-have | Used by the verification snippets below. |
 
 That's it. No Docker, no Postgres, no local services to stand up.
@@ -50,17 +50,15 @@ Verify the engine is live and the canonical ERC-8004 contracts are taking real t
 curl https://repid-engine-production.up.railway.app/api/v1/repid/32e0e809-c1c4-4405-913f-135c8a2d6626
 ```
 
-Expected response (RepID changes as the agent operates):
+Expected response (MEASURED 2026-10-06; the score changes as the agent operates):
 
 ```json
-{
-  "agent_id": "32e0e809-c1c4-4405-913f-135c8a2d6626",
-  "repid_score": 3120,
-  "tier": "ESTABLISHED",
-  "last_updated": "2026-05-24T15:39:03+00:00",
-  "source": "cached"
-}
+{ "score": 2202, "tier": "ESTABLISHED" }
 ```
+
+The path takes the agent UUID, its name or slug (`trinity-shofet`), or its ERC-8004 token id
+(`5863`). Add `?with=id` to get `agent_id` back as well. An id that matches no agent answers `200`
+with `{"score":"NOT_CHECKED","tier":"NOT_CHECKED"}` — not a 404, and never a 0.
 
 The full economic loop receipt (a real $0.10 USDC settlement → real on-chain reputation attestation):
 
@@ -75,8 +73,8 @@ Every `tx` field in the response is clickable on basescan:
 ### Step 2 — (Optional) Get a testnet API key
 
 **You do not need a key to start.** HAL evaluation (`score` / `verifyOutput` / `trustshell verify`),
-RepID reads and proof presentation are all **keyless** against the public engine. Skip to Step 3
-and come back here when you need a write path (`executeA2A`, `register`).
+RepID reads, proof presentation, service discovery and `register` are all **keyless** against the
+public engine. Skip to Step 3 and come back here when you need to buy (`executeA2A`).
 
 Keys are free for testnet and currently early-access.
 
@@ -129,21 +127,24 @@ If you'd rather verify a claim without writing code:
 No key required:
 
 ```bash
-trustshell verify "The Earth orbits the Sun."
+trustshell verify "The capital of France is Paris."
 ```
 
 ```text
 ✓ PASS  trust 100/100
   PASS — hal_score 0 via fact-check (full quorum)
   evidence:
-    - groq:TRUE (Scientific consensus supported by astronomical observations)
-    - cerebras:TRUE (Fundamental astronomical fact.)
-    - gemini:TRUE (The Earth revolves around the Sun.)
-    - mistral:TRUE (Heliocentric model confirmed by astronomy)
-    - openrouter:TRUE (Earth orbits the Sun, established scientific fact.)
+    - cerebras:TRUE (Paris is the capital of France.)
+    - groq:TRUE (Paris is the capital of France.)
+    - zai:UNCERTAIN (NOT_CHECKED: late after 2-family agreement)
 ```
 
-It exits `0` on PASS/FLAG and `1` on VETO, so it drops straight into CI:
+That output was recorded on 2026-10-05 (it is the README's sample). Which providers answer, and how
+many, changes with the live quorum.
+
+It exits `0` on PASS/FLAG, `1` on VETO, `2` when HAL did not decide (`NOT_CHECKED`, never a pass),
+`3` on a network or backend error, and `4` (`ASK`) only when `TRUSTSHELL_LAYA` is set and a person
+has to answer. So `|| exit 1` fails the build on anything but PASS or FLAG:
 
 ```bash
 trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || exit 1
@@ -180,23 +181,34 @@ Every option you can pass to `new TrustShell(...)` — this is the complete `Tru
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `apiKey` | `string` | `undefined` | Optional. Only the write paths (`executeA2A`, `register`) need one; HAL scoring, RepID reads and proofs are keyless. |
+| `apiKey` | `string` | `undefined` | Optional. The buy path (`executeA2A` and the contract reads after it) needs one. HAL scoring, RepID reads, proofs, service discovery and `register` are keyless. |
 | `apiUrl` | `string` | `'https://repid-engine-production.up.railway.app'` | Override for testing or a self-hosted engine. |
-| `timeout` | `number` | SDK default | Request timeout in milliseconds. |
+| `timeout` | `number` | `30000` | HAL request timeout in milliseconds. |
+| `healthCheck` | `boolean` | `true` | `init()` only. `false` skips the `/health` probe; `health` then reads not checked. |
+| `healthTimeoutMs` | `number` | `3000` | `init()` only. Deadline for the `/health` probe. |
+| `readAllowance` | function | `undefined` | The TrustKeys allowance reader, passed in. Unset, `getAllowance` stays fail-closed. |
 
-Environment variables:
+Environment variables the code in `src/` reads (`grep -rn 'env' src/`):
 
 | Env var | Read by | Description |
 |---|---|---|
-| `REPID_API_KEY` | CLI, MCP server | API key, when a write path needs one. |
-| `TRUSTSHELL_API_URL` | CLI, MCP server, SDK | Override the backend origin. |
+| `REPID_API_KEY` | CLI, MCP server | Optional API key, sent as `Authorization: Bearer` when set. No CLI command or MCP tool needs it. |
+| `TRUSTSHELL_API_URL` | SDK, CLI, MCP server | Override the backend origin. |
+| `GITHUB_TOKEN` | CLI `check <runUrl>` | Optional. Raises the GitHub rate limit; a rejected token is retried anonymously. |
+| `TRUSTSHELL_MEMORY` | CLI `remember` / `recall` / `redact`, MCP memory tools | Path of the local memory file. Default `~/.trustshell/memory.sqlite`. |
+| `TRUSTSHELL_MEMORY_ENCRYPT`, `TRUSTSHELL_MEMORY_KEY` | same | Opt-in encryption at rest for new notes. See [`api-reference.md`](./api-reference.md). |
+| `TRUSTSHELL_HOME` | SDK (`guardedX402Payment` audit log) | Directory for the local spend audit log. Default `~/.trustshell`. |
+| `TRUSTSHELL_LAYA` | CLI `verify` | `local` or `engine` runs a Laya lane before HAL, which can exit `2` (cheap lane, nothing sent to HAL) or `4` (ASK). Unset: straight to the HAL quorum. |
+| `OFFLINE` | CLI `status`, `bind-status`, `verify`; MCP `status` | `OFFLINE=1` skips the extra backend reads and reports them `NOT_CHECKED`. `verify` still calls HAL. |
 
-Those are the only two the code reads — verifiable with
-`grep -rn 'process.env' src/`.
+Two more are read by the CLI. `status` prints a true `can_stake` as `live` only when
+`SAYS_STAKE_LIVE` is exactly `true`; otherwise it reads `shadow — not live`. And the CLI removes the
+value of `GROQ_API_KEY` from anything it prints.
 
-There is **no config file and no `init` command.** Configuration is the constructor and those two
-environment variables; the contract addresses below are pinned in the SDK itself, not in a file
-you maintain:
+The SDK reads **no config file**. The CLI has an `init` command: it writes `.trustshell/profile.md`
+in your working directory, and only `report` reads that file (its `share_*` flags). The SDK pins the
+ReputationRegistry address (`REPUTATION_REGISTRY_BASE_SEPOLIA`) and chain id `84532` for x402
+signing. For reference:
 
 | | |
 |---|---|
@@ -220,7 +232,7 @@ try {
     log.warn('hal_veto', { reason: result.decisionReason, hal_score: result.halScore });
     return { ok: false, blocked: true };
   }
-  return { ok: true, repid: result.new_score, tier: result.tier };
+  return { ok: true, verdict: result.verdict, trustScore: result.trustScore };
 } catch (err: any) {
   // Network or non-2xx engine response.
   if (err.status === 401) throw new Error('REPID_API_KEY missing or invalid');
@@ -274,8 +286,7 @@ The public endpoints allow `trustrepid.dev`, `trustshell.dev`, `www.trustshell.d
 
 | Channel | When | Link |
 |---|---|---|
-| **GitHub Issues** | Bugs, surprising behavior, anything reproducible | [`DealAppSeo/trustshell/issues`](https://github.com/DealAppSeo/trustshell/issues) |
-| **GitHub Discussions** | Open-ended questions, design feedback, integration help | [`DealAppSeo/hyperdag-protocol/discussions`](https://github.com/DealAppSeo/hyperdag-protocol/discussions) |
+| **GitHub Issues** | Bugs, surprising behavior, anything reproducible — and questions, design feedback, integration help (Discussions are off on these repositories) | [`DealAppSeo/trustshell/issues`](https://github.com/DealAppSeo/trustshell/issues) |
 | **`/repid` governance** | Suggestions for the RepID algorithm itself (weights, signals, edge cases) | [trustshell.dev/repid](https://trustshell.dev/repid) — public suggestion form |
 | **Security disclosures** | Anything with potential attack surface (RepID gaming, HAL bypasses, on-chain) | Use GitHub Security Advisory on the affected repo |
 | **`SUPPORT.md`** | Quick reference for the above | [`docs/SUPPORT.md`](./SUPPORT.md) |
@@ -297,10 +308,10 @@ const reg = await client.register({ agentName: 'my-buyer', llmProvider: 'anthrop
 // (anonymous human variant: client.registerHuman() → { agentId, privateId, repId, tier };
 //  privateId is the human's only credential and is NOT stored server-side — save it now.)
 
-// Re-init with the key so the auth-gated marketplace calls are authorized.
+// Re-init with the key so the buy (POST /api/v1/contracts) and contract reads are authorized.
 const { client: buyer } = await TrustShell.init({ apiKey: reg.apiKey });
 
-// 2) Discover services. NOTE: /api/v1/services is auth-gated — this needs the key.
+// 2) Discover services. GET /api/v1/services is a public read — this step needs no key.
 const catalog = await buyer.listServices({ type: 'verification' });
 //   → { services: [{ id, providerAgentId, serviceType, serviceName, basePriceUsdcRaw, ... }],
 //       count, priceRangeUsdcRaw: { min, max } }
@@ -337,9 +348,12 @@ const final = await buyer.pollUntilSettled(a2a.contractId, { intervalMs: 3000, t
 const proof = await buyer.presentProof(reg.agentId);
 ```
 
-**Auth model (verified 2026-07-06):** `init`, `getRepID`/`verify`, `presentProof`, and `score`/
-`verifyOutput` are public reads. `register` (POST) is public. But `listServices`/`getService`
-(`GET /api/v1/services`) and `executeA2A` (`POST /api/v1/contracts`) are **auth-gated** — they `401`
+**Auth model (verified 2026-10-06 against repid-engine `src/middleware/auth.ts` and the live
+engine):** `init`, `getRepID`/`verify`, `presentProof`, and `score`/`verifyOutput` are public reads.
+`register` (`POST /api/v1/agents/register`) is public. `listServices`/`getService`
+(`GET /api/v1/services`, `GET /api/v1/services/:id`) are public reads too; only creating, repricing
+or deleting a listing needs a key. `executeA2A` (`POST /api/v1/contracts`, then `/escrow`) and
+`getContractStatus`/`pollUntilSettled` (`GET /api/v1/contracts/:id`) are **auth-gated** — they `401`
 without a `REPID_API_KEY`. The full paid buy additionally needs a funded Base Sepolia wallet for the
 x402 escrow leg.
 

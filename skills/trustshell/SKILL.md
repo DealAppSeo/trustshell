@@ -43,7 +43,7 @@ trustshell redact KEY
 
 After an agent is created, run `trustshell status`. It prints the after-create cells, including `can_verify`, and one Honesty A line. Report that stdout. `NOT_CHECKED` is not a pass.
 
-- `trustshell verify "<claim>"` exits 0 on PASS or FLAG and 1 on VETO. Report the verdict, trust score, and evidence the CLI printed.
+- `trustshell verify "<claim>"` exits 0 on PASS or FLAG, 1 on VETO, 2 when HAL did not decide (NOT_CHECKED, never a pass), 3 on a network or backend error, and 4 (ASK) only when `TRUSTSHELL_LAYA` is set and a person has to answer. Report the verdict, trust score, and evidence the CLI printed.
 - `trustshell repid <id>` prints the live score and tier. The number moves. Do not treat an example score as the current value.
 - `trustshell proof <id> --verify` fetches the proof and verifies it with the bundled verifier. Report the CLI result.
 
@@ -57,17 +57,18 @@ When the user wants tools instead of a one-shot shell, the stdio server is the l
 
 Do not wrap that bin in `npx`. Do not add a second MCP package.
 
-## Chat first
+## On trustshell.dev
 
-On `/`, start in the chat the person already uses. The button is `Check a claim in the chat you already use`. It opens one MCP paste for Claude, ChatGPT, Grok, and Cursor. That paste is the block above. It has no npm install line.
+The homepage opens on a live check. Under `Try to trick it` are three sample claims, two wrong and one right, and a box for pasting something an AI said. Nothing is sent on load.
 
-`I have a terminal` is the other path. It shows four commands, and `trustshell status` is on its own line:
+A button under it, `Add it to the AI you already use`, jumps to three ways in:
+
+- In Chrome: the extension stamps replies on ChatGPT, Claude, Gemini, Grok and DeepSeek.
+- In Claude Desktop, Cursor or Claude Code: an MCP paste. It runs `trustshell-mcp` from `@hyperdag/trustshell@1.6.0` through `npx -y -p`, for someone without the global install. With the prerequisite above, use the block under MCP instead. The ChatGPT and Grok apps do not load MCP servers yet; on their websites the Chrome extension stamps replies.
+- In your terminal: one `check` of a sample sentence through `npx`. It exits 0 when it checks out, 1 when caught, 2 when not checked. To keep it installed:
 
 ```bash
 npm i -g @hyperdag/trustshell@1.6.0
-trustshell verify "The capital of France is Paris."
-trustshell verify "The Eiffel Tower is located in Rome, Italy."
-trustshell status
 ```
 
 ## Limits
