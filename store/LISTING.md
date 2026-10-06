@@ -52,6 +52,8 @@ The reply text is sent to our checkers, Groq and Cerebras, after the reply is on
 
 On any other page, select text and choose Check with TrustShell. That selection is sent to the same checkers, and only after that click. The label appears in a small toast.
 
+On the Options page, choose which chat sites it checks, and whether it checks each reply automatically or only when you click Check this reply. It keeps a record of your last 20 stamps in this browser, the stamp, the site and the time, never the text, which you can download or clear.
+
 In the popup, type an agent id to see its RepID and a proof checked in your browser. That id is sent to the same engine.
 
 The extension does not click, type, or send the chat.
@@ -90,7 +92,7 @@ Stamps the last AI assistant reply on supported chat sites, or text the user sel
 
 ### Permission justification
 
-- **storage**: Keeps the extension's own settings from its Options page in local extension storage on this device. Nothing in storage is sent anywhere.
+- **storage**: Keeps the Options page choices (which chat sites it checks, automatically or on click) and a record of the last 20 stamps (the stamp, the site and the time, never the text) in local extension storage on this device. Nothing in storage is sent anywhere.
 - **contextMenus**: Adds one right-click item, Check with TrustShell, shown only when text is selected.
 - **activeTab**: When the user picks Check with TrustShell, gives access to that one tab so the result can be shown there. No tab is touched without that click.
 - **scripting**: After that click, adds a small toast to the same tab that says Checks out, Caught, or Not checked. Used only together with activeTab, and only after the click.
@@ -106,7 +108,7 @@ Stamps the last AI assistant reply on supported chat sites, or text the user sel
 Tick:
 
 - **Website content**: the reply text, or the text the user selected, is sent to the checking service.
-- **Authentication information**: a key typed on the Options page is kept in local extension storage on this device. The store asks for local-only data too. The extension never sends it.
+- **Web history**: the Options page record keeps the last 20 stamps with the chat site and the time, never the text. It stays in local extension storage on this device, and the extension never sends it. The store asks for local-only data too.
 
 Leave every other box empty. Then tick all three statements: the data is not sold to third parties; it is not used or transferred for purposes unrelated to the single purpose; and it is not used to determine creditworthiness or for lending.
 

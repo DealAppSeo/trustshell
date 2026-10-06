@@ -1,16 +1,53 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Route</title>
+  <title>Your TrustShell</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; max-width: 560px; color: #111827; background: #fff; }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    h2 { font-size: 15px; margin: 20px 0 6px; }
+    p { margin: 0 0 8px; }
+    label { display: block; margin: 4px 0; }
+    .note { color: #4b5563; font-size: 13px; }
+    ol { margin: 6px 0 10px; padding-left: 22px; }
+    li { margin: 2px 0; }
+    button { margin-right: 8px; }
+  </style>
 </head>
 <body>
-  <p>My model: the check still runs. <input type="radio" name="route" value="my model" checked></p>
-  <p>Cheap first: open-source hosts first, their model only checks. <input type="radio" name="route" value="cheap first"></p>
-  <p><input type="password" name="key" autocomplete="off"></p>
-  <p id="key-note"></p>
-  <button type="button" id="save-key">Save</button>
-  <script src="route.js"></script>
+  <h1>Your TrustShell</h1>
+  <p id="options-privacy" class="note">Your choices and your record stay in this browser. The extension never sends them.</p>
+
+  <section aria-labelledby="where">
+    <h2 id="where">Where it checks</h2>
+    <label><input type="checkbox" name="site" value="chatgpt"> ChatGPT</label>
+    <label><input type="checkbox" name="site" value="claude"> Claude</label>
+    <label><input type="checkbox" name="site" value="gemini"> Gemini</label>
+    <label><input type="checkbox" name="site" value="grok"> Grok</label>
+    <label><input type="checkbox" name="site" value="deepseek"> DeepSeek</label>
+    <p class="note">A site that is off sends nothing and shows no stamp.</p>
+  </section>
+
+  <section aria-labelledby="when">
+    <h2 id="when">When it checks</h2>
+    <label><input type="radio" name="mode" value="auto"> Automatically, after each reply</label>
+    <label><input type="radio" name="mode" value="click"> Only when I click Check this reply</label>
+    <p class="note">Only when I click: nothing is sent until you click Check this reply under the reply.</p>
+  </section>
+
+  <section aria-labelledby="record">
+    <h2 id="record">Your record</h2>
+    <p class="note">Your last 20 stamps on chat sites: the stamp, the site and the time. Never the text.</p>
+    <p id="record-counts" aria-live="polite"></p>
+    <p id="record-last" aria-live="polite"></p>
+    <ol id="record-recent"></ol>
+    <button type="button" id="record-download">Download</button>
+    <button type="button" id="record-clear">Clear</button>
+  </section>
+
+  <script src="settings.js"></script>
+  <script src="classify.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

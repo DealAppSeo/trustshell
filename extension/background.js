@@ -1,35 +1,19 @@
 'use strict';
 
-importScripts('route.js', 'verify.js', 'popup.js', 'scrub.js', 'laya.js', 'classify.js', 'select.js');
+importScripts('settings.js', 'scrub.js', 'laya.js', 'classify.js', 'select.js');
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || message.type !== 'trustshell-verify') return;
-  const api = globalThis.trustshellVerify;
-  const popup = globalThis.trustshellPopup;
-  function shown(word) {
-    const line = popup && typeof popup.popupLine === 'function' ? popup.popupLine(word) : 'not-checked';
-    const write = chrome.storage && chrome.storage.local && chrome.storage.local.set;
-    if (write) write({ popupLine: line });
-    return line;
-  }
-  if (!api || typeof api.verifyLastReply !== 'function') {
-    sendResponse({ stamp: shown('not-checked') });
-    return;
-  }
-  const read = chrome.storage && chrome.storage.local && chrome.storage.local.get;
-  const routeApi = globalThis.trustshellRoute;
-  const storageKey = routeApi && routeApi.STORAGE_KEY ? routeApi.STORAGE_KEY : 'route';
-  const keyName = routeApi && routeApi.KEY_STORAGE ? routeApi.KEY_STORAGE : 'hostKey';
-  const storedSetting = read
-    ? new Promise((resolve) => chrome.storage.local.get([storageKey, keyName], (stored) => {
-      const setting = stored && stored[storageKey];
-      const key = stored && typeof stored[keyName] === 'string' ? stored[keyName] : '';
-      resolve({ setting, key });
-    }))
-    : Promise.resolve({ setting: undefined, key: '' });
-  storedSetting.then((saved) => api.verifyLastReply(message.text, { setting: saved && saved.setting, key: saved && saved.key })).then(
-    (word) => sendResponse({ stamp: shown(word) }),
-    () => sendResponse({ stamp: shown('not-checked') }),
-  );
-  return true;
+/**
+ * The record on the Options page (Your TrustShell). A chat-site tab reports a stamp it painted:
+ * the label, how it was reached and who decided. The site is read from that tab's own URL, never
+ * from the message, and the message carries no text. This is the one writer, so two tabs stamping
+ * at once cannot overwrite each other's entry.
+ */
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (!message || message.type !== 'trustshell-record') return;
+  if (!sender || sender.id !== chrome.runtime.id) return;
+  const api = globalThis.trustshellSettings;
+  const local = chrome.storage && chrome.storage.local;
+  if (!api || !local) return;
+  const entry = api.recordEntry(message, sender.url || (sender.tab && sender.tab.url), Date.now());
+  if (entry) api.addToRecord(local, entry);
 });

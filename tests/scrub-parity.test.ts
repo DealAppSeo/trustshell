@@ -15,9 +15,6 @@ type FetchInit = { body?: string };
 type Laya = {
   callLaya: (text: unknown, options?: Record<string, unknown>) => Promise<{ label: string }>;
 };
-type Verify = {
-  verifyLastReply: (text: unknown, options?: Record<string, unknown>) => Promise<string>;
-};
 
 const scrubJs = require('../extension/scrub.js') as Scrub;
 
@@ -74,26 +71,6 @@ describe('extension laya door sends only scrubbed text', () => {
   });
 });
 
-describe('extension verify door sends only scrubbed text', () => {
-  const verify = require('../extension/verify.js') as Verify;
-
-  it('no sensitive value reaches the request body', async () => {
-    const { bodies, fetchImpl } = recordingFetch();
-    await verify.verifyLastReply(`Paris is the capital of France. ${MIXED}`, { baseUrl: 'http://localhost:9', fetchImpl });
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const sent = JSON.parse(bodies[0]!).text as string;
-    for (const row of SENSITIVE) expect(sent).not.toContain(row.secret);
-    expect(sent).toContain('Paris is the capital of France.');
-  });
-
-  it('a reply that is only secrets sends nothing and is not checked', async () => {
-    const { fetchImpl } = recordingFetch();
-    const out = await verify.verifyLastReply(SENSITIVE[0]!.secret, { baseUrl: 'http://localhost:9', fetchImpl });
-    expect(out).toBe('not-checked');
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-});
-
 describe('a missing scrubber fails closed: nothing is sent', () => {
   const g = globalThis as { trustshellScrub?: unknown };
   let saved: unknown;
@@ -114,7 +91,7 @@ describe('a missing scrubber fails closed: nothing is sent', () => {
       });
       mod = require(path) as T;
     });
-    // Loading laya.js or verify.js must not have pulled the real scrubber in through a side door.
+    // Loading laya.js must not have pulled the real scrubber in through a side door.
     delete g.trustshellScrub;
     return mod!;
   }
@@ -124,14 +101,6 @@ describe('a missing scrubber fails closed: nothing is sent', () => {
     const { fetchImpl } = recordingFetch();
     const out = await laya.callLaya('Paris is the capital of France.', { modelUrl: 'http://localhost:8080/classify', fetchImpl });
     expect(out.label).toBe('not-checked');
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('verify', async () => {
-    const verify = loadWithoutScrub<Verify>('../extension/verify.js');
-    const { fetchImpl } = recordingFetch();
-    const out = await verify.verifyLastReply('Paris is the capital of France.', { baseUrl: 'http://localhost:9', fetchImpl });
-    expect(out).toBe('not-checked');
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

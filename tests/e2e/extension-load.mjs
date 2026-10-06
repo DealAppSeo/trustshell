@@ -19,6 +19,8 @@
  *      to cooperate on: laya.js makes the call, classify.js returns it and owns the words, the host
  *      script paints it, toast.js adds the catch line. If any of them failed to load, the stamp
  *      reads Not checked or never appears.
+ *   f. Your TrustShell: the record holds every host's stamp and no text, the Options page shows it
+ *      live, a chat site switched off sends nothing, and Only when I click sends only on the click
  *   d. the other states on chatgpt, in real Chromium: a 500 whose body says pass paints Not checked;
  *      while the call is held the stamp says Checking with a pulsing dot that stops under
  *      prefers-reduced-motion; past 2.5 s it says why the wait is worth it; a call held past the
@@ -48,7 +50,7 @@ const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify
 const CAUGHT = 'Caught\nChecked and found false.';
 const CHECKING = 'Checking with Groq and Cerebras';
 const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
-const SW_GLOBALS = ['trustshellRoute', 'trustshellVerify', 'trustshellPopup', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
+const SW_GLOBALS = ['trustshellSettings', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
 
 /**
@@ -503,6 +505,122 @@ try {
     }
     replyOverride = null;
     await page.close();
+  }
+
+  // ---- f. Your TrustShell: the Options page, where it checks, when, and the record ------------
+  // Settings are written the way the Options page writes them (chrome.storage.local), from the
+  // service worker. Every stamp painted above is already in the record, so it is checked first.
+  if (sw) {
+    const extId = new URL(sw.url()).host;
+    const setSettings = (value) => sw.evaluate((v) => new Promise((done) => {
+      if (v === null) chrome.storage.local.remove('settings', () => done(true));
+      else chrome.storage.local.set({ settings: v }, () => done(true));
+    }), value);
+    const getRecord = () => sw.evaluate(() => new Promise((done) => chrome.storage.local.get(['record'], (v) => done(v.record || null))));
+    const ALL_ON = { chatgpt: true, claude: true, gemini: true, grok: true, deepseek: true };
+
+    const rec = await poll(async () => {
+      const r = await getRecord();
+      return r && r.counts && r.counts.veto >= 5 ? r : null;
+    }, 5000);
+    const sites = new Set(((rec && rec.recent) || []).map((e) => e.site));
+    check('the record holds the stamps painted on each chat site, from each tab\'s own URL',
+      Boolean(rec) && ['chatgpt', 'claude', 'gemini', 'grok', 'deepseek'].every((x) => sites.has(x)),
+      rec ? `counts=${JSON.stringify(rec.counts)} sites=${[...sites].join(',')}` : 'no record in storage');
+    const stored = JSON.stringify(rec || {});
+    check('the record holds no reply text', !/Two plus two|Moon|cheese|Sun orbits|example\.com/.test(stored), `${stored.length} bytes`);
+
+    // The Options page, opened the way the popup link opens it.
+    const options = await context.newPage();
+    const optionErrors = [];
+    options.on('pageerror', (err) => optionErrors.push(String(err && err.message)));
+    try {
+      await options.goto(`chrome-extension://${extId}/options.html`, { waitUntil: 'load', timeout: 15000 });
+      const view = await poll(() => options.evaluate(() => {
+        const last = document.getElementById('record-last');
+        const items = document.querySelectorAll('#record-recent li').length;
+        return last && last.textContent && items > 0
+          ? {
+              last: last.textContent,
+              items,
+              counts: document.getElementById('record-counts').textContent,
+              boxes: [...document.querySelectorAll('input[name="site"]')].filter((b) => b.checked).length,
+              auto: document.querySelector('input[name="mode"][value="auto"]').checked,
+              key: Boolean(document.querySelector('input[type="password"], input[name="key"], input[name="route"]')),
+            }
+          : null;
+      }), 5000);
+      check('Options page: the record, every site on, automatically, and no key or route box',
+        Boolean(view) && /^Last stamp: /.test(view.last) && view.boxes === 5 && view.auto && !view.key && optionErrors.length === 0,
+        view ? `${view.counts} | ${view.last} | ${view.items} rows` : `not rendered; errors: ${optionErrors.join('; ')}`);
+
+      // Live: a stamp painted in another tab appears here without a reload, with who decided.
+      classifyMode = 'votes';
+      replyOverride = () => '<div data-message-author-role="assistant"><p>Paris is the capital of Spain.</p></div>';
+      const tab = await context.newPage();
+      await tab.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const live = await poll(() => options.evaluate(() => {
+        const t = document.getElementById('record-last').textContent || '';
+        return t.includes('Groq and Cerebras both said false.') ? t : null;
+      }), 10000);
+      check('Options page: a stamp in another tab shows here live, with who decided',
+        Boolean(live), JSON.stringify(live));
+      await tab.close();
+    } catch (err) {
+      record('Options page: the record, every site on, automatically, and no key or route box', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
+    classifyMode = 'veto';
+
+    // Where it checks: chatgpt switched off sends nothing and shows no stamp.
+    {
+      await setSettings({ sites: { ...ALL_ON, chatgpt: false }, mode: 'auto' });
+      const before = classifyCalls.length;
+      const page = await context.newPage();
+      try {
+        await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+        await new Promise((r) => setTimeout(r, 3000));
+        const stamp = await page.evaluate(() => Boolean(document.getElementById('trustshell-stamp')));
+        check('a chat site switched off sends nothing and shows no stamp',
+          !stamp && classifyCalls.length === before, `stamp=${stamp} classify calls=${classifyCalls.length - before}`);
+      } catch (err) {
+        record('a chat site switched off sends nothing and shows no stamp', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+      }
+      await page.close();
+    }
+
+    // When it checks: Only when I click offers the reply, sends nothing, then checks on the click.
+    // On every host: grok's own draw once bypassed the path that honours this.
+    await setSettings({ sites: ALL_ON, mode: 'click' });
+    for (const host of HOSTS) {
+      replyOverride = (h) => h.reply.replace('Two plus two is five.', `Two plus two is five, said ${h.name}.`);
+      const before = classifyCalls.length;
+      const page = await context.newPage();
+      try {
+        await page.goto(host.url, { waitUntil: 'load', timeout: 15000 });
+        const offered = await poll(() => page.evaluate(() => {
+          const s = document.getElementById('trustshell-stamp');
+          return s && s.textContent === 'Check this reply' ? s.getAttribute('role') : null;
+        }), 8000);
+        await new Promise((r) => setTimeout(r, 1500));
+        check(`${host.name}: Only when I click offers Check this reply, as a button, and sends nothing`,
+          offered === 'button' && classifyCalls.length === before, `role=${offered} classify calls=${classifyCalls.length - before}`);
+        await page.click('#trustshell-stamp');
+        const after = await poll(() => page.evaluate(() => {
+          const s = document.getElementById('trustshell-stamp');
+          return s && s.dataset.stamp === 'veto' ? s.textContent : null;
+        }), 10000);
+        check(`${host.name}: Only when I click sends the reply once, on the click, and the stamp reads Caught`,
+          after === CAUGHT && classifyCalls.length === before + 1, `${JSON.stringify(after)} classify calls=${classifyCalls.length - before}`);
+      } catch (err) {
+        record(`${host.name}: Only when I click offers Check this reply, as a button, and sends nothing`, 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+      }
+      replyOverride = null;
+      await page.close();
+    }
+    await setSettings(null);
+  } else {
+    record('Your TrustShell: Options page, site switch, click mode', 'NOT_CHECKED', 'no service worker');
   }
 } finally {
   if (context) await context.close().catch(() => {});

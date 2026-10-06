@@ -26,6 +26,19 @@
   user-select: none;
 }
 
+/* Only when I click: the stamp is the button that sends the reply. */
+.ts-stamp[data-stamp="ask"] {
+  color: #1e3a8a;
+  border-color: #93c5fd;
+  background: #eff6ff;
+  cursor: pointer;
+}
+
+.ts-stamp[data-stamp="ask"]:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .ts-stamp[data-stamp="checking"] {
   color: #4b5563;
   border-color: #d1d5db;

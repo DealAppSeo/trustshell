@@ -47,7 +47,7 @@ function readText(node) {
 /** The classifier decides. A timeout or a miss is not-checked, never 0. checking is the call in flight. */
 function shownStamp(word) {
   if (word === 0 || word === '0') return 'not-checked';
-  return word === 'pass' || word === 'veto' || word === 'checking' ? word : 'not-checked';
+  return word === 'pass' || word === 'veto' || word === 'checking' || word === 'ask' ? word : 'not-checked';
 }
 
 /** classify.js owns the words. If it did not load, nothing was checked, whatever word arrived. */
@@ -64,13 +64,22 @@ function paint(element, word) {
   return shown;
 }
 
+/** Options that change the call itself. Without any, this is the browser path: classify.js's own. */
+const CALL_OPTIONS = ['fetchImpl', 'baseUrl', 'endpoint', 'timeoutMs'];
+
 async function ask(text, options) {
   if (typeof text !== 'string' || text.trim().length === 0) return { label: 'not-checked', latency_ms: 0 };
-  const row = await classifyReply(text, options);
+  // The page's draw passes where to paint (element, doc, current), not how to call. Those must not
+  // reach classify.js as call options: with none, the call takes the browser path every other host
+  // takes, the one that honours Only when I click and reports the stamp to the record.
+  const opts = options || {};
+  const call = CALL_OPTIONS.some((k) => Object.prototype.hasOwnProperty.call(opts, k)) ? opts : undefined;
+  const row = await classifyReply(text, call);
   const label = row && row.label;
   const known = label === 'pass' || label === 'veto' || label === 'not-checked';
+  // ask is Check this reply (Only when I click): nothing was sent, and the stamp says so.
   const out = {
-    label: known ? label : 'not-checked',
+    label: known || label === 'ask' ? label : 'not-checked',
     latency_ms: row && typeof row.latency_ms === 'number' ? row.latency_ms : 0,
   };
   // What produced the label (the line under the stamp) rides only with a label the endpoint sent.
@@ -121,6 +130,8 @@ function ensureStamp(doc, after) {
 function install(doc) {
   let pending = '';
   let painted = '';
+  // The text whose stamp reads Check this reply (Only when I click).
+  let offered = '';
 
   async function draw() {
     const node = lastAssistant(doc);
@@ -134,15 +145,22 @@ function install(doc) {
       if (api && typeof api.showCheckLine === 'function') api.showCheckLine(doc, stamp, '');
       return;
     }
+    const cls = classifyApi();
+    const known = cls && typeof cls.knownRow === 'function' ? cls.knownRow(text) : null;
+    const asking = Boolean(known && known.label === 'ask');
+    // Clicked: the reply that was offered is no longer offered, so draw it again and send it.
+    if (offered === text && !asking) offered = painted = pending = '';
     if (text === painted || text === pending) return;
     pending = text;
-    // The call is out: say so, rather than leave the reply unmarked while it runs.
-    paint(stamp, 'checking');
+    // The call is out: say so, rather than leave the reply unmarked while it runs. A reply that
+    // will only be offered (Check this reply) sends nothing, so it is never shown as Checking.
+    if (!asking) paint(stamp, 'checking');
     const api = classifyApi();
     if (api && typeof api.showCheckLine === 'function') api.showCheckLine(doc, stamp, '');
-    await stampText(text, { element: stamp, doc: doc, current: () => pending === text });
+    const shown = await stampText(text, { element: stamp, doc: doc, current: () => pending === text });
     if (pending !== text) return;
     painted = text;
+    offered = shown === 'ask' ? text : '';
   }
 
   function schedule() {

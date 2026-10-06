@@ -160,7 +160,8 @@ function deepseekReply(doc, options) {
   return classifyReply(text, options).then(function (row) {
     var api = classifyApi();
     var label = row && row.label;
-    var stamp = label === 'pass' || label === 'veto' || label === 'not-checked' ? label : 'not-checked';
+    // ask is Check this reply (Only when I click): nothing was sent, and the stamp says so.
+    var stamp = label === 'pass' || label === 'veto' || label === 'not-checked' || label === 'ask' ? label : 'not-checked';
     var line = api && typeof api.lineFor === 'function' ? api.lineFor(row) : '';
     return { text: text, stamp: stamp, node: node, line: line };
   });

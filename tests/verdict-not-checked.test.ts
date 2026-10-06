@@ -94,16 +94,6 @@ describe('a veto nobody voted for is not a veto', () => {
     expect(code).toBe(EXIT.NOT_CHECKED);
     expect(out.join('\n')).not.toMatch(/VETO/);
   });
-
-  it('the extension verify door agrees', async () => {
-    const verify = require('../extension/verify.js') as {
-      verifyLastReply: (text: string, options: Record<string, unknown>) => Promise<string>;
-    };
-    const fetchImpl = async () => ({ status: 200, json: async () => ({ decision: 'vetoed', provider_responses: uncertain(3) }) });
-    expect(await verify.verifyLastReply('a claim', { baseUrl: 'http://localhost:9', fetchImpl })).toBe('not-checked');
-    const voted = async () => ({ status: 200, json: async () => ({ decision: 'vetoed', provider_responses: [{ verdict: 'FALSE' }] }) });
-    expect(await verify.verifyLastReply('a claim', { baseUrl: 'http://localhost:9', fetchImpl: voted })).toBe('veto');
-  });
 });
 
 describe('score() and verifyOutput() on an answer that is not a decision', () => {
