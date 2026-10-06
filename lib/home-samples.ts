@@ -15,8 +15,10 @@ import type { CheckSample } from './check-sample';
  * each sentence is one the checkers can settle from what they know, and each was measured first.
  *
  * MEASURED 2026-10-06 against production POST /api/v1/classify as it was configured that day, five
- * times each, at least a minute apart. A card is on the page only if the same label came back every
- * time, and its `why` names that label:
+ * times each, the sentences taken in turn one call every 20 seconds. Every call is recorded, exactly
+ * as it came back, in docs/measurements/home-cards-2026-10-06.md (CARD_RUNS below), with the command
+ * to run it again. A card is on the page only if the same label came back every time, and its `why`
+ * names that label:
  *   before you pay      veto x5
  *   before you cite it  pass x5   (groq and cerebras decided every time)
  *   before you run it   veto x5
