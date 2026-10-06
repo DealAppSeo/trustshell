@@ -15,9 +15,12 @@ in three lines, against the **live** repid-engine. The read paths below need **n
 npm install @hyperdag/trustshell
 ```
 
-The SDK ships a **dependency diet**: the published tarball is 6 files (the `dist/` SDK
-output only). `npm install` pulls just `@hyperdag/proof-verifier` + `ethers` — no Next.js,
-React, or Supabase tree. That is why install lands in single-digit seconds.
+The package leaves the site out: the 1.6.0 tarball is 91 files (`dist/`, the command shims in
+`bin/`, two scripts, `lib/interview.js`, and the README, changelog and license). `npm install`
+pulls `@hyperdag/proof-verifier`, `@modelcontextprotocol/sdk` and `zod` — no Next.js, React, or
+Supabase tree. `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only to
+sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.6.0 dependencies
+peerDependencies dist.fileCount`; on 2026-10-06 a clean install added 96 packages in 5 s.)
 
 ## 2. Verify an agent output (no key required)
 
@@ -44,7 +47,8 @@ node quickstart.mjs
 A runnable copy is in this folder: **[`quickstart.mjs`](./quickstart.mjs)** — it verifies both a
 truthful and a false claim, looks up `trinity-shofet`, and prints the wall-clock time to the first
 verified call. From this repository the file imports `../../dist/lib/index.js` so
-`node examples/quickstart/quickstart.mjs` exercises 1.4.0 without publishing. After
+`node examples/quickstart/quickstart.mjs` exercises the build committed in this checkout
+(`package.json` 1.6.0) without installing from npm. After
 `npm install @hyperdag/trustshell` in *your* project, use the named import in the README.
 
 **Import note:** use the **named** import `import { TrustShell }`. It resolves cleanly from both

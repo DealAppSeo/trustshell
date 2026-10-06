@@ -5,9 +5,15 @@
 # no account: the verify path is keyless against the live HyperDAG backend.
 #
 # What it does: runs each claim through `trustshell verify` (a real cross-provider
-# HAL quorum). Exit 0 = PASS/FLAG, exit 1 = VETO (fails the build), exit 3 =
-# backend/network (a warning, NOT counted as a veto — a transient outage should
-# not read as "your claim is false"; set STRICT=1 to make infra errors block too).
+# HAL quorum). Exit 0 = PASS/FLAG. Exit 1 = VETO (fails the build). Exit 2 = HAL
+# did not decide (NOT_CHECKED) or a usage error: fails the build too, because a
+# miss is never a pass. Exit 3 = backend/network: also fails by default (STRICT=1);
+# it is reported as an outage, not as "your claim is false". Any other code
+# (4 = ASK, only with TRUSTSHELL_LAYA set) fails the build.
+#
+# GitHub runs `shell: bash` with `-e`, so the exit code is captured with
+# `if …; then …; else code=$?; fi`. A bare `npx …; code=$?` would end the step at
+# the first non-zero exit and never reach the branches below.
 name: Trust Gate (HAL)
 
 on:
@@ -27,34 +33,51 @@ jobs:
       - name: Fail the build if HAL vetoes a claim
         shell: bash
         env:
-          STRICT: '0'   # set to '1' to also fail on backend/network errors (exit 3)
+          STRICT: '1'   # exit 3 (backend/network) fails the build. '0' makes it a warning instead.
+          # Opt-in, OFF by default. Uncomment to report exit 2 (NOT_CHECKED: HAL did not
+          # decide) as a warning instead of failing. That lets an unchecked claim through.
+          # NOT_CHECKED_WARN: '1'
         run: |
           claims_file="TRUST_CLAIMS.txt"
           if [ ! -f "$claims_file" ]; then
             echo "No $claims_file at repo root — nothing to gate."
             exit 0
           fi
-          vetoed=0
+          blocked=0
           while IFS= read -r line || [ -n "$line" ]; do
             trimmed="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
             [ -z "$trimmed" ] && continue          # skip blank lines
             case "$trimmed" in \#*) continue ;; esac # skip # comments
             echo "::group::verify: $trimmed"
-            npx -y @hyperdag/trustshell@latest verify "$trimmed"
-            code=$?
+            if npx -y @hyperdag/trustshell@latest verify "$trimmed"; then code=0; else code=$?; fi
             echo "::endgroup::"
             if [ "$code" -eq 0 ]; then
               echo "PASS: $trimmed"
             elif [ "$code" -eq 1 ]; then
               echo "::error::HAL VETOED (claim did not pass): $trimmed"
-              vetoed=$((vetoed + 1))
+              blocked=$((blocked + 1))
+            elif [ "$code" -eq 2 ]; then
+              # NOT_CHECKED (or a usage error). A miss is never a pass, so it blocks by default.
+              if [ "${NOT_CHECKED_WARN:-0}" = "1" ]; then
+                echo "::warning::NOT CHECKED (exit 2), let through because NOT_CHECKED_WARN=1: $trimmed"
+              else
+                echo "::error::NOT CHECKED (exit 2): HAL did not decide, so this claim did not pass: $trimmed"
+                blocked=$((blocked + 1))
+              fi
+            elif [ "$code" -eq 3 ]; then
+              if [ "${STRICT:-1}" = "0" ]; then
+                echo "::warning::verify exit 3 for: $trimmed — backend/network issue, let through because STRICT=0."
+              else
+                echo "::error::verify exit 3 for: $trimmed — backend/network issue. Not a veto, and not a pass."
+                blocked=$((blocked + 1))
+              fi
             else
-              echo "::warning::verify exit $code for: $trimmed — backend/usage issue, not counted as a veto (set STRICT=1 to block)."
-              [ "${STRICT}" = "1" ] && vetoed=$((vetoed + 1))
+              echo "::error::verify exit $code for: $trimmed — not a pass."
+              blocked=$((blocked + 1))
             fi
           done < "$claims_file"
-          if [ "$vetoed" -gt 0 ]; then
-            echo "$vetoed claim(s) failed the trust gate — not shipping."
+          if [ "$blocked" -gt 0 ]; then
+            echo "$blocked claim(s) failed the trust gate — not shipping."
             exit 1
           fi
           echo "All claims passed the HAL trust gate."

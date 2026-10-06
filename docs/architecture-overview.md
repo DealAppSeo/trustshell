@@ -27,8 +27,15 @@ dissonance > block_threshold → BLOCK    (−RepID)
 
 Thresholds are runtime-tunable (engine `repid_config`); operators retune against live traffic without a
 redeploy. The score is computed only over providers that actually responded; a minimum-quorum gate means
-a single surviving provider cannot fire a veto on its own (degraded → defaults to clean, surfaced for
-review). False-clean-when-degraded is preferred over false-veto; downstream dispute + filters govern.
+a single surviving provider cannot fire a veto on its own: the engine downgrades that would-be veto to
+`clean` and says why in `quorum_note`.
+
+The SDK does not turn a missing check into a pass. When the engine reports `degraded_mode` (the
+fact-check quorum was unavailable and it fell back to the style extractor), an extractor mode, an
+`abstain`, or provider answers that are all UNCERTAIN or ERROR, `verifyOutput()` returns
+`NOT_CHECKED`, with `ok: false` and trust score 0 (`verdictFromHal`, `src/lib/trustshell.ts`). A
+low-quorum `clean` where one provider did answer is still reported as `PASS`, so read
+`providersUsed` and `decisionReason` before relying on it.
 
 ## The economic loop
 

@@ -5,7 +5,7 @@
 ## Where to get help
 
 ### General questions
-- GitHub Discussions: https://github.com/DealAppSeo/trustshell/discussions
+- GitHub Issues: https://github.com/DealAppSeo/trustshell/issues (Discussions are off on this repository)
 - Backup: LinkedIn DM — https://linkedin.com/in/privatemoney
 
 ### Bug reports
@@ -20,7 +20,7 @@
 - **Please do not post exploit details in public issues.** Responsible disclosure only.
 
 ### API key requests
-- See [Getting Started → Get an API key](./getting-started.md#4-get-an-api-key): web form or the
+- See [Getting Started → Get a testnet API key](./getting-started.md#step-2--optional-get-a-testnet-api-key): the direct API call or the
   [GitHub Issue template](https://github.com/DealAppSeo/trustshell/issues/new?template=api_key_request.yml).
   Testnet keys are free; expected turnaround within 24 hours.
 
@@ -28,7 +28,8 @@
 - Public metrics (no auth): https://repid-engine-production.up.railway.app/api/v1/metrics
 - Per-LLM trust scores (no auth): https://repid-engine-production.up.railway.app/api/v1/llm-trust
 - Live leaderboard: https://trustrepid.dev
-- _A dedicated `/status` + `/receipts/hero` surface is planned (CC1) — once public, it will be linked here._
+- Service status (no auth): https://repid-engine-production.up.railway.app/api/v1/status
+- First end-to-end receipt (no auth): https://repid-engine-production.up.railway.app/api/v1/receipts/hero
 
 ## Response time expectations
 - API key requests: within 24 hours

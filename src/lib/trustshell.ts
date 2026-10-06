@@ -1398,11 +1398,10 @@ export class TrustShell {
    * Returns the page plus a quick base-price range so a dev can pick what to buy, then pass a
    * listing's `id` as `serviceId` to `executeA2A`.
    *
-   * AUTH: on the currently deployed backend this route is API-key gated (returns 401 without a
-   * key). Construct the client with `{ apiKey }` to call it. The keyless way to browse the same
-   * live catalog is the web market at https://trustshell.dev/market (it server-reads
-   * `agent_services` directly). Making `GET /api/v1/services` public keyless is a one-line backend
-   * change staged for Sean (add the path to auth.ts publicPaths) — see TRUSTSHELL_SHIP_STEPS.md.
+   * AUTH: a public, keyless read. repid-engine `src/middleware/auth.ts` lets `GET /api/v1/services`
+   * and `GET /api/v1/services/:id` through with no key (GET only); creating, repricing or deleting a
+   * listing stays key-gated. Verified keyless against production 2026-10-06 (200, no key). The same
+   * catalog is browsable at https://trustshell.dev/market. Buying it (`executeA2A`) needs a key.
    */
   async listServices(options: ListServicesOptions = {}): Promise<ServiceListPage> {
     const qs = new URLSearchParams();

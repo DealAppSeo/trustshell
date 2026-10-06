@@ -13,7 +13,7 @@ node a2a-purchase.mjs
 |---|---|---|---|
 | 1. init | `TrustShell.init()` | `GET /health` | — |
 | (buyer proof) | `getRepID(buyer)` | `GET /api/v1/repid/:id` | — |
-| 2. discover | `listServices({ type: 'verification' })` / `getService(id)` | `GET /api/v1/services` | **API key** |
+| 2. discover | `listServices({ type: 'verification' })` / `getService(id)` | `GET /api/v1/services` | — (public read) |
 | 3. sign payment | `guardedX402Payment({ origin, privateKey, to, amount, cap, agentId, policy })` | *(local ethers signing)* | funded wallet key + **TRUSTSHELL_PAY_CAP** (buyer limit, not listing price); Unknown origin / missing policy cannot pay |
 | 4. buy | `executeA2A({ buyerAgentId, serviceId, payload, xPaymentHeader })` | `POST /api/v1/contracts` (+ `/escrow`) | **API key** |
 | 5. poll | `pollUntilSettled(contractId)` | `GET /api/v1/contracts/:id` | **API key** |
@@ -25,12 +25,13 @@ Run it with **no environment set** and it does the free legs (`init`, and the bu
 buyer id is given), then prints exactly what it needs and **exits 0** — no crash, no fabricated
 settlement.
 
-## Auth note (verified 2026-07-06 against the live engine)
+## Auth note (verified 2026-10-06 against repid-engine `src/middleware/auth.ts` and the live engine)
 
-Unlike the quickstart read paths (`repid` / `proof` / `hal/evaluate` are auth-bypassed), the
-**marketplace endpoints are NOT public**: `GET /api/v1/services` and `POST /api/v1/contracts` return
-`401` without a valid `REPID_API_KEY`. So this showcase needs the key from the first discovery call
-onward — not just for the paid leg.
+Discovery is public: `GET /api/v1/services` and `GET /api/v1/services/:id` answer with no key, like
+the quickstart read paths (`repid` / `proof` / `hal/evaluate`). The buy is not:
+`POST /api/v1/contracts` (and `/escrow`) and `GET /api/v1/contracts/:id` return `401` without a
+valid `REPID_API_KEY`. So the API needs the key from the buy call onward. This script still stops
+before discovery when any of its three required variables is missing, because it goes on to buy.
 
 ## Environment for the full live buy
 
