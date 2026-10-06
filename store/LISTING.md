@@ -48,7 +48,7 @@ The stamp says Checks out, Caught, or Not checked. One line under it says who an
 
 Caught adds a toast: Caught. This reply did not pass. Checks out does not add a toast. Not checked does not add a toast.
 
-The reply text is sent to our checkers, Groq and Cerebras, after the reply is on screen. If one cannot answer, a backup checker listed in our privacy policy takes its turn. It is not stored. Do not paste secrets. Known key and personal-data formats are removed before sending.
+The reply text is sent to our checkers, Groq and Cerebras, after the reply is on screen. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste secrets. Known key and personal-data formats are removed before sending.
 
 On any other page, select text and choose Check with TrustShell. That selection is sent to the same checkers, and only after that click. The label appears in a small toast.
 

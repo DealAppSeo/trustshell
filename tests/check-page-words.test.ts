@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 const form = readFileSync(join(__dirname, '../app/check/CheckForm.tsx'), 'utf8').replace(/\r/g, '');
 const page = readFileSync(join(__dirname, '../app/check/page.tsx'), 'utf8').replace(/\r/g, '');
-const PRIVACY = 'What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker listed in our privacy policy takes its turn. It is not stored. Do not paste anything private.';
+const PRIVACY = 'What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.';
 
 describe('/check words', () => {
   it('titles each label in the stranger words', () => {
