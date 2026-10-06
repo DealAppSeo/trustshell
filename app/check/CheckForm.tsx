@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, ANSWER_MAX_CHARS, pathLine, withAnswer, type ClaimLabel, type ClaimPath } from '@/src/lib/claim';
+import { useRef, useState } from 'react';
+import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, ANSWER_MAX_CHARS, pathLine, voterNames, withAnswer, type ClaimLabel, type ClaimPath } from '@/src/lib/claim';
 
 // NEXT_PUBLIC_* is inlined only for a literal reference, so it is spelled out here.
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || DEFAULT_API_URL;
@@ -66,50 +66,124 @@ import type { CheckSample } from '@/lib/check-sample';
 type CheckFormProps = {
   /** What the box starts with. Prefill only: nothing is sent until the visitor clicks Check. */
   initialText?: string;
-  /** Sentences the visitor can swap into the box. Swapping only changes the box; it sends nothing. */
+  /**
+   * The home page's cards (Try to trick it). Picking one puts it in the box AND checks it: the
+   * click is the person's, the same as clicking Check. Nothing is sent on load.
+   */
   samples?: readonly CheckSample[];
+  /** The box's label. /check keeps "One sentence". */
+  boxLabel?: string;
+};
+
+type Result = {
+  label: ClaimLabel;
+  reason?: string;
+  scrubbed?: boolean;
+  by?: ClaimPath;
+  voters?: string[];
+  deciders?: string[];
+  /** The engine's own time for this check, or this page's wait when it decided locally. */
+  latency_ms: number;
+  /** The exact text that was sent, so a sample's explanation is matched to what was checked. */
+  asked: string;
+  /** The one clarifying question, when the endpoint asked it. */
+  question?: string;
+  /** When the answer arrived, by this browser's clock. */
+  at: number;
 };
 
 /**
- * With no props this is exactly the /check form. The home page passes a prefill and two samples.
+ * What happened, step by step, from the response's own fields and nothing else: who the sentence
+ * was sent to, whether a backup stood in (more voters than the two that decided), and how long the
+ * engine took. No step is staged or delayed for effect; they appear together when the answer does.
+ */
+function stepsOf(r: Result): string[] {
+  const out: string[] = [];
+  if (r.by === 'votes' && r.voters && r.voters.length > 0) {
+    out.push(`Sent to ${voterNames(r.voters)}.`);
+    if (r.voters.length > 2) out.push('One of them could not answer, so a backup took its turn.');
+  }
+  if (r.by === 'votes' || r.by === 'arithmetic') out.push(`Answered in ${(r.latency_ms / 1000).toFixed(1)} s.`);
+  return out;
+}
+
+/**
+ * One line about what the visitor just did, from this page's memory of their last check and nothing
+ * else: no location, no cookie, nothing stored. Same sentence again shows the answer is not a coin
+ * toss (or honestly says when it changed); an edited sentence whose answer changed says so.
+ */
+function reactionOf(prev: { asked: string; label: ClaimLabel } | null, r: Result): string {
+  if (!prev) return '';
+  const same = prev.asked.trim() === r.asked.trim();
+  if (same) return prev.label === r.label ? 'Checked again from scratch: the same answer.' : 'Checked again from scratch: a different answer this time.';
+  if (prev.label !== r.label) return 'You changed the sentence, and the answer changed with it.';
+  return '';
+}
+
+/** Exactly the fields this page read from the engine's answer, as it sent them. */
+function engineAnswer(r: Result): Record<string, unknown> {
+  const out: Record<string, unknown> = { label: r.label, latency_ms: r.latency_ms };
+  if (r.by) out.by = r.by;
+  if (r.voters) out.voters = r.voters;
+  if (r.deciders) out.deciders = r.deciders;
+  if (r.question) out.question = r.question;
+  return out;
+}
+
+/** A public GitHub issue, prefilled so the person sees exactly what would be posted, and can edit it. */
+function reportUrl(r: Result, title: string, path: string): string {
+  const body = [`Sentence: ${r.asked.slice(0, 1500)}`, `Stamp: ${title} (${r.label})`, path ? `What produced it: ${path}` : '', '', 'Why I think it is wrong:', ''].filter((l, i) => l !== '' || i > 2).join('\n');
+  return `https://github.com/DealAppSeo/trustshell/issues/new?title=${encodeURIComponent(`Stamp looks wrong: ${title}`)}&body=${encodeURIComponent(body)}`;
+}
+
+/**
+ * With no props this is exactly the /check form. The home page passes three cards.
  *
  * NOTHING HERE SENDS ON ITS OWN. There is no effect and no auto-submit: classifyClaim runs only in
- * onSubmit, i.e. when a person clicks Check. A prefilled box on the home page is read by every
- * crawler and every page load, and each of those would otherwise spend the shared checker budget.
+ * check(), and check() is reached only from a person's click: Check, a card, or Check again after
+ * they answer the one question. A page load or a crawler sends nothing.
  */
-export default function CheckForm({ initialText = '', samples }: CheckFormProps = {}) {
+export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence' }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{
-    label: ClaimLabel;
-    reason?: string;
-    scrubbed?: boolean;
-    by?: ClaimPath;
-    voters?: string[];
-    /** The exact text that was sent, so a sample's explanation is matched to what was checked. */
-    asked: string;
-    /** The one clarifying question, when the endpoint asked it. */
-    question?: string;
-  } | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
+  const [previous, setPrevious] = useState<{ asked: string; label: ClaimLabel } | null>(null);
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // The answer that was last brought into view, so a re-render (typing an answer) never scrolls again.
+  const shownAt = useRef(0);
 
-  // Swapping a sample changes the box and nothing else: no request. The last answer belonged to
-  // the other sentence, so it is cleared rather than left standing next to text it never judged.
-  function swapIn(sample: string) {
-    setText(sample);
-    setResult(null);
-    setError(null);
+  /**
+   * On a phone the cards stack above the box, so an answer to a card lands screens below the tap.
+   * Each new answer is brought into view once, when it appears: after a person's click, never on load.
+   */
+  function reveal(el: HTMLDivElement | null) {
+    if (!el || !result || shownAt.current === result.at || typeof el.scrollIntoView !== 'function') return;
+    shownAt.current = result.at;
+    const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function check(sentence: string) {
+    // The answer on screen becomes "your last check", so the next one can be compared with it.
+    if (result && !result.reason) setPrevious({ asked: result.asked, label: result.label });
     setResult(null);
     setError(null);
     setBusy(true);
     try {
-      const r = await classifyClaim(text, { apiUrl: ENGINE, env: {} });
-      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true, by: r.by, voters: r.voters, asked: text, question: r.question });
+      const r = await classifyClaim(sentence, { apiUrl: ENGINE, env: {} });
+      setResult({
+        label: r.label,
+        reason: r.reason,
+        scrubbed: r.scrubbed === true,
+        by: r.by,
+        voters: r.voters,
+        deciders: r.deciders,
+        latency_ms: r.latency_ms,
+        asked: sentence,
+        question: r.question,
+        at: Date.now(),
+      });
       setAnswer('');
     } catch (err) {
       setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
@@ -118,9 +192,20 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
     }
   }
 
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    void check(text);
+  }
+
+  // A card is a person's click: it fills the box and checks exactly what it shows.
+  function pick(sample: CheckSample) {
+    setText(sample.text);
+    void check(sample.text);
+  }
+
   // The adaptive step: the checkers asked one question, the person answered, and the claim with
   // that answer is checked again. Sends only on this click (or Enter in the answer box).
-  async function recheck() {
+  function recheck() {
     if (!result?.question) return;
     let combined: string;
     try {
@@ -130,18 +215,7 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
       return;
     }
     setText(combined);
-    setResult(null);
-    setError(null);
-    setBusy(true);
-    try {
-      const r = await classifyClaim(combined, { apiUrl: ENGINE, env: {} });
-      setResult({ label: r.label, reason: r.reason, scrubbed: r.scrubbed === true, by: r.by, voters: r.voters, asked: combined, question: r.question });
-      setAnswer('');
-    } catch (err) {
-      setError(err instanceof ClaimError ? err.message : 'Something went wrong before the sentence was sent.');
-    } finally {
-      setBusy(false);
-    }
+    void check(combined);
   }
 
   const meaning = result ? MEANING[result.label] : null;
@@ -152,11 +226,34 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
   // A sample's explanation, only when the checkers agreed with it on exactly that sentence.
   const sample = result ? samples?.find((s) => s.text.trim() === result.asked.trim()) : undefined;
   const why = result && !cause && sample?.why && sample.why.when === result.label ? sample.why.text : '';
+  const steps = result && !cause ? stepsOf(result) : [];
+  const reaction = result && !cause ? reactionOf(previous, result) : '';
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" data-testid="check-form">
+      {samples && samples.length > 0 && (
+        <ul className="grid gap-3 sm:grid-cols-3" data-testid="check-cards">
+          {samples.map((s) => (
+            <li key={s.text}>
+              <button
+                type="button"
+                onClick={() => pick(s)}
+                disabled={busy}
+                aria-pressed={result?.asked === s.text}
+                data-testid="check-card"
+                data-sample={s.text}
+                className="flex h-full w-full flex-col justify-between rounded-xl border border-[#1e293b] bg-[#0f172a] p-4 text-left hover:border-amber-500 aria-pressed:border-amber-500 disabled:opacity-60 transition-colors"
+              >
+                <span className="block text-sm font-semibold text-amber-400">{s.label}</span>
+                <span className="mt-2 block text-sm text-[#e2e8f0]">{s.text}</span>
+                <span className="mt-3 block text-xs font-semibold text-[#94a3b8]">Check this one</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <label htmlFor="claim" className="block text-sm font-medium text-[#94a3b8]">
-        One sentence
+        {boxLabel}
       </label>
       <textarea
         id="claim"
@@ -170,27 +267,6 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
         aria-describedby="check-privacy"
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors resize-y"
       />
-      {samples && samples.length > 0 && (
-        <p className="text-sm text-[#94a3b8]" data-testid="check-samples">
-          Try a sample:{' '}
-          {samples.map((s, i) => (
-            <span key={s.text}>
-              {i > 0 && ' or '}
-              <button
-                type="button"
-                onClick={() => swapIn(s.text)}
-                disabled={busy}
-                aria-pressed={text === s.text}
-                data-testid="check-sample"
-                data-sample={s.text}
-                className="underline underline-offset-4 text-[#cbd5e1] hover:text-white aria-pressed:text-amber-400 aria-pressed:no-underline disabled:opacity-50"
-              >
-                {s.label}
-              </button>
-            </span>
-          ))}
-        </p>
-      )}
       <p id="check-privacy" className="text-sm text-[#94a3b8]">
         What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.
       </p>
@@ -204,6 +280,7 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
 
       {meaning && result && (
         <div
+          ref={reveal}
           role="status"
           data-testid="check-result"
           data-source={cause ? 'local' : 'checkers'}
@@ -224,9 +301,24 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
               {why}
             </p>
           )}
+          {steps.length > 0 && (
+            <ol className="pt-1 space-y-0.5 text-sm text-[#94a3b8]" data-testid="check-steps">
+              {steps.map((step) => (
+                <li key={step}>
+                  <span aria-hidden="true">✓ </span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          )}
           {path && (
             <p className="text-sm text-[#94a3b8]" data-testid="check-path" data-by={result.by}>
               {path}
+            </p>
+          )}
+          {reaction && (
+            <p className="text-sm text-[#cbd5e1]" data-testid="check-reaction">
+              {reaction}
             </p>
           )}
           {result.question && !cause && (
@@ -245,7 +337,7 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      void recheck();
+                      recheck();
                     }
                   }}
                   className="flex-1 min-w-0 px-3 py-2 bg-[#0b1220] border border-[#1e293b] rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
@@ -253,7 +345,7 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
                 <button
                   type="button"
                   data-testid="check-again"
-                  onClick={() => void recheck()}
+                  onClick={() => recheck()}
                   disabled={busy || !answer.trim()}
                   className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg"
                 >
@@ -265,6 +357,31 @@ export default function CheckForm({ initialText = '', samples }: CheckFormProps 
           {result.scrubbed && (
             <p className="text-sm text-[#94a3b8]" data-testid="check-scrubbed">
               {SCRUBBED_LINE}
+            </p>
+          )}
+          {!cause && (
+            <p className="text-xs text-[#64748b]" data-testid="check-at">
+              Checked at {new Date(result.at).toLocaleTimeString()}, live.
+            </p>
+          )}
+          {!cause && (
+            <details className="pt-1 text-xs text-[#64748b]" data-testid="check-raw">
+              <summary className="cursor-pointer">What the engine answered</summary>
+              <pre className="mt-2 overflow-x-auto rounded bg-[#0b1220] p-3 text-[#cbd5e1]">{JSON.stringify(engineAnswer(result), null, 2)}</pre>
+            </details>
+          )}
+          {!cause && (result.label === 'pass' || result.label === 'veto') && (
+            <p className="text-xs text-[#64748b]">
+              <a
+                href={reportUrl(result, meaning.title, path)}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="check-report"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                Think it got this wrong? Tell us
+              </a>{' '}
+              (opens a public GitHub issue you can edit before posting).
             </p>
           )}
           <p className="text-xs text-[#64748b]" data-testid="check-machine-label">

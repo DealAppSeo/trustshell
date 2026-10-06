@@ -2,7 +2,7 @@
  * /check speaks the same stranger words as the extension stamp: Checks out, Caught, Not checked.
  * The machine label stays on the page. The privacy sentence is read before the Check button.
  * A not-checked the PAGE decided (timeout, network, non-200, unreadable body) names its cause, so
- * "the network failed" never looks like "not decided". No speed numbers.
+ * "the network failed" never looks like "not decided". No promised speed: only the time a check took.
  *
  * Source-level, like the other page tests here: jest does not render TSX in this repo. The
  * behaviour is driven in a real browser by tests/e2e/check-walk.mjs (npm run test:check-walk).
@@ -30,9 +30,12 @@ describe('/check words', () => {
     expect(form).toContain('data-testid="check-machine-label"');
   });
 
-  it('shows no speed or latency number', () => {
-    expect(form).not.toMatch(/Answered in/);
-    expect(form).not.toMatch(/\{result\.ms\}|latency_ms|\bms\./);
+  it('promises no speed: the only time shown is the engine\'s own for the check that just ran', () => {
+    // Sean said GO 2026-10-06 for "watch it work": after a check, its steps may say how long the
+    // engine took for THAT check (latency_ms from the response, in seconds). Never a promised or
+    // typical speed, never in milliseconds, and nothing on the page before a check.
+    expect(form).not.toMatch(/\{result\.ms\}|\bms\.|millisecond|fast|instant/i);
+    expect(form).toContain('`Answered in ${(r.latency_ms / 1000).toFixed(1)} s.`');
     expect(page).not.toMatch(/\bms\b|millisecond|second/i);
   });
 
@@ -64,7 +67,7 @@ describe('/check words', () => {
   });
 
   it('keeps the request shape: the shared classifyClaim, nothing hand-rolled', () => {
-    expect(form).toContain("classifyClaim(text, { apiUrl: ENGINE, env: {} })");
+    expect(form).toContain("classifyClaim(sentence, { apiUrl: ENGINE, env: {} })");
     expect(form).not.toMatch(/fetch\(/);
   });
 
