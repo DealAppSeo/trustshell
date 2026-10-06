@@ -207,6 +207,8 @@ const FAMILY_ID = /^[a-z0-9][a-z0-9.-]{0,31}$/;
  * Each decider's own word, or undefined. PURE. All or nothing, like pathOf: exactly two, one per
  * decider and in the same order, each with a family id and a known verdict, and agreeing with the
  * label: a pass is TRUE and TRUE, a veto is FALSE and FALSE, and a not-checked is anything else.
+ * Two of one model family can never pass or veto (repid-engine S47, 2026-10-06: two families or Not
+ * checked), so their agreement fits only a not-checked.
  * Votes that contradict the label are the answer saying two things, so neither is shown and the
  * label keeps its old line. The label itself is never changed here.
  */
@@ -224,7 +226,11 @@ export function votesOf(body: unknown, label: ClaimLabel, deciders: string[] | u
     out.push({ voter: v.voter as string, family: v.family, verdict: v.verdict as ClaimVerdict });
   }
   const both = (w: ClaimVerdict) => out[0]!.verdict === w && out[1]!.verdict === w;
-  const fits = label === 'pass' ? both('TRUE') : label === 'veto' ? both('FALSE') : !both('TRUE') && !both('FALSE');
+  const oneFamily = out[0]!.family === out[1]!.family;
+  const fits =
+    label === 'pass' ? both('TRUE') && !oneFamily
+    : label === 'veto' ? both('FALSE') && !oneFamily
+    : oneFamily || (!both('TRUE') && !both('FALSE'));
   return fits ? out : undefined;
 }
 
@@ -239,7 +245,8 @@ const VERDICT_WORDS: Record<ClaimVerdict, string> = {
  * Who said what: "Groq said false. Cerebras said false." PURE. '' when there are no votes, so a
  * caller falls back to {@link pathLine}. When one host ran both checkers, the model family tells
  * them apart. A flat true against a flat false is said out loud, because that is the one case where
- * the two answers cannot both stand.
+ * the two answers cannot both stand. Two of one family that agree are said out loud too: that is one
+ * opinion said twice, which is why the stamp is Not checked.
  */
 export function votesLine(votes: readonly ClaimVote[] | undefined): string {
   if (!votes || votes.length !== 2) return '';
@@ -248,7 +255,9 @@ export function votesLine(votes: readonly ClaimVote[] | undefined): string {
   const said = votes.map((v, i) => `${names[i]}${sameHost ? ` (${v.family})` : ''} ${VERDICT_WORDS[v.verdict]}.`).join(' ');
   const [a, b] = [votes[0]!.verdict, votes[1]!.verdict];
   const split = (a === 'TRUE' && b === 'FALSE') || (a === 'FALSE' && b === 'TRUE');
-  return split ? `${said} They disagree, and both cannot be right.` : said;
+  if (split) return `${said} They disagree, and both cannot be right.`;
+  const echo = votes[0]!.family === votes[1]!.family && a === b && (a === 'TRUE' || a === 'FALSE');
+  return echo ? `${said} Both are one model family (${votes[0]!.family}), so that is one opinion, not two.` : said;
 }
 
 /** Shown wherever {@link ClaimResult.scrubbed} is set. One sentence, the same on every door. */

@@ -35,6 +35,15 @@ describe('votesOf', () => {
     expect(votesOf(body, label, DECIDERS) !== undefined).toBe(shown);
   });
 
+  it('S47: one family agreeing fits only a not-checked (repid-engine: two families or Not checked)', () => {
+    const G = ['groq', 'groq'];
+    const same = (verdict: string) => ({ votes: [vote('groq', 'gpt-oss', verdict), vote('groq', 'gpt-oss', verdict)] });
+    expect(votesOf(same('TRUE'), 'not-checked', G)).toHaveLength(2);
+    expect(votesOf(same('FALSE'), 'not-checked', G)).toHaveLength(2);
+    expect(votesOf(same('TRUE'), 'pass', G)).toBeUndefined();
+    expect(votesOf(same('FALSE'), 'veto', G)).toBeUndefined();
+  });
+
   const malformed: [string, unknown, string[] | undefined][] = [
     ['no deciders', { votes: [vote('groq', 'gpt-oss', 'TRUE'), vote('cerebras', 'qwen', 'TRUE')] }, undefined],
     ['no votes', {}, DECIDERS],
@@ -73,6 +82,17 @@ describe('votesLine', () => {
 
   it('tells two checkers on one host apart by family', () => {
     expect(votesLine([v('groq', 'gpt-oss', 'TRUE'), v('groq', 'qwen', 'TRUE')])).toBe('Groq (gpt-oss) said true. Groq (qwen) said true.');
+  });
+
+  it('S47: two of one family agreeing is one opinion, and the line says so', () => {
+    expect(votesLine([v('groq', 'gpt-oss', 'TRUE'), v('groq', 'gpt-oss', 'TRUE')])).toBe(
+      'Groq (gpt-oss) said true. Groq (gpt-oss) said true. Both are one model family (gpt-oss), so that is one opinion, not two.',
+    );
+    expect(votesLine([v('groq', 'gpt-oss', 'FALSE'), v('cerebras', 'gpt-oss', 'FALSE')])).toBe(
+      'Groq said false. Cerebras said false. Both are one model family (gpt-oss), so that is one opinion, not two.',
+    );
+    // One family that did not agree has nothing to explain.
+    expect(votesLine([v('groq', 'gpt-oss', 'TRUE'), v('groq', 'gpt-oss', 'UNSURE')])).toBe('Groq (gpt-oss) said true. Groq (gpt-oss) was not sure.');
   });
 
   it('is empty without two votes, so the caller keeps pathLine', () => {
