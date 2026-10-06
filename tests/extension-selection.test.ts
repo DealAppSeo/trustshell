@@ -167,7 +167,7 @@ describe('check selection on any page', () => {
     const source = readFileSync(join(EXT, 'select.js'), 'utf8');
     const background = readFileSync(join(EXT, 'background.js'), 'utf8');
     expect(source).not.toContain('fetch(');
-    expect(background).toContain("importScripts('route.js', 'verify.js', 'popup.js', 'scrub.js', 'laya.js', 'classify.js', 'select.js')");
+    expect(background).toContain("importScripts('settings.js', 'scrub.js', 'laya.js', 'classify.js', 'select.js')");
     expect(background).not.toContain('fetch(');
   });
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Hero } from '@/components/hero';
 import { HomeAgent } from '@/components/home-agent';
+import { HomeQuestions } from '@/components/home-questions';
 import { HomeWhere } from '@/components/home-where';
 import { StickyCheck } from '@/components/sticky-check';
 
@@ -25,6 +26,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       <Hero />
+      <HomeQuestions />
       <HomeAgent />
       <HomeWhere />
       <StickyCheck />

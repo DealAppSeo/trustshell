@@ -68,8 +68,9 @@
       .then(function (row) {
         var label = row && row.label;
         var known = LABELS.indexOf(label) >= 0;
+        // ask is Check this reply (Only when I click): nothing was sent, and the stamp says so.
         var out = {
-          label: known ? label : 'not-checked',
+          label: known || label === 'ask' ? label : 'not-checked',
           latency_ms: row && typeof row.latency_ms === 'number' ? row.latency_ms : 0,
         };
         // What produced the label (the line under the stamp) rides only with a label the endpoint sent.

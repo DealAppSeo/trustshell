@@ -20,7 +20,7 @@ import type { ReactElement } from 'react';
 const ROOT = join(__dirname, '..');
 import { HOME_SAMPLES, SPEED_TRAP } from '../lib/home-samples';
 const PRIVACY =
-  'What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker listed in our privacy policy takes its turn. It is not stored. Do not paste anything private.';
+  'What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.';
 const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
 /** Render a page module with fetch stubbed, counting every call made while loading and rendering it. */
@@ -130,7 +130,7 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     // Sean said GO 2026-10-05 for this order (Grok's structure, with the example made live).
     // Sean, 2026-10-05: the headline is "AI lies.", and the next line is his, worded to what is live.
     const HARNESS = 'TrustShell is a portable trust harness. Your agent can use any model, with no vendor lock-in, and a wrong answer gets caught before it costs you.';
-    const SOLUTION = 'Before you act on an answer, two checkers read it. You see what they said: Checks out, Caught, or Not checked.';
+    const SOLUTION = 'Before you ship it, cite it, or let an agent act on it, two checkers read it. You see what they said: Checks out, Caught, or Not checked.';
     const h1 = home.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
     expect(words(h1?.[1] ?? '')).toBe('AI lies.');
     expect(words(h1?.[3] ?? '')).toBe('Now it has to answer to other models, so the truth comes out.');

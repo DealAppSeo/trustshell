@@ -32,6 +32,7 @@
    * `by` and `voters` fields (added 2026-10-05). An endpoint that sends neither gets no line.
    */
   const STAMP_WORDS = {
+    ask: 'Check this reply',
     checking: 'Checking with Groq and Cerebras',
     pass: 'Checks out',
     veto: 'Caught',
@@ -133,17 +134,102 @@
   const memo = { text: null, promise: null, row: null, at: 0 };
   let quietTimer = null;
 
+  /** settings.js (Your TrustShell). Absent outside the extension, where nothing changes. */
+  function settingsApi() {
+    return typeof globalThis !== 'undefined' && globalThis.trustshellSettings ? globalThis.trustshellSettings : null;
+  }
+
+  function thisSite(api) {
+    return typeof location !== 'undefined' && location ? api.siteOf(location.hostname) : null;
+  }
+
+  /**
+   * Whether this page may check at all (Your TrustShell, "Where it checks"). A site switched off
+   * sends nothing and shows no stamp. Settings that could not be read check nothing: a site the
+   * person switched off is never sent from because storage was slow.
+   */
+  function siteAllowed(api) {
+    return api.ready().then(
+      (cfg) => Boolean(cfg) && api.siteOn(cfg, thisSite(api)),
+      () => false,
+    );
+  }
+
+  /** A site switched off keeps no stamp, line or toast from before. */
+  function clearStamp() {
+    if (typeof document === 'undefined' || !document || typeof document.getElementById !== 'function') return;
+    const ids = ['trustshell-stamp', 'trustshell-check-line', 'trustshell-toast'];
+    for (let i = 0; i < ids.length; i++) {
+      const node = document.getElementById(ids[i]);
+      if (node && typeof node.remove === 'function') node.remove();
+    }
+  }
+
   /**
    * A streaming reply changes on every token. Call run only after the text has
    * stopped changing for about a second. A newer call cancels the one still waiting.
+   * Every host's automatic draw comes through here, so this is where a site switched off stops.
    */
   function whenSettled(run, ms) {
     const wait = Number.isFinite(ms) ? ms : QUIET_MS;
     if (quietTimer) clearTimeout(quietTimer);
     quietTimer = setTimeout(() => {
       quietTimer = null;
-      if (typeof run === 'function') run();
+      if (typeof run !== 'function') return;
+      // Without settings.js (unit tests, the service worker) it runs at once, as before the page.
+      const api = settingsApi();
+      if (!api) {
+        run();
+        return;
+      }
+      siteAllowed(api).then((ok) => {
+        if (ok) run();
+        else clearStamp();
+      });
     }, wait);
+  }
+
+  /**
+   * ONLY WHEN I CLICK (Your TrustShell, "When it checks"). The reply is not sent until the person
+   * clicks the stamp, which then reads Check this reply. `approved` is the text they clicked for;
+   * `asking` is the text the stamp is offering to check. A new reply asks again.
+   */
+  let approved = null;
+  let asking = null;
+
+  function askRow(key) {
+    const api = settingsApi();
+    const cfg = api && api.current();
+    if (!cfg || cfg.mode !== api.CLICK || approved === key) return null;
+    asking = key;
+    return { label: 'ask', latency_ms: 0 };
+  }
+
+  /**
+   * Tells the service worker which stamp this page painted, for the record on the Options page:
+   * the label, how it was reached and who decided. Never the text; the service worker reads the
+   * site from this tab's URL. The same text and label twice in a row is one stamp, not two.
+   */
+  let lastRecorded = null;
+  function record(text, row) {
+    if (!row || LABELS.indexOf(row.label) < 0 || !settingsApi()) return;
+    const sig = text + '\u0000' + row.label;
+    if (lastRecorded === sig) return;
+    lastRecorded = sig;
+    try {
+      if (typeof chrome === 'undefined' || !chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
+      // Who decided, as the stamp's own line reads it: the deciders, or for an endpoint that sends
+      // only voters, those voters when there were exactly two of them.
+      const deciders = Array.isArray(row.deciders) && row.deciders.length > 0
+        ? row.deciders
+        : Array.isArray(row.voters) && row.voters.length === 2 ? row.voters : [];
+      chrome.runtime.sendMessage(
+        { type: 'trustshell-record', label: row.label, by: row.by, deciders },
+        () => void chrome.runtime.lastError,
+      );
+    } catch (_err) {
+      /* the record is a convenience; a stamp never waits on it */
+    }
   }
 
   function classifyOnce(text) {
@@ -159,6 +245,7 @@
         memo.row = row;
         memo.at = Date.now();
       }
+      record(key, row);
       return row;
     });
     memo.promise = promise;
@@ -172,9 +259,12 @@
    */
   function knownRow(text) {
     const key = String(text == null ? '' : text);
-    if (memo.text !== key || !memo.row) return null;
-    const decided = memo.row.label === 'pass' || memo.row.label === 'veto';
-    return decided || Date.now() - memo.at < RETRY_MS ? memo.row : null;
+    if (memo.text === key && memo.row) {
+      const decided = memo.row.label === 'pass' || memo.row.label === 'veto';
+      if (decided || Date.now() - memo.at < RETRY_MS) return memo.row;
+    }
+    // Only when I click: a reply not yet clicked for is known already. It is Check this reply.
+    return askRow(key);
   }
 
   /** The hosts call this with no options in the browser, so they all share the cache. */
@@ -263,9 +353,31 @@
     return node;
   }
 
-  /** The state a label paints. Only exactly pass, veto or checking is itself; all else is not-checked. */
+  /** The state a label paints. Only exactly pass, veto, checking or ask is itself; all else is not-checked. */
   function stampState(label) {
-    return label === 'pass' || label === 'veto' || label === 'checking' ? label : 'not-checked';
+    return label === 'pass' || label === 'veto' || label === 'checking' || label === 'ask' ? label : 'not-checked';
+  }
+
+  /**
+   * Check this reply is a button: a click or Enter checks the reply it sits under. Painting
+   * Checking is itself a DOM change, so the host's observer draws again, and this time the text
+   * is approved and goes out. Bound once per stamp; it does nothing once the stamp shows another state.
+   */
+  function askable(stamp, state) {
+    if (typeof stamp.setAttribute === 'function') stamp.setAttribute('role', state === 'ask' ? 'button' : 'status');
+    if (state === 'ask') stamp.tabIndex = 0;
+    else if (typeof stamp.removeAttribute === 'function') stamp.removeAttribute('tabindex');
+    if (state !== 'ask' || stamp.dataset.askBound === '1' || typeof stamp.addEventListener !== 'function') return;
+    stamp.dataset.askBound = '1';
+    const go = (event) => {
+      if (!stamp.dataset || stamp.dataset.stamp !== 'ask') return;
+      if (event && event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      approved = asking;
+      paintStamp(stamp, 'checking');
+    };
+    stamp.addEventListener('click', go);
+    stamp.addEventListener('keydown', go);
   }
 
   /**
@@ -317,6 +429,7 @@
     }
     stamp.textContent = stampText(state, checkingSince(stamp));
     stamp.title = state;
+    askable(stamp, state);
     return stamp;
   }
 

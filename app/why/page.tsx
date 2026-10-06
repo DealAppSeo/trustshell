@@ -1,3 +1,5 @@
+import { WHY_QUESTIONS } from '@/lib/why-questions';
+
 const LINES = [
   'It lies. Check the last answer. Get a receipt.',
   'They train on you. Notes stay on your machine.',
@@ -19,6 +21,15 @@ export default function WhyPage() {
             {line}
           </p>
         ))}
+        <ul className="space-y-2 border-t border-slate-800 pt-6">
+          {WHY_QUESTIONS.map((q) => (
+            <li key={q.slug}>
+              <a href={`/why/${q.slug}`} className="text-indigo-300 hover:text-indigo-200">
+                {q.question}
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
     </main>
   );

@@ -24,7 +24,7 @@ export function HomeWhere() {
           <ul className="list-disc pl-5 space-y-2 text-slate-300 marker:text-slate-500">
             <li>
               Two checkers from two model families, Groq and Cerebras first. If one cannot answer, a backup
-              takes its turn. No signup. What you type is not stored.
+              takes its turn, such as Cloudflare Workers AI (Llama). No signup. What you type is not stored.
             </li>
             <li>Known key and personal-data formats are removed before sending. Do not paste secrets.</li>
             <li>Whole-sentence arithmetic is exact, with no model.</li>
