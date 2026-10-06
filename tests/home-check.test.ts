@@ -110,13 +110,13 @@ describe('home page is the check form, and rendering it sends nothing', () => {
 
   it('keeps a card, and its why, only where production returned that label on every call', () => {
     // Measured 2026-10-06. Three production POST /api/v1/classify calls each: the road trip and the
-    // medical test came back veto every time, the birthday room pass every time. Two wrong, one
+    // game show came back veto every time, the birthday room pass every time. Two wrong, one
     // right, which is also the arithmetic: the setup line says so because the sentences are what
     // they are, not because of what the checkers said.
     const stored = HOME_SAMPLES.map((sample) => [sample.label, sample.why?.when ?? 'none']);
     expect(stored).toEqual([
       ['The road trip', 'veto'],
-      ['The medical test', 'veto'],
+      ['The game show', 'veto'],
       ['The birthday room', 'pass'],
     ]);
   });
