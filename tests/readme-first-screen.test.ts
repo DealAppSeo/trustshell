@@ -21,7 +21,8 @@ function text(rel: string): string {
 
 describe('README first screen', () => {
   const readme = text('README.md');
-  const fold = readme.indexOf('```mermaid');
+  const DIAGRAM = '![How a check works';
+  const fold = readme.indexOf(DIAGRAM);
   const first = fold === -1 ? readme : readme.slice(0, fold);
 
   it('opens with one sentence, the measured check, and a PowerShell line', () => {
@@ -32,7 +33,28 @@ describe('README first screen', () => {
     expect(first).not.toMatch(/Get a receipt/);
     expect(first).not.toMatch(/\b(Paris|Rome|Eiffel|Berlin)\b/);
     expect(fold).toBeGreaterThan(first.indexOf(OUTPUT));
-    expect(readme.slice(fold, fold + 400)).toMatch(/```mermaid[\s\S]*flowchart/);
+    expect(readme.slice(fold, fold + 400)).toMatch(/\]\(public\/how-a-check-works\.svg\)/);
+  });
+});
+
+describe('the animated diagram under the first screen', () => {
+  const svg = text('public/how-a-check-works.svg');
+
+  it('is readable without animation: a title and a description a screen reader can say', () => {
+    expect(svg).toMatch(/<title id="t">How a TrustShell check works<\/title>/);
+    expect(svg).toMatch(/<desc id="d">[^<]{200,}<\/desc>/);
+    expect(svg).toContain('aria-labelledby="t d"');
+  });
+
+  it('stops moving for anyone who asked for reduced motion', () => {
+    expect(svg).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[^}]*animation: none/);
+  });
+
+  it('says the three stranger words and never that a miss passes', () => {
+    for (const w of ['Checks out', 'Caught', 'Not checked']) expect(svg).toContain(w);
+    expect(svg).toContain('A miss is never a pass.');
+    // Nothing to run and nothing to fetch: the only URL is the SVG namespace itself.
+    expect(svg.replace('xmlns="http://www.w3.org/2000/svg"', '')).not.toMatch(/<script|javascript:|https?:\/\/|href=/);
   });
 });
 

@@ -11,14 +11,7 @@ The classifier labelled this sentence veto — do not rely on it (356 ms).
 
 That run exited 1.
 
-```mermaid
-flowchart TD
-  sentence[A sentence] --> arithmetic{Whole sentence is arithmetic?}
-  arithmetic -->|yes| exact[Exact result. No model.]
-  arithmetic -->|no| checkers[Two checkers, Groq and Cerebras]
-  exact --> label[pass, veto, or not-checked]
-  checkers --> label
-```
+![How a check works: your sentence is scrubbed on your device; an equation such as 2 + 2 = 5 is worked out with no model; anything else goes to two checkers from different model families; both TRUE is Checks out, both FALSE is Caught, anything else is Not checked.](public/how-a-check-works.svg)
 
 <!--
   Embed slot. The player stays out of the README until the file is in the repo.

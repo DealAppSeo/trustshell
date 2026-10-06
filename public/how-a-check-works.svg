@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 430" width="1000" height="430" role="img" aria-labelledby="t d">
+  <title id="t">How a TrustShell check works</title>
+  <desc id="d">Your sentence is scrubbed on your device, then sent to the engine. An equation such as 2 + 2 = 5 is answered exactly with no model. Anything else goes to two checkers from different model families, Groq gpt-oss and Cerebras qwen, which each answer one word: TRUE, FALSE or UNSURE. Both TRUE is Checks out, both FALSE is Caught, anything else is Not checked. A checker that gives no answer is replaced by a stand-in from another model family that passed its self-test. A timeout or error is Not checked, never a pass.</desc>
+  <style>
+    .bg { fill: #0f172a; stroke: #1e293b; }
+    .box { fill: #111c33; stroke: #334155; stroke-width: 1.5; }
+    .h { font: 600 15px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #f1f5f9; }
+    .s { font: 12px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #94a3b8; }
+    .title { font: 700 20px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #f8fafc; }
+    .lbl { font: 600 11px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: #cbd5e1; }
+    .edge { fill: none; stroke: #475569; stroke-width: 2; }
+    .flow { fill: none; stroke: #818cf8; stroke-width: 2; stroke-dasharray: 5 9; animation: flow 1.2s linear infinite; }
+    .pass { fill: #052e1c; stroke: #16a34a; }
+    .veto { fill: #3a0d12; stroke: #dc2626; }
+    .nc { fill: #33240a; stroke: #d97706; }
+    .step { animation: glow 9s ease-in-out infinite; }
+    .o1 { animation: glow-pass 9s ease-in-out infinite; }
+    .o2 { animation: glow-veto 9s ease-in-out infinite; }
+    .o3 { animation: glow-nc 9s ease-in-out infinite; }
+    @keyframes flow { to { stroke-dashoffset: -14; } }
+    @keyframes glow { 0%, 100% { stroke: #334155; stroke-width: 1.5; } 3%, 11% { stroke: #a5b4fc; stroke-width: 3.5; } 16% { stroke: #334155; stroke-width: 1.5; } }
+    @keyframes glow-pass { 0%, 100% { stroke-width: 1.5; } 3%, 9% { stroke-width: 4.5; } 13% { stroke-width: 1.5; } }
+    @keyframes glow-veto { 0%, 100% { stroke-width: 1.5; } 3%, 9% { stroke-width: 4.5; } 13% { stroke-width: 1.5; } }
+    @keyframes glow-nc { 0%, 100% { stroke-width: 1.5; } 3%, 9% { stroke-width: 4.5; } 13% { stroke-width: 1.5; } }
+    @media (prefers-reduced-motion: reduce) { .flow, .step, .o1, .o2, .o3 { animation: none; } }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0.5" y="0.5" width="999" height="429" rx="16"/>
+  <text class="title" x="28" y="42">How a check works</text>
+  <text class="s" x="28" y="64">One sentence in, one of three answers out. Nothing passes by default.</text>
+
+  <!-- edges (static under the flow) -->
+  <path class="edge" d="M160,212 H184" marker-end="url(#a)"/>
+  <path class="edge" d="M366,212 H386" marker-end="url(#a)"/>
+  <path class="edge" d="M436,166 V112 H520" marker-end="url(#a)"/>
+  <path class="edge" d="M484,212 H502 V188 H520" marker-end="url(#a)"/>
+  <path class="edge" d="M502,212 V278 H520" marker-end="url(#a)"/>
+  <path class="edge" d="M692,188 H706 V222 H722" marker-end="url(#a)"/>
+  <path class="edge" d="M692,278 H706 V232 H722" marker-end="url(#a)"/>
+  <path class="edge" d="M692,112 H846 V138 H858" marker-end="url(#a)"/>
+  <path class="edge" d="M836,212 H846 V138 H858" marker-end="url(#a)"/>
+  <path class="edge" d="M836,222 H858" marker-end="url(#a)"/>
+  <path class="edge" d="M836,232 H846 V306 H858" marker-end="url(#a)"/>
+
+  <!-- moving flow -->
+  <path class="flow" d="M160,212 H184"/>
+  <path class="flow" d="M366,212 H386"/>
+  <path class="flow" d="M436,166 V112 H520"/>
+  <path class="flow" d="M484,212 H502 V188 H520"/>
+  <path class="flow" d="M502,212 V278 H520"/>
+  <path class="flow" d="M692,188 H706 V222 H722"/>
+  <path class="flow" d="M692,278 H706 V232 H722"/>
+  <path class="flow" d="M692,112 H846 V138 H858"/>
+  <path class="flow" d="M836,212 H846 V138 H858"/>
+  <path class="flow" d="M836,222 H858"/>
+  <path class="flow" d="M836,232 H846 V306 H858"/>
+
+  <!-- 1. sentence -->
+  <rect class="box step" style="animation-delay:0s" x="24" y="180" width="136" height="64" rx="10"/>
+  <text class="h" x="92" y="208" text-anchor="middle">Your sentence</text>
+  <text class="s" x="92" y="228" text-anchor="middle">site · extension · CLI</text>
+
+  <!-- 2. scrub -->
+  <rect class="box step" style="animation-delay:0.9s" x="186" y="180" width="180" height="64" rx="10"/>
+  <text class="h" x="276" y="208" text-anchor="middle">Scrubbed on device</text>
+  <text class="s" x="276" y="228" text-anchor="middle">keys and emails removed</text>
+
+  <!-- 3. equation? -->
+  <path class="box step" style="animation-delay:1.8s" d="M436,166 L484,212 L436,258 L388,212 Z"/>
+  <text class="h" x="436" y="209" text-anchor="middle">Equation?</text>
+  <text class="s" x="436" y="226" text-anchor="middle">2 + 2 = 5</text>
+  <text class="lbl" x="446" y="140">yes</text>
+  <text class="lbl" x="487" y="203">no</text>
+
+  <!-- 4. exact -->
+  <rect class="box step" style="animation-delay:2.7s" x="522" y="86" width="170" height="52" rx="10"/>
+  <text class="h" x="607" y="108" text-anchor="middle">Exact answer</text>
+  <text class="s" x="607" y="126" text-anchor="middle">worked out, no model</text>
+  <text class="lbl" x="770" y="104" text-anchor="middle">Checks out or Caught</text>
+
+  <!-- 5, 6. checkers -->
+  <rect class="box step" style="animation-delay:3.6s" x="522" y="162" width="170" height="52" rx="10"/>
+  <text class="h" x="607" y="184" text-anchor="middle">Checker 1 · Groq</text>
+  <text class="s" x="607" y="202" text-anchor="middle">gpt-oss family</text>
+  <rect class="box step" style="animation-delay:3.6s" x="522" y="252" width="170" height="52" rx="10"/>
+  <text class="h" x="607" y="274" text-anchor="middle">Checker 2 · Cerebras</text>
+  <text class="s" x="607" y="292" text-anchor="middle">qwen family</text>
+  <text class="s" x="607" y="328" text-anchor="middle">each answers one word:</text>
+  <text class="lbl" x="607" y="344" text-anchor="middle">TRUE · FALSE · UNSURE</text>
+
+  <!-- 7. agree -->
+  <rect class="box step" style="animation-delay:4.5s" x="724" y="194" width="112" height="56" rx="10"/>
+  <text class="h" x="780" y="218" text-anchor="middle">Do they</text>
+  <text class="h" x="780" y="236" text-anchor="middle">agree?</text>
+
+  <!-- outcomes -->
+  <rect class="pass o1" style="animation-delay:5.4s" x="860" y="112" width="120" height="52" rx="10"/>
+  <text class="h" x="920" y="134" text-anchor="middle">Checks out</text>
+  <text class="s" x="920" y="152" text-anchor="middle">both TRUE</text>
+  <rect class="veto o2" style="animation-delay:6.3s" x="860" y="196" width="120" height="52" rx="10"/>
+  <text class="h" x="920" y="218" text-anchor="middle">Caught</text>
+  <text class="s" x="920" y="236" text-anchor="middle">both FALSE</text>
+  <rect class="nc o3" style="animation-delay:7.2s" x="860" y="280" width="120" height="52" rx="10"/>
+  <text class="h" x="920" y="302" text-anchor="middle">Not checked</text>
+  <text class="s" x="920" y="320" text-anchor="middle">anything else</text>
+
+  <text class="s" x="28" y="388">A checker that gives no answer is replaced by a stand-in from another model family that passed its self-test.</text>
+  <text class="s" x="28" y="408">A timeout, an error or an unreadable reply is Not checked. A miss is never a pass.</text>
+</svg>
