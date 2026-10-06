@@ -11,7 +11,7 @@ describe('hero copy', () => {
     expect(hero).not.toContain('PAI');
     expect(hero).not.toContain('CMO belt');
     expect(hero).toContain('AI lies.');
-    expect(hero).toContain('Now it has to answer to other models, so the truth comes out.');
+    expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
     expect(hero).not.toContain('Get a receipt');
   });
 });

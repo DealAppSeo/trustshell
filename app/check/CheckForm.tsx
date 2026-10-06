@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, ANSWER_MAX_CHARS, pathLine, voterNames, withAnswer, type ClaimLabel, type ClaimPath } from '@/src/lib/claim';
+import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, ANSWER_MAX_CHARS, pathLine, voterNames, votesLine, withAnswer, type ClaimLabel, type ClaimPath, type ClaimVote } from '@/src/lib/claim';
 
 // NEXT_PUBLIC_* is inlined only for a literal reference, so it is spelled out here.
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || DEFAULT_API_URL;
@@ -31,6 +31,16 @@ const MEANING: Record<ClaimLabel, { title: string; body: string; tone: string }>
     tone: 'text-amber-400 border-amber-500/40',
   },
 };
+
+/**
+ * While a check runs. It used to say "Checking with Groq and Cerebras…", which was wrong whenever a
+ * backup took a turn (the checker pool, 2026-10-05). The engine asks its two checkers in parallel
+ * (repid-engine src/classify/free-votes.ts, Promise.all over the pair), so "at once" is what happens.
+ * One exception, said by the answer itself: a whole-text equation is settled by exact calculation
+ * and no checker is asked, and its line then reads "Decided by exact calculation. No model was asked."
+ * Nothing is staged: this shows for exactly as long as the request is in flight.
+ */
+const BUSY_LINE = 'Asking two checkers at once…';
 
 type LocalCause = 'limit' | 'timeout' | 'network' | 'http' | 'body' | 'unknown';
 
@@ -82,6 +92,8 @@ type Result = {
   by?: ClaimPath;
   voters?: string[];
   deciders?: string[];
+  /** What each of the two deciders said, when the engine sent it. */
+  votes?: ClaimVote[];
   /** The engine's own time for this check, or this page's wait when it decided locally. */
   latency_ms: number;
   /** The exact text that was sent, so a sample's explanation is matched to what was checked. */
@@ -126,6 +138,7 @@ function engineAnswer(r: Result): Record<string, unknown> {
   if (r.by) out.by = r.by;
   if (r.voters) out.voters = r.voters;
   if (r.deciders) out.deciders = r.deciders;
+  if (r.votes) out.votes = r.votes;
   if (r.question) out.question = r.question;
   return out;
 }
@@ -179,6 +192,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         by: r.by,
         voters: r.voters,
         deciders: r.deciders,
+        votes: r.votes,
         latency_ms: r.latency_ms,
         asked: sentence,
         question: r.question,
@@ -222,10 +236,15 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
   // A reason exists only when the page decided not-checked locally; a pass or veto never has one.
   const cause = result && result.label === 'not-checked' && result.reason ? localCause(result.reason) : null;
   // What produced the label, when the endpoint said so. Never shown for a not-checked this page decided.
-  const path = result && !cause ? pathLine(result) : '';
+  // Each checker's own word when the engine sent it ("Groq said false. Cerebras said false."), so a
+  // disagreement says who said what; else the older line, which names them only when they agreed.
+  const path = result && !cause ? votesLine(result.votes) || pathLine(result) : '';
   // A sample's explanation, only when the checkers agreed with it on exactly that sentence.
   const sample = result ? samples?.find((s) => s.text.trim() === result.asked.trim()) : undefined;
   const why = result && !cause && sample?.why && sample.why.when === result.label ? sample.why.text : '';
+  // The runs that put this card on the page, next to today's answer whatever it is, so a card whose
+  // answer has moved since says so instead of quietly turning into a fixture (lib/check-sample.ts).
+  const measured = result ? sample?.measured : undefined;
   const steps = result && !cause ? stepsOf(result) : [];
   const reaction = result && !cause ? reactionOf(previous, result) : '';
 
@@ -275,7 +294,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         disabled={busy || !text.trim()}
         className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
       >
-        {busy ? 'Checking with Groq and Cerebras…' : 'Check'}
+        {busy ? BUSY_LINE : 'Check'}
       </button>
 
       {meaning && result && (
@@ -299,6 +318,16 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
           {why && (
             <p className="text-[#cbd5e1]" data-testid="check-why-sample">
               {why}
+            </p>
+          )}
+          {measured && (
+            <p className="text-sm text-[#94a3b8]" data-testid="check-measured">
+              When we measured this sentence on {measured.on}, it came back {MEANING[measured.label].title}{' '}
+              {measured.times} times out of {measured.of}.{' '}
+              <a href={measured.record} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-white">
+                See every run
+              </a>
+              .
             </p>
           )}
           {steps.length > 0 && (

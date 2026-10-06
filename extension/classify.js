@@ -33,7 +33,8 @@
    */
   const STAMP_WORDS = {
     ask: 'Check this reply',
-    checking: 'Checking with Groq and Cerebras',
+    // Was "Checking with Groq and Cerebras" until 2026-10-06: wrong whenever a backup took a turn.
+    checking: 'Asking two checkers',
     pass: 'Checks out',
     veto: 'Caught',
     'not-checked': 'Not checked',

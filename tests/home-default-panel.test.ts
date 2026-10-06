@@ -21,8 +21,10 @@ describe('home default view', () => {
     const add = view.indexOf('href="#add-agent"');
     expect(form).toBeGreaterThan(-1);
     expect(add).toBeGreaterThan(form);
-    expect(view.slice(form, add)).toContain('samples={HOME_SAMPLES} boxLabel="Or paste something an AI told you"');
-    expect(hero).toContain("import { HOME_SAMPLES } from '@/lib/home-samples';");
+    expect(view.slice(form, add)).toContain('samples={HOME_SAMPLES} boxLabel="Or paste the answer you almost used"');
+    // 2026-10-06: Paste both sits in the same panel, folded, before the link down.
+    expect(view.slice(form, add)).toContain('<CompareForm />');
+    expect(hero).toMatch(/import \{[^}]*\bHOME_SAMPLES\b[^}]*\} from '@\/lib\/home-samples';/);
     // Sean, 2026-10-06: no prefilled box under a caption that gives the answer away.
     expect(hero).not.toContain('initialText=');
     expect(hero).not.toContain('The average is not 45');

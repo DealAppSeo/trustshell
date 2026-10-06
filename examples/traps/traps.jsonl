@@ -7,3 +7,8 @@
 {"statement":"If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.","expected":"Not checked"}
 {"statement":"Pizza is the best food.","expected":"Not checked"}
 {"statement":"In a group of 23 people, the chance that two share a birthday is better than 50%.","expected":"Checks out"}
+{"statement":"Marking a $100 item up 50% and then down 50% brings it back to $100.","expected":"Caught"}
+{"statement":"Attention Is All You Need, the paper that introduced the Transformer, was published in 2017 by researchers at Google.","expected":"Checks out"}
+{"statement":"Running git reset --hard keeps the changes you have not committed yet.","expected":"Caught"}
+{"statement":"Albert Einstein said that insanity is doing the same thing over and over and expecting different results.","expected":"Not checked"}
+{"statement":"Charles Darwin wrote in On the Origin of Species that it is not the strongest of the species that survives, but the one most responsive to change.","expected":"Not checked"}

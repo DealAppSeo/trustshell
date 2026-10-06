@@ -1,8 +1,9 @@
 /**
  * The builder trap set. Each statement is one that was actually sent, not a paraphrase of the
- * abridged table: the home page's cards, the three samples the 2026-10-05 home page carried and the
- * medical test the cards dropped on 2026-10-06 (kept here as examples for builders), and the two
- * headline sentences the assumption tests pin (Monty Hall "always switch", Tuesday boy 13/27). Expected labels are the stranger words.
+ * abridged table: the home page's cards, the samples earlier home pages carried (kept here as
+ * examples for builders), the two misattributed quotes the home page says it will not call, and the
+ * two headline sentences the assumption tests pin (Monty Hall "always switch", Tuesday boy 13/27).
+ * Expected labels are the stranger words.
  * The script compares a classify body to that label and names a row only when both checkers
  * agreed on a different pass or veto.
  */
@@ -22,13 +23,21 @@ type Row = { statement: string; expected: string };
 
 /**
  * Measured for the home page and kept for builders when the cards changed: the three 2026-10-05
- * samples, and the medical test, which left the cards on 2026-10-06 (lib/home-samples.ts says why).
+ * samples, the medical test, which left the cards on 2026-10-06, and the road trip, game show and
+ * birthday room, which left them later that day for the price, citation and command cards
+ * (lib/home-samples.ts says why). Plus the two misattributed quotes behind the home page's "what it
+ * will not call" line: Not checked is the right answer for those, and a builder should see that.
  */
 const KEPT = [
   'Three guests paid $9 each, $27 in total, and the bellhop kept $2, so one dollar of the original $30 is missing.',
   'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 40 mph.',
   'Pizza is the best food.',
   'If a disease affects 1% of people and a test for it is 99% accurate, a positive result means you almost certainly have the disease.',
+  'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph.',
+  'On a game show with three doors, the host always opens a door you did not pick that hides a goat and always offers a switch. Switching and staying each win half the time.',
+  'In a group of 23 people, the chance that two share a birthday is better than 50%.',
+  'Albert Einstein said that insanity is doing the same thing over and over and expecting different results.',
+  'Charles Darwin wrote in On the Origin of Species that it is not the strongest of the species that survives, but the one most responsive to change.',
 ];
 
 function rows(): Row[] {
