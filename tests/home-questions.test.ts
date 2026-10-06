@@ -66,10 +66,13 @@ describe('the three questions on the home page', () => {
     expect(text(home)).toContain('AI lies.');
   });
 
-  it('the solution line names the moments that matter', () => {
+  // 2026-10-06 (Sean's GO): the moments that matter moved onto the cards ("Before you pay", "Before
+  // you cite it", "Before you run it"), and the solution line became the product in one sentence.
+  it('the solution line is the second opinion, and the cards name the moments that matter', () => {
     expect(text(home)).toContain(
-      'Before you ship it, cite it, or let an agent act on it, two checkers read it. You see what they said: Checks out, Caught, or Not checked.',
+      'TrustShell gets you a second opinion before you build on it. Two other AIs check the answer, and you see what each one said: Checks out, Caught, or Not checked. If they disagree, it tells you instead of guessing.',
     );
+    for (const moment of ['Before you pay', 'Before you cite it', 'Before you run it']) expect(text(home)).toContain(moment);
   });
 });
 

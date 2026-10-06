@@ -100,6 +100,25 @@ const engine = createServer((req, res) => {
     // The birthday card, measured 2026-10-06: pass on every call. Here a backup stood in, so the
     // steps must say so: three voters, two deciders.
     if (/23 people/.test(text)) return json(200, { label: 'pass', latency_ms: 1400, by: 'votes', voters: ['groq', 'cerebras', 'workers-ai'], deciders: ['groq', 'workers-ai'] });
+    // The cards since 2026-10-06 (lib/home-samples.ts), with each checker's word (repid-engine
+    // `votes`). The price is Caught with both named; the citation passes with a backup standing in.
+    const v = (voter, family, verdict) => ({ voter, family, verdict });
+    if (/up 50% and then down 50%/.test(text)) {
+      return json(200, { label: 'veto', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'], deciders: ['groq', 'cerebras'], votes: [v('groq', 'gpt-oss', 'FALSE'), v('cerebras', 'qwen', 'FALSE')] });
+    }
+    if (/Attention Is All You Need/.test(text)) {
+      return json(200, { label: 'pass', latency_ms: 1400, by: 'votes', voters: ['groq', 'cerebras', 'workers-ai'], deciders: ['groq', 'workers-ai'], votes: [v('groq', 'gpt-oss', 'TRUE'), v('workers-ai', 'llama', 'TRUE')] });
+    }
+    if (/git reset --hard keeps/.test(text)) {
+      return json(200, { label: 'veto', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'], deciders: ['groq', 'cerebras'], votes: [v('groq', 'gpt-oss', 'FALSE'), v('cerebras', 'qwen', 'FALSE')] });
+    }
+    // Paste both: the first answer splits the checkers, the second is Caught.
+    if (/compare-split/.test(text)) {
+      return json(200, { label: 'not-checked', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'], deciders: ['groq', 'cerebras'], votes: [v('groq', 'gpt-oss', 'TRUE'), v('cerebras', 'qwen', 'FALSE')] });
+    }
+    if (/compare-caught/.test(text)) {
+      return json(200, { label: 'veto', latency_ms: 300, by: 'votes', voters: ['groq', 'cerebras'], deciders: ['groq', 'cerebras'], votes: [v('groq', 'gpt-oss', 'FALSE'), v('cerebras', 'qwen', 'FALSE')] });
+    }
     if (/Paris/.test(text)) return json(200, { label: 'pass', latency_ms: 210 });
     if (/cheese/.test(text)) return json(200, { label: 'veto', latency_ms: 230, by: 'votes', voters: ['groq', 'cerebras'] });
     if (/^2 \+ 2 = 5$/.test(text)) return json(200, { label: 'veto', latency_ms: 1, by: 'arithmetic' });
@@ -254,9 +273,9 @@ async function shown(page) {
   });
 }
 
-// Must match lib/home-samples.ts: the road trip card (Caught) and the birthday room card (Checks out).
-const FALSE_SAMPLE = 'If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph.';
-const TRUE_SAMPLE = 'In a group of 23 people, the chance that two share a birthday is better than 50%.';
+// Must match lib/home-samples.ts: the price card (Caught) and the citation card (Checks out).
+const FALSE_SAMPLE = 'Marking a $100 item up 50% and then down 50% brings it back to $100.';
+const TRUE_SAMPLE = 'Attention Is All You Need, the paper that introduced the Transformer, was published in 2017 by researchers at Google.';
 const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
 /** Count every way the page could send something: fetch, XHR and beacon, wrapped before any script runs. */
@@ -303,11 +322,14 @@ async function walkHome(browser, phone, pageErrors) {
   const q = await quiet();
   check('home: loading the page sends no request (fetch, XHR and beacon counted, engine counted)', q.ok, q.note);
 
+  // Two forms since 2026-10-06 (Check, and the folded Paste both), so the Check button is scoped.
+  const checkButton = home.locator('[data-testid=check-form] button[type=submit]');
   const privacyBox = await home.locator('#check-privacy').boundingBox().catch(() => null);
-  const buttonBox = await home.locator('button[type=submit]').boundingBox().catch(() => null);
+  const buttonBox = await checkButton.boundingBox().catch(() => null);
   check('home: the privacy line sits above the Check button', Boolean(privacyBox && buttonBox) && privacyBox.y + privacyBox.height <= buttonBox.y,
     `privacy ${privacyBox ? Math.round(privacyBox.y) : 'missing'} / button ${buttonBox ? Math.round(buttonBox.y) : 'missing'}`);
-  check('home: Check waits for text in the empty box', await home.locator('button[type=submit]').isDisabled());
+  check('home: Check waits for text in the empty box', await checkButton.isDisabled());
+  check('home: Paste both is folded away until opened', (await home.locator('[data-testid=compare-form]').isVisible()) === false);
   check('home: no sideways scroll on a 390px phone', (await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
   const text = await home.locator('body').innerText();
   // The extension stamps their websites; their apps do not load MCP servers (2026-10-05 home page).
@@ -319,7 +341,8 @@ async function walkHome(browser, phone, pageErrors) {
   check('home: screen 4 is where this goes', text.includes('Where this goes') && text.includes('Known key and personal-data formats are removed before sending.'));
   check('home: a sticky Check is on screen at 390px', await home.locator('[data-testid=sticky-check]').isVisible());
   check('home: no number followed by ms anywhere on the page', !/\d\s*ms\b/i.test(text), (text.match(/[^\n]*\d\s*ms\b[^\n]*/i) ?? [''])[0]);
-  check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status|The average is not 45/.test(text));
+  check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status|The average is not 45|the truth comes out|source of truth/.test(text));
+  check('home: no measured record shows before a card is picked (guess first)', !text.includes('When we measured this sentence'));
   if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390.png'), fullPage: true });
 
   // Positive control: one card click, one request, and the counters see it.
@@ -340,14 +363,18 @@ async function walkHome(browser, phone, pageErrors) {
   });
   check('home: on a phone the answer is brought into view after the card click', Boolean(inView?.ok), JSON.stringify(inView));
   const whyLine = await home.locator('[data-testid=check-why-sample]').textContent().catch(() => null);
-  check('home: the card explains itself once the checkers agree with it', /120 miles in 3 hours is 40 mph/.test(whyLine ?? ''), String(whyLine));
+  check('home: the card explains itself once the checkers agree with it', /Down 50% of \$150 is \$75/.test(whyLine ?? ''), String(whyLine));
   const pathText = await home.locator('[data-testid=check-path]').textContent().catch(() => null);
-  check('home: the answer names the voters that answered', pathText === 'Groq and Cerebras both said false.', String(pathText));
+  check('home: the answer says what each checker said', pathText === 'Groq said false. Cerebras said false.', String(pathText));
+  const measuredLine = await home.locator('[data-testid=check-measured]').textContent().catch(() => null);
+  check('home: after the answer, the card shows the runs that put it there, with the date',
+    /^When we measured this sentence on 2026-10-06, it came back Caught 5 times out of 5\. See every run\.$/.test((measuredLine ?? '').replace(/\s+/g, ' ').trim()), String(measuredLine));
   const steps = await home.locator('[data-testid=check-steps] li').allTextContents().catch(() => []);
   check('home: the steps come from the answer: who it was sent to, and the engine\'s own time',
     steps.length === 2 && /Sent to Groq and Cerebras\./.test(steps[0] ?? '') && /Answered in 0\.3 s\./.test(steps[1] ?? ''), JSON.stringify(steps));
   const raw = await home.locator('[data-testid=check-raw] pre').textContent().catch(() => null);
-  check('home: "What the engine answered" holds the fields the page read', /"label": "veto"/.test(raw ?? '') && /"latency_ms": 300/.test(raw ?? ''), String(raw));
+  check('home: "What the engine answered" holds the fields the page read, each checker\'s word included',
+    /"label": "veto"/.test(raw ?? '') && /"latency_ms": 300/.test(raw ?? '') && /"verdict": "FALSE"/.test(raw ?? ''), String(raw));
   const report = await home.locator('[data-testid=check-report]').getAttribute('href').catch(() => null);
   check('home: a decided answer offers "Think it got this wrong?" as a public issue the person sees first',
     (report ?? '').startsWith('https://github.com/DealAppSeo/trustshell/issues/new?title=') && decodeURIComponent(report ?? '').includes(FALSE_SAMPLE), String(report));
@@ -366,10 +393,28 @@ async function walkHome(browser, phone, pageErrors) {
   const changed = await home.locator('[data-testid=check-reaction]').textContent().catch(() => null);
   const steps2 = await home.locator('[data-testid=check-steps] li').allTextContents().catch(() => []);
   const why2 = await home.locator('[data-testid=check-why-sample]').textContent().catch(() => null);
+  const path2 = await home.locator('[data-testid=check-path]').textContent().catch(() => null);
   check('home: a different card says the answer changed, names the backup, and explains itself',
     changed === 'You changed the sentence, and the answer changed with it.' &&
-      steps2.some((x) => /could not answer, so a backup took its turn/.test(x)) && /253 pairs/.test(why2 ?? '') && seen.length === before + 3,
-    JSON.stringify({ changed, steps2, why2 }));
+      steps2.some((x) => /could not answer, so a backup took its turn/.test(x)) && /1706\.03762/.test(why2 ?? '') &&
+      path2 === 'Groq said true. Cloudflare Workers AI said true.' && seen.length === before + 3,
+    JSON.stringify({ changed, steps2, why2, path2 }));
+
+  // Paste both: folded until opened, sends nothing until "Check both", then exactly two requests.
+  await home.locator('[data-testid=compare] summary').click();
+  await home.fill('[data-testid=compare-first]', 'compare-split: the first answer.');
+  await home.fill('[data-testid=compare-second]', 'compare-caught: the second answer.');
+  check('home: opening Paste both and typing sends nothing', seen.length === before + 3, `engine saw ${seen.length - before}`);
+  await home.click('[data-testid=compare-submit]');
+  await home.waitForSelector('[data-testid=compare-line]', { timeout: 20_000 });
+  const stamps = await home.locator('[data-testid=compare-stamp]').evaluateAll((els) => els.map((el) => ({ label: el.getAttribute('data-label'), text: el.textContent ?? '' })));
+  const line = await home.locator('[data-testid=compare-line]').textContent().catch(() => null);
+  check('home: Check both sends two requests and stamps each answer with what each checker said',
+    seen.length === before + 5 && stamps.length === 2 && stamps[0]?.label === 'not-checked' && stamps[1]?.label === 'veto' &&
+      /Groq said true\. Cerebras said false\. They disagree, and both cannot be right\./.test(stamps[0]?.text ?? '') &&
+      /Groq said false\. Cerebras said false\./.test(stamps[1]?.text ?? '') &&
+      line === 'The second was caught. The first was not checked, so it is not ruled in or out.',
+    JSON.stringify({ engineSaw: seen.length - before, stamps, line }));
   await home.close();
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 900 } });

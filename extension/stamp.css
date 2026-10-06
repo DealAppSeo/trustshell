@@ -1,6 +1,6 @@
 /*
  * One stamp under each checked reply. Unmarked text reads as true, so every state is visible:
- * Checking with Groq and Cerebras, Checks out, Caught, Not checked. classify.js paints the words
+ * Asking two checkers, Checks out, Caught, Not checked. classify.js paints the words
  * and data-stamp; the machine label sits in the title tooltip, so the stamp takes the pointer.
  * The colours carry their own background, so the stamp reads on a light or a dark host page.
  */

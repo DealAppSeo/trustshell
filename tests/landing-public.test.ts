@@ -40,7 +40,7 @@ const BANNED = [
 describe('public landing source', () => {
   it('keeps the one screen and none of the measured leaks', () => {
     expect(hero).toContain('AI lies.');
-    expect(hero).toContain('Now it has to answer to other models, so the truth comes out.');
+    expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.6.0');
     expect(source).not.toContain('trustshell status');

@@ -41,11 +41,11 @@ describe('stranger nav', () => {
 
   it('keeps the hero check, and does not put the other labels back on the home source', () => {
     expect(hero).toContain('AI lies.');
-    expect(hero).toContain('Now it has to answer to other models, so the truth comes out.');
-    expect(hero).toContain('TrustShell is a portable trust harness.');
+    expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
+    expect(hero).toContain('TrustShell gets you a second opinion before you build on it.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
     expect(hero).toContain('<CheckForm');
-    expect(hero).toContain('Add it to the AI you already use');
+    expect(hero).toContain('Add it to the agent you already use');
     expect(agentScreen).toContain('In your terminal');
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
     expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';");

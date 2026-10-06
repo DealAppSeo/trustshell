@@ -30,7 +30,7 @@ describe('landing close', () => {
     expect(headline).toContain(CLOSE_LINE);
     expect(headline).not.toMatch(/VETO/);
     expect(hero).toContain('AI lies.');
-    expect(hero).toContain('Now it has to answer to other models, so the truth comes out.');
+    expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
     expect(hero).not.toMatch(/Get a receipt/);
     expect(hero).toContain('No wallet.');
     expect(hero).not.toMatch(/connect wallet|your wallet|add wallet|Wallet and stake/i);

@@ -66,7 +66,22 @@ export interface ClaimResult {
    * would let them decide. It comes from the API or it does not appear; nothing here invents one.
    */
   question?: string;
+  /**
+   * Only with `deciders`: what each of the two said, in the same order (repid-engine `votes`, added
+   * 2026-10-06). Before this, a disagreement read "No agreed answer" and never said who said what.
+   * An endpoint that does not send it gets none; nothing here works it out from the label.
+   */
+  votes?: ClaimVote[];
 }
+
+/** One decider's own word, as the endpoint sent it. `family` is the model family, e.g. "qwen". */
+export interface ClaimVote {
+  voter: string;
+  family: string;
+  verdict: ClaimVerdict;
+}
+export const CLAIM_VERDICTS = ['TRUE', 'FALSE', 'UNSURE', 'NONE'] as const;
+export type ClaimVerdict = (typeof CLAIM_VERDICTS)[number];
 
 const QUESTION_MIN = 10;
 const QUESTION_MAX = 160;
@@ -184,6 +199,56 @@ export function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters' | 'decid
     default:
       return '';
   }
+}
+
+const FAMILY_ID = /^[a-z0-9][a-z0-9.-]{0,31}$/;
+
+/**
+ * Each decider's own word, or undefined. PURE. All or nothing, like pathOf: exactly two, one per
+ * decider and in the same order, each with a family id and a known verdict, and agreeing with the
+ * label: a pass is TRUE and TRUE, a veto is FALSE and FALSE, and a not-checked is anything else.
+ * Votes that contradict the label are the answer saying two things, so neither is shown and the
+ * label keeps its old line. The label itself is never changed here.
+ */
+export function votesOf(body: unknown, label: ClaimLabel, deciders: string[] | undefined): ClaimVote[] | undefined {
+  if (!body || typeof body !== 'object' || !deciders || deciders.length !== 2) return undefined;
+  const raw = (body as { votes?: unknown }).votes;
+  if (!Array.isArray(raw) || raw.length !== 2) return undefined;
+  const out: ClaimVote[] = [];
+  for (let i = 0; i < 2; i++) {
+    const v = raw[i] as { voter?: unknown; family?: unknown; verdict?: unknown } | null;
+    if (!v || typeof v !== 'object') return undefined;
+    if (v.voter !== deciders[i]) return undefined;
+    if (typeof v.family !== 'string' || !FAMILY_ID.test(v.family)) return undefined;
+    if (typeof v.verdict !== 'string' || !(CLAIM_VERDICTS as readonly string[]).includes(v.verdict)) return undefined;
+    out.push({ voter: v.voter as string, family: v.family, verdict: v.verdict as ClaimVerdict });
+  }
+  const both = (w: ClaimVerdict) => out[0]!.verdict === w && out[1]!.verdict === w;
+  const fits = label === 'pass' ? both('TRUE') : label === 'veto' ? both('FALSE') : !both('TRUE') && !both('FALSE');
+  return fits ? out : undefined;
+}
+
+const VERDICT_WORDS: Record<ClaimVerdict, string> = {
+  TRUE: 'said true',
+  FALSE: 'said false',
+  UNSURE: 'was not sure',
+  NONE: 'gave no answer',
+};
+
+/**
+ * Who said what: "Groq said false. Cerebras said false." PURE. '' when there are no votes, so a
+ * caller falls back to {@link pathLine}. When one host ran both checkers, the model family tells
+ * them apart. A flat true against a flat false is said out loud, because that is the one case where
+ * the two answers cannot both stand.
+ */
+export function votesLine(votes: readonly ClaimVote[] | undefined): string {
+  if (!votes || votes.length !== 2) return '';
+  const names = votes.map((v) => VOTER_NAMES[v.voter] ?? v.voter);
+  const sameHost = names[0] === names[1];
+  const said = votes.map((v, i) => `${names[i]}${sameHost ? ` (${v.family})` : ''} ${VERDICT_WORDS[v.verdict]}.`).join(' ');
+  const [a, b] = [votes[0]!.verdict, votes[1]!.verdict];
+  const split = (a === 'TRUE' && b === 'FALSE') || (a === 'FALSE' && b === 'TRUE');
+  return split ? `${said} They disagree, and both cannot be right.` : said;
 }
 
 /** Shown wherever {@link ClaimResult.scrubbed} is set. One sentence, the same on every door. */
@@ -307,7 +372,8 @@ export async function classifyClaim(text: string, opts: ClaimOptions = {}): Prom
         return notChecked('endpoint said what produced the label, out of contract (by / voters)');
       }
       const question = questionOf(body, label, path.by);
-      return mark({ label, latency_ms, ...path, ...(question ? { question } : {}) });
+      const votes = votesOf(body, label, path.deciders);
+      return mark({ label, latency_ms, ...path, ...(question ? { question } : {}), ...(votes ? { votes } : {}) });
     })();
     const out = await Promise.race([call, timedOut]);
     if (out === 'timeout') {

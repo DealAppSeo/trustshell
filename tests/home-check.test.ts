@@ -81,8 +81,10 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(text).toContain('Two of these are wrong and one is right. Guess first, then pick one and watch two other AIs check it, live.');
     const box = home.html.match(/<textarea\b[^>]*\bid="claim"[^>]*>([\s\S]*?)<\/textarea>/);
     expect(box?.[1]).toBe('');
-    expect(text).toContain('Or paste something an AI told you');
-    const submit = buttons(home.html).filter((b) => /type="submit"/.test(b));
+    expect(text).toContain('Or paste the answer you almost used');
+    // The check form's own Check button. The folded "Paste both" form below it has its own.
+    const checkForm = home.html.slice(home.html.indexOf('data-testid="check-form"'), home.html.indexOf('</form>'));
+    const submit = buttons(checkForm).filter((b) => /type="submit"/.test(b));
     expect(submit).toHaveLength(1);
     expect(words(submit[0] ?? '')).toBe('Check');
     // Empty box: Check waits for text. The cards are the first thing to click.
@@ -105,20 +107,38 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     const tabs = buttons(home.html).filter((b) => b.includes('data-testid="agent-tab"'));
     expect(tabs).toHaveLength(3);
     for (const b of tabs) expect(b).toMatch(/type="button"/);
-    expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length + tabs.length);
+    // Plus "Check both" in the folded compare form (2026-10-06), its own submit in its own form.
+    const compare = buttons(home.html).filter((b) => b.includes('data-testid="compare-submit"'));
+    expect(compare).toHaveLength(1);
+    expect(compare[0]).toMatch(/type="submit"/);
+    expect(compare[0]).toMatch(/\sdisabled=""/);
+    expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length + tabs.length + compare.length);
   });
 
   it('keeps a card, and its why, only where production returned that label on every call', () => {
-    // Measured 2026-10-06. Three production POST /api/v1/classify calls each: the road trip and the
-    // game show came back veto every time, the birthday room pass every time. Two wrong, one
-    // right, which is also the arithmetic: the setup line says so because the sentences are what
-    // they are, not because of what the checkers said.
+    // Measured 2026-10-06, five production POST /api/v1/classify calls each (the raw runs are in
+    // docs/measurements/home-cards-2026-10-06.md): the price and the command came back veto every
+    // time, the citation pass every time. Two wrong, one right, which is also a fact about the
+    // sentences: the setup line says so because of what they say, not because of the checkers.
     const stored = HOME_SAMPLES.map((sample) => [sample.label, sample.why?.when ?? 'none']);
     expect(stored).toEqual([
-      ['The road trip', 'veto'],
-      ['The game show', 'veto'],
-      ['The birthday room', 'pass'],
+      ['Before you pay', 'veto'],
+      ['Before you cite it', 'pass'],
+      ['Before you run it', 'veto'],
     ]);
+    // Every card carries the record that put it there, and it agrees with its why.
+    for (const sample of HOME_SAMPLES) {
+      expect(sample.measured).toBeDefined();
+      expect(sample.measured!.label).toBe(sample.why?.when);
+      expect(sample.measured!.times).toBe(sample.measured!.of);
+      expect(sample.measured!.of).toBeGreaterThanOrEqual(5);
+      expect(sample.measured!.record).toMatch(/^https:\/\/github\.com\/DealAppSeo\/trustshell\/blob\/main\/docs\/measurements\//);
+    }
+  });
+
+  it('renders no measured record before a check: guess first, then see the runs', () => {
+    expect(home.html).not.toContain('data-testid="check-measured"');
+    expect(text).not.toMatch(/When we measured this sentence/);
   });
 
   it('renders no explanation before a check: a why line appears only after the checkers answer', () => {
@@ -133,32 +153,58 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(privacyAt).toBeLessThan(home.html.indexOf('type="submit"'));
   });
 
-  it('says the pain, then what TrustShell is, then the solution, then the live example, then why it is the obvious one', () => {
-    // Sean said GO 2026-10-05 for this order (Grok's structure, with the example made live).
-    // Sean, 2026-10-05: the headline is "AI lies.", and the next line is his, worded to what is live.
-    const HARNESS = 'TrustShell is a portable trust harness. Your agent can use any model, with no vendor lock-in, and a wrong answer gets caught before it costs you.';
-    const SOLUTION = 'Before you ship it, cite it, or let an agent act on it, two checkers read it. You see what they said: Checks out, Caught, or Not checked.';
+  it('says the pain, then the second sure answer, then the product, then the live example, then why it is the obvious one', () => {
+    // Sean said GO 2026-10-05 for this order (Grok's structure, with the example made live), and on
+    // 2026-10-06 for these lines: the pain is two sure answers that cannot both be right, and the
+    // product is a second opinion where you see what each checker said.
+    const ACT = "Or it sounds sure and it's wrong.";
+    const PAIN = "Ask again, and it's just as sure the other way. Both can't be right.";
+    const SOLUTION =
+      'TrustShell gets you a second opinion before you build on it. Two other AIs check the answer, and you see what each one said: Checks out, Caught, or Not checked. If they disagree, it tells you instead of guessing.';
+    const ANY = 'Works with whatever model you use.';
     const SETUP = 'Two of these are wrong and one is right. Guess first, then pick one and watch two other AIs check it, live.';
     const h1 = home.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
     expect(words(h1?.[1] ?? '')).toBe('AI lies.');
-    expect(words(h1?.[3] ?? '')).toBe('Now it has to answer to other models, so the truth comes out.');
+    expect(words(h1?.[3] ?? '')).toBe(ACT);
     const lines = text.split('\n');
     const at = (line: string) => lines.indexOf(line);
     expect(at('AI lies.')).toBeGreaterThan(-1);
-    expect(at('Now it has to answer to other models, so the truth comes out.')).toBe(at('AI lies.') + 1);
-    expect(at(HARNESS)).toBe(at('Now it has to answer to other models, so the truth comes out.') + 1);
-    expect(at(SOLUTION)).toBe(at(HARNESS) + 1);
-    expect(at('Try to trick it')).toBe(at(SOLUTION) + 1);
+    expect(at(ACT)).toBe(at('AI lies.') + 1);
+    expect(at(PAIN)).toBe(at(ACT) + 1);
+    expect(at(SOLUTION)).toBe(at(PAIN) + 1);
+    expect(at(ANY)).toBe(at(SOLUTION) + 1);
+    expect(at('Try to trick it')).toBe(at(ANY) + 1);
     expect(at(SETUP)).toBe(at('Try to trick it') + 1);
-    expect(at('Or paste something an AI told you')).toBeGreaterThan(at(SETUP));
+    expect(at('Or paste the answer you almost used')).toBeGreaterThan(at(SETUP));
+    const wontCall = lines.findIndex((l) => l.startsWith('What it will not call:'));
+    expect(wontCall).toBeGreaterThan(at('Or paste the answer you almost used'));
+    const compare = at('Got two answers that disagree? Paste both');
+    expect(compare).toBeGreaterThan(wontCall);
     const glass = at('The black box becomes a glass box: you see who checked it, and what they said.');
-    expect(glass).toBeGreaterThan(at('Or paste something an AI told you'));
+    expect(glass).toBeGreaterThan(compare);
     expect(at('No signup. No wallet. Leave whenever you want.')).toBeGreaterThan(glass);
-    expect(at('Add it to the AI you already use')).toBeGreaterThan(glass);
+    expect(at('Add it to the agent you already use')).toBeGreaterThan(glass);
     // The first screen makes no promise the code does not keep. The model that wrote a reply stakes
-    // nothing today, and the portable record and any saving are not live or not measured.
-    const firstScreen = lines.slice(0, at('Add it to the AI you already use') + 1).join('\n');
+    // nothing today, and the portable record and any saving are not live or not measured. And it
+    // never calls two models agreeing "the truth" (Sean, 2026-10-06: not a source of truth).
+    const firstScreen = lines.slice(0, at('Add it to the agent you already use') + 1).join('\n');
     expect(firstScreen).not.toMatch(/receipt|autonomy|\bkeys?\b|\bHAL\b|\bstakes?\b|preferences|sav(e|es|ing) you money/i);
+    expect(text).not.toMatch(/the truth comes out|source of truth|proves? (it|the truth)/i);
+  });
+
+  it('says what it will not call, with the runs and the date', () => {
+    expect(text).toContain(
+      'What it will not call: 2 famous quotes pinned on people who never said them came back Not checked 10 times out of 10 on 2026-10-06. Who said a line is something the checkers cannot look up, so they do not guess.',
+    );
+  });
+
+  it('names what a wrong answer costs without a price, a plan, or a promise of one', () => {
+    const cost = words(home.html.slice(home.html.indexOf('data-testid="home-cost"'), home.html.indexOf('id="add-agent"')));
+    expect(cost).toContain('What a wrong answer really costs');
+    expect(cost).toContain('The check is free. The miss is not.');
+    expect(cost).toContain('Free to try. No signup, no wallet.');
+    expect(cost).toContain('It never means the answer checks out.');
+    expect(cost).not.toMatch(/\$\d|per month|\/mo\b|pricing|paid lane|comes later|plans?\b/i);
   });
 
   it('puts every door on screen 3, in order: Chrome, the MCP apps, the terminal, with real commands', () => {
@@ -231,8 +277,10 @@ describe('nothing in the form sends on its own (the source half)', () => {
   const form = readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8').replace(/\r/g, '');
   const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8').replace(/\r/g, '');
 
+  const compareForm = readFileSync(join(ROOT, 'app/check/CompareForm.tsx'), 'utf8').replace(/\r/g, '');
+
   it('has no effect that could fire on load', () => {
-    for (const src of [form, hero]) {
+    for (const src of [form, hero, compareForm]) {
       expect(src).not.toMatch(/\buse(Layout)?Effect\b/);
       expect(src).not.toMatch(/requestSubmit|\.submit\(\)|autoFocus/);
     }
@@ -255,6 +303,15 @@ describe('nothing in the form sends on its own (the source half)', () => {
     expect(form.match(/(=> |;\s*)recheck\(\)/g)).toHaveLength(2);
     expect(form).toMatch(/onClick=\{\(\) => recheck\(\)\}/);
     expect(form).toMatch(/if \(e\.key === 'Enter'\) \{\s*e\.preventDefault\(\);\s*recheck\(\);/);
+  });
+
+  it('Paste both sends two checks, only from its own submit', () => {
+    // Exactly two classifyClaim calls, both inside checkBoth, and checkBoth is the form's onSubmit only.
+    expect(compareForm.match(/classifyClaim\(/g)).toHaveLength(2);
+    const both = compareForm.slice(compareForm.indexOf('async function checkBoth('), compareForm.indexOf('return ('));
+    expect(both.match(/classifyClaim\(/g)).toHaveLength(2);
+    expect(compareForm.match(/checkBoth\b/g)).toHaveLength(2);
+    expect(compareForm).toContain('<form onSubmit={checkBoth}');
   });
 });
 

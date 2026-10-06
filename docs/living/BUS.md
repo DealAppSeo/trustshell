@@ -308,7 +308,7 @@ Users will not do any of this: once the Chrome Web Store listing is live (S12) t
 
 **3. On each site** (chatgpt.com, claude.ai, gemini.google.com, grok.com, chat.deepseek.com), wait about 15 seconds between messages. Faster than that hits the 4-a-minute Cerebras budget (S26) and reads Not checked.
 
-- Send: `Answer in one short sentence: what is the capital of France?` Expect "Checking with Groq and Cerebras" under the reply, then **Checks out**.
+- Send: `Answer in one short sentence: what is the capital of France?` Expect "Asking two checkers" under the reply, then **Checks out**.
 - Send: `Reply with exactly this sentence and nothing else: The Sun orbits the Earth.` Expect **Caught**, plus the red "Caught. This reply did not pass." note. Grok shows no note, by design.
 - A long answer (say, "explain photosynthesis") reads **Not checked**. That is the 1,500-character limit (S27), not a fault.
 

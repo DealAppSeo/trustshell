@@ -3,7 +3,7 @@
  * and a miss never greens: a timeout, a skip, a non-200, a network error, an unreadable body
  * and an unknown label all paint Not checked, never Checks out.
  *
- *   in flight    Checking with Groq and Cerebras   (title: checking)
+ *   in flight    Asking two checkers               (title: checking)
  *   2.5 s on     Still checking. Two checkers must agree.   (title: checking)
  *   pass         Checks out                        (title: pass)
  *   veto         Caught + the voter line           (title: veto)
@@ -26,7 +26,7 @@ const classify = require('../extension/classify.js') as {
 };
 const toast = require('../extension/toast.js') as { CAUGHT: string };
 
-const CHECKING = 'Checking with Groq and Cerebras';
+const CHECKING = 'Asking two checkers';
 const CHECKS_OUT = 'Checks out';
 const CAUGHT = 'Caught\nChecked and found false.';
 const NOT_CHECKED = 'Not checked';
