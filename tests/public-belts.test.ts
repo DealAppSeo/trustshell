@@ -1,21 +1,23 @@
 /**
+ * The three belt pages now live in lib/belt-pages.ts and are served only at an unlisted address
+ * (see tests/belt-share.test.ts). The checks below are unchanged; they read the same HTML.
+ *
  * None of the three belt pages contain stake now.
  * A plain 'stake' substring missed 'staking' and 'REAL_STAKING' (neither contains 'stake'),
  * so a page saying "Staking is live" passed. Match the stem.
  */
 export {};
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { BELT_HTML, BELT_ROLES, type BeltRole } from '../lib/belt-pages';
 
-const PAGES = ['cmo.html', 'cto.html', 'cfo.html'];
+const PAGES = BELT_ROLES;
+const html = (name: BeltRole) => BELT_HTML[name];
 const STAKE = /(^|[^a-z])stak(e|ed|es|ing)\b/i;
 
 describe('public belts', () => {
   it('none of the three pages contain stake now', () => {
     for (const name of PAGES) {
-      const html = readFileSync(join(__dirname, '../public/belts', name), 'utf8');
-      expect(html).not.toMatch(STAKE);
+      expect(html(name)).not.toMatch(STAKE);
     }
   });
 
@@ -31,9 +33,8 @@ describe('belt rows', () => {
   const ALLOWED = new Set(['free', 'paid', 'free tier, paid plans']);
   const ours = /^(trustshell|cap|receipt|invoice check|grants|redact|present_proof|secret-shape check|proof --verify|trustshell verify|trustshell status)$/;
 
-  function rows(name: string): string[][] {
-    const html = readFileSync(join(__dirname, '../public/belts', name), 'utf8');
-    return [...html.matchAll(/<tr>(.*?)<\/tr>/g)]
+  function rows(name: BeltRole): string[][] {
+    return [...html(name).matchAll(/<tr>(.*?)<\/tr>/g)]
       .map((m) => [...m[1]!.matchAll(/<td>(.*?)<\/td>/g)].map((c) => c[1]!.trim()))
       .filter((cells) => cells.length === 4);
   }
