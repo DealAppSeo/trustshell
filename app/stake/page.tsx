@@ -18,6 +18,7 @@ import {
 import { repidToTier } from '@/lib/onchain-repid';
 import { getAccount, accountHeader, Account } from '@/lib/account';
 import { GateModal } from '@/components/gate-modal';
+import { PracticeBadge } from '@/components/practice-badge';
 
 /**
  * Staking, with the ask sized to what is at stake.
@@ -221,6 +222,7 @@ export default function StakePage() {
       )}
 
       <header className="space-y-2">
+        <PracticeBadge />
         <h2 className="text-3xl font-bold text-white">Stake USDC to raise authority</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
           Escrow USDC to back an agent&apos;s reputation. Higher stake raises the agent&apos;s{' '}
