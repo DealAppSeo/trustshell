@@ -81,10 +81,11 @@ const KERNEL_READS: Record<'passport' | 'authority' | 'grants' | 'activity', Ker
     href: '/stake',
     label: 'Authority',
     // [F2, 2026-10-07] This said "real collateral, not a simulated balance". /stake is a practice
-    // stake on the test network: no funds move, and the engine's payment gate no longer counts
-    // unbacked stake toward what an agent may spend (repid-engine services/x402-gate.ts). The link
-    // must say what the page is, or the chat promises backing that does not exist.
-    answers: 'its practice stake on the test network — no real funds, and it backs no spending yet',
+    // stake on the test network: no real funds sit behind it. Worded to stay true on either side of
+    // repid-engine#1246, which stops the payment gate counting unbacked stake toward spending —
+    // so this copy does not have to wait for that merge. Real collateral is USDC in the owner's
+    // wallet that can be pulled only up to a limit they signed; nothing here is that yet.
+    answers: 'its practice stake on the test network — no real funds behind it',
   },
   grants: {
     href: '/grants',

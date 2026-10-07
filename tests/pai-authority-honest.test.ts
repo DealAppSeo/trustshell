@@ -1,7 +1,8 @@
 /**
  * [F2] The PAI chat links to /stake when you talk about budget, spending or stake. It used to call
  * that page "real collateral, not a simulated balance". /stake is a practice stake on the test
- * network, and the engine no longer counts unbacked stake toward spending. The link says so.
+ * network with no real funds behind it. The link says so, in words that stay true whether or not
+ * repid-engine#1246 (the payment gate stops counting unbacked stake) has merged.
  */
 import { relevantKernelRead } from '../lib/pai';
 
