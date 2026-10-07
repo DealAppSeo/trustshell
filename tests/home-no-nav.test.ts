@@ -1,5 +1,6 @@
 /**
- * The stranger nav is four links, on home and on every other page.
+ * The stranger nav is five links, on home and on every other page. Start was added
+ * 2026-10-07: until then nothing on the nav or the home page led to making an agent.
  * Leaderboard, market and the other routes stay reachable and off this list.
  * The home page still opens on the check, then the terminal line in the hero,
  * then the agent screen below it.
@@ -15,6 +16,7 @@ const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8'
 const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
 
 const STRANGER = [
+  ['/start', 'Start'],
   ['/#claim', 'Check'],
   ['/#add-agent', 'Add to your agent'],
   ['/docs', 'Docs'],
@@ -24,7 +26,7 @@ const STRANGER = [
 const OFF_NAV = ['Market', 'Leaderboard', 'Claim', 'Preview', 'RepID', 'History', 'Settings', 'PAI', 'Mission', 'Agents', 'Connect', 'Run', 'Stake'];
 
 describe('stranger nav', () => {
-  it('lists Check, Add to your agent, Docs, Why, in that order', () => {
+  it('lists Start, Check, Add to your agent, Docs, Why, in that order', () => {
     const found = [...nav.matchAll(/\{\s*href:\s*'([^']+)',\s*label:\s*'([^']+)'\s*\}/g)].map((m) => [m[1], m[2]]);
     expect(found).toEqual(STRANGER.map((pair) => [...pair]));
     expect(nav).not.toMatch(/pathname\s*===\s*'\/'\s*\)\s*return null/);

@@ -210,6 +210,7 @@ export default function StakePage() {
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-10">
       {showGate && (
         <GateModal
+          reason="stake"
           onVerified={() => {
             setShowGate(false);
             setAccount(getAccount());

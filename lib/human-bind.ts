@@ -19,6 +19,12 @@ import { REPID_ENGINE_URL } from './repid-engine';
  * "do you mean to claim this agent" — so one cannot stand in for the other.
  * Present them as one act with two prompts; never hide the second.
  *
+ * AND THE AGENT'S OWN KEY [2026-10-07]. Both signatures prove the WALLET. Until
+ * this date nothing proved the AGENT, so the first wallet to claim an agent ID
+ * owned it — anyone's. The engine now also wants the key the agent's creator was
+ * handed (stored in this browser for agents made here; in `.trustshell/` for the
+ * CLI). It travels in the `x-agent-key` header, never in a body.
+ *
  * NOTHING HERE ASKS FOR A NAME OR AN EMAIL. An address is a pseudonym. This
  * path discloses strictly less about a person than an email login does.
  */
@@ -84,6 +90,12 @@ export const BIND_ERRORS: Record<string, string> = {
     'That agent does not exist. Check the ID, or create an agent first.',
   already_bound:
     'This agent already has an owner. An owner has to revoke before it can be claimed again.',
+  agent_key_required:
+    "Claiming needs this agent's own key as well as your wallet — the key proves the agent is yours. Agents made in this browser carry it; for one made elsewhere, paste its key.",
+  agent_key_mismatch:
+    "That key does not belong to this agent (or was revoked). Use the key you were shown when this agent was created — in the CLI it is in .trustshell/credentials.json.",
+  signature_not_checked:
+    'Your wallet looks like a smart wallet, and the network could not be reached to check its signature. Nothing was claimed. Try again in a moment.',
   not_owner: 'You do not own this agent, so you cannot revoke it.',
 
   // ── the wallet, before we ever reach the engine ──
@@ -208,9 +220,12 @@ export async function fetchBindMessage(input: {
 export async function bindAgent(input: {
   wallet: string;
   agentId: string;
+  /** The agent's own API key — the engine refuses a bind without it. */
+  agentKey: string;
   sign: SignFn;
   onStep?: (step: 'auth' | 'binding' | 'submitting') => void;
 }): Promise<BindOutcome> {
+  if (!input.agentKey.trim()) return { ok: false, reason: 'agent_key_required' };
   const path = '/api/v1/human/bind';
 
   input.onStep?.('auth');
@@ -232,7 +247,7 @@ export async function bindAgent(input: {
   try {
     const res = await fetch(`${REPID_ENGINE_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...auth.headers },
+      headers: { 'Content-Type': 'application/json', ...auth.headers, 'x-agent-key': input.agentKey.trim() },
       body: JSON.stringify({ agent_id: input.agentId, signature, scope: stmt.scope }),
     });
     const data = await res.json().catch(() => ({}));

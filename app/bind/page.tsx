@@ -42,15 +42,20 @@ export default function BindPage() {
 
       <footer className="space-y-3 border-t border-[#1f1f23] pt-8 text-sm leading-relaxed text-[#a1a1aa]">
         <p className="max-w-[64ch]">
-          Owning an agent is not the same as letting it spend. Ownership says who it belongs
-          to; a{' '}
+          Owning an agent is what lets it spend at all: it pays only from its owner&apos;s wallet, up to a
+          limit you set on{' '}
+          <Link href="/spend" className="text-accent underline underline-offset-2">
+            Spend
+          </Link>
+          . What else it may do is a{' '}
           <Link href="/grants" className="text-accent underline underline-offset-2">
             grant
-          </Link>{' '}
-          says what it may do, with what budget, until when — and can be revoked on its own.
+          </Link>
+          , which says what, until when, and can be revoked on its own.
         </p>
         <p className="max-w-[64ch]">
-          Everything here runs on Base Sepolia testnet. Stake is {bindStatus(true).stake}.
+          Everything here runs on Base Sepolia testnet. Stake is {bindStatus(true).stake}: the practice
+          deposit on /stake moves no money. The spending limit is real test USDC in your own wallet.
         </p>
       </footer>
     </div>

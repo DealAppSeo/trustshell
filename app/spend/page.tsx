@@ -22,6 +22,10 @@ const PROBE = '0.000001';
  * 1. Connect your wallet. 2. Set the cap: your wallet approves the agent's own wallet for N USDC.
  * 3. Have the agent pay: it asks the engine with its own key, which refuses anything over the cap
  * before signing, and the USDC contract refuses it again if not. Setting the cap to 0 stops it.
+ *
+ * ONLY ITS OWNER'S WALLET [2026-10-07]. The engine now spends only from the wallet BOUND as the
+ * agent's owner, so an unbound agent stops at step 2 with a link to /bind, and a different wallet
+ * is told which one owns the agent rather than shown a cap it can never use.
  */
 export default function SpendPage() {
   const wallet = useWallet();
@@ -126,6 +130,15 @@ export default function SpendPage() {
           <p className="text-sm text-[#94a3b8]">Connect your wallet and choose an agent first.</p>
         ) : !status ? (
           <p className="text-sm text-[#94a3b8]" aria-live="polite">Reading the chain…</p>
+        ) : status.code === 'not_bound' ? (
+          <p className="text-sm text-[#94a3b8]">
+            Nobody has claimed this agent yet. An agent spends only from its owner&apos;s wallet, so{' '}
+            <Link href="/bind" className="text-amber-500 hover:underline">claim it with this wallet</Link> first, then come back.
+          </p>
+        ) : status.code === 'not_owner' ? (
+          <p className="text-sm text-[#94a3b8] break-all">
+            This agent belongs to <span className="font-mono text-white">{status.bound_owner}</span>. It spends only from that wallet. Switch your wallet to it to set a cap.
+          </p>
         ) : !agentWallet ? (
           <p className="text-sm text-[#94a3b8]">Not checked: {status.error ?? 'the engine did not name this agent’s wallet.'}</p>
         ) : (

@@ -65,6 +65,8 @@ export type SpendReply = {
   code?: string;
   error?: string;
   agent_wallet?: string | null;
+  /** On `not_owner`: the wallet bound as this agent's owner — the only one it may spend from. */
+  bound_owner?: string;
   reads?: { cap_usdc: string; owner_balance_usdc: string; agent_eth: string; chain_id: number };
   tx_hash?: string;
   basescan_url?: string;

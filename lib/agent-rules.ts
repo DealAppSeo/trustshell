@@ -20,13 +20,18 @@ export const MAX_CORRECTION_CHARS = 300;
 export const CORRECTIONS_HEADING = '## Corrections';
 
 /**
- * The prompt /run sends. With no rules it is the question unchanged, so an agent without rules
- * behaves exactly as before.
+ * The prompt /run and /pai send. The job card (lib/job-card.ts: role, belt, limits) comes first,
+ * then the owner's rules, then the question. With neither it is the question unchanged, so an
+ * agent with no rules and no grants behaves exactly as before.
  */
-export function composeRunPrompt(rules: string | undefined | null, question: string): string {
+export function composeRunPrompt(rules: string | undefined | null, question: string, job?: string | null): string {
   const r = (rules ?? '').trim();
-  if (!r) return question;
-  return `Your owner gave you these rules. Follow them in this answer.\n\n${r}\n\n---\n\n${question}`;
+  const j = (job ?? '').trim();
+  if (!r && !j) return question;
+  const parts: string[] = [];
+  if (j) parts.push(j);
+  if (r) parts.push(`Your owner gave you these rules. Follow them in this answer.\n\n${r}`);
+  return `${parts.join('\n\n')}\n\n---\n\n${question}`;
 }
 
 export type RulesEdit = { ok: true; rules: string } | { ok: false; reason: string };

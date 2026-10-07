@@ -27,6 +27,8 @@
  *   - check_claim    — `trustshell check "<sentence>"` parity: pass / veto / not-checked, the same
  *                      label the Chrome extension shows. Calls src/lib/claim.ts classifyClaim, the
  *                      one function the CLI also calls.
+ *   - my_job         — the agent's role, the tools it may use and until when, from its live grants
+ *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.
@@ -38,6 +40,7 @@
  * ENV:
  *   REPID_API_KEY       — optional API key (verify/leaderboard/repid are keyless)
  *   TRUSTSHELL_API_URL  — override the backend origin (default: live HyperDAG backend)
+ *   TRUSTSHELL_AGENT_ID — which agent this server serves (my_job); else .trustshell/credentials.json
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -50,6 +53,7 @@ import { redactKey } from '../cli/redact-key';
 import { refusedValue } from '../cli/remember';
 import { recallLocal, rememberLocal } from './memory';
 import { classifyClaim } from '../lib/claim';
+import { myJob } from '../lib/my-job';
 
 /**
  * Package version — read from package.json at runtime, never retyped here.
@@ -431,6 +435,29 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         return jsonResult(await classifyClaim(text));
       } catch (e: any) {
         return errorResult(`check_claim failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  // `my_job`: the agent asks what it is for. Until 2026-10-07 nothing told it — a role and a belt
+  // given on trustshell.dev reached no model. NOT_CHECKED (unknown agent, engine unreachable) is a
+  // normal result with the fix in it, never an empty job.
+  registerTool(
+    'my_job',
+    {
+      title: 'My job',
+      description:
+        'Your role, the tools you may use and until when, as your owner set them on trustshell.dev ' +
+        '(read from your live grants). Call it when asked what you can do. Reads TRUSTSHELL_AGENT_ID, ' +
+        'else .trustshell/credentials.json, to know which agent you are. Returns NOT_CHECKED with the ' +
+        'fix when it cannot tell, never an empty job.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return jsonResult(await myJob());
+      } catch (e: any) {
+        return errorResult(`my_job failed: ${e?.message ?? String(e)}`);
       }
     },
   );

@@ -9,12 +9,19 @@ import { TrustBadge } from '@/components/trust-state';
 import { fetchAgentRepId, REPID_LOOKUP_DETAIL, type RepIdLookup } from '@/lib/agent-repid';
 import { composeRunPrompt } from '@/lib/agent-rules';
 import { RulesPanel, TeachIt } from '@/components/agent-rules-panel';
+import { jobCard, type JobCard } from '@/lib/job-card';
+import { listGrantsFor } from '@/lib/repid-engine';
 
 export default function RunPage({ params }: { params: Promise<{ agentId: string }> }) {
   const unwrappedParams = use(params);
   const agentId = unwrappedParams.agentId;
   const [agent, setAgent] = useState<Agent | null>(null);
   const [agentsLoaded, setAgentsLoaded] = useState(false);
+  /**
+   * Its job card (lib/job-card.ts), built from its live grants and sent ahead of the rules.
+   * undefined = still asking the engine; 'error' = could not ask (said so, never shown as "no job").
+   */
+  const [job, setJob] = useState<JobCard | null | 'error' | undefined>(undefined);
   /**
    * The score, WITH the reason it can be believed — never a bare number.
    *
@@ -73,8 +80,11 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
 
   useEffect(() => {
     localDb.getAgents().then(agents => {
-      setAgent(agents.find(a => a.id === agentId) || null);
+      const found = agents.find(a => a.id === agentId) || null;
+      setAgent(found);
       setAgentsLoaded(true);
+      setJob(undefined);
+      listGrantsFor(agentId).then((grants) => setJob(grants === 'error' ? 'error' : jobCard(agentId, found?.name ?? 'this agent', grants)));
     });
     localDb.getHistory().then(h => setHistory(h.filter(row => row.agentId === agentId)));
     setLookup(null);
@@ -106,7 +116,7 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         body: JSON.stringify({
           // The owner's rules go with every question (lib/agent-rules.ts). Scoring below still gets
           // the question alone, so the checkers judge the answer, not the rules.
-          prompt: composeRunPrompt(agent?.constitution, prompt),
+          prompt: composeRunPrompt(agent?.constitution, prompt, job && job !== 'error' ? job.text : null),
           tier_preference: tierPref === 'auto' ? 'tier0_first' : tierPref,
           user_paid_keys
         })
@@ -341,6 +351,23 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         </div>
       </div>
 
+      <section aria-labelledby="job-h" className="bg-[#0f172a] p-5 rounded-xl border border-[#1e293b] space-y-2 min-w-0">
+        <h3 id="job-h" className="text-lg font-bold">Its job</h3>
+        {job === undefined ? (
+          <p className="text-sm text-[#94a3b8]" aria-live="polite">Asking the engine what it may do…</p>
+        ) : job === 'error' ? (
+          <p className="text-sm text-[#94a3b8]">Not checked: could not reach the engine for its role, so none is sent with this question.</p>
+        ) : job === null ? (
+          <p className="text-sm text-[#94a3b8]">
+            No role yet. Give it one, with a tool belt, on <Link href="/agents" className="text-amber-500 hover:underline">Agents</Link>; it is then told its job with every question.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-[#94a3b8]">Sent ahead of its rules with every question, so it can tell you what it does. It is built from its live grants.</p>
+            <pre className="whitespace-pre-wrap break-words text-sm text-[#e2e8f0] bg-[#0a0f1a] border border-[#1e293b] rounded p-3">{job.text}</pre>
+          </>
+        )}
+      </section>
       <RulesPanel rules={agent.constitution} onSave={saveRules} />
 
       <form onSubmit={handleRun} className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-4">
