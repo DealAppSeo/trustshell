@@ -80,7 +80,11 @@ const KERNEL_READS: Record<'passport' | 'authority' | 'grants' | 'activity', Ker
   authority: {
     href: '/stake',
     label: 'Authority',
-    answers: 'what it can actually back — real collateral, not a simulated balance',
+    // [F2, 2026-10-07] This said "real collateral, not a simulated balance". /stake is a practice
+    // stake on the test network: no funds move, and the engine's payment gate no longer counts
+    // unbacked stake toward what an agent may spend (repid-engine services/x402-gate.ts). The link
+    // must say what the page is, or the chat promises backing that does not exist.
+    answers: 'its practice stake on the test network — no real funds, and it backs no spending yet',
   },
   grants: {
     href: '/grants',
