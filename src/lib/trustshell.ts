@@ -1069,9 +1069,10 @@ export class TrustShell {
 
   /**
    * Fetch an agent's latest RepID range proof and (optionally) verify it client-side
-   * with the bundled WASM verifier — "trust math, not the server."
+   * with the WASM verifier from @hyperdag/proof-verifier — "trust math, not the server."
    *
-   * Client-side verification requires @hyperdag/proof-verifier (peer dependency); the
+   * Client-side verification uses @hyperdag/proof-verifier (a regular dependency, installed beside
+   * this package); the
    * proof statement is the agent-bound tuple {agent_id, threshold, repid_score}.
    */
   async presentProof(
@@ -1143,7 +1144,7 @@ export class TrustShell {
     }
     try {
       // Dynamic import via a variable specifier so the SDK type-checks and loads even when
-      // the optional verifier isn't installed (it ships as an optionalDependency).
+      // the verifier is missing (it is a regular dependency, but an install can still prune it).
       const verifierPkg = '@hyperdag/proof-verifier';
       const mod: any = await import(/* @vite-ignore */ verifierPkg);
       const result = await mod.verify(proofBytes, stmt);

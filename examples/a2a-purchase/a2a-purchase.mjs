@@ -27,10 +27,10 @@
  *   REPID_API_KEY          the buyer agent's API key (from register(); must match the deployed allowlist)
  *   TRUSTSHELL_BUYER_AGENT the buyer agent UUID the key is bound to
  *   TRUSTSHELL_PAYER_KEY   a funded Base Sepolia private key (0x…) used to sign the x402 payment
+ *   TRUSTSHELL_PAY_TO      the provider's payTo WALLET ADDRESS (0x…), from the backend's 402 requirements
  * Optional:
  *   TRUSTSHELL_API_URL     override the engine URL (defaults to the live production engine)
  *   TRUSTSHELL_SERVICE_ID  buy this specific service instead of auto-picking a "verification" one
- *   TRUSTSHELL_PAY_TO      the provider payTo address to sign the x402 payment against (see note in-code)
  */
 import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';
 import { requirePayCap, refuseOverCap } from './require-pay-cap.mjs';
@@ -40,6 +40,7 @@ const API_KEY = process.env.REPID_API_KEY;
 const BUYER_AGENT = process.env.TRUSTSHELL_BUYER_AGENT;
 const PAYER_KEY = process.env.TRUSTSHELL_PAYER_KEY;
 const SERVICE_ID = process.env.TRUSTSHELL_SERVICE_ID;
+const PAY_TO = process.env.TRUSTSHELL_PAY_TO;
 
 const log = (...a) => console.log(...a);
 
@@ -98,6 +99,14 @@ if (!chosen) {
 }
 log(`  picked: "${chosen.serviceName}" (${chosen.id}) — ${(chosen.basePriceUsdcRaw / 1e6).toFixed(2)} USDC, min RepID ${chosen.minRepidToPurchase}`);
 
+// PAY TO must be the provider's WALLET ADDRESS. A service's providerAgentId is an agent id (a
+// UUID), and the signer rejects it as an invalid address, so this script never falls back to it.
+if (!PAY_TO) {
+  log("\n— stopping before payment: set TRUSTSHELL_PAY_TO to the provider's payTo wallet address (0x…).");
+  log("  It is the payTo in the backend's 402 requirements: executeA2A() with no xPaymentHeader returns them in paymentRequired.accepts.");
+  process.exit(0); // clean exit — no crash, no faked payment.
+}
+
 // --- 3. guardedX402Payment() — origin + policy + audit, then sign (key never logged). ----------
 log('\n→ signing x402 payment (EIP-3009 TransferWithAuthorization)…');
 const payCap = requirePayCap(process.env);
@@ -110,15 +119,11 @@ if (!over.ok) {
   log(over.message);
   process.exit(1);
 }
-const provider = await client.getService(chosen.id); // refresh to get the current payTo/provider
 // Cli + explicit allow: this process is the human-run CLI, not an unstamped agent turn.
 const xPaymentHeader = await guardedX402Payment({
   origin: 'Cli',
   privateKey: PAYER_KEY,
-  // The provider's payTo comes back in the 402 requirements; for the happy path we sign for the
-  // provider agent's wallet. If you don't know it yet, call executeA2A() once WITHOUT a header to
-  // get the backend's `paymentRequired.accepts[0].payTo`, then sign against that and retry.
-  to: process.env.TRUSTSHELL_PAY_TO || provider.providerAgentId, // overrideable; see note above
+  to: PAY_TO, // a wallet address, never an agent id (see the guard above)
   amount: chosen.basePriceUsdcRaw,
   cap: payCap.cap, // BUYER limit, not the listing price
   agentId: BUYER_AGENT,

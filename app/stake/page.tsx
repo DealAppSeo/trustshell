@@ -187,7 +187,7 @@ export default function StakePage() {
         setSuccess(
           realMode
             ? `Verified on-chain and staked ${usdc} USDC. Your authority ceiling is recalculating.`
-            : `Staked ${usdc} testnet USDC. Your authority ceiling is recalculating.`,
+            : `Staked ${usdc} testnet USDC. It shows in the figure above, but only a real on-chain deposit raises what the agent may actually spend.`,
         );
         setTxHash('');
         fetchAuthority(selectedAgentId).then(setAuthority);
@@ -227,7 +227,9 @@ export default function StakePage() {
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
           Escrow USDC to back an agent&apos;s reputation. Higher stake raises the agent&apos;s{' '}
           <span className="text-white font-medium">authority ceiling</span> — the maximum economic
-          action it can take before requiring peer verification.
+          action it can take before requiring peer verification. Only a real on-chain deposit
+          raises the ceiling the spend gate uses. Testnet stake shows in the figure below, but it
+          does not raise what the agent may actually spend.
         </p>
         <p className="text-sm text-[#64748b] max-w-2xl leading-relaxed">
           Part of the <span className="text-[#94a3b8]">Earn</span> stage. Testnet stake is a single
