@@ -6,10 +6,11 @@ npx @hyperdag/trustshell check "If you drive 60 miles at 30 mph and drive back a
 
 ```
 veto
-The classifier labelled this sentence veto — do not rely on it (356 ms).
+The classifier labelled this sentence veto — do not rely on it (755 ms).
+Groq and Cerebras both said false.
 ```
 
-That run exited 1.
+That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run may name other checkers.
 
 ![How a check works: your sentence is scrubbed on your device; an equation such as 2 + 2 = 5 is worked out with no model; anything else goes to two checkers from different model families; both TRUE is Checks out, both FALSE is Caught, anything else is Not checked.](public/how-a-check-works.svg)
 
@@ -47,6 +48,28 @@ Not a launch announcement.
 
 ---
 
+## Where this sits
+
+**Calls:**
+
+- **[DealAppSeo/repid-engine](https://github.com/DealAppSeo/repid-engine)**, the HyperDAG engine, at `https://repid-engine-production.up.railway.app` unless `TRUSTSHELL_API_URL` names another. That default is set in the `TrustShell` constructor (`src/lib/trustshell.ts`) and as `DEFAULT_API_URL` (`src/lib/claim.ts`). Every networked SDK method, CLI command and MCP tool goes there, except `check <runUrl>` and `verifySigner()`.
+- **`@hyperdag/proof-verifier`** `^0.2.0`, a runtime dependency that npm installs beside this package. `verifyProof()`, `presentProof(id, { verify: true })`, the `verify()` export, `proof --verify` and `badge` load it when called and run it on your machine.
+- **The ERC-8004 ReputationRegistry on Base Sepolia**, read only: `getClients` through the public RPC `https://sepolia.base.org`, from `verifySigner()` alone (`src/lib/verify-signer.ts`, needs the optional `ethers`). The package writes nothing on chain and does not read the IdentityRegistry.
+- **`api.github.com`**, from `check <runUrl>` alone.
+
+**Called by:**
+
+- People, from a terminal: the `trustshell` CLI.
+- MCP clients such as Claude Desktop and Cursor, through the `trustshell-mcp` server.
+- trustshell.dev: its `/check` page imports `src/lib/claim.ts` from this tree.
+- [DealAppSeo/example-agent](https://github.com/DealAppSeo/example-agent), which installs it from GitHub (`"@hyperdag/trustshell": "github:DealAppSeo/trustshell"`).
+
+The Chrome extension in `extension/` does not import this package. It asks the same engine endpoint (`POST /api/v1/classify`) itself, and `tests/claim-path-parity.test.ts` keeps its wording equal to `src/lib/claim.ts`.
+
+**The whole map:** https://github.com/DealAppSeo/hyperdag-protocol/blob/main/BUILDERS.md#how-the-pieces-fit
+
+---
+
 ## The portable agentic trust harness
 
 Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass. That is the difference between *another LLM judge* and a *trust rail*.
@@ -55,7 +78,7 @@ Most "LLM trust" tools are *judges* — they score an output and leave the decis
 
 - ✅ **HAL cross-LLM verification** — `verifyOutput()` — real cross-provider fact-check quorum (keyless, live-verified)
 - 🏅 **ERC-8004 portable reputation** — `getRepID()` / `presentProof()` — look up any agent's RepID score + tier, or present a client-verifiable range proof (keyless, live-verified)
-- 💸 **x402 payments** — `executeA2A()` / `guardedX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (available — needs an API key + a funded Base Sepolia wallet)
+- 💸 **x402 payments** — `executeA2A()` / `guardedX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (key-gated: blocked without an API key and a funded Base Sepolia wallet, which is why [Live vs paused](#live-vs-paused) lists it as `paused/blocked`)
 
 HAL verify and RepID lookup run against the live backend with **no key**. The x402 *pay* path is real but moves testnet value, so it needs credentials — we say so plainly, and never imply a live free purchase.
 
@@ -65,7 +88,7 @@ HAL verify and RepID lookup run against the live backend with **no key**. The x4
 
 TrustShell gives an AI agent (or the dev building one) three things against the **live** HyperDAG backend:
 
-1. **Verify an output** — run any text through a real cross-provider HAL fact-check quorum and get a `PASS` / `FLAG` / `VETO` verdict with evidence. **No API key.**
+1. **Verify an output** — run any text through a real cross-provider HAL fact-check quorum and get a `PASS` / `FLAG` / `VETO` / `NOT_CHECKED` verdict with evidence. `NOT_CHECKED` means HAL did not decide, and it is never a pass. **No API key.**
 2. **Look up reputation** — fetch any agent's current RepID score + tier. **No API key.**
 3. **Discover → buy → receipt** — browse the live agent-service marketplace, purchase a service agent-to-agent, and poll for a verifiable settlement receipt. **Needs an API key + a funded Base Sepolia wallet** (it moves real testnet value).
 
@@ -105,7 +128,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 | `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. MEASURED 2026-10-06: 3 answering / 5 configured (24-hour window). HAL is weaker on paraphrases than on record-grounded facts. |
 | ERC-8004 identity mint | paused/blocked | Key-gated, separate call. A keyless `register()` leaves `NOT_MINTED`. |
 | On-chain reputation writes | live-degraded | Recorded, each with a transaction hash. On 2026-10-05 the public counter reported 114 rows with a real transaction hash on the reputation registry. That is not a receipt check of every row. |
-| x402 `executeA2A()` | paused/blocked | Protocol exists on Base Sepolia (chain id 84532). Needs an API key and a funded testnet wallet. Not mainnet. |
+| x402 `executeA2A()` | paused/blocked | Blocked by credentials, not paused. The call ships, and the engine's contract route answers 401 without a key (MEASURED 2026-10-07). Needs an API key and a funded testnet wallet. Fulfillment is asynchronous, so a contract can sit in `escrowed`. Protocol exists on Base Sepolia (chain id 84532). Not mainnet. |
 
 ### Honest limits
 
@@ -133,9 +156,9 @@ The package does not carry the Next.js/React site. The 1.6.0 tarball is 91 files
 |---|---|---|
 | A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — HAL verification + ERC-8004 RepID + x402 payments, in your TypeScript/JS |
 | Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.6.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
-| Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone Plonky3 proof checking (usually bundled with trustshell — rarely installed directly) |
+| Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone Plonky3 proof checking. It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
 
-**Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a building block that ships inside trustshell.**
+**Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a separate package it depends on: npm installs it alongside, and the published tarball contains none of its files.**
 
 ### MCP server for AI tools
 
@@ -151,7 +174,7 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.6.0 its tools are `check_claim`, `verify_output`, `get_repid`, `present_proof`, `verify_proof`, `status`, and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate` and `repid`). It has no purchase tool; buying is the SDK's `executeA2A`.
+In 1.6.0 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). The source on main also registers `my_job` (the agent's role and allowed tools, read from its live grants); no published release has it yet. It has no purchase tool; buying is the SDK's `executeA2A`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
@@ -241,11 +264,17 @@ const { services } = await client.listServices({ type: 'verification' });
 const svc = services[0]; // e.g. "Verify-a-claim / HAL fact-check" by trinity-shofet, $0.05
 if (!svc) throw new Error('no verification service is listed right now');
 
+// PAY TO — `to` takes the provider's WALLET ADDRESS (0x…). svc.providerAgentId is a UUID, and the
+// signer throws "invalid address" on it. The address is the payTo in the backend's 402 requirements:
+// an executeA2A call with no xPaymentHeader returns them in paymentRequired.accepts.
+const payTo = process.env.TRUSTSHELL_PAY_TO;
+if (!payTo) throw new Error('set TRUSTSHELL_PAY_TO to the provider payTo address (0x…)');
+
 // PAY — origin + policy + audit, then sign (the key only signs locally; it never leaves memory).
 const xPaymentHeader = await guardedX402Payment({
   origin: 'Cli',                                // Unknown / missing origin cannot pay
   privateKey: process.env.TRUSTSHELL_PAYER_KEY, // funded Base Sepolia wallet
-  to: svc.providerAgentId,                      // or the payTo from the backend's 402 requirements
+  to: payTo,                                    // a wallet address, never an agent id
   amount: svc.basePriceUsdcRaw,
   cap: 1_000_000n, // BUYER limit (raw USDC units), not the listing price
   agentId: process.env.TRUSTSHELL_BUYER_AGENT,
@@ -271,6 +300,7 @@ Env it needs:
 REPID_API_KEY=...             # your agent API key (repid.dev/start) — for the buy; discovery is keyless
 TRUSTSHELL_BUYER_AGENT=...    # the buyer agent UUID the key is bound to
 TRUSTSHELL_PAYER_KEY=0x...    # a Base Sepolia wallet funded with test USDC
+TRUSTSHELL_PAY_TO=0x...       # the provider's payTo wallet address, from the backend's 402 requirements
 ```
 
 Runnable version: [`examples/a2a-purchase/a2a-purchase.mjs`](examples/a2a-purchase/a2a-purchase.mjs) — it guards on the missing env and prints exactly what to set (it does **not** fake a purchase; it exits 0 cleanly). If the backend returns a 402, it tells you the exact `payTo` to sign against and retry.
@@ -286,13 +316,18 @@ CI / pre-commit pipeline. Installing the package puts a `trustshell` (and `hal`)
 npm install -g @hyperdag/trustshell     # or: npx @hyperdag/trustshell verify "…"
 
 trustshell verify "The capital of France is Paris."
-# Recorded 2026-10-05, exit 0:
+# Recorded 2026-10-07 on 1.6.0, exit 0:
 # ✓ PASS  trust 100/100
 #   PASS — hal_score 0 via fact-check (full quorum)
 #   evidence:
-#     - cerebras:TRUE (Paris is the capital of France.)
 #     - groq:TRUE (Paris is the capital of France.)
+#     - cerebras:TRUE (Paris is the capital of France.)
 #     - zai:UNCERTAIN (NOT_CHECKED: late after 2-family agreement)
+# first-pass NOT_CHECKED
+# receipt-id NOT_CHECKED
+# receipt columns-missing
+# NOT_CHECKED
+# (The last four lines report the engine's honesty and receipt records, not the verdict.)
 
 trustshell repid trinity-shofet          # the score moves; gate on tier
 trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
@@ -317,8 +352,9 @@ The SVG has no external references, so it renders offline and cannot phone home.
 > **Which commands are in which published release.** `verify` / `repid` / `proof` are in every
 > published release. **`badge` ships in ≥ 1.3.0.** **`check` / `init` / `inspect` / `report` ship
 > in ≥ 1.4.0** — on an older published build they exit `2` with *unknown command*, which is a
-> version gap, not a broken install. If you hit that: upgrade, or install from source
-> (`npm i github:DealAppSeo/trustshell`, which tracks the latest).
+> version gap, not a broken install. If you hit that: upgrade, or install from GitHub
+> (`npm i github:DealAppSeo/trustshell`). That installs the `dist/` committed on main, not a build
+> of the source, so it can trail the source.
 >
 > **This note exists because the gap was measured, not imagined** [2026-09-23]: running `init`
 > against the then-latest published build exited `2`, while the same command worked from source.
@@ -406,13 +442,14 @@ false.`), `Decided by exact calculation. No model was asked.`, `No checker was a
 `No answer in time.` If the endpoint asked a clarifying question, it follows on its own line, and
 a last line says so when text that looked like a key or personal data was removed before sending.
 
-`--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters`, `deciders` and
+`--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters` and
 `question` when the endpoint sent them, `reason` when the label was decided locally, and
-`scrubbed: true` when something was removed.
+`scrubbed: true` when something was removed. 1.6.0 drops the endpoint's `deciders` and `votes`;
+the source on main keeps both.
 
-The endpoint itself answers `{label, latency_ms, by}`, plus `voters` and `deciders` when `by` is
-`votes`, and `question` only on a not-checked from the votes when the server has questions turned
-on (`CLASSIFY_QUESTIONS=on`; off by default). By default each visitor gets 100 checks per UTC day
+The endpoint itself answers `{label, latency_ms, by}`, plus `voters`, `deciders` and `votes` (each
+decider's model family and verdict) when `by` is `votes`, and `question` only on a not-checked from
+the votes when the server has questions turned on (`CLASSIFY_QUESTIONS=on`; off by default). By default each visitor gets 100 checks per UTC day
 (`CLASSIFY_DAILY_LIMIT`); past that the endpoint answers 429, which the CLI reports as `not-checked`.
 
 | Label | Exit |
@@ -578,7 +615,7 @@ Read-only card at [app/model-card/page.tsx](app/model-card/page.tsx). Columns: f
 
 ## Last measured week
 
-FIXTURE, not live. Per-family HAL counts (family, host, TRUE, FALSE, NOT_CHECKED) are in [the receipt page](app/hal-receipt/page.tsx) and [`fixtures/hal-last-week.fixture.json`](fixtures/hal-last-week.fixture.json). A vote is written as `ProviderVerdict` in `repid-engine/src/hal/fact-check.ts` (host, verdict, latency). Family comes from `familyOf(model)` in that file. The durable table is `llm_call_log`, which does not store TRUE or FALSE. This repo cannot read that table.
+FIXTURE, not live. Per-family HAL counts (family, host, TRUE, FALSE, NOT_CHECKED) are in [the receipt page](app/hal-receipt/page.tsx) and [`fixtures/hal-last-week.fixture.json`](fixtures/hal-last-week.fixture.json). A vote is written as `ProviderVerdict` in `src/hal/fact-check.ts` of [DealAppSeo/repid-engine](https://github.com/DealAppSeo/repid-engine) (host, verdict, latency). Family comes from `familyOf(model)` in that file. The durable table is `llm_call_log`, which does not store TRUE or FALSE. This repo cannot read that table.
 
 Agents rate families by outcomes. Vendors do not score themselves.
 

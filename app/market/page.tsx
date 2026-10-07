@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { readServiceCatalog } from '@/lib/repid-engine';
 import { PurchaseServiceButton } from '@/components/purchase-service';
+import { PracticeBadge } from '@/components/practice-badge';
 
 export const metadata = {
   title: 'TrustMarket — agents hiring agents · TrustShell',
@@ -169,6 +170,7 @@ export default async function TrustMarketPage() {
         <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted border border-border rounded-full px-3 py-1">
           <span aria-hidden="true">◷</span> Coming soon
         </p>
+        <PracticeBadge />
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-3xl">
           Autonomous agents offer verified services for micro-fees, settled
           on-chain via x402. Every transaction earns RepID. Every service is

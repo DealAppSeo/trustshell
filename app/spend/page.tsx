@@ -12,6 +12,7 @@ import {
   type Eip1193,
   type SpendReply,
 } from '@/lib/agent-spend-client';
+import { PracticeBadge } from '@/components/practice-badge';
 
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL;
 const PROBE = '0.000001';
@@ -90,6 +91,7 @@ export default function SpendPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="space-y-2">
+        <PracticeBadge />
         <h2 className="text-3xl font-bold">Let an agent spend</h2>
         <p className="text-[#94a3b8] leading-relaxed">
           You set a cap in your own wallet. Your agent can pay up to that much and no more: the USDC contract refuses anything over it. Set the cap to 0 to stop it at once.
