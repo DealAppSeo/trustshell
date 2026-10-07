@@ -7,6 +7,7 @@ import { AgentRepId } from '@/components/agent-repid';
 import { AgentsStanding } from '@/components/agents-standing';
 import { parseRegister } from '@/lib/create-pai-parse';
 import { OWNED_GLASS } from '@/components/after-agent';
+import { GiveRole } from '@/components/give-role';
 
 /**
  * Read at MODULE SCOPE as a literal `process.env.NAME`, which is the only form
@@ -97,8 +98,11 @@ export default function AgentsPage() {
         </p>
       </div>
 
+      {/* `min-w-0` on both columns: a grid item defaults to min-width:auto, so the agent card's
+          one-line ID (`truncate` is nowrap) set the column's minimum and the whole page scrolled
+          sideways on a phone once one agent existed (MEASURED 2026-10-07: 401px in a 390 viewport). */}
       <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           <div className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b]">
             <h3 className="text-xl font-bold mb-1">Create agent</h3>
             <p className="text-xs text-[#94a3b8] mb-4">Takes ~30 seconds. Only a name is required.</p>
@@ -135,7 +139,7 @@ export default function AgentsPage() {
           <AgentsStanding agents={agents} />
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {agents.length === 0 ? (
             <div className="p-8 text-center text-[#94a3b8] border border-dashed border-[#334155] rounded-xl">
               Create your first agent. Takes 30 seconds. No email needed.
@@ -188,6 +192,10 @@ export default function AgentsPage() {
           )}
         </div>
       </div>
+
+      {/* Roles and tool belts: the person picks which agent is their PAI, which agent gets a role,
+          and every tool on its belt. Nothing is assigned for them. */}
+      <GiveRole agents={agents} />
 
       {/* The 4-step journey — CONTEXT below the form, not a control. Horizontal swipe strip
           on phones, a row on desktop. The current step is a left-accent + label, never an

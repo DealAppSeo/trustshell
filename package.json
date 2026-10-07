@@ -72,6 +72,7 @@
     "test:wrapper-readiness": "node tests/e2e/wrapper-reach-preflight.mjs && jest tests/e2e/wrapper-readiness.test.ts",
     "prepublishOnly": "npm run sdk:build && npm run sdk:test",
     "test:grants-fail-closed": "node tests/e2e/grants-fail-closed.mjs",
+    "test:belt-grant-walk": "node tests/e2e/belt-grant-walk.mjs",
     "test:mvp-walk": "node tests/e2e/mvp-walk.mjs",
     "test:extension-e2e": "node tests/e2e/extension-load.mjs",
     "test:create-walk": "node tests/e2e/create-walk.mjs",
