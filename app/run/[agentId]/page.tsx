@@ -7,6 +7,8 @@ import { tokenHeader, fetchGateStatus, getGateEmail } from '@/lib/agent-gate';
 import { GateModal } from '@/components/gate-modal';
 import { TrustBadge } from '@/components/trust-state';
 import { fetchAgentRepId, REPID_LOOKUP_DETAIL, type RepIdLookup } from '@/lib/agent-repid';
+import { composeRunPrompt } from '@/lib/agent-rules';
+import { RulesPanel, TeachIt } from '@/components/agent-rules-panel';
 
 export default function RunPage({ params }: { params: Promise<{ agentId: string }> }) {
   const unwrappedParams = use(params);
@@ -63,6 +65,12 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
     setTimeout(() => setScorePulse(false), 700);
   };
 
+  /** Save edited rules (or a taught correction) to this browser, and show them at once. */
+  const saveRules = async (rules: string) => {
+    await localDb.updateAgent(agentId, { constitution: rules });
+    setAgent((a) => (a ? { ...a, constitution: rules } : a));
+  };
+
   useEffect(() => {
     localDb.getAgents().then(agents => {
       setAgent(agents.find(a => a.id === agentId) || null);
@@ -96,7 +104,9 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...tokenHeader() },
         body: JSON.stringify({
-          prompt,
+          // The owner's rules go with every question (lib/agent-rules.ts). Scoring below still gets
+          // the question alone, so the checkers judge the answer, not the rules.
+          prompt: composeRunPrompt(agent?.constitution, prompt),
           tier_preference: tierPref === 'auto' ? 'tier0_first' : tierPref,
           user_paid_keys
         })
@@ -331,6 +341,8 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         </div>
       </div>
 
+      <RulesPanel rules={agent.constitution} onSave={saveRules} />
+
       <form onSubmit={handleRun} className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-4">
         {error && (
           <div className="p-4 bg-red-900/20 border border-red-900 rounded space-y-1">
@@ -344,11 +356,13 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
           placeholder="Enter prompt here..."
           className="w-full bg-[#0a0f1a] border border-[#334155] rounded-xl p-4 h-32 font-mono text-white resize-none"
         />
-        <div className="flex justify-between items-center">
+        {/* flex-wrap: on a phone the tier picker and the button did not fit one row, and the page
+            scrolled sideways (MEASURED 2026-10-07: 459px in a 390 viewport). */}
+        <div className="flex flex-wrap gap-3 justify-between items-center">
           <select 
             value={tierPref} 
             onChange={e => setTierPref(e.target.value)}
-            className="bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white"
+            className="bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white max-w-full"
           >
             <option value="auto">Auto (Free first, fallback to paid)</option>
             <option value="tier0_only">Free only (No vault needed)</option>
@@ -369,9 +383,9 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         ) : (
           history.slice(0, 20).map(h => (
             <div key={h.id} className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-4">
-              <div className="flex justify-between text-sm text-[#94a3b8] font-mono">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 justify-between text-sm text-[#94a3b8] font-mono">
                 <span>{new Date(h.timestamp).toLocaleString()}</span>
-                <span className="flex gap-4">
+                <span className="flex flex-wrap gap-x-4 gap-y-1">
                   <span>Provider: {h.provider} (Tier {h.tier})</span>
                   <span>{h.latencyMs}ms</span>
                   <span>Tokens: {h.tokensIn} in / {h.tokensOut} out</span>
@@ -403,6 +417,7 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
               <div className="prose prose-invert max-w-none text-white whitespace-pre-wrap">
                 {h.answer}
               </div>
+              <TeachIt rules={agent.constitution} onSave={saveRules} />
             </div>
           ))
         )}

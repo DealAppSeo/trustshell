@@ -305,7 +305,7 @@ export type MintGrantResult = { ok: true; grant: Grant } | { ok: false; error: s
 export type RoleDefinition = {
   name: string;
   label: string;
-  /** The MOST this role may ever hold. `[]` means it may hold nothing — that is CTO and CMO. */
+  /** The MOST this role may ever hold. CTO and CMO hold only read-only tools (`read:tool:*`), never spend. */
   ceiling: string[];
   rationale: string;
 };
@@ -403,10 +403,15 @@ export async function mintGrant(input: {
   parentGrantId?: string;
   idempotencyKey?: string;
   signature?: string;
+  /**
+   * The GRANTOR agent's own API key (from register). Minting is authed, and an agent-bound key
+   * may only mint with itself as grantor, by id. Without one the engine answers 401.
+   */
+  apiKey?: string;
 }): Promise<MintGrantResult> {
   const res = await fetch(`${REPID_ENGINE_URL}/api/v1/grants`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(input.apiKey ? { 'x-api-key': input.apiKey } : {}) },
     body: JSON.stringify({
       grantor_agent_id: input.grantorAgentId,
       grantee_agent_id: input.granteeAgentId,
@@ -449,11 +454,13 @@ export async function listGrantsFor(principal: string): Promise<ListedGrant[] | 
 
 export async function revokeGrant(
   grantId: string,
-  requestedBy: string
+  requestedBy: string,
+  /** The grantor's own API key. Revoking is authed; a bound key may only revoke as itself. */
+  apiKey?: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const res = await fetch(`${REPID_ENGINE_URL}/api/v1/grants/${encodeURIComponent(grantId)}/revoke`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'x-api-key': apiKey } : {}) },
     body: JSON.stringify({ requested_by: requestedBy }),
   });
   const data = await res.json().catch(() => ({}));
