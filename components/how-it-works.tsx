@@ -112,12 +112,12 @@ export function HowItWorks() {
             </li>
             <li>
               Only verifying <span className="text-foreground">ZK proofs</span> client-side —{' '}
-              <code className="font-mono text-accent">npm install @hyperdag/proof-verifier</code> (usually bundled with trustshell — rarely installed directly).
+              <code className="font-mono text-accent">npm install @hyperdag/proof-verifier</code> (trustshell installs it as a dependency — rarely installed directly).
             </li>
           </ul>
           <p className="text-muted/60">
             Most people want <code className="font-mono">@hyperdag/trustshell</code> (building in code) or{' '}
-            <code className="font-mono">@hyperdag/trustshell-mcp</code> (adding trust to your AI, no code). <code className="font-mono">proof-verifier</code> is a building block that ships inside trustshell.
+            <code className="font-mono">@hyperdag/trustshell-mcp</code> (adding trust to your AI, no code). <code className="font-mono">proof-verifier</code> is a building block that trustshell installs as a dependency.
           </p>
         </div>
 
