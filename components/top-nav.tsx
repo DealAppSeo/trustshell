@@ -5,12 +5,17 @@ import { useState } from 'react';
 import { linksForLanding } from '@/lib/landing-nav';
 
 /**
- * The stranger nav. Four links, on every page including home.
+ * The stranger nav. Five links, on every page including home.
  * Leaderboard, market and the other routes stay in the app and off this list
  * until they show real data. tests/nav-fit.test.ts trips if the count changes:
- * four links fit at md, and the row stays hidden below that.
+ * five links fit at md, and the row stays hidden below that.
+ *
+ * START [2026-10-07]: making or linking an agent had no door from the nav or the
+ * home page; /agents sat six clicks deep. Start leads to /start, which asks where
+ * you already talk to AI and whether you want a fresh agent, then shows one plan.
  */
 const NAV_LINKS: { href: string; label: string }[] = [
+  { href: '/start', label: 'Start' },
   { href: '/#claim', label: 'Check' },
   { href: '/#add-agent', label: 'Add to your agent' },
   { href: '/docs', label: 'Docs' },

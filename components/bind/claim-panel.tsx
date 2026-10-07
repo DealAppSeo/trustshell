@@ -34,10 +34,13 @@ type Phase = 'idle' | 'auth' | 'binding' | 'submitting' | 'done';
 export function ClaimPanel({
   agentId,
   agentName,
+  agentKey,
   onBound,
 }: {
   agentId: string;
   agentName?: string | null;
+  /** The agent's own key. Without it the engine refuses the claim, so the button waits for it. */
+  agentKey: string;
   onBound?: () => void;
 }) {
   const wallet = useWallet();
@@ -74,13 +77,14 @@ export function ClaimPanel({
     const result = await bindAgent({
       wallet: wallet.address,
       agentId,
+      agentKey,
       sign: wallet.sign,
       onStep: setPhase,
     });
     setPhase(result.ok ? 'done' : 'idle');
     setOutcome(result);
     if (result.ok) onBound?.();
-  }, [wallet.address, wallet.sign, agentId, onBound]);
+  }, [wallet.address, wallet.sign, agentId, agentKey, onBound]);
 
   /**
    * Create the account, then hand control back rather than claiming automatically.
@@ -207,10 +211,16 @@ export function ClaimPanel({
       </section>
 
       <div className="space-y-3">
+        {!agentKey.trim() && (
+          <p className="max-w-[62ch] text-sm text-[#fcd34d]">
+            Paste this agent&apos;s key above first. Your wallet proves the wallet is yours; the key
+            proves the agent is.
+          </p>
+        )}
         <button
           type="button"
           onClick={claim}
-          disabled={busy || !statement}
+          disabled={busy || !statement || !agentKey.trim()}
           className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#ff9838] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {phase === 'auth'

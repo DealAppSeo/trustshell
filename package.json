@@ -75,6 +75,7 @@
     "test:belt-grant-walk": "node tests/e2e/belt-grant-walk.mjs",
     "test:rules-walk": "node tests/e2e/rules-walk.mjs",
     "test:spend-walk": "node tests/e2e/spend-walk.mjs",
+    "test:journey-walk": "node tests/e2e/journey-walk.mjs",
     "test:mvp-walk": "node tests/e2e/mvp-walk.mjs",
     "test:extension-e2e": "node tests/e2e/extension-load.mjs",
     "test:create-walk": "node tests/e2e/create-walk.mjs",

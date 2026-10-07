@@ -1,5 +1,5 @@
 /**
- * /start first paint is the question, before a chat or terminal pick.
+ * /start first paint is the question, before any pick.
  * It has no "stake now" and no wallet field.
  */
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ const layout = readFileSync(join(ROOT, 'app/start/layout.tsx'), 'utf8').replace(
 describe('/start first paint', () => {
   it('has no stake now and no wallet field before a pick', () => {
     const start = page.indexOf('return (');
-    const end = page.indexOf('{chat ? (');
+    const end = page.indexOf('{where && (');
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const idle = page.slice(start, end);

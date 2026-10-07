@@ -35,7 +35,7 @@ export default function AgentsPage() {
    * an unset engine URL, a 429 on a taken name, a 500, an unparseable body —
    * all of them landed in `console.error` or in a falsy `data.agent_id`, the
    * spinner stopped, and the page looked exactly as it does when nothing was
-   * clicked. The one surface the top nav and the hero button both point at was
+   * clicked. The one surface the top nav and the hero button once both pointed at was
    * the one that could fail invisibly.
    *
    * Two things make it honest now, and neither is new code in this repo:

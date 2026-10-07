@@ -29,6 +29,7 @@ export function BindClient() {
   const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [pasted, setPasted] = useState('');
+  const [pastedKey, setPastedKey] = useState('');
   const [owner, setOwner] = useState<AgentOwner | null>(null);
   const [checking, setChecking] = useState(true);
 
@@ -43,6 +44,10 @@ export function BindClient() {
   const agentId = (pasted.trim() || selectedId).trim();
   const valid = UUID.test(agentId);
   const local = agents.find((a) => a.id === agentId);
+  // The second side of the claim: the agent's own key. Agents made in this browser carry it;
+  // anything else (another device, the CLI, an agent recovered by ID) has to paste it.
+  const agentKey = (local?.apiKey ?? '').trim() || pastedKey.trim();
+  const needsKey = !(local?.apiKey ?? '').trim();
 
   useEffect(() => {
     if (!valid) return;
@@ -126,6 +131,26 @@ export function BindClient() {
             )}
           </label>
         </details>
+
+        {valid && needsKey && (
+          <label className="block max-w-md space-y-2">
+            <span className="text-sm text-[#a1a1aa]">This agent&apos;s key</span>
+            <input
+              value={pastedKey}
+              onChange={(e) => setPastedKey(e.target.value)}
+              placeholder="ts_live_…"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              className="w-full rounded-md border border-[#3f3f46] bg-[#0d0d0f] px-3 py-2 font-mono text-[13px] text-[#fafafa] placeholder:text-[#8b97a8] transition-colors hover:border-[#52525b]"
+            />
+            <span className="block text-sm text-[#a1a1aa]">
+              The key you were shown when this agent was created. From the CLI it is in{' '}
+              <code className="font-mono text-[12px]">.trustshell/credentials.json</code>. It goes to the
+              engine only, to prove the agent is yours, and is not saved here.
+            </span>
+          </label>
+        )}
       </section>
 
       {valid && (
@@ -152,7 +177,7 @@ export function BindClient() {
                   paperwork; a signature is proof. Claiming it below is what makes it yours.
                 </p>
               )}
-              <ClaimPanel agentId={agentId} agentName={local?.name ?? null} />
+              <ClaimPanel agentId={agentId} agentName={local?.name ?? null} agentKey={agentKey} />
             </>
           )}
         </section>

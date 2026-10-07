@@ -30,7 +30,9 @@ const SOURCE = readFileSync(join(__dirname, '..', 'components', 'top-nav.tsx'), 
  * to spare. The row stays hidden below md, which is every 390px phone.
  * Re-measure on a production build if a label grows, then update BREAKPOINT.
  */
-const MEASURED_LINK_COUNT = 4;
+// 2026-10-07: Start added as a fifth link. Re-measured on a production build at a 768px viewport:
+// document scrollWidth 768, i.e. no overflow (tests/e2e/journey-walk.mjs checks it on every run).
+const MEASURED_LINK_COUNT = 5;
 const BREAKPOINT = 'md';
 
 describe('top nav fits the viewport it appears in', () => {

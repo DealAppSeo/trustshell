@@ -20,7 +20,25 @@ const ERROR_COPY: Record<string, string> = {
   network: "Couldn't reach the server — check your connection and try again.",
 };
 
-export function GateModal({ onVerified, onClose }: { onVerified: () => void; onClose: () => void }) {
+/**
+ * WHY THE PROMPT DEPENDS ON `reason` [2026-10-07]. One sentence served two pages and was wrong on
+ * both: on /stake it told people they had "used today's free anonymous runs", and everywhere it
+ * said verifying an email saves "your agent, its history, and its RepID progress" — while /agents
+ * says, correctly, that verifying an email does not save agents (they live in this browser). An
+ * email raises the daily run limit and makes an account; it saves nothing.
+ */
+const PROMPT: Record<'runs' | 'stake', { title: string; body: string }> = {
+  runs: {
+    title: 'Keep going free',
+    body: "You've used today's free anonymous runs. Add your email to keep running free at a higher daily limit. Your agents stay saved in this browser either way.",
+  },
+  stake: {
+    title: 'Verify your email to stake',
+    body: 'A stake is credited to an account, and your email makes one. It does not save your agents; they stay in this browser.',
+  },
+};
+
+export function GateModal({ onVerified, onClose, reason = 'runs' }: { onVerified: () => void; onClose: () => void; reason?: 'runs' | 'stake' }) {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -51,16 +69,14 @@ export function GateModal({ onVerified, onClose }: { onVerified: () => void; onC
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-md bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 space-y-4">
         <h3 className="text-xl font-bold text-white">
-          {step === 'email' ? 'Save your progress — keep going free' : `Enter the code we sent to ${email}`}
+          {step === 'email' ? PROMPT[reason].title : `Enter the code we sent to ${email}`}
         </h3>
 
         {step === 'email' ? (
           <>
             <p className="text-sm text-[#94a3b8] leading-relaxed">
-              You&apos;ve used today&apos;s free anonymous runs. Add your email and your agent, its
-              history, and its RepID progress are saved — and you keep running free at a higher daily
-              limit. We use your email for your agent&apos;s trust reports only. No spam, no selling
-              your address.
+              {PROMPT[reason].body} We use your email for your agent&apos;s trust reports only. No spam,
+              no selling your address.
             </p>
             <form onSubmit={handleEmail} className="space-y-3">
               <input

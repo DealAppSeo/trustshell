@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { composeRunPrompt } from '@/lib/agent-rules';
 import { localDb, Agent } from '@/lib/db';
 import { tokenHeader, fetchGateStatus } from '@/lib/agent-gate';
 import {
@@ -240,7 +241,10 @@ export default function PaiPage() {
       const res = await fetch(`${ENGINE}/api/v1/llm/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...tokenHeader() },
-        body: JSON.stringify({ prompt: text, tier_preference: 'tier0_first' }),
+        // Its rules go with every message, as on /run (lib/agent-rules.ts). Until 2026-10-07 this
+        // sent the text alone, while the welcome line said it was "working under the constitution
+        // you wrote".
+        body: JSON.stringify({ prompt: composeRunPrompt(agent?.constitution, text), tier_preference: 'tier0_first' }),
       });
       const data = await res.json();
 
