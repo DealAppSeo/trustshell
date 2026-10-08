@@ -194,11 +194,13 @@ export function ClaimPanel({
           <PromptRow
             title="Prove you hold this key"
             detail="Signs the request itself, tied to this one action and the next five minutes."
+            done="Approved — you proved the wallet is yours."
             state={phase === 'idle' ? 'pending' : phase === 'auth' ? 'active' : 'done'}
           />
           <PromptRow
             title="Claim the agent"
             detail="Signs the statement above."
+            done="Approved — the statement is signed."
             state={
               phase === 'binding'
                 ? 'active'
@@ -329,6 +331,9 @@ function ClaimError({
       role="alert"
       className="space-y-2 rounded-lg border border-[#fb7185]/40 bg-[#fb7185]/[0.06] px-5 py-4 text-sm"
     >
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#fb7185]">
+        That step didn&apos;t complete
+      </p>
       <p className="text-[#fda4af]">{explainBindError(reason, detail)}</p>
       {reason === 'no_account' && onConnect && (
         <ConnectStep onConnect={onConnect} connecting={connecting} note={connectNote} />
@@ -387,10 +392,15 @@ function ConnectStep({
 function PromptRow({
   title,
   detail,
+  done,
   state,
 }: {
   title: string;
   detail: string;
+  /** The confirmation shown once this step is done, so the row stops describing what WILL
+   *  happen and reports what DID — a person should never have to guess whether a signature
+   *  registered. */
+  done: string;
   state: 'pending' | 'active' | 'done';
 }) {
   return (
@@ -406,7 +416,14 @@ function PromptRow({
         >
           {title}
         </span>
-        <span className="block text-[13px] leading-relaxed text-[#a1a1aa]">{detail}</span>
+        <span
+          aria-live={state === 'done' ? 'polite' : undefined}
+          className={`block text-[13px] leading-relaxed ${
+            state === 'done' ? 'text-[#5eead4]' : 'text-[#a1a1aa]'
+          }`}
+        >
+          {state === 'done' ? done : detail}
+        </span>
       </span>
     </li>
   );
@@ -429,6 +446,13 @@ function Receipt({
           {agentName ? `${agentName} is yours` : 'Claimed'}
         </h3>
       </div>
+      {/* The one-line, plain-language confirmation a stranger reads first: what just happened,
+          to which agent, under which wallet. The detail table below is the proof of it. */}
+      <p className="max-w-[62ch] text-sm leading-relaxed text-[#5eead4]">
+        Claimed. {agentName ?? 'This agent'} is now bound to{' '}
+        <span className="font-mono">{shortAddress(wallet)}</span> — it happened at once, and it is
+        on record.
+      </p>
       <dl className="divide-y divide-[#1f1f23] overflow-hidden rounded-lg border border-[#27272a] text-sm">
         <Row label="Owner" value={shortAddress(wallet)} />
         <Row label="Agent" value={agentId} />
