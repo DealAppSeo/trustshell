@@ -36,6 +36,14 @@ export default function BindPage() {
           address is a pseudonym — this is the most private way to hold anything here, and it
           is the last thing the walkthrough asks of you.
         </p>
+        <p className="max-w-[64ch] rounded-lg border border-[#1f1f23] bg-[#0f172a] px-4 py-3 text-sm leading-relaxed text-[#a1a1aa]">
+          Not sure which wallet account you&apos;re on, whether you&apos;re on the right network, or where your
+          testnet funds are?{' '}
+          <Link href="/wallet" className="text-accent underline underline-offset-2">
+            Set your wallet up first →
+          </Link>{' '}
+          We point at the exact account and switch the network for you. No keys, nothing to sign.
+        </p>
       </header>
 
       <BindClient />
