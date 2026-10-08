@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BindClient } from '@/components/bind/bind-client';
+import { JourneySteps } from '@/components/journey-steps';
 import { bindStatus } from '@/lib/bind-status';
 
 export const metadata = {
@@ -45,6 +46,8 @@ export default function BindPage() {
           We point at the exact account and switch the network for you. No keys, nothing to sign.
         </p>
       </header>
+
+      <JourneySteps current="claim" />
 
       <BindClient />
 

@@ -13,6 +13,7 @@ import {
   type SpendReply,
 } from '@/lib/agent-spend-client';
 import { PracticeBadge } from '@/components/practice-badge';
+import { JourneySteps } from '@/components/journey-steps';
 
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL;
 const PROBE = '0.000001';
@@ -98,6 +99,8 @@ export default function SpendPage() {
         </p>
         <p className="text-xs text-amber-400/90">Test network only: Base Sepolia, with test USDC that has no value.</p>
       </div>
+
+      <JourneySteps current="trade" />
 
       {agents.length === 0 ? (
         <p className="text-sm text-[#94a3b8]">

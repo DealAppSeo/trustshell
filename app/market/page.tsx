@@ -182,6 +182,10 @@ export default async function TrustMarketPage() {
           <Link href="/agents" className="text-accent hover:underline">
             creating an agent
           </Link>
+          , or{' '}
+          <Link href="/examples" className="text-accent hover:underline">
+            see agents in action
+          </Link>
           .
         </p>
       </header>

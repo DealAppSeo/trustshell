@@ -19,6 +19,7 @@ import { repidToTier } from '@/lib/onchain-repid';
 import { getAccount, accountHeader, Account } from '@/lib/account';
 import { GateModal } from '@/components/gate-modal';
 import { PracticeBadge } from '@/components/practice-badge';
+import { JourneySteps } from '@/components/journey-steps';
 
 /**
  * Staking, with the ask sized to what is at stake.
@@ -237,6 +238,8 @@ export default function StakePage() {
           because that one credits real value.
         </p>
       </header>
+
+      <JourneySteps current="stake" />
 
       {/* Who you are — the address is never typed by hand */}
       <section className="bg-[#0f172a] p-5 rounded-xl border border-[#1e293b]">

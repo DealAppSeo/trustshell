@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@/components/bind/use-wallet';
+import { JourneySteps } from '@/components/journey-steps';
 
 // Base Sepolia — the one testnet this product runs on. Kept local and explicit on purpose:
 // a newcomer is never asked to "add a network" by hand; the button below carries these.
@@ -167,6 +168,8 @@ export default function WalletHelperPage() {
           own wallet; we never see or hold them.)</span>
         </p>
       </header>
+
+      <JourneySteps current="fund" />
 
       {!ready ? null : !available ? (
         <Card>
