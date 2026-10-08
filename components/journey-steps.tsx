@@ -30,8 +30,10 @@ const STAGES: ReadonlyArray<{ id: JourneyStage; href: string; label: string; det
   { id: 'earn', href: '/leaderboard', label: 'Earn', detail: 'Watch RepID move' },
 ];
 
-export function JourneySteps({ current }: { current: JourneyStage }) {
-  const currentIndex = STAGES.findIndex((s) => s.id === current);
+export function JourneySteps({ current }: { current?: JourneyStage }) {
+  // No `current` (e.g. the /demo map) renders the full arc with every stage a link and nothing
+  // marked "you are here" — findIndex returns -1, so isHere and done are both false throughout.
+  const currentIndex = current ? STAGES.findIndex((s) => s.id === current) : -1;
 
   return (
     <nav aria-label="Where you are in the journey" className="min-w-0">

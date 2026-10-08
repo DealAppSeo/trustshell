@@ -138,6 +138,12 @@ export default async function ExamplesPage() {
             Open the leaderboard
           </Link>
         </div>
+        <p className="text-xs text-muted/70">
+          Running a live walkthrough?{' '}
+          <Link href="/demo" className="text-accent hover:underline">
+            Open the one-page demo map →
+          </Link>
+        </p>
       </section>
     </main>
   );
