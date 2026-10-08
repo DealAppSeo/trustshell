@@ -470,6 +470,9 @@ function Receipt({
         <Link href={`/passport/${agentId}`} className="text-accent underline underline-offset-2">
           Open its passport
         </Link>
+        <Link href="/examples" className="text-accent underline underline-offset-2">
+          See other agents in action
+        </Link>
       </div>
     </div>
   );

@@ -790,3 +790,64 @@ export async function readServiceCatalog(): Promise<ServiceCatalogRead> {
     return { kind: 'error', status: 0 };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Named-agent RepID — the keyless read for a Trinity agent by its SLUG.
+//
+// WHY THIS IS SEPARATE FROM lib/agent-repid.ts. That module reads
+// `GET /api/v1/agents/:id/card`, which requires a UUID — a named agent like
+// `trinity-sophia` answers it with 400 "invalid agent id (expected UUID)". The
+// score for a named agent lives at `GET /api/v1/repid/:id` (keyless; the engine
+// bypasses auth for GET /api/v1/repid/*), which returns `{score, tier}`.
+//
+// THE ENGINE SPEAKS THE SAME THREE-VALUED LANGUAGE WE DO. For an agent it has
+// never scored it answers 200 with `{"score":"NOT_CHECKED","tier":"NOT_CHECKED"}`
+// — not a 404, and emphatically not a zero. So "unknown agent" arrives as the
+// engine's own NOT_CHECKED string and is carried through as NOT_CHECKED, never
+// read as a broken response or a score of 0. [MEASURED 2026-10-08 against
+// production: trinity-sophia -> {score:1359,tier:"ESTABLISHED"}; a bogus slug ->
+// {score:"NOT_CHECKED",tier:"NOT_CHECKED"}.]
+// ---------------------------------------------------------------------------
+
+export type RepidScore =
+  | { state: 'MEASURED'; score: number; tier: string }
+  | { state: 'NOT_CHECKED'; reason: 'unregistered' | 'unreachable' | 'no_engine' }
+  | { state: 'FAILED' };
+
+export async function fetchRepidScore(agent: string): Promise<RepidScore> {
+  if (!REPID_ENGINE_URL) return { state: 'NOT_CHECKED', reason: 'no_engine' };
+
+  let res: Response;
+  try {
+    res = await fetch(`${REPID_ENGINE_URL}/api/v1/repid/${encodeURIComponent(agent)}`, {
+      cache: 'no-store',
+    });
+  } catch {
+    return { state: 'NOT_CHECKED', reason: 'unreachable' };
+  }
+
+  // A 404 and any other non-2xx are the same fact from out here — the number was not
+  // read — and neither is a zero score.
+  if (res.status === 404) return { state: 'NOT_CHECKED', reason: 'unregistered' };
+  if (!res.ok) return { state: 'NOT_CHECKED', reason: 'unreachable' };
+
+  let data: Record<string, unknown>;
+  try {
+    data = (await res.json()) as Record<string, unknown>;
+  } catch {
+    return { state: 'FAILED' };
+  }
+
+  // The engine's OWN not-checked signal for an agent it has never scored. Carry it through;
+  // do not read the string as a broken shape.
+  if (data.score === 'NOT_CHECKED') return { state: 'NOT_CHECKED', reason: 'unregistered' };
+  // A 200 whose body carries no numeric score is a shape we do not understand — broken, not
+  // absent, so it reads FAILED rather than as a zero or an absence.
+  if (typeof data.score !== 'number') return { state: 'FAILED' };
+
+  return {
+    state: 'MEASURED',
+    score: data.score,
+    tier: typeof data.tier === 'string' ? data.tier : 'UNKNOWN',
+  };
+}
