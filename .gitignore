@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Claude Code isolated-agent worktrees (transient; created under .claude/worktrees/).
+# repid-engine already ignores these; mirror it here. The ecosystem CLAUDE.md records
+# that a committed .claude/worktrees/ caused stale-deployment bugs — keep it out of git.
+.claude/worktrees/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
