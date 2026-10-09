@@ -144,6 +144,12 @@ export default async function ExamplesPage() {
             Open the one-page demo map →
           </Link>
         </p>
+        <p className="text-xs text-muted/70">
+          Want the model behind all this?{' '}
+          <Link href="/layers" className="text-accent hover:underline">
+            Sandbox, Guardrail, Harness — why you need all three →
+          </Link>
+        </p>
       </section>
     </main>
   );

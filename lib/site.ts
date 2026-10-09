@@ -68,6 +68,10 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   { path: '/why/cost', priority: 0.7 },
   { path: '/why/blame', priority: 0.7 },
   { path: '/why/harness', priority: 0.7 },
+  // The sandbox/guardrail/harness explainer — a conceptual piece, not a nav or journey
+  // step, reached from /demo and /examples. No nav link (tests/nav-fit.test.ts locks the
+  // count); the sitemap is how an AI search engine finds it.
+  { path: '/layers', priority: 0.7 },
   { path: '/run', priority: 0.5 },
   { path: '/history', priority: 0.4 },
 ];
