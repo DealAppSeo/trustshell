@@ -122,6 +122,12 @@ export default function DemoPage() {
           step, which is the only one that needs a wallet.
         </p>
         <p>
+          Want the why behind the layers?{' '}
+          <Link href="/layers" className="text-accent hover:underline">
+            Sandbox, Guardrail, Harness — why you need all three →
+          </Link>
+        </p>
+        <p>
           Prefer a guided start?{' '}
           <Link href="/start" className="text-accent hover:underline">
             Begin at /start
