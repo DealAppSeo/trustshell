@@ -93,7 +93,7 @@ jobs:
       # `node:sqlite` (Node 22.5+), and on 20 they answer NOT_CHECKED by design. Run 37235430913
       # (2026-10-04) stopped at Test SDK with 12 failures in exactly those suites, before any
       # publish step. tests/publish-node-version.test.ts keeps the two in step.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -227,7 +227,7 @@ jobs:
       VERSION: ${{ needs.build.outputs.version }}
       DIST_TAG: ${{ needs.build.outputs.dist_tag }}
     steps:
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
