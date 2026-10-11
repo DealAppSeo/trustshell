@@ -86,7 +86,7 @@ jobs:
       version: ${{ steps.tag.outputs.version }}
       dist_tag: ${{ steps.tag.outputs.dist_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The SAME Node as the merge gate (check.yml). This was '20' while check.yml ran 22, so the
       # suite that is green on every PR failed here: the local-memory commands use the built-in
