@@ -46,7 +46,11 @@ describe('the refresh steps aside while the PR run is going', () => {
   });
 
   it('gates the checkout and the action on it', () => {
-    expect(wf).toMatch(/- if: steps\.busy\.outputs\.busy != 'true'\n\s*uses: actions\/checkout@v4/);
+    // What is pinned here is the GATE (the `if:` on the checkout step), not the action's version:
+    // any ref after `@` is accepted, so a tag (`@v4`, `@v7`) or a commit SHA (`@<40 hex> # v7.0.1`)
+    // both pass. Pinning `@v4` made Dependabot's checkout 4 -> 7 bump (#502) fail this suite while
+    // the gating it protects was unchanged.
+    expect(wf).toMatch(/- if: steps\.busy\.outputs\.busy != 'true'\n\s*uses: actions\/checkout@\S+/);
     expect(wf).toMatch(/- if: steps\.busy\.outputs\.busy != 'true' && hashFiles\('receipts\/action\.yml'\) != ''\n\s*uses: \.\/receipts/);
   });
 });
