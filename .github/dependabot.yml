@@ -1,6 +1,9 @@
 # ADVISORY - version-update PRs only; nothing here is a required check.
 # Weekly, with minor and patch bumps grouped into one PR per ecosystem so the queue stays
 # reviewable. Major bumps arrive as their own PRs on purpose: they are the ones that break.
+# The exception is the npm majors below: each was reviewed and its PR closed unmerged on
+# 2026-10-11, so Dependabot is told not to re-raise it. Delete an entry when the repo is
+# ready to take that major. github-actions has no ignores: its majors were merged.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -16,6 +19,26 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # jest 29 -> 30 and @types/jest 29 -> 30 travel together (closed PR #506).
+      - dependency-name: "jest"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@types/jest"
+        update-types:
+          - "version-update:semver-major"
+      # eslint 9 -> 10 (closed PR #507).
+      - dependency-name: "eslint"
+        update-types:
+          - "version-update:semver-major"
+      # typescript 5 -> 7 (closed PR #508).
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+      # zod 3 -> 4 (closed PR #509). zod is a runtime dependency of the published SDK.
+      - dependency-name: "zod"
+        update-types:
+          - "version-update:semver-major"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
