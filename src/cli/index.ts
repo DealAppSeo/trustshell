@@ -217,7 +217,10 @@ COMMANDS
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is the exact string 'true'.
   remember "<text>"          Write a note into the local sqlite memory. No network.
-  remember KEY VALUE         Save one value under KEY. Refuses sb_secret_, postgresql://, and eyJ. No network.
+  remember KEY VALUE         Save one value under KEY. Refuses a credential in EITHER position —
+                             sb_secret_, db URIs, JWTs, PEM private keys, sk-/ghp_/AKIA/xoxb tokens,
+                             labelled password=… . Publishable keys and emails are kept: not secrets.
+                             Encoded secrets are NOT detected. No network.
   recall                     Print saved notes. do_not_send rows print as a count only.
   recall KEY                 Print the value for KEY. Missing is NOT_CHECKED, never empty.
   redact KEY                 Delete the KEY row. Missing is NOT_CHECKED. No network.
@@ -560,6 +563,15 @@ export async function run(
           return EXIT.USAGE;
         }
         if (args.key) {
+          // MESSAGE ONLY — rememberKey below is the enforcement point, and it checks the key
+          // itself. This branch exists so the refusal can name WHICH argument was the problem.
+          // `remember` takes two positionals, so the common failure is reversing them; a bare
+          // "remember refused" then sends the user hunting through a value that was fine.
+          // The offending text is never echoed: naming the position is enough to fix the call.
+          if (refusedValue(args.key)) {
+            io.err('remember refused — the KEY looks like a credential. Arguments reversed? Usage: remember KEY VALUE');
+            return EXIT.USAGE;
+          }
           const stored = rememberKey(args.key, value);
           if (!stored) {
             io.err('remember refused');
