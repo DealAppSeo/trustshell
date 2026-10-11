@@ -6,7 +6,7 @@ branding:
   color: 'green'
 inputs:
   github-token:
-    description: 'Token to read the PR and check runs and to post one comment. The default job token is enough.'
+    description: 'Token to read the PR, its check runs, each job steps and the workflow file at the commit, and to post one comment. The default job token is enough, with `actions: read` for step- and command-level evidence; without it the action falls back to matching check names.'
     required: false
     default: ${{ github.token }}
   wait-seconds:
