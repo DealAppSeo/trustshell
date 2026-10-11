@@ -12,6 +12,7 @@
  */
 const fs = require('node:fs');
 const core = require('./core.js');
+const { jobCommands } = require('./workflow.js');
 
 const API = (process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
 const SERVER = (process.env.GITHUB_SERVER_URL || 'https://github.com').replace(/\/$/, '');
@@ -55,7 +56,16 @@ async function evidenceFor(repo, sha, token) {
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const runs = await gh(`/repos/${repo}/commits/${sha}/check-runs?per_page=100&page=${page}`, token);
     const batch = runs.check_runs || [];
-    out.push(...batch.map((r) => ({ name: r.name, status: r.status, conclusion: r.conclusion, html_url: r.html_url })));
+    out.push(
+      ...batch.map((r) => ({
+        name: r.name,
+        status: r.status,
+        conclusion: r.conclusion,
+        html_url: r.html_url,
+        // Kept so the steps of an Actions job can be fetched; see enrich().
+        details_url: r.details_url,
+      })),
+    );
     if (batch.length < 100) { full = false; break; }
   }
   // More runs than were read: the unread ones could be red, so the commit is not settled.
@@ -82,6 +92,73 @@ async function evidenceFor(repo, sha, token) {
     // Statuses are optional evidence; a missing permission is not a verdict.
   }
   return out;
+}
+
+/** At most this many jobs are read for their steps; past it, those checks keep name-only evidence. */
+const MAX_JOBS = 40;
+
+/**
+ * Attach, to each check run we can, the evidence that is stronger than its name: the job's
+ * steps (each with its own conclusion) and the `run:` commands of that job as the workflow
+ * file had them at this commit.
+ *
+ * WHY. A check run is named after its job, and a job is named for how CI is organised. On
+ * this repository the job running `tsc --noEmit` and `npx jest` is called `check`, so every
+ * claim read NOT CHECKED forever — see the note on core.unitsFor. Steps and commands are
+ * what GitHub already knows and the name does not say.
+ *
+ * EVERY FAILURE HERE IS SILENT ON PURPOSE. A missing `actions: read`, a third-party check
+ * with no job behind it, a workflow file this reader will not parse: each leaves the run
+ * exactly as it was, matched by name, which is today's behaviour. Enrichment may only ever
+ * ADD evidence, so a broken fetch costs a stronger verdict and can never invent one.
+ */
+async function enrich(repo, runs, token) {
+  let budget = MAX_JOBS;
+  const runCache = new Map();
+  const fileCache = new Map();
+  let skipped = 0;
+  for (const r of runs) {
+    const m = typeof r.details_url === 'string' && r.details_url.match(/\/actions\/runs\/(\d+)\/job\/(\d+)/);
+    if (!m) continue; // a commit status, or a check with no Actions job behind it
+    if (budget <= 0) { skipped += 1; continue; }
+    budget -= 1;
+    const [, workflowRunId, jobId] = m;
+    let steps;
+    try {
+      const job = await gh(`/repos/${repo}/actions/jobs/${jobId}`, token);
+      steps = Array.isArray(job && job.steps) ? job.steps.map((st) => ({ name: st.name, conclusion: st.conclusion })) : null;
+    } catch (e) {
+      log(`steps for ${r.name} unavailable (${e.status || e.message}); it keeps name-only evidence`);
+      continue;
+    }
+    if (!steps || steps.length === 0) continue;
+    r.steps = steps;
+    // The workflow file is only worth a request if some step could matter to a claim.
+    if (!steps.some((st) => core.stepCouldMatter(st.name))) continue;
+    try {
+      if (!runCache.has(workflowRunId)) {
+        const wr = await gh(`/repos/${repo}/actions/runs/${workflowRunId}`, token);
+        runCache.set(workflowRunId, wr && wr.path && wr.head_sha ? { path: wr.path, sha: wr.head_sha } : null);
+      }
+      const where = runCache.get(workflowRunId);
+      if (!where) continue;
+      const key = `${where.path}@${where.sha}`;
+      if (!fileCache.has(key)) {
+        const f = await gh(`/repos/${repo}/contents/${encodeURI(where.path)}?ref=${encodeURIComponent(where.sha)}`, token);
+        const text = f && f.content && f.encoding === 'base64' ? Buffer.from(f.content, 'base64').toString('utf8') : null;
+        fileCache.set(key, text);
+      }
+      const text = fileCache.get(key);
+      // null from jobCommands means "unreadable", and is not the same as "runs nothing":
+      // only a real list is attached, so a refusal leaves step-level evidence standing.
+      const cmds = text ? jobCommands(text, r.name) : null;
+      if (Array.isArray(cmds) && cmds.length > 0) r.commands = cmds;
+    } catch (e) {
+      log(`workflow file for ${r.name} unavailable (${e.status || e.message}); it keeps step-level evidence`);
+    }
+  }
+  if (skipped > 0) log(`${skipped} check(s) past the ${MAX_JOBS}-job budget keep name-only evidence`);
+  return runs;
 }
 
 /**
@@ -163,6 +240,8 @@ async function main() {
   const grouped = core.groupClaims(claims);
 
   const ev = grouped.length > 0 ? await waitForOthers(repo, sha, token, selfPattern, timeoutMs) : [];
+  // After the wait, never during it: steps are only worth reading once a job has finished.
+  if (ev.length > 0) await enrich(repo, ev, token);
   const results = core.judge(grouped, ev, { selfPattern });
   const body = core.render(results, { sha, repoUrl: `${SERVER}/${repo}` });
   summary(body);
@@ -193,4 +272,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { main, evidenceFor, upsertComment, waitForOthers };
+module.exports = { main, evidenceFor, upsertComment, waitForOthers, enrich };

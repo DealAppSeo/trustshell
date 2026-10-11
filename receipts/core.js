@@ -43,6 +43,7 @@ const KINDS = {
     run: /(?:^|[^a-z])(?:tests?|jest|vitest|pytest|mocha|playwright|cypress|e2e|integration|rspec|phpunit|ctest)(?:[^a-z]|$)/i,
     // Names that mention tests without running them, or run something else.
     notRun: /upload|report|results?\b|artifact|coverage|label|lint|summary|comment|notify|deploy|preview|release|publish|docs?\b/i,
+    cmd: /(?:^|[^\w-])(?:jest|vitest|pytest|mocha|playwright|cypress|rspec|phpunit|ctest|tox)\b|\b(?:go|cargo|dotnet|mix|swift)\s+test\b|\b(?:npm|yarn|pnpm|bun)\s+(?:run\s+)?[\w.:-]*test(?:[:\s]|$)|\bmake\s+test\b/i,
   },
   build: {
     label: 'build',
@@ -52,6 +53,7 @@ const KINDS = {
     ],
     run: /(?:^|[^a-z])(?:build|compile)(?:[^a-z]|$)/i,
     notRun: /upload|report|artifact|label|cache|summary|notify|preview|deploy|release|publish|docs?\b/i,
+    cmd: /\b(?:npm|yarn|pnpm|bun)\s+(?:run\s+)?[\w.:-]*build(?:[:\s]|$)|\b(?:tsc|rollup|vite|webpack|esbuild|next)\s+build\b|\b(?:make|cargo|go|dotnet|mvn|gradle)\s+build\b|\bgo\s+build\b/i,
   },
   typecheck: {
     label: 'type check',
@@ -60,6 +62,7 @@ const KINDS = {
     ],
     run: /(?:^|[^a-z])(?:tsc|typecheck|type-check|mypy|pyright)(?:[^a-z]|$)/i,
     notRun: /label|report|summary|notify/i,
+    cmd: /\btsc\b|\b(?:mypy|pyright)\b|\b(?:npm|yarn|pnpm|bun)\s+(?:run\s+)?[\w.:-]*type-?check(?:[:\s]|$)/i,
   },
   lint: {
     label: 'lint',
@@ -68,6 +71,7 @@ const KINDS = {
     ],
     run: /(?:^|[^a-z])(?:lint|eslint|ruff|flake8|clippy|prettier)(?:[^a-z]|$)/i,
     notRun: /label|report|summary|notify/i,
+    cmd: /\b(?:eslint|ruff|flake8|prettier|biome|golangci-lint)\b|\bcargo\s+clippy\b|\b(?:npm|yarn|pnpm|bun)\s+(?:run\s+)?[\w.:-]*lint(?:[:\s]|$)/i,
   },
 };
 
@@ -92,6 +96,35 @@ const LOCAL = /\b(?:locally|on\s+my\s+machine|on\s+my\s+laptop|in\s+my\s+env(?:i
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out']);
 /** Conclusions that do not unsettle the commit. Conditional jobs skip all the time. */
 const SETTLED_OK = new Set(['success', 'skipped', 'neutral']);
+
+/**
+ * Steps that are scaffolding, not work. GitHub injects `Set up job`, `Run actions/...`,
+ * `Post Run actions/...` and `Complete job` into every job, and an install or cache step
+ * can name a runner (`Install Playwright`) without running one test. Excluding a real
+ * step by mistake costs a VERIFIED; including a fake one grants one.
+ */
+const STEP_NOISE = /^(?:set\s?up\b|post\s|complete\s+job\b)|\b(?:install|cache|restore|download|checkout|setup)\b/i;
+
+/**
+ * A step with no `name:` is displayed by GitHub as `Run <the command>`, so for those the
+ * step name IS the command — the strongest label there is, and free.
+ *
+ * It is also the one place a step name can be written to say anything at all, which is a
+ * hole this change opened and measurement found: `- run: echo "all tests pass"` displays as
+ * `Run echo "all tests pass"` and would have counted as a test step. So an auto-named step
+ * is held to the COMMAND pattern, not the name pattern. `Run npx jest` is evidence;
+ * `Run echo ...`, `Run actions/checkout@v4` and `Run ./.github/actions/x` (a composite whose
+ * contents cannot be read from here) are not. Closing it by construction beats a list of
+ * no-ops to deny, which would need a new entry for every shell builtin.
+ */
+const STEP_AUTONAMED = /^run\s+(.+)$/i;
+
+/**
+ * How strong a piece of evidence is. `name` is a label someone chose; `step` is a label
+ * plus that step's own result; `command` adds the `run:` line from the workflow file at
+ * this commit, which is the first level that is evidence rather than a name.
+ */
+const LEVEL_RANK = { name: 1, step: 2, command: 3 };
 const MAX_TEXT = 64 * 1024;
 
 /** Drop text that is quoted rather than claimed: fenced code, block quotes, HTML comments. */
@@ -191,6 +224,80 @@ function groupClaims(claims) {
 const DEFAULT_SELF = /^receipts?$/i;
 
 /**
+ * Every piece of evidence one check run offers for one kind of claim, strongest first.
+ *
+ * WHY THIS IS NOT A NAME TEST ANY MORE. A check run is named after its job, and a job is
+ * named for how CI is organised, not for what it does: on this repository the job that
+ * runs `tsc --noEmit` and `npx jest` is called `check`, so every claim about tests, build,
+ * type check and lint read NOT CHECKED forever — measured on the head of #510, where the
+ * only non-self checks were `check`, `Analyze (javascript-typescript)` and `gitleaks`.
+ * The fix is not a wider word list: adding `check` would also match `spell-check`,
+ * `check-licenses` and `dependency-check`, buying verdicts with false VERIFIEDs, which on
+ * this tool is the one unacceptable error.
+ *
+ * So when the steps of a job can be read, they are the evidence and the job's name is not
+ * consulted at all — INCLUDING when no step matches. A job named `test` whose steps run
+ * nothing of the sort now reads NOT CHECKED, which is the direction this whole module
+ * leans. Falling back to the name there would reinstate exactly what is being replaced.
+ *
+ * A step carries its own conclusion, so `Typecheck` passing and `Unit tests` never running
+ * is now two different answers instead of one job-level verdict. Note `skipped` on a step
+ * is NOT settled-ok the way it is on a whole check: a conditional job skipping is normal,
+ * a test step skipping means the tests did not run.
+ */
+function unitsFor(run, def, subRe) {
+  const hits = (s) => (subRe ? subRe.test(s) : def.run.test(s));
+  const pending = run.status !== 'completed';
+  const steps = Array.isArray(run.steps) ? run.steps.filter((s) => s && typeof s.name === 'string' && s.name) : null;
+  if (steps && steps.length > 0) {
+    // The command corroborates the step, and is read from the job's own block in the
+    // workflow file at this commit. Scoped to the job on purpose: crediting job A's
+    // `npx jest` to job B would be a false VERIFIED, which is the error that matters.
+    const corroborated = Boolean(def.cmd) && Array.isArray(run.commands) && run.commands.some((c) => def.cmd.test(String(c)));
+    const out = [];
+    for (const st of steps) {
+      if (STEP_NOISE.test(st.name)) continue;
+      if (def.notRun && def.notRun.test(st.name)) continue;
+      const auto = st.name.match(STEP_AUTONAMED);
+      // An auto-named step carries its own command, so judge it as a command, not a label.
+      if (auto && !(def.cmd && def.cmd.test(auto[1]))) continue;
+      if (!hits(st.name)) continue;
+      out.push({
+        level: corroborated ? 'command' : 'step',
+        where: `step \`${st.name}\` in ${run.name}`,
+        conclusion: pending ? null : st.conclusion || null,
+        pending,
+        run,
+      });
+    }
+    return out;
+  }
+  if (def.notRun && def.notRun.test(run.name)) return [];
+  if (!hits(run.name)) return [];
+  return [{ level: 'name', where: run.name, conclusion: pending ? null : run.conclusion, pending, run }];
+}
+
+/**
+ * Would any matcher look twice at a step with this name? The fetcher asks this before
+ * spending an API call on the workflow file: a job whose steps are all scaffolding has no
+ * command worth reading. A false `true` costs one request; a false `false` only loses an
+ * upgrade from `step` to `command`, never a verdict.
+ */
+function stepCouldMatter(name) {
+  const s = String(name || '');
+  if (!s || STEP_NOISE.test(s)) return false;
+  const auto = s.match(STEP_AUTONAMED);
+  if (auto) return Object.values(KINDS).some((def) => Boolean(def.cmd) && def.cmd.test(auto[1]));
+  if (SUBTYPES.some((t) => new RegExp(`\\b${t}\\b`, 'i').test(s))) return true;
+  return Object.values(KINDS).some((def) => !(def.notRun && def.notRun.test(s)) && def.run.test(s));
+}
+
+/** The strongest level present, so the receipt can say which kind of evidence it read. */
+function strongestLevel(units) {
+  return units.reduce((best, u) => (LEVEL_RANK[u.level] > LEVEL_RANK[best] ? u.level : best), 'name');
+}
+
+/**
  * Decide each claim against the commit's check runs.
  * @param {Array<{kind:string, subtype?:string|null, local?:boolean}>} grouped
  * @param {Array<{name:string,status:string,conclusion:string|null,html_url?:string}>} runs
@@ -210,26 +317,31 @@ function judge(grouped, runs, opts = {}) {
     if (claim.local) {
       return { ...base, runs: [], verdict: 'NOT_CHECKED', why: `Claimed for a local run. Checks on this commit cannot confirm what ran on someone's machine.` };
     }
-    const excluded = (r) => Boolean(def.notRun && def.notRun.test(r.name));
-    // A subtype claim matches on the subtype word itself: a check named just `unit` ran
-    // unit tests, even though bare `unit` is too weak to count as a generic test check.
+    // A subtype claim matches on the subtype word itself: a check or step named just
+    // `unit` ran unit tests, even though bare `unit` is too weak to count as a generic
+    // test check.
     const subRe = claim.subtype ? new RegExp(`\\b${claim.subtype}\\b`, 'i') : null;
-    const matched = evidence.filter((r) => !excluded(r) && (subRe ? subRe.test(r.name) : def.run.test(r.name)));
+    const units = evidence.flatMap((r) => unitsFor(r, def, subRe));
+    const matched = [...new Set(units.map((u) => u.run))];
+    const level = units.length > 0 ? strongestLevel(units) : null;
     base.runs = matched;
-    if (matched.length === 0) {
+    base.level = level;
+    if (units.length === 0) {
       return { ...base, verdict: 'NOT_CHECKED', why: `No check named for ${what} ran on this commit. A receipt cannot tell whether other checks ran ${what}.` };
     }
-    const failed = matched.filter((r) => r.status === 'completed' && FAILED_CONCLUSIONS.has(r.conclusion));
+    const failed = units.filter((u) => !u.pending && FAILED_CONCLUSIONS.has(u.conclusion));
     if (failed.length > 0) {
-      return { ...base, verdict: 'FAILED', why: `${failed.map((r) => r.name).join(', ')} finished ${failed[0].conclusion}.` };
+      return { ...base, verdict: 'FAILED', why: `${failed.map((u) => u.where).join(', ')} finished ${failed[0].conclusion}.` };
     }
-    const pending = matched.filter((r) => r.status !== 'completed');
+    const pending = units.filter((u) => u.pending);
     if (pending.length > 0) {
-      return { ...base, verdict: 'NOT_CHECKED', why: `${pending.map((r) => r.name).join(', ')} still running when this receipt was written.` };
+      return { ...base, verdict: 'NOT_CHECKED', why: `${pending.map((u) => u.where).join(', ')} still running when this receipt was written.` };
     }
-    const notGreen = matched.filter((r) => r.conclusion !== 'success');
+    // A step that never ran reports `skipped` or nothing at all. Either way the work did
+    // not happen, so it is never a pass — see the note on SETTLED_OK in unitsFor.
+    const notGreen = units.filter((u) => u.conclusion !== 'success');
     if (notGreen.length > 0) {
-      return { ...base, verdict: 'NOT_CHECKED', why: `${notGreen.map((r) => `${r.name} (${r.conclusion})`).join(', ')}: ended without a pass or a fail.` };
+      return { ...base, verdict: 'NOT_CHECKED', why: `${notGreen.map((u) => `${u.where} (${u.conclusion || 'did not run'})`).join(', ')}: ended without a pass or a fail.` };
     }
     // A matched check passed, but another check on this commit did not finish green. It may
     // cover this claim under a name no list knows, so the receipt cannot say VERIFIED.
@@ -238,10 +350,18 @@ function judge(grouped, runs, opts = {}) {
       return {
         ...base,
         verdict: 'NOT_CHECKED',
-        why: `${matched.map((r) => r.name).join(', ')} passed, but ${unsettled.map(desc).join(', ')} did not finish green on this commit and may cover the same ground.`,
+        why: `${units.map((u) => u.where).join(', ')} passed, but ${unsettled.map(desc).join(', ')} did not finish green on this commit and may cover the same ground.`,
       };
     }
-    return { ...base, verdict: 'VERIFIED', why: `${matched.map((r) => r.name).join(', ')} passed on this commit, and every other check on it finished green, skipped or neutral.` };
+    // Name the level, so a reader can tell a command-backed pass from a name match without
+    // opening the run. The weakest level says so out loud rather than reading as proof.
+    const how =
+      level === 'command'
+        ? `and the job's own workflow file at this commit runs a matching command`
+        : level === 'step'
+          ? `as its own step`
+          : `matched by check name only, which is a label rather than evidence`;
+    return { ...base, verdict: 'VERIFIED', why: `${units.map((u) => u.where).join(', ')} passed ${how}, and every other check on this commit finished green, skipped or neutral.` };
   });
 }
 
@@ -250,7 +370,9 @@ const MARKER = '<!-- trustshell-receipt -->';
 
 const DOES_NOT_PROVE = [
   'A green check proves that check passed on this commit. It does not prove the check tested this change.',
-  'Checks are matched to claims by their names. A check named `test` that runs nothing would still read as tests.',
+  'Evidence is read at the strongest level each check offers: the `run:` command of the job, taken from the workflow file at this commit; else the step name and that step own result; else the check name alone. The Result column says which. A check name is a label, not evidence.',
+  'At command level the receipt confirms the job runs a command that normally runs this kind of check. It cannot confirm the command asserted anything: a test script that exits 0 without running a test still reads as tests.',
+  'A job whose steps cannot be read (a third-party check, or no `actions: read` permission) is matched by its name alone, and a job whose work happens inside a composite action shows no command.',
   'Claims are read from the PR description and the latest commit message by plain patterns. A claim worded unusually is not seen. Text in double quotes, code blocks and block quotes is ignored on purpose; text in single quotes is read, because a single quote is also an apostrophe.',
   'A check created after this receipt was written is not counted until the receipt runs again.',
 ];
@@ -296,4 +418,18 @@ function render(results, { sha, repoUrl } = {}) {
   return lines.join('\n');
 }
 
-module.exports = { KINDS, MARKER, DEFAULT_SELF, DOES_NOT_PROVE, stripQuoted, extractClaims, groupClaims, judge, render };
+module.exports = {
+  KINDS,
+  MARKER,
+  DEFAULT_SELF,
+  DOES_NOT_PROVE,
+  STEP_NOISE,
+  stripQuoted,
+  extractClaims,
+  groupClaims,
+  judge,
+  render,
+  unitsFor,
+  stepCouldMatter,
+  strongestLevel,
+};

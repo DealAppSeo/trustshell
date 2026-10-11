@@ -20,7 +20,7 @@ permissions:
   checks: read
   statuses: read
   pull-requests: write
-  actions: read # the refresh asks whether the PR's own receipt run is still going
+  actions: read # the refresh checks its own run, AND each job's steps become evidence
 
 # WHY EVERY PR USED TO SHOW `receipt: cancelled`. Both triggers shared one group with
 # cancel-in-progress. The PR's run waits up to 10 minutes for the other checks, so it is still
