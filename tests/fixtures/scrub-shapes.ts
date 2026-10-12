@@ -37,6 +37,26 @@ export const MISSED: ReadonlyArray<Shape> = [
   { kind: 'api_secret= labelled value', secret: rep(24, 'q'), text: 'The config has api_secret=' + rep(24, 'q') + ' in it.' },
   { kind: 'api_secret JSON-quoted', secret: rep(24, 'r'), text: 'The body was {"api_secret": "' + rep(24, 'r') + '"} as sent.' },
   { kind: 'prefixed env name (WEBHOOK_SECRET=)', secret: rep(24, 's'), text: 'The env has WEBHOOK_SECRET=' + rep(24, 's') + ' set.' },
+  // ---- the variant sweep (XC1, acceptance of #519): the same secrets in the forms the first rules did not cover ----
+  { kind: 'google oauth service-account token (ya29.c., dots in the body)', secret: ['ya29', 'c', 'b0Aaekm1' + rep(20, 'Q') + '-' + rep(10, 'z') + '_' + rep(30, 'K'), rep(24, 'M')].join('.'), text: '' },
+  { kind: 'google oauth token, dotted, short segments', secret: ['ya29', 'a0', 'Af', rep(30, 'Wq')].join('.'), text: '' },
+  { kind: 'webhook signing secret, base64 body (+ / ==)', secret: 'whsec_' + 'MfKQ9r8GKYqr' + '+' + 'TwjUPD8ILPZ' + '/' + 'Io2LaLaSw' + '==', text: '' },
+  { kind: 'webhook signing secret, base64 body ending in =', secret: 'whsec_' + 'dGhpcyBpcyBhIGZha2Ugc2VjcmV0IGJvZHk' + '=', text: '' },
+  { kind: 'webhook signing secret, base64 body with a slash first', secret: 'whsec_' + '/' + rep(12, 'Zk') + '+' + rep(8, 'p'), text: '' },
+  { kind: 'seed phrase, hyphen-separated', secret: WORDS_12.join('-'), text: '' },
+  { kind: 'seed phrase, underscore-separated', secret: WORDS_12.join('_'), text: '' },
+  { kind: 'seed phrase, slash-separated', secret: WORDS_12.join('/'), text: '' },
+  { kind: 'seed phrase, pipe-separated', secret: WORDS_12.join('|'), text: '' },
+  { kind: 'seed phrase, spaced pipes', secret: WORDS_12.join(' | '), text: '' },
+  { kind: 'seed phrase, dot-separated, no spaces', secret: WORDS_12.join('.'), text: '' },
+  { kind: 'seed phrase, JSON array', secret: JSON.stringify(WORDS_12), text: '' },
+  { kind: 'seed phrase, JSON array with spaces', secret: JSON.stringify(WORDS_12).replace(/","/g, '", "'), text: '' },
+  { kind: 'seed phrase, quoted CSV', secret: WORDS_12.map((w) => '"' + w + '"').join(','), text: '' },
+  { kind: 'seed phrase, single-quoted list', secret: WORDS_12.map((w) => "'" + w + "'").join(', '), text: '' },
+  { kind: 'seed phrase, zero-width separators', secret: WORDS_12.join('\u200b'), text: '' },
+  { kind: 'seed phrase, spaces and zero-width separators', secret: WORDS_12.join(' \u200b'), text: '' },
+  { kind: 'seed phrase, 24 words, hyphen-separated', secret: WORDS_24.join('-'), text: '' },
+  { kind: 'seed phrase, mixed separators', secret: WORDS_12.map((w, i) => w + ['-', '_', '/', '|', '.', ' '][i % 6]).join('').slice(0, -1), text: '' },
 ].map((row) => ({ ...row, text: row.text || `The value ${row.secret} came from the reply.` }));
 
 /** Sentences that must come out EXACTLY as they went in (over-redaction would make a claim uncheckable). */
@@ -54,4 +74,30 @@ export const KEEP_MORE: ReadonlyArray<string> = [
   'The secret to good bread is patience and a hot oven.',
   'The token economy was introduced in 1971 by a psychologist.',
   'She said the password: was a mystery to everyone.',
+  // over-redaction guards for the variant sweep
+  'A ya29 prefix, a ya29. prefix and the bare word ya29 all appear in this sentence about access tokens.',
+  'Google tokens begin with ya29. and are long, while ya29.short is not one and ya29.1.2 is a version.',
+  'The webhook signing secret starts with whsec_ and is shown only once, so whsec_ alone is a prefix.',
+  'A well-known, long-term, state-of-the-art, first-rate, hand-written, so-called, easy-going and low-cost design was chosen for the about-face.',
+  'The words abandon-ability-able-about-above-absent and then zzz and absorb-abstract-absurd-abuse-access-accident are two short runs.',
+  'The pairs and/or, either/or, he/she, yes/no, input/output, read/write and true/false are all just slashes in prose.',
+  'Sentences. That. End. Here. Are. Not. A. Phrase. Even. If. Each. One. Of. Them. Is. A. Word.',
+  'abandon. ability. able. about. above. absent. absorb. abstract. absurd. abuse. access. accident.', // twelve list words, each its own sentence
+  'The list a | b | c | d | e | f | g | h | i | j | k | l | m is a table row, not a phrase.',
+  'The note_taking_tool, the read_only_flag and the build_step_name are snake_case names.',
 ];
+
+/**
+ * A window of `secret` that still appears in `out`, or null. Whole-string containment is NOT enough to call a
+ * scrub clean: a secret removed only up to its first odd character (a `+` in a base64 body, a `.` in a dotted
+ * token) leaves its tail behind, and the whole secret is then no longer a substring, so a `not.toContain(secret)`
+ * check passes over a leak. Checks every 10-character window.
+ */
+export function leakedWindow(out: string, secret: string, width = 10): string | null {
+  if (secret.length < width) return out.includes(secret) ? secret : null;
+  for (let i = 0; i + width <= secret.length; i++) {
+    const w = secret.slice(i, i + width);
+    if (out.includes(w)) return w;
+  }
+  return null;
+}

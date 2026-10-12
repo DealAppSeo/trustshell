@@ -83,15 +83,21 @@ describe('the PEM scan is linear', () => {
   });
 
   it('time grows with the input, not with its square', () => {
-    const time = (n: number) => {
+    // Best of five runs each, so a pause from a busy machine (the full suite runs in parallel) cannot make a
+    // linear scan look quadratic. 8x the input is ~8x the time if linear and ~64x if quadratic; 24 splits them.
+    const best = (n: number): number => {
       const t = MARKER.repeat(n);
       redact(t); // warm
-      const t0 = process.hrtime.bigint();
-      redact(t);
-      return Number(process.hrtime.bigint() - t0) / 1e6;
+      let fastest = Infinity;
+      for (let i = 0; i < 5; i += 1) {
+        const t0 = process.hrtime.bigint();
+        redact(t);
+        fastest = Math.min(fastest, Number(process.hrtime.bigint() - t0) / 1e6);
+      }
+      return fastest;
     };
-    const small = Math.max(time(4000), 1);
-    const big = time(32000); // 8x the input; quadratic would be ~64x the time
+    const small = Math.max(best(8000), 1);
+    const big = best(64000);
     expect(big / small).toBeLessThan(24);
   });
 

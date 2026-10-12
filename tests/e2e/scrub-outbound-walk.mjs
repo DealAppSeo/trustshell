@@ -25,6 +25,11 @@ import { loadTsFixture } from './ts-fixtures.mjs';
 const { chromium } = await loadPlaywrightOrExit();
 const FIXTURES = resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures');
 const { SENSITIVE, KEEP } = loadTsFixture(resolve(FIXTURES, 'scrub-corpus.ts'));
+// A secret scrubbed only up to its first odd character (a `+` in a base64 body, a `.` in a dotted token) leaves
+// its tail, and the whole secret is then no longer a substring. For the shapes that used to leak, hold the page to
+// "no 10-character window of the secret leaves" as well.
+const { MISSED, leakedWindow } = loadTsFixture(resolve(FIXTURES, 'scrub-shapes.ts'));
+const missedSecrets = new Set(MISSED.map((m) => m.secret));
 
 const ENGINE_PORT = 4781;
 const APP_PORT = 3281;
@@ -90,7 +95,7 @@ try {
       if (body === null) { lost.push(`${row.kind} (nothing sent)`); continue; }
       let sent = '';
       try { sent = String(JSON.parse(body).text ?? ''); } catch { sent = body; }
-      if (sent.includes(row.secret) || body.includes(row.secret)) leaked.push(row.kind);
+      if (sent.includes(row.secret) || body.includes(row.secret) || (missedSecrets.has(row.secret) && leakedWindow(sent, row.secret) !== null)) leaked.push(row.kind);
     }
     check(`${tag} none of the ${SENSITIVE.length} secret shapes reaches the engine from /check`, leaked.length === 0, leaked.length ? `leaked: ${leaked.join(', ')}` : 'leaked: none');
     check(`${tag} each sentence was still sent, scrubbed, so the claim stays checkable`, lost.length === 0, lost.join(', '));

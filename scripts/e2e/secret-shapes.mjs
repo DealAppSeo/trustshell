@@ -67,6 +67,16 @@ export const SHAPES = [
   s('xprv-extended-key', 'wallet', 'xprv9s21ZrQH143K' + pick(95, B58)),
   s('solana-secret-base58', 'wallet', pick(88, B58)),
   s('solana-keypair-json', 'wallet', '[' + Array.from({ length: 64 }, () => Math.floor(rnd() * 256)).join(',') + ']'),
+
+  // ================= the variant sweep (XC1, acceptance of #519): the same secrets in forms the first rules missed =================
+  // Appended LAST so the pseudo-random stream, and so every value above, is unchanged. All held; none carries `leaksToday`.
+  s('google-oauth-ya29-service-account', 'token', ['ya29', 'c', pick(24, AN + '_-'), pick(40, AN + '_-'), pick(20, AN)].join('.')),
+  s('stripe-whsec-base64-body', 'token', 'whsec_' + pick(10, AN) + '+' + pick(10, AN) + '/' + pick(10, AN) + '=='),
+  ...[
+    ['hyphen', '-'], ['underscore', '_'], ['slash', '/'], ['pipe', '|'], ['dot', '.'], ['zero-width', '\u200b'],
+  ].map(([name, sep]) => s('bip39-12-' + name + '-separated', 'wallet', 'legal winner thank year wave sausage worth useful legal winner thank yellow'.split(' ').join(sep))),
+  s('bip39-12-json-array', 'wallet', JSON.stringify('legal winner thank year wave sausage worth useful legal winner thank yellow'.split(' '))),
+  s('bip39-12-quoted-csv', 'wallet', 'legal winner thank year wave sausage worth useful legal winner thank yellow'.split(' ').map((w) => '"' + w + '"').join(',')),
 ];
 
 export const sentenceWith = (shape) => `My value is ${shape.text} and the capital of France is Paris.`;

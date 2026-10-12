@@ -17,7 +17,7 @@ import { run, parseArgs, EXIT, type CliIO } from '../src/cli';
 import { classifyClaim } from '../src/lib/claim';
 import { TrustShell } from '../src/lib/trustshell';
 import { createServer } from '../src/mcp/index';
-import { MISSED } from './fixtures/scrub-shapes';
+import { MISSED, leakedWindow } from './fixtures/scrub-shapes';
 import { SENSITIVE, KEEP } from './fixtures/scrub-corpus';
 
 const ENGINE = 'https://engine.test';
@@ -84,6 +84,12 @@ describe.each(DOORS)('$name sends no secret', (door) => {
     for (const b of bodies) expect(sentOf(b)).not.toContain(row.secret);
   });
 
+  it.each(MISSED.map((s) => [s.kind, s] as const))('%s: no part of the secret leaves, not even a tail', async (_kind, shape) => {
+    await door.send(shape.text);
+    expect(bodies.length).toBeGreaterThan(0);
+    for (const b of bodies) expect(leakedWindow(sentOf(b), shape.secret)).toBeNull();
+  });
+
   it.each(MISSED.map((s) => [s.kind, s] as const))('the sentence around %s is still sent, so the claim stays checkable', async (_kind, shape) => {
     await door.send(shape.text);
     for (const b of bodies) expect(sentOf(b)).toMatch(/came from the reply|config has|body was|env has|backed up|in it\./);
@@ -118,7 +124,13 @@ describe('a github install (the committed dist/) carries the fix too', () => {
     // dist/ is what `npm i github:DealAppSeo/trustshell` and a pack ship, and it is committed, not
     // rebuilt on install. So the build itself is held to the corpus, not just src/.
     const built = require('../dist/memory/redact') as { redact: (v: string) => string; containsSecret: (v: string) => boolean };
-    const leaked = SENSITIVE.filter((r) => built.redact(r.text).includes(r.secret)).map((r) => r.kind);
+    // A secret scrubbed only up to its first odd character leaves its tail, so the whole secret is no longer
+    // a substring: for the shapes that used to leak, hold the build to "no 10-character window survives".
+    const missed = new Set(MISSED.map((m) => m.secret));
+    const leaked = SENSITIVE.filter((r) => {
+      const out = built.redact(r.text);
+      return out.includes(r.secret) || (missed.has(r.secret) && leakedWindow(out, r.secret) !== null);
+    }).map((r) => r.kind);
     expect(leaked).toEqual([]);
     for (const s of KEEP) expect(built.redact(s)).toBe(s);
     const credentials = SENSITIVE.filter((r) => !/email|phone|ssn|card|iban/.test(r.kind));

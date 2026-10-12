@@ -39,7 +39,17 @@ const AWS_KEY_ID = /\b(?:AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[A-Z0-9]{16}\b/
 /** Google API keys. */
 const GOOGLE_API_KEY = /\bAIza[0-9A-Za-z_-]{35}\b/g;
 /** Google OAuth access tokens: `ya29.` then a long URL-safe body. */
-const GOOGLE_OAUTH = /\bya29\.[A-Za-z0-9_-]{10,}/g;
+/**
+ * A Google OAuth access token. The body may contain dots: a service-account token is `ya29.c.<long>`, so a body
+ * class without `.` stopped at the second dot and the rest left verbatim. Ten body characters keep the bare
+ * word "ya29" (and "ya29." at the end of a sentence, and "ya29.short") out of it.
+ */
+const GOOGLE_OAUTH = /\bya29\.[A-Za-z0-9_.-]{10,}/g;
+/**
+ * A webhook signing secret (`whsec_`). Its body is BASE64, so it may hold `+`, `/` and a trailing `=`; the generic
+ * prefixed-token rule below stops at the first of those and the rest of the secret left verbatim.
+ */
+const WEBHOOK_SIGNING = /\bwhsec_[A-Za-z0-9+\/=_-]{8,}/g;
 /**
  * BIP32 extended keys (base58, 111 chars). `xprv` is a private key. `xpub` is public, but it exposes every
  * address under it, and a claim has no use for one, so it goes too.
@@ -159,9 +169,20 @@ const bip39 = (): Set<string> => (bip39Set ??= new Set(BIP39_ENGLISH.split(' '))
 const MNEMONIC_MIN_WORDS = 12;
 
 /**
+ * What may sit BETWEEN two words of a recovery phrase: whitespace and zero-width characters (U+00AD, U+200B to
+ * U+200D, U+2060, U+FEFF), the separators `, ; | / \\ _ -`, and the quotes and brackets of a JSON or CSV list; then
+ * optionally one numeric index ("12." or "3)"). Every class is bounded and nothing is nested.
+ */
+const PHRASE_GAP = /^[\s\u00AD\u200B-\u200D\u2060\uFEFF,;|\/\\_\-"'`\[\](){}]+(?:\d{1,2}[.):]?[\s\u00AD\u200B-\u200D\u2060\uFEFF,;|\/\\_\-"'`\[\](){}]*)?$/;
+/** A full stop counts as a separator only when nothing but a quote or bracket sits around it: "abandon.ability". */
+const PHRASE_DOT = /^["'`\[\](){}]*\.["'`\[\](){}]*$/;
+
+/**
  * Remove each run of {@link MNEMONIC_MIN_WORDS} or more consecutive BIP39 words. Words may be split by
- * spaces, tabs, newlines, commas or semicolons, and may be numbered ("1. abandon 2. ability"). A label
- * such as "seed phrase:" stays; the words go. Linear in the text: one pass over its alphabetic words.
+ * spaces, tabs, newlines, commas, semicolons, `-`, `_`, `/`, `|`, zero-width characters, the quotes and brackets
+ * of a JSON or CSV list, or a full stop with nothing around it ("abandon.ability"), and may be numbered
+ * ("1. abandon 2. ability"). A sentence boundary (". ") still ends a run. A label such as "seed phrase:"
+ * stays; the words go. Linear in the text: one pass over its alphabetic words.
  *
  * Over-redaction is not a worry here: twelve ordinary words in a row that are ALL on the list is
  * not a sentence anyone writes, and a claim does not need one.
@@ -180,7 +201,7 @@ function stripMnemonics(text: string): string {
       // Take a leading "12." / "3)" index with the run, so a numbered list leaves nothing behind.
       // Looks only at the 16 characters before the run, so this stays linear however long the text is.
       const from = Math.max(0, first.index! - 16);
-      const lead = /\d{1,2}[.):]?[\s,;]*$/.exec(text.slice(from, first.index));
+      const lead = /\d{1,2}[.):]?[\s\u00AD\u200B-\u200D\u2060\uFEFF,;|\/\\_\-"'`\[\](){}]*$/.exec(text.slice(from, first.index));
       cuts.push([lead ? from + lead.index : first.index!, last.index! + last[0].length]);
     }
     runStart = -1;
@@ -190,7 +211,8 @@ function stripMnemonics(text: string): string {
     const w = words[i]!;
     const inList = w[0].length >= 3 && w[0].length <= 8 && set.has(w[0].toLowerCase());
     // The gap since the previous word must be separators and, at most, one numeric index.
-    const gapOk = runStart >= 0 && /^[\s,;]+(?:\d{1,2}[.):]?[\s,;]*)?$/.test(text.slice(words[i - 1]!.index! + words[i - 1]![0].length, w.index));
+    const gap = runStart >= 0 ? text.slice(words[i - 1]!.index! + words[i - 1]![0].length, w.index) : '';
+    const gapOk = runStart >= 0 && (PHRASE_GAP.test(gap) || PHRASE_DOT.test(gap));
     if (inList && (runStart < 0 || gapOk)) {
       if (runStart < 0) runStart = i;
       runLen++;
@@ -230,7 +252,7 @@ function isBareAwsSecret(candidate: string): boolean {
  */
 export function containsSecret(value: string): boolean {
   const s = String(value ?? '');
-  const shaped = [SECRET, DB_URL, BEARER, EYJ, SK, STRIPE, AWS_KEY_ID, GOOGLE_API_KEY, GOOGLE_OAUTH, EXTENDED_KEY, WIF_KEY, SOLANA_BASE58, GHP, GITHUB_PAT, HF, WEBHOOK_URL, CREDENTIAL_ASSIGNMENT, HEX_64, PREFIXED_TOKENS]
+  const shaped = [SECRET, DB_URL, BEARER, EYJ, SK, STRIPE, AWS_KEY_ID, GOOGLE_API_KEY, GOOGLE_OAUTH, WEBHOOK_SIGNING, EXTENDED_KEY, WIF_KEY, SOLANA_BASE58, GHP, GITHUB_PAT, HF, WEBHOOK_URL, CREDENTIAL_ASSIGNMENT, HEX_64, PREFIXED_TOKENS]
     .some((re) => {
       re.lastIndex = 0;
       const hit = re.test(s);
@@ -261,6 +283,7 @@ export function redact(value: string): string {
     .replace(GHP, '')
     .replace(GITHUB_PAT, '')
     .replace(HF, '')
+    .replace(WEBHOOK_SIGNING, '')
     .replace(PREFIXED_TOKENS, '')
     .replace(EXTENDED_KEY, '')
     .replace(WIF_KEY, '')

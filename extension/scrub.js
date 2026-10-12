@@ -166,7 +166,10 @@
   const STRIPE = /\b(?:sk|rk)_(?:live|test)_[0-9A-Za-z]{10,}\b/g;
   const AWS_KEY_ID = /\b(?:AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[A-Z0-9]{16}\b/g;
   const GOOGLE_API_KEY = /\bAIza[0-9A-Za-z_-]{35}\b/g;
-  const GOOGLE_OAUTH = /\bya29\.[A-Za-z0-9_-]{10,}/g;
+  // A service-account token is `ya29.c.<long>`: the body may contain dots (see GOOGLE_OAUTH in src/memory/redact.ts).
+  const GOOGLE_OAUTH = /\bya29\.[A-Za-z0-9_.-]{10,}/g;
+  // A webhook signing secret has a BASE64 body: + / and a trailing = belong to it.
+  const WEBHOOK_SIGNING = /\bwhsec_[A-Za-z0-9+\/=_-]{8,}/g;
   const EXTENDED_KEY = /\b(?:[xyzutv](?:prv|pub)|Ltpv|Ltub|Mtpv|Mtub)[1-9A-HJ-NP-Za-km-z]{80,}\b/g;
   /** Bitcoin WIF private keys, base58: `5`/`9` + 50 characters (uncompressed) or `K`/`L`/`c` + 51 (compressed). */
   const WIF_KEY = /\b(?:[59][1-9A-HJ-NP-Za-km-z]{50}|[KLc][1-9A-HJ-NP-Za-km-z]{51})\b/g;
@@ -239,6 +242,9 @@
   let bip39Set = null;
   const bip39 = () => bip39Set || (bip39Set = new Set(BIP39_ENGLISH.split(' ')));
   const MNEMONIC_MIN_WORDS = 12;
+  // What may sit between two words of a recovery phrase (see PHRASE_GAP in src/memory/redact.ts).
+  const PHRASE_GAP = /^[\s\u00AD\u200B-\u200D\u2060\uFEFF,;|\/\\_\-"'`\[\](){}]+(?:\d{1,2}[.):]?[\s\u00AD\u200B-\u200D\u2060\uFEFF,;|\/\\_\-"'`\[\](){}]*)?$/;
+  const PHRASE_DOT = /^["'`\[\](){}]*\.["'`\[\](){}]*$/;
 
   // Remove each run of 12 or more consecutive BIP39 words (see stripMnemonics in src/memory/redact.ts).
   function stripMnemonics(text) {
@@ -253,7 +259,7 @@
         const first = words[runStart];
         const last = words[endIdx];
         const from = Math.max(0, first.index - 16);
-        const lead = /\d{1,2}[.):]?[\s,;]*$/.exec(text.slice(from, first.index));
+        const lead = /\d{1,2}[.):]?[\s\u00AD\u200B-\u200D\u2060\uFEFF,;|\/\\_\-"'`\[\](){}]*$/.exec(text.slice(from, first.index));
         cuts.push([lead ? from + lead.index : first.index, last.index + last[0].length]);
       }
       runStart = -1;
@@ -262,7 +268,8 @@
     for (let i = 0; i < words.length; i++) {
       const w = words[i];
       const inList = w[0].length >= 3 && w[0].length <= 8 && set.has(w[0].toLowerCase());
-      const gapOk = runStart >= 0 && /^[\s,;]+(?:\d{1,2}[.):]?[\s,;]*)?$/.test(text.slice(words[i - 1].index + words[i - 1][0].length, w.index));
+      const gap = runStart >= 0 ? text.slice(words[i - 1].index + words[i - 1][0].length, w.index) : '';
+      const gapOk = runStart >= 0 && (PHRASE_GAP.test(gap) || PHRASE_DOT.test(gap));
       if (inList && (runStart < 0 || gapOk)) {
         if (runStart < 0) runStart = i;
         runLen++;
@@ -309,6 +316,7 @@
       .replace(GHP, '')
       .replace(GITHUB_PAT, '')
       .replace(HF, '')
+      .replace(WEBHOOK_SIGNING, '')
       .replace(PREFIXED_TOKENS, '')
       .replace(EXTENDED_KEY, '')
       .replace(WIF_KEY, '')
