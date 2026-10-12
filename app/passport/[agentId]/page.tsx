@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { REPID_ENGINE_URL } from '@/lib/repid-engine';
 import { TrustBadge } from '@/components/trust-state';
 import {
-  identityRegistryShown,
   mintTxUrlShown,
+  mintVerdictOf,
   reputationRegistryShown,
   tokenIdShown,
   twoFieldsOf,
@@ -88,6 +88,24 @@ async function getPassport(agentId: string): Promise<Passport | null | 'error'> 
   }
 }
 
+/**
+ * The engine's live ownerOf read for this passport's agent (GET /api/v1/agents/:id/onchain), made ONLY when the
+ * passport says MINTED, because that is the only state that would say "on-chain" (E-1: the engine's MINTED is a
+ * record of a mint transaction, not a reading of the chain). `undefined` = no read was needed; `null` = it was needed
+ * and could not be made or did not answer, which the verdict reads as "did not confirm", never as an absence.
+ */
+async function getOnChain(p: Passport): Promise<unknown> {
+  if (p.identity_erc8004?.registered_onchain !== 'MINTED') return undefined;
+  const named = p.agent?.agent_id;
+  if (typeof named !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(named)) return null;
+  try {
+    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/agents/${encodeURIComponent(named)}/onchain`, { cache: 'no-store' });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   try {
@@ -132,8 +150,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
  * ID says which agent it is. Neither proves the other. The ID is read through lib/erc8004-display.ts,
  * so a placeholder or a transaction hash in the engine's data is shown as Not checked, never as an ID.
  */
-function TwoFieldBlock({ passport }: { passport: Passport }) {
-  const f = twoFieldsOf(passport);
+function TwoFieldBlock({ passport, onChain }: { passport: Passport; onChain: unknown }) {
+  const f = twoFieldsOf(passport, onChain);
   return (
     <div data-testid="two-fields" className="grid gap-3 rounded-lg border border-neutral-800 p-4 sm:grid-cols-2">
       <div data-testid="field-score">
@@ -148,12 +166,14 @@ function TwoFieldBlock({ passport }: { passport: Passport }) {
         </p>
         <p className="text-xs text-neutral-500" data-testid="field-id-state">
           {f.mint === 'MINTED'
-            ? 'Registered on-chain.'
-            : f.mint === 'UNVERIFIED'
-              ? 'Has a token id; this service has no record of the mint transaction. Not the same as not minted.'
-              : f.mint === 'NOT_MINTED'
-                ? 'Off-chain only: no ERC-8004 token has been minted for this agent.'
-                : 'The engine did not say clearly. Not checked.'}
+            ? 'Registered on-chain: the engine\'s live ownerOf read found an owner for this token.'
+            : f.recordedMint
+              ? `Not checked: ${f.why}. Recorded, not verified.`
+              : f.mint === 'UNVERIFIED'
+                ? 'Has a token id; this service has no record of the mint transaction. Not the same as not minted.'
+                : f.mint === 'NOT_MINTED'
+                  ? 'Off-chain only: no ERC-8004 token has been minted for this agent.'
+                  : 'The engine did not say clearly. Not checked.'}
         </p>
       </div>
       <p className="text-xs text-neutral-500 sm:col-span-2">
@@ -188,6 +208,7 @@ export default async function PassportPage({
 }) {
   const { agentId } = await params;
   const passport = await getPassport(agentId);
+  const onChain = passport && passport !== 'error' ? await getOnChain(passport) : undefined;
 
   if (passport === 'error') {
     return (
@@ -218,6 +239,8 @@ export default async function PassportPage({
 
   const p = passport;
   const id = p.identity_erc8004;
+  // MINTED here means VERIFIED (canonical registry AND the engine's live ownership read). The engine's own word is a record.
+  const verdict = mintVerdictOf(id, onChain);
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">
@@ -231,7 +254,7 @@ export default async function PassportPage({
           <span className="text-2xl font-bold">{p.reputation.repid_score}</span>
           <span className="text-sm text-neutral-400">RepID</span>
         </div>
-        <TwoFieldBlock passport={p} />
+        <TwoFieldBlock passport={p} onChain={onChain} />
         <p className="text-sm text-neutral-500">
           Every fact below is a recorded fact — settlement rows, mint transactions, on-chain
           writes — never an unverified claim. Snapshot as of {fmtDate(p.as_of)}.
@@ -239,20 +262,66 @@ export default async function PassportPage({
       </header>
 
       <Section title="Identity (ERC-8004)">
-        {id.registered_onchain === 'MINTED' ? (
+        {verdict.state === 'MINTED' ? (
           <>
             <Row label="Status">
-              <span className="text-green-500">Registered on-chain</span> ({id.network})
+              <span className="text-green-500" data-testid="mint-verified">Registered on-chain</span> ({id.network})
+            </Row>
+            <Row label="Verified by">
+              The engine&apos;s live <code>ownerOf()</code> read found an owner for this token on the canonical IdentityRegistry
+              {verdict.onChain?.ownerMatchesRecord === false ? '. That owner is NOT the conservator the engine has on record.' : '.'}
             </Row>
             <Row label="Token ID">
               <TokenValue raw={id.token_id} />
             </Row>
             <Row label="Registry">
-              <RegistryValue shown={identityRegistryShown(id.contract_address)} />
+              <RegistryValue shown={verdict.registry} />
             </Row>
             <Row label="Minted">{fmtDate(id.minted_at)}</Row>
             {mintTxUrlShown(id.mint_basescan_url) && (
               <Row label="Mint transaction">
+                <a
+                  href={mintTxUrlShown(id.mint_basescan_url)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-500 underline"
+                >
+                  View on BaseScan →
+                </a>
+              </Row>
+            )}
+            <Row label="Live check">
+              <a
+                href={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-500 underline"
+              >
+                Cross-verify ownerOf() on-chain now →
+              </a>
+            </Row>
+          </>
+        ) : verdict.recorded ? (
+          <>
+            {/*
+              E-1. The engine RECORDS a mint transaction for this agent, but the registry it recorded is not the
+              canonical IdentityRegistry, or the engine's live ownerOf read did not find an owner for this token. The
+              record is shown for what it is, a record, beside NOT_CHECKED: never "Registered on-chain".
+            */}
+            <Row label="Status">
+              <span data-testid="mint-not-checked">
+                <TrustBadge state="NOT_CHECKED" detail={verdict.why ?? 'recorded as minted, not confirmed on chain'} />
+              </span>
+            </Row>
+            <Row label="Token ID (recorded)">
+              <TokenValue raw={id.token_id} />
+            </Row>
+            <Row label="Registry (recorded)">
+              <RegistryValue shown={verdict.registry} />
+            </Row>
+            <Row label="Minted (recorded)">{fmtDate(id.minted_at)}</Row>
+            {mintTxUrlShown(id.mint_basescan_url) && (
+              <Row label="Mint transaction (recorded)">
                 <a
                   href={mintTxUrlShown(id.mint_basescan_url)!}
                   target="_blank"

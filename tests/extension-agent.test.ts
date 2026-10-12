@@ -14,7 +14,7 @@ const agent = require('../extension/agent.js') as {
   cleanId: (raw: unknown) => string | null;
   checkAgent: (id: unknown, opts?: Record<string, unknown>) => Promise<Record<string, any>>;
   agentLines: (r: Record<string, any>) => string[];
-  identityOf: (passport: unknown, resolvedId?: string | null) => { state: string; tokenId: string | null };
+  identityOf: (passport: unknown, resolvedId?: string | null, onChainBody?: unknown) => Record<string, any>;
   identityLine: (identity: unknown) => string;
 };
 
@@ -213,7 +213,9 @@ describe('RepID is TWO fields in the popup: the score and the ERC-8004 ID', () =
     expect(lines[1]).toBe('ERC-8004 ID: #3747 (has a token id; no record of the mint transaction here. Not the same as not minted.)');
     expect(lines[0]).not.toContain('3747');
     expect(lines[1]).not.toContain('1334');
-    expect(agent.agentLines(await run(passport('MINTED', 5)))[1]).toBe('ERC-8004 ID: #5 (on-chain)');
+    // The engine's MINTED is a record. Without a canonical registry and an ownership read it is NOT_CHECKED (E-1):
+    // the verified form is pinned in tests/mint-honesty-popup.test.ts.
+    expect(agent.agentLines(await run(passport('MINTED', 5)))[1]).toMatch(/^ERC-8004 ID: #5 \(NOT_CHECKED: the engine records a mint transaction, but /);
     expect(agent.agentLines(await run(passport('NOT_MINTED', null)))[1]).toBe('ERC-8004 ID: none yet (off-chain only)');
   });
 
@@ -238,7 +240,9 @@ describe('RepID is TWO fields in the popup: the score and the ERC-8004 ID', () =
     const r = await run(passport('MINTED', '99', 'someone-else'));
     expect(r.identity).toEqual({ state: 'NOT_CHECKED', tokenId: null });
     expect(agent.identityOf(passport('MINTED', '99', 'x'), 'y').state).toBe('NOT_CHECKED');
-    expect(agent.identityOf(passport('MINTED', '99', 'x'), null).state).toBe('MINTED');
+    expect(agent.identityOf(passport('MINTED', '99', 'x'), null).state).toBe('NOT_CHECKED'); // MINTED is a record; no read made
+    expect(agent.identityOf(passport('MINTED', '99', 'x'), null).recordedState).toBe('MINTED');
+    expect(agent.identityOf(passport('UNVERIFIED', '99', 'x'), null).state).toBe('UNVERIFIED');
   });
 
   it('with no identity at all (an old caller) the line says not checked', () => {

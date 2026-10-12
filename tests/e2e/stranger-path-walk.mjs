@@ -49,6 +49,7 @@ const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; }
 // ---- the stub engine -------------------------------------------------------------------------
 let seen = []; // "METHOD /path" for every request
 let scoreNow = 200; // what the passport says the score is
+const onchainAsked = []; // the agents the engine's live ownerOf read was asked about (E-1)
 let ownerMode = 'unbound'; // unbound | owned | down
 let classifyDown = false;
 let balanceMode = 'ok'; // ok | down
@@ -95,6 +96,13 @@ const engine = createServer((req, res) => {
         : { owned: false, owner: null, linked_account: null });
     }
     if (/^\/api\/v1\/agents\/[^/]+$/.test(url)) return json(200, { agent_id: AGENT_ID, repid_score: scoreNow, current_repid: scoreNow, tier: 'PROBATIONARY' });
+    // The engine's live ownerOf cross-check (E-1). By agent id: the stranger-path agents below are the only ones asked about.
+    if (/^\/api\/v1\/agents\/[^/]+\/onchain$/.test(url)) {
+      const who = decodeURIComponent(url.split('/')[4]);
+      onchainAsked.push(who);
+      if (who === 'canon-unconfirmed-agent') return json(200, { dbTokenId: '4321', onChainOwner: null, dbConservator: null, drift: false, reason: 'chain not reached (SERVER_ERROR): 403', check: 'NOT_CHECKED' });
+      return json(200, { dbTokenId: who === 'nearmiss-agent' ? '5555' : '1234', onChainOwner: OWNER, dbConservator: OWNER, drift: false, reason: null, check: 'OWNER_FOUND' });
+    }
     if (url.startsWith('/api/v1/passport/')) {
       const id = decodeURIComponent(url.slice('/api/v1/passport/'.length));
       const base = {
@@ -109,6 +117,21 @@ const engine = createServer((req, res) => {
           reputation: { repid_score: 1234, tier: 'ESTABLISHED', activity_30d: 1 },
           identity_erc8004: { registered_onchain: 'MINTED', token_id: 'pending-mint', contract_address: TXHASH, network: 'base-sepolia',
             mint_tx_hash: null, mint_basescan_url: 'javascript:alert(1)', minted_at: null, conservator_address: null, live_verification_endpoint: '/api/v1/agents/x/onchain' } });
+      }
+      // E-1: the engine RECORDS a mint, but the registry it recorded is a near-miss of the real one. A perfect ownership read
+      // does not rescue it: the record is not tied to the canonical registry, so the page must not say on-chain.
+      if (id === 'nearmiss-agent') {
+        return json(200, { ...base,
+          reputation: { repid_score: 3300, tier: 'ESTABLISHED', activity_30d: 1 },
+          identity_erc8004: { registered_onchain: 'MINTED', token_id: '5555', contract_address: CANON.slice(0, -1) + 'f', network: 'base-sepolia',
+            mint_tx_hash: TXHASH, mint_basescan_url: `https://sepolia.basescan.org/tx/${TXHASH}`, minted_at: '2026-10-01T00:00:00Z', conservator_address: OWNER, live_verification_endpoint: '/api/v1/agents/nearmiss-agent/onchain' } });
+      }
+      // E-1: a canonical registry on record, but the engine's live read did not reach the chain. Recorded, not verified.
+      if (id === 'canon-unconfirmed-agent') {
+        return json(200, { ...base,
+          reputation: { repid_score: 2100, tier: 'ESTABLISHED', activity_30d: 1 },
+          identity_erc8004: { registered_onchain: 'MINTED', token_id: '4321', contract_address: CANON, network: 'base-sepolia',
+            mint_tx_hash: TXHASH, mint_basescan_url: `https://sepolia.basescan.org/tx/${TXHASH}`, minted_at: '2026-10-01T00:00:00Z', conservator_address: OWNER, live_verification_endpoint: '/api/v1/agents/canon-unconfirmed-agent/onchain' } });
       }
       if (id === 'canon-agent') {
         return json(200, { ...base,
@@ -394,6 +417,7 @@ try {
   check('passport: the registry reads Not checked, with the reason', (await page.locator('[data-testid="registry-not-checked"]').count()) >= 1 && /not an address|different address|no IdentityRegistry/.test(body));
   check('passport: the score and the ID are two labelled fields', /field 1 · score/i.test(body) && /field 2 · erc-8004 id/i.test(body) && (await text(page, '[data-testid="field-score"]')).includes('1234'));
   check('passport: a bad token id reads Not checked, not "#pending-mint"', /Not checked/.test(await text(page, '[data-testid="field-id"]')) && !/#pending-mint/.test(body));
+  check('passport (E-1): a MINTED record with a transaction hash in the registry column never says "Registered on-chain"', !/Registered on-chain/.test(body) && (await page.locator('[data-testid="mint-verified"]').count()) === 0 && (await page.locator('[data-testid="mint-not-checked"]').count()) === 1);
   check('passport (phone): nothing scrolls sideways', await noSideways(page));
 
   await page.goto(`${base}/passport/canon-agent`, { waitUntil: 'networkidle' });
@@ -402,6 +426,16 @@ try {
   check('passport: a real token id and a real Base Sepolia mint link are shown', (await text(page, '[data-testid="token-id"]')) === '1234' && (await page.locator(`a[href="https://sepolia.basescan.org/tx/${TXHASH}"]`).count()) === 1);
   check('passport: both fields show for a minted agent', (await text(page, '[data-testid="field-id"]')).includes('#1234') && (await text(page, '[data-testid="field-score"]')).includes('2227'));
   check('passport: "off-chain only" is not claimed for a minted agent', !/Off-chain only/.test(body2));
+  check('passport (E-1): a canonical registry AND the engine\'s live ownerOf read: "Registered on-chain", and it says what verified it', (await page.locator('[data-testid="mint-verified"]').count()) === 1 && /Registered on-chain/.test(body2) && /live ownerOf\(\) read found an owner/.test(body2) && onchainAsked.includes('canon-agent'));
+
+  await page.goto(`${base}/passport/nearmiss-agent`, { waitUntil: 'networkidle' });
+  const body3 = await text(page, 'body');
+  check('passport (E-1): a near-miss of the registry is NOT on-chain, even with a perfect ownership read; the recorded token id stays, as recorded', !/Registered on-chain/.test(body3) && (await page.locator('[data-testid="mint-not-checked"]').count()) === 1 && /Token ID \(recorded\)/.test(body3) && /Recorded, not verified/.test(await text(page, '[data-testid="field-id-state"]')));
+  check('passport (E-1): the near-miss registry string is NOT printed', !(await page.content()).includes(CANON.slice(0, -1) + 'f'));
+
+  await page.goto(`${base}/passport/canon-unconfirmed-agent`, { waitUntil: 'networkidle' });
+  const body4 = await text(page, 'body');
+  check('passport (E-1): a canonical registry whose live ownerOf read did not reach the chain is NOT_CHECKED, not on-chain', !/Registered on-chain/.test(body4) && (await page.locator('[data-testid="mint-not-checked"]').count()) === 1 && (await page.locator('[data-testid="registry-address"]').count()) >= 1 && onchainAsked.includes('canon-unconfirmed-agent'));
 
   await page.goto(`${base}/passport/${AGENT_ID}`, { waitUntil: 'networkidle' });
   check('passport: a new off-chain agent says so, honestly, with ID "None yet"', /Off-chain only/.test(await text(page, 'body')) && /None yet/.test(await text(page, '[data-testid="field-id"]')));

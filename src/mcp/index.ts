@@ -310,7 +310,10 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         "Canonical name for getRepID — matches `trustshell repid`. Fetches an agent's live RepID " +
         'score and tier from the public repid-engine (keyless). RepID is TWO fields: `repid` (the score) and ' +
         '`identity` (the ERC-8004 ID: MINTED, UNVERIFIED, NOT_MINTED or NOT_CHECKED, with a tokenId when there is one). ' +
-        'Neither proves the other, and NOT_CHECKED is not NOT_MINTED.',
+        'Neither proves the other, and NOT_CHECKED is not NOT_MINTED. MINTED, `minted: true` and the word "on-chain" are ' +
+        'returned ONLY when the engine\'s live ownerOf read found an owner for the token AND the recorded registry is the ' +
+        'canonical IdentityRegistry; if the engine merely RECORDS a mint, `identity` is NOT_CHECKED with `recordedState: "MINTED"` ' +
+        'and the reason, and `minted` is null.',
       inputSchema: {
         agentId: z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
       },

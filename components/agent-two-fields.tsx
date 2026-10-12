@@ -22,7 +22,9 @@ const WHY: Record<Extract<TwoFieldsRead, { state: 'NOT_CHECKED' }>['reason'], st
  * crediting the check, and an unreadable score is "not checked", never zero.
  *
  * The ID is the engine's three states (MINTED / UNVERIFIED / NOT_MINTED) through
- * lib/erc8004-display.ts. A new agent made on this site is off-chain only, and says so.
+ * lib/erc8004-display.ts, where MINTED means VERIFIED: the engine's own MINTED is a record of a mint transaction, so
+ * it is shown as on-chain only when the registry is the canonical one and the engine's live ownerOf read found an
+ * owner (E-1). A new agent made on this site is off-chain only, and says so.
  */
 export function AgentTwoFields({ resultAt }: { resultAt?: number }) {
   const [agent, setAgent] = useState<Agent | null | undefined>(undefined);
@@ -116,12 +118,14 @@ export function AgentTwoFields({ resultAt }: { resultAt?: number }) {
             </p>
             <p className="text-xs text-[#94a3b8]">
               {read?.mint === 'MINTED'
-                ? 'Registered on-chain.'
-                : read?.mint === 'UNVERIFIED'
-                  ? 'Has a token id; no record of the mint transaction here.'
-                  : read?.mint === 'NOT_MINTED'
-                    ? 'Off-chain only. No on-chain ID has been minted.'
-                    : 'The engine did not say.'}
+                ? 'Registered on-chain: the engine\'s live ownerOf read found an owner for this token.'
+                : read?.recordedMint
+                  ? `Not checked: ${read.why}. Recorded, not verified.`
+                  : read?.mint === 'UNVERIFIED'
+                    ? 'Has a token id; no record of the mint transaction here.'
+                    : read?.mint === 'NOT_MINTED'
+                      ? 'Off-chain only. No on-chain ID has been minted.'
+                      : 'The engine did not say.'}
             </p>
           </div>
         </div>

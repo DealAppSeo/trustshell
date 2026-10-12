@@ -28,7 +28,12 @@ export declare function countProviders(raw: {
     } | null;
 }): number;
 export interface RepIDHonesty {
-    /** true = a real on-chain mint; false = keyless/never-minted; null = the endpoint didn't say (see reasons). */
+    /**
+     * true = a real on-chain mint VERIFIED by a live ownership read on the canonical IdentityRegistry; false = a
+     * record that is not a mint (a placeholder, or no token id); null = recorded or unknown (see reasons). A
+     * RECORD alone is never true: repidHonesty reads a database row, and a row is not the chain. Only
+     * `TrustShell.getRepID`, which makes the ownership read, sets true.
+     */
     minted: boolean | null;
     /** The publishing signer address, when the endpoint exposes it; else null (see reasons). */
     signer: string | null;

@@ -25,6 +25,14 @@
 
   const ENGINE = 'https://repid-engine-production.up.railway.app';
   const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+  // The ERC-8004 IdentityRegistry on Base Sepolia: a contract, not a wallet. The only registry this product is built on.
+  const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
+  const TOKEN_ID = /^(0|[1-9]\d{0,17})$/;
+  const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+  const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+  const ZERO_ADDRESS = /^0x0{40}$/;
+  // The engine's machine reason for withholding a registry address (transaction_hash, not_an_address...). Nothing else is printed.
+  const ENGINE_REASON = /^[a-z_]{1,40}$/;
 
   function cleanId(raw) {
     const id = String(raw == null ? '' : raw).trim();
@@ -46,15 +54,75 @@
   }
 
   /**
+   * The registry the engine RECORDED, judged against the canonical IdentityRegistry. The result is the
+   * canonical constant or NOT_CHECKED with a reason: never the engine's own string, which for most squad
+   * agents is a placeholder, a transaction hash, another address or a near-miss. (Same rule as
+   * registryReading in src/lib/identity.ts; tests/mint-honesty-parity.test.ts holds the two equal.)
+   */
+  function registryReading(raw, engineReason) {
+    const notChecked = (reason) => ({ status: 'NOT_CHECKED', reason });
+    if (typeof raw !== 'string' || raw.trim() === '') {
+      const theirs = typeof engineReason === 'string' && ENGINE_REASON.test(engineReason) ? ` (the engine's reason: ${engineReason})` : '';
+      return notChecked(`the engine sent no registry address${theirs}`);
+    }
+    const v = raw.trim();
+    if (TX_HASH.test(v)) return notChecked('the recorded registry is a transaction hash, not an address');
+    if (!ADDRESS.test(v)) return notChecked('the recorded registry is not an address');
+    if (v.toLowerCase() !== IDENTITY_REGISTRY.toLowerCase()) return notChecked('the recorded registry is not the canonical IdentityRegistry');
+    return { status: 'CANONICAL', address: IDENTITY_REGISTRY };
+  }
+
+  /**
+   * The engine's live ownerOf cross-check (GET /api/v1/agents/:id/onchain), reduced to what the popup may rely
+   * on. OWNER_FOUND counts only with a real non-zero owner AND a read about exactly the token the passport
+   * named. No `check` (an older engine), an unknown `check` or anything malformed is NOT_CHECKED: not a
+   * confirmation and not a denial.
+   */
+  function onChainReadFrom(body, tokenId) {
+    const none = { check: 'NOT_CHECKED', owner: null, ownerMatchesRecord: null };
+    if (!body || typeof body !== 'object') return none;
+    const check = body.check;
+    if (check === 'NO_TOKEN' || check === 'REVERTED') return { check, owner: null, ownerMatchesRecord: null };
+    if (check !== 'OWNER_FOUND') return none;
+    const owner = body.onChainOwner;
+    if (typeof owner !== 'string' || !ADDRESS.test(owner) || ZERO_ADDRESS.test(owner)) return none;
+    const dbToken = body.dbTokenId;
+    const readToken = typeof dbToken === 'number' && Number.isSafeInteger(dbToken) && dbToken >= 0 ? String(dbToken) : typeof dbToken === 'string' ? dbToken.trim() : '';
+    if (tokenId === null || readToken !== tokenId) return none;
+    const conservator = body.dbConservator;
+    const ownerMatchesRecord = typeof conservator === 'string' && ADDRESS.test(conservator) ? conservator.toLowerCase() === owner.toLowerCase() : null;
+    return { check: 'OWNER_FOUND', owner, ownerMatchesRecord };
+  }
+
+  /** MINTED is shown, and "on-chain" is said, only for this: a canonical recorded registry AND an owner found for this token. */
+  function isVerifiedOnChain(identity) {
+    return Boolean(
+      identity &&
+        identity.state === 'MINTED' &&
+        identity.tokenId !== null &&
+        identity.registry && identity.registry.status === 'CANONICAL' &&
+        identity.onChain && identity.onChain.check === 'OWNER_FOUND',
+    );
+  }
+
+  /**
    * The SECOND RepID field: the ERC-8004 ID, read from the public passport route. The score and the ID
    * are two different things and are returned apart. States: MINTED / UNVERIFIED / NOT_MINTED, or
    * NOT_CHECKED for anything the engine did not say clearly (never read as NOT_MINTED). A token id is
    * kept only when it is a plain whole number.
    *
+   * WHAT MINTED MEANS (E-1). The engine's own MINTED is a RECORD ("we hold a mint transaction"), not a
+   * reading of the chain, and the record is wrong for most squad agents. So MINTED, and the word
+   * "on-chain", are returned ONLY when the recorded registry is the canonical IdentityRegistry AND the
+   * engine's live ownership read (onChainBody, from GET /api/v1/agents/:id/onchain) found an owner for
+   * exactly this token. Otherwise the engine's MINTED comes back NOT_CHECKED with recordedState 'MINTED'
+   * and the reason. UNVERIFIED and NOT_MINTED make no claim about the chain and pass through. Same rule
+   * as identityFromPassport in src/lib/identity.ts (tests/mint-honesty-parity.test.ts holds them equal).
+   *
    * BOUND TO THE AGENT THAT WAS ASKED ABOUT: when the live route named the agent the typed id resolved
    * to, a passport for any other agent is NOT_CHECKED, same as the proof (Strix on #437).
    */
-  function identityOf(passport, resolvedId) {
+  function identityOf(passport, resolvedId, onChainBody) {
     const none = { state: 'NOT_CHECKED', tokenId: null };
     if (!passport || typeof passport !== 'object') return none;
     const idv = passport.identity_erc8004;
@@ -65,7 +133,25 @@
     if (st !== 'MINTED' && st !== 'UNVERIFIED' && st !== 'NOT_MINTED') return none;
     const raw = idv.token_id;
     const text = typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0 ? String(raw) : typeof raw === 'string' ? raw.trim() : '';
-    return { state: st, tokenId: /^(0|[1-9]\d{0,17})$/.test(text) ? text : null };
+    const tokenId = TOKEN_ID.test(text) ? text : null;
+    const tokenNote = tokenId === null && text !== '' ? 'the engine sent a token id that is not a whole number, so it is not shown' : null;
+    if (st !== 'MINTED') {
+      return tokenId !== null ? { state: st, tokenId } : { state: st, tokenId: null, ...(tokenNote ? { reason: tokenNote } : {}) };
+    }
+    const registry = registryReading(idv.contract_address, idv.contract_address_reason);
+    const onChain = onChainReadFrom(onChainBody, tokenId);
+    const problems = [];
+    if (tokenNote) problems.push(tokenNote);
+    else if (tokenId === null) problems.push('the engine sent no token id');
+    if (registry.status !== 'CANONICAL') problems.push(registry.reason);
+    if (onChain.check === 'REVERTED') problems.push('the registry says no token with that id exists');
+    else if (onChain.check === 'NO_TOKEN') problems.push('the engine has no token id to read on chain');
+    else if (onChain.check !== 'OWNER_FOUND') {
+      problems.push(onChainBody === undefined ? 'no live ownerOf read was made' : 'the live ownerOf read did not confirm it');
+    }
+    const evidence = onChainBody === undefined ? { registry } : { registry, onChain };
+    if (problems.length === 0) return { state: 'MINTED', tokenId, ...evidence };
+    return { state: 'NOT_CHECKED', tokenId, recordedState: 'MINTED', ...evidence, reason: `the engine records a mint transaction, but ${problems.join('; ')}` };
   }
 
   /**
@@ -88,8 +174,15 @@
     const score = live && typeof live.score === 'number' ? live.score : null;
     const tier = live && typeof live.tier === 'string' ? live.tier : null;
     const resolvedForId = live && typeof live.agent_id === 'string' ? live.agent_id : null;
-    // Two fields, kept apart: the score above, and the ERC-8004 ID here.
-    const base_ = { id, score, tier, identity: identityOf(passport, resolvedForId) };
+    // Two fields, kept apart: the score above, and the ERC-8004 ID here. The ID asks the engine for its live
+    // ownership read ONLY when the passport says MINTED, because that is the only state that would say "on-chain".
+    let identity = identityOf(passport, resolvedForId);
+    if (identity.recordedState === 'MINTED') {
+      const uuid = cleanId(passport.agent && passport.agent.agent_id);
+      const onchain = uuid ? await getJson(fetchImpl, `${base}/api/v1/agents/${encodeURIComponent(uuid)}/onchain`, timeoutMs) : null;
+      identity = identityOf(passport, resolvedForId, onchain);
+    }
+    const base_ = { id, score, tier, identity };
     if (!proof || typeof proof.proof_bytes !== 'string' || !proof.proof_bytes || !proof.statement) {
       return { ...base_, outcome: 'not-checked', reason: 'no_proof' };
     }
@@ -132,14 +225,23 @@
   function identityLine(identity) {
     const i = identity && typeof identity === 'object' ? identity : { state: 'NOT_CHECKED', tokenId: null };
     const idText = i.tokenId ? `#${i.tokenId}` : i.state === 'NOT_MINTED' ? 'none yet' : 'not checked';
-    const note =
-      i.state === 'MINTED'
-        ? 'on-chain'
-        : i.state === 'UNVERIFIED'
-          ? 'has a token id; no record of the mint transaction here. Not the same as not minted.'
-          : i.state === 'NOT_MINTED'
-            ? 'off-chain only'
-            : 'the engine did not say. Not checked is not the same as not minted.';
+    let note;
+    if (isVerifiedOnChain(i)) {
+      note =
+        `on-chain: the engine's ownerOf read found an owner for this token, and the recorded registry is the canonical IdentityRegistry ${IDENTITY_REGISTRY}` +
+        (i.onChain && i.onChain.ownerMatchesRecord === false ? '; the on-chain owner is NOT the conservator the engine has on record' : '');
+    } else if (i.state === 'MINTED') {
+      // Says MINTED but carries no evidence for it (an older or hand-built object): never printed as on-chain.
+      note = 'NOT_CHECKED: recorded as minted, but nothing here confirmed it on chain';
+    } else if (i.state === 'UNVERIFIED') {
+      note = 'has a token id; no record of the mint transaction here. Not the same as not minted.';
+    } else if (i.state === 'NOT_MINTED') {
+      note = 'off-chain only';
+    } else if (i.recordedState === 'MINTED') {
+      note = `NOT_CHECKED: ${i.reason || 'recorded as minted, not confirmed on chain'}. Recorded, not verified: this is not on-chain until an ownership read confirms it`;
+    } else {
+      note = 'the engine did not say. Not checked is not the same as not minted.';
+    }
     return `ERC-8004 ID: ${idText} (${note})`;
   }
 
@@ -163,7 +265,7 @@
     return lines;
   }
 
-  const api = { ENGINE, cleanId, checkAgent, agentLines, identityOf, identityLine };
+  const api = { ENGINE, IDENTITY_REGISTRY, cleanId, checkAgent, agentLines, identityOf, identityLine, registryReading, onChainReadFrom, isVerifiedOnChain };
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellAgent = api;
 })();
