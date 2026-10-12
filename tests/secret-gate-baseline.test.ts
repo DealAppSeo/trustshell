@@ -10,13 +10,13 @@
  * suite pins what it catches and, honestly, what it MISSES:
  *   • format credentials  → caught (false-keep 0, ratcheted — a weakened regex breaks this)
  *   • safe + decoy lines   → sent (false-send 0 — no over-holding of checkable claims)
- *   • prose + mnemonic     → MISSED today (the measured blind spot). Pinned so the number is
+ *   • prose                → MISSED today (the measured blind spot). Pinned so the number is
  *                            visible and down-only: a learned "secret-shaped?" gate (the Laya
  *                            experiment) ships ONLY if it lowers this WITHOUT raising false-send.
  *
- * The mnemonic miss is the one to read first: a shapes-only scrubber has no BIP39 detector, so a
- * user who pastes a seed phrase is not protected by `redact()`. That is the highest-value target
- * for the learned gate (or a conservative mnemonic rule), and this is where its win is measured.
+ * The mnemonic miss WAS the one to read first: a shapes-only scrubber had no BIP39 detector, so a
+ * user who pasted a seed phrase was not protected by `redact()`. A conservative rule (a run of 12 or
+ * more consecutive BIP39 words) closed it on 2026-10-12, and the mnemonic pin below went 2 -> 0.
  */
 import { containsSecret, redact } from '../src/memory/redact';
 import { GATE_EVAL, type GateRow } from './fixtures/secret-gate-eval';
@@ -60,17 +60,22 @@ describe('secret-gate baseline — today\'s shapes-only gate (the ruler)', () =>
     expect(falseSend.decoy).toBe(0);
   });
 
-  it('BLIND SPOT (pinned, down-only): prose and mnemonic secrets leak today', () => {
+  it('BLIND SPOT (pinned, down-only): prose secrets still leak; seed phrases no longer do', () => {
     // These are the measured gaps a shapes-only scrubber cannot close. The pins document the
     // exact ruler the learned gate must beat. Lower them (never raise) when a fix lands; a change
     // in either direction must be deliberate and reviewed, so this is `toBe`, not `toBeLessThan`.
     expect(falseKeep.prose).toBe(5);
-    expect(falseKeep.mnemonic).toBe(2);
+    // Was 2 until 2026-10-12: a conservative mnemonic rule (12 or more consecutive BIP39 words) closed it.
+    expect(falseKeep.mnemonic).toBe(0);
   });
 
-  it('a mnemonic seed phrase is NOT redacted today (names the wallet-onboarding risk)', () => {
-    const mnemonic = GATE_EVAL.find((r) => r.mode === 'mnemonic')!;
-    // redact() is shapes-only; a BIP39 phrase has no shape, so it survives verbatim.
-    expect(redact(mnemonic.text)).toBe(mnemonic.text);
+  it('a mnemonic seed phrase IS redacted: the words go, the label stays (was a documented leak until 2026-10-12)', () => {
+    for (const mnemonic of GATE_EVAL.filter((r) => r.mode === 'mnemonic')) {
+      const out = redact(mnemonic.text);
+      expect(out).not.toBe(mnemonic.text);
+      // No run of twelve of the phrase's words survives; the introduction does ("recovery phrase is", "wallet backup:").
+      expect(out.split(/\s+/).length).toBeLessThan(mnemonic.text.split(/\s+/).length - 10);
+      expect(containsSecret(mnemonic.text)).toBe(true);
+    }
   });
 });

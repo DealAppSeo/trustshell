@@ -42,6 +42,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
+import { loadTsFixture } from './ts-fixtures.mjs';
 
 const { chromium } = await loadPlaywrightOrExit();
 
@@ -502,6 +503,36 @@ try {
       }
     } catch (err) {
       record('chatgpt: the classify request carries no email and no AWS key', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
+    await page.close();
+  }
+
+  // ---- e2. every secret shape in the shared corpus, through the REAL auto-classify path ---------
+  // XC1 (2026-10-12) found whsec_, a bare AWS secret, ya29., seed phrases, xprv/xpub, WIF keys, a
+  // Solana keypair array and api_secret= values going out verbatim. The reply below carries ALL of them
+  // (the corpus is tests/fixtures/scrub-corpus.ts, loaded here so there is one copy of the values).
+  {
+    classifyMode = 'veto';
+    const { SENSITIVE } = loadTsFixture(resolve(dirname(fileURLToPath(import.meta.url)), '../fixtures/scrub-corpus.ts'));
+    replyOverride = () =>
+      `<div data-message-author-role="assistant"><p>Two plus two is five.</p>${SENSITIVE.map((r) => `<p>${String(r.text).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`).join('')}</div>`;
+    const page = await context.newPage();
+    const before = classifyBodies.length;
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const sent = await poll(() => classifyBodies.length > before ? classifyBodies[classifyBodies.length - 1] : null, 10000);
+      if (!sent) {
+        record('chatgpt: no secret shape in the corpus reaches the classify request', 'NOT_CHECKED', 'no classify call in 10s');
+      } else {
+        let text = '';
+        try { text = String(JSON.parse(sent).text || ''); } catch { text = ''; }
+        const leaked = SENSITIVE.filter((r) => text.includes(r.secret)).map((r) => r.kind);
+        check(`chatgpt: none of the ${SENSITIVE.length} secret shapes in the corpus reaches the classify request`, leaked.length === 0, `leaked: ${leaked.join(', ') || 'none'}`);
+        check('chatgpt: the claim itself survives the corpus scrub', text.includes('Two plus two is five.'), JSON.stringify(text.slice(0, 80)));
+      }
+    } catch (err) {
+      record('chatgpt: no secret shape in the corpus reaches the classify request', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
     }
     replyOverride = null;
     await page.close();

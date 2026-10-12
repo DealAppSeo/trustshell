@@ -12,7 +12,7 @@ describe('redact removes each sensitive shape', () => {
     const out = redact(row.text);
     expect(out).not.toContain(row.secret);
     // The rest of the sentence survives, so the claim is still checkable.
-    expect(out).toMatch(/came from the reply|in it\./);
+    expect(out).toMatch(/came from the reply|in it\.|as sent\.|set\.|backed up\./);
   });
 });
 

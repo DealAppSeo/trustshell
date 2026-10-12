@@ -87,7 +87,11 @@ describe('rememberKey scans the key, not only the value', () => {
     // Detecting an encoded secret means decoding every value and rescanning, which drags in
     // a large false-positive surface for a guard that is explicitly a list of SHAPES, not a
     // judgement. Pinned so nobody reads the gap as an oversight and "fixes" it into noise.
-    const base64OfASecret = Buffer.from('sb_secret_aaaaaaaaaaaaaaaaaaaa').toString('base64');
+    // 40 base64 characters is the shape of a bare AWS secret access key, which the scrubber DOES
+    // catch (2026-10-12, by shape, not by decoding). So this wraps a secret whose base64 is longer
+    // than that: the guard still does not decode and rescan.
+    const base64OfASecret = Buffer.from('sb_secret_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa').toString('base64');
+    expect(base64OfASecret).toHaveLength(56);
     expect(refusedValue(base64OfASecret)).toBe(false);
   });
 
