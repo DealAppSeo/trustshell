@@ -139,7 +139,9 @@ export function SuggestSkill() {
               <li key={l.url} className="flex items-start justify-between gap-3 border-t border-[#1e293b] pt-2 text-sm">
                 <span className="min-w-0">
                   {/* Plain text on purpose: not an anchor, so nothing here opens it. */}
-                  <span className="block break-all font-mono text-xs text-white">{l.url}</span>
+                  <span data-skill-url={l.url} className="block break-all font-mono text-xs text-white">
+                    {l.url}
+                  </span>
                   {l.note && <span className="block text-xs text-[#94a3b8]">{l.note}</span>}
                 </span>
                 <button

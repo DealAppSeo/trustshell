@@ -41,6 +41,10 @@ const PARIS = 'The capital of France is Paris.';
 const ROME = 'The Eiffel Tower is located in Rome, Italy.';
 const SPLIT = 'This split sentence gets two checkers that disagree.';
 const SKILL = 'https://github.com/owner/some-tool';
+// Exact membership, not a substring match on page text: the saved links as the page holds them.
+const savedLinks = (page) => page.locator('[data-testid="skill-list"] [data-skill-url]').evaluateAll((els) => els.map((e) => e.getAttribute('data-skill-url')));
+// Compare the HOST of a requested URL, never a substring of it.
+const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
 
 // ---- the stub engine -------------------------------------------------------------------------
 let seen = []; // "METHOD /path" for every request
@@ -195,6 +199,11 @@ const railBox = async (page, vw) => {
   const b = await page.locator('[data-testid="stranger-rail"]').first().boundingBox();
   return !!b && b.x >= 0 && b.x + b.width <= vw + 1;
 };
+// With SHOT_DIR set, take a viewport-sized picture of what the stranger sees (the first screenful, not the page).
+const shot = async (page, viewport, name) => {
+  if (!process.env.SHOT_DIR) return;
+  await page.screenshot({ path: `${process.env.SHOT_DIR}/${name}-${viewport.width}.png` });
+};
 const text = (page, sel) => page.locator(sel).first().innerText().catch(() => '');
 
 async function walk(label, viewport) {
@@ -217,7 +226,8 @@ async function walk(label, viewport) {
   await page.getByRole('button', { name: /^Create Agent$/ }).click();
   check(`${tag} naming an agent registers it and it appears`, await until(async () => (await page.locator('h4', { hasText: 'Atlas' }).count()) > 0));
   check(`${tag} the register call carried the name`, seen.includes('POST /api/v1/agents/register'));
-  if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/stranger-1-name-${viewport.width}.png`, fullPage: true });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, viewport, '1-name');
 
   // ---- SCREEN 2: pick a belt, or skip; suggest a skill ----------------------------------
   await page.locator('[data-testid="rail-next"]').click();
@@ -240,12 +250,14 @@ async function walk(label, viewport) {
   await page.locator('[data-testid="skill-url"]').fill(SKILL);
   await page.locator('[data-testid="skill-note"]').fill('reads the ledger');
   await page.locator('[data-testid="skill-save"]').click();
-  check(`${tag} suggest-a-skill stores the link and says nothing was opened or installed`, /Nothing was opened, downloaded or installed/.test(await text(page, '[data-testid="skill-saved"]')) && (await text(page, '[data-testid="skill-list"]')).includes(SKILL));
+  check(`${tag} suggest-a-skill stores the link and says nothing was opened or installed`, /Nothing was opened, downloaded or installed/.test(await text(page, '[data-testid="skill-saved"]')) && (await savedLinks(page)).some((l) => l === SKILL));
   await page.reload({ waitUntil: 'networkidle' });
-  check(`${tag} the stored link is still there after a reload`, await until(async () => (await text(page, '[data-testid="skill-list"]')).includes(SKILL)));
+  check(`${tag} the stored link is still there after a reload`, await until(async () => (await savedLinks(page)).some((l) => l === SKILL)));
   check(`${tag} the saved link is plain text, not an anchor to click`, (await page.locator('[data-testid="skill-list"] a').count()) === 0);
-  check(`${tag} the browser asked for NOTHING outside our app and engine (the link was not fetched)`, external.length === beforeSkill && !external.some((u) => u.includes('github.com')), external.join(' | '));
+  check(`${tag} the browser asked for NOTHING outside our app and engine (the link was not fetched)`, external.length === beforeSkill && !external.some((u) => hostOf(u) === 'github.com'), external.join(' | '));
   check(`${tag} screen 2 fits and nothing scrolls sideways`, (await railBox(page, viewport.width)) && (await noSideways(page)));
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, viewport, '2-belt');
 
   // ---- SCREEN 3: run one check, read the receipt ---------------------------------------
   await page.locator('[data-testid="rail-skip"]').click();
@@ -294,6 +306,8 @@ async function walk(label, viewport) {
   scoreNow = 200;
   check(`${tag} the whole check session sent no score-event, stake or deposit`, !seen.some((s) => /score-event|stake\/deposit|\/spend/.test(s)));
   check(`${tag} screen 3 fits and nothing scrolls sideways`, (await railBox(page, viewport.width)) && (await noSideways(page)));
+  await page.locator('[data-testid="check-receipt"]').scrollIntoViewIfNeeded();
+  await shot(page, viewport, '3-check-receipt');
 
   // ---- SCREEN 4: the offer --------------------------------------------------------------
   await page.locator('[data-testid="rail-next"]').click();
@@ -308,6 +322,8 @@ async function walk(label, viewport) {
   const hrefs = await page.locator('[data-testid="offer"] a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
   check(`${tag} the offer's buttons go to /bind, /faucet, /stake, /spend`, JSON.stringify(hrefs) === JSON.stringify(['/bind', '/faucet', '/stake', '/spend']), JSON.stringify(hrefs));
   check(`${tag} screen 4 fits and nothing scrolls sideways`, (await railBox(page, viewport.width)) && (await noSideways(page)));
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, viewport, '4-offer');
 
   // ---- the faucet: points, reads back, never dispenses ------------------------------------
   await page.locator('[data-testid="offer"] a[href="/faucet"]').click();
@@ -334,6 +350,8 @@ async function walk(label, viewport) {
   balanceMode = 'ok';
   check(`${tag} the faucet page only ever GOT: no POST, nothing dispensed`, !seen.some((s) => s.startsWith('POST') && /faucet/.test(s)));
   check(`${tag} the faucet page fits and nothing scrolls sideways`, await noSideways(page));
+  await page.locator('[data-testid="faucet-balance"]').scrollIntoViewIfNeeded().catch(() => {});
+  await shot(page, viewport, '5-faucet');
 
   // ---- the practice stake: only after the agent is bound -------------------------------------
   await page.evaluate((owner) => {
