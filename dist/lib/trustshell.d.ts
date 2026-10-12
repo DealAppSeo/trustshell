@@ -533,6 +533,21 @@ export declare class TrustShellError extends Error {
     status: number;
     constructor(message: string, status: number);
 }
+/**
+ * A plain agent id, slug, UUID or ERC-8004 token id: what an id is allowed to look like before it goes
+ * into a URL path. The same pattern as the extension's (extension/agent.js). Starting with a letter or a
+ * digit rules out `.` and `..`, which a URL parser collapses as dot segments even after encoding.
+ */
+export declare const AGENT_ID_PATTERN: RegExp;
+/**
+ * The one gate an agent id passes through before it is placed in a request path. An id that is not a
+ * plain id THROWS before any request is made: an id supplied by an LLM agent, a pasted command or a
+ * file is untrusted, and spliced into `/api/v1/repid/<id>` unencoded it chose WHICH endpoint was
+ * called (`../agents/x/export`), with the caller's API key attached. Validated, then encoded.
+ */
+export declare function agentPathSegment(id: unknown): string;
+/** The same gate for any other id that goes into a request path (a contract, a service). */
+export declare function pathSegment(id: unknown, what: string): string;
 export declare class TrustShell {
     private config;
     private baseUrl;

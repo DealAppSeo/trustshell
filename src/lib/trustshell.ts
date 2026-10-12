@@ -605,6 +605,35 @@ export class TrustShellError extends Error {
   }
 }
 
+/**
+ * A plain agent id, slug, UUID or ERC-8004 token id: what an id is allowed to look like before it goes
+ * into a URL path. The same pattern as the extension's (extension/agent.js). Starting with a letter or a
+ * digit rules out `.` and `..`, which a URL parser collapses as dot segments even after encoding.
+ */
+export const AGENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+
+/**
+ * The one gate an agent id passes through before it is placed in a request path. An id that is not a
+ * plain id THROWS before any request is made: an id supplied by an LLM agent, a pasted command or a
+ * file is untrusted, and spliced into `/api/v1/repid/<id>` unencoded it chose WHICH endpoint was
+ * called (`../agents/x/export`), with the caller's API key attached. Validated, then encoded.
+ */
+export function agentPathSegment(id: unknown): string {
+  return pathSegment(id, 'agent id');
+}
+
+/** The same gate for any other id that goes into a request path (a contract, a service). */
+export function pathSegment(id: unknown, what: string): string {
+  const s = typeof id === 'string' ? id.trim() : '';
+  if (!AGENT_ID_PATTERN.test(s)) {
+    throw new TrustShellError(
+      `not an ${what}: use a plain id (letters, digits, and . _ : -, up to 128 characters, starting with a letter or digit)`,
+      400,
+    );
+  }
+  return encodeURIComponent(s);
+}
+
 export class TrustShell {
   private config: TrustShellConfig;
   private baseUrl: string;
@@ -796,7 +825,7 @@ export class TrustShell {
   }
 
   async verify(agentId: string): Promise<VerifyResult> {
-    const url = `${this.baseUrl}/api/v1/repid/${agentId}`;
+    const url = `${this.baseUrl}/api/v1/repid/${agentPathSegment(agentId)}`;
     const res = await fetch(url, { headers: this.getHeaders() });
 
     if (!res.ok) {
@@ -948,8 +977,17 @@ export class TrustShell {
    * as `NOT_MINTED`.
    */
   async getIdentity(agentId: string): Promise<AgentIdentity> {
+    // The id passes the same gate as every other id that goes into a request path. encodeURIComponent alone is
+    // not enough: an encoded `..` still collapses as a dot segment and would choose another endpoint, with this
+    // client's headers attached. A bad id is NOT_CHECKED and makes no request (this method never throws).
+    let segment: string;
     try {
-      const res = await fetch(`${this.baseUrl}/api/v1/passport/${encodeURIComponent(agentId)}`, {
+      segment = agentPathSegment(agentId);
+    } catch {
+      return notCheckedIdentity('not a plain agent id, so no passport was looked up');
+    }
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/passport/${segment}`, {
         headers: this.getHeaders(),
         signal: AbortSignal.timeout(8000),
       });
@@ -976,6 +1014,10 @@ export class TrustShell {
   async getLeaderboard(board: 'agents'): Promise<AgentLeaderboard>;
   async getLeaderboard(board: 'models'): Promise<ModelLeaderboard>;
   async getLeaderboard(board: 'agents' | 'models'): Promise<AgentLeaderboard | ModelLeaderboard> {
+    // `board` is typed, but a JS caller, an MCP argument or a CLI operand is not: only the two names exist.
+    if (board !== 'agents' && board !== 'models') {
+      throw new TrustShellError(`unknown leaderboard '${String(board).slice(0, 40)}': use 'agents' or 'models'`, 400);
+    }
     const url = `${this.baseUrl}/api/v1/leaderboard/${board}`;
     const res = await fetch(url, { headers: this.getHeaders() });
     if (!res.ok) {
@@ -1058,7 +1100,7 @@ export class TrustShell {
    * SDK signature change. Never treat a `stubbed` result as a real stake.
    */
   async getRepIDStake(agentId: string): Promise<RepIDStake> {
-    const url = `${this.baseUrl}/api/v1/stake/authority/${encodeURIComponent(agentId)}`;
+    const url = `${this.baseUrl}/api/v1/stake/authority/${agentPathSegment(agentId)}`;
     try {
       const res = await fetch(url, { headers: this.getHeaders() });
       if (res.ok) {
@@ -1115,7 +1157,7 @@ export class TrustShell {
         501,
       );
     }
-    const url = `${this.baseUrl}/api/v1/repid/${encodeURIComponent(agentId)}/proof`;
+    const url = `${this.baseUrl}/api/v1/repid/${agentPathSegment(agentId)}/proof`;
     const res = await fetch(url, { headers: this.getHeaders() });
     if (!res.ok) {
       throw new TrustShellError(`Proof lookup failed: ${res.status}`, res.status);
@@ -1260,7 +1302,7 @@ export class TrustShell {
     if (!params.xPaymentHeader) {
       // No payment header: attempt escrow anyway so the backend can tell us its requirements.
       const escrowProbeRes = await fetch(
-        `${this.baseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/escrow`,
+        `${this.baseUrl}/api/v1/contracts/${pathSegment(contractId, 'contract id')}/escrow`,
         { method: 'POST', headers: this.getHeaders(), body: JSON.stringify({}) },
       );
       const escrowBody = await escrowProbeRes.json().catch(() => ({})) as any;
@@ -1298,7 +1340,7 @@ export class TrustShell {
 
     // xPaymentHeader was provided: submit it for escrow.
     const escrowRes = await fetch(
-      `${this.baseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/escrow`,
+      `${this.baseUrl}/api/v1/contracts/${pathSegment(contractId, 'contract id')}/escrow`,
       {
         method: 'POST',
         headers: {
@@ -1465,7 +1507,7 @@ export class TrustShell {
 
   /** Fetch a single marketplace service by UUID (`GET /api/v1/services/:id`). Public read. */
   async getService(serviceId: string): Promise<ServiceListing> {
-    const url = `${this.baseUrl}/api/v1/services/${encodeURIComponent(serviceId)}`;
+    const url = `${this.baseUrl}/api/v1/services/${pathSegment(serviceId, 'service id')}`;
     const res = await fetch(url, { headers: this.getHeaders() });
     if (res.status === 404) {
       throw new TrustShellError(`Service not found: ${serviceId}`, 404);
@@ -1490,7 +1532,7 @@ export class TrustShell {
     settlementId?: string;
     result?: unknown;
   }> {
-    const url = `${this.baseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}`;
+    const url = `${this.baseUrl}/api/v1/contracts/${pathSegment(contractId, 'contract id')}`;
     const res = await fetch(url, { headers: this.getHeaders() });
     if (res.status === 404) {
       throw new TrustShellError(`Contract not found: ${contractId}`, 404);
