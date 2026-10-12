@@ -42,6 +42,7 @@ exports.isEntryPath = isEntryPath;
  */
 const trustshell_1 = require("../lib/trustshell");
 const action_envelope_1 = require("../lib/action-envelope");
+const identity_1 = require("../lib/identity");
 const badge_1 = require("../lib/badge");
 const version_1 = require("../lib/version");
 const check_1 = require("../lib/check");
@@ -165,7 +166,10 @@ COMMANDS
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is the exact string 'true'.
   remember "<text>"          Write a note into the local sqlite memory. No network.
-  remember KEY VALUE         Save one value under KEY. Refuses sb_secret_, postgresql://, and eyJ. No network.
+  remember KEY VALUE         Save one value under KEY. Refuses a credential in EITHER position —
+                             sb_secret_, db URIs, JWTs, PEM private keys, sk-/ghp_/AKIA/xoxb tokens,
+                             labelled password=… . Publishable keys and emails are kept: not secrets.
+                             Encoded secrets are NOT detected. No network.
   recall                     Print saved notes. do_not_send rows print as a count only.
   recall KEY                 Print the value for KEY. Missing is NOT_CHECKED, never empty.
   redact KEY                 Delete the KEY row. Missing is NOT_CHECKED. No network.
@@ -186,8 +190,10 @@ OPTIONS
 EXIT CODES
   0  HAL PASS (or soft FLAG) — safe to proceed        · check: COMPLETE
   1  HAL VETO — the claim did not pass                · check: FAILED / INCONSISTENT
-  2  usage / bad arguments
+  2  usage / bad arguments                            · verify: HAL did not decide (NOT_CHECKED)
+                                                      · check "<sentence>": not-checked
   3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
+  4  ASK — only when TRUSTSHELL_LAYA is set; HAL was not called
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
@@ -294,9 +300,11 @@ function parseArgs(argv) {
                     error: `\`trustshell ${cmd}\` requires ${what}`,
                 };
             }
-            // `check` with a non-URL operand is a sentence: join the words so an unquoted
-            // sentence is checked whole rather than as its first word.
-            const full = cmd === 'check' && !(0, claim_1.isUrlOperand)(operand) ? rest.join(' ') : operand;
+            // `check` with a non-URL operand is a sentence, and `verify`/`evaluate` take free text: join the
+            // words so an unquoted sentence is checked whole rather than as its first word.
+            // (`trustshell verify The capital of France is Paris.` used to send only "The" to HAL.)
+            const isFreeText = cmd === 'verify' || cmd === 'evaluate' || (cmd === 'check' && !(0, claim_1.isUrlOperand)(operand));
+            const full = isFreeText ? rest.join(' ') : operand;
             return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
         }
         case 'status':
@@ -430,8 +438,9 @@ function formatVerify(r, opts = {}) {
     return lines.join('\n');
 }
 /** Format a RepID result for human terminal output. */
-function formatRepid(agentId, repid, tier) {
-    return `${agentId}\n  RepID ${repid}  (${tier})`;
+function formatRepid(agentId, repid, tier, identity) {
+    // Two fields on two lines: the score (how it has behaved) and the ID (which agent it is).
+    return `${agentId}\n  RepID ${repid}  (${tier})\n${(0, identity_1.formatIdentity)(identity)}`;
 }
 /** Format a proof presentation for human terminal output. */
 function formatProof(p) {
@@ -494,6 +503,15 @@ async function run(args, client, io = realIO) {
                     return exports.EXIT.USAGE;
                 }
                 if (args.key) {
+                    // MESSAGE ONLY — rememberKey below is the enforcement point, and it checks the key
+                    // itself. This branch exists so the refusal can name WHICH argument was the problem.
+                    // `remember` takes two positionals, so the common failure is reversing them; a bare
+                    // "remember refused" then sends the user hunting through a value that was fine.
+                    // The offending text is never echoed: naming the position is enough to fix the call.
+                    if ((0, remember_1.refusedValue)(args.key)) {
+                        io.err('remember refused — the KEY looks like a credential. Arguments reversed? Usage: remember KEY VALUE');
+                        return exports.EXIT.USAGE;
+                    }
                     const stored = (0, remember_1.rememberKey)(args.key, value);
                     if (!stored) {
                         io.err('remember refused');
@@ -624,7 +642,7 @@ async function run(args, client, io = realIO) {
                 if (args.json)
                     io.out(JSON.stringify(r, null, 2));
                 else
-                    io.out(formatRepid(r.agentId, r.repid, r.tier));
+                    io.out(formatRepid(r.agentId, r.repid, r.tier, r.identity));
                 return exports.EXIT.OK;
             }
             catch (e) {

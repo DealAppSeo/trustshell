@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { CheckReceipt } from '@/components/check-receipt';
+import { AgentTwoFields } from '@/components/agent-two-fields';
 import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, ANSWER_MAX_CHARS, pathLine, voterNames, votesLine, withAnswer, type ClaimLabel, type ClaimPath, type ClaimVote } from '@/src/lib/claim';
 
 // NEXT_PUBLIC_* is inlined only for a literal reference, so it is spelled out here.
@@ -83,6 +85,10 @@ type CheckFormProps = {
   samples?: readonly CheckSample[];
   /** The box's label. /check keeps "One sentence". */
   boxLabel?: string;
+  /** Screen 3 of the four: print the receipt under the answer. Off on the home page. */
+  receipt?: boolean;
+  /** Screen 3 of the four: show the agent's score and ID as two fields beside the answer. */
+  agent?: boolean;
 };
 
 type Result = {
@@ -156,7 +162,7 @@ function reportUrl(r: Result, title: string, path: string): string {
  * check(), and check() is reached only from a person's click: Check, a card, or Check again after
  * they answer the one question. A page load or a crawler sends nothing.
  */
-export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence' }: CheckFormProps = {}) {
+export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -350,6 +356,9 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
               {reaction}
             </p>
           )}
+          {receipt && (
+            <CheckReceipt result={{ label: result.label, by: result.by, votes: result.votes, reason: result.reason }} />
+          )}
           {result.question && !cause && (
             <div className="pt-2 space-y-2" data-testid="check-question">
               <p className="text-sm text-[#cbd5e1]">
@@ -423,6 +432,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
           {error}
         </p>
       )}
+      {agent && <AgentTwoFields resultAt={result?.at} />}
     </form>
   );
 }

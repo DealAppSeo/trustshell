@@ -25,6 +25,7 @@
  * arg-parsing + exit-code logic is unit-testable with NO network (mirrors the MCP).
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
+import { type AgentIdentity } from '../lib/identity';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export declare const EXIT: {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -139,7 +140,7 @@ export declare function formatVerify(r: VerifyOutputResult, opts?: {
     receiptWritten?: boolean;
 }): string;
 /** Format a RepID result for human terminal output. */
-export declare function formatRepid(agentId: string, repid: number, tier: string): string;
+export declare function formatRepid(agentId: string, repid: number, tier: string, identity?: AgentIdentity): string;
 /** Format a proof presentation for human terminal output. */
 export declare function formatProof(p: ProofPresentation): string;
 /** Build the SDK client from env (apiKey + apiUrl are both optional). */

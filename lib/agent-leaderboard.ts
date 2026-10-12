@@ -23,14 +23,6 @@ import { REPID_ENGINE_URL } from './repid-engine';
  * not every agent in existence. "You rank 6th" would be false; "6th of 13 on
  * this board" is true. `standingAmong` therefore returns `outOf` and the caller
  * is expected to render it, which is why there is no bare-number accessor.
- *
- * ── ON THE DUPLICATE SHAPE IN components/live-trust-scores.tsx ──────────────
- *
- * That component declares its own `AgentRow`/`AgentsResponse` for the same
- * endpoint. It is NOT repointed here on purpose: it fetches the models board in
- * the same `Promise.all` behind one shared error state, so moving it is a change
- * to the home page rather than a type substitution. Naming the duplication is
- * the honest half — if this response shape changes, both files need the edit.
  */
 
 /** One row of the public board. Fields beyond these exist; these are the ones used. */

@@ -52,6 +52,11 @@ function openDb(path) {
     catch (err) {
         if (err instanceof Error && err.message.startsWith('NOT_CHECKED '))
             throw err;
+        // `node:sqlite` is a built-in from Node 22.5. On older Node the require itself throws, and a bare
+        // "NOT_CHECKED <path>" gives a stranger no way to tell that from a bad path or a locked file.
+        if (err?.code === 'ERR_UNKNOWN_BUILTIN_MODULE') {
+            throw new Error(`NOT_CHECKED ${path} (node:sqlite is not in this Node; local memory needs Node 22.5 or newer)`);
+        }
         throw new Error(`NOT_CHECKED ${path}`);
     }
 }

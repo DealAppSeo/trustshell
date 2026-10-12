@@ -1,4 +1,5 @@
 import CheckForm from './CheckForm';
+import { StrangerRail } from '@/components/stranger-rail';
 
 export const metadata = {
   title: 'Check a claim — TrustShell',
@@ -8,7 +9,8 @@ export const metadata = {
 
 export default function CheckPage() {
   return (
-    <div className="max-w-xl mx-auto space-y-8 py-10 px-4">
+    <div className="max-w-xl min-w-0 mx-auto space-y-8 py-10 px-4">
+      <StrangerRail step="check" />
       <header className="space-y-3">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Check a claim</h1>
         <p className="text-[#94a3b8]">
@@ -19,7 +21,7 @@ export default function CheckPage() {
       </header>
 
       {/* The privacy sentence sits inside the form, above the Check button, so it is read before sending. */}
-      <CheckForm />
+      <CheckForm receipt agent />
 
       <section className="space-y-2 text-sm text-[#94a3b8]">
         <p>

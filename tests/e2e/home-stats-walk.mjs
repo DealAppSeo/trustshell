@@ -1,7 +1,9 @@
 /**
- * Home-page live-stats guard: the "Trust leaderboard" widget must POPULATE, not hang.
+ * Live-stats guard: the /leaderboard board must POPULATE, not hang.
  *
- * WHY THIS EXISTS. The homepage `LiveTrustScores` widget (components/live-trust-scores.tsx)
+ * WHY THIS EXISTS. The "Trust leaderboard" widget was the homepage's `LiveTrustScores`
+ * (components/live-trust-scores.tsx, removed 2026-10-12: orphaned since the home rewrite, nothing
+ * imported it). /leaderboard carries the same two fetches now. The widget
  * fetches the public repid-engine leaderboard endpoints CLIENT-SIDE (no keys, CORS-allowlisted)
  * and renders real numbers. Its three visible states are: "Loading live scores…", an error card
  * ("Couldn't reach the scoring engine"), or the populated snapshot. A field report (#58) had it

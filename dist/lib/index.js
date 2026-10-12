@@ -128,3 +128,9 @@ var wrap_execute_1 = require("./wrap-execute");
 Object.defineProperty(exports, "wrapExecute", { enumerable: true, get: function () { return wrap_execute_1.wrapExecute; } });
 Object.defineProperty(exports, "meetsThreshold", { enumerable: true, get: function () { return wrap_execute_1.meetsThreshold; } });
 Object.defineProperty(exports, "HAL_VERDICT_ORDER", { enumerable: true, get: function () { return wrap_execute_1.HAL_VERDICT_ORDER; } });
+/**
+ * Policy kernel client: ask the owner's signed policy BEFORE acting. Anything but a clean, request-bound
+ * ALLOW is a refusal. See kernel-client.ts.
+ */
+__exportStar(require("./kernel-client"), exports);
+__exportStar(require("./identity"), exports);

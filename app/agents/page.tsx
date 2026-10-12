@@ -8,6 +8,7 @@ import { AgentsStanding } from '@/components/agents-standing';
 import { parseRegister } from '@/lib/create-pai-parse';
 import { OWNED_GLASS } from '@/components/after-agent';
 import { GiveRole } from '@/components/give-role';
+import { StrangerRail } from '@/components/stranger-rail';
 
 /**
  * Read at MODULE SCOPE as a literal `process.env.NAME`, which is the only form
@@ -97,6 +98,9 @@ export default function AgentsPage() {
           honest behavior earns portable, on-chain <span className="text-white font-medium">RepID</span>. Create one below.
         </p>
       </div>
+
+      {/* Screen 1 of the four: the tutorial sits ON the create form, not in a tour. */}
+      <StrangerRail step="name" />
 
       {/* `min-w-0` on both columns: a grid item defaults to min-width:auto, so the agent card's
           one-line ID (`truncate` is nowrap) set the column's minimum and the whole page scrolled

@@ -27,6 +27,8 @@
  *   - check_claim    — `trustshell check "<sentence>"` parity: pass / veto / not-checked, the same
  *                      label the Chrome extension shows. Calls src/lib/claim.ts classifyClaim, the
  *                      one function the CLI also calls.
+ *   - my_job         — the agent's role, the tools it may use and until when, from its live grants
+ *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.
@@ -38,6 +40,7 @@
  * ENV:
  *   REPID_API_KEY       — optional API key (verify/leaderboard/repid are keyless)
  *   TRUSTSHELL_API_URL  — override the backend origin (default: live HyperDAG backend)
+ *   TRUSTSHELL_AGENT_ID — which agent this server serves (my_job); else .trustshell/credentials.json
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { TrustShell } from '../lib/trustshell';

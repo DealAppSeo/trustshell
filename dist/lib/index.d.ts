@@ -79,3 +79,9 @@ export declare function verify(proofBytes: string, statement: {
  */
 export { wrapExecute, meetsThreshold, HAL_VERDICT_ORDER } from './wrap-execute';
 export type { HalVerdict, HalScorer, WrapDisposition, WrapExecuteOptions, WrapExecuteRecord, WrapExecuteResult, } from './wrap-execute';
+/**
+ * Policy kernel client: ask the owner's signed policy BEFORE acting. Anything but a clean, request-bound
+ * ALLOW is a refusal. See kernel-client.ts.
+ */
+export * from './kernel-client';
+export * from './identity';

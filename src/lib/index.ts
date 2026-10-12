@@ -109,3 +109,4 @@ export type {
  * ALLOW is a refusal. See kernel-client.ts.
  */
 export * from './kernel-client';
+export * from './identity';

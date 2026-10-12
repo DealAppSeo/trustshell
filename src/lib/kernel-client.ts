@@ -27,7 +27,7 @@
  * caller that ignores a REFUSE. Enforcement is where the engine wraps the tool (`runUnderKernel`);
  * use `requireKernelAllow` so that refusing is a throw, not a boolean someone forgets to read.
  */
-import { loadEthers } from './optional-ethers';
+import { loadEthers, MissingDependencyError } from './optional-ethers';
 import { TrustShellError } from './trustshell';
 
 export const KERNEL_RECEIPT_SCHEMA = 'kernel-receipt/1' as const;
@@ -298,7 +298,12 @@ export async function kernelDecide(input: KernelCallInput, opts: KernelClientOpt
     if (fault) return { allowed: false, verdict: 'NOT_CHECKED', source: 'client', args_hash: argsHash, receipt, reasons: [{ code: 'allow_not_bound_to_request', detail: fault }], http_status: 200 };
     return { allowed: true, verdict: 'ALLOW', source: 'kernel', args_hash: argsHash, receipt: receipt as KernelReceiptV1, reasons: [] };
   } catch (e) {
-    // Anything we did not anticipate — including a missing optional ethers — is a refusal.
+    // A missing optional ethers is a refusal that SAYS WHAT TO RUN. It used to read only
+    // "(MissingDependencyError)", which refused correctly and left a stranger on a cold install with
+    // no way to know why (MEASURED 2026-10-12, a fresh `npm i` of this package). The message is a
+    // fixed string from optional-ethers.ts, so quoting it leaks nothing.
+    if (e instanceof MissingDependencyError) return client('ethers_missing', e.message);
+    // Anything else we did not anticipate is a refusal too.
     const name = (e as { name?: string })?.name ?? 'Error';
     return client('client_error', `the kernel client failed (${name}); refusing`);
   }

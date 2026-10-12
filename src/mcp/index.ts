@@ -308,7 +308,9 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       title: 'Get RepID',
       description:
         "Canonical name for getRepID — matches `trustshell repid`. Fetches an agent's live RepID " +
-        'score and tier from the public repid-engine (keyless).',
+        'score and tier from the public repid-engine (keyless). RepID is TWO fields: `repid` (the score) and ' +
+        '`identity` (the ERC-8004 ID: MINTED, UNVERIFIED, NOT_MINTED or NOT_CHECKED, with a tokenId when there is one). ' +
+        'Neither proves the other, and NOT_CHECKED is not NOT_MINTED.',
       inputSchema: {
         agentId: z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
       },

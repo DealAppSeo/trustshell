@@ -13,6 +13,9 @@ describe('getRepID lastAnchorTx', () => {
       proofBytes: '',
       proofHash: null,
     });
+    // getRepID now also reads the ERC-8004 ID (the second field). Stubbed here so a unit test never
+    // touches the network; its own behaviour is pinned in tests/identity.test.ts.
+    (client as any).getIdentity = async () => ({ registeredOnchain: 'NOT_CHECKED', tokenId: null });
     const r = await client.getRepID('trinity-shofet');
     expect(r.lastAnchorTx).toBe('NOT_ANCHORED');
   });

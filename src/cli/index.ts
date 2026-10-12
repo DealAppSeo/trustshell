@@ -26,6 +26,7 @@
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { runEnvelopedAction } from '../lib/action-envelope';
+import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
@@ -482,8 +483,9 @@ export function formatVerify(r: VerifyOutputResult, opts: { receiptWritten?: boo
 }
 
 /** Format a RepID result for human terminal output. */
-export function formatRepid(agentId: string, repid: number, tier: string): string {
-  return `${agentId}\n  RepID ${repid}  (${tier})`;
+export function formatRepid(agentId: string, repid: number, tier: string, identity?: AgentIdentity): string {
+  // Two fields on two lines: the score (how it has behaved) and the ID (which agent it is).
+  return `${agentId}\n  RepID ${repid}  (${tier})\n${formatIdentity(identity)}`;
 }
 
 /** Format a proof presentation for human terminal output. */
@@ -700,7 +702,7 @@ export async function run(
       try {
         const r = await client.getRepID(args.operand as string);
         if (args.json) io.out(JSON.stringify(r, null, 2));
-        else io.out(formatRepid(r.agentId, r.repid, r.tier));
+        else io.out(formatRepid(r.agentId, r.repid, r.tier, r.identity));
         return EXIT.OK;
       } catch (e: any) {
         io.err(`repid failed: ${e?.message ?? String(e)}`);

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import fixture from '@/fixtures/hal-last-week.fixture.json';
 import { CopyReceiptLine } from '@/components/copy-receipt-line';
 import { countByFamily, receiptLine, type ReceiptRow } from '@/lib/hal-receipt';
@@ -15,6 +16,18 @@ export default function HalReceiptPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-12 space-y-8">
+      <div
+        role="note"
+        data-testid="fixture-banner"
+        className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm leading-relaxed text-foreground"
+      >
+        <p className="font-bold uppercase tracking-widest text-amber-500">Fixture. Not a live receipt.</p>
+        <p className="mt-1">
+          Every number on this page is example data saved in the repository for the week labelled below. Nothing here was
+          read from production just now, and none of it is about you or your agent. A live receipt comes from running a
+          check: <Link href="/check" className="underline underline-offset-4">run one on /check</Link>.
+        </p>
+      </div>
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-widest text-amber-500 font-semibold">FIXTURE, not live</p>
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Last measured week</h1>
