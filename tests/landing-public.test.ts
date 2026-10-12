@@ -42,7 +42,7 @@ describe('public landing source', () => {
     expect(hero).toContain('AI lies.');
     expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
-    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.6.0');
+    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.6.1');
     expect(source).not.toContain('trustshell status');
     // The two check samples are the only sentences that may name a city, and only as a sample.
     expect(withoutSamples(hero)).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);

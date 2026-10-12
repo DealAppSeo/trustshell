@@ -26,14 +26,14 @@ describe('site install copy matches published 1.4.0', () => {
     expect(agentScreen).not.toMatch(/packageJson\.version/);
     expect(hero).toContain('AI lies.');
     expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
-    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.0';");
+    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.1';");
     // Pinned to the same version as the install line: `check "<sentence>"` ships in 1.5.0 and later.
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
     expect(`${hero}\n${agentScreen}`).not.toContain('trustshell status');
     // Every version the landing names is the published one.
     const named = `${hero}\n${agentScreen}`.match(/@hyperdag\/trustshell@(\d+\.\d+\.\d+)/g) ?? [];
     expect(named.length).toBeGreaterThan(0);
-    expect(new Set(named)).toEqual(new Set(['@hyperdag/trustshell@1.6.0']));
+    expect(new Set(named)).toEqual(new Set(['@hyperdag/trustshell@1.6.1']));
     expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     // The hero no longer carries an install block or an MCP paste; screen 3 does (tests/home-screens.test.ts).
     expect(hero).not.toMatch(/MCP_PASTE|npm i -g/);
