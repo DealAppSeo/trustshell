@@ -112,29 +112,37 @@ export default async function RepIDGovernancePage() {
       <section className="space-y-6">
         <h2 className="text-2xl font-bold text-white">Current formula (V1)</h2>
         <p className="text-[#94a3b8]">
-          A new RepID delta is the sum of six signals, each clamped and weighted. After each event the
-          score is decayed by 30-day activity, multiplied by an ecosystem-need factor, and clamped to
+          Each event type has its own delta. After an event the score is decayed by 30-day activity, the delta is
+          added, and the result is clamped to
           <code className="text-amber-500 mx-1">[10, 10000]</code>. The tier (PROBATIONARY → VETERAN)
           is derived from the final score in the database trigger — never from the application code.
         </p>
 
         <div className="bg-[#0f172a] border border-[#1e293b] rounded-lg p-6 font-mono text-sm overflow-x-auto">
           <pre className="text-[#94a3b8] leading-relaxed whitespace-pre-wrap">{`new_repid = clamp(
-  decay( current_repid, activity_30d )
-  +
-  ecosystem_need_weight * (
-      +25 * code_contribution
-      +20 * referral
-      +15 * peacemaker
-      +5  * stake
-      ± challenge_outcome     // scoreChallengeOutcome()
-      ± prediction_outcome    // scorePrediction()
-      ± redemption_modifier   // dampens punishments for prosocial agents
-  ),
+  decay( current_repid, activity_30d ) + delta,
   [10, 10000]
 )
+
+delta, by event type (one per event, not a sum):
+  fixed deltas     code_contribution +25   referral +20
+                   peacemaker +15          stake +5
+  challenge        ± challenge_outcome     // scoreChallengeOutcome(); the
+                                           // ecosystem-need weight scales
+                                           // this one and nothing else
+  prediction       ± prediction_outcome    // scorePrediction()
+
+a NEGATIVE delta is then multiplied by redemption_modifier
+(dampens punishment for prosocial agents)
+
 tier = compute_tier( new_repid )`}</pre>
         </div>
+        <p className="text-sm text-[#64748b]">
+          Checked against the engine source on 2026-10-12. This page used to show the ecosystem-need weight multiplying the
+          whole delta and the constitutional audit gating every event. Neither is what runs, and the list below says what does.
+          The shadow-mode gates that can hold a delta back (deception events, unproven self-reports, grounding) are real and are
+          not drawn here.
+        </p>
 
         <ul className="space-y-3 text-[#94a3b8]">
           <li>
@@ -142,13 +150,15 @@ tier = compute_tier( new_repid )`}</pre>
             30-day window. Code: <code className="text-amber-500">src/layers/decay.ts</code>.
           </li>
           <li>
-            <strong className="text-white">Constitutional audit</strong> — LASSO rule selection +
-            ANFIS fuzzy scoring + mirror test + EAS attestation gate every score-changing event. Code:{' '}
+            <strong className="text-white">Constitutional audit</strong> — built, and <strong className="text-white">switched
+            off by default</strong>. Its output does not change any score today: when it is off, the audit row records
+            &quot;not measured&quot;, never a score. Code:{' '}
             <code className="text-amber-500">src/layers/constitutional-audit.ts</code>.
           </li>
           <li>
-            <strong className="text-white">Ecosystem need weight</strong> — multiplier from
-            ecosystem-wide supply rate so rare contributions count more. Code:{' '}
+            <strong className="text-white">Ecosystem need weight</strong> — a multiplier from the ecosystem-wide
+            supply rate, so rare contributions count more. It scales a challenge win or loss, within bounds. It is recorded on
+            every event&apos;s audit row, but it does not multiply the fixed deltas or a prediction. Code:{' '}
             <code className="text-amber-500">src/layers/ecosystem-need.ts</code>.
           </li>
           <li>
@@ -161,6 +171,19 @@ tier = compute_tier( new_repid )`}</pre>
             <code className="text-amber-500">src/engine/repid-update.ts</code>.
           </li>
         </ul>
+
+        <div className="rounded-lg border border-amber-500/30 bg-[#0f172a] p-5 space-y-2" data-testid="repid-settle">
+          <h3 className="text-lg font-bold text-white">What a vote can and cannot settle</h3>
+          <p className="text-[#94a3b8] leading-relaxed">
+            A receipt calls a result <strong className="text-white">PROVISIONAL</strong> when only a vote backs it, and a
+            two-to-one vote is still a vote. It is called <strong className="text-white">SETTLED</strong> only when a holdout, a
+            known answer or a person settled it. A provisional result is a second opinion, not a settled fact.
+          </p>
+          <p className="text-[#94a3b8] leading-relaxed">
+            A check made on this site writes nothing to any score. RepID has two separate fields, the score and the
+            ERC-8004 ID, and neither proves the other.
+          </p>
+        </div>
 
         <p className="text-sm text-[#475569]">
           Source of truth:{' '}

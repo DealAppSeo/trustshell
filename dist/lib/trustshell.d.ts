@@ -5,6 +5,7 @@
  * From S-SDK1 spec + S-BUILD implementation.
  */
 import type { AgentTurnOrigin } from './origin';
+import { type AgentIdentity } from './identity';
 import type { Grounding } from './honest-contract';
 /** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
 export declare function hashProofBytes(proofBytes: string): string;
@@ -241,6 +242,12 @@ export interface RepIDResult {
     scoreLane: string | null;
     /** For every field above that is `null`: the reason it is unavailable. Never empty when a field is null. */
     reasons: Record<string, string>;
+    /**
+     * The SECOND RepID field, kept apart from the score: the ERC-8004 identity (MINTED / UNVERIFIED /
+     * NOT_MINTED, or NOT_CHECKED when the passport could not be read). Read from the public passport
+     * route, never inferred from the score. See identity.ts.
+     */
+    identity: AgentIdentity;
 }
 /** Reveal tiers (ZKP_REVEAL_TIERS). `postcard` is production-real; others are capability-gated. */
 export type ProofTier = 'postcard' | 'envelope' | 'letter' | 'package';
@@ -600,6 +607,13 @@ export declare class TrustShell {
     }>;
     getRepID(agentId: string): Promise<RepIDResult>;
     /**
+     * The agent's ERC-8004 identity: the SECOND RepID field, separate from the score. Reads the public
+     * passport route (keyless, no claim text). NEVER THROWS: a missing passport, an engine that is
+     * down and a body this client does not understand are all `NOT_CHECKED`, which is not the same
+     * as `NOT_MINTED`.
+     */
+    getIdentity(agentId: string): Promise<AgentIdentity>;
+    /**
      * Fetch a live leaderboard from the public repid-engine.
      *
      * - `getLeaderboard('agents')` → the RepID agent board (`GET /api/v1/leaderboard/agents`):
@@ -631,9 +645,10 @@ export declare class TrustShell {
     getRepIDStake(agentId: string): Promise<RepIDStake>;
     /**
      * Fetch an agent's latest RepID range proof and (optionally) verify it client-side
-     * with the bundled WASM verifier — "trust math, not the server."
+     * with the WASM verifier from @hyperdag/proof-verifier — "trust math, not the server."
      *
-     * Client-side verification requires @hyperdag/proof-verifier (peer dependency); the
+     * Client-side verification uses @hyperdag/proof-verifier (a regular dependency, installed beside
+     * this package); the
      * proof statement is the agent-bound tuple {agent_id, threshold, repid_score}.
      */
     presentProof(agentId: string, opts?: {
@@ -694,11 +709,10 @@ export declare class TrustShell {
      * Returns the page plus a quick base-price range so a dev can pick what to buy, then pass a
      * listing's `id` as `serviceId` to `executeA2A`.
      *
-     * AUTH: on the currently deployed backend this route is API-key gated (returns 401 without a
-     * key). Construct the client with `{ apiKey }` to call it. The keyless way to browse the same
-     * live catalog is the web market at https://trustshell.dev/market (it server-reads
-     * `agent_services` directly). Making `GET /api/v1/services` public keyless is a one-line backend
-     * change staged for Sean (add the path to auth.ts publicPaths) — see TRUSTSHELL_SHIP_STEPS.md.
+     * AUTH: a public, keyless read. repid-engine `src/middleware/auth.ts` lets `GET /api/v1/services`
+     * and `GET /api/v1/services/:id` through with no key (GET only); creating, repricing or deleting a
+     * listing stays key-gated. Verified keyless against production 2026-10-06 (200, no key). The same
+     * catalog is browsable at https://trustshell.dev/market. Buying it (`executeA2A`) needs a key.
      */
     listServices(options?: ListServicesOptions): Promise<ServiceListPage>;
     /** Fetch a single marketplace service by UUID (`GET /api/v1/services/:id`). Public read. */

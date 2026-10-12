@@ -33,7 +33,6 @@ const BASE_SEPOLIA = {
   blockExplorerUrls: ['https://sepolia.basescan.org'],
 };
 const USDC = { address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', symbol: 'USDC', decimals: 6 };
-const PUBLIC_FAUCET = 'https://portal.cdp.coinbase.com/products/faucet'; // Base Sepolia ETH
 
 type Eth = {
   request: (a: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -247,8 +246,8 @@ export default function WalletHelperPage() {
                 )}
                 {eth4 !== null && Number(eth4) === 0 && (
                   <p className="text-sm text-amber-400">
-                    No gas yet. Grab a little free Base Sepolia ETH:{' '}
-                    <a className="underline" href={PUBLIC_FAUCET} target="_blank" rel="noreferrer">faucet →</a>
+                    No gas yet. Get a little free Base Sepolia ETH, and test USDC, from a public faucet:{' '}
+                    <a className="underline" href="/faucet">test tokens →</a>
                   </p>
                 )}
                 <Tip>&quot;Gas&quot; is the tiny network fee for any action — paid in testnet ETH, worth nothing real. USDC is the testnet dollar you&apos;ll stake and spend.</Tip>

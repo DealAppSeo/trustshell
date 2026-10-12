@@ -33,6 +33,8 @@ exports.main = main;
  *   - check_claim    — `trustshell check "<sentence>"` parity: pass / veto / not-checked, the same
  *                      label the Chrome extension shows. Calls src/lib/claim.ts classifyClaim, the
  *                      one function the CLI also calls.
+ *   - my_job         — the agent's role, the tools it may use and until when, from its live grants
+ *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.
@@ -44,6 +46,7 @@ exports.main = main;
  * ENV:
  *   REPID_API_KEY       — optional API key (verify/leaderboard/repid are keyless)
  *   TRUSTSHELL_API_URL  — override the backend origin (default: live HyperDAG backend)
+ *   TRUSTSHELL_AGENT_ID — which agent this server serves (my_job); else .trustshell/credentials.json
  */
 const mcp_js_1 = require("@modelcontextprotocol/sdk/server/mcp.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
@@ -56,6 +59,7 @@ const redact_key_1 = require("../cli/redact-key");
 const remember_1 = require("../cli/remember");
 const memory_1 = require("./memory");
 const claim_1 = require("../lib/claim");
+const my_job_1 = require("../lib/my-job");
 /**
  * Package version — read from package.json at runtime, never retyped here.
  *
@@ -253,7 +257,9 @@ function createServer(client = makeClient()) {
     registerTool('get_repid', {
         title: 'Get RepID',
         description: "Canonical name for getRepID — matches `trustshell repid`. Fetches an agent's live RepID " +
-            'score and tier from the public repid-engine (keyless).',
+            'score and tier from the public repid-engine (keyless). RepID is TWO fields: `repid` (the score) and ' +
+            '`identity` (the ERC-8004 ID: MINTED, UNVERIFIED, NOT_MINTED or NOT_CHECKED, with a tokenId when there is one). ' +
+            'Neither proves the other, and NOT_CHECKED is not NOT_MINTED.',
         inputSchema: {
             agentId: zod_1.z.string().min(1).describe('The agent id (UUID) or slug to look up.'),
         },
@@ -348,6 +354,24 @@ function createServer(client = makeClient()) {
         }
         catch (e) {
             return errorResult(`check_claim failed: ${e?.message ?? String(e)}`);
+        }
+    });
+    // `my_job`: the agent asks what it is for. Until 2026-10-07 nothing told it — a role and a belt
+    // given on trustshell.dev reached no model. NOT_CHECKED (unknown agent, engine unreachable) is a
+    // normal result with the fix in it, never an empty job.
+    registerTool('my_job', {
+        title: 'My job',
+        description: 'Your role, the tools you may use and until when, as your owner set them on trustshell.dev ' +
+            '(read from your live grants). Call it when asked what you can do. Reads TRUSTSHELL_AGENT_ID, ' +
+            'else .trustshell/credentials.json, to know which agent you are. Returns NOT_CHECKED with the ' +
+            'fix when it cannot tell, never an empty job.',
+        inputSchema: {},
+    }, async () => {
+        try {
+            return jsonResult(await (0, my_job_1.myJob)());
+        }
+        catch (e) {
+            return errorResult(`my_job failed: ${e?.message ?? String(e)}`);
         }
     });
     return server;

@@ -28,12 +28,32 @@ export interface ClaimResult {
     /** Only with by === 'votes': the voters the claim was sent to, as the endpoint named them. */
     voters?: string[];
     /**
+     * Only with by === 'votes': the two voters whose answers made the label (repid-engine, added with
+     * its checker pool on 2026-10-05). When a checker gives no answer and another stands in, `voters`
+     * names both and this names the one that answered, so "X and Y both said false" stays true.
+     */
+    deciders?: string[];
+    /**
      * One clarifying question, present ONLY when the endpoint asked one (repid-engine
      * CLASSIFY_QUESTIONS): a not-checked from the votes, where both voters were unsure and one fact
      * would let them decide. It comes from the API or it does not appear; nothing here invents one.
      */
     question?: string;
+    /**
+     * Only with `deciders`: what each of the two said, in the same order (repid-engine `votes`, added
+     * 2026-10-06). Before this, a disagreement read "No agreed answer" and never said who said what.
+     * An endpoint that does not send it gets none; nothing here works it out from the label.
+     */
+    votes?: ClaimVote[];
 }
+/** One decider's own word, as the endpoint sent it. `family` is the model family, e.g. "qwen". */
+export interface ClaimVote {
+    voter: string;
+    family: string;
+    verdict: ClaimVerdict;
+}
+export declare const CLAIM_VERDICTS: readonly ["TRUE", "FALSE", "UNSURE", "NONE"];
+export type ClaimVerdict = (typeof CLAIM_VERDICTS)[number];
 /** The question, or undefined when absent, malformed, or attached to anything but a votes not-checked. PURE. */
 export declare function questionOf(body: unknown, label: ClaimLabel, by: ClaimPath | undefined): string | undefined;
 /** The longest answer a person may give to the one question. */
@@ -53,12 +73,33 @@ export type ClaimPath = (typeof CLAIM_PATHS)[number];
 export declare function pathOf(body: unknown, label: ClaimLabel): {
     by?: ClaimPath;
     voters?: string[];
+    deciders?: string[];
 };
+/** The people-facing names of these voters, joined: "Groq and Cerebras". PURE. */
+export declare function voterNames(voters: string[]): string;
 /**
  * One line saying what produced the label, or '' when the endpoint did not say. PURE.
  * The same words as extension/classify.js pathLine (tests/claim-path-parity.test.ts).
  */
-export declare function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters'>): string;
+export declare function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters' | 'deciders'>): string;
+/**
+ * Each decider's own word, or undefined. PURE. All or nothing, like pathOf: exactly two, one per
+ * decider and in the same order, each with a family id and a known verdict, and agreeing with the
+ * label: a pass is TRUE and TRUE, a veto is FALSE and FALSE, and a not-checked is anything else.
+ * Two of one model family can never pass or veto (repid-engine S47, 2026-10-06: two families or Not
+ * checked), so their agreement fits only a not-checked.
+ * Votes that contradict the label are the answer saying two things, so neither is shown and the
+ * label keeps its old line. The label itself is never changed here.
+ */
+export declare function votesOf(body: unknown, label: ClaimLabel, deciders: string[] | undefined): ClaimVote[] | undefined;
+/**
+ * Who said what: "Groq said false. Cerebras said false." PURE. '' when there are no votes, so a
+ * caller falls back to {@link pathLine}. When one host ran both checkers, the model family tells
+ * them apart. A flat true against a flat false is said out loud, because that is the one case where
+ * the two answers cannot both stand. Two of one family that agree are said out loud too: that is one
+ * opinion said twice, which is why the stamp is Not checked.
+ */
+export declare function votesLine(votes: readonly ClaimVote[] | undefined): string;
 /** Shown wherever {@link ClaimResult.scrubbed} is set. One sentence, the same on every door. */
 export declare const SCRUBBED_LINE = "Removed before sending: text that looked like a key or personal data. The result is about what was sent.";
 /** A local fault: the request could not be formed, so nothing was sent. CLI exit 3. */

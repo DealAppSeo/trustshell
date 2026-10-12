@@ -20,6 +20,7 @@ import { getAccount, accountHeader, Account } from '@/lib/account';
 import { GateModal } from '@/components/gate-modal';
 import { PracticeBadge } from '@/components/practice-badge';
 import { JourneySteps } from '@/components/journey-steps';
+import { fetchAgentOwner, type AgentOwner } from '@/lib/human-bind';
 
 /**
  * Staking, with the ask sized to what is at stake.
@@ -54,6 +55,9 @@ export default function StakePage() {
   const [authority, setAuthority] = useState<AuthoritySnapshot | null>(null);
   const [positions, setPositions] = useState<{ total_active_usdc: number; positions: StakePosition[] } | null>(null);
   const [repid, setRepid] = useState<number | null>(null);
+  // undefined = still reading; null = could not be read (NOT_CHECKED); else the owner record.
+  // `owned: true` is only ever a signature the owner made; a linked account is not ownership.
+  const [owner, setOwner] = useState<AgentOwner | null | undefined>(undefined);
 
   const [realMode, setRealMode] = useState(false);
   const [txHash, setTxHash] = useState('');
@@ -92,6 +96,10 @@ export default function StakePage() {
     fetchStakePositions(selectedAgentId).then((p) => {
       if (!ignore) setPositions(p);
     });
+    setOwner(undefined);
+    fetchAgentOwner(selectedAgentId).then((o) => {
+      if (!ignore) setOwner(o);
+    });
 
     return () => {
       ignore = true;
@@ -99,6 +107,12 @@ export default function StakePage() {
   }, [selectedAgentId]);
 
   const isEmailDerived = !!account?.builder_address?.toLowerCase().startsWith(EMAIL_DERIVED_PREFIX);
+
+  const bound = owner?.owned === true;
+  const bindHold =
+    owner === null
+      ? 'Not checked: whether this agent is bound could not be read, so the practice stake is held. Try again in a moment.'
+      : 'This agent is not bound to a wallet yet. Bind it first, then come back. Nothing was staked.';
 
   /** Ask the connected wallet to sign the server's exact deposit message. */
   const signRealDeposit = useCallback(
@@ -144,6 +158,12 @@ export default function StakePage() {
 
     if (!account) {
       setShowGate(true);
+      return;
+    }
+    // The order we ask for: bind the agent first. This page holds the stake until the owner record
+    // says owned; an unreadable record holds it too (not checked is not bound).
+    if (!bound) {
+      setError(bindHold);
       return;
     }
     const usdc = Number(amount);
@@ -231,6 +251,13 @@ export default function StakePage() {
           action it can take before requiring peer verification. Only a real on-chain deposit
           raises the ceiling the spend gate uses. Testnet stake shows in the figure below, but it
           does not raise what the agent may actually spend.
+        </p>
+        <p className="text-sm text-[#94a3b8] max-w-2xl leading-relaxed" data-testid="stake-faucet-pointer">
+          Need test tokens first? A public faucet gives them away free; we do not.{' '}
+          <Link href="/faucet" className="text-amber-500 underline underline-offset-2">
+            Get test tokens and check your balance
+          </Link>
+          . This is practice: it runs on the Base Sepolia test network and only after the agent is bound.
         </p>
         <p className="text-sm text-[#64748b] max-w-2xl leading-relaxed">
           Part of the <span className="text-[#94a3b8]">Earn</span> stage. Testnet stake is a single
@@ -342,6 +369,16 @@ export default function StakePage() {
           {/* Stake form */}
           <section className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b] space-y-4">
             <h3 className="text-xl font-bold text-white">Deposit stake</h3>
+            {owner !== undefined && !bound && (
+              <div data-testid="stake-bind-first" className="p-3 bg-amber-900/15 border border-amber-900/50 text-amber-300/90 rounded text-sm space-y-1">
+                <p>{bindHold}</p>
+                <p>
+                  <Link href="/bind" className="underline underline-offset-2">
+                    Bind this agent
+                  </Link>
+                </p>
+              </div>
+            )}
             {error && (
               <div className="p-3 bg-red-900/20 border border-red-900 text-red-400 rounded text-sm space-y-0.5">
                 <p className="font-semibold">Couldn&apos;t complete this stake</p>
@@ -420,12 +457,14 @@ export default function StakePage() {
 
               <button
                 type="submit"
-                disabled={submitting || (realMode && isEmailDerived)}
+                disabled={submitting || !bound || (realMode && isEmailDerived)}
                 className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold rounded"
               >
                 {submitting
                   ? 'Staking…'
-                  : !account
+                  : !bound
+                    ? 'Bind the agent to stake'
+                    : !account
                     ? 'Verify email to stake'
                     : realMode
                       ? `Sign & stake ${amount || '0'} USDC`

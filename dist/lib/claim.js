@@ -1,10 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CLAIM_EXIT = exports.ClaimError = exports.SCRUBBED_LINE = exports.CLAIM_PATHS = exports.ANSWER_MAX_CHARS = exports.CLAIM_TIMEOUT_MS = exports.CLASSIFY_PATH = exports.DEFAULT_API_URL = exports.CLAIM_LABELS = void 0;
+exports.CLAIM_EXIT = exports.ClaimError = exports.SCRUBBED_LINE = exports.CLAIM_PATHS = exports.ANSWER_MAX_CHARS = exports.CLAIM_VERDICTS = exports.CLAIM_TIMEOUT_MS = exports.CLASSIFY_PATH = exports.DEFAULT_API_URL = exports.CLAIM_LABELS = void 0;
 exports.questionOf = questionOf;
 exports.withAnswer = withAnswer;
 exports.pathOf = pathOf;
+exports.voterNames = voterNames;
 exports.pathLine = pathLine;
+exports.votesOf = votesOf;
+exports.votesLine = votesLine;
 exports.resolveClassifyUrl = resolveClassifyUrl;
 exports.labelOf = labelOf;
 exports.classifyClaim = classifyClaim;
@@ -41,6 +44,7 @@ exports.CLASSIFY_PATH = '/api/v1/classify';
 exports.CLAIM_TIMEOUT_MS = 6000;
 /** A label is one short word. A body larger than this is not an answer. */
 const MAX_BODY_CHARS = 64 * 1024;
+exports.CLAIM_VERDICTS = ['TRUE', 'FALSE', 'UNSURE', 'NONE'];
 const QUESTION_MIN = 10;
 const QUESTION_MAX = 160;
 /** Defence in depth: the server already parses strictly; this client refuses the same shapes. */
@@ -84,6 +88,11 @@ const VOTER_NAMES = {
     cerebras: 'Cerebras',
     'nvidia-nim': 'NVIDIA NIM',
     'workers-ai': 'Cloudflare Workers AI',
+    openrouter: 'OpenRouter',
+    zai: 'Z.ai',
+    mistral: 'Mistral',
+    together: 'Together',
+    fireworks: 'Fireworks',
 };
 const VOTER_ID = /^[a-z0-9-]{1,32}$/;
 const MAX_VOTERS = 8;
@@ -95,7 +104,7 @@ const MAX_VOTERS = 8;
 function pathOf(body, label) {
     if (!body || typeof body !== 'object')
         return {};
-    const { by, voters } = body;
+    const { by, voters, deciders } = body;
     if (typeof by !== 'string' || !exports.CLAIM_PATHS.includes(by))
         return {};
     if ((by === 'skipped' || by === 'deadline') && label !== 'not-checked')
@@ -106,7 +115,14 @@ function pathOf(body, label) {
         return {};
     if (!voters.every((v) => typeof v === 'string' && VOTER_ID.test(v)))
         return {};
-    return { by: 'votes', voters: [...voters] };
+    const out = { by: 'votes', voters: [...voters] };
+    // Exactly two, each one the claim was sent to; anything else is ignored, never half-used.
+    if (Array.isArray(deciders) &&
+        deciders.length === 2 &&
+        deciders.every((d) => typeof d === 'string' && voters.includes(d))) {
+        out.deciders = [...deciders];
+    }
+    return out;
 }
 function voterPhrase(voters) {
     const names = [...new Set(voters.map((v) => VOTER_NAMES[v] ?? v))];
@@ -115,6 +131,10 @@ function voterPhrase(voters) {
     }
     const last = names[names.length - 1];
     return { names: `${names.slice(0, -1).join(', ')} and ${last}`, many: true };
+}
+/** The people-facing names of these voters, joined: "Groq and Cerebras". PURE. */
+function voterNames(voters) {
+    return voterPhrase(voters).names;
 }
 /**
  * One line saying what produced the label, or '' when the endpoint did not say. PURE.
@@ -129,19 +149,84 @@ function pathLine(r) {
         case 'deadline':
             return 'No answer in time.';
         case 'votes': {
-            if (!r.voters || r.voters.length === 0)
+            // Who answered, when the endpoint says; else everyone it was sent to (an older endpoint).
+            const who = r.deciders ?? r.voters;
+            if (!who || who.length === 0)
                 return '';
-            const { names, many } = voterPhrase(r.voters);
-            const all = !many ? '' : r.voters.length === 2 ? ' both' : ' all';
+            const { names, many } = voterPhrase(who);
+            const all = !many ? '' : who.length === 2 ? ' both' : ' all';
             if (r.label === 'pass')
                 return `${names}${all} said true.`;
             if (r.label === 'veto')
                 return `${names}${all} said false.`;
-            return `Asked ${names}. No agreed answer.`;
+            // Mid-sentence, so "Two Groq models" is lower-cased: "Asked two Groq models."
+            return `Asked ${names.replace(/^Two /, 'two ')}. No agreed answer.`;
         }
         default:
             return '';
     }
+}
+const FAMILY_ID = /^[a-z0-9][a-z0-9.-]{0,31}$/;
+/**
+ * Each decider's own word, or undefined. PURE. All or nothing, like pathOf: exactly two, one per
+ * decider and in the same order, each with a family id and a known verdict, and agreeing with the
+ * label: a pass is TRUE and TRUE, a veto is FALSE and FALSE, and a not-checked is anything else.
+ * Two of one model family can never pass or veto (repid-engine S47, 2026-10-06: two families or Not
+ * checked), so their agreement fits only a not-checked.
+ * Votes that contradict the label are the answer saying two things, so neither is shown and the
+ * label keeps its old line. The label itself is never changed here.
+ */
+function votesOf(body, label, deciders) {
+    if (!body || typeof body !== 'object' || !deciders || deciders.length !== 2)
+        return undefined;
+    const raw = body.votes;
+    if (!Array.isArray(raw) || raw.length !== 2)
+        return undefined;
+    const out = [];
+    for (let i = 0; i < 2; i++) {
+        const v = raw[i];
+        if (!v || typeof v !== 'object')
+            return undefined;
+        if (v.voter !== deciders[i])
+            return undefined;
+        if (typeof v.family !== 'string' || !FAMILY_ID.test(v.family))
+            return undefined;
+        if (typeof v.verdict !== 'string' || !exports.CLAIM_VERDICTS.includes(v.verdict))
+            return undefined;
+        out.push({ voter: v.voter, family: v.family, verdict: v.verdict });
+    }
+    const both = (w) => out[0].verdict === w && out[1].verdict === w;
+    const oneFamily = out[0].family === out[1].family;
+    const fits = label === 'pass' ? both('TRUE') && !oneFamily
+        : label === 'veto' ? both('FALSE') && !oneFamily
+            : oneFamily || (!both('TRUE') && !both('FALSE'));
+    return fits ? out : undefined;
+}
+const VERDICT_WORDS = {
+    TRUE: 'said true',
+    FALSE: 'said false',
+    UNSURE: 'was not sure',
+    NONE: 'gave no answer',
+};
+/**
+ * Who said what: "Groq said false. Cerebras said false." PURE. '' when there are no votes, so a
+ * caller falls back to {@link pathLine}. When one host ran both checkers, the model family tells
+ * them apart. A flat true against a flat false is said out loud, because that is the one case where
+ * the two answers cannot both stand. Two of one family that agree are said out loud too: that is one
+ * opinion said twice, which is why the stamp is Not checked.
+ */
+function votesLine(votes) {
+    if (!votes || votes.length !== 2)
+        return '';
+    const names = votes.map((v) => VOTER_NAMES[v.voter] ?? v.voter);
+    const sameHost = names[0] === names[1];
+    const said = votes.map((v, i) => `${names[i]}${sameHost ? ` (${v.family})` : ''} ${VERDICT_WORDS[v.verdict]}.`).join(' ');
+    const [a, b] = [votes[0].verdict, votes[1].verdict];
+    const split = (a === 'TRUE' && b === 'FALSE') || (a === 'FALSE' && b === 'TRUE');
+    if (split)
+        return `${said} They disagree, and both cannot be right.`;
+    const echo = votes[0].family === votes[1].family && a === b && (a === 'TRUE' || a === 'FALSE');
+    return echo ? `${said} Both are one model family (${votes[0].family}), so that is one opinion, not two.` : said;
 }
 /** Shown wherever {@link ClaimResult.scrubbed} is set. One sentence, the same on every door. */
 exports.SCRUBBED_LINE = 'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
@@ -250,7 +335,8 @@ async function classifyClaim(text, opts = {}) {
                 return notChecked('endpoint said what produced the label, out of contract (by / voters)');
             }
             const question = questionOf(body, label, path.by);
-            return mark({ label, latency_ms, ...path, ...(question ? { question } : {}) });
+            const votes = votesOf(body, label, path.deciders);
+            return mark({ label, latency_ms, ...path, ...(question ? { question } : {}), ...(votes ? { votes } : {}) });
         })();
         const out = await Promise.race([call, timedOut]);
         if (out === 'timeout') {

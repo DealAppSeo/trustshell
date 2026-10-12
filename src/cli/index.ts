@@ -26,6 +26,7 @@
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { runEnvelopedAction } from '../lib/action-envelope';
+import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
@@ -241,8 +242,10 @@ OPTIONS
 EXIT CODES
   0  HAL PASS (or soft FLAG) — safe to proceed        · check: COMPLETE
   1  HAL VETO — the claim did not pass                · check: FAILED / INCONSISTENT
-  2  usage / bad arguments
+  2  usage / bad arguments                            · verify: HAL did not decide (NOT_CHECKED)
+                                                      · check "<sentence>": not-checked
   3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
+  4  ASK — only when TRUSTSHELL_LAYA is set; HAL was not called
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
@@ -344,9 +347,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
           error: `\`trustshell ${cmd}\` requires ${what}`,
         };
       }
-      // `check` with a non-URL operand is a sentence: join the words so an unquoted
-      // sentence is checked whole rather than as its first word.
-      const full = cmd === 'check' && !isUrlOperand(operand) ? rest.join(' ') : operand;
+      // `check` with a non-URL operand is a sentence, and `verify`/`evaluate` take free text: join the
+      // words so an unquoted sentence is checked whole rather than as its first word.
+      // (`trustshell verify The capital of France is Paris.` used to send only "The" to HAL.)
+      const isFreeText = cmd === 'verify' || cmd === 'evaluate' || (cmd === 'check' && !isUrlOperand(operand));
+      const full = isFreeText ? rest.join(' ') : operand;
       return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
     }
     case 'status':
@@ -478,8 +483,9 @@ export function formatVerify(r: VerifyOutputResult, opts: { receiptWritten?: boo
 }
 
 /** Format a RepID result for human terminal output. */
-export function formatRepid(agentId: string, repid: number, tier: string): string {
-  return `${agentId}\n  RepID ${repid}  (${tier})`;
+export function formatRepid(agentId: string, repid: number, tier: string, identity?: AgentIdentity): string {
+  // Two fields on two lines: the score (how it has behaved) and the ID (which agent it is).
+  return `${agentId}\n  RepID ${repid}  (${tier})\n${formatIdentity(identity)}`;
 }
 
 /** Format a proof presentation for human terminal output. */
@@ -696,7 +702,7 @@ export async function run(
       try {
         const r = await client.getRepID(args.operand as string);
         if (args.json) io.out(JSON.stringify(r, null, 2));
-        else io.out(formatRepid(r.agentId, r.repid, r.tier));
+        else io.out(formatRepid(r.agentId, r.repid, r.tier, r.identity));
         return EXIT.OK;
       } catch (e: any) {
         io.err(`repid failed: ${e?.message ?? String(e)}`);

@@ -14,6 +14,8 @@ const agent = require('../extension/agent.js') as {
   cleanId: (raw: unknown) => string | null;
   checkAgent: (id: unknown, opts?: Record<string, unknown>) => Promise<Record<string, any>>;
   agentLines: (r: Record<string, any>) => string[];
+  identityOf: (passport: unknown, resolvedId?: string | null) => { state: string; tokenId: string | null };
+  identityLine: (identity: unknown) => string;
 };
 
 const ROOT = join(__dirname, '..');
@@ -42,7 +44,7 @@ describe('checkAgent', () => {
       verify: async () => ({ verified: true, verifier_version: '0.2.0' }),
     });
     expect(r).toMatchObject({ outcome: 'verified', score: 1334, provenScore: 1334, threshold: 999, provenTier: 'ESTABLISHED' });
-    expect(seen.every((u) => u.startsWith('https://repid-engine-production.up.railway.app/api/v1/repid/'))).toBe(true);
+    expect(seen.every((u) => u.startsWith('https://repid-engine-production.up.railway.app/api/v1/repid/') || u.startsWith('https://repid-engine-production.up.railway.app/api/v1/passport/'))).toBe(true);
   });
 
   it('a verifier "no" is not-verified, never verified', async () => {
@@ -187,5 +189,66 @@ describe('packaging', () => {
     expect(html.indexOf('popup-privacy')).toBeLessThan(html.indexOf('agent-form'));
     expect(html).toContain('<script src="agent.js"></script>');
     expect(html).toContain('<script type="module" src="agent-popup.js"></script>');
+  });
+});
+
+describe('RepID is TWO fields in the popup: the score and the ERC-8004 ID', () => {
+  const SOPHIA_ID = FIXTURE.statement.agent_id as string;
+  const passport = (state: unknown, token: unknown, agentId: unknown = SOPHIA_ID) => ({
+    agent: { agent_id: agentId },
+    identity_erc8004: { registered_onchain: state, token_id: token },
+  });
+  const run = async (pp: unknown) => {
+    const { impl } = stubFetch({
+      '/api/v1/repid/trinity-sophia': LIVE,
+      '/api/v1/repid/trinity-sophia/proof': FIXTURE,
+      ...(pp === undefined ? {} : { '/api/v1/passport/trinity-sophia': pp }),
+    });
+    return agent.checkAgent('trinity-sophia', { fetchImpl: impl, verify: async () => ({ verified: true }) });
+  };
+
+  it('shows the score line and the ID line apart, with the three states in plain words', async () => {
+    const lines = agent.agentLines(await run(passport('UNVERIFIED', '3747')));
+    expect(lines[0]).toMatch(/^trinity-sophia: RepID 1334 \(ESTABLISHED\)$/);
+    expect(lines[1]).toBe('ERC-8004 ID: #3747 (has a token id; no record of the mint transaction here. Not the same as not minted.)');
+    expect(lines[0]).not.toContain('3747');
+    expect(lines[1]).not.toContain('1334');
+    expect(agent.agentLines(await run(passport('MINTED', 5)))[1]).toBe('ERC-8004 ID: #5 (on-chain)');
+    expect(agent.agentLines(await run(passport('NOT_MINTED', null)))[1]).toBe('ERC-8004 ID: none yet (off-chain only)');
+  });
+
+  it('a missing, failed or unclear passport is NOT_CHECKED, never "not minted", and the proof leg still stands', async () => {
+    for (const pp of [undefined, {}, passport('minted', '1'), passport(true, '1'), passport(undefined, '1'), 'x']) {
+      const r = await run(pp);
+      expect(r.identity.state).toBe('NOT_CHECKED');
+      expect(agent.agentLines(r)[1]).toMatch(/^ERC-8004 ID: not checked \(the engine did not say\./);
+      expect(r.outcome).toBe('verified');
+    }
+  });
+
+  it('a token id that is not a plain whole number is dropped, not printed', async () => {
+    for (const bad of ['pending-mint', `0x${'ab'.repeat(32)}`, '-1', '1.5', '007', null]) {
+      const r = await run(passport('MINTED', bad));
+      expect(r.identity.tokenId).toBeNull();
+      expect(agent.agentLines(r)[1]).not.toMatch(/pending-mint|0xab|-1|1\.5|007/);
+    }
+  });
+
+  it('a passport for a DIFFERENT agent than the one asked about is NOT_CHECKED (bound, like the proof)', async () => {
+    const r = await run(passport('MINTED', '99', 'someone-else'));
+    expect(r.identity).toEqual({ state: 'NOT_CHECKED', tokenId: null });
+    expect(agent.identityOf(passport('MINTED', '99', 'x'), 'y').state).toBe('NOT_CHECKED');
+    expect(agent.identityOf(passport('MINTED', '99', 'x'), null).state).toBe('MINTED');
+  });
+
+  it('with no identity at all (an old caller) the line says not checked', () => {
+    expect(agent.identityLine(undefined)).toMatch(/^ERC-8004 ID: not checked/);
+    expect(agent.agentLines({ id: 'a', score: 1, outcome: 'not-checked' })[1]).toMatch(/^ERC-8004 ID: not checked/);
+  });
+
+  it('asks the public passport route, keyless, with no cookie', async () => {
+    const { impl, seen } = stubFetch({ '/api/v1/repid/a': LIVE, '/api/v1/repid/a/proof': FIXTURE });
+    await agent.checkAgent('a', { fetchImpl: impl, verify: async () => ({ verified: true }) });
+    expect(seen).toContain('https://repid-engine-production.up.railway.app/api/v1/passport/a');
   });
 });

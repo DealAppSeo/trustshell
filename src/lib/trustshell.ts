@@ -16,6 +16,7 @@ import {
   repidHonesty,
   proofHonesty,
 } from './honest-contract';
+import { identityFromPassport, notCheckedIdentity, type AgentIdentity } from './identity';
 import type { Grounding } from './honest-contract';
 
 /** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
@@ -295,6 +296,12 @@ export interface RepIDResult {
   scoreLane: string | null;
   /** For every field above that is `null`: the reason it is unavailable. Never empty when a field is null. */
   reasons: Record<string, string>;
+  /**
+   * The SECOND RepID field, kept apart from the score: the ERC-8004 identity (MINTED / UNVERIFIED /
+   * NOT_MINTED, or NOT_CHECKED when the passport could not be read). Read from the public passport
+   * route, never inferred from the score. See identity.ts.
+   */
+  identity: AgentIdentity;
 }
 
 /** Reveal tiers (ZKP_REVEAL_TIERS). `postcard` is production-real; others are capability-gated. */
@@ -930,7 +937,28 @@ export class TrustShell {
       signer: v.signer,
       scoreLane: v.scoreLane,
       reasons: v.reasons,
+      identity: await this.getIdentity(agentId),
     };
+  }
+
+  /**
+   * The agent's ERC-8004 identity: the SECOND RepID field, separate from the score. Reads the public
+   * passport route (keyless, no claim text). NEVER THROWS: a missing passport, an engine that is
+   * down and a body this client does not understand are all `NOT_CHECKED`, which is not the same
+   * as `NOT_MINTED`.
+   */
+  async getIdentity(agentId: string): Promise<AgentIdentity> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/passport/${encodeURIComponent(agentId)}`, {
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.status === 404) return notCheckedIdentity('the engine has no passport for this agent');
+      if (!res.ok) return notCheckedIdentity(`the passport lookup answered ${res.status}`);
+      return identityFromPassport(await res.json());
+    } catch {
+      return notCheckedIdentity('the passport lookup did not finish');
+    }
   }
 
   /**

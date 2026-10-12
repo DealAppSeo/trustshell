@@ -1,3 +1,7 @@
+import { BeltPicker } from '@/components/belt-picker';
+import { StrangerRail } from '@/components/stranger-rail';
+import { SuggestSkill } from '@/components/suggest-skill';
+
 const CARDS = [
   { role: 'CMO', line: 'Tell the true story in a short clip.' },
   { role: 'CFO', line: 'Leave the money alone until someone says to spend it.' },
@@ -12,7 +16,8 @@ export const metadata = {
 export default function BeltsPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-20 text-white">
-      <div className="mx-auto max-w-xl space-y-4">
+      <div className="mx-auto max-w-xl min-w-0 space-y-4">
+        <StrangerRail step="belt" skipHref="/check" />
         <h1 className="text-3xl font-extrabold tracking-tight">Belts</h1>
         {CARDS.map((card) => (
           <section key={card.role} className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
@@ -20,6 +25,8 @@ export default function BeltsPage() {
             <p className="mt-2 text-slate-300">{card.line}</p>
           </section>
         ))}
+        <BeltPicker />
+        <SuggestSkill />
       </div>
     </main>
   );

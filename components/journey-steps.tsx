@@ -24,7 +24,7 @@ export type JourneyStage = 'create' | 'claim' | 'fund' | 'stake' | 'trade' | 'ea
 const STAGES: ReadonlyArray<{ id: JourneyStage; href: string; label: string; detail: string }> = [
   { id: 'create', href: '/agents', label: 'Create', detail: 'Make or choose an agent' },
   { id: 'claim', href: '/bind', label: 'Claim', detail: "Sign that it's yours" },
-  { id: 'fund', href: '/wallet', label: 'Fund', detail: 'Get testnet ETH + USDC' },
+  { id: 'fund', href: '/faucet', label: 'Fund', detail: 'Get testnet ETH + USDC' },
   { id: 'stake', href: '/stake', label: 'Stake', detail: 'Back it with a deposit' },
   { id: 'trade', href: '/spend', label: 'Trade', detail: 'Let it buy and sell' },
   { id: 'earn', href: '/leaderboard', label: 'Earn', detail: 'Watch RepID move' },

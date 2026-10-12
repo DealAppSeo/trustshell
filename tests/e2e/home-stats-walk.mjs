@@ -1,7 +1,9 @@
 /**
- * Home-page live-stats guard: the "Trust leaderboard" widget must POPULATE, not hang.
+ * Live-stats guard: the /leaderboard board must POPULATE, not hang.
  *
- * WHY THIS EXISTS. The homepage `LiveTrustScores` widget (components/live-trust-scores.tsx)
+ * WHY THIS EXISTS. The "Trust leaderboard" widget was the homepage's `LiveTrustScores`
+ * (components/live-trust-scores.tsx, removed 2026-10-12: orphaned since the home rewrite, nothing
+ * imported it). /leaderboard carries the same two fetches now. The widget
  * fetches the public repid-engine leaderboard endpoints CLIENT-SIDE (no keys, CORS-allowlisted)
  * and renders real numbers. Its three visible states are: "Loading live scores…", an error card
  * ("Couldn't reach the scoring engine"), or the populated snapshot. A field report (#58) had it
@@ -120,10 +122,14 @@ const errs = [];
 page.on('pageerror', (e) => errs.push(e.message));
 
 try {
-  await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+  // RETARGETED from `/` to `/leaderboard`: the homepage no longer mounts LiveTrustScores (it was
+  // dropped by the home rewrite, #478 and earlier — the component is an orphan), so this walk
+  // asserted a widget that no longer exists there and reported 0 fetches. /leaderboard is where the
+  // same two client-side fetches and the same loading/error/populated states live now.
+  await page.goto(`${base}/leaderboard`, { waitUntil: 'networkidle' });
   // Give the client fetch + render a beat past networkidle.
   await page.waitForTimeout(2500);
-  const section = page.locator('section:has-text("Trust leaderboard")');
+  const section = page.locator('main, body').first();
   const txt = await section.innerText().catch(() => '(section not found)');
 
   note(seen.some((s) => s.includes('/leaderboard/models')) && seen.some((s) => s.includes('/leaderboard/agents')),
@@ -136,9 +142,13 @@ try {
   note(txt.includes(TOP_AGENT) && txt.includes(TOP_AGENT_REPID.toLocaleString()),
     'a REAL number from the engine reaches the DOM (top agent + its RepID)',
     `looking for ${TOP_AGENT} / ${TOP_AGENT_REPID.toLocaleString()}`);
-  note(/gpt-4o/i.test(txt) && /VALUE|acc/i.test(txt),
+  // /leaderboard shows the agents board first; the models board is behind its own tab.
+  await page.getByRole('button', { name: /^models$/i }).click();
+  await page.waitForTimeout(500);
+  const modelsTxt = await section.innerText().catch(() => '(section not found)');
+  note(/gpt-4o/i.test(modelsTxt) && /VALUE|acc/i.test(modelsTxt),
     'the model snapshot cards render their rows too');
-  note(errs.length === 0, 'no runtime errors on the homepage', errs.slice(0, 3).join('; '));
+  note(errs.length === 0, 'no runtime errors on /leaderboard', errs.slice(0, 3).join('; '));
 } catch (e) {
   note(false, 'home-stats walk aborted', e.message.split('\n')[0]);
 } finally {

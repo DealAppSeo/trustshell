@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import { REPID_ENGINE_URL } from '@/lib/repid-engine';
 import { TrustBadge } from '@/components/trust-state';
+import {
+  identityRegistryShown,
+  mintTxUrlShown,
+  reputationRegistryShown,
+  tokenIdShown,
+  twoFieldsOf,
+  type RegistryShown,
+} from '@/lib/erc8004-display';
 
 // Live trust data — never serve a stale passport.
 export const dynamic = 'force-dynamic';
@@ -119,6 +127,60 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+/**
+ * RepID is TWO fields and this block keeps them apart: the SCORE says how the agent has behaved, the
+ * ID says which agent it is. Neither proves the other. The ID is read through lib/erc8004-display.ts,
+ * so a placeholder or a transaction hash in the engine's data is shown as Not checked, never as an ID.
+ */
+function TwoFieldBlock({ passport }: { passport: Passport }) {
+  const f = twoFieldsOf(passport);
+  return (
+    <div data-testid="two-fields" className="grid gap-3 rounded-lg border border-neutral-800 p-4 sm:grid-cols-2">
+      <div data-testid="field-score">
+        <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Field 1 · Score</p>
+        <p className="mt-1 text-2xl font-bold">{f.score ?? 'Not checked'}</p>
+        <p className="text-xs text-neutral-500">How this agent has behaved. {f.tier ? `Tier ${f.tier}.` : ''}</p>
+      </div>
+      <div data-testid="field-id">
+        <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Field 2 · ERC-8004 ID</p>
+        <p className="mt-1 text-2xl font-bold">
+          {f.token.state === 'ID' ? `#${f.token.id}` : f.mint === 'NOT_MINTED' ? 'None yet' : 'Not checked'}
+        </p>
+        <p className="text-xs text-neutral-500" data-testid="field-id-state">
+          {f.mint === 'MINTED'
+            ? 'Registered on-chain.'
+            : f.mint === 'UNVERIFIED'
+              ? 'Has a token id; this service has no record of the mint transaction. Not the same as not minted.'
+              : f.mint === 'NOT_MINTED'
+                ? 'Off-chain only: no ERC-8004 token has been minted for this agent.'
+                : 'The engine did not say clearly. Not checked.'}
+        </p>
+      </div>
+      <p className="text-xs text-neutral-500 sm:col-span-2">
+        Two different things. The score does not prove the ID, and the ID does not prove the score.
+      </p>
+    </div>
+  );
+}
+
+/** A registry address the guard allowed, or NOT_CHECKED with the reason. Never the engine's raw string. */
+function RegistryValue({ shown }: { shown: RegistryShown }) {
+  return shown.state === 'CANONICAL' ? (
+    <span className="font-mono" data-testid="registry-address">
+      {shown.address}
+    </span>
+  ) : (
+    <span data-testid="registry-not-checked">
+      <TrustBadge state="NOT_CHECKED" detail={shown.reason} />
+    </span>
+  );
+}
+
+function TokenValue({ raw }: { raw: unknown }) {
+  const t = tokenIdShown(raw);
+  return t.state === 'ID' ? <span data-testid="token-id">{t.id}</span> : <TrustBadge state="NOT_CHECKED" detail={t.reason} />;
+}
+
 export default async function PassportPage({
   params,
 }: {
@@ -169,6 +231,7 @@ export default async function PassportPage({
           <span className="text-2xl font-bold">{p.reputation.repid_score}</span>
           <span className="text-sm text-neutral-400">RepID</span>
         </div>
+        <TwoFieldBlock passport={p} />
         <p className="text-sm text-neutral-500">
           Every fact below is a recorded fact — settlement rows, mint transactions, on-chain
           writes — never an unverified claim. Snapshot as of {fmtDate(p.as_of)}.
@@ -181,13 +244,17 @@ export default async function PassportPage({
             <Row label="Status">
               <span className="text-green-500">Registered on-chain</span> ({id.network})
             </Row>
-            <Row label="Token ID">{id.token_id}</Row>
-            <Row label="Registry">{id.contract_address}</Row>
+            <Row label="Token ID">
+              <TokenValue raw={id.token_id} />
+            </Row>
+            <Row label="Registry">
+              <RegistryValue shown={identityRegistryShown(id.contract_address)} />
+            </Row>
             <Row label="Minted">{fmtDate(id.minted_at)}</Row>
-            {id.mint_basescan_url && (
+            {mintTxUrlShown(id.mint_basescan_url) && (
               <Row label="Mint transaction">
                 <a
-                  href={id.mint_basescan_url}
+                  href={mintTxUrlShown(id.mint_basescan_url)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-amber-500 underline"
@@ -222,7 +289,9 @@ export default async function PassportPage({
                 detail="a token id exists; this service has no record of the mint transaction"
               />
             </Row>
-            <Row label="Token ID">{id.token_id}</Row>
+            <Row label="Token ID">
+              <TokenValue raw={id.token_id} />
+            </Row>
             <Row label="Resolve it">
               <a
                 href={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`}
@@ -268,7 +337,9 @@ export default async function PassportPage({
 
       <Section title="On-chain reputation (ERC-8004 ReputationRegistry)">
         <Row label="Feedback writes">{p.reputation_onchain.writes}</Row>
-        <Row label="Registry">{p.reputation_onchain.registry_address}</Row>
+        <Row label="Registry">
+          <RegistryValue shown={reputationRegistryShown(p.reputation_onchain.registry_address)} />
+        </Row>
         <Row label="Network">{p.reputation_onchain.network}</Row>
         {p.reputation_onchain.last_write?.basescan_url && (
           <Row label="Last write">

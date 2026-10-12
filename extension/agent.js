@@ -14,7 +14,8 @@
  * not-verified, never verified. The live score and the proven score are shown separately: a
  * proof is a claim about the score when it was made, and the two can differ.
  *
- * Reads only public GET routes on the engine already in host_permissions. Sends no claim text.
+ * Reads only public GET routes on the engine already in host_permissions (repid, its proof, and the
+ * passport for the ERC-8004 ID). Sends no claim text.
  */
 
 (function () {
@@ -45,6 +46,29 @@
   }
 
   /**
+   * The SECOND RepID field: the ERC-8004 ID, read from the public passport route. The score and the ID
+   * are two different things and are returned apart. States: MINTED / UNVERIFIED / NOT_MINTED, or
+   * NOT_CHECKED for anything the engine did not say clearly (never read as NOT_MINTED). A token id is
+   * kept only when it is a plain whole number.
+   *
+   * BOUND TO THE AGENT THAT WAS ASKED ABOUT: when the live route named the agent the typed id resolved
+   * to, a passport for any other agent is NOT_CHECKED, same as the proof (Strix on #437).
+   */
+  function identityOf(passport, resolvedId) {
+    const none = { state: 'NOT_CHECKED', tokenId: null };
+    if (!passport || typeof passport !== 'object') return none;
+    const idv = passport.identity_erc8004;
+    if (!idv || typeof idv !== 'object') return none;
+    const named = passport.agent && typeof passport.agent.agent_id === 'string' ? passport.agent.agent_id : null;
+    if (resolvedId && named && named !== resolvedId) return none;
+    const st = idv.registered_onchain;
+    if (st !== 'MINTED' && st !== 'UNVERIFIED' && st !== 'NOT_MINTED') return none;
+    const raw = idv.token_id;
+    const text = typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0 ? String(raw) : typeof raw === 'string' ? raw.trim() : '';
+    return { state: st, tokenId: /^(0|[1-9]\d{0,17})$/.test(text) ? text : null };
+  }
+
+  /**
    * @param {string} rawId agent slug or id
    * @param {{ fetchImpl?: Function, verify?: (proofBytes: string, statement: object) => Promise<object>|object, base?: string, timeoutMs?: number }} opts
    */
@@ -56,13 +80,16 @@
     const base = String(o.base || ENGINE).replace(/\/$/, '');
     const timeoutMs = Number.isFinite(o.timeoutMs) ? o.timeoutMs : 10000;
     const enc = encodeURIComponent(id);
-    const [live, proof] = await Promise.all([
+    const [live, proof, passport] = await Promise.all([
       getJson(fetchImpl, `${base}/api/v1/repid/${enc}?with=id`, timeoutMs),
       getJson(fetchImpl, `${base}/api/v1/repid/${enc}/proof`, timeoutMs),
+      getJson(fetchImpl, `${base}/api/v1/passport/${enc}`, timeoutMs),
     ]);
     const score = live && typeof live.score === 'number' ? live.score : null;
     const tier = live && typeof live.tier === 'string' ? live.tier : null;
-    const base_ = { id, score, tier };
+    const resolvedForId = live && typeof live.agent_id === 'string' ? live.agent_id : null;
+    // Two fields, kept apart: the score above, and the ERC-8004 ID here.
+    const base_ = { id, score, tier, identity: identityOf(passport, resolvedForId) };
     if (!proof || typeof proof.proof_bytes !== 'string' || !proof.proof_bytes || !proof.statement) {
       return { ...base_, outcome: 'not-checked', reason: 'no_proof' };
     }
@@ -101,11 +128,27 @@
     return { ...base_, ...proven, outcome: 'not-verified', reason: (result && result.error) || 'not_verified' };
   }
 
+  /** The ID as its own line, with its state in plain words. Not checked is never "not minted". */
+  function identityLine(identity) {
+    const i = identity && typeof identity === 'object' ? identity : { state: 'NOT_CHECKED', tokenId: null };
+    const idText = i.tokenId ? `#${i.tokenId}` : i.state === 'NOT_MINTED' ? 'none yet' : 'not checked';
+    const note =
+      i.state === 'MINTED'
+        ? 'on-chain'
+        : i.state === 'UNVERIFIED'
+          ? 'has a token id; no record of the mint transaction here. Not the same as not minted.'
+          : i.state === 'NOT_MINTED'
+            ? 'off-chain only'
+            : 'the engine did not say. Not checked is not the same as not minted.';
+    return `ERC-8004 ID: ${idText} (${note})`;
+  }
+
   /** Plain text lines for the popup. */
   function agentLines(r) {
     const lines = [];
     if (r.reason === 'bad_id') return ['Type an agent id, for example trinity-sophia.'];
     lines.push(`${r.id}: RepID ${r.score == null ? 'unknown' : r.score}${r.tier ? ` (${r.tier})` : ''}`);
+    lines.push(identityLine(r.identity));
     if (r.outcome === 'verified') {
       lines.push(`Proof verified in your browser: RepID ${r.provenScore} is at least ${r.threshold} (${r.provenTier}).`);
       if (r.createdAt) lines.push(`Proof made ${r.createdAt.slice(0, 10)}. The live score can differ from the proven one.`);
@@ -120,7 +163,7 @@
     return lines;
   }
 
-  const api = { ENGINE, cleanId, checkAgent, agentLines };
+  const api = { ENGINE, cleanId, checkAgent, agentLines, identityOf, identityLine };
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellAgent = api;
 })();

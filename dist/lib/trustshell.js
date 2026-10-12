@@ -51,6 +51,7 @@ const node_crypto_1 = require("node:crypto");
 const redact_1 = require("../memory/redact");
 const origin_1 = require("./origin");
 const honest_contract_1 = require("./honest-contract");
+const identity_1 = require("./identity");
 /** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
 function hashProofBytes(proofBytes) {
     return (0, node_crypto_1.createHash)('sha256').update(proofBytes, 'utf8').digest('hex');
@@ -412,7 +413,30 @@ class TrustShell {
             signer: v.signer,
             scoreLane: v.scoreLane,
             reasons: v.reasons,
+            identity: await this.getIdentity(agentId),
         };
+    }
+    /**
+     * The agent's ERC-8004 identity: the SECOND RepID field, separate from the score. Reads the public
+     * passport route (keyless, no claim text). NEVER THROWS: a missing passport, an engine that is
+     * down and a body this client does not understand are all `NOT_CHECKED`, which is not the same
+     * as `NOT_MINTED`.
+     */
+    async getIdentity(agentId) {
+        try {
+            const res = await fetch(`${this.baseUrl}/api/v1/passport/${encodeURIComponent(agentId)}`, {
+                headers: this.getHeaders(),
+                signal: AbortSignal.timeout(8000),
+            });
+            if (res.status === 404)
+                return (0, identity_1.notCheckedIdentity)('the engine has no passport for this agent');
+            if (!res.ok)
+                return (0, identity_1.notCheckedIdentity)(`the passport lookup answered ${res.status}`);
+            return (0, identity_1.identityFromPassport)(await res.json());
+        }
+        catch {
+            return (0, identity_1.notCheckedIdentity)('the passport lookup did not finish');
+        }
     }
     async getLeaderboard(board) {
         const url = `${this.baseUrl}/api/v1/leaderboard/${board}`;
@@ -532,9 +556,10 @@ class TrustShell {
     }
     /**
      * Fetch an agent's latest RepID range proof and (optionally) verify it client-side
-     * with the bundled WASM verifier — "trust math, not the server."
+     * with the WASM verifier from @hyperdag/proof-verifier — "trust math, not the server."
      *
-     * Client-side verification requires @hyperdag/proof-verifier (peer dependency); the
+     * Client-side verification uses @hyperdag/proof-verifier (a regular dependency, installed beside
+     * this package); the
      * proof statement is the agent-bound tuple {agent_id, threshold, repid_score}.
      */
     async presentProof(agentId, opts = {}) {
@@ -592,7 +617,7 @@ class TrustShell {
         }
         try {
             // Dynamic import via a variable specifier so the SDK type-checks and loads even when
-            // the optional verifier isn't installed (it ships as an optionalDependency).
+            // the verifier is missing (it is a regular dependency, but an install can still prune it).
             const verifierPkg = '@hyperdag/proof-verifier';
             const mod = await Promise.resolve(`${verifierPkg}`).then(s => __importStar(require(s)));
             const result = await mod.verify(proofBytes, stmt);
@@ -807,11 +832,10 @@ class TrustShell {
      * Returns the page plus a quick base-price range so a dev can pick what to buy, then pass a
      * listing's `id` as `serviceId` to `executeA2A`.
      *
-     * AUTH: on the currently deployed backend this route is API-key gated (returns 401 without a
-     * key). Construct the client with `{ apiKey }` to call it. The keyless way to browse the same
-     * live catalog is the web market at https://trustshell.dev/market (it server-reads
-     * `agent_services` directly). Making `GET /api/v1/services` public keyless is a one-line backend
-     * change staged for Sean (add the path to auth.ts publicPaths) — see TRUSTSHELL_SHIP_STEPS.md.
+     * AUTH: a public, keyless read. repid-engine `src/middleware/auth.ts` lets `GET /api/v1/services`
+     * and `GET /api/v1/services/:id` through with no key (GET only); creating, repricing or deleting a
+     * listing stays key-gated. Verified keyless against production 2026-10-06 (200, no key). The same
+     * catalog is browsable at https://trustshell.dev/market. Buying it (`executeA2A`) needs a key.
      */
     async listServices(options = {}) {
         const qs = new URLSearchParams();
