@@ -44,7 +44,9 @@ describe('the agents page leads to the step that finishes the journey', () => {
     // once already. If /bind stops claiming to be the last step, this should be re-decided
     // rather than quietly left pointing at the wrong place.
     expect(BIND).toMatch(/last step of the journey/i);
-    expect(STEPS.at(-1)?.title).toMatch(/claim/i);
+    // Not `.at(-1)`: this suite compiles against tsconfig.sdk.json (ES2020), and @types/node 26 no longer
+    // declares Array.prototype.at, so `.at` stopped type-checking when #517 bumped it (main's check went red).
+    expect(STEPS[STEPS.length - 1]?.title).toMatch(/claim/i);
   });
 
   it('numbers the steps consecutively from 1', () => {
