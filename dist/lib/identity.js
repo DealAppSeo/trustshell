@@ -4,6 +4,8 @@ exports.IDENTITY_REGISTRY_BASE_SEPOLIA = void 0;
 exports.notCheckedIdentity = notCheckedIdentity;
 exports.registryReading = registryReading;
 exports.onChainReadFrom = onChainReadFrom;
+exports.onChainReadFromPassport = onChainReadFromPassport;
+exports.passportCarriesOnChainRead = passportCarriesOnChainRead;
 exports.isVerifiedOnChain = isVerifiedOnChain;
 exports.identityFromPassport = identityFromPassport;
 exports.formatIdentity = formatIdentity;
@@ -67,6 +69,46 @@ function onChainReadFrom(body, tokenId) {
     return { check: 'OWNER_FOUND', owner, ownerMatchesRecord };
 }
 /**
+ * The same ownerOf cross-check, read from the ADDITIVE `onchain` object the passport now folds in
+ * (repid-engine #1330, `PassportOnchain`), so the ONE `GET /passport/:id` call carries the read and the
+ * second `GET /agents/:id/onchain` is not made. PURE. Same rule as {@link onChainReadFrom}: OWNER_FOUND
+ * counts only with a real, non-zero owner. The embedded read is computed by the engine FOR THIS PASSPORT'S
+ * AGENT, so there is no separate token id to cross-check (the field carries none). A missing, unknown or
+ * malformed `check` is NOT_CHECKED — not a confirmation and not a denial. `ownerMatchesRecord` is null here:
+ * the embedded object carries no conservator to compare against.
+ */
+function onChainReadFromPassport(onchain) {
+    const none = { check: 'NOT_CHECKED', owner: null, ownerMatchesRecord: null };
+    if (!onchain || typeof onchain !== 'object')
+        return none;
+    const b = onchain;
+    const check = b['check'];
+    if (check === 'NO_TOKEN' || check === 'REVERTED')
+        return { check, owner: null, ownerMatchesRecord: null };
+    if (check !== 'OWNER_FOUND')
+        return none;
+    const owner = b['owner'];
+    if (typeof owner !== 'string' || !ADDRESS.test(owner) || ZERO_ADDRESS.test(owner))
+        return none;
+    return { check: 'OWNER_FOUND', owner, ownerMatchesRecord: null };
+}
+/**
+ * The `onchain` object repid-engine folds into the passport (#1330), when it is present and of that shape.
+ * Detected by the `verified` boolean the second-call body never carries, so the two read paths never mix.
+ */
+function embeddedOnchainOf(p) {
+    const o = p?.['onchain'];
+    return o && typeof o === 'object' && typeof o['verified'] === 'boolean' ? o : null;
+}
+/**
+ * Does this passport already carry the live ownership read (repid-engine #1330)? When true, the ONE
+ * `/passport/:id` call is enough and no second `/agents/:id/onchain` GET is made. When false (an older or
+ * not-yet-redeployed engine) a recorded MINTED still needs that second call to be confirmed.
+ */
+function passportCarriesOnChainRead(body) {
+    return embeddedOnchainOf(body && typeof body === 'object' ? body : null) !== null;
+}
+/**
  * Is this identity ENTITLED to be called on-chain? True only for MINTED with the evidence that backs it: the
  * canonical registry recorded AND a live ownership read that found an owner. A hand-built or older object that
  * says MINTED with neither is not verified, whoever produced it. Every surface asks this, not the status word.
@@ -103,9 +145,17 @@ function identityFromPassport(body, onChainBody) {
             return { registeredOnchain: state, tokenId };
         return { registeredOnchain: state, tokenId: null, ...(tokenNote ? { reason: tokenNote } : {}) };
     }
-    // MINTED is the engine's RECORD. It becomes MINTED here only with a canonical registry AND a live ownership read.
-    const registry = registryReading(id['contract_address'], id['contract_address_reason']);
-    const onChain = onChainReadFrom(onChainBody, tokenId);
+    // MINTED is the engine's RECORD. It becomes MINTED here only with a canonical registry AND a live ownership
+    // read. Two ways to get that read, in order of preference:
+    //   1. the passport's own `onchain` object (repid-engine #1330) — one call, no second GET. Its `registry`
+    //      is the registry the read was BOUND to, which is what the honest guard must judge: the DB's
+    //      contract_address can be null for an agent the live read confirmed, so judging it instead would
+    //      refuse a verified identity.
+    //   2. `onChainBody`, the body of a second `GET /agents/:id/onchain` (an older engine that does not fold it in).
+    const embedded = embeddedOnchainOf(p);
+    const registry = embedded ? registryReading(embedded['registry']) : registryReading(id['contract_address'], id['contract_address_reason']);
+    const onChain = embedded ? onChainReadFromPassport(embedded) : onChainReadFrom(onChainBody, tokenId);
+    const readMade = embedded !== null || onChainBody !== undefined;
     const problems = [];
     if (tokenNote)
         problems.push(tokenNote);
@@ -118,9 +168,9 @@ function identityFromPassport(body, onChainBody) {
     else if (onChain.check === 'NO_TOKEN')
         problems.push('the engine has no token id to read on chain');
     else if (onChain.check !== 'OWNER_FOUND') {
-        problems.push(onChainBody === undefined ? 'no live ownerOf read was made' : 'the live ownerOf read did not confirm it');
+        problems.push(readMade ? 'the live ownerOf read did not confirm it' : 'no live ownerOf read was made');
     }
-    const evidence = { registry, ...(onChainBody === undefined ? {} : { onChain }) };
+    const evidence = { registry, ...(readMade ? { onChain } : {}) };
     if (problems.length === 0)
         return { registeredOnchain: 'MINTED', tokenId, ...evidence };
     return {

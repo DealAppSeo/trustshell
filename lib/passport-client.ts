@@ -1,5 +1,5 @@
 import { REPID_ENGINE_URL } from './repid-engine';
-import { twoFieldsOf, type TwoFields } from './erc8004-display';
+import { embeddedOnChain, twoFieldsOf, type TwoFields } from './erc8004-display';
 
 /**
  * Read an agent's two RepID fields (score and ERC-8004 ID) from the public passport route, from the
@@ -10,12 +10,14 @@ import { twoFieldsOf, type TwoFields } from './erc8004-display';
  * GET /api/v1/passport/:id is public and keyless and sends no claim text. The engine answers the
  * web origin (CORS) for this route.
  *
- * The ID's MINTED state (and the words "on-chain") need more than the passport (E-1): the engine's MINTED is a
- * record of a mint transaction, not a reading of the chain. So when the passport says MINTED this also asks the
- * engine for its live ownerOf read (GET /api/v1/agents/:id/onchain, public, keyless, the agent's UUID taken from
- * the passport), and MINTED is shown only if that read found an owner for this token and the recorded registry is
- * the canonical one (lib/erc8004-display.ts, mintVerdictOf). A read that fails, or a browser that is not allowed to
- * make it, leaves the ID NOT_CHECKED: never confirmed, never denied.
+ * The ID's MINTED state (and the words "on-chain") need more than the engine's word (E-1): its MINTED is a
+ * record of a mint transaction, not a reading of the chain. The live ownerOf read that confirms it is folded
+ * into the passport (`passport.onchain`, repid-engine #1330), so this one call usually carries it; an older
+ * engine that does not fold it in is confirmed with a second GET /api/v1/agents/:id/onchain (public, keyless,
+ * the agent's UUID taken from the passport), made only for a recorded MINTED. MINTED is shown only if that read
+ * found an owner for this token and the registry it was bound to is the canonical one (lib/erc8004-display.ts,
+ * mintVerdictOf). A read that fails, or a browser that is not allowed to make it, leaves the ID NOT_CHECKED:
+ * never confirmed, never denied.
  */
 export type TwoFieldsRead =
   | { state: 'READ'; fields: TwoFields }
@@ -42,8 +44,12 @@ export async function fetchTwoFields(
   } catch {
     return { state: 'NOT_CHECKED', reason: 'bad_response' };
   }
-  let fields = twoFieldsOf(body);
-  if (fields.recordedMint) {
+  // repid-engine #1330 folds the live ownership read into the passport as `onchain`. When it is there, use
+  // it and make NO second call; otherwise (an older engine) a recorded MINTED still needs the second
+  // GET /api/v1/agents/:id/onchain to be confirmed.
+  const embedded = embeddedOnChain(body);
+  let fields = embedded === undefined ? twoFieldsOf(body) : twoFieldsOf(body, embedded);
+  if (embedded === undefined && fields.recordedMint) {
     const onChain = await readOnChain(body, base, doFetch);
     fields = twoFieldsOf(body, onChain);
   }

@@ -119,6 +119,38 @@ export function onChainShown(body: unknown, tokenId: string | null): OnChainShow
 }
 
 /**
+ * The same ownerOf cross-check, read from the ADDITIVE `onchain` object the passport now folds in
+ * (repid-engine #1330), so the one `GET /passport/:id` carries the read and the second `GET /agents/:id/onchain`
+ * is not made. OWNER_FOUND counts only with a real non-zero owner. The embedded read is computed by the engine
+ * for this passport's agent, so there is no separate token id to cross-check. `ownerMatchesRecord` is null: the
+ * embedded object carries no conservator. Same rule as onChainReadFromPassport in src/lib/identity.ts.
+ */
+export function onChainShownFromPassport(onchain: unknown): OnChainShown {
+  const none: OnChainShown = { check: 'NOT_CHECKED', ownerMatchesRecord: null };
+  if (!onchain || typeof onchain !== 'object') return none;
+  const b = onchain as Record<string, unknown>;
+  const check = b.check;
+  if (check === 'NO_TOKEN' || check === 'REVERTED') return { check, ownerMatchesRecord: null };
+  if (check !== 'OWNER_FOUND') return none;
+  const owner = b.owner;
+  if (typeof owner !== 'string' || !ADDRESS_SHAPE.test(owner) || ZERO_ADDRESS.test(owner)) return none;
+  return { check: 'OWNER_FOUND', ownerMatchesRecord: null };
+}
+
+/** True when a value is the passport's folded-in `onchain` object, not the older second-call body. The
+ *  `verified` boolean marks it: the `/agents/:id/onchain` body never carries one, so the two never mix. */
+function isEmbeddedOnChain(body: unknown): boolean {
+  return !!body && typeof body === 'object' && typeof (body as Record<string, unknown>).verified === 'boolean';
+}
+
+/** The `onchain` object repid-engine folds into the passport (#1330), when present and of that shape, else undefined. */
+export function embeddedOnChain(passport: unknown): unknown {
+  const p = passport && typeof passport === 'object' ? (passport as Record<string, unknown>) : null;
+  const o = p?.onchain;
+  return isEmbeddedOnChain(o) ? o : undefined;
+}
+
+/**
  * What the page may SAY about an agent's mint (E-1). The engine's `MINTED` is a RECORD ("we hold a mint
  * transaction"), not a reading of the chain, and the record behind it is wrong for most squad agents. So `state`
  * is MINTED, and "on-chain" may be printed, ONLY when the recorded registry is the canonical IdentityRegistry AND the
@@ -140,12 +172,16 @@ export function mintVerdictOf(identity: unknown, onChainBody?: unknown): MintVer
   const id = (identity && typeof identity === 'object' ? identity : {}) as Record<string, unknown>;
   const word = mintStateShown(id.registered_onchain);
   const token = tokenIdShown(id.token_id);
-  const registry = identityRegistryShown(id.contract_address);
   if (word !== 'MINTED') {
-    return { state: word, recorded: false, why: null, registry, onChain: null, token };
+    return { state: word, recorded: false, why: null, registry: identityRegistryShown(id.contract_address), onChain: null, token };
   }
   const tokenId = token.state === 'ID' ? token.id : null;
-  const onChain = onChainBody === undefined ? null : onChainShown(onChainBody, tokenId);
+  // When the read is the passport's folded-in `onchain` object (repid-engine #1330), judge ITS registry —
+  // the one the read was bound to — not the DB contract_address, which can be null for an agent the live
+  // read confirmed. An older engine's second-call body falls through to the contract_address guard.
+  const embedded = isEmbeddedOnChain(onChainBody);
+  const registry = embedded ? identityRegistryShown((onChainBody as Record<string, unknown>).registry) : identityRegistryShown(id.contract_address);
+  const onChain = onChainBody === undefined ? null : embedded ? onChainShownFromPassport(onChainBody) : onChainShown(onChainBody, tokenId);
   const problems: string[] = [];
   if (tokenId === null) problems.push(token.state === 'NOT_CHECKED' ? token.reason : 'the engine sent no token id');
   if (registry.state !== 'CANONICAL') problems.push(registry.reason);

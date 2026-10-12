@@ -628,8 +628,10 @@ export declare class TrustShell {
      * as `NOT_MINTED`.
      *
      * `registeredOnchain: 'MINTED'` (and the word "on-chain") is returned ONLY when the engine's record says
-     * minted, the recorded registry is the canonical IdentityRegistry, AND the engine's live ownership read
-     * (`GET /api/v1/agents/:id/onchain`, made here, only for a MINTED record) found an owner for that token.
+     * minted, the registry the read was bound to is the canonical IdentityRegistry, AND the engine's live
+     * ownership read found an owner for that token. That read is folded into the passport (`passport.onchain`,
+     * repid-engine #1330), so the one `GET /api/v1/passport/:id` is enough; an older engine that does not fold
+     * it in is confirmed with a second `GET /api/v1/agents/:id/onchain`, made here only for a recorded MINTED.
      * Otherwise the engine's MINTED comes back as `NOT_CHECKED` with `recordedState: 'MINTED'` and the reason.
      * This client does not read the chain; it consumes the engine's read.
      */

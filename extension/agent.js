@@ -94,6 +94,31 @@
     return { check: 'OWNER_FOUND', owner, ownerMatchesRecord };
   }
 
+  /**
+   * The same ownerOf cross-check, read from the ADDITIVE `onchain` object the passport now folds in
+   * (repid-engine #1330), so the one GET /passport/:id carries the read and the second GET /agents/:id/onchain is
+   * not made. OWNER_FOUND counts only with a real non-zero owner. The embedded read is computed for this passport's
+   * agent, so there is no separate token id to cross-check. ownerMatchesRecord is null: no conservator is carried.
+   * Same rule as onChainReadFromPassport in src/lib/identity.ts.
+   */
+  function onChainReadFromPassport(onchain) {
+    const none = { check: 'NOT_CHECKED', owner: null, ownerMatchesRecord: null };
+    if (!onchain || typeof onchain !== 'object') return none;
+    const check = onchain.check;
+    if (check === 'NO_TOKEN' || check === 'REVERTED') return { check, owner: null, ownerMatchesRecord: null };
+    if (check !== 'OWNER_FOUND') return none;
+    const owner = onchain.owner;
+    if (typeof owner !== 'string' || !ADDRESS.test(owner) || ZERO_ADDRESS.test(owner)) return none;
+    return { check: 'OWNER_FOUND', owner, ownerMatchesRecord: null };
+  }
+
+  /** The `onchain` object repid-engine folds into the passport (#1330), when present and of that shape, else null.
+   *  The `verified` boolean marks it: the second-call body never carries one, so the two read paths never mix. */
+  function embeddedOnChain(passport) {
+    const o = passport && typeof passport === 'object' ? passport.onchain : null;
+    return o && typeof o === 'object' && typeof o.verified === 'boolean' ? o : null;
+  }
+
   /** MINTED is shown, and "on-chain" is said, only for this: a canonical recorded registry AND an owner found for this token. */
   function isVerifiedOnChain(identity) {
     return Boolean(
@@ -113,11 +138,12 @@
    *
    * WHAT MINTED MEANS (E-1). The engine's own MINTED is a RECORD ("we hold a mint transaction"), not a
    * reading of the chain, and the record is wrong for most squad agents. So MINTED, and the word
-   * "on-chain", are returned ONLY when the recorded registry is the canonical IdentityRegistry AND the
-   * engine's live ownership read (onChainBody, from GET /api/v1/agents/:id/onchain) found an owner for
-   * exactly this token. Otherwise the engine's MINTED comes back NOT_CHECKED with recordedState 'MINTED'
-   * and the reason. UNVERIFIED and NOT_MINTED make no claim about the chain and pass through. Same rule
-   * as identityFromPassport in src/lib/identity.ts (tests/mint-honesty-parity.test.ts holds them equal).
+   * "on-chain", are returned ONLY when the registry the read was bound to is the canonical IdentityRegistry
+   * AND the engine's live ownership read found an owner for this token. That read is folded into the passport
+   * as `onchain` (repid-engine #1330), so the one GET /passport/:id carries it; an older engine that does not
+   * fold it in is read with a second GET /api/v1/agents/:id/onchain, passed here as onChainBody. Otherwise the
+   * engine's MINTED comes back NOT_CHECKED with recordedState 'MINTED' and the reason. UNVERIFIED and NOT_MINTED
+   * make no claim about the chain and pass through. Same rule as identityFromPassport in src/lib/identity.ts.
    *
    * BOUND TO THE AGENT THAT WAS ASKED ABOUT: when the live route named the agent the typed id resolved
    * to, a passport for any other agent is NOT_CHECKED, same as the proof (Strix on #437).
@@ -138,8 +164,13 @@
     if (st !== 'MINTED') {
       return tokenId !== null ? { state: st, tokenId } : { state: st, tokenId: null, ...(tokenNote ? { reason: tokenNote } : {}) };
     }
-    const registry = registryReading(idv.contract_address, idv.contract_address_reason);
-    const onChain = onChainReadFrom(onChainBody, tokenId);
+    // Prefer the passport's folded-in `onchain` object (repid-engine #1330): one call, no second GET. Judge ITS
+    // registry — the one the read was bound to — not the DB contract_address, which can be null for an agent the
+    // live read confirmed. An older engine's second-call body (onChainBody) is the fallback.
+    const embedded = embeddedOnChain(passport);
+    const registry = embedded ? registryReading(embedded.registry) : registryReading(idv.contract_address, idv.contract_address_reason);
+    const onChain = embedded ? onChainReadFromPassport(embedded) : onChainReadFrom(onChainBody, tokenId);
+    const readMade = embedded !== null || onChainBody !== undefined;
     const problems = [];
     if (tokenNote) problems.push(tokenNote);
     else if (tokenId === null) problems.push('the engine sent no token id');
@@ -147,9 +178,9 @@
     if (onChain.check === 'REVERTED') problems.push('the registry says no token with that id exists');
     else if (onChain.check === 'NO_TOKEN') problems.push('the engine has no token id to read on chain');
     else if (onChain.check !== 'OWNER_FOUND') {
-      problems.push(onChainBody === undefined ? 'no live ownerOf read was made' : 'the live ownerOf read did not confirm it');
+      problems.push(readMade ? 'the live ownerOf read did not confirm it' : 'no live ownerOf read was made');
     }
-    const evidence = onChainBody === undefined ? { registry } : { registry, onChain };
+    const evidence = readMade ? { registry, onChain } : { registry };
     if (problems.length === 0) return { state: 'MINTED', tokenId, ...evidence };
     return { state: 'NOT_CHECKED', tokenId, recordedState: 'MINTED', ...evidence, reason: `the engine records a mint transaction, but ${problems.join('; ')}` };
   }
@@ -177,7 +208,9 @@
     // Two fields, kept apart: the score above, and the ERC-8004 ID here. The ID asks the engine for its live
     // ownership read ONLY when the passport says MINTED, because that is the only state that would say "on-chain".
     let identity = identityOf(passport, resolvedForId);
-    if (identity.recordedState === 'MINTED') {
+    // A recorded MINTED needs the live ownerOf read to be confirmed. repid-engine #1330 folds that read into
+    // the passport, so identityOf already used it — no second call. An older engine did not, so fetch it then.
+    if (identity.recordedState === 'MINTED' && !embeddedOnChain(passport)) {
       const uuid = cleanId(passport.agent && passport.agent.agent_id);
       const onchain = uuid ? await getJson(fetchImpl, `${base}/api/v1/agents/${encodeURIComponent(uuid)}/onchain`, timeoutMs) : null;
       identity = identityOf(passport, resolvedForId, onchain);
@@ -265,7 +298,7 @@
     return lines;
   }
 
-  const api = { ENGINE, IDENTITY_REGISTRY, cleanId, checkAgent, agentLines, identityOf, identityLine, registryReading, onChainReadFrom, isVerifiedOnChain };
+  const api = { ENGINE, IDENTITY_REGISTRY, cleanId, checkAgent, agentLines, identityOf, identityLine, registryReading, onChainReadFrom, onChainReadFromPassport, embeddedOnChain, isVerifiedOnChain };
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellAgent = api;
 })();
