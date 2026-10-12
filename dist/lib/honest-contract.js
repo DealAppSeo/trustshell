@@ -46,13 +46,28 @@ function repidHonesty(raw) {
     const reasons = {};
     let minted = null;
     const addr = typeof raw?.erc8004_address === 'string' ? raw.erc8004_address : '';
+    const RECORDED_ONLY = 'a mint is recorded for this agent, but a record is not a reading of the chain; getRepID() makes the ownership read that can confirm it';
     if (addr) {
-        // A real mint has a real 0x address; "external:…" and "pending-mint:…" are placeholders, not mints.
+        // "external:…" and "pending-mint:…" are placeholders, not mints. ANYTHING ELSE in the address column is
+        // just a recorded string (a transaction hash, another address and a near-miss of the registry all sit
+        // there for real agents), so a record can say "this is not a mint" but it can never say "this is one".
         const placeholder = /^external:/i.test(addr) || /^pending-mint/i.test(addr);
-        minted = !placeholder && raw?.erc8004_token_id != null;
+        if (placeholder || raw?.erc8004_token_id == null) {
+            minted = false;
+        }
+        else {
+            minted = null;
+            reasons.minted = RECORDED_ONLY;
+        }
     }
     else if (typeof raw?.minted === 'boolean') {
-        minted = raw.minted;
+        if (raw.minted) {
+            minted = null;
+            reasons.minted = RECORDED_ONLY;
+        }
+        else {
+            minted = false;
+        }
     }
     else {
         reasons.minted =

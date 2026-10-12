@@ -9,6 +9,13 @@ import { twoFieldsOf, type TwoFields } from './erc8004-display';
  *
  * GET /api/v1/passport/:id is public and keyless and sends no claim text. The engine answers the
  * web origin (CORS) for this route.
+ *
+ * The ID's MINTED state (and the words "on-chain") need more than the passport (E-1): the engine's MINTED is a
+ * record of a mint transaction, not a reading of the chain. So when the passport says MINTED this also asks the
+ * engine for its live ownerOf read (GET /api/v1/agents/:id/onchain, public, keyless, the agent's UUID taken from
+ * the passport), and MINTED is shown only if that read found an owner for this token and the recorded registry is
+ * the canonical one (lib/erc8004-display.ts, mintVerdictOf). A read that fails, or a browser that is not allowed to
+ * make it, leaves the ID NOT_CHECKED: never confirmed, never denied.
  */
 export type TwoFieldsRead =
   | { state: 'READ'; fields: TwoFields }
@@ -35,8 +42,31 @@ export async function fetchTwoFields(
   } catch {
     return { state: 'NOT_CHECKED', reason: 'bad_response' };
   }
-  const fields = twoFieldsOf(body);
+  let fields = twoFieldsOf(body);
+  if (fields.recordedMint) {
+    const onChain = await readOnChain(body, base, doFetch);
+    fields = twoFieldsOf(body, onChain);
+  }
   // A body with neither a score nor a mint state is not a passport; do not render it as "no ID".
   if (fields.score === null && fields.mint === 'NOT_CHECKED') return { state: 'NOT_CHECKED', reason: 'bad_response' };
   return { state: 'READ', fields };
+}
+
+/** The agent id a passport names, only when it is a plain id (it goes into a URL path). */
+const PLAIN_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+
+/**
+ * The engine's live ownerOf read for the agent a passport describes. NEVER THROWS. Returns the raw body, or `null`
+ * when it could not be made or did not answer: the caller reads `null` as "did not confirm", never as an absence.
+ */
+async function readOnChain(passport: unknown, base: string, doFetch: typeof fetch): Promise<unknown> {
+  try {
+    const named = (passport as { agent?: { agent_id?: unknown } } | null)?.agent?.agent_id;
+    if (typeof named !== 'string' || !PLAIN_ID.test(named)) return null;
+    const res = await doFetch(`${base}/api/v1/agents/${encodeURIComponent(named)}/onchain`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }

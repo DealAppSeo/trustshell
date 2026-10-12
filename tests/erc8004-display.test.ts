@@ -143,7 +143,10 @@ describe('the passport page', () => {
     expect(src).not.toMatch(/>\s*\{id\.token_id\}\s*</);
     expect(src).toContain('<TokenValue raw={id.token_id} />');
     expect(src).not.toMatch(/href=\{id\.mint_basescan_url\}/);
-    expect(src).toContain('identityRegistryShown(id.contract_address)');
+    // the registry the page prints for an identity comes from the verdict, which is built from identityRegistryShown(contract_address)
+    expect(src).toContain('<RegistryValue shown={verdict.registry} />');
+    expect(src).toContain('mintVerdictOf(id, onChain)');
+    expect(src).not.toMatch(/id\.registered_onchain === 'MINTED'/); // the engine's WORD is never the test for "on-chain" (E-1)
     expect(src).toContain('reputationRegistryShown(p.reputation_onchain.registry_address)');
     expect(src).toContain('mintTxUrlShown(id.mint_basescan_url)');
   });

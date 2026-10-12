@@ -18,18 +18,30 @@ const passport = (registered_onchain: unknown, token_id: unknown) => ({
 });
 
 describe('identityFromPassport', () => {
-  it('keeps the three states and a plain whole-number token id', () => {
-    expect(identityFromPassport(passport('MINTED', '3747'))).toEqual({ registeredOnchain: 'MINTED', tokenId: '3747' });
+  it('keeps UNVERIFIED and NOT_MINTED as the engine said them, with a plain whole-number token id', () => {
     expect(identityFromPassport(passport('UNVERIFIED', 3747))).toEqual({ registeredOnchain: 'UNVERIFIED', tokenId: '3747' });
     expect(identityFromPassport(passport('NOT_MINTED', null))).toEqual({ registeredOnchain: 'NOT_MINTED', tokenId: null });
+  });
+
+  it('the engine\'s MINTED is a RECORD: without an ownership read it is NOT_CHECKED, with the record kept (E-1)', () => {
+    // This test used to expect { registeredOnchain: 'MINTED' } from the status word alone. See tests/mint-honesty.test.ts for
+    // the full contract (canonical registry AND a live ownerOf read are both required).
+    const r = identityFromPassport(passport('MINTED', '3747'));
+    expect(r.registeredOnchain).toBe('NOT_CHECKED');
+    expect(r.recordedState).toBe('MINTED');
+    expect(r.tokenId).toBe('3747');
   });
 
   it('withholds a token id that is not a whole number, and says why', () => {
     for (const bad of ['pending-mint', '0xabc', '-1', '1.5', `0x${'ab'.repeat(32)}`, '007']) {
       const r = identityFromPassport(passport('MINTED', bad));
       expect(r.tokenId).toBeNull();
-      expect(r.registeredOnchain).toBe('MINTED');
+      expect(r.registeredOnchain).toBe('NOT_CHECKED'); // a MINTED record with no usable token id can never be confirmed
       expect(r.reason).toMatch(/not a whole number/);
+      const u = identityFromPassport(passport('UNVERIFIED', bad));
+      expect(u.tokenId).toBeNull();
+      expect(u.registeredOnchain).toBe('UNVERIFIED');
+      expect(u.reason).toMatch(/not a whole number/);
     }
   });
 
@@ -93,7 +105,8 @@ describe('the CLI prints the score and the ID as two lines', () => {
     expect(a[0]).toBe('sophia');
     expect(a[1]).toBe('  RepID 1359  (ESTABLISHED)');
     expect(a[2]).toMatch(/^  ERC-8004 ID  #3747  \(has a token id; no record of the mint transaction here, which is not the same as not minted\)$/);
-    expect(formatRepid(...base, { registeredOnchain: 'MINTED', tokenId: '5' })).toMatch(/ERC-8004 ID {2}#5 {2}\(on-chain\)/);
+    // MINTED with no evidence behind it is NOT printed as on-chain (E-1); the verified form is pinned in tests/mint-honesty.test.ts.
+    expect(formatRepid(...base, { registeredOnchain: 'MINTED', tokenId: '5' })).toMatch(/ERC-8004 ID {2}#5 {2}\(NOT_CHECKED: recorded as minted/);
     expect(formatRepid(...base, { registeredOnchain: 'NOT_MINTED', tokenId: null })).toMatch(/ERC-8004 ID {2}none yet {2}\(off-chain only\)/);
     expect(formatRepid(...base, notCheckedIdentity('the engine has no passport for this agent'))).toMatch(/ERC-8004 ID {2}not checked {2}\(the engine has no passport for this agent\)/);
     expect(formatRepid(...base)).toMatch(/ERC-8004 ID {2}not checked/);

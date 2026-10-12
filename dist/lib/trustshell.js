@@ -429,17 +429,31 @@ class TrustShell {
                 latestProofHash = null;
             }
         }
+        const identity = await this.getIdentity(agentId);
+        // `minted: true` means a real on-chain mint VERIFIED by a live ownership read, and nothing weaker. The engine's
+        // own record of a mint never sets it (verify() returns null-with-reason for that): only the identity read above
+        // can, so the two fields cannot disagree. See identity.ts, and the E-1 note in the PR.
+        const reasons = { ...v.reasons };
+        let minted = v.minted;
+        if ((0, identity_1.isVerifiedOnChain)(identity)) {
+            minted = true;
+            delete reasons['minted'];
+        }
+        else if (minted === true) {
+            minted = null; // defensive: nothing upstream may assert a mint this call did not verify
+            reasons['minted'] = 'a mint is recorded for this agent, but no live ownership read on the canonical IdentityRegistry confirmed it';
+        }
         return {
             agentId,
             repid: v.repid,
             tier: v.tier,
             lastAnchorTx: v.lastAnchorTx || 'NOT_ANCHORED',
             latestProofHash,
-            minted: v.minted,
+            minted,
             signer: v.signer,
             scoreLane: v.scoreLane,
-            reasons: v.reasons,
-            identity: await this.getIdentity(agentId),
+            reasons,
+            identity,
         };
     }
     /**
@@ -447,6 +461,12 @@ class TrustShell {
      * passport route (keyless, no claim text). NEVER THROWS: a missing passport, an engine that is
      * down and a body this client does not understand are all `NOT_CHECKED`, which is not the same
      * as `NOT_MINTED`.
+     *
+     * `registeredOnchain: 'MINTED'` (and the word "on-chain") is returned ONLY when the engine's record says
+     * minted, the recorded registry is the canonical IdentityRegistry, AND the engine's live ownership read
+     * (`GET /api/v1/agents/:id/onchain`, made here, only for a MINTED record) found an owner for that token.
+     * Otherwise the engine's MINTED comes back as `NOT_CHECKED` with `recordedState: 'MINTED'` and the reason.
+     * This client does not read the chain; it consumes the engine's read.
      */
     async getIdentity(agentId) {
         // The id passes the same gate as every other id that goes into a request path. encodeURIComponent alone is
@@ -468,10 +488,37 @@ class TrustShell {
                 return (0, identity_1.notCheckedIdentity)('the engine has no passport for this agent');
             if (!res.ok)
                 return (0, identity_1.notCheckedIdentity)(`the passport lookup answered ${res.status}`);
-            return (0, identity_1.identityFromPassport)(await res.json());
+            const passport = await res.json();
+            const recorded = (0, identity_1.identityFromPassport)(passport);
+            // Only a MINTED record asserts anything about the chain, so only that case asks for the live read.
+            if (recorded.recordedState !== 'MINTED')
+                return recorded;
+            return (0, identity_1.identityFromPassport)(passport, await this.readOnChain(passport));
         }
         catch {
             return (0, identity_1.notCheckedIdentity)('the passport lookup did not finish');
+        }
+    }
+    /**
+     * The engine's live ownerOf cross-check for the agent a passport describes (`GET /api/v1/agents/:id/onchain`,
+     * public, keyless). NEVER THROWS. The route is keyed by the agent's id, not its slug, so the id comes from the
+     * passport itself and passes the same path gate as every other id. Returns the raw body, or `null` when the read
+     * could not be made or did not answer: the caller reads `null` as "did not confirm", never as an absence.
+     */
+    async readOnChain(passport) {
+        try {
+            const named = passport?.agent?.agent_id;
+            const segment = agentPathSegment(named);
+            const res = await fetch(`${this.baseUrl}/api/v1/agents/${segment}/onchain`, {
+                headers: this.getHeaders(),
+                signal: AbortSignal.timeout(8000),
+            });
+            if (!res.ok)
+                return null;
+            return await res.json();
+        }
+        catch {
+            return null;
         }
     }
     async getLeaderboard(board) {

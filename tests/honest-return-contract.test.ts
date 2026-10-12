@@ -44,8 +44,10 @@ describe('honest return contract (T4) — pure derivations', () => {
     expect(h.scoreLane).toBe('cache'); // derived from the REAL `source` field, not invented
   });
 
-  it('minted is derived from real on-chain fields; placeholders are NOT mints', () => {
-    expect(repidHonesty({ erc8004_address: '0xabc123', erc8004_token_id: '6705' }).minted).toBe(true);
+  it('a RECORD can say "not a mint" but never "a mint": placeholders are NOT mints, anything else is recorded-only (null)', () => {
+    // This line used to assert `true` for '0xabc123', a six-digit hex stub that is not even an address (E-1). A row in the
+    // address column is bookkeeping; only a live ownership read (getRepID) may say true. See tests/mint-honesty.test.ts.
+    expect(repidHonesty({ erc8004_address: '0xabc123', erc8004_token_id: '6705' }).minted).toBeNull();
     expect(repidHonesty({ erc8004_address: 'external:foo' }).minted).toBe(false);
     expect(
       repidHonesty({ erc8004_address: 'pending-mint:trinity-w3c', erc8004_token_id: '6706' }).minted,

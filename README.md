@@ -54,7 +54,7 @@ Not a launch announcement.
 
 - **[DealAppSeo/repid-engine](https://github.com/DealAppSeo/repid-engine)**, the HyperDAG engine, at `https://repid-engine-production.up.railway.app` unless `TRUSTSHELL_API_URL` names another. That default is set in the `TrustShell` constructor (`src/lib/trustshell.ts`) and as `DEFAULT_API_URL` (`src/lib/claim.ts`). Every networked SDK method, CLI command and MCP tool goes there, except `check <runUrl>` and `verifySigner()`.
 - **`@hyperdag/proof-verifier`** `^0.2.0`, a runtime dependency that npm installs beside this package. `verifyProof()`, `presentProof(id, { verify: true })`, the `verify()` export, `proof --verify` and `badge` load it when called and run it on your machine.
-- **The ERC-8004 ReputationRegistry on Base Sepolia**, read only: `getClients` through the public RPC `https://sepolia.base.org`, from `verifySigner()` alone (`src/lib/verify-signer.ts`, needs the optional `ethers`). The package writes nothing on chain and does not read the IdentityRegistry.
+- **The ERC-8004 ReputationRegistry on Base Sepolia**, read only: `getClients` through the public RPC `https://sepolia.base.org`, from `verifySigner()` alone (`src/lib/verify-signer.ts`, needs the optional `ethers`). The package writes nothing on chain and does not read the IdentityRegistry itself. For an agent whose record says `MINTED`, `getIdentity()` / `getRepID()` ask the engine for its own `ownerOf` read (`GET /api/v1/agents/:id/onchain`) and say "on-chain" only if that read found an owner for the token and the recorded registry is the canonical one; otherwise the answer is `NOT_CHECKED`. The canonical address sits in `src/lib/identity.ts` only to compare that record with.
 - **`api.github.com`**, from `check <runUrl>` alone.
 
 **Called by:**

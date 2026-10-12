@@ -71,11 +71,90 @@ export function mintTxUrlShown(raw: unknown): string | null {
   return m && HEX_TX.test(m[1]!) ? raw.trim() : null;
 }
 
-/** The engine's three states, plus NOT_CHECKED for anything it did not say clearly. */
+/**
+ * The engine's three states, plus NOT_CHECKED for anything it did not say clearly. In what this module RETURNS
+ * for display (`twoFieldsOf`, `mintVerdictOf`), `MINTED` means VERIFIED: see {@link mintVerdictOf}. The engine's
+ * own word is only ever a record (`mintStateShown` reads the word, nothing more).
+ */
 export type MintState = 'MINTED' | 'UNVERIFIED' | 'NOT_MINTED' | 'NOT_CHECKED';
 
+/** The engine's WORD, validated. A record of a mint transaction is not a reading of the chain: do not print "on-chain" from this. */
 export function mintStateShown(raw: unknown): MintState {
   return raw === 'MINTED' || raw === 'UNVERIFIED' || raw === 'NOT_MINTED' ? raw : 'NOT_CHECKED';
+}
+
+const ADDRESS_SHAPE = HEX_ADDRESS;
+const ZERO_ADDRESS = /^0x0{40}$/;
+
+/** The engine's live ownerOf cross-check (GET /api/v1/agents/:id/onchain), reduced to what the page may rely on. */
+export type OnChainShown = {
+  check: 'OWNER_FOUND' | 'REVERTED' | 'NO_TOKEN' | 'NOT_CHECKED';
+  /** true: the on-chain owner is the conservator the engine has on record; false: it differs; null: none on record. */
+  ownerMatchesRecord: boolean | null;
+};
+
+/**
+ * OWNER_FOUND counts only with a real non-zero owner AND a read about exactly the token the passport named. No
+ * `check` (an older engine), an unknown `check` or anything malformed is NOT_CHECKED: not a confirmation, not a
+ * denial. (Same rule as onChainReadFrom in src/lib/identity.ts and the extension; tests/mint-honesty-popup.test.ts
+ * and tests/mint-honesty-web.test.ts hold them equal.)
+ */
+export function onChainShown(body: unknown, tokenId: string | null): OnChainShown {
+  const none: OnChainShown = { check: 'NOT_CHECKED', ownerMatchesRecord: null };
+  if (!body || typeof body !== 'object') return none;
+  const b = body as Record<string, unknown>;
+  const check = b.check;
+  if (check === 'NO_TOKEN' || check === 'REVERTED') return { check, ownerMatchesRecord: null };
+  if (check !== 'OWNER_FOUND') return none;
+  const owner = b.onChainOwner;
+  if (typeof owner !== 'string' || !ADDRESS_SHAPE.test(owner) || ZERO_ADDRESS.test(owner)) return none;
+  const t = b.dbTokenId;
+  const readToken = typeof t === 'number' && Number.isSafeInteger(t) && t >= 0 ? String(t) : typeof t === 'string' ? t.trim() : '';
+  if (tokenId === null || readToken !== tokenId) return none;
+  const conservator = b.dbConservator;
+  return {
+    check: 'OWNER_FOUND',
+    ownerMatchesRecord: typeof conservator === 'string' && ADDRESS_SHAPE.test(conservator) ? conservator.toLowerCase() === owner.toLowerCase() : null,
+  };
+}
+
+/**
+ * What the page may SAY about an agent's mint (E-1). The engine's `MINTED` is a RECORD ("we hold a mint
+ * transaction"), not a reading of the chain, and the record behind it is wrong for most squad agents. So `state`
+ * is MINTED, and "on-chain" may be printed, ONLY when the recorded registry is the canonical IdentityRegistry AND the
+ * engine's live ownership read found an owner for exactly this token. A MINTED record that is not confirmed comes back
+ * as `state: 'NOT_CHECKED'` with `recorded: true` and the reason in `why`. UNVERIFIED and NOT_MINTED make no claim
+ * about the chain and pass through. This page does not read the chain; it consumes the engine's read.
+ */
+export type MintVerdict = {
+  state: MintState;
+  /** The engine's word was MINTED but nothing confirmed it on chain. */
+  recorded: boolean;
+  why: string | null;
+  registry: RegistryShown;
+  onChain: OnChainShown | null;
+  token: TokenIdShown;
+};
+
+export function mintVerdictOf(identity: unknown, onChainBody?: unknown): MintVerdict {
+  const id = (identity && typeof identity === 'object' ? identity : {}) as Record<string, unknown>;
+  const word = mintStateShown(id.registered_onchain);
+  const token = tokenIdShown(id.token_id);
+  const registry = identityRegistryShown(id.contract_address);
+  if (word !== 'MINTED') {
+    return { state: word, recorded: false, why: null, registry, onChain: null, token };
+  }
+  const tokenId = token.state === 'ID' ? token.id : null;
+  const onChain = onChainBody === undefined ? null : onChainShown(onChainBody, tokenId);
+  const problems: string[] = [];
+  if (tokenId === null) problems.push(token.state === 'NOT_CHECKED' ? token.reason : 'the engine sent no token id');
+  if (registry.state !== 'CANONICAL') problems.push(registry.reason);
+  if (onChain === null) problems.push('no live ownerOf read was made');
+  else if (onChain.check === 'REVERTED') problems.push('the registry says no token with that id exists');
+  else if (onChain.check === 'NO_TOKEN') problems.push('the engine has no token id to read on chain');
+  else if (onChain.check !== 'OWNER_FOUND') problems.push('the live ownerOf read did not confirm it');
+  if (problems.length === 0) return { state: 'MINTED', recorded: false, why: null, registry, onChain, token };
+  return { state: 'NOT_CHECKED', recorded: true, why: `the engine records a mint transaction, but ${problems.join('; ')}`, registry, onChain, token };
 }
 
 /**
@@ -86,18 +165,23 @@ export function mintStateShown(raw: unknown): MintState {
 export type TwoFields = {
   score: number | null;
   tier: string | null;
+  /** MINTED only when verified on chain (see {@link mintVerdictOf}). */
   mint: MintState;
   token: TokenIdShown;
+  /** The engine's word was MINTED but nothing confirmed it on chain: `mint` is then NOT_CHECKED and `why` says why. */
+  recordedMint?: true;
+  why?: string;
 };
 
-export function twoFieldsOf(passport: unknown): TwoFields {
+export function twoFieldsOf(passport: unknown, onChainBody?: unknown): TwoFields {
   const p = (passport && typeof passport === 'object' ? passport : {}) as Record<string, unknown>;
   const rep = (p.reputation && typeof p.reputation === 'object' ? p.reputation : {}) as Record<string, unknown>;
-  const id = (p.identity_erc8004 && typeof p.identity_erc8004 === 'object' ? p.identity_erc8004 : {}) as Record<string, unknown>;
+  const v = mintVerdictOf(p.identity_erc8004, onChainBody);
   return {
     score: typeof rep.repid_score === 'number' && Number.isFinite(rep.repid_score) ? rep.repid_score : null,
     tier: typeof rep.tier === 'string' ? rep.tier : null,
-    mint: mintStateShown(id.registered_onchain),
-    token: tokenIdShown(id.token_id),
+    mint: v.state,
+    token: v.token,
+    ...(v.recorded ? { recordedMint: true as const, why: v.why ?? '' } : {}),
   };
 }

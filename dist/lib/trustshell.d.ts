@@ -101,7 +101,7 @@ export interface VerifyResult {
     lastAnchorTx: string | null;
     latestProofHash: string | null;
     provenanceChain: any[];
-    /** Honest contract (T4): real on-chain mint? null = endpoint didn't say (see reasons). */
+    /** Honest contract (T4): true only for a mint VERIFIED on chain by a live ownership read (getRepID); a mere record is null with a reason. */
     minted: boolean | null;
     /** Publishing signer address when exposed; else null (see reasons). */
     signer: string | null;
@@ -234,7 +234,7 @@ export interface RepIDResult {
     /** On-chain tx hash, or the coded reason `NOT_ANCHORED`. Never silent null. */
     lastAnchorTx: string;
     latestProofHash: string | null;
-    /** Honest contract (T4): real on-chain mint? `null` = the endpoint didn't say (see `reasons`). Never defaults to true. */
+    /** Honest contract (T4): `true` only for a mint VERIFIED on chain by a live ownership read; a mere record is `null` with a reason (see `reasons`). Never defaults to true. */
     minted: boolean | null;
     /** Publishing signer address when the endpoint exposes it; else `null` (see `reasons`). */
     signer: string | null;
@@ -626,8 +626,21 @@ export declare class TrustShell {
      * passport route (keyless, no claim text). NEVER THROWS: a missing passport, an engine that is
      * down and a body this client does not understand are all `NOT_CHECKED`, which is not the same
      * as `NOT_MINTED`.
+     *
+     * `registeredOnchain: 'MINTED'` (and the word "on-chain") is returned ONLY when the engine's record says
+     * minted, the recorded registry is the canonical IdentityRegistry, AND the engine's live ownership read
+     * (`GET /api/v1/agents/:id/onchain`, made here, only for a MINTED record) found an owner for that token.
+     * Otherwise the engine's MINTED comes back as `NOT_CHECKED` with `recordedState: 'MINTED'` and the reason.
+     * This client does not read the chain; it consumes the engine's read.
      */
     getIdentity(agentId: string): Promise<AgentIdentity>;
+    /**
+     * The engine's live ownerOf cross-check for the agent a passport describes (`GET /api/v1/agents/:id/onchain`,
+     * public, keyless). NEVER THROWS. The route is keyed by the agent's id, not its slug, so the id comes from the
+     * passport itself and passes the same path gate as every other id. Returns the raw body, or `null` when the read
+     * could not be made or did not answer: the caller reads `null` as "did not confirm", never as an absence.
+     */
+    private readOnChain;
     /**
      * Fetch a live leaderboard from the public repid-engine.
      *
