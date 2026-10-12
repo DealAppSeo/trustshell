@@ -28,7 +28,9 @@
     /\b(password|passwd|pwd|secret|api[_-]?key|apikey|access[_-]?token|auth[_-]?token|client[_-]?secret|private[_-]?key|aws_secret_access_key)(\s*[=:]\s*)(["']?)[^\s"',;]{6,}\3/gi;
   const HEX_64 = /\b(?:0x)?[0-9a-fA-F]{64}\b/g;
   const PREFIXED_TOKENS = /\b(?:pypi-|npm_|hf_|glsoat-|glagent-|glptt-|gloas-|glrt-|gldt-|glpat-|ghs_|ghr_|ghu_|gho_|xoxc-|xoxs-|xoxr-|xoxe-|xoxa-|xoxp-|xoxb-)[A-Za-z0-9_-]{8,}\b/g;
-  const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+  // Bounded by the limits of an address (local part 64, domain 253, top-level label 63); the unbounded form was
+  // quadratic on a long run with no `@`, and this runs on the page's main thread (see EMAIL in src/memory/redact.ts).
+  const EMAIL = /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}\b/g;
   const SSN = /\b\d{3}-\d{2}-\d{4}\b/g;
   const PHONE = /(?:\+\d{1,3}[\s.-]?)?(?:\(\d{3}\)\s?|\b\d{3}[\s.-])\d{3}[\s.-]\d{4}\b/g;
   const CARD_CANDIDATE = /\b\d(?:[ -]?\d){12,18}\b/g;

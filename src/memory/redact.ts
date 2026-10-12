@@ -48,7 +48,16 @@ export const PREFIXED_TOKEN = /\b(?:pypi-|npm_|hf_|glsoat-|glagent-|glptt-|gloas
 const PREFIXED_TOKENS = new RegExp(PREFIXED_TOKEN.source, 'g');
 
 /** Personal data. Each shape needs its separators, so plain numbers in a claim are left alone. */
-const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+/**
+ * An email address, bounded by the limits of an address itself (RFC 5321): the local part up to 64 characters,
+ * the domain up to 253, a top-level label up to 63. EVERY quantifier is bounded. The unbounded form
+ * (`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`) was quadratic: on a long run of local-part characters with
+ * no `@` it re-scanned to the end of the run from every word boundary (about 1.6 s at 50,000 characters, 28 s at
+ * 200,000; the extension runs this on the page's main thread for every reply). Now each start position scans a
+ * bounded amount. For anything that is an address the result is the same as before; a local part over 64
+ * characters keeps only its leading excess, and a domain over 253 or a top-level label over 63 is not an address.
+ */
+const EMAIL = /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}\b/g;
 /** US SSN, dashed form only (nine bare digits are too common to call personal). */
 const SSN = /\b\d{3}-\d{2}-\d{4}\b/g;
 /** Phone numbers written with separators: +1 555-123-4567, (555) 123-4567, 555.123.4567. */
