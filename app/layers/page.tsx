@@ -221,6 +221,19 @@ export default function LayersPage() {
           still being wired. The design is described here honestly, not claimed as finished.
         </p>
       </section>
+
+      {/* Go deeper — the two mechanism pages this overview points into */}
+      <section className="space-y-3 border-t border-border pt-10">
+        <p className="text-xs uppercase tracking-widest text-muted/70 font-semibold">Go deeper</p>
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <Link href="/how-verification" className="text-accent hover:underline">
+            How verification works
+          </Link>
+          <Link href="/trust-harness" className="text-accent hover:underline">
+            The trust harness, end to end
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

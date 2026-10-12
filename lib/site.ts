@@ -72,6 +72,11 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   // step, reached from /demo and /examples. No nav link (tests/nav-fit.test.ts locks the
   // count); the sitemap is how an AI search engine finds it.
   { path: '/layers', priority: 0.7 },
+  // The two mechanism deep-dives, same posture as /layers: conceptual explainers reached from
+  // body copy, the footer and related pages, not from the nav (the nav count is locked). The
+  // sitemap is how an AI search engine finds them.
+  { path: '/how-verification', priority: 0.7 },
+  { path: '/trust-harness', priority: 0.7 },
   { path: '/run', priority: 0.5 },
   { path: '/history', priority: 0.4 },
 ];
