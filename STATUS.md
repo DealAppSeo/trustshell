@@ -35,7 +35,7 @@ Outcomes are VERIFIED / NOT_CHECKED / FAILED, each with the command that produce
 
 ## Publishing
 
-`main` is not what is on npm. Published `@hyperdag/trustshell@1.6.0` does not have the kernel client, `my_job`, the unquoted-`verify` fix or the `identity` field. **The next `npm publish` needs a version bump** (a version can never be reused). Not done here.
+`main` is not what is on npm. Published `@hyperdag/trustshell@1.6.0` does not have the kernel client, `my_job`, the unquoted-`verify` fix or the `identity` field. **The next `npm publish` needs a version bump** (a version can never be reused). Not done here. <!-- doc-version: historical -->
 
 The extension popup now shows the ERC-8004 ID line. The published Chrome test build (`extension.zip` v1.0.0) does not have it until the extension is re-released.
 

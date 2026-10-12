@@ -1,5 +1,7 @@
 # Cold install
 
+<!-- doc-version: historical -->
+
 Run 2026-10-12 from a cloud sandbox. Branch `claude/bold-turing-icz50x-stranger-path` (PR #518).
 Outcomes are VERIFIED / NOT_CHECKED / FAILED. Every block below is pasted from a real run; each says which engine it talked to.
 
