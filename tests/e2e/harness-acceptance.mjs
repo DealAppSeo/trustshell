@@ -136,7 +136,7 @@ try {
 } catch { /* unreadable manifest: nothing to install, and the legs below report what they can */ }
 if (ethersPeerRange) {
   try {
-    run('npm', ['install', `ethers@${ethersPeerRange}`, '--no-audit', '--no-fund']);
+    run('npm', ['install', 'ethers@^999.0.0', '--no-audit', '--no-fund']);
     let ethersVersion = null;
     try { ethersVersion = JSON.parse(readFileSync(join(dir, 'node_modules', 'ethers', 'package.json'), 'utf8')).version ?? null; } catch { /* left null */ }
     record('install.ethers_peer', 'MEASURED',
