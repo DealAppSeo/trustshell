@@ -27,6 +27,35 @@ export function parseUsdcInput(s: string): bigint | null {
   return parseUnits(t, 6);
 }
 
+/**
+ * LIMIT-TO-ZERO, ENFORCED ON THE SPEND PATH — not just displayed.
+ *
+ * Before a REAL spend, the web page runs this against the cap it last read on-chain. A cap of 0 —
+ * what the "Stop it" button sets with `approve(agent, 0)` — refuses the NEXT spend HERE, in the
+ * client, before any request leaves. The engine's cap check and the USDC `transferFrom` still
+ * refuse again behind it; this makes the kill local instead of a number we merely show. Fail-closed:
+ * a cap that could not be read (null / undefined / unparseable) refuses too, because "not checked" is
+ * not "allowed" — it never fabricates permission the chain would not grant.
+ *
+ * It decides ONLY the zero / unreadable case, on purpose. A POSITIVE cap that the amount exceeds is
+ * left to the engine and the contract, which refuse it with the exact remaining figure ("3 left");
+ * re-deciding that here would make this a second source of truth for a number the client only read.
+ * Returns the refusal reason to show, or null to proceed.
+ */
+export function zeroCapRefusal(capUsdc: string | null | undefined): string | null {
+  if (capUsdc === null || capUsdc === undefined) {
+    return 'Not checked: the cap could not be read, so nothing is sent.';
+  }
+  const cap = parseUsdcInput(String(capUsdc));
+  if (cap === null) {
+    return 'Not checked: the cap could not be read, so nothing is sent.';
+  }
+  if (cap === BigInt(0)) {
+    return 'The cap is 0 — this agent is stopped. Raise the cap on step 2 to let it spend. Nothing was sent.';
+  }
+  return null;
+}
+
 export type Eip1193 = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
 
 /** The transaction the person's wallet sends to set the cap. `amount` may be 0n: that is "stop". */
