@@ -2,6 +2,20 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.6.1 — 2026-10-12
+
+- **One call where there used to be two for a minted passport.** The SDK now reads the engine's
+  folded-in `passport.onchain` object from the single `GET /api/v1/passport/:id`, and no longer makes
+  the second `GET /api/v1/agents/:id/onchain` for a record the engine already marked MINTED. When that
+  field is absent — an older engine that has not folded it in — the SDK still makes the second call.
+  Correct either way: one round trip against a current engine, the same answer as before against an
+  older one.
+- **Honesty is unchanged, and that is the point of the patch.** MINTED is never collapsed into
+  verified. A non-canonical registry never reads as verified: the client judges `onchain.registry`
+  against its own canonical IdentityRegistry constant, not the engine's `verified` word. A
+  NOT_CHECKED read is never a pass. `verified_at` is surfaced on the passport page.
+- This is a patch: no API changes, no new commands or tools.
+
 ## 1.6.0 — 2026-10-05
 
 - **BEHAVIOR CHANGE: `ethers` is an optional peer dependency.** Measured on the published 1.5.0 it
