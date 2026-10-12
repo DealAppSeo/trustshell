@@ -112,6 +112,40 @@ try {
   finish();
 }
 
+// --- the optional peer the package tells a stranger to install ---------------
+//
+// `ethers` became an OPTIONAL peer in 1.6.0 (CHANGELOG: "If you sign payments, install it next to
+// trustshell: npm i ethers@^6"). x402.payment_header recovers the signature with ethers, and the
+// cold install above stopped bringing it, so from 2026-10-05 that leg read NOT_CHECKED
+// ("Cannot find module 'ethers'") on every run. The baseline comparator counts a NOT_CHECKED nobody
+// designed as a failure of the job — correctly — and the scheduled gate sat red for days.
+//
+// So do what the README tells a stranger who signs payments. The range comes from the INSTALLED
+// manifest, not from a copy of it in this file, so the gate follows the package. Two things this
+// is deliberately NOT:
+//   * a fallback to the repo's own ethers — fromColdInstall() refuses that, and keeps refusing;
+//   * a way to force x402.payment_header green — if the peer will not install, that is its own
+//     FAILED leg, and the payment leg below still reports NOT_CHECKED with the reason.
+//
+// A package that declares no ethers peer gets no install and no leg: either ethers arrives as a
+// dependency (then the payment leg measures it) or it does not (then that leg says why).
+let ethersPeerRange = null;
+try {
+  ethersPeerRange = JSON.parse(readFileSync(join(dir, 'node_modules', '@hyperdag', 'trustshell', 'package.json'), 'utf8'))
+    .peerDependencies?.ethers ?? null;
+} catch { /* unreadable manifest: nothing to install, and the legs below report what they can */ }
+if (ethersPeerRange) {
+  try {
+    run('npm', ['install', `ethers@${ethersPeerRange}`, '--no-audit', '--no-fund']);
+    let ethersVersion = null;
+    try { ethersVersion = JSON.parse(readFileSync(join(dir, 'node_modules', 'ethers', 'package.json'), 'utf8')).version ?? null; } catch { /* left null */ }
+    record('install.ethers_peer', 'MEASURED',
+      `npm i ethers@${ethersPeerRange} next to trustshell, as the README instructs for x402 signing${ethersVersion ? ` (installed ${ethersVersion})` : ''}`);
+  } catch (e) {
+    record('install.ethers_peer', 'FAILED', `the documented optional-peer install did not succeed: ${String(e.message).slice(0, 160)}`);
+  }
+}
+
 // --- can we reach the engine at all? -----------------------------------------
 //
 // THIS GATE WAS REPORTING FIVE REGRESSIONS THAT WERE THIS SANDBOX, NOT THE PRODUCT.

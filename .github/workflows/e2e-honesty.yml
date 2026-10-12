@@ -31,6 +31,13 @@
 # That last line is the trade. This will not stop a bad merge. It will tell you,
 # within a day, that the honesty properties stopped holding — which is strictly
 # more than the zero coverage they had before.
+#
+# "TELL YOU" WAS A CLAIM WITH NO CARRIER, and it was false. From 2026-09-30 to 2026-10-11 every
+# scheduled run was red and nothing reached a person: a red tick on an Actions page is a signal only
+# to someone who already went looking. The `announce` job below is the carrier. On a scheduled run
+# it opens one tracking issue naming the legs that failed, comments on it each night the gate stays
+# red, and closes it when a scheduled run is green again. A gate that cannot reach a human is a log
+# file with a schedule.
 
 name: e2e-honesty
 
@@ -222,3 +229,53 @@ jobs:
             exit 1
           fi
           echo 'Every wired honesty suite passed against a real browser.'
+
+  # THE CARRIER. See the header: a red scheduled run used to be visible only to someone who went
+  # looking, and for 12 consecutive days nobody did.
+  #
+  # `needs` lists EVERY other job, and tests/announce-gate.test.ts fails if a job is added to this
+  # file without being listed — otherwise the next job's red would be exactly as silent as these
+  # were. `always()` is what lets it run after a failure; a bare `failure()` could not close the
+  # issue on the first green night, and does not fire when a needed job was cancelled or skipped,
+  # which for this gate is also a red (it looked at nothing).
+  #
+  # ONLY THE `schedule` EVENT WRITES. ANNOUNCE_WRITE is derived from the event name right here, so
+  # the whole write/dry-run decision is one expression a reader can check. A manual dispatch runs
+  # the same script as a dry run: it prints what it would have posted and posts nothing.
+  #
+  # The job-level `permissions` replace the workflow-level ones for this job only. `issues: write`
+  # is why this job is a separate one: the jobs that run npm and a browser keep read-only.
+  announce:
+    needs: [acceptance, honesty]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      # The comparator's verdict file travels in the receipts artifact the acceptance job already
+      # uploads. If that artifact is missing the job died early; the script says so in the issue
+      # rather than reading its absence as "no problems", so this step may fail without hiding it.
+      - name: Fetch the acceptance verdict
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: receipts-acceptance
+          path: receipts
+
+      - name: Announce a red gate, or close the issue when it is green
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ACCEPTANCE_RESULT: ${{ needs.acceptance.result }}
+          HONESTY_RESULT: ${{ needs.honesty.result }}
+          ANNOUNCE_WRITE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          RECEIPT_DIR: receipts
+        run: node scripts/announce-gate.mjs
