@@ -14,13 +14,19 @@
  * from that word alone was repeating a database row as if it were a blockchain fact.
  *
  * So this client says MINTED, and "on-chain", only when BOTH hold:
- *   1. the registry the engine recorded is the canonical IdentityRegistry (not a placeholder, not a
- *      transaction hash, not another address, not a near-miss), and
- *   2. the engine's LIVE ownership read (`GET /api/v1/agents/:id/onchain`, ownerOf on the registry)
- *      found an owner for exactly this token id.
+ *   1. the registry the ownership read was bound to is the canonical IdentityRegistry (not a placeholder,
+ *      not a transaction hash, not another address, not a near-miss), and
+ *   2. the engine's LIVE ownership read (ownerOf on that registry) found an owner for this token id.
  * Anything else the engine called MINTED is `NOT_CHECKED` here, with `recordedState: 'MINTED'` so
  * nothing the engine said is lost, and the reason it could not be confirmed. This client does not
  * read the chain itself; it consumes the engine's read.
+ *
+ * WHERE THE READ COMES FROM. repid-engine #1330 folds that ownership read into the passport as an
+ * additive `onchain` object, so the ONE `GET /api/v1/passport/:id` already carries it — no second call.
+ * An older engine that does not fold it in is read with a second `GET /api/v1/agents/:id/onchain`, whose
+ * body is passed here as `onChainBody`. The passport's object is preferred when present; its `registry`
+ * is the registry the read was bound to, which is what the guard judges (the DB `contract_address` can be
+ * null for an agent the live read confirmed).
  *
  * Five states:
  *   MINTED       verified as above. The only state that may be called "on-chain".
@@ -78,6 +84,22 @@ export declare function registryReading(raw: unknown, engineReason?: unknown): R
  * does not know, or anything malformed is NOT_CHECKED: it is not a confirmation and it is not a denial.
  */
 export declare function onChainReadFrom(body: unknown, tokenId: string | null): OnChainRead;
+/**
+ * The same ownerOf cross-check, read from the ADDITIVE `onchain` object the passport now folds in
+ * (repid-engine #1330, `PassportOnchain`), so the ONE `GET /passport/:id` call carries the read and the
+ * second `GET /agents/:id/onchain` is not made. PURE. Same rule as {@link onChainReadFrom}: OWNER_FOUND
+ * counts only with a real, non-zero owner. The embedded read is computed by the engine FOR THIS PASSPORT'S
+ * AGENT, so there is no separate token id to cross-check (the field carries none). A missing, unknown or
+ * malformed `check` is NOT_CHECKED — not a confirmation and not a denial. `ownerMatchesRecord` is null here:
+ * the embedded object carries no conservator to compare against.
+ */
+export declare function onChainReadFromPassport(onchain: unknown): OnChainRead;
+/**
+ * Does this passport already carry the live ownership read (repid-engine #1330)? When true, the ONE
+ * `/passport/:id` call is enough and no second `/agents/:id/onchain` GET is made. When false (an older or
+ * not-yet-redeployed engine) a recorded MINTED still needs that second call to be confirmed.
+ */
+export declare function passportCarriesOnChainRead(body: unknown): boolean;
 /**
  * Is this identity ENTITLED to be called on-chain? True only for MINTED with the evidence that backs it: the
  * canonical registry recorded AND a live ownership read that found an owner. A hand-built or older object that

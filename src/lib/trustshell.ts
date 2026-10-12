@@ -16,7 +16,7 @@ import {
   repidHonesty,
   proofHonesty,
 } from './honest-contract';
-import { identityFromPassport, isVerifiedOnChain, notCheckedIdentity, type AgentIdentity } from './identity';
+import { identityFromPassport, isVerifiedOnChain, notCheckedIdentity, passportCarriesOnChainRead, type AgentIdentity } from './identity';
 import type { Grounding } from './honest-contract';
 
 /** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
@@ -990,8 +990,10 @@ export class TrustShell {
    * as `NOT_MINTED`.
    *
    * `registeredOnchain: 'MINTED'` (and the word "on-chain") is returned ONLY when the engine's record says
-   * minted, the recorded registry is the canonical IdentityRegistry, AND the engine's live ownership read
-   * (`GET /api/v1/agents/:id/onchain`, made here, only for a MINTED record) found an owner for that token.
+   * minted, the registry the read was bound to is the canonical IdentityRegistry, AND the engine's live
+   * ownership read found an owner for that token. That read is folded into the passport (`passport.onchain`,
+   * repid-engine #1330), so the one `GET /api/v1/passport/:id` is enough; an older engine that does not fold
+   * it in is confirmed with a second `GET /api/v1/agents/:id/onchain`, made here only for a recorded MINTED.
    * Otherwise the engine's MINTED comes back as `NOT_CHECKED` with `recordedState: 'MINTED'` and the reason.
    * This client does not read the chain; it consumes the engine's read.
    */
@@ -1014,8 +1016,11 @@ export class TrustShell {
       if (!res.ok) return notCheckedIdentity(`the passport lookup answered ${res.status}`);
       const passport: unknown = await res.json();
       const recorded = identityFromPassport(passport);
-      // Only a MINTED record asserts anything about the chain, so only that case asks for the live read.
-      if (recorded.recordedState !== 'MINTED') return recorded;
+      // Only a recorded MINTED asserts anything about the chain, so only that case needs a live read.
+      // repid-engine #1330 folds that read into the passport (passport.onchain), so identityFromPassport
+      // already consumed it — nothing to fetch. An older engine did not, so fall back to the second
+      // GET /api/v1/agents/:id/onchain for a recorded MINTED.
+      if (recorded.recordedState !== 'MINTED' || passportCarriesOnChainRead(passport)) return recorded;
       return identityFromPassport(passport, await this.readOnChain(passport));
     } catch {
       return notCheckedIdentity('the passport lookup did not finish');

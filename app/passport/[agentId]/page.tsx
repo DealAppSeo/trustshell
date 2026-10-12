@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { REPID_ENGINE_URL } from '@/lib/repid-engine';
 import { TrustBadge } from '@/components/trust-state';
 import {
+  embeddedOnChain,
   mintTxUrlShown,
   mintVerdictOf,
   reputationRegistryShown,
@@ -61,6 +62,18 @@ type Passport = {
     writes: number;
     last_write: { tx_hash: string | null; at: string | null; basescan_url: string | null } | null;
   };
+  // ADDITIVE — repid-engine #1330 folds the live ownerOf read into the passport, so one call carries it.
+  // Absent on an older/not-yet-redeployed engine; the page falls back to the second GET then.
+  onchain?: {
+    state: 'NOT_MINTED' | 'MINTED' | 'VERIFIED_ONCHAIN';
+    verified: boolean;
+    owner: string | null;
+    registry: string;
+    chainId: number;
+    block: number | null;
+    verified_at: string | null;
+    check: 'OWNER_FOUND' | 'REVERTED' | 'NOT_CHECKED' | 'NO_TOKEN';
+  };
   zkp: {
     latest_proof: {
       scheme: string | null;
@@ -89,12 +102,16 @@ async function getPassport(agentId: string): Promise<Passport | null | 'error'> 
 }
 
 /**
- * The engine's live ownerOf read for this passport's agent (GET /api/v1/agents/:id/onchain), made ONLY when the
- * passport says MINTED, because that is the only state that would say "on-chain" (E-1: the engine's MINTED is a
- * record of a mint transaction, not a reading of the chain). `undefined` = no read was needed; `null` = it was needed
- * and could not be made or did not answer, which the verdict reads as "did not confirm", never as an absence.
+ * The engine's live ownerOf read for this passport's agent. repid-engine #1330 folds it into the passport as
+ * `onchain`, so when that is present it is used directly and NO second call is made. An older engine that does
+ * not fold it in is read with a second GET /api/v1/agents/:id/onchain, made ONLY when the passport says MINTED
+ * (the only state that would say "on-chain"; E-1: the engine's MINTED is a record, not a reading of the chain).
+ * `undefined` = no read was needed; `null` = it was needed and could not be made or did not answer, which the
+ * verdict reads as "did not confirm", never as an absence.
  */
 async function getOnChain(p: Passport): Promise<unknown> {
+  const embedded = embeddedOnChain(p);
+  if (embedded !== undefined) return embedded;
   if (p.identity_erc8004?.registered_onchain !== 'MINTED') return undefined;
   const named = p.agent?.agent_id;
   if (typeof named !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(named)) return null;
@@ -271,6 +288,11 @@ export default async function PassportPage({
               The engine&apos;s live <code>ownerOf()</code> read found an owner for this token on the canonical IdentityRegistry
               {verdict.onChain?.ownerMatchesRecord === false ? '. That owner is NOT the conservator the engine has on record.' : '.'}
             </Row>
+            {p.onchain?.verified_at && (
+              <Row label="Verified at">
+                <span data-testid="verified-at">{fmtDate(p.onchain.verified_at)}</span>
+              </Row>
+            )}
             <Row label="Token ID">
               <TokenValue raw={id.token_id} />
             </Row>
