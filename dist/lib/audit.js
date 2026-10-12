@@ -54,8 +54,13 @@ async function auditThenAct(intent, policy, act, opts = {}) {
     if (policy === null || policy === undefined) {
         throw new trustshell_1.TrustShellError('policy_required: spend intent has no policy (fail-closed — missing policy refuses)', 403);
     }
-    if (!policy.allow) {
-        throw new trustshell_1.TrustShellError(`policy_denied: ${policy.reason ?? 'policy did not admit this spend'}`, 403);
+    // STRICTLY the boolean `true`. This was a truthiness test (`!policy.allow`), so the string "false", the
+    // string "no", the number 1 or any object admitted the spend, and a policy parsed from config or from
+    // model output carries strings. Anything but a real `true` refuses; the reason only ever comes from a
+    // policy that said no in its own words.
+    if (policy.allow !== true) {
+        const said = policy.allow === false && typeof policy.reason === 'string' && policy.reason ? policy.reason : null;
+        throw new trustshell_1.TrustShellError(`policy_denied: ${said ?? (policy.allow === false ? 'policy did not admit this spend' : 'policy.allow is not the boolean true')}`, 403);
     }
     return act();
 }

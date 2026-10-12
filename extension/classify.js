@@ -201,7 +201,9 @@
   function askRow(key) {
     const api = settingsApi();
     const cfg = api && api.current();
-    if (!cfg || cfg.mode !== api.CLICK || approved === key) return null;
+    // Auto-send only for an EXACT auto. Anything else (a mode this code does not know) asks first; this was
+    // `cfg.mode !== api.CLICK`, which sent on every value it did not recognise.
+    if (!cfg || cfg.mode === api.AUTO || approved === key) return null;
     asking = key;
     return { label: 'ask', latency_ms: 0 };
   }
