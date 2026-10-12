@@ -112,7 +112,7 @@
     "@supabase/supabase-js": "^2.106.2",
     "@tailwindcss/postcss": "^4",
     "@types/jest": "^29",
-    "@types/node": "^20",
+    "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
