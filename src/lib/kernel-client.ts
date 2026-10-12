@@ -162,9 +162,20 @@ function client(reason: string, detail: string, argsHash: string | null = null, 
 
 const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 
+/**
+ * Drop trailing slashes with a scan, not a regex. `/\/+$/` is quadratic on a string of many slashes
+ * that does not end in one (every start position re-consumes the run before failing at the anchor),
+ * and `apiUrl` is caller input, so that is a ReDoS (CodeQL js/polynomial-redos). This is linear.
+ */
+function trimTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47 /* '/' */) end--;
+  return s.slice(0, end);
+}
+
 function apiUrlOf(opts: KernelClientOptions): string {
   const env = typeof process !== 'undefined' ? process.env?.TRUSTSHELL_API_URL : undefined;
-  return (opts.apiUrl || env || 'https://repid-engine-production.up.railway.app').replace(/\/+$/, '');
+  return trimTrailingSlashes(opts.apiUrl || env || 'https://repid-engine-production.up.railway.app');
 }
 
 /**

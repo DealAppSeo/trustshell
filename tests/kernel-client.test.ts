@@ -454,6 +454,46 @@ describe('kernelDecide: only a clean ALLOW, bound to this request, is a yes', ()
     });
   });
 
+  describe('apiUrl is caller input: a string of many slashes is handled in bounded time', () => {
+    // The old `.replace(/\/+$/, '')` took ~2.6 s at 80 000 slashes and grows with the square of the
+    // length (CodeQL js/polynomial-redos); at 200 000 it would run for about sixteen seconds.
+    const N = 200_000;
+
+    it('many slashes NOT at the end (the pathological shape): left alone, and fast', async () => {
+      const input = callInput();
+      const f = fakeFetch(async () => json(200, await allowAnswer(input)));
+      const apiUrl = 'https://engine.example.invalid' + '/'.repeat(N) + 'x';
+      const t0 = Date.now();
+      await kernelDecide(input, { fetch: f, apiUrl });
+      expect(Date.now() - t0).toBeLessThan(1000);
+      expect((f as jest.Mock).mock.calls[0]![0]).toBe(`${apiUrl}/api/v1/kernel/decide`);
+    });
+
+    it('many slashes AT the end: all of them are dropped, and fast', async () => {
+      const input = callInput();
+      const f = fakeFetch(async () => json(200, await allowAnswer(input)));
+      const t0 = Date.now();
+      await kernelDecide(input, { fetch: f, apiUrl: 'https://engine.example.invalid' + '/'.repeat(N) });
+      expect(Date.now() - t0).toBeLessThan(1000);
+      expect((f as jest.Mock).mock.calls[0]![0]).toBe('https://engine.example.invalid/api/v1/kernel/decide');
+    });
+
+    it('the ordinary cases are unchanged: none, one, several trailing slashes, and an all-slash url', async () => {
+      const urls: Array<[string, string]> = [
+        ['https://e.example.invalid', 'https://e.example.invalid'],
+        ['https://e.example.invalid/', 'https://e.example.invalid'],
+        ['https://e.example.invalid///', 'https://e.example.invalid'],
+        ['https://e.example.invalid/base/', 'https://e.example.invalid/base'],
+        ['///', ''],
+      ];
+      for (const [given, want] of urls) {
+        const f = fakeFetch(() => json(500, {}));
+        await kernelDecide(callInput(), { fetch: f, apiUrl: given });
+        expect((f as jest.Mock).mock.calls[0]![0]).toBe(`${want}/api/v1/kernel/decide`);
+      }
+    });
+  });
+
   describe('input the client will not forward', () => {
     it.each([
       ['a claim', { claim: 'x' }], ['a prompt', { prompt: 'x' }], ['a user_id', { user_id: 'u' }], ['a supplied counts_toward_band_restore', { counts_toward_band_restore: true }],
