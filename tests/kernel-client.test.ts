@@ -36,7 +36,7 @@ const ROOT = join(__dirname, '..');
 // hash, and the same hash of the schema file. If either side changes how a receipt is fingerprinted
 // or what shape it has, one of the two suites goes red.
 const SCHEMA_SHA256 = '9519068e49073f2d5de094e5acbbe157af41555bb5a9bcb56d03c94cdd1ac5d9';
-const VECTOR_HASH = '0x228b214a84c41fcd1a56f49e4e82c0b5c596f894badc149be8cc48412417da9e';
+const VECTOR_HASH = '0x5110abfef0a7ba2685214b1873bf22eac5a823aa367dc60a872691639571b88f';
 const VECTOR_ARGS_HASH = '0xd82cf87614b294f236e7d71bdbc831d606503ec1f6446013321450df46425440';
 const VECTOR = {
   "header": {
@@ -46,7 +46,7 @@ const VECTOR = {
     "prev_receipt_id": null,
     "prev_hash": null,
     "created_at": "2027-01-15T08:00:00.000Z",
-    "receipt_hash": "0x228b214a84c41fcd1a56f49e4e82c0b5c596f894badc149be8cc48412417da9e",
+    "receipt_hash": "0x5110abfef0a7ba2685214b1873bf22eac5a823aa367dc60a872691639571b88f",
     "env": {
       "network": "base-sepolia",
       "chain_id": 84532,
@@ -139,6 +139,11 @@ const VECTOR = {
         "source": "kernel/decide"
       },
       {
+        "name": "payee_allowed",
+        "outcome": "PASS",
+        "source": "kernel/decide"
+      },
+      {
         "name": "spend_totals",
         "outcome": "PASS",
         "source": "ledger"
@@ -151,13 +156,16 @@ const VECTOR = {
     ],
     "does_not_attest": [
       "cumulative_total (no atomic reservation)",
+      "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
       "tool_class (caller-asserted; there is no tool registry in the MVP)",
       "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
       "laya (shadow mode; not consulted)",
-      "receipt_signature (unsigned in the MVP; integrity is the hash and the chain)"
+      "receipt_signature (unsigned in the MVP; integrity is the hash and the chain)",
+      "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+      "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)"
     ],
     "policy": {
-      "policy_hash": "0x8775c41f9ab3ff9322ca6ec4b489aec452132fd6f41fc4679b5a2d4aa0244179",
+      "policy_hash": "0x377a7eba68de2b1ece036ee30a36a318fc01a03a422bbb8117994c7d2a83be37",
       "signer": "0x1111111111111111111111111111111111111111",
       "signature": "VERIFIED",
       "expires_at": 1800003600,
@@ -279,6 +287,10 @@ describe('the vector and the schema file match repid-engine', () => {
     expect(VECTOR.decision.limits.effective_per_tx_raw).toBe('0');
     expect(VECTOR.payment.status).toBe('NOT_APPLICABLE');
     expect(VECTOR.decision.does_not_attest).toContain('cumulative_total (no atomic reservation)');
+    // ...and that the total cap resets when a policy is superseded, so it cannot read as a lifetime one.
+    expect(VECTOR.decision.does_not_attest.some((s) => s.startsWith('total_cap_scope') && /per policy version/.test(s) && /resets when a policy is superseded/.test(s))).toBe(true);
+    // The payee gate is one of the checks that ran, and passed: the refusal is the limit alone.
+    expect(VECTOR.decision.checks.find((c) => c.name === 'payee_allowed')?.outcome).toBe('PASS');
   });
 });
 
