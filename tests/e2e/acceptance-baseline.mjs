@@ -38,6 +38,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -102,6 +103,28 @@ for (const [leg, e] of Object.entries({ ...KNOWN_FAILED, ...BY_DESIGN_NOT_CHECKE
   }
 }
 
+/**
+ * THE VERDICT AS A FILE. e2e-honesty.yml's `announce` job reads this to say WHICH legs put the gate
+ * red, because "the acceptance gate no longer matches its baseline" in a log nobody opens is the
+ * silent red this file's whole design exists to prevent. With RECEIPT_DIR set the comparator leaves
+ * its own verdict next to the per-leg receipt the harness already writes there; scripts/announce-gate.mjs
+ * reads the same name, and tests/announce-gate.test.ts fails if the two drift apart.
+ */
+const VERDICT_FILE = 'acceptance-baseline.json';
+const structured = [];
+const problems = [];
+/** One mismatch, recorded twice: as the text a reader sees and as a record the announcer can list. */
+const problem = (kind, leg, detail, text) => { structured.push({ kind, leg, detail: String(detail ?? '') }); problems.push(text); };
+const writeVerdict = (ok, extra = {}) => {
+  if (!process.env.RECEIPT_DIR) return;
+  try {
+    mkdirSync(process.env.RECEIPT_DIR, { recursive: true });
+    writeFileSync(join(process.env.RECEIPT_DIR, VERDICT_FILE), JSON.stringify({
+      ok, ran_at: new Date().toISOString(), problems: structured, ...extra,
+    }, null, 2) + '\n');
+  } catch (e) { console.error(`verdict not written: ${e.message}`); }
+};
+
 const passthrough = process.argv.slice(2);
 let report;
 try {
@@ -117,18 +140,19 @@ try {
   report = JSON.parse(stdout);
 } catch (e) {
   console.error(`the acceptance gate did not produce parseable JSON: ${String(e.message).slice(0, 300)}`);
+  problem('GATE_ERROR', '(gate)', String(e.message).slice(0, 300), '');
+  writeVerdict(false);
   process.exit(1);
 }
 
 const verdictOf = new Map(report.legs.map((l) => [l.leg, l.verdict]));
-const problems = [];
 
 for (const l of report.legs) {
   if (l.verdict === 'FAILED' && !KNOWN_FAILED[l.leg]) {
-    problems.push(`REGRESSION  ${l.leg} — FAILED and not in the baseline\n              ${l.detail ?? ''}`);
+    problem('REGRESSION', l.leg, l.detail, `REGRESSION  ${l.leg} — FAILED and not in the baseline\n              ${l.detail ?? ''}`);
   }
   if (l.verdict === 'NOT_CHECKED' && !BY_DESIGN_NOT_CHECKED[l.leg]) {
-    problems.push(
+    problem('NOT_CHECKED', l.leg, l.detail,
       `NOT_CHECKED ${l.leg} — this job exists to provide the environment this leg needs\n` +
       `              ${l.detail ?? ''}`,
     );
@@ -138,7 +162,8 @@ for (const l of report.legs) {
 for (const [leg, e] of Object.entries(KNOWN_FAILED)) {
   const v = verdictOf.get(leg);
   if (v === undefined) {
-    problems.push(`STALE       ${leg} — in the baseline but the gate no longer reports this leg at all; remove or rename the entry`);
+    problem('STALE', leg, 'in the baseline but the gate no longer reports this leg at all',
+      `STALE       ${leg} — in the baseline but the gate no longer reports this leg at all; remove or rename the entry`);
   } else if (v === 'NOT_CHECKED') {
     // NOT_CHECKED IS NOT EVIDENCE A GAP CLOSED, and treating it as such was this comparator
     // committing the same two-outcome collapse it exists to catch. Measured 2026-09-01: from a
@@ -146,14 +171,14 @@ for (const [leg, e] of Object.entries(KNOWN_FAILED)) {
     // this branch told the reader to DELETE them — which would destroy the record of a live gap
     // on the evidence of a network denial, and the deletion is exactly what the STALE rule above
     // exists to prevent. Only MEASURED can retire an entry.
-    problems.push(
+    problem('UNVERIFIED', leg, `NOT_CHECKED this run, so it neither confirms the gap nor clears it (was: ${e.pointer})`,
       `UNVERIFIED  ${leg} — in the baseline and NOT_CHECKED this run, so this run neither\n` +
       `              confirms the gap nor clears it. DO NOT delete the entry on this evidence:\n` +
       `              NOT_CHECKED means nobody looked. Re-run where the leg can actually execute.\n` +
       `              was: ${e.pointer}`,
     );
   } else if (v !== 'FAILED') {
-    problems.push(
+    problem('STALE', leg, `now ${v} — the gap is fixed, so delete the baseline entry (was: ${e.pointer})`,
       `STALE       ${leg} — now ${v}. THIS IS GOOD NEWS AND STILL A FAILURE: delete the entry.\n` +
       `              An entry claiming a gap that is fixed hides that gap when it reopens.\n` +
       `              was: ${e.pointer}`,
@@ -167,12 +192,16 @@ console.log(
   `${counts.MEASURED ?? 0} measured · ${counts.NOT_CHECKED ?? 0} not checked · ${counts.FAILED ?? 0} failed`,
 );
 
+const verdictMeta = { version: report.version, installed: report.installed ?? null, counts };
+
 if (problems.length === 0) {
+  writeVerdict(true, verdictMeta);
   console.log(`matches the baseline: ${Object.keys(KNOWN_FAILED).length} known gap(s), 1 refused by design.`);
   console.log('This is NOT "the MVP works" — it is "nothing changed". The known gaps are still open.');
   process.exit(0);
 }
 
+writeVerdict(false, verdictMeta);
 console.error('\nThe acceptance gate no longer matches its baseline:\n');
 for (const p of problems) console.error(`  ${p}\n`);
 process.exit(1);
