@@ -39,6 +39,16 @@ Outcomes are VERIFIED / NOT_CHECKED / FAILED, each with the command that produce
 
 The extension popup now shows the ERC-8004 ID line. The published Chrome test build (`extension.zip` v1.0.0) does not have it until the extension is re-released.
 
+## CI findings on the way (PR #518)
+
+- **`main`'s own `check` was red before this branch.** #517 bumped `@types/node` 20 to 26, which no longer declares `Array.prototype.at`, so `tests/agents-journey.test.ts` stopped type-checking under `tsconfig.sdk.json` (ES2020). It passed locally only because the shared checkout's `node_modules` still has `@types/node` 20.19.39 while the lockfile has 26.6.4: measuring the wrong toolchain. Fixed here in one line (`STEPS[STEPS.length - 1]`); verified with the lockfile's `@types/node` and `--no-cache`. **A dependabot major got merged that the ignore list was meant to stop; Sean may want to look at that.**
+- **gitleaks, 3 findings** (rule `generic-api-key`): the public Base Sepolia USDC contract address, in a faucet stub (`tests/faucet.test.ts` once, `tests/e2e/stranger-path-walk.mjs` twice). Not secrets. The field was unused by the parser, so it was removed from the stubs, and the offending commit was squashed away (own branch, force-push with lease) so no flagged commit stays in the range.
+- **CodeQL, 3 high** (`js/incomplete-url-substring-sanitization`, all in `tests/e2e/stranger-path-walk.mjs`): URL substring matches. Replaced by exact membership on a `data-skill-url` attribute and by `new URL(u).hostname ===`.
+
+## Open questions for Sean
+
+- **The extension's default mode is AUTO** (empty storage on a fresh install), which sends on its own. Sean's spec says "nothing sent until the click." Changing a shipped default is a product decision and was **not** changed here. The scrubber work on its own branch removes the danger of a secret leaving in either mode; the default itself is yours.
+
 ## Not done
 
 - The engine PR (open-CORS mount for `/repid`, `/proof`, `/passport`, `/faucet/*`, and mint status on `/repid/:id`) is **not this branch's**: the coordinator reassigned it to the engine lane (CC2) on 2026-10-12. This branch only reads those routes. Until it lands, the extension popup works only because `host_permissions` makes Chromium omit the Origin; real Chrome stable stays NOT_CHECKED.
@@ -47,4 +57,4 @@ The extension popup now shows the ERC-8004 ID line. The published Chrome test bu
 
 ## PRs
 
-(filled in as they open)
+- DealAppSeo/trustshell **#518** (draft): this branch.
