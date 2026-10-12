@@ -7,7 +7,6 @@ import {
   depositStake,
   fetchAuthority,
   fetchStakePositions,
-  fetchStakeSignMessage,
   rawToUsdc,
   authorityCeilingDisplay,
   usdcToRaw,
@@ -15,6 +14,13 @@ import {
   AuthoritySnapshot,
   StakePosition,
 } from '@/lib/repid-engine';
+import {
+  fetchAgentSessionAddress,
+  sendStakeTransfer,
+  confirmStakeReceipt,
+  basescanTx,
+  type SessionAddress,
+} from '@/lib/stake-onchain';
 import { repidToTier } from '@/lib/onchain-repid';
 import { getAccount, accountHeader, Account } from '@/lib/account';
 import { GateModal } from '@/components/gate-modal';
@@ -22,26 +28,30 @@ import { PracticeBadge } from '@/components/practice-badge';
 import { JourneySteps } from '@/components/journey-steps';
 import { fetchAgentOwner, type AgentOwner } from '@/lib/human-bind';
 
+const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || '';
+
 /**
  * Staking, with the ask sized to what is at stake.
  *
- * This page used to open with a blank "builder address (0x…)" field and no
- * account behind it, because there was no account to have — the engine took the
- * address from the request body and credited whatever it was told. That is now
- * closed server-side, and the page reflects the ladder instead of a text box:
+ * This page used to open with a blank "builder address (0x…)" field and no account behind it,
+ * because there was no account to have. That is now closed, and the page reflects the ladder:
  *
  *   not signed in   one emailed code. Nothing else is asked for.
- *   signed in       the address is YOURS and already known, so a testnet stake
- *                   is a single click — no address to copy, mistype, or borrow.
- *   real USDC       a wallet signature over that exact deposit. Asked for only
- *                   here, because only here is real value being credited.
+ *   signed in       the address is YOURS and already known, so a PRACTICE stake is a single click.
+ *   real USDC       the person's own wallet BUILDS, SIGNS and SENDS a Base Sepolia test-USDC
+ *                   transfer to THE AGENT'S EXISTING SESSION ADDRESS, and the stake counts only
+ *                   once that transfer is CONFIRMED on-chain. A database row that says staked is
+ *                   not the test.
  *
- * An emailed account's address is derived from the email (`0xEMAIL…`), not a
- * wallet, so it cannot sign. We say that plainly rather than presenting a
- * prompt that can only fail.
+ * THERE IS NO FLAG AND NO ESCROW ENV. Base Sepolia (chain 84532) is the test, so the real stake
+ * just works there. The destination is the agent's session address, which the engine already has
+ * (the same wallet the spend path funds) — READ from the engine, NEVER invented. If it cannot be
+ * read, the page says so and does not offer a real send; it does not fall back to any address.
+ *
+ * NO KEY ON DISK, NO SERVER SIGNER. The transfer is signed and sent by the person's wallet
+ * (eth_sendTransaction). The agent's own key (browser-local) is used only to READ the session
+ * address. Mainnet is off: the only token is Base Sepolia test USDC and the only chain is 84532.
  */
-
-const EMAIL_DERIVED_PREFIX = '0xemail';
 
 export default function StakePage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -59,10 +69,18 @@ export default function StakePage() {
   // `owned: true` is only ever a signature the owner made; a linked account is not ownership.
   const [owner, setOwner] = useState<AgentOwner | null | undefined>(undefined);
 
+  // undefined = not yet resolved; else the result. The real send is offered only on {ok:true}.
+  // Read from the engine, never invented — a {ok:false} is a named blocker or a NOT_CHECKED.
+  const [session, setSession] = useState<SessionAddress | undefined>(undefined);
+
   const [realMode, setRealMode] = useState(false);
+
+  // The real on-chain tx, once broadcast. Surfaced with a basescan link so a deposit is never a
+  // row the person cannot see.
   const [txHash, setTxHash] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -75,12 +93,12 @@ export default function StakePage() {
     });
   }, []);
 
-  // When an agent is picked, load its current RepID + authority snapshot.
+  // When an agent is picked, load its current RepID + authority snapshot + owner.
   useEffect(() => {
     if (!selectedAgentId) return;
     let ignore = false;
 
-    fetch(`${process.env.NEXT_PUBLIC_REPID_ENGINE_URL}/api/v1/agents/${selectedAgentId}`)
+    fetch(`${ENGINE}/api/v1/agents/${selectedAgentId}`)
       .then((r) => r.json())
       .then((d) => {
         if (ignore) return;
@@ -97,6 +115,7 @@ export default function StakePage() {
       if (!ignore) setPositions(p);
     });
     setOwner(undefined);
+    setSession(undefined);
     fetchAgentOwner(selectedAgentId).then((o) => {
       if (!ignore) setOwner(o);
     });
@@ -106,55 +125,56 @@ export default function StakePage() {
     };
   }, [selectedAgentId]);
 
-  const isEmailDerived = !!account?.builder_address?.toLowerCase().startsWith(EMAIL_DERIVED_PREFIX);
-
   const bound = owner?.owned === true;
   const bindHold =
     owner === null
       ? 'Not checked: whether this agent is bound could not be read, so the practice stake is held. Try again in a moment.'
       : 'This agent is not bound to a wallet yet. Bind it first, then come back. Nothing was staked.';
 
-  /** Ask the connected wallet to sign the server's exact deposit message. */
-  const signRealDeposit = useCallback(
-    async (amountRaw: string, tx: string): Promise<{ signature?: string; error?: string }> => {
-      const eth = (globalThis as any).window?.ethereum;
-      if (!eth) {
-        return { error: 'No wallet detected in this browser. Install one, or stake on testnet instead.' };
-      }
-      const message = await fetchStakeSignMessage({
-        builder_address: account!.builder_address,
-        amount_raw: amountRaw,
-        tx_hash: tx,
-      });
-      if (!message) {
-        return { error: "Couldn't reach the server for the message to sign. Try again in a moment." };
-      }
-      try {
-        const { BrowserProvider } = await import('ethers');
-        const provider = new BrowserProvider(eth);
-        const signer = await provider.getSigner();
-        const addr = (await signer.getAddress()).toLowerCase();
-        if (addr !== account!.builder_address.toLowerCase()) {
-          return {
-            error: `Your wallet is on ${addr.slice(0, 10)}… but this account is ${account!.builder_address.slice(0, 10)}…. Switch accounts and try again.`,
-          };
-        }
-        return { signature: await signer.signMessage(message) };
-      } catch (e: any) {
-        // A declined prompt is a decision, not a fault. Say so without alarm.
-        if (e?.code === 4001 || /reject|denied/i.test(e?.message ?? '')) {
-          return { error: 'Signature declined — nothing was staked.' };
-        }
-        return { error: 'The wallet could not sign that. Try again.' };
-      }
-    },
-    [account],
-  );
+  // Resolve the agent's SESSION ADDRESS (its own wallet) from the engine, once it is bound. This
+  // is the destination a real stake funds — read, never invented. Probed with the BOUND OWNER's
+  // wallet, because the engine returns the session address only to the owner.
+  useEffect(() => {
+    if (!bound) return;
+    const ownerWallet = owner?.owner?.wallet ?? '';
+    const apiKey = agents.find((a) => a.id === selectedAgentId)?.apiKey;
+    let ignore = false;
+    setSession(undefined);
+    fetchAgentSessionAddress({ engine: ENGINE, agentId: selectedAgentId, apiKey, ownerWallet }).then((s) => {
+      if (!ignore) setSession(s);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [bound, owner?.owner?.wallet, selectedAgentId, agents]);
+
+  const sessionReady = session?.ok === true;
+
+  // The real send is only ever offered when a session address was read; close the checkbox if it
+  // becomes unavailable so the submit cannot take the real branch.
+  useEffect(() => {
+    if (!sessionReady && realMode) setRealMode(false);
+  }, [sessionReady, realMode]);
+
+  /** Read the address of the wallet the person has connected (the funder/signer). */
+  const connectedWallet = useCallback(async (): Promise<{ address?: string; error?: string }> => {
+    const eth = (globalThis as any).window?.ethereum;
+    if (!eth) return { error: 'No wallet detected in this browser. Install one, or stake on practice instead. Nothing was sent.' };
+    try {
+      const { BrowserProvider } = await import('ethers');
+      const provider = new BrowserProvider(eth);
+      const signer = await provider.getSigner();
+      return { address: (await signer.getAddress()) };
+    } catch {
+      return { error: 'Could not read your wallet account. Unlock it and try again. Nothing was sent.' };
+    }
+  }, []);
 
   const handleStake = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setProgress('');
 
     if (!account) {
       setShowGate(true);
@@ -172,32 +192,78 @@ export default function StakePage() {
       return;
     }
 
-    let signature: string | undefined;
-    const tx = realMode ? txHash.trim() : '';
+    // The amount actually moved on-chain, matching the demo path's "100" → 100000000 coercion.
+    const amountRaw = usdc === 100 ? '100000000' : usdcToRaw(usdc);
+
+    // ---- REAL on-chain stake: the person's wallet builds, signs and SENDS it to the session address.
     if (realMode) {
-      if (!/^0x[0-9a-fA-F]{64}$/.test(tx)) {
-        setError('Paste the transaction hash of your on-chain USDC transfer (0x… , 64 hex characters).');
+      if (!session || !session.ok) {
+        // Belt-and-suspenders: the real UI is only shown when the session address was read, but
+        // never take the real branch without it. Fail closed.
+        setError(session && !session.ok ? session.reason : 'The agent’s session address is not available, so nothing is sent.');
         return;
       }
+      const destination = session.address;
+      const eth = (globalThis as any).window?.ethereum;
+      if (!eth) {
+        setError('No wallet detected in this browser. Install one, or stake on practice instead. Nothing was sent.');
+        return;
+      }
+
       setSubmitting(true);
-      // The signature must cover exactly what the server will credit, including
-      // the demo path's "100" → 100000000 coercion.
-      const amountRaw = usdc === 100 ? '100000000' : usdcToRaw(usdc);
-      const signed = await signRealDeposit(amountRaw, tx);
-      if (signed.error) {
-        setError(signed.error);
-        setSubmitting(false);
-        return;
+      try {
+        setProgress('Reading your wallet…');
+        const funder = await connectedWallet();
+        if (funder.error || !funder.address) {
+          setError(funder.error ?? 'Could not read your wallet. Nothing was sent.');
+          setSubmitting(false);
+          setProgress('');
+          return;
+        }
+
+        // 1) Build + send the real transfer to the session address. ensureBaseSepolia (chain gate)
+        //    runs inside. The wallet signs and sends; no server key, no key on disk.
+        setProgress('Confirm the transfer to your agent’s session address in your wallet…');
+        const sent = await sendStakeTransfer(eth, funder.address, destination, amountRaw);
+        if (sent.hash) setTxHash(sent.hash);
+        if (!sent.ok) {
+          setError(sent.pending && sent.hash
+            ? `${sent.reason} Transaction: ${sent.hash}. Nothing counts as staked until it confirms.`
+            : sent.reason);
+          setSubmitting(false);
+          setProgress('');
+          return;
+        }
+
+        // 2) Confirm the receipt actually moved the USDC into the session address BEFORE anything
+        //    reads as staked. NOT_CHECKED / FAILED is never "staked".
+        setProgress('Confirming the transfer on Base Sepolia…');
+        const conf = confirmStakeReceipt(sent.receipt, { destination, amountRaw });
+        if (conf.state !== 'VERIFIED') {
+          setError(`${conf.reason} Transaction: ${sent.hash}.`);
+          setSubmitting(false);
+          setProgress('');
+          return;
+        }
+
+        // Confirmed on-chain. The stake IS this confirmed transfer — not a DB write.
+        setSuccess(`Confirmed on-chain: staked ${usdc} test USDC to your agent’s session address ${destination}. Transaction ${sent.hash}.`);
+        fetchAuthority(selectedAgentId).then(setAuthority);
+        fetchStakePositions(selectedAgentId).then(setPositions);
+      } catch {
+        setError('Something interrupted the real stake. If your wallet sent the transfer, check it on Basescan — nothing reads as staked unless it confirmed.');
       }
-      signature = signed.signature;
+      setSubmitting(false);
+      setProgress('');
+      return;
     }
 
+    // ---- PRACTICE stake: no real funds move. The account's session is enough. --------------
     setSubmitting(true);
     try {
       const r = await depositStake({
         builder_address: account.builder_address,
         amount_usdc: usdc,
-        ...(realMode ? { tx_hash: tx, signature } : {}),
         authHeaders: accountHeader(),
       });
       if (!r.ok) {
@@ -206,11 +272,8 @@ export default function StakePage() {
         if (code === 'invalid_session' || code === 'no_credential') setShowGate(true);
       } else {
         setSuccess(
-          realMode
-            ? `Verified on-chain and staked ${usdc} USDC. Your authority ceiling is recalculating.`
-            : `Staked ${usdc} testnet USDC. It shows in the figure above, but only a real on-chain deposit raises what the agent may actually spend.`,
+          `Staked ${usdc} testnet USDC. It shows in the figure above, but only a real on-chain deposit raises what the agent may actually spend.`,
         );
-        setTxHash('');
         fetchAuthority(selectedAgentId).then(setAuthority);
         fetchStakePositions(selectedAgentId).then(setPositions);
       }
@@ -260,9 +323,9 @@ export default function StakePage() {
           . This is practice: it runs on the Base Sepolia test network and only after the agent is bound.
         </p>
         <p className="text-sm text-[#64748b] max-w-2xl leading-relaxed">
-          Part of the <span className="text-[#94a3b8]">Earn</span> stage. Testnet stake is a single
-          click once you&apos;re signed in; a real on-chain deposit asks for a wallet signature,
-          because that one credits real value.
+          Part of the <span className="text-[#94a3b8]">Earn</span> stage. A testnet stake is a single
+          click once you&apos;re signed in. A real stake is sent by your own wallet, on Base Sepolia,
+          to the agent&apos;s own session address, and only counts once it confirms on-chain.
         </p>
       </header>
 
@@ -287,7 +350,7 @@ export default function StakePage() {
               <p className="text-white font-medium">Verify your email to stake</p>
               <p className="text-sm text-[#94a3b8] mt-0.5">
                 One code. It creates the account the stake credits — no password, no wallet needed
-                for testnet.
+                for practice.
               </p>
             </div>
             <button
@@ -382,12 +445,29 @@ export default function StakePage() {
             {error && (
               <div className="p-3 bg-red-900/20 border border-red-900 text-red-400 rounded text-sm space-y-0.5">
                 <p className="font-semibold">Couldn&apos;t complete this stake</p>
-                <p className="text-red-400/90">{error}</p>
+                <p className="text-red-400/90 break-all">{error}</p>
               </div>
             )}
             {success && (
-              <div className="p-3 bg-green-900/20 border border-green-900 text-green-400 rounded text-sm">
-                {success}
+              <div className="p-3 bg-green-900/20 border border-green-900 text-green-400 rounded text-sm space-y-1">
+                <p className="break-all">{success}</p>
+                {txHash && (
+                  <p>
+                    <a
+                      href={basescanTx(txHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-300 underline underline-offset-2 break-all"
+                    >
+                      View transaction on Basescan
+                    </a>
+                  </p>
+                )}
+              </div>
+            )}
+            {submitting && progress && (
+              <div className="p-3 bg-[#0a0f1a] border border-[#334155] text-[#94a3b8] rounded text-sm">
+                {progress}
               </div>
             )}
             <form onSubmit={handleStake} className="space-y-4">
@@ -403,61 +483,69 @@ export default function StakePage() {
                 />
               </div>
 
-              {/* The higher rung, opt-in and clearly labelled */}
-              <div className="border-t border-[#1e293b] pt-4 space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={realMode}
-                    onChange={(e) => {
-                      setRealMode(e.target.checked);
-                      setError('');
-                    }}
-                    className="mt-1"
-                    disabled={!account}
-                  />
-                  <span className="text-sm">
-                    <span className="text-white font-medium">
-                      I already sent real USDC on-chain
-                    </span>
-                    <span className="block text-[#64748b] mt-0.5">
-                      Verified against Base Sepolia before it counts, and signed by the wallet that
-                      sent it. Leave this off for a testnet stake.
-                    </span>
-                  </span>
-                </label>
-
-                {realMode && isEmailDerived && (
-                  <div className="p-3 bg-amber-900/15 border border-amber-900/50 text-amber-300/90 rounded text-sm">
-                    This account&apos;s address was derived from your email, so it isn&apos;t a
-                    wallet and can&apos;t sign. Real deposits need an account whose address is a
-                    wallet you control — testnet staking above works either way.
-                  </div>
-                )}
-
-                {realMode && !isEmailDerived && <FaucetHelp />}
-
-                {realMode && !isEmailDerived && (
-                  <div>
-                    <label className="block text-sm text-[#94a3b8] mb-1">Transaction hash</label>
+              {/* The higher rung: a REAL on-chain send to the agent's session address, shown only
+                  once that address was read from the engine. Opt-in and clearly labelled. */}
+              {bound && sessionReady && session?.ok && (
+                <div className="border-t border-[#1e293b] pt-4 space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
                     <input
-                      type="text"
-                      placeholder="0x…"
-                      value={txHash}
-                      onChange={(e) => setTxHash(e.target.value)}
-                      className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white font-mono text-sm"
+                      type="checkbox"
+                      checked={realMode}
+                      onChange={(e) => {
+                        setRealMode(e.target.checked);
+                        setError('');
+                      }}
+                      className="mt-1"
+                      disabled={!account}
                     />
-                    <p className="text-xs text-[#475569] mt-1">
-                      Your wallet will ask you to sign a message naming this exact deposit. It moves
-                      no funds — that transfer already happened.
+                    <span className="text-sm">
+                      <span className="text-white font-medium">
+                        Send a real USDC stake on-chain
+                      </span>
+                      <span className="block text-[#64748b] mt-0.5">
+                        Your wallet builds, signs and sends a Base Sepolia test-USDC transfer to your
+                        agent&apos;s session address. It counts only once the transfer confirms
+                        on-chain. Leave this off for a practice stake.
+                      </span>
+                    </span>
+                  </label>
+
+                  {realMode && <FaucetHelp />}
+
+                  {realMode && (
+                    <p className="text-xs text-[#475569] break-all" data-testid="stake-session-destination">
+                      Destination (your agent&apos;s session address):{' '}
+                      <a
+                        href={`https://sepolia.basescan.org/address/${session.address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[#94a3b8] underline underline-offset-2"
+                      >
+                        {session.address}
+                      </a>
+                      . Your wallet will ask you to confirm this transfer; the receipt (transaction
+                      hash) is shown when it lands.
                     </p>
+                  )}
+                </div>
+              )}
+
+              {/* A bound agent whose session address could NOT be read — distinctly a blocker or a
+                  NOT_CHECKED, never collapsed into practice, and never an invented address. */}
+              {bound && session && !session.ok && (
+                <div
+                  data-testid="stake-real-unavailable"
+                  className="border-t border-[#1e293b] pt-4"
+                >
+                  <div className="p-3 bg-amber-900/15 border border-amber-900/50 text-amber-300/90 rounded text-sm">
+                    {session.reason} Practice staking below works meanwhile.
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <button
                 type="submit"
-                disabled={submitting || !bound || (realMode && isEmailDerived)}
+                disabled={submitting || !bound || (realMode && !sessionReady)}
                 className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold rounded"
               >
                 {submitting
@@ -467,7 +555,7 @@ export default function StakePage() {
                     : !account
                     ? 'Verify email to stake'
                     : realMode
-                      ? `Sign & stake ${amount || '0'} USDC`
+                      ? `Sign & send ${amount || '0'} real USDC`
                       : `Stake ${amount || '0'} testnet USDC`}
               </button>
             </form>
