@@ -156,7 +156,10 @@ export default function MissionPage() {
             share the same blind spots, so we never let a model grade its own family&apos;s homework.
             Verification runs across independent model families instead, and the design is meant to get
             <em> more</em> resilient under attack — red-teaming and slashing are how it hardens, not how it
-            breaks.
+            breaks.{' '}
+            <Link href="/how-verification" className="text-amber-500 hover:underline">
+              See how it works →
+            </Link>
           </li>
         </ul>
       </section>

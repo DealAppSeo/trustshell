@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { WhyArticle, whyMetadata } from '@/components/why-article';
 
 export const metadata = whyMetadata(
@@ -46,6 +47,17 @@ export default function HarnessPage() {
         regulators to catch up. A check you carry is yours today.
       </p>
       <p className="text-white">People, helping agents, to help people, help people.</p>
+      <p>
+        How the two-family check works, in depth:{' '}
+        <Link href="/how-verification" className="text-indigo-300 underline">
+          disjoint-family verification
+        </Link>
+        . The whole arc — earn trust, learn skills, unlock autonomy inside a signed ceiling — is on{' '}
+        <Link href="/trust-harness" className="text-indigo-300 underline">
+          the trust harness
+        </Link>
+        .
+      </p>
     </WhyArticle>
   );
 }
