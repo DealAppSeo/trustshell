@@ -9,6 +9,7 @@ import {
   BASESCAN_TX,
   parseUsdcInput,
   setCap,
+  zeroCapRefusal,
   type Eip1193,
   type SpendReply,
 } from '@/lib/agent-spend-client';
@@ -81,6 +82,13 @@ export default function SpendPage() {
     setReply(null);
     if (!ENGINE || !agent?.apiKey || !wallet.address) return;
     if (parseUsdcInput(amount) === null) return setError('Write the amount as a number of USDC, e.g. 1 or 0.25.');
+    // Limit-to-zero is enforced here, on the REAL spend, not only displayed: a cap of 0 (or one we
+    // could not read) stops the next spend in the client before any request leaves. A dry run is a
+    // deliberate server consult, so it is left to the engine, which refuses it too with its figures.
+    if (!dryRun) {
+      const refusal = zeroCapRefusal(status?.reads?.cap_usdc ?? null);
+      if (refusal) return setError(refusal);
+    }
     setBusy(dryRun ? 'check' : 'pay');
     setReply(await askSpend(ENGINE, { id: agent.id, apiKey: agent.apiKey }, { owner: wallet.address, to: to.trim(), amountUsdc: amount.trim(), dryRun }));
     setBusy('');
