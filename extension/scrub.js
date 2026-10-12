@@ -158,7 +158,8 @@
   const SECRET = /sb_secret_[^\s]+/g;
   const ADDRESS = /\b0x[0-9a-fA-F]{40}\b/g;
   const DB_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|rediss?|amqps?|mssql|sqlserver):\/\/[^\s]+/gi;
-  const PEM_PRIVATE_KEY = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g;
+  const PEM_BEGIN = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/g;
+  const PEM_END = /-----END [A-Z0-9 ]*PRIVATE KEY-----/g;
   const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/g;
   const EYJ = /\beyJ[A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*/g;
   const SK = /\bsk-[A-Za-z0-9_\-]+/g;
@@ -215,6 +216,24 @@
       for (const digit of value) rem = (rem * 10 + (digit.charCodeAt(0) - 48)) % 97;
     }
     return rem === 1;
+  }
+
+  // Remove every PEM private-key block, BEGIN to the nearest END, in one linear pass (see stripPemKeys in
+  // src/memory/redact.ts for why this is not one regex).
+  function stripPemKeys(text) {
+    let out = '';
+    let at = 0;
+    for (;;) {
+      PEM_BEGIN.lastIndex = at;
+      const begin = PEM_BEGIN.exec(text);
+      if (!begin) break;
+      PEM_END.lastIndex = begin.index + begin[0].length;
+      const end = PEM_END.exec(text);
+      if (!end) break;
+      out += text.slice(at, begin.index);
+      at = end.index + end[0].length;
+    }
+    return out + text.slice(at);
   }
 
   let bip39Set = null;
@@ -276,8 +295,7 @@
   }
 
   function redact(value) {
-    return stripMnemonics(String(value == null ? '' : value)
-      .replace(PEM_PRIVATE_KEY, '')
+    return stripMnemonics(stripPemKeys(String(value == null ? '' : value))
       .replace(SECRET, '')
       .replace(DB_URL, '')
       .replace(WEBHOOK_URL, '')

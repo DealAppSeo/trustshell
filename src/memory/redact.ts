@@ -19,8 +19,13 @@ const SECRET = /sb_secret_[^\s]+/g;
 const ADDRESS = /\b0x[0-9a-fA-F]{40}\b/g;
 /** Connection strings carry credentials: postgres, mysql, mongo, redis, amqp, sql server. */
 const DB_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|rediss?|amqps?|mssql|sqlserver):\/\/[^\s]+/gi;
-/** A whole PEM private-key block, any key type. */
-const PEM_PRIVATE_KEY = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g;
+/**
+ * A whole PEM private-key block, any key type. Matched by {@link stripPemKeys}, not by one regex: the
+ * single-regex form (BEGIN, a lazy `[\s\S]*?`, END) was QUADRATIC on a string of many BEGIN markers with no
+ * END (every marker re-scanned to the end; CodeQL js/polynomial-redos, and 879 ms at 216k characters).
+ */
+const PEM_BEGIN = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/g;
+const PEM_END = /-----END [A-Z0-9 ]*PRIVATE KEY-----/g;
 /** Authorization header tokens, including `Bearer <jwt>`. Process before the JWT rule so the whole header value is removed. Tokens are assumed to be at least 8 characters. */
 const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/g;
 /** A bare eyJ prefix and a dotted JWT. The prefix alone is enough to strip. */
@@ -125,6 +130,27 @@ function ibanValid(candidate: string): boolean {
   return rem === 1;
 }
 
+/**
+ * Remove every PEM private-key block: from a BEGIN marker to the nearest END marker after it. Linear:
+ * when no END exists after a BEGIN there is none after any later BEGIN either, so the scan stops instead
+ * of retrying each marker. The result is exactly what the one-regex form produced.
+ */
+function stripPemKeys(text: string): string {
+  let out = '';
+  let at = 0;
+  for (;;) {
+    PEM_BEGIN.lastIndex = at;
+    const begin = PEM_BEGIN.exec(text);
+    if (!begin) break;
+    PEM_END.lastIndex = begin.index + begin[0].length;
+    const end = PEM_END.exec(text);
+    if (!end) break;
+    out += text.slice(at, begin.index);
+    at = end.index + end[0].length;
+  }
+  return out + text.slice(at);
+}
+
 /** The 2048 BIP39 words, as a set. Built on first use. */
 let bip39Set: Set<string> | null = null;
 const bip39 = (): Set<string> => (bip39Set ??= new Set(BIP39_ENGLISH.split(' ')));
@@ -204,14 +230,14 @@ function isBareAwsSecret(candidate: string): boolean {
  */
 export function containsSecret(value: string): boolean {
   const s = String(value ?? '');
-  const shaped = [SECRET, DB_URL, PEM_PRIVATE_KEY, BEARER, EYJ, SK, STRIPE, AWS_KEY_ID, GOOGLE_API_KEY, GOOGLE_OAUTH, EXTENDED_KEY, WIF_KEY, SOLANA_BASE58, GHP, GITHUB_PAT, HF, WEBHOOK_URL, CREDENTIAL_ASSIGNMENT, HEX_64, PREFIXED_TOKENS]
+  const shaped = [SECRET, DB_URL, BEARER, EYJ, SK, STRIPE, AWS_KEY_ID, GOOGLE_API_KEY, GOOGLE_OAUTH, EXTENDED_KEY, WIF_KEY, SOLANA_BASE58, GHP, GITHUB_PAT, HF, WEBHOOK_URL, CREDENTIAL_ASSIGNMENT, HEX_64, PREFIXED_TOKENS]
     .some((re) => {
       re.lastIndex = 0;
       const hit = re.test(s);
       re.lastIndex = 0;
       return hit;
     });
-  if (shaped) return true;
+  if (shaped || stripPemKeys(s) !== s) return true;
   // Shapes that need a second look: a candidate is a secret only if it passes the check.
   return (
     (s.match(SOLANA_KEYPAIR) ?? []).some(isByteArray) ||
@@ -221,8 +247,7 @@ export function containsSecret(value: string): boolean {
 }
 
 export function redact(value: string): string {
-  return stripMnemonics(String(value ?? '')
-    .replace(PEM_PRIVATE_KEY, '')
+  return stripMnemonics(stripPemKeys(String(value ?? ''))
     .replace(SECRET, '')
     .replace(DB_URL, '')
     .replace(WEBHOOK_URL, '')
