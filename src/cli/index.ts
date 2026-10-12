@@ -241,8 +241,10 @@ OPTIONS
 EXIT CODES
   0  HAL PASS (or soft FLAG) — safe to proceed        · check: COMPLETE
   1  HAL VETO — the claim did not pass                · check: FAILED / INCONSISTENT
-  2  usage / bad arguments
+  2  usage / bad arguments                            · verify: HAL did not decide (NOT_CHECKED)
+                                                      · check "<sentence>": not-checked
   3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
+  4  ASK — only when TRUSTSHELL_LAYA is set; HAL was not called
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
@@ -344,9 +346,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
           error: `\`trustshell ${cmd}\` requires ${what}`,
         };
       }
-      // `check` with a non-URL operand is a sentence: join the words so an unquoted
-      // sentence is checked whole rather than as its first word.
-      const full = cmd === 'check' && !isUrlOperand(operand) ? rest.join(' ') : operand;
+      // `check` with a non-URL operand is a sentence, and `verify`/`evaluate` take free text: join the
+      // words so an unquoted sentence is checked whole rather than as its first word.
+      // (`trustshell verify The capital of France is Paris.` used to send only "The" to HAL.)
+      const isFreeText = cmd === 'verify' || cmd === 'evaluate' || (cmd === 'check' && !isUrlOperand(operand));
+      const full = isFreeText ? rest.join(' ') : operand;
       return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
     }
     case 'status':

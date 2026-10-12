@@ -95,7 +95,13 @@ export const HYPERDAG_REPID_READ_SIGNERS = [
  */
 export function clientsForHyperDagSummary(clients: readonly string[]): string[] {
   const allowed = new Set(HYPERDAG_REPID_READ_SIGNERS.map((a) => a.toLowerCase()));
-  return clients.filter((c) => allowed.has(c.toLowerCase()));
+  // Array.from, not clients.filter(): a contract read hands back an ethers Result, which is a
+  // FROZEN array, and Result.filter returns another frozen Result. ethers' Contract call path
+  // assigns resolved arguments back into the array it is given, so passing the frozen Result to
+  // getSummary threw "Cannot assign to read only property '0'" and took the whole board down
+  // (live GET /api/agent-leaderboard answered 503, MEASURED 2026-10-12). A plain array is
+  // writable and behaves identically for plain-array callers.
+  return Array.from(clients).filter((c) => allowed.has(c.toLowerCase()));
 }
 
 export async function fetchAgentRepID(

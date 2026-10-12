@@ -68,6 +68,16 @@ describe('parseArgs', () => {
     expect(a.error).toBeUndefined();
   });
 
+  it('joins an unquoted `verify`/`evaluate` sentence instead of sending only its first word', () => {
+    // A stranger who forgets the quotes used to verify the single word "The" (and get NOT_CHECKED).
+    const v = parseArgs(['verify', 'The', 'capital', 'of', 'France', 'is', 'Paris.']);
+    expect(v.command).toBe('verify');
+    expect(v.operand).toBe('The capital of France is Paris.');
+    expect(parseArgs(['evaluate', '2', '+', '2', '=', '5']).operand).toBe('2 + 2 = 5');
+    // Single-id commands keep taking exactly one operand.
+    expect(parseArgs(['repid', 'trinity-shofet', 'extra']).operand).toBe('trinity-shofet');
+  });
+
   it('routes `repid <id>` and `proof <id>`', () => {
     expect(parseArgs(['repid', 'sophia']).command).toBe('repid');
     expect(parseArgs(['proof', 'sophia']).operand).toBe('sophia');

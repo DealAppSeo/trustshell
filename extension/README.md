@@ -9,4 +9,6 @@ chatgpt.com
 claude.ai
 gemini.google.com
 grok.com
+deepseek.com
+chat.deepseek.com
 local sort, not a browser
