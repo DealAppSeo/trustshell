@@ -45,6 +45,7 @@ exports.verdictFromHal = verdictFromHal;
 exports.envelope = envelope;
 exports.agentPathSegment = agentPathSegment;
 exports.pathSegment = pathSegment;
+exports.parsePaymentAmount = parsePaymentAmount;
 exports.assertPaymentCap = assertPaymentCap;
 exports.capFromAllowance = capFromAllowance;
 exports.buildX402Payment = buildX402Payment;
@@ -989,6 +990,48 @@ function mapServiceRow(row) {
     };
 }
 /**
+ * The amount of a spend, validated the way the policy kernel validates it (repid-engine
+ * src/kernel/decide.ts parseAmountRaw) BEFORE it is compared to any cap. Accepts a canonical decimal integer
+ * string ("100000"), a safe-integer number, or a bigint; strictly positive; within uint256 (the token's
+ * `value`). Refuses with `amount_invalid` (400): a negative or zero amount, NaN, Infinity, a fraction, an
+ * empty or padded string, a sign, hex, an exponent, an object, an array, a boolean.
+ *
+ * Before this, `BigInt(amount)` was the whole check, and BigInt() is lenient on purpose: a negative amount
+ * is "not greater than the cap", "" is 0n and signed a zero-value authorization, and " 10", "0x10", `[5]`
+ * and `true` all parsed. A negative amount was stopped only by the signing library's own range check.
+ *
+ * The refusal never echoes the value: an amount field is where a secret gets pasted by mistake.
+ */
+function parsePaymentAmount(raw) {
+    const refuse = (why) => new TrustShellError(`amount_invalid: ${why}`, 400);
+    let value;
+    if (typeof raw === 'number') {
+        if (!Number.isSafeInteger(raw))
+            throw refuse('a number must be a finite whole number within the safe integers (pass a larger amount as a decimal string)');
+        value = BigInt(raw);
+    }
+    else if (typeof raw === 'bigint') {
+        value = raw;
+    }
+    else if (typeof raw === 'string') {
+        // 78 digits is uint256's whole range; a longer string is over it, so it is never parsed.
+        if (raw.length > 78)
+            throw refuse('the amount is above uint256');
+        if (!/^(?:0|[1-9][0-9]*)$/.test(raw)) {
+            throw refuse('a string amount must be a canonical decimal integer: digits only, no sign, padding, hex or exponent');
+        }
+        value = BigInt(raw);
+    }
+    else {
+        throw refuse('an amount is a whole number, a bigint or a decimal string');
+    }
+    if (value <= BigInt(0))
+        throw refuse('the amount must be greater than zero');
+    if (value > BigInt('0x' + 'f'.repeat(64)))
+        throw refuse('the amount is above uint256');
+    return value;
+}
+/**
  * Build a base64 X-PAYMENT header — a signed EIP-3009 `TransferWithAuthorization` — for the x402
  * escrow leg of `executeA2A`. Tree-shakeable standalone helper (imports `ethers` lazily so apps that
  * never pay don't pull it into their bundle at module-eval time).
@@ -999,7 +1042,7 @@ function mapServiceRow(row) {
  * Returns the base64 header string to pass as `A2AParams.xPaymentHeader`.
  */
 function assertPaymentCap(params) {
-    const amount = BigInt(params.amount);
+    const amount = parsePaymentAmount(params.amount);
     const cap = BigInt(params.cap);
     if (amount > cap) {
         throw new TrustShellError(`cap_exceeded: amount ${amount} > cap ${cap}`, 400);
@@ -1037,6 +1080,8 @@ function resolvePaymentCap(params) {
 }
 async function buildX402Payment(params) {
     (0, origin_1.assertOriginCanPay)(params.origin);
+    // The amount is validated BEFORE the allowance is read and before the cap is resolved or compared.
+    parsePaymentAmount(params.amount);
     const cap = resolvePaymentCap(params);
     assertPaymentCap({ amount: params.amount, cap });
     // Lazy import keeps ethers out of the module graph for consumers that never call this, and it is
@@ -1051,7 +1096,7 @@ async function buildX402Payment(params) {
     const wallet = new Wallet(params.privateKey);
     const from = wallet.address;
     const to = getAddress(params.to);
-    const value = BigInt(params.amount).toString();
+    const value = parsePaymentAmount(params.amount).toString();
     const now = Math.floor(Date.now() / 1000);
     const validAfter = 0;
     const validBefore = now + validForSeconds;

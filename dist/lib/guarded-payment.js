@@ -37,6 +37,9 @@ async function guardedX402Payment(params, opts = {}) {
         agentId: params.agentId,
     };
     return (0, audit_1.auditThenAct)(intent, params.policy, async () => {
+        // A spend whose amount cannot be signed gets no receipt either: validate it first (the attempt is
+        // already on the log, written above). buildX402Payment validates again; this only orders the refusal.
+        (0, trustshell_1.parsePaymentAmount)(params.amount);
         // Receipt BEFORE pay: a throw here (unbuildable/invalid/unpersisted receipt) refuses the sign.
         if (params.writeReceipt)
             await params.writeReceipt();

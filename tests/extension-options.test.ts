@@ -70,13 +70,16 @@ describe('settings: what the person chose, and what happens when nothing was cho
     expect(s.mode).toBe('auto');
   });
 
-  it('a site is off only when switched off; click only when chosen', () => {
+  it('a site is off only when switched off; auto only when exactly auto (or nothing stored)', () => {
     const s = settings.normalSettings({ sites: { claude: false, grok: 'no', gemini: 0 }, mode: 'CLICK' });
     expect(s.sites.claude).toBe(false);
     expect(s.sites.grok).toBe(true);
     expect(s.sites.gemini).toBe(true);
-    expect(s.mode).toBe('auto');
+    // This line used to assert 'auto' for a mode the code did not recognise, i.e. it pinned the fail-open
+    // (X-2b): "CLICK" is not an exact auto, so the reply is held for a click. See extension-mode-fail-closed.
+    expect(s.mode).toBe('click');
     expect(settings.normalSettings({ mode: 'click' }).mode).toBe('click');
+    expect(settings.normalSettings({ mode: 'auto' }).mode).toBe('auto');
   });
 
   it("the sites are exactly the manifest's chat hosts, and every one loads settings.js before classify.js", () => {

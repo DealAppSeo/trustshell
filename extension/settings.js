@@ -9,7 +9,8 @@
    *
    * - `settings`: which chat sites are checked, and whether a reply is checked automatically or
    *   only when the person clicks Check this reply. Missing means every site on, automatically:
-   *   what the extension did before the page existed.
+   *   what the extension did before the page existed. A mode this code does not recognise is not
+   *   "missing": it asks first (see normalMode).
    * - `record`: counts of each stamp, and the last RECENT_MAX stamps with the site and the time.
    *   Never the text. The site comes from the URL of the tab that painted the stamp, never from
    *   what that tab says about itself.
@@ -34,13 +35,27 @@
   const BY = ['arithmetic', 'votes', 'skipped', 'deadline'];
   const VOTER_ID = /^[a-z0-9-]{1,24}$/;
 
-  /** A site is off only when it was switched off. The mode is click only when it was chosen. */
+  /**
+   * How a reply is checked. Automatically only for an EXACT `auto`, or when nothing at all was stored
+   * (undefined: a fresh install, the product default, which is a separate decision and is not changed
+   * here). Anything else is ask-first: a wrong-case "Click", a stray word, a null, a missing key, or
+   * settings that are not an object. This used to read `mode === 'click' ? 'click' : 'auto'`, so every
+   * value the code did not recognise FELL THROUGH TO AUTO-SEND, and a person who had chosen "Only when I
+   * click" could be silently reverted by a migration or a typo.
+   */
+  function normalMode(raw) {
+    if (raw === undefined) return AUTO;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return CLICK;
+    return raw.mode === AUTO ? AUTO : CLICK;
+  }
+
+  /** A site is off only when it was switched off. The mode is auto only when it is exactly auto, or unset. */
   function normalSettings(raw) {
     const r = raw && typeof raw === 'object' ? raw : {};
     const stored = r.sites && typeof r.sites === 'object' ? r.sites : {};
     const sites = {};
     for (let i = 0; i < SITES.length; i++) sites[SITES[i].id] = stored[SITES[i].id] !== false;
-    return { sites, mode: r.mode === CLICK ? CLICK : AUTO };
+    return { sites, mode: normalMode(raw) };
   }
 
   function siteOf(hostname) {

@@ -1,6 +1,6 @@
 import { assertOriginCanPay, AgentTurnOrigin } from './origin';
 import { auditThenAct, SpendPolicy, AuditOpts } from './audit';
-import { buildX402Payment, BuildX402PaymentParams } from './trustshell';
+import { buildX402Payment, parsePaymentAmount, BuildX402PaymentParams } from './trustshell';
 
 /**
  * Params for the fail-closed spend entry point. Everything `buildX402Payment` needs, PLUS the two
@@ -59,6 +59,9 @@ export async function guardedX402Payment(params: GuardedPaymentParams, opts: Aud
     intent,
     params.policy,
     async () => {
+      // A spend whose amount cannot be signed gets no receipt either: validate it first (the attempt is
+      // already on the log, written above). buildX402Payment validates again; this only orders the refusal.
+      parsePaymentAmount(params.amount);
       // Receipt BEFORE pay: a throw here (unbuildable/invalid/unpersisted receipt) refuses the sign.
       if (params.writeReceipt) await params.writeReceipt();
       return buildX402Payment(params);

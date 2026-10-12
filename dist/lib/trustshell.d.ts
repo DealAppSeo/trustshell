@@ -756,6 +756,20 @@ export declare class TrustShell {
     pollUntilSettled(contractId: string, opts?: PollOptions): Promise<Awaited<ReturnType<TrustShell['getContractStatus']>>>;
 }
 /**
+ * The amount of a spend, validated the way the policy kernel validates it (repid-engine
+ * src/kernel/decide.ts parseAmountRaw) BEFORE it is compared to any cap. Accepts a canonical decimal integer
+ * string ("100000"), a safe-integer number, or a bigint; strictly positive; within uint256 (the token's
+ * `value`). Refuses with `amount_invalid` (400): a negative or zero amount, NaN, Infinity, a fraction, an
+ * empty or padded string, a sign, hex, an exponent, an object, an array, a boolean.
+ *
+ * Before this, `BigInt(amount)` was the whole check, and BigInt() is lenient on purpose: a negative amount
+ * is "not greater than the cap", "" is 0n and signed a zero-value authorization, and " 10", "0x10", `[5]`
+ * and `true` all parsed. A negative amount was stopped only by the signing library's own range check.
+ *
+ * The refusal never echoes the value: an amount field is where a secret gets pasted by mistake.
+ */
+export declare function parsePaymentAmount(raw: unknown): bigint;
+/**
  * Build a base64 X-PAYMENT header — a signed EIP-3009 `TransferWithAuthorization` — for the x402
  * escrow leg of `executeA2A`. Tree-shakeable standalone helper (imports `ethers` lazily so apps that
  * never pay don't pull it into their bundle at module-eval time).

@@ -649,6 +649,53 @@ try {
       replyOverride = null;
       await page.close();
     }
+
+    // X-2b: a mode the code does not recognise is ask-first, never auto-send. Each stored value below
+    // used to fall through to automatic sending (mode === 'click' ? click : auto), so a person who had
+    // chosen "Only when I click" was reverted by a wrong-case spelling or a migration, with no click.
+    for (const [why, value] of [
+      ['a wrong-case "Click"', { sites: ALL_ON, mode: 'Click' }],
+      ['a stray mode word', { sites: ALL_ON, mode: 'manual' }],
+      ['a null mode', { sites: ALL_ON, mode: null }],
+      ['a mode key that was dropped', { sites: ALL_ON }],
+      ['settings that are not an object', 'auto'],
+    ]) {
+      await setSettings(value);
+      const before = classifyCalls.length;
+      const page = await context.newPage();
+      try {
+        await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+        const offered = await poll(() => page.evaluate(() => {
+          const s = document.getElementById('trustshell-stamp');
+          return s && s.textContent === 'Check this reply' ? s.getAttribute('role') : null;
+        }), 8000);
+        await new Promise((r) => setTimeout(r, 1500));
+        check(`chatgpt: ${why} is ask-first, offers Check this reply and sends nothing`,
+          offered === 'button' && classifyCalls.length === before, `role=${offered} classify calls=${classifyCalls.length - before}`);
+      } catch (err) {
+        record(`chatgpt: ${why} is ask-first, offers Check this reply and sends nothing`, 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+      }
+      await page.close();
+    }
+    // Control, so the block above cannot pass by the extension simply being broken: with NOTHING stored the
+    // reply is still checked automatically. That default (X-2a) is Sean's call and this change leaves it alone.
+    await setSettings(null);
+    {
+      const before = classifyCalls.length;
+      const page = await context.newPage();
+      try {
+        await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+        const stamp = await poll(() => page.evaluate(() => {
+          const s = document.getElementById('trustshell-stamp');
+          return s && s.dataset.stamp === 'veto' ? s.textContent : null;
+        }), 10000);
+        check('control: with nothing stored the reply is still checked automatically (X-2a is unchanged)',
+          stamp === CAUGHT && classifyCalls.length === before + 1, `${JSON.stringify(stamp)} classify calls=${classifyCalls.length - before}`);
+      } catch (err) {
+        record('control: with nothing stored the reply is still checked automatically (X-2a is unchanged)', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+      }
+      await page.close();
+    }
     await setSettings(null);
   } else {
     record('Your TrustShell: Options page, site switch, click mode', 'NOT_CHECKED', 'no service worker');
