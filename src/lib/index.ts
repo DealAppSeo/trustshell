@@ -103,3 +103,9 @@ export type {
   WrapExecuteRecord,
   WrapExecuteResult,
 } from './wrap-execute';
+
+/**
+ * Policy kernel client: ask the owner's signed policy BEFORE acting. Anything but a clean, request-bound
+ * ALLOW is a refusal. See kernel-client.ts.
+ */
+export * from './kernel-client';
