@@ -152,3 +152,14 @@ describe('the help says how to pass a dash-led claim', () => {
     expect(out.join('\n')).toMatch(/\n {2}-- {2,}End of options/);
   });
 });
+
+describe('the COMMITTED dist/cli carries the fix (npm pack ships dist/ as committed)', () => {
+  // Behavioural, not a text match: load the built CLI and parse.
+  it('dist/cli/index.js parses a dash-led claim as text and still refuses a typo', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const built = require('../dist/cli/index.js') as { parseArgs: typeof parseArgs };
+    expect(built.parseArgs(['check', CLAIM]).operand).toBe(CLAIM);
+    expect(built.parseArgs(['check', '--', CLAIM]).operand).toBe(CLAIM);
+    expect(built.parseArgs(['check', '--jsno', 'x']).error).toMatch(/unknown option/);
+  });
+});

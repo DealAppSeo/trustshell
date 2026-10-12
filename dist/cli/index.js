@@ -183,6 +183,8 @@ COMMANDS
       [--evidence <path>]    Saved output of \`trustshell check --json\`.
 
 OPTIONS
+  --                         End of options. What follows is text, even if it starts with a dash:
+                             trustshell check -- "-5 is less than 3."
   --json                     Emit machine-readable JSON instead of human text.
   -h, --help                 Show this help.
   -v, --version              Show the version.
@@ -214,6 +216,15 @@ CI GATE EXAMPLE
   trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || exit 1
 `;
 /**
+ * Is this argument shaped like an option (`-x`, `--long-name`, `--name=value`)? A claim that merely STARTS
+ * with a dash, like `-5 is less than 3.` or `-1 is negative`, is text, not an option: it has a space, or a
+ * digit right after the dash, which no flag of ours has. Anything option-shaped that we do not know stays a
+ * usage error, so a typo such as `--jsno` still fails loudly instead of being sent as a claim.
+ */
+function looksLikeOption(a) {
+    return /^--?[A-Za-z][A-Za-z0-9-]*(=\S*)?$/.test(a);
+}
+/**
  * Parse CLI arguments into a {@link ParsedArgs}. PURE — no I/O, no network — so the
  * command routing + option handling can be unit-tested directly.
  *
@@ -226,9 +237,16 @@ function parseArgs(argv) {
     // value-taking flag has to be able to look ahead.
     const values = {};
     const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers']);
+    // After a bare `--` every argument is text, even one that starts with a dash: that is the standard way
+    // to say "no more options", and the only way to pass a claim like `-5 is less than 3.` unambiguously.
+    let optionsEnded = false;
     for (let i = 0; i < argv.length; i += 1) {
         const a = argv[i];
-        if (a === '--json')
+        if (optionsEnded)
+            positionals.push(a);
+        else if (a === '--')
+            optionsEnded = true;
+        else if (a === '--json')
             flags.add('json');
         else if (a === '--verify')
             flags.add('verify');
@@ -256,7 +274,7 @@ function parseArgs(argv) {
             values[a.slice(2)] = v;
             i += 1;
         }
-        else if (a.startsWith('-')) {
+        else if (looksLikeOption(a)) {
             return {
                 command: 'help',
                 json: false,
