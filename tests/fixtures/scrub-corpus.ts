@@ -6,6 +6,8 @@
  * Every value is fake, and credential-shaped values are assembled at runtime from pieces so the
  * file itself never contains a string a secret scanner would flag.
  */
+import { MISSED, KEEP_MORE } from './scrub-shapes';
+
 const x = (n: number, ch = 'x') => ch.repeat(n);
 
 /** Each entry: a sentence with one sensitive value, and that value (which must not survive). */
@@ -39,7 +41,9 @@ export const SENSITIVE: ReadonlyArray<{ kind: string; text: string; secret: stri
     row.kind === 'aws secret (labelled)'
       ? `Our config has aws_secret_access_key=${row.secret} in it.`
       : `The value ${row.secret} came from the reply.`,
-}));
+}))
+  // The shapes XC1's red team found going out verbatim (2026-10-12). See tests/fixtures/scrub-shapes.ts.
+  .concat(MISSED.map((r) => ({ ...r })));
 
 /** Sentences that must come out EXACTLY as they went in: a claim is useless if the scrubber eats it. */
 export const KEEP: ReadonlyArray<string> = [
@@ -57,4 +61,5 @@ export const KEEP: ReadonlyArray<string> = [
   'The password: is required on the form.',
   'Call 911 in an emergency.',
   'The order number is 1234567890123.',
+  ...KEEP_MORE,
 ];

@@ -14,7 +14,7 @@
  * `mode`:
  *   'format'   — a known shape today's regexes catch. Expected false-keep: 0 (ratcheted).
  *   'prose'    — a real credential described in words / an odd form the shape rules miss.
- *   'mnemonic' — a BIP39 seed phrase. There is NO mnemonic detector today, so these leak.
+ *   'mnemonic' — a BIP39 seed phrase. Leaked until 2026-10-12; now removed (a run of 12+ BIP39 words).
  *   'safe'     — an ordinary claim.
  *   'decoy'    — secret-SHAPED but safe (public key, order number, emergency number).
  *
@@ -45,7 +45,7 @@ export const GATE_EVAL: ReadonlyArray<GateRow> = [
   { kind: 'hex key spaced to dodge the 64-hex rule', mode: 'prose', hold: true, text: `private key ${x(8, 'a')} ${x(8, 'b')} ${x(8, 'c')} ${x(8, 'd')} ${x(8, 'e')} ${x(8, 'f')} ${x(8, '0')} ${x(8, '1')}` },
   { kind: 'secret described, no value', mode: 'prose', hold: true, text: 'the root login and its password are on the sticky note by my monitor' },
 
-  // --- BIP39 seed phrases: NO detector today → these leak (the wallet-onboarding risk) ---
+  // --- BIP39 seed phrases: leaked until 2026-10-12; the mnemonic rule (12+ consecutive BIP39 words) now removes them ---
   { kind: 'seed phrase (12 words, alphabetical — fake)', mode: 'mnemonic', hold: true, text: 'my recovery phrase is abandon ability able about above absent absorb abstract absurd abuse access accident' },
   { kind: 'seed phrase (12 words, shuffled — fake)', mode: 'mnemonic', hold: true, text: 'wallet backup: ribbon lemon kingdom jealous insect harvest gadget forest evolve divert crouch bacon' },
 
