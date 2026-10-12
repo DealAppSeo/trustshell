@@ -977,8 +977,17 @@ export class TrustShell {
    * as `NOT_MINTED`.
    */
   async getIdentity(agentId: string): Promise<AgentIdentity> {
+    // The id passes the same gate as every other id that goes into a request path. encodeURIComponent alone is
+    // not enough: an encoded `..` still collapses as a dot segment and would choose another endpoint, with this
+    // client's headers attached. A bad id is NOT_CHECKED and makes no request (this method never throws).
+    let segment: string;
     try {
-      const res = await fetch(`${this.baseUrl}/api/v1/passport/${encodeURIComponent(agentId)}`, {
+      segment = agentPathSegment(agentId);
+    } catch {
+      return notCheckedIdentity('not a plain agent id, so no passport was looked up');
+    }
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v1/passport/${segment}`, {
         headers: this.getHeaders(),
         signal: AbortSignal.timeout(8000),
       });

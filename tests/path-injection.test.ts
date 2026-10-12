@@ -71,10 +71,25 @@ describe('the SDK never lets an id choose the endpoint', () => {
   it.each(['trinity-sophia', 'f3ef0bf8-5cdc-4fad-bce8-5144f01dc271', '3747', 'agent_01', 'a.b-c:d', 'A'])('a plain id %j still works, and stays one path segment', async (id) => {
     const r = await client().getRepID(id);
     expect(r.repid).toBe(200);
+    // getRepID reads the score, the proof beside it, and (since #518) the public passport: every request is
+    // one of those three, with the id as ONE path segment.
     for (const c of calls) {
       const p = UNDER_API(c.url);
-      expect(p === `/api/v1/repid/${encodeURIComponent(id)}` || p === `/api/v1/repid/${encodeURIComponent(id)}/proof`).toBe(true);
+      expect([`/api/v1/repid/${encodeURIComponent(id)}`, `/api/v1/repid/${encodeURIComponent(id)}/proof`, `/api/v1/passport/${encodeURIComponent(id)}`]).toContain(p);
     }
+  });
+
+  // getIdentity (#518) is public and reads /api/v1/passport/<id> with the caller's headers; an encoded '..' still
+  // collapses as a dot segment, so it needs the same gate. It never throws: a bad id is NOT_CHECKED, and no request is made.
+  it.each(HOSTILE)('getIdentity(%j) is NOT_CHECKED and makes no request', async (id) => {
+    const r = await client().getIdentity(id);
+    expect(r.registeredOnchain).toBe('NOT_CHECKED');
+    expect(calls).toEqual([]);
+  });
+
+  it('getIdentity with a plain id still reads the passport, as one path segment', async () => {
+    await client().getIdentity('trinity-sophia');
+    expect(calls.map((c) => UNDER_API(c.url))).toEqual(['/api/v1/passport/trinity-sophia']);
   });
 
   it('an unknown leaderboard name cannot choose the endpoint either', async () => {
@@ -125,6 +140,8 @@ describe('the COMMITTED dist carries the gate (npm pack ships dist/ as committed
     const c = new built.TrustShell({ apiUrl: ENGINE, apiKey: KEY });
     await expect(c.getRepID('../agents/x/export')).rejects.toThrow(/not an agent id/);
     await expect(c.getRepID('..')).rejects.toThrow(/not an agent id/);
+    expect((await c.getIdentity('..')).registeredOnchain).toBe('NOT_CHECKED');
+    expect((await c.getIdentity('../agents/x/export')).registeredOnchain).toBe('NOT_CHECKED');
     expect(calls).toEqual([]);
   });
 
@@ -136,6 +153,6 @@ describe('the COMMITTED dist carries the gate (npm pack ships dist/ as committed
     // getRepID also reads the proof beside the score: every request stays under this one agent's path.
     const paths = calls.map((x) => new URL(x.url).pathname);
     expect(paths.length).toBeGreaterThan(0);
-    for (const p of paths) expect(p.startsWith('/api/v1/repid/trinity-sophia')).toBe(true);
+    for (const p of paths) expect(p === '/api/v1/passport/trinity-sophia' || p.startsWith('/api/v1/repid/trinity-sophia')).toBe(true);
   });
 });
