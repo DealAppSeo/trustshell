@@ -48,8 +48,14 @@ export function VisionHero() {
           does not pass.
         </p>
         <p className="pt-2">
+          {/* prefetch={false}: this CTA sits at the top of the home page, so Next's default
+              viewport prefetch fires a /vision RSC request on load. The home page must send
+              NOTHING on load (crawlers and page loads must not look like activity, and
+              tests/e2e/check-walk pins "loading the page sends no request"). The link still
+              prefetches on hover/focus, so the click stays instant. */}
           <Link
             href="/vision"
+            prefetch={false}
             className="inline-flex items-center gap-1 text-sm font-semibold text-accent underline-offset-4 hover:underline"
           >
             Read the whole vision
