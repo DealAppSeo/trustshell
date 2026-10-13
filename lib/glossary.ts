@@ -98,8 +98,8 @@ export const TERMS: Term[] = [
     definition:
       'What TrustShell is. A harness wraps an agent you already have rather than replacing it: the same agent keeps its reputation, its constitution and its memory of what it has done, whichever model answers the next prompt.',
     note:
-      'Portable is the operative word. Your agent\'s earned standing is not held inside one vendor\'s account, so switching models does not reset it to zero.',
-    related: ['repid', 'vault', 'no-vendor-lock-in'],
+      'Portable is the operative word. Four things travel with the agent rather than with the vendor: its memory of what it has done, its working context, the permissions it has been granted, and its constitution — the ability to refuse. Switching models does not reset any of them to zero.',
+    related: ['repid', 'vault', 'no-vendor-lock-in', 'constitution', 'quarantine'],
   },
   {
     slug: 'no-vendor-lock-in',
@@ -317,6 +317,28 @@ export const TERMS: Term[] = [
       'Stopping one actor from manufacturing many identities to vote up its own reputation. The open research problem underneath all portable reputation.',
     note: 'Named honestly as unsolved. We would rather recruit help on it than imply it is handled.',
     related: ['repid'],
+  },
+  {
+    slug: 'quarantine',
+    term: 'Quarantine',
+    group: 'verify',
+    status: 'concept',
+    definition:
+      'Anything an agent picks up from outside — a web page, a tool result, another agent\'s message — is held apart and does not enter the agent\'s trusted core until a check promotes it. Untrusted input can be read and reasoned about; it cannot silently become a fact the agent acts on.',
+    note:
+      'A missed prompt-injection, or a falsified fact admitted to the core as true, is a LARGE loss — it costs more than several confirmed rights earn, because one poisoned fact can steer every decision made after it. The asymmetry is deliberate: better to quarantine a true thing by mistake than to admit a false one.',
+    related: ['constitution', 'measured', 'repid'],
+  },
+  {
+    slug: 'live-vs-direction',
+    term: 'Live vs direction',
+    group: 'verify',
+    status: 'concept',
+    definition:
+      'The labelling discipline that keeps what is running NOW separate from where the design is HEADED. A live claim points at something you can observe today; a direction claim describes an intention that is not yet a feature.',
+    note:
+      'It is why every term here carries a status, and why "not live yet" is written plainly on the things that are only designed. Letting a roadmap read as a shipped feature is overclaiming — the same failure the four verification states guard against, one level up.',
+    related: ['measured', 'not-checked', 'failed'],
   },
 
   // ── Privacy and proofs ──────────────────────────────────────────────────────
