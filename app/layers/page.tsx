@@ -232,6 +232,9 @@ export default function LayersPage() {
           <Link href="/trust-harness" className="text-accent hover:underline">
             The trust harness, end to end
           </Link>
+          <Link href="/vision" className="text-accent hover:underline">
+            The vision behind all three
+          </Link>
         </div>
       </section>
     </main>
