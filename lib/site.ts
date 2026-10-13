@@ -46,6 +46,11 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   // reachable only by typing the URL until 2026-10-05.
   { path: '/check', priority: 0.9 },
   { path: '/mission', priority: 0.9 },
+  // The vision/story page: the mission line in full plus every surface marked shipped or
+  // direction. A story page reached from the home vision band, the footer and related pages,
+  // not the nav (the nav count is locked by tests/nav-fit.test.ts). The sitemap is how an AI
+  // search engine finds it.
+  { path: '/vision', priority: 0.8 },
   { path: '/earned-trust', priority: 0.9 },
   { path: '/docs', priority: 0.9 },
   { path: '/docs/getting-started', priority: 0.8 },

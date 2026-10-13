@@ -299,6 +299,7 @@ export default function HowVerificationPage() {
           <Link href="/mission" className="text-accent hover:underline">Why this is built this way</Link>
           <Link href="/why/harness" className="text-accent hover:underline">A check you can carry</Link>
           <Link href="/repid" className="text-accent hover:underline">How RepID is governed</Link>
+          <Link href="/vision" className="text-accent hover:underline">The vision</Link>
         </div>
       </section>
     </main>

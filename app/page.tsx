@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { VisionHero } from '@/components/vision-hero';
 import { Hero } from '@/components/hero';
 import { HomeAgent } from '@/components/home-agent';
 import { HomeCost } from '@/components/home-cost';
@@ -30,6 +31,7 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main className="min-h-screen bg-background">
+      <VisionHero />
       <Hero />
       <HomeQuestions />
       <HomeCost />
