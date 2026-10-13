@@ -123,7 +123,8 @@ const SURFACES: ReadonlyArray<Surface> = [
     state: 'direction',
     one: 'A door, not a trial.',
     body:
-      'A future door, and an expression of interest only. It is not a live or active medical trial, not a study, and not a clinical offering, and nothing here should be read as one. If this door ever opens, it opens the way everything else does — behind the same checks and the same honest labels.',
+      'A consent-first door: a person opts in and shares a proof instead of a record — an attestation that something is true, not the medical record behind it — so only the fields a study needs ever cross. It is not a live or active medical trial, not a study, and not a clinical offering, and nothing here should be read as one. If this door ever opens, it opens the way everything else does — behind the same checks and the same honest labels.',
+    link: { href: '/trust-medical', label: 'Open the door' },
   },
 ];
 
