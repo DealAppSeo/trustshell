@@ -26,6 +26,7 @@
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { type AgentIdentity } from '../lib/identity';
+import { type KernelReceiptRead } from '../lib/kernel-client';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export declare const EXIT: {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -45,7 +46,7 @@ export declare const EXIT: {
     /** Laya ask. A person has to answer. HAL was not called. */
     readonly ASK: 4;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'bind-status' | 'traps' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'bind-status' | 'traps' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -143,6 +144,8 @@ export declare function formatVerify(r: VerifyOutputResult, opts?: {
 export declare function formatRepid(agentId: string, repid: number, tier: string, identity?: AgentIdentity): string;
 /** Format a proof presentation for human terminal output. */
 export declare function formatProof(p: ProofPresentation): string;
+/** `trustshell receipt`: the hash check, then the six claims one by one. Deliberately no rollup line. */
+export declare function formatKernelReceipt(r: KernelReceiptRead): string;
 /** Build the SDK client from env (apiKey + apiUrl are both optional). */
 export declare function makeClient(): TrustShell;
 /** IO surface, injectable so run() is testable without touching the real process. */

@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.KernelRefusedError = exports.KERNEL_RECEIPT_SCHEMA = void 0;
+exports.SIX_CLAIMS_PREDICATE_TYPE = exports.SIX_CLAIM_KEYS = exports.KernelRefusedError = exports.KERNEL_RECEIPT_SCHEMA = void 0;
 exports.kernelCanonicalJson = kernelCanonicalJson;
 exports.hashKernelArgs = hashKernelArgs;
 exports.kernelReceiptHash = kernelReceiptHash;
 exports.kernelDecide = kernelDecide;
 exports.requireKernelAllow = requireKernelAllow;
+exports.kernelReceipt = kernelReceipt;
 /**
  * kernel-client — ask the policy kernel BEFORE you act, and treat anything but a clean ALLOW as no.
  *
@@ -251,4 +252,101 @@ async function requireKernelAllow(input, opts = {}) {
     if (!out.allowed)
         throw new KernelRefusedError(out);
     return out;
+}
+// ── reading a receipt back (GET /api/v1/kernel/receipt/:id) ──────────────────────────────────────
+/** The six-claim envelope's claim keys, in canonical order. Mirrored by lib/six-claims.ts (a test pins the two). */
+exports.SIX_CLAIM_KEYS = ['integrity', 'authenticity', 'observation', 'correctness', 'authorization', 'containment'];
+exports.SIX_CLAIMS_PREDICATE_TYPE = 'https://hyperdag.dev/predicates/trust-receipt-six-claims/v1';
+const RECEIPT_ID = /^[0-9a-zA-Z-]{8,64}$/; // the engine's CALL_ID
+const CLAIM_STATUSES = new Set(['VERIFIED', 'NOT_CHECKED', 'FAILED', 'NOT_APPLICABLE']);
+const isStrArr = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
+/** Null when the envelope is well-formed and names exactly this receipt, else why it is not shown. */
+function sixClaimsFault(env, receipt) {
+    if (env === undefined || env === null)
+        return 'the engine sent no six-claim envelope for this receipt';
+    if (!isObj(env) || env['_type'] !== 'https://in-toto.io/Statement/v1' || env['predicateType'] !== exports.SIX_CLAIMS_PREDICATE_TYPE)
+        return 'the six-claim envelope is not the expected in-toto statement';
+    const subject = Array.isArray(env['subject']) ? env['subject'][0] : undefined;
+    const digest = isObj(subject) && isObj(subject['digest']) ? subject['digest']['keccak256'] : undefined;
+    if (!isObj(subject) || subject['name'] !== `kernel-receipt:${receipt.header.receipt_id}`)
+        return 'the six-claim envelope names a different receipt';
+    if (typeof digest !== 'string' || digest.toLowerCase() !== receipt.header.receipt_hash.replace(/^0x/, '').toLowerCase())
+        return 'the six-claim envelope is over a different hash';
+    const pred = env['predicate'];
+    if (!isObj(pred) || !isObj(pred['claims']) || !isStrArr(pred['what_this_does_not_establish']))
+        return 'the six-claim envelope has no claims';
+    const claims = pred['claims'];
+    for (const k of exports.SIX_CLAIM_KEYS) {
+        const c = claims[k];
+        if (!isObj(c) || !CLAIM_STATUSES.has(String(c['status'])) || typeof c['statement'] !== 'string' || !isStrArr(c['supports']) || !isStrArr(c['gaps']))
+            return `the six-claim envelope's ${k} claim is malformed`;
+    }
+    return null;
+}
+/**
+ * Read a kernel receipt back and check it. NEVER THROWS. `ok: true` only when the engine answered 200
+ * with a kernel-receipt/1 for exactly this id whose hash, recomputed here, matches. The six claims ride
+ * along only when they name that receipt; otherwise `six_claims` is null and `six_claims_note` says why.
+ * Needs an API key: the route is authenticated, and an agent-bound key reads only its own agent's receipts.
+ */
+async function kernelReceipt(receiptId, opts = {}) {
+    const fail = (reason, detail, status = null) => ({ ok: false, reason, detail, http_status: status });
+    try {
+        if (typeof receiptId !== 'string' || !RECEIPT_ID.test(receiptId))
+            return fail('bad_receipt_id', 'a receipt id is 8-64 letters, digits or dashes');
+        const doFetch = opts.fetch ?? (typeof fetch === 'function' ? fetch : undefined);
+        if (!doFetch)
+            return fail('no_fetch', 'there is no fetch to read the receipt with');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+        let res;
+        try {
+            res = await doFetch(`${apiUrlOf(opts)}/api/v1/kernel/receipt/${encodeURIComponent(receiptId)}`, {
+                method: 'GET',
+                headers: { accept: 'application/json', ...(opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {}) },
+                signal: controller.signal,
+                redirect: 'error',
+            });
+        }
+        catch (e) {
+            const aborted = e?.name === 'AbortError' || controller.signal.aborted;
+            return fail(aborted ? 'timeout' : 'network_error', aborted ? 'the engine did not answer in time' : 'the engine could not be reached');
+        }
+        finally {
+            clearTimeout(timer);
+        }
+        if (res.status !== 200) {
+            const why = { 401: 'an API key is required (REPID_API_KEY)', 403: 'this API key is bound to a different agent', 404: 'the engine has no receipt with this id', 429: 'rate limited' };
+            return fail(`http_${res.status}`, why[res.status] ?? `the engine answered ${res.status}, not 200`, res.status);
+        }
+        let j;
+        try {
+            j = await res.json();
+        }
+        catch {
+            return fail('unreadable_response', 'the engine answered 200 with a body that is not JSON', 200);
+        }
+        const r = isObj(j) ? j['receipt'] : undefined;
+        if (!isObj(r) || !isObj(r['header']) || !isObj(r['decision']))
+            return fail('unreadable_response', 'the answer carries no receipt', 200);
+        const receipt = r;
+        if (receipt.header.schema !== exports.KERNEL_RECEIPT_SCHEMA)
+            return fail('unreadable_response', 'the receipt is not kernel-receipt/1', 200);
+        if (receipt.header.receipt_id !== receiptId)
+            return fail('wrong_receipt', 'the engine returned a different receipt than the one asked for', 200);
+        if (typeof receipt.header.receipt_hash !== 'string' || !HEX32.test(receipt.header.receipt_hash))
+            return fail('unreadable_response', 'the receipt has no hash', 200);
+        if ((await kernelReceiptHash(receipt)) !== receipt.header.receipt_hash) {
+            return fail('receipt_hash_mismatch', 'the receipt does not match its own hash; treat it as tampered', 200);
+        }
+        const env = j['six_claims'];
+        const note = sixClaimsFault(env, receipt);
+        return { ok: true, receipt_id: receiptId, receipt, six_claims: note ? null : env, six_claims_note: note };
+    }
+    catch (e) {
+        if (e instanceof optional_ethers_1.MissingDependencyError)
+            return fail('ethers_missing', e.message);
+        const name = e?.name ?? 'Error';
+        return fail('client_error', `reading the receipt failed (${name})`);
+    }
 }
