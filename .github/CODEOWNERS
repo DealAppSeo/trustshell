@@ -1,0 +1,20 @@
+# CODEOWNERS — Mission 1 test #6 hole-closer (a): the agent must not edit the tests that grade it.
+#
+# These paths are the ones that GRADE the work and the CI that enforces them. Owning them to the
+# repo owner means "tests passed" cannot be self-graded, and the gate cannot be quietly weakened,
+# once branch protection REQUIRES Code Owner review for them.
+#
+# THIS FILE IS ONLY HALF THE CONTROL. CODEOWNERS on its own merely REQUESTS these reviewers; it does
+# not block a merge. The other half is a repo-owner switch (NOT an agent's, NOT in this PR):
+#   Settings -> Branches -> branch protection rule on `main`:
+#     - Require a pull request before merging
+#     - Require review from Code Owners
+#     - (recommended) Do not allow bypassing the above settings
+# With that on, a change to /tests/ or /.github/ cannot merge without the owner's review — so an
+# agent's PR cannot alter its own grader. See the PR body for the exact setting.
+
+# The grading tests — unit suites and the e2e honesty suites.
+/tests/                 @DealAppSeo
+
+# The CI that runs and gates them, the no-secrets guard, and this file itself.
+/.github/               @DealAppSeo

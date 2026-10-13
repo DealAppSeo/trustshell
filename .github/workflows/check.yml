@@ -38,6 +38,12 @@ on:
     branches: [main]
   pull_request:
 
+# Least-privilege token for the PR gate. A `pull_request` build runs code from the PR, so it is
+# given a READ-ONLY token and no secrets — Mission 1 #6: a PR must not run with credentials it
+# could exfiltrate. tests/ci-no-secrets-in-pr.test.ts fails the build if this is ever widened.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
