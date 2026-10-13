@@ -33,9 +33,13 @@ function words(html: string): string {
     .replace(/<[^>]+>/g, '\n')
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    // &amp; is decoded LAST, after every other entity. Decoding it first would
+    // double-unescape — e.g. the literal text `&amp;lt;` would collapse to `<`
+    // instead of staying `&lt;` (CodeQL js/double-escaping). The ampersand is the
+    // escape of the escape char, so it unescapes last.
+    .replace(/&amp;/g, '&')
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
