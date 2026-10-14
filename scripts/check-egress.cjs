@@ -76,6 +76,9 @@ const NONE_RUNS = {
     stdout: 'VERIFIED  exact_match',
     exit: 0,
   },
+  // quarantine list reads the local memory file. An empty temp file holds nothing.
+  // (`quarantine release --check hal` is a separate row: it dials the classify endpoint.)
+  quarantine: { args: ['quarantine', 'list'], env: {}, stdout: 'quarantined COUNT 0', exit: 0 },
 };
 
 /** The sentence form of `check`: it must reach the backend's classify path and nothing else. */

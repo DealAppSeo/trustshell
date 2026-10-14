@@ -241,6 +241,19 @@ describe('stranger e2e on current main', () => {
     const gone = await go(['recall', 'desk']);
     expect(gone.out).toBe('NOT_CHECKED');
     expect(gone.out).not.toBe('');
+    // Immune system v0: an untrusted note is held out of recall until its source grounds it.
+    const held = await go(['remember', '--untrusted', '--source', 'manifest', 'Loaded 50 ft of cable, ordered 150 ft.']);
+    expect(held.code).toBe(0);
+    expect(held.out).toMatch(/^quarantined \d+ /);
+    const heldId = (/^quarantined (\d+)/.exec(held.out) ?? [])[1] as string;
+    expect((await go(['recall'])).out).toContain('quarantined COUNT 1');
+    const listed = await go(['quarantine', 'list']);
+    expect(listed.code).toBe(0);
+    expect(listed.out).toContain('source=manifest');
+    const released = await go(['quarantine', 'release', heldId, '--source', manifest, '--page', '1']);
+    expect(released.code).toBe(0);
+    expect(released.out).toContain('by ground VERIFIED');
+    expect((await go(['recall'])).out).toContain('Loaded 50 ft of cable, ordered 150 ft.');
     const homeAfter = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     expect(homeAfter).toBe(homeBefore);
 

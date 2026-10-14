@@ -158,7 +158,8 @@ describe('mcp remember bearer refusal', () => {
       expect(acceptedPacked).not.toContain('remember refused');
       expect(accepted.isError).not.toBe(true);
 
-      const recalled = await client.callTool({ name: 'recall', arguments: {} });
+      // An MCP-written note is quarantined (immune system v0), so it is listed only on request.
+      const recalled = await client.callTool({ name: 'recall', arguments: { include_quarantined: true } });
       expect(JSON.stringify(recalled)).toContain(INNOCENT_NOTE);
     } finally {
       await client.close().catch(() => undefined);

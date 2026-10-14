@@ -55,7 +55,8 @@ import { resolvePackageVersion } from '../lib/version';
 import { buildStatusReport, statusJsonFromText } from '../cli/status';
 import { redactKey } from '../cli/redact-key';
 import { refusedValue } from '../cli/remember';
-import { recallLocal, rememberLocal } from './memory';
+import { recallLocal, releaseLocal, rememberLocal } from './memory';
+import { explainQuarantine, listQuarantined } from '../memory/quarantine';
 import { classifyClaim } from '../lib/claim';
 import { myJob } from '../lib/my-job';
 import { kernelReceipt } from '../lib/kernel-client';
@@ -229,15 +230,17 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     'remember',
     {
       title: 'Local remember',
-      description: 'Write a note into the local sqlite memory. No network. The row kind is note.',
+      description:
+        'Write a note into the local sqlite memory. No network. A note written through this tool did not come from the operator, so it is stored UNTRUSTED and QUARANTINED: recall leaves it out until quarantine_release grounds it against its source. Injection-looking text is held for good.',
       inputSchema: {
         text: z.string().min(1).describe('The note to store.'),
+        source: z.string().min(1).max(200).optional().describe('Where the text came from (a URL, a tool name). Recorded as its provenance source.'),
       },
     },
-    async ({ text }: { text: string }) => {
+    async ({ text, source }: { text: string; source?: string }) => {
       if (refusedValue(text)) return errorResult('remember refused');
       try {
-        return jsonResult(rememberLocal(text));
+        return jsonResult(rememberLocal(text, process.env, source ? `mcp:${source}` : 'mcp:remember'));
       } catch (e: any) {
         const message = e?.message === 'remember refused' ? 'remember refused' : `remember failed: ${e?.message ?? String(e)}`;
         return errorResult(message);
@@ -249,14 +252,75 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     'recall',
     {
       title: 'Local recall',
-      description: 'List saved notes from the local sqlite memory. do_not_send rows are a count only. No network.',
+      description:
+        'List saved notes from the local sqlite memory. do_not_send rows are a count only. Quarantined notes are left out and counted unless include_quarantined is true; then each is marked [QUARANTINED: reason]. No network.',
+      inputSchema: {
+        include_quarantined: z.boolean().optional().describe('Also list quarantined notes, each marked. Default false.'),
+      },
+    },
+    async ({ include_quarantined }: { include_quarantined?: boolean } = {}) => {
+      try {
+        return jsonResult(recallLocal(process.env, { includeQuarantined: include_quarantined === true }));
+      } catch (e: any) {
+        return errorResult(`recall failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  registerTool(
+    'quarantine_list',
+    {
+      title: 'Quarantine list',
+      description:
+        'Notes held in quarantine: id, provenance source, reason. Injection-looking text is described, never reproduced. Local, no network.',
       inputSchema: {},
     },
     async () => {
       try {
-        return jsonResult(recallLocal());
+        return jsonResult({ quarantined: listQuarantined() });
       } catch (e: any) {
-        return errorResult(`recall failed: ${e?.message ?? String(e)}`);
+        return errorResult(`quarantine_list failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  registerTool(
+    'quarantine_explain',
+    {
+      title: 'Quarantine explain',
+      description: "One note's taint record: provenance, source, why it is held, and which check released it. Local, no network.",
+      inputSchema: {
+        id: z.number().int().positive().describe('The note id (from quarantine_list).'),
+      },
+    },
+    async ({ id }: { id: number }) => {
+      try {
+        const rec = explainQuarantine(id);
+        return rec ? jsonResult(rec) : errorResult(`NOT_CHECKED no note with id ${id}`);
+      } catch (e: any) {
+        return errorResult(`quarantine_explain failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  registerTool(
+    'quarantine_release',
+    {
+      title: 'Quarantine release (ground)',
+      description:
+        'Release a quarantined note ONLY if the whole note is found, VERIFIED, in source_text (the document it came from). Local and deterministic, no network. Anything else keeps it held and records why. Injection-looking text is never released.',
+      inputSchema: {
+        id: z.number().int().positive().describe('The note id (from quarantine_list).'),
+        source_text: z.string().min(1).describe('The source document as text; pages split on form feed.'),
+        page: z.number().int().positive().optional().describe('The page the note cites. Found only on another page keeps it held.'),
+      },
+    },
+    async ({ id, source_text, page }: { id: number; source_text: string; page?: number }) => {
+      try {
+        const { ground: _g, ...outcome } = releaseLocal(id, source_text, page ?? null) as ReturnType<typeof releaseLocal> & { ground?: unknown };
+        return jsonResult(outcome);
+      } catch (e: any) {
+        return errorResult(`quarantine_release failed: ${e?.message ?? String(e)}`);
       }
     },
   );

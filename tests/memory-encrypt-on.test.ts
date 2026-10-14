@@ -129,11 +129,16 @@ describe('memory encryption, on', () => {
     expect(recallKey('absent', ON(db))).toBe('NOT_CHECKED');
   });
 
-  it('the MCP remember and recall tools use the same sealing', () => {
+  it('the MCP remember and recall tools use the same sealing (an MCP note is quarantined)', () => {
     rememberLocal(NOTE, ON(db));
     expect(rawBodies(db)[0]!.startsWith(SEALED_PREFIX)).toBe(true);
-    expect(recallLocal(ON(db)).notes).toBe(`${NOTE}\ndo_not_send COUNT 0`);
-    expect(recallLocal(env({ TRUSTSHELL_MEMORY: db })).notes).toBe(`${SEALED_NO_KEY}\ndo_not_send COUNT 0`);
+    // Immune system v0: an MCP-written note is untrusted, so plain recall leaves it out and counts it.
+    expect(recallLocal(ON(db)).notes).toBe('do_not_send COUNT 0\nquarantined COUNT 1 (trustshell quarantine list)');
+    const Q = '[QUARANTINED: untrusted: not yet checked] ';
+    expect(recallLocal(ON(db), { includeQuarantined: true }).notes).toBe(`${Q}${NOTE}\ndo_not_send COUNT 0`);
+    expect(recallLocal(env({ TRUSTSHELL_MEMORY: db }), { includeQuarantined: true }).notes).toBe(
+      `${Q}${SEALED_NO_KEY}\ndo_not_send COUNT 0`,
+    );
   });
 
   describe('through the CLI', () => {

@@ -3,6 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.memoryDbPath = memoryDbPath;
 exports.insertMemory = insertMemory;
 exports.listNotes = listNotes;
+exports.listQuarantinedRows = listQuarantinedRows;
+exports.countQuarantined = countQuarantined;
+exports.getNote = getNote;
+exports.markReleased = markReleased;
+exports.setQuarantineReason = setQuarantineReason;
 exports.countDoNotSend = countDoNotSend;
 exports.formatRecall = formatRecall;
 exports.writeKeyed = writeKeyed;
@@ -39,6 +44,21 @@ function ensureSchema(db) {
     const hasKey = cols.some((col) => String(col.name) === 'key');
     if (!hasKey)
         db.exec('ALTER TABLE memory ADD COLUMN key TEXT');
+    // Immune system v0 columns, added in place to this LOCAL file. Existing rows keep NULLs and
+    // read as legacy trusted.
+    const have = new Set(cols.map((col) => String(col.name)));
+    const TAINT_COLUMNS = [
+        ['provenance', 'TEXT'],
+        ['source', 'TEXT'],
+        ['quarantined', 'INTEGER NOT NULL DEFAULT 0'],
+        ['quarantine_reason', 'TEXT'],
+        ['released_by', 'TEXT'],
+        ['released_at', 'TEXT'],
+    ];
+    for (const [name, type] of TAINT_COLUMNS) {
+        if (!have.has(name))
+            db.exec(`ALTER TABLE memory ADD COLUMN ${name} ${type}`);
+    }
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
 }
 function openDb(path) {
@@ -106,36 +126,117 @@ function opener(db, env) {
     };
 }
 function asRow(row) {
-    return {
+    const out = {
         id: Number(row.id),
         kind: row.kind,
         body: String(row.body),
         created_at: String(row.created_at),
     };
+    if ('quarantined' in row) {
+        out.provenance = row.provenance ?? 'trusted';
+        out.source = row.source ?? 'legacy';
+        out.quarantined = Number(row.quarantined) === 1;
+        out.quarantine_reason = row.quarantine_reason ?? null;
+        out.released_by = row.released_by ?? null;
+        out.released_at = row.released_at ?? null;
+    }
+    return out;
 }
-function insertMemory(path, kind, body, now = new Date().toISOString(), env = process.env) {
+const FULL_COLS = 'id, kind, body, created_at, provenance, source, quarantined, quarantine_reason, released_by, released_at';
+function insertMemory(path, kind, body, now = new Date().toISOString(), env = process.env, taint = { provenance: 'trusted', source: 'operator', quarantined: false }) {
     const db = openDb(path);
     try {
         const stored = sealer(db, env)(body);
         const result = db
-            .prepare('INSERT INTO memory (kind, body, created_at) VALUES (?, ?, ?)')
-            .run(kind, stored, now);
-        return { id: Number(result.lastInsertRowid), kind, body, created_at: now };
+            .prepare('INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null);
+        return {
+            id: Number(result.lastInsertRowid),
+            kind,
+            body,
+            created_at: now,
+            provenance: taint.provenance,
+            source: taint.source,
+            quarantined: taint.quarantined,
+            quarantine_reason: taint.reason ?? null,
+            released_by: null,
+            released_at: null,
+        };
     }
     finally {
         db.close();
     }
 }
-/** Notes in insert order. A sealed note that cannot be opened reads as a placeholder line, never ciphertext. */
-function listNotes(path, env = process.env) {
+/**
+ * Notes in insert order. A sealed note that cannot be opened reads as a placeholder line, never ciphertext.
+ * QUARANTINED NOTES ARE LEFT OUT unless `includeQuarantined` is set: untrusted text does not reach a
+ * reader of recall until a check releases it.
+ */
+function listNotes(path, env = process.env, opts = {}) {
     const db = openDb(path);
     try {
         const open = opener(db, env);
+        const where = opts.includeQuarantined ? '' : ' AND quarantined = 0';
         return db
-            .prepare("SELECT id, kind, body, created_at FROM memory WHERE kind = 'note' AND key IS NULL ORDER BY id ASC")
+            .prepare(`SELECT ${FULL_COLS} FROM memory WHERE kind = 'note' AND key IS NULL${where} ORDER BY id ASC`)
             .all()
             .map(asRow)
             .map((row) => ({ ...row, body: open(row.body).body }));
+    }
+    finally {
+        db.close();
+    }
+}
+/** Notes still in quarantine, oldest first. */
+function listQuarantinedRows(path, env = process.env) {
+    return listNotes(path, env, { includeQuarantined: true }).filter((row) => row.quarantined);
+}
+function countQuarantined(path) {
+    const db = openDb(path);
+    try {
+        const row = db.prepare("SELECT COUNT(*) AS n FROM memory WHERE kind = 'note' AND quarantined = 1").get();
+        return Number(row?.n ?? 0);
+    }
+    finally {
+        db.close();
+    }
+}
+/** One note by id, with its taint record, or null. */
+function getNote(path, id, env = process.env) {
+    const db = openDb(path);
+    try {
+        const row = db.prepare(`SELECT ${FULL_COLS} FROM memory WHERE id = ? AND kind = 'note' AND key IS NULL`).get(id);
+        if (!row)
+            return null;
+        const r = asRow(row);
+        return { ...r, body: opener(db, env)(r.body).body };
+    }
+    finally {
+        db.close();
+    }
+}
+/**
+ * Release one quarantined note: provenance becomes `verified` and `released_by` records the check.
+ * Only a row that is still quarantined changes; the return says whether one did.
+ */
+function markReleased(path, id, releasedBy, now = new Date().toISOString()) {
+    const db = openDb(path);
+    try {
+        const before = db.prepare('SELECT quarantined FROM memory WHERE id = ?').get(id);
+        if (!before || Number(before.quarantined) !== 1)
+            return false;
+        db.prepare("UPDATE memory SET quarantined = 0, provenance = 'verified', released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1").run(releasedBy, now, id);
+        return true;
+    }
+    finally {
+        db.close();
+    }
+}
+/** Record why a quarantined note stays held (a failed check). It stays quarantined. */
+function setQuarantineReason(path, id, reason) {
+    const db = openDb(path);
+    try {
+        db.prepare('UPDATE memory SET quarantine_reason = ? WHERE id = ? AND quarantined = 1').run(reason, id);
     }
     finally {
         db.close();
@@ -151,10 +252,19 @@ function countDoNotSend(path) {
         db.close();
     }
 }
-/** Notes in insert order, then a count. do_not_send bodies are not included. */
-function formatRecall(path, env = process.env) {
-    const notes = listNotes(path, env).map((row) => row.body);
-    return [...notes, `do_not_send COUNT ${countDoNotSend(path)}`].join('\n');
+/**
+ * Notes in insert order, then a count. do_not_send bodies are not included.
+ * Quarantined notes are left out, and when any exist a last line says how many, so nothing is
+ * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason].
+ */
+function formatRecall(path, env = process.env, opts = {}) {
+    const rows = listNotes(path, env, { includeQuarantined: opts.includeQuarantined });
+    const notes = rows.map((row) => row.quarantined ? `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}] ${row.body}` : row.body);
+    const lines = [...notes, `do_not_send COUNT ${countDoNotSend(path)}`];
+    const held = countQuarantined(path);
+    if (held > 0 && !opts.includeQuarantined)
+        lines.push(`quarantined COUNT ${held} (trustshell quarantine list)`);
+    return lines.join('\n');
 }
 /** One value under key. A later write of the same key replaces the row. */
 function writeKeyed(path, key, body, now = new Date().toISOString(), env = process.env) {
