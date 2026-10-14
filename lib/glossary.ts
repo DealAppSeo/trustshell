@@ -326,7 +326,7 @@ export const TERMS: Term[] = [
     definition:
       'Anything an agent picks up from outside — a web page, a tool result, another agent\'s message — is held apart and does not enter the agent\'s trusted core until a check promotes it. Untrusted input can be read and reasoned about; it cannot silently become a fact the agent acts on.',
     note:
-      'A missed prompt-injection, or a falsified fact admitted to the core as true, is a LARGE loss — it costs more than several confirmed rights earn, because one poisoned fact can steer every decision made after it. The asymmetry is deliberate: better to quarantine a true thing by mistake than to admit a false one.',
+      'A missed prompt-injection, or a falsified fact admitted to the core as true, is a LARGE loss — it costs more than several confirmed rights earn, because one poisoned fact can steer every decision made after it. The asymmetry is deliberate: better to quarantine a true thing by mistake than to admit a false one. A first, narrow version runs on main in the package\'s local memory and is not yet in a published release: a note that did not come from the operator is held out of recall until a ground or HAL check releases it, and injection-looking text is never released. It has no sandboxed execution and no adaptive learning; those are direction, not live.',
     related: ['constitution', 'measured', 'repid'],
   },
   {

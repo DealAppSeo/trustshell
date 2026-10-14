@@ -15,6 +15,8 @@ exports.formatRepid = formatRepid;
 exports.formatProof = formatProof;
 exports.formatKernelReceipt = formatKernelReceipt;
 exports.makeClient = makeClient;
+exports.formatQuarantineList = formatQuarantineList;
+exports.formatQuarantineRecord = formatQuarantineRecord;
 exports.run = run;
 exports.runClaimCheck = runClaimCheck;
 exports.main = main;
@@ -60,6 +62,8 @@ const laya_lane_1 = require("./laya-lane");
 const remember_1 = require("./remember");
 const recall_1 = require("./recall");
 const redact_key_1 = require("./redact-key");
+const quarantine_1 = require("../memory/quarantine");
+const quarantine_hal_1 = require("../memory/quarantine-hal");
 const bind_status_1 = require("./bind-status");
 const scrub_print_1 = require("./scrub-print");
 const traps_1 = require("./traps");
@@ -180,9 +184,26 @@ COMMANDS
                              sb_secret_, db URIs, JWTs, PEM private keys, sk-/ghp_/AKIA/xoxb tokens,
                              labelled password=… . Publishable keys and emails are kept: not secrets.
                              Encoded secrets are NOT detected. No network.
+  remember --untrusted [--source <label>] "<text>"
+                             Store text that did NOT come from you (a web page, a tool result,
+                             another agent). It is QUARANTINED: recall leaves it out until a
+                             check releases it. Injection-looking text is held for good. No network.
   recall                     Print saved notes. do_not_send rows print as a count only.
+                             Quarantined notes are left out and counted on the last line.
+      [--include-quarantined]
+                             Also print them, each marked [QUARANTINED: reason].
   recall KEY                 Print the value for KEY. Missing is NOT_CHECKED, never empty.
   redact KEY                 Delete the KEY row. Missing is NOT_CHECKED. No network.
+  quarantine list            Notes held in quarantine: id, source, reason. No network.
+  quarantine explain <id>    One note's taint record: provenance, source, reason, and which check
+                             released it. Injection-looking text is described, never printed.
+  quarantine release <id> --source <file> [--page N]
+                             Release only if the WHOLE note is found (ground VERIFIED) in that
+                             source file. Local, no network.
+  quarantine release <id> --check hal
+                             Release only if the classify endpoint labels the note pass. NETWORK:
+                             POST <backend>/api/v1/classify, after the same scrub as check.
+                             release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED until a receipt id exists. No scoreboard. No HAL wins.
   ground --source <file> --quote "<text>"
@@ -228,6 +249,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   ground                           NOTHING. Reads the --source file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
+  quarantine                       NOTHING, except release --check hal: the backend's /api/v1/classify.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -260,7 +282,7 @@ function parseArgs(argv) {
     // Options that consume the NEXT argument. Indexed rather than for-of because a
     // value-taking flag has to be able to look ahead.
     const values = {};
-    const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--quote', '--page', '--value', '--kind', '--unit']);
+    const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--quote', '--page', '--value', '--kind', '--unit', '--check']);
     // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
     // only something shaped like an option is refused there.
     const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo']);
@@ -287,6 +309,10 @@ function parseArgs(argv) {
             flags.add('pai');
         else if (a === '--dry-run')
             flags.add('dry-run');
+        else if (a === '--untrusted')
+            flags.add('untrusted');
+        else if (a === '--include-quarantined')
+            flags.add('include-quarantined');
         else if (a === '-h' || a === '--help')
             flags.add('help');
         else if (a === '-v' || a === '--version')
@@ -364,6 +390,16 @@ function parseArgs(argv) {
             return { command: 'status', json, verify };
         case 'remember': {
             const text = rest.join(' ').trim();
+            if (flags.has('untrusted')) {
+                // Quarantined note path. Keyed values stay operator-only in v0.
+                // Always ONE note: every word after the flags is the text. There is no KEY VALUE form here.
+                if (!text)
+                    return { command: 'remember', json, verify, error: '`trustshell remember --untrusted` requires "<text>"' };
+                return { command: 'remember', operand: text, untrusted: true, source: values['source'], json, verify };
+            }
+            if (values['source'] !== undefined) {
+                return { command: 'remember', json, verify, error: '--source goes with --untrusted on remember' };
+            }
             if (!text) {
                 return {
                     command: 'remember',
@@ -389,7 +425,40 @@ function parseArgs(argv) {
         }
         case 'recall': {
             const key = rest.join(' ').trim();
+            if (flags.has('include-quarantined')) {
+                if (key)
+                    return { command: 'recall', json, verify, error: '--include-quarantined goes with `recall` alone (notes), not `recall KEY`' };
+                return { command: 'recall', includeQuarantined: true, json, verify };
+            }
             return key ? { command: 'recall', key, json, verify } : { command: 'recall', json, verify };
+        }
+        case 'quarantine': {
+            const [sub, id, ...extra] = rest;
+            const usage = (error) => ({ command: 'quarantine', json, verify, error });
+            if (sub === 'list') {
+                if (id !== undefined)
+                    return usage(`unexpected argument: ${id}`);
+                return { command: 'quarantine', sub, json, verify };
+            }
+            if (sub !== 'explain' && sub !== 'release')
+                return usage('`trustshell quarantine` takes list, explain <id> or release <id>');
+            if (!id || !/^[1-9]\d*$/.test(id))
+                return usage(`\`quarantine ${sub}\` requires a note id (a whole number; see quarantine list)`);
+            if (extra.length)
+                return usage(`unexpected argument: ${extra[0]}`);
+            if (sub === 'explain')
+                return { command: 'quarantine', sub, id, json, verify };
+            const check = values['check'];
+            const source = values['source'];
+            if (check !== undefined && check !== 'hal')
+                return usage('--check takes hal (or use --source <file> to ground it locally)');
+            if ((check === 'hal') === (source !== undefined)) {
+                return usage('`quarantine release` takes exactly one check: --source <file> (local) or --check hal (network)');
+            }
+            if (values['page'] !== undefined && (source === undefined || !/^[1-9]\d*$/.test(values['page']))) {
+                return usage('--page goes with --source and must be a whole number, 1 or more');
+            }
+            return { command: 'quarantine', sub, id, check, source, page: values['page'], json, verify };
         }
         case 'redact': {
             const key = rest.join(' ').trim();
@@ -612,6 +681,30 @@ const realIO = {
  * Execute a parsed command against a client and return the process exit code.
  * The client is injected so tests can pass a mock (no live network).
  */
+/** `quarantine list`: one line per held note. Injection-looking text is never reproduced. */
+function formatQuarantineList(rows) {
+    if (rows.length === 0)
+        return 'quarantined COUNT 0';
+    const lines = rows.map((r) => {
+        const preview = r.body === null ? '[text withheld: injection-looking]' : JSON.stringify(r.body.length > 60 ? `${r.body.slice(0, 57)}...` : r.body);
+        return `${r.id}  source=${r.source}  reason=${r.reason ?? 'untrusted, not yet checked'}  ${preview}`;
+    });
+    return [...lines, `quarantined COUNT ${rows.length}`].join('\n');
+}
+/** `quarantine explain <id>`: the whole taint record, one field per line. */
+function formatQuarantineRecord(r) {
+    return [
+        `note ${r.id}`,
+        `provenance  ${r.provenance}`,
+        `source      ${r.source}`,
+        `quarantined ${r.quarantined ? 'yes' : 'no'}`,
+        `reason      ${r.reason ?? '-'}`,
+        `released_by ${r.released_by ?? '-'}`,
+        `released_at ${r.released_at ?? '-'}`,
+        `created_at  ${r.created_at}`,
+        `text        ${r.body === null ? '[withheld: injection-looking text is described, never printed]' : r.body}`,
+    ].join('\n');
+}
 async function run(args, client, io = realIO) {
     if (args.error) {
         io.err(`error: ${args.error}\n`);
@@ -631,6 +724,24 @@ async function run(args, client, io = realIO) {
             return exports.EXIT.OK;
         }
         case 'remember': {
+            if (args.untrusted) {
+                try {
+                    const rec = (0, quarantine_1.rememberUntrusted)(String(args.operand ?? ''), { source: args.source ?? 'cli:untrusted' });
+                    if (args.json)
+                        io.out(JSON.stringify(rec, null, 2));
+                    else
+                        io.out(`quarantined ${rec.id} (${rec.reason})`);
+                    return exports.EXIT.OK;
+                }
+                catch (e) {
+                    if (e?.message === 'remember refused') {
+                        io.err('remember refused');
+                        return exports.EXIT.USAGE;
+                    }
+                    io.err(`remember failed: ${e?.message ?? String(e)}`);
+                    return exports.EXIT.RUNTIME;
+                }
+            }
             try {
                 const value = String(args.operand ?? '');
                 if ((0, remember_1.refusedValue)(value)) {
@@ -665,7 +776,7 @@ async function run(args, client, io = realIO) {
         }
         case 'recall': {
             try {
-                io.out(args.key ? (0, recall_1.recallKey)(args.key) : (0, recall_1.recallNotes)());
+                io.out(args.key ? (0, recall_1.recallKey)(args.key) : (0, recall_1.recallNotes)(process.env, { includeQuarantined: args.includeQuarantined }));
                 return exports.EXIT.OK;
             }
             catch (e) {
@@ -680,6 +791,61 @@ async function run(args, client, io = realIO) {
             }
             catch (e) {
                 io.err(`redact failed: ${e?.message ?? String(e)}`);
+                return exports.EXIT.RUNTIME;
+            }
+        }
+        case 'quarantine': {
+            try {
+                if (args.sub === 'list') {
+                    const rows = (0, quarantine_1.listQuarantined)();
+                    if (args.json)
+                        io.out(JSON.stringify(rows, null, 2));
+                    else
+                        io.out(formatQuarantineList(rows));
+                    return exports.EXIT.OK;
+                }
+                const id = Number(args.id);
+                if (args.sub === 'explain') {
+                    const rec = (0, quarantine_1.explainQuarantine)(id);
+                    if (!rec) {
+                        io.err(`NOT_CHECKED no note with id ${id}`);
+                        return exports.EXIT.NOT_CHECKED;
+                    }
+                    io.out(args.json ? JSON.stringify(rec, null, 2) : formatQuarantineRecord(rec));
+                    return exports.EXIT.OK;
+                }
+                // release
+                let outcome;
+                if (args.check === 'hal') {
+                    outcome = await (0, quarantine_hal_1.releaseByHal)(id);
+                }
+                else {
+                    // Local file only. Opens no socket.
+                    const fs = require('node:fs');
+                    let text;
+                    try {
+                        text = fs.readFileSync(args.source, 'utf8');
+                    }
+                    catch {
+                        io.err(`quarantine release: cannot read the source file: ${args.source}`);
+                        return exports.EXIT.USAGE;
+                    }
+                    outcome = (0, quarantine_1.releaseByGround)(id, text, {
+                        page: args.page === undefined ? null : Number(args.page),
+                        sourceLabel: `source ${args.source}`,
+                    });
+                }
+                const { ground: _g, claim: _c, ...plain } = outcome;
+                if (args.json)
+                    io.out(JSON.stringify(plain, null, 2));
+                else if (outcome.released)
+                    io.out(`released ${outcome.id} by ${outcome.released_by}`);
+                else
+                    io.out(`${outcome.status === 'HELD' ? 'held' : outcome.status} ${outcome.id}: ${outcome.reason}`);
+                return (0, quarantine_1.releaseExitCode)(outcome);
+            }
+            catch (e) {
+                io.err(`quarantine failed: ${e?.message ?? String(e)}`);
                 return exports.EXIT.RUNTIME;
             }
         }

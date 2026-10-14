@@ -240,7 +240,13 @@ class ClaimError extends Error {
 exports.ClaimError = ClaimError;
 /** Resolve the full classify URL. PURE. Throws {@link ClaimError} on a non-http(s) base. */
 function resolveClassifyUrl(apiUrl, env = typeof process !== 'undefined' ? process.env : {}) {
-    const base = (apiUrl?.trim() || env.TRUSTSHELL_API_URL?.trim() || exports.DEFAULT_API_URL).replace(/\/+$/, '');
+    // Trailing slashes trimmed with a linear scan, not /\/+$/: that regex is polynomial on a long run of
+    // slashes (CodeQL js/polynomial-redos), and this URL can now arrive as SDK input (releaseByHal).
+    let base = apiUrl?.trim() || env.TRUSTSHELL_API_URL?.trim() || exports.DEFAULT_API_URL;
+    let end = base.length;
+    while (end > 0 && base.charCodeAt(end - 1) === 47 /* '/' */)
+        end -= 1;
+    base = base.slice(0, end);
     let parsed;
     try {
         parsed = new URL(base + exports.CLASSIFY_PATH);

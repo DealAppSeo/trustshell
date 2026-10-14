@@ -26,6 +26,7 @@
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { type AgentIdentity } from '../lib/identity';
+import { type QuarantineRecord } from '../memory/quarantine';
 import { type KernelReceiptRead } from '../lib/kernel-client';
 import { type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -47,7 +48,7 @@ export declare const EXIT: {
     /** Laya ask. A person has to answer. HAL was not called. */
     readonly ASK: 4;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'bind-status' | 'traps' | 'ground' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -85,6 +86,15 @@ export interface ParsedArgs {
     unit?: string;
     /** ground: template / label text the document prints for every reader (repeatable `--echo`). */
     echoes?: string[];
+    /** remember: the text did not come from the operator. It is stored quarantined; --source labels it. */
+    untrusted?: boolean;
+    /** recall: also print quarantined notes, each marked [QUARANTINED: reason]. */
+    includeQuarantined?: boolean;
+    /** quarantine: list | explain | release, and the note id. */
+    sub?: string;
+    id?: string;
+    /** quarantine release: `hal` runs the classify check (network); otherwise --source grounds it locally. */
+    check?: string;
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }
@@ -173,6 +183,10 @@ export interface CliIO {
  * Execute a parsed command against a client and return the process exit code.
  * The client is injected so tests can pass a mock (no live network).
  */
+/** `quarantine list`: one line per held note. Injection-looking text is never reproduced. */
+export declare function formatQuarantineList(rows: readonly QuarantineRecord[]): string;
+/** `quarantine explain <id>`: the whole taint record, one field per line. */
+export declare function formatQuarantineRecord(r: QuarantineRecord): string;
 export declare function run(args: ParsedArgs, client: TrustShell, io?: CliIO): Promise<number>;
 /**
  * `trustshell check "<sentence>"` — the sentence form. Calls {@link classifyClaim}, the

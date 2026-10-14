@@ -375,6 +375,23 @@ Print saved notes, oldest first. A `do_not_send` row is not printed; the line is
 
 `trustshell recall <key>` prints that value. A missing key, or a blank value, prints `NOT_CHECKED`, never an empty string.
 
+On `main` (not in 1.6.1): quarantined notes are left out, and a last line `quarantined COUNT N (trustshell quarantine list)` says how many. `--include-quarantined` prints them, each marked `[QUARANTINED: reason]`.
+
+### `trustshell quarantine list | explain <id> | release <id>`
+
+> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
+> `unknown command: quarantine`.
+
+Immune system v0 for local memory. A note written with `remember --untrusted [--source <label>]`, or through the MCP `remember` tool, is stored with `provenance: untrusted` and is **quarantined**. Notes you type with `remember` are `trusted`. Rows saved before this existed read as `trusted`, source `legacy`.
+
+- `list`: id, source and reason for each held note. Ends `quarantined COUNT N`. No network.
+- `explain <id>`: provenance, source, quarantined, reason, released_by, released_at. No network.
+- `release <id> --source <file> [--page N]`: released only if the **whole** note is found, `VERIFIED`, in that file (`ground`). Local, no network.
+- `release <id> --check hal`: released only if `POST /api/v1/classify` labels the note `pass`, after the same scrub as `check`. A note the scrubber changed is not released.
+- `release` exits `0` released, `1` held (the check failed), `2` not checked or no such note. A release sets `provenance: verified` and records the check in `released_by`.
+- Injection-looking text is screened by the fixed instruction-smuggling patterns, which are not a model. A match is held with that reason, never released by a check, and never printed by `list` or `explain`.
+- What it does not do: no sandboxed execution, no adaptive learning, nothing outside this package's local memory. A release is not a truth verdict. There is no operator override in v0.
+
 ### `trustshell redact <key>`
 
 Delete the row for `<key>` from `~/.trustshell/memory.sqlite`. Prints `redacted`. A missing key prints `NOT_CHECKED`. No network.
@@ -468,6 +485,8 @@ a run or a session that happened — run these against your own and read the rea
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
+| `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
+| `quarantine release --check hal` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only, after the same scrub as `check` | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |

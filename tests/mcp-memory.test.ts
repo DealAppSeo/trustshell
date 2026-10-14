@@ -64,13 +64,28 @@ describe('mcp local memory', () => {
     };
 
     const remembered = await getTool(server, 'remember').handler({ text: 'ship the receipt' });
-    expect(JSON.parse(remembered.content[0].text)).toEqual({ kind: 'note', remembered: true });
-    expect(listNotes(db).map((row) => row.kind)).toEqual(['note']);
-    expect(listNotes(db).map((row) => row.body)).toEqual(['ship the receipt']);
+    // Immune system v0: a note written through MCP is untrusted and quarantined.
+    expect(JSON.parse(remembered.content[0].text)).toEqual({
+      kind: 'note',
+      remembered: true,
+      id: 1,
+      provenance: 'untrusted',
+      quarantined: true,
+      reason: 'untrusted: not yet checked',
+    });
+    expect(listNotes(db)).toEqual([]);
+    const all = listNotes(db, process.env, { includeQuarantined: true });
+    expect(all.map((row) => row.kind)).toEqual(['note']);
+    expect(all.map((row) => row.body)).toEqual(['ship the receipt']);
+    expect(all[0]?.source).toBe('mcp:remember');
 
     const recalled = await getTool(server, 'recall').handler({});
     expect(JSON.parse(recalled.content[0].text)).toEqual({
-      notes: 'ship the receipt\ndo_not_send COUNT 0',
+      notes: 'do_not_send COUNT 0\nquarantined COUNT 1 (trustshell quarantine list)',
+    });
+    const withHeld = await getTool(server, 'recall').handler({ include_quarantined: true });
+    expect(JSON.parse(withHeld.content[0].text)).toEqual({
+      notes: '[QUARANTINED: untrusted: not yet checked] ship the receipt\ndo_not_send COUNT 0',
     });
     expect(verifyOutput).not.toHaveBeenCalled();
   });
