@@ -32,7 +32,7 @@
 
   const LABELS = ['pass', 'veto', 'not-checked'];
   /** How /classify said the label was reached (its `by`). Anything else is not recorded. */
-  const BY = ['arithmetic', 'votes', 'skipped', 'deadline'];
+  const BY = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'deadline'];
   const VOTER_ID = /^[a-z0-9-]{1,24}$/;
 
   /**

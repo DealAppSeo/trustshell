@@ -45,6 +45,12 @@
    * src/lib/claim.ts SCRUBBED_LINE (tests/claim-path-parity.test.ts compares them): without it, a
    * Checks out on a reply with a key in it would read as a verdict on text that was never sent.
    */
+  /**
+   * Under a Not checked whose answer named a path this version does not know (laya.js
+   * OUT_OF_CONTRACT). The CLI prints the same case as "out of contract"; an empty line here read as
+   * "nothing to say" about an answer that was refused.
+   */
+  const OUT_OF_CONTRACT_LINE = 'Out of contract: the answer named a path this version does not know. This is not a pass.';
   const SCRUBBED_LINE =
     'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
 
@@ -71,6 +77,7 @@
    */
   function copyPath(row, out) {
     if (row && typeof row === 'object' && row.scrubbed === true) out.scrubbed = true;
+    if (row && typeof row === 'object' && row.reason === 'out-of-contract') out.reason = row.reason;
     if (!row || typeof row !== 'object' || typeof row.by !== 'string') return out;
     out.by = row.by;
     if (Array.isArray(row.voters)) out.voters = row.voters.slice();
@@ -317,6 +324,9 @@
     switch (row.by) {
       case 'arithmetic':
         return 'Decided by exact calculation. No model was asked.';
+      case 'arithmetic-approx':
+        // The engine sends no tolerance, so none is shown. Same words as src/lib/claim.ts.
+        return 'Decided by approximate calculation, not exact. No model was asked.';
       case 'skipped':
         return 'No checker was asked.';
       case 'deadline':
@@ -345,7 +355,11 @@
   function lineFor(row) {
     if (!row) return '';
     const line =
-      row.label === 'not-checked' && typeof row.latency_ms === 'number' && row.latency_ms > SLOW_MS ? SLOW_LINE : pathLine(row);
+      row.label === 'not-checked' && typeof row.latency_ms === 'number' && row.latency_ms > SLOW_MS
+        ? SLOW_LINE
+        : row.label === 'not-checked' && row.reason === 'out-of-contract'
+          ? OUT_OF_CONTRACT_LINE
+          : pathLine(row);
     if (row.scrubbed !== true) return line;
     return line ? line + ' ' + SCRUBBED_LINE : SCRUBBED_LINE;
   }
@@ -459,6 +473,7 @@
     STAMP_WORDS,
     VETO_LINE,
     SCRUBBED_LINE,
+    OUT_OF_CONTRACT_LINE,
     STILL_MS,
     CHECKING_LONGER,
     copyPath,

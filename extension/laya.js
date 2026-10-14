@@ -51,13 +51,20 @@
    * when missing or out of contract. All or nothing, as src/lib/claim.ts pathOf: a 'votes' with no
    * usable voter list, or a 'skipped' / 'deadline' claiming pass or veto, reports no path at all.
    */
-  const PATHS = ['arithmetic', 'votes', 'skipped', 'deadline'];
+  // 'arithmetic-approx' (repid-engine classify.ts, 2026-10-12): a whole-text equation the exact
+  // evaluator could not hold, compared as doubles within 1e-9 relative. It always decides. Any other
+  // `by` stays out of contract: not-checked, with OUT_OF_CONTRACT as the reason, never a pass.
+  const PATHS = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'deadline'];
+  /** The reason on a row whose answer named a path this file does not know (the CLI's "out of contract"). */
+  const OUT_OF_CONTRACT = 'out-of-contract';
   const VOTER_ID = /^[a-z0-9-]{1,32}$/;
   function pathOf(body, label) {
     if (!body || typeof body !== 'object') return {};
     const by = body.by;
     if (typeof by !== 'string' || !PATHS.includes(by)) return {};
     if ((by === 'skipped' || by === 'deadline') && label !== NOT_CHECKED) return {};
+    // The approximate path always decides; a not-checked that claims it is not the engine's answer.
+    if (by === 'arithmetic-approx' && label === NOT_CHECKED) return {};
     if (by !== 'votes') return { by };
     const voters = body.voters;
     if (!Array.isArray(voters) || voters.length === 0 || voters.length > 8) return {};
@@ -134,7 +141,7 @@
       // A `by` the server never sends ({"label":"pass","by":"skipped"}) means the answer is not the
       // server's, so its label decides nothing (XC1, night bus #449), as src/lib/claim.ts. No `by`
       // at all is an older endpoint and keeps its label.
-      if (body.by !== undefined && !path.by) return { label: NOT_CHECKED, latency_ms };
+      if (body.by !== undefined && !path.by) return { label: NOT_CHECKED, latency_ms, reason: OUT_OF_CONTRACT };
       return Object.assign({ label, latency_ms }, path);
     };
 
@@ -193,7 +200,7 @@
     }
   }
 
-  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, callLaya, pathOf };
+  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, OUT_OF_CONTRACT, callLaya, pathOf };
 
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellLaya = api;

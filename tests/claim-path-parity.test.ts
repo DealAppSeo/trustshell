@@ -213,7 +213,9 @@ describe('an answer that names a path it does not have is not checked, at every 
       });
       expect(row.label).toBe('not-checked');
       expect(row).not.toHaveProperty('by');
-      expect(classify.lineFor(row)).toBe('');
+      // Was '' (XC1 on #554: an empty line said nothing about an answer that was refused). The CLI
+      // gives its reason, "out of contract"; the stamp now says the same.
+      expect(classify.lineFor(row)).toBe((classify as unknown as { OUT_OF_CONTRACT_LINE: string }).OUT_OF_CONTRACT_LINE);
     });
   }
 

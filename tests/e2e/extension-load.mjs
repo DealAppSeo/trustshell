@@ -51,6 +51,8 @@ const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify
 const CAUGHT = 'Caught\nChecked and found false.';
 const SCRUBBED = 'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
 const CHECKING = 'Asking two checkers';
+const APPROX_LINE = 'Decided by approximate calculation, not exact. No model was asked.';
+const OUT_OF_CONTRACT_LINE = 'Out of contract: the answer named a path this version does not know. This is not a pass.';
 const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
 const SW_GLOBALS = ['trustshellSettings', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
@@ -176,6 +178,13 @@ try {
         headers: { ...cors, 'content-type': 'application/json' },
         body: JSON.stringify({ label: 'veto', latency_ms: 1, by: 'votes', voters: ['groq', 'cerebras'] }),
       });
+    }
+    if (classifyMode === 'approx' || classifyMode === 'unknown-by') {
+      // The engine's approximate arithmetic (repid-engine classify.ts :567), and a `by` no contract lists.
+      const body = classifyMode === 'approx'
+        ? { label: 'veto', latency_ms: 0, by: 'arithmetic-approx' }
+        : { label: 'pass', latency_ms: 0, by: 'arithmetic-fuzzy' };
+      return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify(body) });
     }
     if (classifyMode === 'standin') {
       // Cerebras gave no answer and OpenRouter stood in: it received the text, but did not decide.
@@ -476,6 +485,37 @@ try {
         line === 'Groq and OpenRouter both said false.', JSON.stringify(line));
     } catch (err) {
       record('chatgpt: when a backup stood in, the line names the two that decided, not everyone asked', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
+    classifyMode = 'veto';
+    await page.close();
+  }
+
+  // ---- f2. arithmetic-approx is Caught with the approximate line; an unknown `by` is Not checked and says why
+  for (const [mode, reply, wantStamp, wantLine, toastWanted] of [
+    ['approx', '2 ^ 0.5 = 1.5', CAUGHT, APPROX_LINE, true],
+    ['unknown-by', '2 ^ 0.5 = 1.414', 'Not checked', OUT_OF_CONTRACT_LINE, false],
+  ]) {
+    classifyMode = mode;
+    replyOverride = () => `<div data-message-author-role="assistant"><p>${reply}</p></div>`;
+    const page = await context.newPage();
+    const name = mode === 'approx'
+      ? 'chatgpt: an approximate-arithmetic veto is Caught, with the approximate line and the Caught toast'
+      : 'chatgpt: an unknown by is Not checked, and the line says it was out of contract';
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const seen = await poll(() => page.evaluate(() => {
+        const stamp = document.getElementById('trustshell-stamp');
+        const line = document.getElementById('trustshell-check-line');
+        const toast = document.getElementById('trustshell-toast');
+        if (!stamp || !line) return null;
+        return { stamp: stamp.textContent, line: line.textContent, toast: toast ? toast.textContent : '' };
+      }), 10000).catch(() => null);
+      check(name,
+        Boolean(seen) && seen.stamp === wantStamp && seen.line === wantLine && Boolean(seen.toast) === toastWanted,
+        JSON.stringify(seen));
+    } catch (err) {
+      record(name, 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
     }
     replyOverride = null;
     classifyMode = 'veto';
