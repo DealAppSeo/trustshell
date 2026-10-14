@@ -41,7 +41,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
+import { LAUNCH_ARGS, chromiumExecutablePath, loadPlaywrightOrExit } from './chromium-path.mjs';
 import { loadTsFixture } from './ts-fixtures.mjs';
 
 const { chromium } = await loadPlaywrightOrExit();
@@ -49,6 +49,7 @@ const { chromium } = await loadPlaywrightOrExit();
 const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extension');
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
 const CAUGHT = 'Caught\nChecked and found false.';
+const SCRUBBED = 'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
 const CHECKING = 'Asking two checkers';
 const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
 const SW_GLOBALS = ['trustshellSettings', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
@@ -127,6 +128,10 @@ try {
   try {
     context = await chromium.launchPersistentContext(userDataDir, {
       channel: 'chromium',
+      // PLAYWRIGHT_CHROMIUM / the sandbox path, as every other browser suite honours. Without it this
+      // suite could only use the one build its Playwright version names, and said NOT_CHECKED beside
+      // an installed Chromium.
+      executablePath: chromiumExecutablePath(),
       headless: true,
       args: [...LAUNCH_ARGS, `--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
     });
@@ -500,6 +505,13 @@ try {
           !sent.includes(email) && !sent.includes(awsId),
           `body has email=${sent.includes(email)} awsKey=${sent.includes(awsId)}`);
         check('chatgpt: the claim itself survives the scrub', text.includes('Two plus two is five.'), JSON.stringify(text));
+        // The CLI says when it removed something (src/lib/claim.ts SCRUBBED_LINE); so must the stamp.
+        const line = await poll(() => page.evaluate(() => {
+          const node = document.getElementById('trustshell-check-line');
+          return node && node.textContent ? node.textContent : null;
+        }), 10000).catch(() => null);
+        check('chatgpt: the line under the stamp says something was removed before sending',
+          typeof line === 'string' && line.endsWith(SCRUBBED), JSON.stringify(line));
       }
     } catch (err) {
       record('chatgpt: the classify request carries no email and no AWS key', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);

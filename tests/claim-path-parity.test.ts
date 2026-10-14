@@ -4,7 +4,7 @@
  * through extension/laya.js and extension/classify.js. Both sides must accept the same answers and
  * say the same words, and both must say NOTHING when the endpoint did not say (an older backend).
  */
-import { classifyClaim, pathLine, pathOf, type ClaimLabel } from '../src/lib/claim';
+import { classifyClaim, pathLine, pathOf, SCRUBBED_LINE, type ClaimLabel } from '../src/lib/claim';
 
 const laya = require('../extension/laya.js') as {
   pathOf: (body: unknown, label: string) => { by?: string; voters?: string[] };
@@ -278,5 +278,64 @@ describe('one place copies what produced the label', () => {
     });
     expect(c.copyPath({ label: 'pass' }, { label: 'pass' })).toEqual({ label: 'pass' });
     expect(c.copyPath('not-checked', { label: 'not-checked' })).toEqual({ label: 'not-checked' });
+  });
+});
+
+/**
+ * The CLI says when the scrubber removed something before sending (SCRUBBED_LINE), because the label
+ * is then about the text that was sent. The extension scrubbed the same text but said nothing, so a
+ * Checks out on a reply holding a key read as a verdict on text that never left. Same words, every door.
+ */
+describe('a scrubbed reply says so, at every door', () => {
+  const WITH_EMAIL = 'Write to jane.doe@example.com: the Moon is made of cheese.';
+  const select = require('../extension/select.js') as {
+    checkSelection: (text: string, tab: unknown, deps: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    toastText: (row: unknown) => string;
+  };
+  const c = classify as typeof classify & { SCRUBBED_LINE: string };
+
+  it('the extension uses the CLI sentence word for word', () => {
+    expect(c.SCRUBBED_LINE).toBe(SCRUBBED_LINE);
+  });
+
+  it('CLI, stamp and right-click toast all mark a scrubbed send and say so under the label', async () => {
+    const body = { label: 'veto', latency_ms: 5, by: 'votes', voters: ['groq', 'cerebras'] };
+    const cli = await classifyClaim(WITH_EMAIL, { apiUrl: 'http://localhost:9', fetchImpl: stub(body) as never });
+    expect(cli.scrubbed).toBe(true);
+
+    const sent = stub(body);
+    const row = await classify.classifyReply(WITH_EMAIL, { endpoint: 'http://localhost:9/api/v1/classify', fetchImpl: sent });
+    expect(row).toMatchObject({ label: 'veto', scrubbed: true });
+    const init = (sent.mock.calls[0] as unknown[])[1] as { body: string };
+    expect(JSON.parse(init.body).text).not.toContain('jane.doe@example.com');
+    expect(classify.lineFor(row)).toBe('Groq and Cerebras both said false. ' + SCRUBBED_LINE);
+
+    const picked = await select.checkSelection(WITH_EMAIL, null, { modelUrl: 'http://localhost:9/api/v1/classify', fetchImpl: stub(body) });
+    expect(picked).toMatchObject({ label: 'veto', scrubbed: true });
+    expect(select.toastText(picked)).toContain(SCRUBBED_LINE);
+  });
+
+  it('a not-checked from a scrubbed send still says it was scrubbed', async () => {
+    const row = await classify.classifyReply(WITH_EMAIL, {
+      endpoint: 'http://localhost:9/api/v1/classify',
+      fetchImpl: stub({ label: 'not-checked', by: 'skipped' }),
+    });
+    expect(row).toMatchObject({ label: 'not-checked', scrubbed: true });
+    expect(classify.lineFor(row)).toBe('No checker was asked. ' + SCRUBBED_LINE);
+  });
+
+  it('nothing removed, nothing said; everything removed, nothing sent and nothing marked', async () => {
+    const row = await classify.classifyReply('The Moon is made of cheese.', {
+      endpoint: 'http://localhost:9/api/v1/classify',
+      fetchImpl: stub({ label: 'veto', latency_ms: 5 }),
+    });
+    expect(row).not.toHaveProperty('scrubbed');
+    expect(classify.lineFor(row)).toBe('');
+
+    const none = stub({ label: 'pass' });
+    const empty = await classify.classifyReply('jane.doe@example.com', { endpoint: 'http://localhost:9/api/v1/classify', fetchImpl: none });
+    expect(empty.label).toBe('not-checked');
+    expect(empty).not.toHaveProperty('scrubbed');
+    expect(none).not.toHaveBeenCalled();
   });
 });

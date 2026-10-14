@@ -39,7 +39,9 @@ describe('toolbar popup', () => {
     expect(text).toContain('after the reply is on screen');
     expect(text).toContain('not stored');
     expect(text).toContain('Do not paste secrets');
-    expect(text).toContain('Right-click any page and choose Check with TrustShell');
+    // The menu item exists only on a selection (select.js contexts: ['selection']); this line said
+    // "Right-click any page", and a right-click with nothing selected shows no such item.
+    expect(text).toContain('Select text on any page, right-click it, and choose Check with TrustShell');
     expect(text).toContain("Check an agent's RepID");
   });
 

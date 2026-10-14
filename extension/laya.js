@@ -118,7 +118,15 @@
     const opts = options || {};
     const now = typeof opts.now === 'function' ? opts.now : clock;
     const start = now();
+    // Set once the reply is scrubbed and something was removed. The label is then about the text
+    // that was sent, not the text on screen, and the stamp says so (src/lib/claim.ts `scrubbed`).
+    let scrubbed = false;
     const done = (label, body) => {
+      const row = answer(label, body);
+      if (scrubbed) row.scrubbed = true;
+      return row;
+    };
+    const answer = (label, body) => {
       const latency_ms = Math.max(0, Math.round(now() - start));
       if (latency_ms > SLOW_MS) return { label: NOT_CHECKED, latency_ms, line: SLOW_LINE };
       if (body === undefined) return { label, latency_ms };
@@ -136,8 +144,11 @@
     // Known secret and personal-data formats are removed before anything is sent (scrub.js).
     const scrub = scrubber(opts);
     if (typeof scrub !== 'function') return done(NOT_CHECKED);
-    const cleaned = scrub(String(text ?? ''));
+    const raw = String(text ?? '');
+    const cleaned = scrub(raw);
+    // Nothing left to send: nothing was sent, so nothing is marked scrubbed.
     if (cleaned.trim() === '') return done(NOT_CHECKED);
+    scrubbed = cleaned !== raw;
 
     const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : TIMEOUT_MS;
     const controller = new AbortController();

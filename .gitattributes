@@ -1,0 +1,3 @@
+# The Chrome extension ships as these files, byte for byte (scripts/pack-extension.mjs). LF on every
+# checkout, so a zip packed on Windows has the same sha256 as the one CI attaches to extension-latest.
+extension/** text=auto eol=lf
