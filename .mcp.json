@@ -19,6 +19,16 @@
         "@hyperdag/trustshell@1.6.1",
         "trustshell-mcp"
       ]
+    },
+    "zvec-grep": {
+      "type": "stdio",
+      "command": "zg",
+      "args": [
+        "server",
+        "--stdio",
+        "--mcp-toolset",
+        "agent"
+      ]
     }
   }
 }
