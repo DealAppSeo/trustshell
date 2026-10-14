@@ -2,6 +2,45 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.6.2 — unreleased (release candidate; dated when published)
+
+Two new local checks. Each has a CLI command, an SDK export and an MCP tool. No existing command,
+export or tool changed behaviour.
+
+- **`trustshell ground`: is a quote really in the document it cites?** It checks a quoted claim
+  against a source file with no model and no network. Is the quote on the cited page, and with
+  `--kind number|date` is the value in the quote? `VERIFIED` exits 0, `VETO` exits 1, and
+  `NOT_CHECKED` exits 2 and is never a pass. Pages split on form feed (`pdftotext` output).
+  `--echo` marks template text, so a quote that only repeats it is `NOT_CHECKED template_echo`.
+  In code: `groundQuote`, `groundClaims`, `splitPages` and `LIMITATIONS`. Every receipt carries
+  `LIMITATIONS`, `observed: null` and `anchor_status: 'none'`. `VERIFIED` says the text is on the
+  page. It does not say the quote supports the claim. For agents it is the MCP tool `ground_quote`,
+  with the source passed as text. (tests/ground.test.ts, ground-cli.test.ts, ground-xc1.test.ts.)
+- **Number and date edges from the red team are closed before release.** These cases no longer
+  verify:
+  - a number glued to letters (`1.5k`);
+  - `1,250` inside `1,250.50`, or `250` inside `-250`;
+  - big integers past float precision;
+  - two-digit years;
+  - a date that reads two ways (`03/04/2026`);
+  - an MCP call with a value but no kind.
+
+  (tests/ground-xc1.test.ts.)
+- **`trustshell receipt <receiptId>`: read a policy-kernel receipt back and check it here.** It
+  calls `GET /api/v1/kernel/receipt/:id`, which needs `REPID_API_KEY`. It recomputes the
+  receipt's keccak256 hash **locally** and prints the receipt only if the hash matches. It then
+  prints the **six claims** one by one, never as one rollup badge. Exits:
+  - 0: hash matches;
+  - 1: the receipt does not match its own hash;
+  - 3: no key, or the engine refused.
+
+  New in code: `kernelReceipt()` and the six-claim exports (`SIX_CLAIM_KEYS`, `SixClaim`,
+  `SixClaimStatement`). `kernelReceiptHash()` was already exported in 1.6.1. For agents it is the
+  MCP tool `kernel_receipt`. (tests/cli-receipt.test.ts, kernel-client.test.ts.)
+- **Package size.** The tarball has 101 files: 1.6.1's 99, plus `dist/lib/ground.js` and
+  `ground.d.ts`. Runtime dependencies are unchanged: `@hyperdag/proof-verifier`,
+  `@modelcontextprotocol/sdk` and `zod`, with `ethers` still an optional peer.
+
 ## 1.6.1 — 2026-10-12
 
 - **One call where there used to be two for a minted passport.** The SDK now reads the engine's
