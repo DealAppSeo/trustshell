@@ -43,7 +43,7 @@ export const metadata = {
  *   - Everything that runs at all runs on Base Sepolia testnet; the money there has no value.
  */
 
-type State = 'shipped' | 'direction';
+type State = 'shipped' | 'live' | 'direction';
 
 function StateTag({ state }: { state: State }) {
   // Readiness metadata, deliberately NOT the accent and NOT a verdict colour, so it reads as
@@ -52,6 +52,7 @@ function StateTag({ state }: { state: State }) {
   // tag on /vision exactly, so the two pages read as one system.
   const map: Record<State, { label: string; dashed: boolean }> = {
     shipped: { label: 'Shipped', dashed: false },
+    live: { label: 'Live', dashed: false },
     direction: { label: 'Direction', dashed: true },
   };
   const { label, dashed } = map[state];
@@ -146,14 +147,41 @@ const SANDBOX_FACTS: ReadonlyArray<SandboxFact> = [
 type HarnessPart = {
   name: string;
   body: string;
+  /** What @hyperdag/trustshell 1.7.0 actually does for this part. null = nothing live yet. */
+  live: string | null;
+  /** What is designed and not shipped. */
+  direction: string;
 };
 
 // The four portable parts, verbatim in substance from the glossary `trust-harness` term's note.
+// Each carries LIVE (what the published 1.7.0 package does, per its README and tests) and DIRECTION
+// (designed, not shipped). tests/earn-trust-harness-tags.test.ts pins the tags so a part cannot
+// drift to "live" without the copy saying what runs.
 const HARNESS_PARTS: ReadonlyArray<HarnessPart> = [
-  { name: 'Memory', body: 'What the agent has actually done — carried across every surface, not rebuilt from scratch when the model changes.' },
-  { name: 'Context', body: 'The working state it is reasoning over right now, kept with the agent rather than with the runtime that happens to hold it.' },
-  { name: 'Permissions', body: 'The scoped, budgeted, expiring grants it has been given — what it may do, up to what value, until when. Revoking one cascades to everything beneath it.' },
-  { name: 'The refuse', body: 'Its constitution: the rules it must satisfy before acting, so it can decline or escalate an unsafe or ungrounded action instead of performing it.' },
+  {
+    name: 'Memory',
+    body: 'What the agent has actually done — carried across every surface, not rebuilt from scratch when the model changes.',
+    live: 'Local only: trustshell remember and recall keep notes in a file on your machine, sealed at rest if you turn on TRUSTSHELL_MEMORY_ENCRYPT. Since 1.7.0 every note carries a taint label, and untrusted notes are quarantined (below).',
+    direction: 'Carrying that memory across every surface and machine, so switching the model or the device rebuilds nothing. Today it stays where you ran the command.',
+  },
+  {
+    name: 'Context',
+    body: 'The working state it is reasoning over right now, kept with the agent rather than with the runtime that happens to hold it.',
+    live: null,
+    direction: 'Nothing in the package carries an agent’s working context between runtimes yet. This part is designed, not shipped.',
+  },
+  {
+    name: 'Permissions',
+    body: 'The scoped, budgeted, expiring grants it has been given — what it may do, up to what value, until when. Revoking one is meant to cascade to everything beneath it.',
+    live: 'The MCP tool my_job reads the role, tools and expiry the owner granted on trustshell.dev. In the SDK, guardedX402Payment refuses a spend with no paying origin or no policy, and signs only under the cap.',
+    direction: 'Enforcing every grant on every tool call, so revoking one stops everything under it. That is the kernel’s job, and its enforcement flag is off by default (the sandbox, above).',
+  },
+  {
+    name: 'The refuse',
+    body: 'Its constitution: the rules it must satisfy before acting, so it can decline or escalate an unsafe or ungrounded action instead of performing it.',
+    live: 'trustshell check and verify answer pass, veto or not checked, and not checked is never a pass. Since 1.7.0, trustshell ground vetoes a quote its cited page does not hold, locally, and trustshell receipt reads a kernel receipt back and refuses one that does not match its own hash.',
+    direction: 'The kernel refusing the action itself, before any tool runs, in production. The decision logic is shipped and tested; arming it is a flag that is off by default.',
+  },
 ];
 
 type Diff = {
@@ -339,15 +367,31 @@ export default function EarnTrustPage() {
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           {HARNESS_PARTS.map((h) => (
-            <div key={h.name} className="rounded-xl border border-border bg-card p-5 space-y-1.5">
-              <p className="font-semibold text-foreground">{h.name}</p>
-              <p className="text-sm text-muted leading-relaxed">{h.body}</p>
+            <div key={h.name} className="rounded-xl border border-border bg-card p-5 space-y-3">
+              <div className="space-y-1.5">
+                <p className="font-semibold text-foreground">{h.name}</p>
+                <p className="text-sm text-muted leading-relaxed">{h.body}</p>
+              </div>
+              {h.live && (
+                <div className="space-y-1">
+                  <StateTag state="live" />
+                  <p className="text-sm text-foreground/90 leading-relaxed">{h.live}</p>
+                </div>
+              )}
+              <div className="space-y-1">
+                <StateTag state="direction" />
+                <p className="text-sm text-muted leading-relaxed">{h.direction}</p>
+              </div>
             </div>
           ))}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-          <p className="font-semibold text-foreground">Quarantine, and why a missed catch costs more</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-foreground">Quarantine, and why a missed catch costs more</p>
+            <StateTag state="live" />
+            <StateTag state="direction" />
+          </div>
           <p className="text-sm text-muted leading-relaxed">
             Anything the agent picks up from outside — a web page, a tool result, another agent’s
             message — is held apart and does not enter its trusted core until a check promotes it. It
@@ -356,6 +400,25 @@ export default function EarnTrustPage() {
             is a <span className="text-foreground">large loss</span> — it costs more than several
             confirmed rights earn, because one poisoned fact can steer every decision made after it.
             Better to quarantine a true thing by mistake than to admit a false one.
+          </p>
+          <p className="text-sm leading-relaxed">
+            <span className="text-foreground font-semibold">Live since 1.7.0, in local memory only.</span>{' '}
+            <span className="text-muted">
+              A note saved through the MCP remember tool, or with remember --untrusted, is stored
+              quarantined: recall leaves it out and says how many it held back. Only a passing check
+              releases it — the note found in the source file you name, locally, or a HAL check you ask
+              for. Text that reads like an instruction to the agent is screened by fixed patterns, and
+              no check releases it.
+            </span>
+          </p>
+          <p className="text-sm leading-relaxed">
+            <span className="text-foreground font-semibold">What it does not do — direction.</span>{' '}
+            <span className="text-muted">
+              It holds text apart; it runs nothing in a sandbox. The screen is a fixed list, not adaptive
+              learning, so a novel phrasing is held as untrusted but not flagged. Web pages, tool results
+              and context the agent never saves to this memory are not quarantined. A release is not a
+              truth verdict.
+            </span>
           </p>
         </div>
 

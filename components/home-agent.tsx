@@ -9,13 +9,13 @@ import { CHROME_STORE_URL, STAMPED_SITES, TEST_BUILD_ZIP } from '@/lib/extension
  * the chat sites they already use), then the apps that speak MCP, then the terminal.
  *
  * The MCP paste is the server .mcp.json names "trustshell", which runs the bin published on
- * @hyperdag/trustshell@1.6.1 (npm view: trustshell-mcp). The same JSON for each tab; only the file
+ * @hyperdag/trustshell@1.7.0 (npm view: trustshell-mcp). The same JSON for each tab; only the file
  * it goes in changes. The Chrome block switches to one "Add to Chrome" button when
  * lib/extension-links.ts names the store listing.
  */
 export const MCP_SERVER = {
   command: 'npx',
-  args: ['-y', '-p', '@hyperdag/trustshell@1.6.1', 'trustshell-mcp'],
+  args: ['-y', '-p', '@hyperdag/trustshell@1.7.0', 'trustshell-mcp'],
 };
 
 export function mcpPaste(): string {
@@ -25,11 +25,11 @@ export function mcpPaste(): string {
 /** The ChatGPT and Grok apps do not load MCP servers; the extension stamps their websites instead. */
 export const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
-// npm 1.6.1 ships `trustshell check "<sentence>"`: exit 0 checks out, 1 caught, 2 not checked.
+// npm 1.7.0 ships `trustshell check "<sentence>"`: exit 0 checks out, 1 caught, 2 not checked.
 export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;
 
-// A global install of 1.6.1 puts `trustshell` and `trustshell-mcp` on PATH.
-export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.1';
+// A global install of 1.7.0 puts `trustshell` and `trustshell-mcp` on PATH.
+export const INSTALL = 'npm i -g @hyperdag/trustshell@1.7.0';
 
 const CODE =
   'max-w-full min-w-0 overflow-x-auto whitespace-pre-wrap break-all rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs text-indigo-200';
@@ -98,7 +98,7 @@ export function HomeAgent() {
 
         <h3 className="text-base font-semibold text-white">In Claude Desktop, Cursor or Claude Code</h3>
         <p className="text-sm text-slate-300 break-words">
-          Paste this into the file named on the tab. It runs trustshell-mcp from the published package @hyperdag/trustshell@1.6.1.
+          Paste this into the file named on the tab. It runs trustshell-mcp from the published package @hyperdag/trustshell@1.7.0.
         </p>
         <div role="tablist" aria-label="Agents that already speak MCP" className="flex flex-wrap gap-2">
           {AGENT_TABS.map((tab) => {

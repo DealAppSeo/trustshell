@@ -313,7 +313,7 @@ describe('stranger e2e on current main', () => {
     }
   });
 
-  it('landing keeps the 1.6.1 install line and does not put status on npm', () => {
+  it('landing keeps the 1.7.0 install line and does not put status on npm', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
     // The install steps are on screen 3 since the 2026-10-05 home page.
@@ -323,7 +323,7 @@ describe('stranger e2e on current main', () => {
     expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).not.toContain('Check a claim in the chat you already use');
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
-    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.6.1');
+    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.7.0');
     expect(landing).not.toMatch(/npm i -g @hyperdag\/trustshell@1\.6\.0[^\n]*status/);
     expect(landing).not.toContain('E:\\TrustDisk');
     expect(landing).not.toContain('Loading live scores');
