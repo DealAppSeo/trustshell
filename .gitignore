@@ -62,3 +62,6 @@ trustshell-card.txt
 
 # Built on demand by `npm run pack-extension -- extension store/extension.zip`; a committed copy goes stale.
 store/extension.zip
+
+# zvec-grep local semantic index (rebuild: npm run search:index)
+.zvec-grep/
