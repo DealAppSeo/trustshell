@@ -11,6 +11,7 @@ const footerLinks = {
   ecosystem: [
     { name: 'TrustShell.dev', href: '/', internal: true },
     { name: 'The vision', href: '/vision', internal: true },
+    { name: 'Earn trust', href: '/earn-trust', internal: true },
     { name: 'TrustMedical', href: '/trust-medical', internal: true },
     { name: 'Mission', href: '/mission', internal: true },
     { name: 'How verification works', href: '/how-verification', internal: true },

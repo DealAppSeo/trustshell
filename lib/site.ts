@@ -51,6 +51,12 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   // not the nav (the nav count is locked by tests/nav-fit.test.ts). The sitemap is how an AI
   // search engine finds it.
   { path: '/vision', priority: 0.8 },
+  // The case for a trust ecosystem: why guardrails alone cannot make an agent safe, and the three
+  // parts that can — sandbox, harness, earned trust. A flagship explainer in the /layers ·
+  // /trust-harness · /how-verification family, reached from body copy and the footer, not the nav
+  // (the nav count is locked by tests/nav-fit.test.ts). The sitemap is how an AI search engine
+  // finds it.
+  { path: '/earn-trust', priority: 0.8 },
   { path: '/earned-trust', priority: 0.9 },
   { path: '/docs', priority: 0.9 },
   { path: '/docs/getting-started', priority: 0.8 },
