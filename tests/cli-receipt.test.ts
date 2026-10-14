@@ -5,6 +5,7 @@
 import { parseArgs, run, EXIT, type CliIO } from '../src/cli';
 import { SIX_CLAIM_KEYS, kernelReceiptHash, type KernelReceiptV1 } from '../src/lib/kernel-client';
 import type { TrustShell } from '../src/lib/trustshell';
+import { createServer } from '../src/mcp';
 
 const RID = '00000000-0000-4000-8000-0000000000a1';
 
@@ -66,6 +67,20 @@ describe('trustshell receipt', () => {
     const c = captureIO();
     expect(await run(parseArgs(['receipt', RID]), NO_CLIENT, c.io)).toBe(EXIT.VETO);
     expect(c.err.join('\n')).toMatch(/does not match its own hash/);
+  });
+
+  it('the MCP kernel_receipt tool returns the same read the CLI prints, and a tampered receipt is not ok', async () => {
+    const tool = (createServer(NO_CLIENT) as unknown as { _registeredTools: Record<string, { handler: (a: unknown) => Promise<{ content: Array<{ text: string }> }> }> })._registeredTools['kernel_receipt']!;
+    const r = await hashedReceipt();
+    answer(200, { receipt_id: RID, receipt: r, entries: [], six_claims: envelope(r) });
+    const ok = JSON.parse((await tool.handler({ receipt_id: RID })).content[0]!.text);
+    expect(ok).toMatchObject({ ok: true, receipt_id: RID, six_claims_note: null });
+    expect(Object.keys(ok.six_claims.predicate.claims)).toEqual([...SIX_CLAIM_KEYS]);
+    const edited: any = JSON.parse(JSON.stringify(r));
+    edited.decision.executed = true;
+    answer(200, { receipt_id: RID, receipt: edited, entries: [], six_claims: envelope(r) });
+    const bad = JSON.parse((await tool.handler({ receipt_id: RID })).content[0]!.text);
+    expect(bad).toMatchObject({ ok: false, reason: 'receipt_hash_mismatch' });
   });
 
   it('no key (401) → exit 3, and it says which variable to set', async () => {

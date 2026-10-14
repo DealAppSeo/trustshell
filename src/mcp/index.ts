@@ -29,6 +29,8 @@
  *                      one function the CLI also calls.
  *   - my_job         — the agent's role, the tools it may use and until when, from its live grants
  *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
+ *   - kernel_receipt — `trustshell receipt <id>` parity: read a kernel receipt back, hash checked
+ *                      locally, with its six claims (src/lib/kernel-client.ts kernelReceipt).
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.
@@ -54,6 +56,7 @@ import { refusedValue } from '../cli/remember';
 import { recallLocal, rememberLocal } from './memory';
 import { classifyClaim } from '../lib/claim';
 import { myJob } from '../lib/my-job';
+import { kernelReceipt } from '../lib/kernel-client';
 
 /**
  * Package version — read from package.json at runtime, never retyped here.
@@ -465,6 +468,33 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         return errorResult(`my_job failed: ${e?.message ?? String(e)}`);
       }
     },
+  );
+
+  // `kernel_receipt` is `trustshell receipt <id>` for agents: the same kernelReceipt() call, so a
+  // terminal and an agent cannot disagree about a receipt. It never throws; a refusal (no key, 404,
+  // a hash that does not match) is a normal result that says why, never a pass.
+  registerTool(
+    'kernel_receipt',
+    {
+      title: 'Read a kernel receipt',
+      description:
+        'Read a policy-kernel receipt back by id (GET /api/v1/kernel/receipt/:id; needs REPID_API_KEY). ' +
+        'The receipt hash is recomputed locally; ok is true only when it matches. Returns the receipt ' +
+        'and its six separate claims (integrity, authenticity, observation, correctness, authorization, ' +
+        'containment), each with what it does not establish. There is no single verdict: read the six. ' +
+        'six_claims is null, with six_claims_note saying why, when the envelope does not name this exact ' +
+        'receipt. reason receipt_hash_mismatch means treat the receipt as tampered.',
+      inputSchema: {
+        receipt_id: z.string().min(8).max(64).describe('The kernel receipt id (header.receipt_id).'),
+      },
+    },
+    async ({ receipt_id }: { receipt_id: string }) =>
+      jsonResult(
+        await kernelReceipt(receipt_id, {
+          apiKey: process.env.REPID_API_KEY?.trim() || undefined,
+          apiUrl: process.env.TRUSTSHELL_API_URL?.trim() || undefined,
+        }),
+      ),
   );
 
   return server;

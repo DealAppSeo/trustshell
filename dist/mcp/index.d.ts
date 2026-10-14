@@ -29,6 +29,8 @@
  *                      one function the CLI also calls.
  *   - my_job         — the agent's role, the tools it may use and until when, from its live grants
  *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
+ *   - kernel_receipt — `trustshell receipt <id>` parity: read a kernel receipt back, hash checked
+ *                      locally, with its six claims (src/lib/kernel-client.ts kernelReceipt).
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.

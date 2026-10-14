@@ -174,7 +174,7 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.6.0 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). The source on main also registers `my_job` (the agent's role and allowed tools, read from its live grants); no published release has it yet. It has no purchase tool; buying is the SDK's `executeA2A`.
+In 1.6.0 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). The source on main also registers `my_job` (the agent's role and allowed tools, read from its live grants) and `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs `REPID_API_KEY`); no published release has them yet. It has no purchase tool; buying is the SDK's `executeA2A`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
