@@ -559,13 +559,19 @@ function listen(handler: Parameters<typeof createServer>[1]): Promise<Server> {
 }
 const urlOf = (s: Server) => `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
 
-async function standIns(kernelAnswer: (body: any) => Promise<{ status: number; json: unknown }>): Promise<Stand> {
+async function standIns(
+  kernelAnswer: (body: any) => Promise<{ status: number; json: unknown }>,
+  // Which field carries the price in the 402 the resource serves. Default is the
+  // canonical engine/ecosystem field `amount` (repid-engine x402-server.ts, trustmarket
+  // buy-intent); `maxAmountRequired` is the raw x402-spec field the script also tolerates.
+  amountField: 'amount' | 'maxAmountRequired' = 'amount',
+): Promise<Stand> {
   const resourceReqs: IncomingMessage[] = [];
   const kernelBodies: string[] = [];
   const resource = await listen((req, res) => {
     resourceReqs.push(req);
     res.writeHead(402, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ x402Version: 1, accepts: [{ scheme: 'exact', network: 'base-sepolia', maxAmountRequired: '10000', payTo: PAYEE, asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }] }));
+    res.end(JSON.stringify({ x402Version: 1, accepts: [{ scheme: 'exact', network: 'base-sepolia', [amountField]: '10000', payTo: PAYEE, asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' }] }));
   });
   const kernel = await listen((req, res) => {
     let raw = '';
@@ -663,10 +669,22 @@ describe('examples/kernel-buy/kernel-buy.mjs cannot buy anything', () => {
     stand = await standIns(allowFor);
     const r = await runScript(baseEnv(stand));
     expect(r.code).toBe(0);
+    // The resource serves the canonical engine wire body (price in `amount`). Reaching
+    // ALLOW and echoing the amount proves the script read `amount`, not `maxAmountRequired`
+    // (which would have been undefined and exited NOT_CHECKED before the kernel was asked).
+    expect(r.out).toMatch(/requirement: 10000 raw units/);
     expect(r.out).toMatch(/kernel: ALLOW/);
     expect(r.out).toMatch(/DRY RUN: the kernel allowed this spend, and nothing was signed/);
     expect(r.out).not.toMatch(/signed \(/);
     expect(stand.resourceReqs.every((q) => q.headers['x-payment'] === undefined)).toBe(true);
+  }, 60_000);
+
+  it('still tolerates a spec-shaped 402 that carries the price in `maxAmountRequired`', async () => {
+    stand = await standIns(allowFor, 'maxAmountRequired');
+    const r = await runScript(baseEnv(stand));
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/requirement: 10000 raw units/);
+    expect(r.out).toMatch(/kernel: ALLOW/);
   }, 60_000);
 
   it.each(['1', 'true', 'yes', 'ARMED', 'yes-sign-a-real-payment ', ''])('arming needs the exact phrase: %p leaves it a dry run', async (value) => {

@@ -99,10 +99,15 @@ try {
   stop(EXIT_NOT_CHECKED, `NOT_CHECKED: could not read the resource's payment requirements (${e?.name ?? 'error'}).`);
 }
 const payTo = requirement?.payTo;
-const amount = requirement?.maxAmountRequired;
+// The canonical engine/ecosystem 402 wire body carries the price in `amount`
+// (repid-engine src/services/x402-server.ts; the facilitator envelope and trustmarket
+// buy-intent agree). `maxAmountRequired` is the raw x402-spec field name. Prefer the
+// canonical field and tolerate the spec one — reading only `maxAmountRequired` got
+// `undefined` off the real wire and refused every valid 402 as NOT_CHECKED.
+const amount = requirement?.amount ?? requirement?.maxAmountRequired;
 const asset = requirement?.asset ?? null;
 if (typeof payTo !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(payTo) || typeof amount !== 'string' || !/^(0|[1-9][0-9]*)$/.test(amount)) {
-  stop(EXIT_NOT_CHECKED, "NOT_CHECKED: the 402 did not carry a usable payTo address and maxAmountRequired (raw units).");
+  stop(EXIT_NOT_CHECKED, "NOT_CHECKED: the 402 did not carry a usable payTo address and amount (raw units).");
 }
 log(`  requirement: ${amount} raw units to ${payTo}`);
 
