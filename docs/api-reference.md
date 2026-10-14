@@ -389,8 +389,8 @@ Check a quoted claim against the document it cites, **locally**: no model, no ne
 quote on the cited page, and (with `--kind number|date`) is the value in the quote? The source file
 is split into pages on form feed (`pdftotext` output); a file without one is page 1. Options:
 `--page N`, `--kind text|number|date`, `--value V` (with `--kind number` or `date`; a date is
-`YYYY-MM-DD`), `--unit <u>` (with `--kind number`), `--json` (prints the receipt from
-`groundClaims()`). Prints the status, the reason, the matched line and what it does not establish.
+`YYYY-MM-DD`), `--unit <u>` (with `--kind number`), `--echo "<text>"` (repeatable: the document's
+own template or label text), `--json` (prints the receipt from `groundClaims()`). Prints the status, the reason, the matched line and what it does not establish.
 
 | Status | Reasons | Exit |
 |---|---|---|
@@ -401,8 +401,8 @@ is split into pages on form feed (`pdftotext` output); a file without one is pag
 The rules, in order, and the full list of what VERIFIED does not establish are in
 `src/lib/ground.ts` (`groundQuote` and `LIMITATIONS`). The two that matter most: a number needs one
 number in the quote, or with `--unit` exactly one number written right before that unit; and a
-date must read only one way (`03/04/2026` is `ambiguous_value`). The SDK takes `opts.echoes`, the
-document's own template or label text, and a quote that only repeats it is `template_echo`.
+date must read only one way (`03/04/2026` is `ambiguous_value`). A quote that only repeats an
+`--echo` (in the SDK, `opts.echoes`) is `template_echo`.
 
 ### `trustshell status`
 

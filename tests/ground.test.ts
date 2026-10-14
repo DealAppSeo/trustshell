@@ -52,12 +52,12 @@ function expectSpanRoundTrip(pages: GroundPage[], quote: string, cited?: number)
 describe('reason codes', () => {
   it('exact_match: a quote on the cited page is VERIFIED, with its page and span', () => {
     const r = groundQuote({ quote: 'Loaded 50 ft of cable', page: 1 }, MANIFEST);
-    expect(r).toEqual({ status: 'VERIFIED', reason: 'exact_match', found_on_page: 1, char_span: expect.any(Array) });
+    expect(r).toEqual({ status: 'VERIFIED', reason: 'exact_match', found_on_page: 1, char_span: expect.any(Array), page_index: 0 });
   });
 
   it('quote_not_found: a quote on no page is VETO', () => {
     const r = groundQuote({ quote: 'Loaded 75 ft of cable', page: 1 }, MANIFEST);
-    expect(r).toEqual({ status: 'VETO', reason: 'quote_not_found', found_on_page: null, char_span: null });
+    expect(r).toEqual({ status: 'VETO', reason: 'quote_not_found', found_on_page: null, char_span: null, page_index: null });
   });
 
   it('page_mismatch: a quote only on another page is VETO and says where it is', () => {
@@ -81,7 +81,7 @@ describe('reason codes', () => {
       { quote: null },
       {},
     ]) {
-      expect(groundQuote(claim, MANIFEST)).toEqual({ status: 'NOT_CHECKED', reason: 'no_evidence', found_on_page: null, char_span: null });
+      expect(groundQuote(claim, MANIFEST)).toEqual({ status: 'NOT_CHECKED', reason: 'no_evidence', found_on_page: null, char_span: null, page_index: null });
     }
   });
 

@@ -129,6 +129,8 @@ export interface ParsedArgs {
   value?: string;
   kind?: string;
   unit?: string;
+  /** ground: template / label text the document prints for every reader (repeatable `--echo`). */
+  echoes?: string[];
   /** A usage error message; when set the caller should print help + exit USAGE. */
   error?: string;
 }
@@ -252,6 +254,8 @@ COMMANDS
                              Also check the value is in the quote (date: YYYY-MM-DD).
       [--unit <u>]           With --kind number: the value must be the number written right
                              before this unit (150 ft).
+      [--echo "<text>"]      Template or label text the document prints for every reader.
+                             Repeatable. A quote that only repeats it is NOT_CHECKED.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -320,7 +324,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--quote', '--page', '--value', '--kind', '--unit']);
   // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
   // only something shaped like an option is refused there.
-  const TEXT_VALUE_OPTS = new Set(['--quote', '--value']);
+  const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo']);
+  // `--echo` may be given more than once; every value is kept, in order.
+  const echoes: string[] = [];
   // After a bare `--` every argument is text, even one that starts with a dash: that is the standard way
   // to say "no more options", and the only way to pass a claim like `-5 is less than 3.` unambiguously.
   let optionsEnded = false;
@@ -336,7 +342,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     else if (a === '--dry-run') flags.add('dry-run');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
-    else if (VALUE_OPTS.has(a)) {
+    else if (VALUE_OPTS.has(a) || a === '--echo') {
       const v = argv[i + 1];
       // A value-taking flag with nothing after it, or followed by another flag,
       // is a usage error rather than a silent undefined — otherwise
@@ -345,7 +351,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       if (v === undefined || (TEXT_VALUE_OPTS.has(a) ? looksLikeOption(v) : v.startsWith('-'))) {
         return { command: 'help', json: false, verify: false, error: `${a} requires a value` };
       }
-      values[a.slice(2)] = v;
+      if (a === '--echo') echoes.push(v);
+      else values[a.slice(2)] = v;
       i += 1;
     } else if (looksLikeOption(a)) {
       return {
@@ -470,7 +477,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       // A value with no kind to read it as would be silently ignored, so the two travel together.
       if ((g.kind === 'number' || g.kind === 'date') !== (g.value !== undefined)) return usage('--value goes with --kind number or --kind date');
       if (g.unit !== undefined && g.kind !== 'number') return usage('--unit goes with --kind number');
-      return { command: 'ground', json, verify, ...g };
+      return { command: 'ground', json, verify, ...g, ...(echoes.length ? { echoes } : {}) };
     }
     case 'inspect':
     case 'report':
@@ -561,8 +568,9 @@ export function groundExitCode(status: GroundStatus): number {
 }
 
 /** The original line(s) of the page that hold the span, whitespace collapsed for one display line. */
-export function matchedLine(pages: GroundPage[], r: Pick<GroundResult, 'found_on_page' | 'char_span'>): string | null {
-  const page = pages.find((p) => p.n === r.found_on_page);
+export function matchedLine(pages: GroundPage[], r: Pick<GroundResult, 'page_index' | 'char_span'>): string | null {
+  // By index, not by page number: page numbers can repeat, and the span belongs to one page.
+  const page = r.page_index === null ? undefined : pages[r.page_index];
   if (!page || !r.char_span) return null;
   const [s, e] = r.char_span;
   const from = page.text.lastIndexOf('\n', s - 1) + 1;
@@ -768,7 +776,7 @@ export async function run(
           },
         ],
         pages,
-        { predictedBy: 'caller' },
+        { predictedBy: 'caller', echoes: args.echoes },
       );
       const r = receipt as NonNullable<typeof receipt>;
       if (args.json) io.out(JSON.stringify(r, null, 2));

@@ -141,7 +141,7 @@ describe('run ground', () => {
   });
 
   it('matchedLine is null when nothing was found', () => {
-    expect(matchedLine([{ n: 1, text: 'a' }], { found_on_page: null, char_span: null })).toBeNull();
+    expect(matchedLine([{ n: 1, text: 'a' }], { page_index: null, char_span: null })).toBeNull();
   });
 });
 

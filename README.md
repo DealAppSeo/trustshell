@@ -479,16 +479,18 @@ trustshell ground --source manifest.txt --quote "ordered 150 ft" --page 1 --kind
 | `VETO` | `quote_not_found`, `page_mismatch`, `quote_too_short`, `value_not_in_quote` | `1` |
 | `NOT_CHECKED` | `no_evidence`, `ambiguous_value`, `template_echo` — **never** a pass | `2` |
 
-Matching ignores case, spacing, quote and dash styles, ligatures, zero-width characters and a word
-hyphenated across a line break, and it never matches half a word. With `--kind number` the quote
-must hold one number, or with `--unit` exactly one number written right before that unit: "loaded
-50 ft, ordered 150 ft" is `ambiguous_value` either way. With `--kind date` the value is `YYYY-MM-DD`
-and the quote must hold one date that reads only one way: `03/04/2026` is ambiguous, `25/04/2026`
-is not.
+Matching ignores case, spacing, quote and dash styles, ligatures, zero-width and bidi characters
+and a word hyphenated across a line break, and it never matches half a word or half a number:
+`1,250` is not found in `1,250.50`, nor `250` in `-250`. With `--kind number` the quote must hold
+one number, or with `--unit` exactly one number written right before that unit: "loaded 50 ft,
+ordered 150 ft" is `ambiguous_value` either way, and so is a number with other letters glued to it
+(`1.5k`). With `--kind date` the value is `YYYY-MM-DD` and the quote must hold one date that reads
+only one way: `03/04/2026` is ambiguous, `25/04/2026` is not, and a two-digit year never verifies.
 
-In code, `groundQuote(claim, pages, opts?)` returns that check and `groundClaims(claims, pages, opts?)`
-returns one receipt per claim. Pass `opts.echoes` (the template, form or label text the document
-prints for every reader) and a quote that only repeats it is `NOT_CHECKED` `template_echo`. Every
+Pass `--echo "<text>"` (repeatable) on the CLI, or `opts.echoes` in code: the template, form or
+label text the document prints for every reader. A quote that only repeats it is `NOT_CHECKED`
+`template_echo`. In code, `groundQuote(claim, pages, opts?)` returns that check and
+`groundClaims(claims, pages, opts?)` returns one receipt per claim. Every
 receipt carries `LIMITATIONS`, `observed: null` (nothing in this package sets it) and
 `anchor_status: 'none'`. VERIFIED says the text is on the page. It does not say the quote supports
 the claim.

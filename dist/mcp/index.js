@@ -403,7 +403,9 @@ function createServer(client = makeClient()) {
     })));
     // `ground_quote` is `trustshell ground` for agents, with the source as text instead of a path. It
     // calls groundClaims, the function the CLI calls, and opens no socket. NOT_CHECKED is a normal
-    // result (the check could not settle it), never a pass.
+    // result (the check could not settle it), never a pass. Inputs are size-capped so one call cannot
+    // make the local process normalize an unbounded string (ponytail: fixed caps; raise them if a
+    // real document needs more).
     registerTool('ground_quote', {
         title: 'Ground a quote in its source',
         description: 'Check, locally and with no model, that a quoted passage is really in the source text and on the ' +
@@ -411,18 +413,28 @@ function createServer(client = makeClient()) {
             'check.status is VERIFIED, VETO or NOT_CHECKED with a reason, plus limitations: what VERIFIED does ' +
             'not establish (it never checks meaning). NOT_CHECKED is never a pass. No network.',
         inputSchema: {
-            source_text: zod_1.z.string().describe('The source text. Pages are split on form feed (pdftotext); none means one page.'),
-            quote: zod_1.z.string().describe('The exact passage the claim cites.'),
+            source_text: zod_1.z.string().max(2000000).describe('The source text, at most 2,000,000 characters. Pages are split on form feed (pdftotext); none means one page.'),
+            quote: zod_1.z.string().max(10000).describe('The exact passage the claim cites.'),
             page: zod_1.z.number().optional().describe('The 1-indexed page the quote cites. Found only on another page is a VETO.'),
             value: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]).optional().describe('The claimed value, checked against the quote when kind is number or date (date: YYYY-MM-DD).'),
             kind: zod_1.z.enum(['text', 'number', 'date']).optional().describe('text (default) checks the quote only.'),
-            unit: zod_1.z.string().optional().describe('kind number: the value must be the number written right before this unit.'),
+            unit: zod_1.z.string().max(100).optional().describe('kind number: the value must be the number written right before this unit.'),
             echoes: zod_1.z
-                .array(zod_1.z.string())
+                .array(zod_1.z.string().max(10000))
+                .max(200)
                 .optional()
                 .describe('Template, form or label text the document prints for every reader. A quote that only repeats it is NOT_CHECKED template_echo.'),
         },
-    }, async (a) => jsonResult((0, ground_1.groundClaims)([{ quote: a.quote, page: a.page ?? null, value: a.value ?? null, kind: a.kind, unit: a.unit }], (0, ground_1.splitPages)(a.source_text), { echoes: a.echoes })[0]));
+    }, async (a) => {
+        // The same pairing the CLI enforces: a value with no kind to read it as would otherwise sit
+        // next to a VERIFIED it was never checked for.
+        if ((a.kind === 'number' || a.kind === 'date') !== (a.value !== undefined)) {
+            return errorResult('ground_quote failed: value goes with kind number or kind date, and they travel together.');
+        }
+        if (a.unit !== undefined && a.kind !== 'number')
+            return errorResult('ground_quote failed: unit goes with kind number.');
+        return jsonResult((0, ground_1.groundClaims)([{ quote: a.quote, page: a.page ?? null, value: a.value ?? null, kind: a.kind, unit: a.unit }], (0, ground_1.splitPages)(a.source_text), { echoes: a.echoes })[0]);
+    });
     return server;
 }
 /** Boot the server over stdio. */
