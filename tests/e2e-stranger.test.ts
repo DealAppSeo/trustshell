@@ -259,6 +259,24 @@ describe('stranger e2e on current main', () => {
     expect(down.out).not.toMatch(/\b0\b/);
   }, 30000);
 
+  it('receipt without a key is not read, exits 3, and names the variable to set', async () => {
+    const prevKey = process.env.REPID_API_KEY;
+    delete process.env.REPID_API_KEY;
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = (init?.headers as Record<string, string> | undefined)?.authorization;
+      if (String(input).includes('/api/v1/kernel/receipt/') && !auth) return jsonResponse(401, { error: 'Unauthorized: API key required' });
+      return jsonResponse(503, {});
+    }) as typeof fetch;
+    try {
+      const r = await go(['receipt', '00000000-0000-4000-8000-000000000001']);
+      expect(r.code).toBe(3);
+      expect(r.err).toContain('REPID_API_KEY');
+      expect(r.out).toBe('');
+    } finally {
+      if (prevKey !== undefined) process.env.REPID_API_KEY = prevKey;
+    }
+  });
+
   it('traps lists the ten fixture claims and stays NOT_CHECKED without receipts', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ts-traps-stranger-'));
     const prevCwd = process.cwd();

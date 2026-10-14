@@ -163,3 +163,52 @@ export declare function kernelDecide(input: KernelCallInput, opts?: KernelClient
 export declare function requireKernelAllow(input: KernelCallInput, opts?: KernelClientOptions): Promise<Extract<KernelOutcome, {
     allowed: true;
 }>>;
+/** The six-claim envelope's claim keys, in canonical order. Mirrored by lib/six-claims.ts (a test pins the two). */
+export declare const SIX_CLAIM_KEYS: readonly ["integrity", "authenticity", "observation", "correctness", "authorization", "containment"];
+export type SixClaimKey = (typeof SIX_CLAIM_KEYS)[number];
+export type SixClaimStatus = 'VERIFIED' | 'NOT_CHECKED' | 'FAILED' | 'NOT_APPLICABLE';
+export interface SixClaim {
+    status: SixClaimStatus;
+    statement: string;
+    supports: string[];
+    gaps: string[];
+}
+export declare const SIX_CLAIMS_PREDICATE_TYPE: "https://hyperdag.dev/predicates/trust-receipt-six-claims/v1";
+/** The engine's `toSixClaimStatement`: an in-toto Statement over the receipt. There is no rollup field, on purpose. */
+export interface SixClaimStatement {
+    _type: 'https://in-toto.io/Statement/v1';
+    subject: Array<{
+        name: string;
+        digest: {
+            keccak256: string;
+        };
+    }>;
+    predicateType: typeof SIX_CLAIMS_PREDICATE_TYPE;
+    predicate: {
+        claims: Record<SixClaimKey, SixClaim>;
+        what_this_does_not_establish: string[];
+    };
+}
+export type KernelReceiptRead = {
+    ok: true;
+    receipt_id: string;
+    /** The latest ledger entry for the call. Its hash was recomputed here and matched. */
+    receipt: KernelReceiptV1;
+    /** Present only when the envelope names exactly this receipt (id and hash). Otherwise null, never a guess. */
+    six_claims: SixClaimStatement | null;
+    /** Why six_claims is null, when it is. */
+    six_claims_note: string | null;
+} | {
+    ok: false;
+    /** `receipt_hash_mismatch` means the receipt does not match its own hash: treat it as tampered, not missing. */
+    reason: string;
+    detail: string;
+    http_status: number | null;
+};
+/**
+ * Read a kernel receipt back and check it. NEVER THROWS. `ok: true` only when the engine answered 200
+ * with a kernel-receipt/1 for exactly this id whose hash, recomputed here, matches. The six claims ride
+ * along only when they name that receipt; otherwise `six_claims` is null and `six_claims_note` says why.
+ * Needs an API key: the route is authenticated, and an agent-bound key reads only its own agent's receipts.
+ */
+export declare function kernelReceipt(receiptId: string, opts?: KernelClientOptions): Promise<KernelReceiptRead>;

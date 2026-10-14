@@ -283,6 +283,25 @@ which the CLI reports as `not-checked`.
 A timeout (6 s), a network failure, a non-200 or a body outside the contract is `not-checked`.
 Known secret shapes are stripped from the sentence before it is sent.
 
+### `trustshell receipt <receiptId>`
+
+Reads a policy-kernel receipt back from the engine (`GET /api/v1/kernel/receipt/:id`, which needs
+`REPID_API_KEY`; a key bound to one agent reads only that agent's receipts). It recomputes the
+receipt's keccak256 hash **locally** and prints the receipt only if the hash matches. Then it prints the
+receipt's **six claims** one by one (Integrity, Authenticity, Observation, Correctness,
+Authorization and Containment), each with its own status and what it does not establish, followed
+by what the receipt as a whole does not establish. There is no single verdict line on purpose.
+
+The six claims are shown only when the engine's envelope names this exact receipt (its id and its
+hash). Otherwise the receipt still prints, with `six claims not shown: <why>`. `--json` prints the
+`kernelReceipt()` result from the SDK (`src/lib/kernel-client.ts`).
+
+| Outcome | Exit |
+|---|---|
+| read, and the hash matches | `0` |
+| the receipt does **not** match its own hash. Treat it as tampered | `1` |
+| not read: no key (401), another agent's key (403), no such receipt (404), network, timeout | `3` |
+
 ### `trustshell inspect [<path>] [--from <format>]`
 
 Verify an append-only tool-call log and report what it can and cannot establish. Reads a local
@@ -405,6 +424,7 @@ a run or a session that happened — run these against your own and read the rea
 | `badge` | HyperDAG backend (rendering + verification are **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
+| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local** | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |

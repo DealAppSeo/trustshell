@@ -10,6 +10,7 @@ exports.formatVerdictLine = formatVerdictLine;
 exports.formatVerify = formatVerify;
 exports.formatRepid = formatRepid;
 exports.formatProof = formatProof;
+exports.formatKernelReceipt = formatKernelReceipt;
 exports.makeClient = makeClient;
 exports.run = run;
 exports.runClaimCheck = runClaimCheck;
@@ -59,6 +60,7 @@ const redact_key_1 = require("./redact-key");
 const bind_status_1 = require("./bind-status");
 const scrub_print_1 = require("./scrub-print");
 const traps_1 = require("./traps");
+const kernel_client_1 = require("../lib/kernel-client");
 const node_path_1 = require("node:path");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
@@ -148,8 +150,12 @@ COMMANDS
                              one line of explanation; --json prints the response object.
                              EXIT 0 pass, 1 veto, 2 not-checked, 3 error. A timeout (6 s),
                              network failure, non-200 or off-contract body is not-checked.
+  receipt <receiptId>        Read a policy-kernel receipt back (GET /api/v1/kernel/receipt/:id),
+                             recompute its hash here, and print its SIX claims separately —
+                             never one verdict. Needs REPID_API_KEY. EXIT 0 read and the hash
+                             matches, 1 the hash does NOT match (treat as tampered), 3 not read.
 
-  inspect [<path>]           Verify an append-only tool-call log. Reads a local file and
+  inspect [<path>]          Verify an append-only tool-call log. Reads a local file and
                              computes hashes; opens NO socket. INTACT (0) / BROKEN (1) /
                              UNCHAINED (3) / NO_LOG (3). Defaults to .trustshell/session.jsonl.
       [--from <format>]      Read a foreign log through an adapter (claude-code). An
@@ -199,6 +205,7 @@ EXIT CODES
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
+  receipt                          the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/kernel/receipt only
   check <runUrl>                   api.github.com only — no backend, no account
   check "<sentence>"               the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/classify only
   inspect                          NOTHING. Reads a local file.
@@ -208,7 +215,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
                                    external evidence arrives as a file you supply.
 
 ENV
-  REPID_API_KEY        optional API key (verify/repid/proof are keyless)
+  REPID_API_KEY        optional API key (verify/repid/proof are keyless; receipt needs it)
   TRUSTSHELL_API_URL   override backend origin (default: live HyperDAG backend)
 
 CI GATE EXAMPLE
@@ -302,14 +309,17 @@ function parseArgs(argv) {
         case 'repid':
         case 'proof':
         case 'badge':
-        case 'check': {
+        case 'check':
+        case 'receipt': {
             const operand = rest[0];
             if (!operand) {
                 const what = cmd === 'verify' || cmd === 'evaluate'
                     ? '"<text>"'
                     : cmd === 'check'
                         ? '<github-actions-run-url> or "<sentence>"'
-                        : '<agentIdOrSlug>';
+                        : cmd === 'receipt'
+                            ? '<receiptId>'
+                            : '<agentIdOrSlug>';
                 return {
                     command: cmd,
                     json,
@@ -478,6 +488,31 @@ function formatProof(p) {
             ? `  verified  ✓ (client-side, ${v.verifierVersion})`
             : `  verified  ✗ NOT verified — ${v.error ?? 'unknown'} (${v.verifierVersion})`);
     }
+    return lines.join('\n');
+}
+const CLAIM_LABEL = {
+    integrity: 'Integrity',
+    authenticity: 'Authenticity',
+    observation: 'Observation',
+    correctness: 'Correctness',
+    authorization: 'Authorization',
+    containment: 'Containment',
+};
+/** `trustshell receipt`: the hash check, then the six claims one by one. Deliberately no rollup line. */
+function formatKernelReceipt(r) {
+    if (!r.ok)
+        return `receipt NOT read: ${r.detail} (${r.reason})`;
+    const lines = [`kernel receipt ${r.receipt_id}`, `  hash  ✓ recomputed here, matches ${r.receipt.header.receipt_hash}`, ''];
+    if (!r.six_claims)
+        return [...lines, `  six claims not shown: ${r.six_claims_note}`].join('\n');
+    lines.push('  There is no single verdict. Six separate claims, each with its own gaps:');
+    for (const k of kernel_client_1.SIX_CLAIM_KEYS) {
+        const c = r.six_claims.predicate.claims[k];
+        lines.push(`  ${CLAIM_LABEL[k].padEnd(14)} ${c.status.padEnd(14)} ${c.statement}`);
+        if (c.gaps.length)
+            lines.push(`  ${''.padEnd(29)} does not establish: ${c.gaps.join(' · ')}`);
+    }
+    lines.push('', '  What this receipt does not establish:', ...r.six_claims.predicate.what_this_does_not_establish.map((g) => `    - ${g}`));
     return lines.join('\n');
 }
 /** Build the SDK client from env (apiKey + apiUrl are both optional). */
@@ -667,6 +702,20 @@ async function run(args, client, io = realIO) {
                 io.err(`repid failed: ${e?.message ?? String(e)}`);
                 return exports.EXIT.RUNTIME;
             }
+        }
+        case 'receipt': {
+            // kernelReceipt never throws; every failure comes back as { ok: false }.
+            const r = await (0, kernel_client_1.kernelReceipt)(args.operand, {
+                apiKey: process.env.REPID_API_KEY?.trim() || undefined,
+                apiUrl: process.env.TRUSTSHELL_API_URL?.trim() || undefined,
+            });
+            if (args.json)
+                io.out(JSON.stringify(r, null, 2));
+            else
+                (r.ok ? io.out : io.err)(formatKernelReceipt(r));
+            if (r.ok)
+                return exports.EXIT.OK;
+            return r.reason === 'receipt_hash_mismatch' ? exports.EXIT.VETO : exports.EXIT.RUNTIME;
         }
         case 'proof': {
             try {

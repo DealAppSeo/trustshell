@@ -20,14 +20,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   KernelRefusedError,
+  SIX_CLAIM_KEYS,
   hashKernelArgs,
   kernelCanonicalJson,
   kernelDecide,
+  kernelReceipt,
   kernelReceiptHash,
   requireKernelAllow,
   type KernelCallInput,
   type KernelReceiptV1,
 } from '../src/lib/kernel-client';
+import { SIX_CLAIM_KEYS as APP_SIX_CLAIM_KEYS } from '../lib/six-claims';
 
 const ROOT = join(__dirname, '..');
 
@@ -719,5 +722,91 @@ describe('examples/kernel-buy/kernel-buy.mjs cannot buy anything', () => {
     expect(src).toMatch(/writeReceipt/);
     expect(src).not.toMatch(/\bbuildX402Payment\s*\(/);
     expect(src).not.toMatch(/x-payment['"]?\s*:/i); // it never builds a header to send
+  });
+});
+
+// ── 4. reading a receipt back: GET /api/v1/kernel/receipt/:id ─────────────────────────────────────
+
+/** The engine's toSixClaimStatement shape, over receipt `r`. `over` breaks it in one chosen way. */
+const sixClaimsFor = (r: any, over: Record<string, unknown> = {}) => ({
+  _type: 'https://in-toto.io/Statement/v1',
+  subject: [{ name: `kernel-receipt:${r.header.receipt_id}`, digest: { keccak256: r.header.receipt_hash.replace(/^0x/, '') } }],
+  predicateType: 'https://hyperdag.dev/predicates/trust-receipt-six-claims/v1',
+  predicate: {
+    claims: Object.fromEntries(SIX_CLAIM_KEYS.map((k) => [k, { status: 'NOT_CHECKED', statement: `${k}.`, supports: [], gaps: [`${k} gap`] }])),
+    what_this_does_not_establish: ['the tool is a closure the kernel does not see into'],
+  },
+  ...over,
+});
+const RID = VECTOR.header.receipt_id;
+const readAnswer = (receipt: any = VECTOR, six: unknown = sixClaimsFor(receipt)) =>
+  ({ receipt_id: receipt.header.receipt_id, receipt, entries: [{ receipt_hash: receipt.header.receipt_hash, executed: false, created_at: receipt.header.created_at }], six_claims: six });
+
+describe('kernelReceipt: a receipt read back is shown only when it matches its own hash', () => {
+  it('200 with the vector → ok, the six claims attached, sent as an authenticated GET to the receipt route', async () => {
+    const f = fakeFetch(() => json(200, readAnswer()));
+    const out = await kernelReceipt(RID, { fetch: f, apiKey: 'k', apiUrl: 'https://engine.invalid/' });
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.receipt.header.receipt_hash).toBe(VECTOR_HASH);
+    expect(Object.keys(out.six_claims!.predicate.claims)).toEqual([...SIX_CLAIM_KEYS]);
+    expect(out.six_claims_note).toBeNull();
+    const [url, init] = f.mock.calls[0];
+    expect(url).toBe(`https://engine.invalid/api/v1/kernel/receipt/${RID}`);
+    expect(init.method).toBe('GET');
+    expect(init.headers.authorization).toBe('Bearer k');
+    expect(init.redirect).toBe('error');
+  });
+
+  it('a receipt edited after it was hashed → receipt_hash_mismatch (tampered), never ok', async () => {
+    const edited = JSON.parse(JSON.stringify(VECTOR));
+    edited.decision.verdict = 'ALLOW';
+    const out = await kernelReceipt(RID, { fetch: fakeFetch(() => json(200, readAnswer(edited))) });
+    expect(out).toMatchObject({ ok: false, reason: 'receipt_hash_mismatch' });
+  });
+
+  it('a different receipt than the one asked for → wrong_receipt', async () => {
+    const out = await kernelReceipt('00000000-0000-4000-8000-0000000000ff', { fetch: fakeFetch(() => json(200, readAnswer())) });
+    expect(out).toMatchObject({ ok: false, reason: 'wrong_receipt' });
+  });
+
+  it.each([
+    ['absent (an engine from before the envelope shipped)', 'ABSENT', 'sent no six-claim envelope'],
+    ['null', null, 'sent no six-claim envelope'],
+    ['over a different hash', sixClaimsFor({ header: { ...VECTOR.header, receipt_hash: '0x' + 'ab'.repeat(32) } }), 'different hash'],
+    ['naming a different receipt', sixClaimsFor({ header: { ...VECTOR.header, receipt_id: 'someone-elses-receipt' } }), 'different receipt'],
+    ['missing a claim', (() => { const e: any = sixClaimsFor(VECTOR); delete e.predicate.claims.correctness; return e; })(), 'correctness claim is malformed'],
+    ['with an unknown status', (() => { const e: any = sixClaimsFor(VECTOR); e.predicate.claims.integrity.status = 'PASS'; return e; })(), 'integrity claim is malformed'],
+  ])('six claims %s → the receipt is still ok, the claims are null with a note, never a guess', async (_label, six, note) => {
+    const { six_claims: _drop, ...withoutSix } = readAnswer();
+    const body = six === 'ABSENT' ? withoutSix : readAnswer(VECTOR, six);
+    const out = await kernelReceipt(RID, { fetch: fakeFetch(() => json(200, body)) });
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.six_claims).toBeNull();
+    expect(out.six_claims_note).toContain(note);
+  });
+
+  it.each([
+    [401, 'REPID_API_KEY'],
+    [403, 'different agent'],
+    [404, 'no receipt with this id'],
+    [503, 'answered 503'],
+  ])('HTTP %i → not ok, and the detail says why', async (status, detail) => {
+    const out = await kernelReceipt(RID, { fetch: fakeFetch(() => json(status, { error: 'x' })) });
+    expect(out).toMatchObject({ ok: false, reason: `http_${status}`, http_status: status });
+    if (!out.ok) expect(out.detail).toContain(detail);
+  });
+
+  it('a bad id is refused before any request; a network error and a non-JSON body are refusals, not throws', async () => {
+    const f = fakeFetch(() => json(200, readAnswer()));
+    expect(await kernelReceipt('../etc/passwd', { fetch: f })).toMatchObject({ ok: false, reason: 'bad_receipt_id' });
+    expect(f).not.toHaveBeenCalled();
+    expect(await kernelReceipt(RID, { fetch: jest.fn(async () => { throw new TypeError('fetch failed'); }) as unknown as typeof fetch })).toMatchObject({ ok: false, reason: 'network_error' });
+    expect(await kernelReceipt(RID, { fetch: fakeFetch(() => new Response('<html>', { status: 200 })) })).toMatchObject({ ok: false, reason: 'unreadable_response' });
+  });
+
+  it('the SDK and the app renderer list the same six claims in the same order', () => {
+    expect([...SIX_CLAIM_KEYS]).toEqual([...APP_SIX_CLAIM_KEYS]);
   });
 });

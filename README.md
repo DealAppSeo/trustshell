@@ -174,7 +174,7 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. It has no purchase tool; buying is the SDK's `executeA2A`.
+In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY); no published release has it yet. It has no purchase tool; buying is the SDK's `executeA2A`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
@@ -476,6 +476,7 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `badge` | HyperDAG backend (rendering is **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
+| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local** | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
