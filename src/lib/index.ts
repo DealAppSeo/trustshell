@@ -122,8 +122,10 @@ export type { GroundClaim, GroundPage, GroundOptions, GroundResult, GroundReceip
 /**
  * Immune system v0: taint labels and quarantine for the package's LOCAL memory. A note that did not
  * come from the operator is stored untrusted and quarantined; recall leaves it out until a check
- * releases it (releaseByGround: local, no network; releaseByHal: the classify endpoint, network).
- * Injection-looking text is never released. See src/memory/quarantine.ts for what it does NOT do.
+ * releases it (releaseByGround: against the source document recorded at ingest, local, no network;
+ * releaseByHal: the default classify endpoint, two deciders, network). Injection-looking text is never
+ * released. The release functions are OPERATOR surfaces: do not hand them to an agent as tools.
+ * See src/memory/quarantine.ts for what it does NOT do.
  */
 export {
   rememberUntrusted,
@@ -131,7 +133,8 @@ export {
   explainQuarantine,
   releaseByGround,
   releaseExitCode,
+  sourceDigest,
   UNCHECKED_REASON,
 } from '../memory/quarantine';
-export type { QuarantineRecord, ReleaseOutcome, Provenance } from '../memory/quarantine';
+export type { QuarantineRecord, QuarantineListItem, ReleaseOutcome, Provenance } from '../memory/quarantine';
 export { releaseByHal } from '../memory/quarantine-hal';

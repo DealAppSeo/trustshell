@@ -72,6 +72,7 @@ describe('mcp local memory', () => {
       provenance: 'untrusted',
       quarantined: true,
       reason: 'untrusted: not yet checked',
+      source_recorded: false,
     });
     expect(listNotes(db)).toEqual([]);
     const all = listNotes(db, process.env, { includeQuarantined: true });

@@ -26,7 +26,7 @@
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { type AgentIdentity } from '../lib/identity';
-import { type QuarantineRecord } from '../memory/quarantine';
+import { type QuarantineListItem, type QuarantineRecord } from '../memory/quarantine';
 import { type KernelReceiptRead } from '../lib/kernel-client';
 import { type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -86,8 +86,15 @@ export interface ParsedArgs {
     unit?: string;
     /** ground: template / label text the document prints for every reader (repeatable `--echo`). */
     echoes?: string[];
-    /** remember: the text did not come from the operator. It is stored quarantined; --source labels it. */
+    /** remember: the note is stored untrusted and quarantined (the default); --source labels it. */
     untrusted?: boolean;
+    /**
+     * remember: the operator vouches the note is theirs (`--trusted`), so it is stored trusted.
+     * quarantine release: the operator vouches for a held note (`--trusted`). Never over MCP.
+     */
+    trusted?: boolean;
+    /** remember: the document the untrusted note came from; its sha256 is recorded for a ground release. */
+    sourceFile?: string;
     /** recall: also print quarantined notes, each marked [QUARANTINED: reason]. */
     includeQuarantined?: boolean;
     /** quarantine: list | explain | release, and the note id. */
@@ -183,8 +190,8 @@ export interface CliIO {
  * Execute a parsed command against a client and return the process exit code.
  * The client is injected so tests can pass a mock (no live network).
  */
-/** `quarantine list`: one line per held note. Injection-looking text is never reproduced. */
-export declare function formatQuarantineList(rows: readonly QuarantineRecord[]): string;
+/** `quarantine list`: one line per held note: id, source, reason. Never the text (use explain). */
+export declare function formatQuarantineList(rows: readonly QuarantineListItem[]): string;
 /** `quarantine explain <id>`: the whole taint record, one field per line. */
 export declare function formatQuarantineRecord(r: QuarantineRecord): string;
 export declare function run(args: ParsedArgs, client: TrustShell, io?: CliIO): Promise<number>;

@@ -73,7 +73,7 @@ describe('keyed local memory', () => {
     expect((await go(['remember', 'alpha', 'two', 'words'])).out).toEqual(['remembered']);
     expect((await go(['recall', 'alpha'])).out).toEqual(['two words']);
 
-    expect((await go(['remember', 'ship the receipt'])).out).toEqual(['remembered']);
+    expect((await go(['remember', '--trusted', 'ship the receipt'])).out).toEqual(['remembered']);
     const notes = await go(['recall']);
     expect(notes.out).toEqual(['ship the receipt\ndo_not_send COUNT 0']);
     expect(notes.out.join('\n')).not.toContain('two words');
