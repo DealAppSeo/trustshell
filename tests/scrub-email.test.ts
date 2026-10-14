@@ -176,8 +176,13 @@ describe('linear, not quadratic', () => {
     ['extension/scrub.js', ext.redact],
   ] as Array<[string, (v: string) => unknown]>)('%s', (_name, fn) => {
     it.each(SHAPES)('%s', (_label, make) => {
-      const small = Math.max(best(fn, make(8000)), 1);
-      const bigText = make(64000);
+      // Sizes start at 32k, not 8k. At 8k several shapes finish in under 1 ms, so the 1 ms floor below
+      // replaced the small timing and the "ratio" became "the big run must take < 24 ms": true on a fast
+      // laptop, false on a slow CI runner for code that is linear (main, 2026-10-14: @ everywhere read
+      // 25.4 on CI while doubling-size timings showed exponent ~1.0). At 32k the small run is several ms,
+      // so the floor almost never binds and the ratio measures growth again. 8x and 24 are unchanged.
+      const small = Math.max(best(fn, make(32000)), 1);
+      const bigText = make(256000);
       const big = best(fn, bigText);
       expect(big / small).toBeLessThan(24);
       expect(big).toBeLessThan(1500);
