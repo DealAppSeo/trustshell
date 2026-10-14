@@ -54,8 +54,8 @@ describe('skill shells out to trustshell', () => {
     for (const command of manifest.commands) {
       expect(skill).toContain(command);
     }
-    expect(skill).toContain('npm i -g @hyperdag/trustshell@1.6.2');
-    expect(skill).not.toMatch(/npx @hyperdag\/trustshell@1\.6\.2/);
+    expect(skill).toContain('npm i -g @hyperdag/trustshell@1.6.1');
+    expect(skill).not.toMatch(/npx @hyperdag\/trustshell@1\.6\.1/);
     expect(skill).not.toMatch(/staking is live/i);
   });
 });

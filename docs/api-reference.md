@@ -293,7 +293,7 @@ Known secret shapes are stripped from the sentence before it is sent.
 
 ### `trustshell receipt <receiptId>`
 
-> **Since 1.6.2.** On 1.6.1 and older this command exits `2` with
+> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
 > `unknown command: receipt`, and the SDK does not export `kernelReceipt()`.
 
 Reads a policy-kernel receipt back from the engine (`GET /api/v1/kernel/receipt/:id`, which needs
@@ -396,7 +396,7 @@ monty NOT_CHECKED
 
 ### `trustshell ground --source <file> --quote "<text>"`
 
-> **Since 1.6.2.** On 1.6.1 and older this command exits `2` with
+> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
 > `unknown option: --source`, and the SDK does not export `groundQuote()`, `groundClaims()` or
 > `LIMITATIONS`.
 
@@ -460,9 +460,9 @@ a run or a session that happened — run these against your own and read the rea
 | `badge` | HyperDAG backend (rendering + verification are **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
-| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Since 1.6.2 | `REPID_API_KEY` required |
+| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Main only, not in 1.6.1 | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
-| `ground` | **none** — reads the `--source` file. Since 1.6.2 | none |
+| `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 | `remember` | **none** — writes the local memory file | none |
@@ -844,4 +844,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v1.6.2 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
+> Reflects the published `@hyperdag/trustshell` v1.6.1 surface, except the two sections marked main only (`trustshell receipt` and `trustshell ground`), and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
