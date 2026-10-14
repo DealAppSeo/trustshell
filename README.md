@@ -174,7 +174,7 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY); no published release has it yet. It has no purchase tool; buying is the SDK's `executeA2A`.
+In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY) and `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network); no published release has them yet. It has no purchase tool; buying is the SDK's `executeA2A`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
@@ -462,6 +462,37 @@ the votes when the server has questions turned on (`CLASSIFY_QUESTIONS=on`; off 
 A timeout (6 s), a network failure, a non-200 or a body outside the contract is `not-checked`.
 Known secret shapes are stripped from the sentence before it is sent.
 
+### Ground a claim in its source (local, no network)
+
+`ground` checks a quoted claim against the document it cites, with no model and no network: is the
+quote really on the cited page, and is the claimed value really in that quote? Pages are split on
+form feed, the `pdftotext` convention; a file without one is page 1.
+
+```bash
+pdftotext manifest.pdf manifest.txt
+trustshell ground --source manifest.txt --quote "ordered 150 ft" --page 1 --kind number --value 150 --unit ft
+```
+
+| Status | Reasons | Exit |
+|---|---|---|
+| `VERIFIED` | `exact_match`: the quote is on the cited page, and the value is in it | `0` |
+| `VETO` | `quote_not_found`, `page_mismatch`, `quote_too_short`, `value_not_in_quote` | `1` |
+| `NOT_CHECKED` | `no_evidence`, `ambiguous_value`, `template_echo` — **never** a pass | `2` |
+
+Matching ignores case, spacing, quote and dash styles, ligatures, zero-width characters and a word
+hyphenated across a line break, and it never matches half a word. With `--kind number` the quote
+must hold one number, or with `--unit` exactly one number written right before that unit: "loaded
+50 ft, ordered 150 ft" is `ambiguous_value` either way. With `--kind date` the value is `YYYY-MM-DD`
+and the quote must hold one date that reads only one way: `03/04/2026` is ambiguous, `25/04/2026`
+is not.
+
+In code, `groundQuote(claim, pages, opts?)` returns that check and `groundClaims(claims, pages, opts?)`
+returns one receipt per claim. Pass `opts.echoes` (the template, form or label text the document
+prints for every reader) and a quote that only repeats it is `NOT_CHECKED` `template_echo`. Every
+receipt carries `LIMITATIONS`, `observed: null` (nothing in this package sets it) and
+`anchor_status: 'none'`. VERIFIED says the text is on the page. It does not say the quote supports
+the claim.
+
 ### What each command talks to
 
 Egress is per command, and `check <runUrl>` is deliberately the odd one out — it is the only
@@ -478,6 +509,7 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
 | `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local** | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
+| `ground` | **none** — reads the `--source` file | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 | `remember` | **none** — writes the local memory file | none |

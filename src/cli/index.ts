@@ -50,6 +50,7 @@ import { bindStatusText } from './bind-status';
 import { scrubPrinted } from './scrub-print';
 import { buildTrapsList, formatTrapsList } from './traps';
 import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/kernel-client';
+import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { join } from 'node:path';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -89,6 +90,7 @@ export type Command =
   | 'redact'
   | 'bind-status'
   | 'traps'
+  | 'ground'
   | 'help'
   | 'version';
 
@@ -120,6 +122,13 @@ export interface ParsedArgs {
   evidence?: string;
   /** remember/recall/redact: a local sqlite key. Absent on the one-argument note path. */
   key?: string;
+  /** ground: the source file, the quote, and the optional page / value / kind / unit. */
+  source?: string;
+  quote?: string;
+  page?: string;
+  value?: string;
+  kind?: string;
+  unit?: string;
   /** A usage error message; when set the caller should print help + exit USAGE. */
   error?: string;
 }
@@ -233,6 +242,16 @@ COMMANDS
   redact KEY                 Delete the KEY row. Missing is NOT_CHECKED. No network.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED until a receipt id exists. No scoreboard. No HAL wins.
+  ground --source <file> --quote "<text>"
+                             Is the quote really in the source file? No model, no network.
+                             Pages split on form feed (pdftotext); no form feed is page 1.
+                             Prints the status, the reason and the matched line.
+                             EXIT 0 VERIFIED, 1 VETO, 2 NOT_CHECKED (never a pass) or usage.
+      [--page N]             The page the quote cites. Found only on another page is a VETO.
+      [--kind number|date --value V]
+                             Also check the value is in the quote (date: YYYY-MM-DD).
+      [--unit <u>]           With --kind number: the value must be the number written right
+                             before this unit (150 ft).
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -261,6 +280,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   check <runUrl>                   api.github.com only — no backend, no account
   check "<sentence>"               the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/classify only
   inspect                          NOTHING. Reads a local file.
+  ground                           NOTHING. Reads the --source file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
   report                           NOTHING. It has no fetch and no URL parameter;
@@ -297,7 +317,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
   // Options that consume the NEXT argument. Indexed rather than for-of because a
   // value-taking flag has to be able to look ahead.
   const values: Record<string, string | undefined> = {};
-  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers']);
+  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--quote', '--page', '--value', '--kind', '--unit']);
+  // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
+  // only something shaped like an option is refused there.
+  const TEXT_VALUE_OPTS = new Set(['--quote', '--value']);
   // After a bare `--` every argument is text, even one that starts with a dash: that is the standard way
   // to say "no more options", and the only way to pass a claim like `-5 is less than 3.` unambiguously.
   let optionsEnded = false;
@@ -319,7 +342,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       // is a usage error rather than a silent undefined — otherwise
       // `--evidence` alone would quietly become "no evidence supplied" and
       // report UNSUPPORTED, which reads as a finding instead of a typo.
-      if (v === undefined || v.startsWith('-')) {
+      if (v === undefined || (TEXT_VALUE_OPTS.has(a) ? looksLikeOption(v) : v.startsWith('-'))) {
         return { command: 'help', json: false, verify: false, error: `${a} requires a value` };
       }
       values[a.slice(2)] = v;
@@ -428,6 +451,27 @@ export function parseArgs(argv: string[]): ParsedArgs {
       return { command: 'bind-status', json, verify };
     case 'traps':
       return { command: 'traps', json, verify };
+    case 'ground': {
+      const g = {
+        source: values['source'],
+        quote: values['quote'],
+        page: values['page'],
+        value: values['value'],
+        kind: values['kind'],
+        unit: values['unit'],
+      };
+      const usage = (error: string): ParsedArgs => ({ command: 'ground', json, verify, error });
+      if (!g.source || g.quote === undefined) return usage('`trustshell ground` requires --source <file> and --quote "<text>"');
+      // A stray word is almost always an unquoted quote (`--quote walked 50 ft`): refuse it rather
+      // than ground the first word alone.
+      if (rest.length) return usage(`unexpected argument: ${rest[0]} (quote the --quote text)`);
+      if (g.page !== undefined && !/^[1-9]\d*$/.test(g.page)) return usage('--page must be a whole number, 1 or more');
+      if (g.kind !== undefined && !['text', 'number', 'date'].includes(g.kind)) return usage('--kind must be text, number or date');
+      // A value with no kind to read it as would be silently ignored, so the two travel together.
+      if ((g.kind === 'number' || g.kind === 'date') !== (g.value !== undefined)) return usage('--value goes with --kind number or --kind date');
+      if (g.unit !== undefined && g.kind !== 'number') return usage('--unit goes with --kind number');
+      return { command: 'ground', json, verify, ...g };
+    }
     case 'inspect':
     case 'report':
       // Operand is OPTIONAL: inspect and report default to `.trustshell/`.
@@ -506,6 +550,33 @@ export function formatVerify(r: VerifyOutputResult, opts: { receiptWritten?: boo
     for (const e of r.evidence) lines.push(`    - ${e}`);
   }
   if (r.verdict === 'PASS' && opts.receiptWritten === true) lines.push('You have a receipt. Paste another claim when you want.');
+  return lines.join('\n');
+}
+
+/** `trustshell ground` exit code: the same pass / veto / not-checked codes as `verify`. PURE. */
+export function groundExitCode(status: GroundStatus): number {
+  if (status === 'VERIFIED') return EXIT.OK;
+  if (status === 'VETO') return EXIT.VETO;
+  return EXIT.NOT_CHECKED;
+}
+
+/** The original line(s) of the page that hold the span, whitespace collapsed for one display line. */
+export function matchedLine(pages: GroundPage[], r: Pick<GroundResult, 'found_on_page' | 'char_span'>): string | null {
+  const page = pages.find((p) => p.n === r.found_on_page);
+  if (!page || !r.char_span) return null;
+  const [s, e] = r.char_span;
+  const from = page.text.lastIndexOf('\n', s - 1) + 1;
+  const to = page.text.indexOf('\n', e);
+  return page.text.slice(from, to === -1 ? undefined : to).replace(/\s+/g, ' ').trim();
+}
+
+/** Human card for `trustshell ground`: status and reason, the matched line, what it does not establish. */
+export function formatGround(r: GroundResult, pages: GroundPage[], limitations: readonly string[]): string {
+  const lines = [`${r.status}  ${r.reason}`];
+  const line = matchedLine(pages, r);
+  if (line !== null) lines.push(`${r.reason === 'page_mismatch' ? 'found on page' : 'page'} ${r.found_on_page}: ${line}`);
+  if (r.status === 'NOT_CHECKED') lines.push('Not checked. This is not a pass.');
+  lines.push('', 'What this does not establish', ...limitations.map((l) => `* ${l}`));
   return lines.join('\n');
 }
 
@@ -673,6 +744,36 @@ export async function run(
       const rows = buildTrapsList(process.cwd());
       io.out(formatTrapsList(rows, args.json));
       return EXIT.OK;
+    }
+
+    case 'ground': {
+      // Local file only. Opens no socket.
+      const fs = require('node:fs') as typeof import('node:fs');
+      let text: string;
+      try {
+        text = fs.readFileSync(args.source as string, 'utf8');
+      } catch {
+        io.err(`ground: cannot read the source file: ${args.source}`);
+        return EXIT.USAGE;
+      }
+      const pages = splitPages(text);
+      const [receipt] = groundClaims(
+        [
+          {
+            quote: args.quote,
+            page: args.page === undefined ? null : Number(args.page),
+            value: args.value ?? null,
+            kind: (args.kind ?? 'text') as 'text' | 'number' | 'date',
+            unit: args.unit,
+          },
+        ],
+        pages,
+        { predictedBy: 'caller' },
+      );
+      const r = receipt as NonNullable<typeof receipt>;
+      if (args.json) io.out(JSON.stringify(r, null, 2));
+      else io.out(formatGround(r.check, pages, r.limitations));
+      return groundExitCode(r.check.status);
     }
 
     case 'verify':

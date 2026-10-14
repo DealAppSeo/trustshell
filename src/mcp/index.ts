@@ -31,6 +31,8 @@
  *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
  *   - kernel_receipt — `trustshell receipt <id>` parity: read a kernel receipt back, hash checked
  *                      locally, with its six claims (src/lib/kernel-client.ts kernelReceipt).
+ *   - ground_quote   — `trustshell ground` parity: is the quote really in the source text, on the
+ *                      cited page, with the value in it? Local, no network (src/lib/ground.ts).
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.
@@ -57,6 +59,7 @@ import { recallLocal, rememberLocal } from './memory';
 import { classifyClaim } from '../lib/claim';
 import { myJob } from '../lib/my-job';
 import { kernelReceipt } from '../lib/kernel-client';
+import { groundClaims, splitPages } from '../lib/ground';
 
 /**
  * Package version — read from package.json at runtime, never retyped here.
@@ -494,6 +497,41 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
           apiKey: process.env.REPID_API_KEY?.trim() || undefined,
           apiUrl: process.env.TRUSTSHELL_API_URL?.trim() || undefined,
         }),
+      ),
+  );
+
+  // `ground_quote` is `trustshell ground` for agents, with the source as text instead of a path. It
+  // calls groundClaims, the function the CLI calls, and opens no socket. NOT_CHECKED is a normal
+  // result (the check could not settle it), never a pass.
+  registerTool(
+    'ground_quote',
+    {
+      title: 'Ground a quote in its source',
+      description:
+        'Check, locally and with no model, that a quoted passage is really in the source text and on the ' +
+        'cited page, and (kind number or date) that the value is in the quote. Returns a receipt whose ' +
+        'check.status is VERIFIED, VETO or NOT_CHECKED with a reason, plus limitations: what VERIFIED does ' +
+        'not establish (it never checks meaning). NOT_CHECKED is never a pass. No network.',
+      inputSchema: {
+        source_text: z.string().describe('The source text. Pages are split on form feed (pdftotext); none means one page.'),
+        quote: z.string().describe('The exact passage the claim cites.'),
+        page: z.number().optional().describe('The 1-indexed page the quote cites. Found only on another page is a VETO.'),
+        value: z.union([z.string(), z.number()]).optional().describe('The claimed value, checked against the quote when kind is number or date (date: YYYY-MM-DD).'),
+        kind: z.enum(['text', 'number', 'date']).optional().describe('text (default) checks the quote only.'),
+        unit: z.string().optional().describe('kind number: the value must be the number written right before this unit.'),
+        echoes: z
+          .array(z.string())
+          .optional()
+          .describe('Template, form or label text the document prints for every reader. A quote that only repeats it is NOT_CHECKED template_echo.'),
+      },
+    },
+    async (a: { source_text: string; quote: string; page?: number; value?: string | number; kind?: 'text' | 'number' | 'date'; unit?: string; echoes?: string[] }) =>
+      jsonResult(
+        groundClaims(
+          [{ quote: a.quote, page: a.page ?? null, value: a.value ?? null, kind: a.kind, unit: a.unit }],
+          splitPages(a.source_text),
+          { echoes: a.echoes },
+        )[0],
       ),
   );
 

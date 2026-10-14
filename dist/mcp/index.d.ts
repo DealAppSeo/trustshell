@@ -31,6 +31,8 @@
  *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
  *   - kernel_receipt — `trustshell receipt <id>` parity: read a kernel receipt back, hash checked
  *                      locally, with its six claims (src/lib/kernel-client.ts kernelReceipt).
+ *   - ground_quote   — `trustshell ground` parity: is the quote really in the source text, on the
+ *                      cited page, with the value in it? Local, no network (src/lib/ground.ts).
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.

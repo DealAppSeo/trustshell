@@ -215,6 +215,11 @@ describe('stranger e2e on current main', () => {
     expect(report.code).toBe(3);
     expect(report.out).toContain('UNSUPPORTED');
 
+    const manifest = join(ROOT, 'tests', 'fixtures', 'ground', 'manifest.txt');
+    const ground = await go(['ground', '--source', manifest, '--quote', 'ordered 150 ft', '--page', '1', '--kind', 'number', '--value', '150', '--unit', 'ft']);
+    expect(ground.code).toBe(0);
+    expect(ground.out).toContain('VERIFIED  exact_match');
+
     const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
     const homeBefore = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     const memory = join(dir, 'memory.sqlite');
