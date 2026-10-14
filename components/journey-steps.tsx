@@ -32,9 +32,12 @@ const STAGES: ReadonlyArray<{ id: JourneyStage; href: string; label: string; det
 
 export function JourneySteps({ current }: { current?: JourneyStage }) {
   // No `current` (e.g. the /demo map) renders the full arc with every stage a link and nothing
-  // marked "you are here" — findIndex returns -1, so isHere and done are both false throughout.
-  const currentIndex = current ? STAGES.findIndex((s) => s.id === current) : -1;
-
+  // marked "you are here".
+  //
+  // There is deliberately no "done" marker. This strip used to print "· done" on every stage
+  // before `current`, by POSITION alone, so a stranger who opened /spend cold was told they had
+  // created, claimed, funded and staked an agent while the same page said "Create an agent
+  // first". The strip cannot see state; only each page's own result can say a step worked.
   return (
     <nav aria-label="Where you are in the journey" className="min-w-0">
       <p className="mb-2 text-xs font-mono uppercase tracking-widest text-muted/70">Where you are</p>
@@ -43,14 +46,13 @@ export function JourneySteps({ current }: { current?: JourneyStage }) {
       <ol className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-6 sm:overflow-visible">
         {STAGES.map((s, i) => {
           const isHere = s.id === current;
-          const done = currentIndex > -1 && i < currentIndex;
           const body = (
             <>
               <span
                 className={`block text-[11px] font-mono ${isHere ? 'text-accent' : 'text-muted/60'}`}
               >
                 {i + 1}
-                {isHere ? ' · you are here' : done ? ' · done' : ''}
+                {isHere ? ' · you are here' : ''}
               </span>
               <span
                 className={`mt-1 block text-sm font-medium ${isHere ? 'text-foreground' : 'text-muted'}`}
