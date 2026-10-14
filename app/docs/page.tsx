@@ -17,7 +17,7 @@ export default function DocsIndex() {
           Documentation
         </h1>
         <p className="text-muted leading-relaxed">
-          Two short reads to get from zero to a verified on-chain claim. Both pages are mirrors of the
+          Two short reads to get from zero to a keyless score read. Both pages are mirrors of the
           markdown files in{" "}
           <a
             href="https://github.com/DealAppSeo/trustshell/tree/main/docs"
@@ -42,8 +42,9 @@ export default function DocsIndex() {
               <span className="text-accent">→</span>
             </div>
             <p className="text-sm text-muted mt-1">
-              60-second path from <code className="text-amber-500">npm install</code> to a verified on-chain
-              attestation. Prerequisites, configuration reference, error handling, where to get help.
+              60-second path from <code className="text-amber-500">npm install</code> to a keyless score
+              read (score and tier). Not an on-chain attestation; a keyless install mints nothing.
+              Prerequisites, configuration reference, error handling, where to get help.
             </p>
           </Link>
         </li>
@@ -88,8 +89,8 @@ export default function DocsIndex() {
               <span className="text-accent">→</span>
             </div>
             <p className="text-sm text-muted mt-1">
-              Every SDK method, every CLI command, and the 8 public REST endpoints with verified-live curl
-              examples. Includes <code className="text-amber-500">/api/v1/status</code>,{" "}
+              Every SDK method, every CLI command, and the 8 public REST endpoints with example curls (the
+              status body is a 2026-05-27 snapshot, not live). Includes <code className="text-amber-500">/api/v1/status</code>,{" "}
               <code className="text-amber-500">/hal/stats</code>, <code className="text-amber-500">/llm-trust</code>,{" "}
               <code className="text-amber-500">/repid/:id</code>, and more.
             </p>

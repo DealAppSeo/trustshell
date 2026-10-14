@@ -5,7 +5,7 @@ import { TrustBadge } from '@/components/trust-state';
 export const metadata = {
   title: 'Disjoint-family verification — TrustShell',
   description:
-    'Why a claim is checked by several uncorrelated model families, and why a golden-ratio supermajority means no single provider’s bias or outage can fake a pass. What HAL fact-check looks at, and what "Not checked" means.',
+    'Why a claim is checked by uncorrelated model families, why two must agree so no single provider’s bias or outage can fake a pass, and the golden-ratio supermajority on the roadmap. What HAL fact-check looks at, and what "Not checked" means.',
 };
 
 /**
@@ -161,7 +161,7 @@ export default function HowVerificationPage() {
       {/* 3 — why this is Byzantine-fault-tolerant */}
       <section className="space-y-5">
         <h2 className="text-2xl font-bold text-foreground">
-          Why a bare majority is not enough <ClaimTag tag="shipped" />
+          Why a bare majority is not enough <ClaimTag tag="roadmap" />
         </h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
           Two out of three is a majority. It is not truth. If a third of your voters can be wrong
@@ -171,12 +171,18 @@ export default function HowVerificationPage() {
           a margin wide enough that the honest votes still carry even when some votes do not.
         </p>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          TrustShell&apos;s consensus sets that bar at a{' '}
+          TrustShell&apos;s consensus design sets that bar at a{' '}
           <span className="text-foreground">golden-ratio supermajority (&phi;&#8315;&sup1;)</span> — a
-          threshold drawn from the proportion rather than a round number picked for looks. Agreement
-          has to clear that line before a claim counts, and agreement that is <em>too</em> perfect is
-          treated as a signal to look again, not as extra confidence. The result degrades the way you
-          want it to: lose a family and the quorum narrows, but it does not silently flip to a pass.
+          threshold drawn from the proportion rather than a round number picked for looks. In that
+          design, agreement has to clear that line before a claim counts, and agreement that is{' '}
+          <em>too</em> perfect is treated as a signal to look again, not as extra confidence. It is a
+          hypothesis, not yet validated on real data, and not a production guarantee.
+        </p>
+        <p className="text-sm text-muted leading-relaxed max-w-2xl">
+          What runs today is the two-checker label: two model families must agree, and the answer is{' '}
+          <span className="text-foreground">pass</span>, <span className="text-foreground">veto</span> or{' '}
+          <span className="text-foreground">not-checked</span>. Not-checked is never a pass, so losing a
+          family does not silently flip a claim to a pass.
         </p>
         <div className="rounded-xl border border-border bg-card px-5 py-4">
           <p className="text-sm leading-relaxed">
