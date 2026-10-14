@@ -351,7 +351,8 @@ function createServer(client = makeClient()) {
             'label the TrustShell Chrome extension shows and `trustshell check "<sentence>"` prints. ' +
             'Returns {label, latency_ms} (plus reason when not-checked was decided locally, and ' +
             'scrubbed: true when a key or personal data was removed before sending, and by / voters ' +
-            'when the endpoint says what produced the label: arithmetic, votes (with the voters ' +
+            'when the endpoint says what produced the label: arithmetic, arithmetic-approx (approximate, ' +
+            'not exact), votes (with the voters ' +
             'asked), skipped or deadline). A timeout, ' +
             'network failure or off-contract answer is not-checked, which never means pass.',
         inputSchema: {
