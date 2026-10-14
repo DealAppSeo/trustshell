@@ -83,6 +83,8 @@ export interface ParsedArgs {
     value?: string;
     kind?: string;
     unit?: string;
+    /** ground: template / label text the document prints for every reader (repeatable `--echo`). */
+    echoes?: string[];
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }
@@ -151,7 +153,7 @@ export declare function formatVerify(r: VerifyOutputResult, opts?: {
 /** `trustshell ground` exit code: the same pass / veto / not-checked codes as `verify`. PURE. */
 export declare function groundExitCode(status: GroundStatus): number;
 /** The original line(s) of the page that hold the span, whitespace collapsed for one display line. */
-export declare function matchedLine(pages: GroundPage[], r: Pick<GroundResult, 'found_on_page' | 'char_span'>): string | null;
+export declare function matchedLine(pages: GroundPage[], r: Pick<GroundResult, 'page_index' | 'char_span'>): string | null;
 /** Human card for `trustshell ground`: status and reason, the matched line, what it does not establish. */
 export declare function formatGround(r: GroundResult, pages: GroundPage[], limitations: readonly string[]): string;
 /** Format a RepID result for human terminal output. */

@@ -29,6 +29,8 @@ export interface GroundResult {
     found_on_page: number | null;
     /** [start, end) into the ORIGINAL text of `found_on_page`, never the normalized text. */
     char_span: [number, number] | null;
+    /** Index of that page in the `pages` array passed in (page numbers can repeat), else null. */
+    page_index: number | null;
 }
 export interface GroundReceipt {
     predicted: {
@@ -75,12 +77,13 @@ export declare function isEcho(q: string, echoes: string[]): boolean;
  *  1. `noEvidence`, or a quote that is empty after normalizing        -> NOT_CHECKED no_evidence
  *  2. fewer than `minQuoteChars` (default 4) non-space characters     -> VETO quote_too_short
  *  3. a source with no text on any page (e.g. a scan with no text layer) -> NOT_CHECKED no_evidence
- *  4. on the cited page -> go on. Only on other pages -> VETO page_mismatch (found_on_page set).
+ *  4. on the cited page, on whole words and whole numbers -> go on. Only on other pages -> VETO
+ *     page_mismatch (found_on_page set).
  *     Nowhere -> VETO quote_not_found. No page cited -> the first page that has it.
  *     A cited page that is missing, zero, negative or fractional is never the page it is on.
  *  5. the quote only repeats `echoes` (template text)                 -> NOT_CHECKED template_echo
- *  6. kind number / date: see checkNumber / checkDate. An unknown kind, or a value that cannot
- *     be read as a number / ISO date                                  -> NOT_CHECKED ambiguous_value
+ *  6. kind number / date: see checkNumber / checkDate. An unknown kind, a value with no kind, or
+ *     a value that cannot be read as a number / ISO date             -> NOT_CHECKED ambiguous_value
  *  7. otherwise                                                       -> VERIFIED exact_match
  *
  * kind 'text' (the default) checks the quote only. It does not check meaning: see LIMITATIONS.

@@ -195,6 +195,8 @@ COMMANDS
                              Also check the value is in the quote (date: YYYY-MM-DD).
       [--unit <u>]           With --kind number: the value must be the number written right
                              before this unit (150 ft).
+      [--echo "<text>"]      Template or label text the document prints for every reader.
+                             Repeatable. A quote that only repeats it is NOT_CHECKED.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -261,7 +263,9 @@ function parseArgs(argv) {
     const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--quote', '--page', '--value', '--kind', '--unit']);
     // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
     // only something shaped like an option is refused there.
-    const TEXT_VALUE_OPTS = new Set(['--quote', '--value']);
+    const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo']);
+    // `--echo` may be given more than once; every value is kept, in order.
+    const echoes = [];
     // After a bare `--` every argument is text, even one that starts with a dash: that is the standard way
     // to say "no more options", and the only way to pass a claim like `-5 is less than 3.` unambiguously.
     let optionsEnded = false;
@@ -287,7 +291,7 @@ function parseArgs(argv) {
             flags.add('help');
         else if (a === '-v' || a === '--version')
             flags.add('version');
-        else if (VALUE_OPTS.has(a)) {
+        else if (VALUE_OPTS.has(a) || a === '--echo') {
             const v = argv[i + 1];
             // A value-taking flag with nothing after it, or followed by another flag,
             // is a usage error rather than a silent undefined — otherwise
@@ -296,7 +300,10 @@ function parseArgs(argv) {
             if (v === undefined || (TEXT_VALUE_OPTS.has(a) ? looksLikeOption(v) : v.startsWith('-'))) {
                 return { command: 'help', json: false, verify: false, error: `${a} requires a value` };
             }
-            values[a.slice(2)] = v;
+            if (a === '--echo')
+                echoes.push(v);
+            else
+                values[a.slice(2)] = v;
             i += 1;
         }
         else if (looksLikeOption(a)) {
@@ -425,7 +432,7 @@ function parseArgs(argv) {
                 return usage('--value goes with --kind number or --kind date');
             if (g.unit !== undefined && g.kind !== 'number')
                 return usage('--unit goes with --kind number');
-            return { command: 'ground', json, verify, ...g };
+            return { command: 'ground', json, verify, ...g, ...(echoes.length ? { echoes } : {}) };
         }
         case 'inspect':
         case 'report':
@@ -520,7 +527,8 @@ function groundExitCode(status) {
 }
 /** The original line(s) of the page that hold the span, whitespace collapsed for one display line. */
 function matchedLine(pages, r) {
-    const page = pages.find((p) => p.n === r.found_on_page);
+    // By index, not by page number: page numbers can repeat, and the span belongs to one page.
+    const page = r.page_index === null ? undefined : pages[r.page_index];
     if (!page || !r.char_span)
         return null;
     const [s, e] = r.char_span;
@@ -705,7 +713,7 @@ async function run(args, client, io = realIO) {
                     kind: (args.kind ?? 'text'),
                     unit: args.unit,
                 },
-            ], pages, { predictedBy: 'caller' });
+            ], pages, { predictedBy: 'caller', echoes: args.echoes });
             const r = receipt;
             if (args.json)
                 io.out(JSON.stringify(r, null, 2));
