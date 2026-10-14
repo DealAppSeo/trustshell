@@ -383,6 +383,27 @@ missing-dollar NOT_CHECKED
 monty NOT_CHECKED
 ```
 
+### `trustshell ground --source <file> --quote "<text>"`
+
+Check a quoted claim against the document it cites, **locally**: no model, no network. Is the
+quote on the cited page, and (with `--kind number|date`) is the value in the quote? The source file
+is split into pages on form feed (`pdftotext` output); a file without one is page 1. Options:
+`--page N`, `--kind text|number|date`, `--value V` (with `--kind number` or `date`; a date is
+`YYYY-MM-DD`), `--unit <u>` (with `--kind number`), `--json` (prints the receipt from
+`groundClaims()`). Prints the status, the reason, the matched line and what it does not establish.
+
+| Status | Reasons | Exit |
+|---|---|---|
+| `VERIFIED` | `exact_match` | `0` |
+| `VETO` | `quote_not_found`, `page_mismatch` (it says which page the quote is on), `quote_too_short` (under 4 non-space characters), `value_not_in_quote` | `1` |
+| `NOT_CHECKED` | `no_evidence` (no quote, or a source with no text), `ambiguous_value`, `template_echo` — never a pass | `2` |
+
+The rules, in order, and the full list of what VERIFIED does not establish are in
+`src/lib/ground.ts` (`groundQuote` and `LIMITATIONS`). The two that matter most: a number needs one
+number in the quote, or with `--unit` exactly one number written right before that unit; and a
+date must read only one way (`03/04/2026` is `ambiguous_value`). The SDK takes `opts.echoes`, the
+document's own template or label text, and a quote that only repeats it is `template_echo`.
+
 ### `trustshell status`
 
 Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is the exact string 'true'.
@@ -426,6 +447,7 @@ a run or a session that happened — run these against your own and read the rea
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
 | `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local** | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
+| `ground` | **none** — reads the `--source` file | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 | `remember` | **none** — writes the local memory file | none |

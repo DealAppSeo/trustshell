@@ -69,6 +69,13 @@ const NONE_RUNS = {
   // traps prints a plain list (its --json is an array, not a verdict object), so it is pinned on
   // stdout here. Run in an empty cwd, every fixture row has no receipt and reads NOT_CHECKED.
   traps: { args: ['traps'], env: {}, stdout: 'NOT_CHECKED', exit: 0 },
+  // ground reads one local file. The fixture path is absolute because each run gets an empty cwd.
+  ground: {
+    args: ['ground', '--source', join(ROOT, 'tests', 'fixtures', 'ground', 'manifest.txt'), '--quote', 'ordered 150 ft', '--page', '1', '--kind', 'number', '--value', '150', '--unit', 'ft'],
+    env: {},
+    stdout: 'VERIFIED  exact_match',
+    exit: 0,
+  },
 };
 
 /** The sentence form of `check`: it must reach the backend's classify path and nothing else. */

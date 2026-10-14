@@ -36,7 +36,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
+exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
 var trustshell_1 = require("./trustshell");
@@ -134,3 +134,13 @@ Object.defineProperty(exports, "HAL_VERDICT_ORDER", { enumerable: true, get: fun
  */
 __exportStar(require("./kernel-client"), exports);
 __exportStar(require("./identity"), exports);
+/**
+ * Ground a claim in its source: is the quote really on the cited page, and is the value really in
+ * the quote? Local and deterministic, no network, no model. VERIFIED / VETO / NOT_CHECKED, and
+ * NOT_CHECKED is never a pass. Every receipt carries LIMITATIONS. See ground.ts.
+ */
+var ground_1 = require("./ground");
+Object.defineProperty(exports, "groundQuote", { enumerable: true, get: function () { return ground_1.groundQuote; } });
+Object.defineProperty(exports, "groundClaims", { enumerable: true, get: function () { return ground_1.groundClaims; } });
+Object.defineProperty(exports, "splitPages", { enumerable: true, get: function () { return ground_1.splitPages; } });
+Object.defineProperty(exports, "LIMITATIONS", { enumerable: true, get: function () { return ground_1.LIMITATIONS; } });

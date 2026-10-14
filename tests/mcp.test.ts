@@ -54,6 +54,7 @@ describe('trustshell MCP server', () => {
       'getLeaderboard',
       'getRepID',
       'get_repid',
+      'ground_quote',
       'kernel_receipt',
       'my_job',
       'present_proof',

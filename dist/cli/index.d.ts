@@ -27,6 +27,7 @@
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { type AgentIdentity } from '../lib/identity';
 import { type KernelReceiptRead } from '../lib/kernel-client';
+import { type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export declare const EXIT: {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -46,7 +47,7 @@ export declare const EXIT: {
     /** Laya ask. A person has to answer. HAL was not called. */
     readonly ASK: 4;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'bind-status' | 'traps' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'bind-status' | 'traps' | 'ground' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -75,6 +76,13 @@ export interface ParsedArgs {
     evidence?: string;
     /** remember/recall/redact: a local sqlite key. Absent on the one-argument note path. */
     key?: string;
+    /** ground: the source file, the quote, and the optional page / value / kind / unit. */
+    source?: string;
+    quote?: string;
+    page?: string;
+    value?: string;
+    kind?: string;
+    unit?: string;
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }
@@ -140,6 +148,12 @@ export declare function formatVerdictLine(r: Pick<VerifyOutputResult, 'verdict' 
 export declare function formatVerify(r: VerifyOutputResult, opts?: {
     receiptWritten?: boolean;
 }): string;
+/** `trustshell ground` exit code: the same pass / veto / not-checked codes as `verify`. PURE. */
+export declare function groundExitCode(status: GroundStatus): number;
+/** The original line(s) of the page that hold the span, whitespace collapsed for one display line. */
+export declare function matchedLine(pages: GroundPage[], r: Pick<GroundResult, 'found_on_page' | 'char_span'>): string | null;
+/** Human card for `trustshell ground`: status and reason, the matched line, what it does not establish. */
+export declare function formatGround(r: GroundResult, pages: GroundPage[], limitations: readonly string[]): string;
 /** Format a RepID result for human terminal output. */
 export declare function formatRepid(agentId: string, repid: number, tier: string, identity?: AgentIdentity): string;
 /** Format a proof presentation for human terminal output. */

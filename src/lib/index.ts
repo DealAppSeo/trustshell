@@ -110,3 +110,11 @@ export type {
  */
 export * from './kernel-client';
 export * from './identity';
+
+/**
+ * Ground a claim in its source: is the quote really on the cited page, and is the value really in
+ * the quote? Local and deterministic, no network, no model. VERIFIED / VETO / NOT_CHECKED, and
+ * NOT_CHECKED is never a pass. Every receipt carries LIMITATIONS. See ground.ts.
+ */
+export { groundQuote, groundClaims, splitPages, LIMITATIONS } from './ground';
+export type { GroundClaim, GroundPage, GroundOptions, GroundResult, GroundReceipt, GroundStatus, GroundReason } from './ground';
