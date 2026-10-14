@@ -295,7 +295,11 @@ const GLUED = /^\p{L}[\p{L}\p{N}]*/u;
 function canonicalNumber(raw: string): string {
   const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(raw.replace(/,/g, '')) as RegExpExecArray;
   const int = (m[2] as string).replace(/^0+(?=\d)/, '');
-  const frac = (m[3] ?? '').replace(/0+$/, '');
+  // Trailing zeros trimmed by a loop: an unanchored /0+$/ is quadratic on "000...01" (CodeQL).
+  const fracDigits = m[3] ?? '';
+  let k = fracDigits.length;
+  while (k > 0 && fracDigits[k - 1] === '0') k -= 1;
+  const frac = fracDigits.slice(0, k);
   const body = frac ? `${int}.${frac}` : int;
   return body === '0' ? '0' : `${m[1]}${body}`;
 }
