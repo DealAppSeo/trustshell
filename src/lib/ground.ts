@@ -88,9 +88,9 @@ export const LIMITATIONS: readonly string[] = Object.freeze([
   'VERIFIED means the quoted text is in the source you gave, on the page cited. It does not mean the quote supports the claim: "late fee waived" and "late fee" are different quotes, and a real quote can be about something else.',
   "A quote can be real, on the page, and still only repeat the document's own template; pass the template text as echoes.",
   'It checks the text it was given. It does not show that this text is the real document, the whole document, or a correct extraction from a PDF or a scan.',
-  'A number or date check finds the value inside the quote. It needs one number in the quote (one written right before the unit, when a unit is given) and one date; it does not show the value means what the claim says it means. Letters glued to a number (1.5k, 150ft) are read only as the unit given, so a multiplier such as k is never read. Pass integers past 2^53 as strings.',
+  'A number or date check finds the value inside the quote. It needs one number in the quote (one written right before the unit, when a unit is given) and one date; it does not show the value means what the claim says it means. Letters glued to a number (1.5k, 150ft) are read only as the unit given, so a multiplier such as k is never read, and a number followed by more dotted digits (a version 1.2.3, an address 10.0.0.1) is not read as its first part. Pass integers past 2^53 as strings.',
   'Dates are read only as ISO (2026-03-04), numeric day/month/year or month/day/year, "March 4, 2026" and "4 March 2026" (English month names). A date written another way is not read, and the value is reported value_not_in_quote. A two-digit year is never VERIFIED.',
-  'Matching ignores case, spacing, quote and dash styles, Unicode compatibility forms such as ligatures, zero-width, soft-hyphen and bidi format characters, and a word hyphenated across a line break. Texts that differ only in those ways count as the same.',
+  'Matching ignores case, spacing, quote and dash styles, Unicode compatibility forms such as ligatures, every invisible format character (zero-width, soft hyphen, bidi), and a word hyphenated across a line break. Texts that differ only in those ways count as the same.',
   'No person has confirmed this (observed is null) and nothing was anchored anywhere (anchor_status is none).',
 ]);
 
@@ -98,9 +98,11 @@ export const LIMITATIONS: readonly string[] = Object.freeze([
 // Normalization, with an offset map back to the original text
 // ---------------------------------------------------------------------------------------------
 
-// Soft hyphen, zero-width space/joiners, word joiner, BOM, and the bidi / format marks (ALM, LRM,
-// RLM, embeddings, overrides, isolates): invisible, so they may not pad a quote past a floor.
-const ZERO_WIDTH = /[\u00AD\u061C\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
+// Every Unicode format character (category Cf): soft hyphen, zero-width space and joiners, word
+// joiner, BOM, bidi marks, embeddings, overrides and isolates, invisible operators, tags. They are
+// invisible, so they may neither split a match nor pad a quote past a floor. The whole category,
+// not a list: a list had holes (XC1, #549).
+const FORMAT_CHARS = /\p{Cf}/gu;
 const DASHES = /[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g;
 const SINGLE_QUOTES = /[\u2018-\u201B]/g;
 const DOUBLE_QUOTES = /[\u201C-\u201F]/g;
@@ -121,8 +123,8 @@ interface Normalized {
  *
  * Works per cluster (a code point plus its combining marks) so every output character knows
  * which original characters produced it. Per cluster: NFKC (ligatures, full-width forms), curly
- * quotes to straight, dash variants to `-`, zero-width, soft-hyphen and bidi format characters
- * removed, case folded. Then across clusters: a hyphen that is the last glyph before a line break, between two
+ * quotes to straight, dash variants to `-`, every format character (Cf: zero-width, soft hyphen,
+ * bidi) removed, case folded. Then across clusters: a hyphen that is the last glyph before a line break, between two
  * letters, is joined (`consign-\nment` -> `consignment`; a mid-line `non-compliance` keeps its
  * hyphen), and every whitespace run becomes one space.
  *
@@ -138,7 +140,7 @@ function normalizeMapped(src: string): Normalized {
     const b = a + m[0].length;
     const out = m[0]
       .normalize('NFKC')
-      .replace(ZERO_WIDTH, '')
+      .replace(FORMAT_CHARS, '')
       .replace(SINGLE_QUOTES, "'")
       .replace(DOUBLE_QUOTES, '"')
       .replace(DASHES, '-')
@@ -286,6 +288,8 @@ const NUMBER = /(?<![\p{L}\p{N}.])-?\d+(?:,\d{3})*(?:\.\d+)?/gu;
 const NUMBER_VALUE = /^-?\d+(?:,\d{3})*(?:\.\d+)?$/;
 /** Letters (then letters or digits) written right after a number, with no space: `1.5k`, `150ft`. */
 const GLUED = /^\p{L}[\p{L}\p{N}]*/u;
+/** More digits right after a number, or after one more dot or comma: `1.2|.3`, `10.0|.0.1`, `1,234|5`. */
+const UNFINISHED = /^[.,]?\d/;
 
 /**
  * A number as text: sign, integer digits without leading zeros, fraction without trailing zeros.
@@ -328,7 +332,8 @@ function parseNumberValue(v: string | number | null | undefined): string | null 
  *   ("50 ft ... 150 ft") -> NOT_CHECKED ambiguous_value. One unit somewhere in the quote is not
  *   enough, and neither is the value sitting before one of two units.
  * - Letters glued to the value's number that are not exactly the unit (`1.5k`, or `150ft` with no
- *   unit given) -> NOT_CHECKED ambiguous_value: that token is not the bare number.
+ *   unit given), or more digits after one more dot or comma (`1.2.3`, `10.0.0.1`, `1,2345`)
+ *   -> NOT_CHECKED ambiguous_value: that token is not the bare number.
  * - Numbers compare as written (canonical text), so integers past 2^53 cannot collide. An unsafe
  *   integer passed as a JS number -> NOT_CHECKED ambiguous_value.
  */
@@ -337,11 +342,14 @@ function checkNumber(q: string, value: GroundClaim['value'], unit: string | unde
   if (v === null) return 'ambiguous_value';
   const found = [...q.matchAll(NUMBER)].map((m) => {
     const end = (m.index ?? 0) + m[0].length;
-    return { n: canonicalNumber(m[0]), end, glued: GLUED.exec(q.slice(end))?.[0] ?? '' };
+    const after = q.slice(end, end + 64);
+    return { n: canonicalNumber(m[0]), end, glued: GLUED.exec(after)?.[0] ?? '', unfinished: UNFINISHED.test(after) };
   });
   if (!found.some((f) => f.n === v)) return 'value_not_in_quote';
   const u = unit === undefined ? '' : normalizeForMatch(unit);
-  if (found.some((f) => f.n === v && f.glued && f.glued !== u)) return 'ambiguous_value';
+  // The value's token must be a finished number: nothing glued to it but the unit, and no further
+  // dotted or grouped digits (a version 1.2.3 or an address 10.0.0.1 is not the number 1.2 or 10).
+  if (found.some((f) => f.n === v && (f.unfinished || (f.glued && f.glued !== u)))) return 'ambiguous_value';
   if (!u) return new Set(found.map((f) => f.n)).size === 1 ? 'ok' : 'ambiguous_value';
   const unitWordEnd = WORD.test(cpBefore(u, u.length));
   const bound = found.filter((f) => {
@@ -374,9 +382,10 @@ const monthIndex = (name: string) => ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 
 function dateReadings(q: string): { readings: Set<string>; twoDigitYear: boolean } {
   const out = new Set<string>();
   let twoDigitYear = false;
-  const add = (y: number, m: number, d: number) => {
+  const add = (y: number, m: number, d: number): boolean => {
     const r = iso(y, m, d);
     if (r) out.add(r);
+    return r !== null;
   };
   for (const m of q.matchAll(ISO_DATE)) add(+m[1]!, +m[2]!, +m[3]!);
   for (const m of q.matchAll(NUMERIC_DATE)) {
@@ -384,13 +393,15 @@ function dateReadings(q: string): { readings: Set<string>; twoDigitYear: boolean
     const b = +m[3]!;
     const yy = m[4]!;
     // A two-digit year has two centuries. Keeping both readings is not enough on its own: iso()
-    // drops one that is not a real day (29/02/00 is a date only in 2000), so the flag decides.
-    if (yy.length === 2) twoDigitYear = true;
+    // drops one that is not a real day (29/02/00 is a date only in 2000), so the flag decides. It is
+    // set only for a match that is a real date in some reading: 99/99/00 is no date and blocks nothing.
     const years = yy.length === 4 ? [+yy] : [1900 + +yy, 2000 + +yy];
+    let real = false;
     for (const y of years) {
-      add(y, a, b); // month/day/year
-      add(y, b, a); // day/month/year
+      if (add(y, a, b)) real = true; // month/day/year
+      if (add(y, b, a)) real = true; // day/month/year
     }
+    if (yy.length === 2 && real) twoDigitYear = true;
   }
   for (const m of q.matchAll(MONTH_DAY_YEAR)) add(+m[3]!, monthIndex(m[1]!), +m[2]!);
   for (const m of q.matchAll(DAY_MONTH_YEAR)) add(+m[3]!, monthIndex(m[2]!), +m[1]!);

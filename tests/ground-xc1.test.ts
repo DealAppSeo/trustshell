@@ -207,3 +207,73 @@ describe('S2: MCP input is size-capped', () => {
     expect(schema.safeParse({ source_text: 'ok text', quote: 'ok text', echoes: Array(201).fill('e') }).success).toBe(false);
   });
 });
+
+// ---- XC1 round 3, on #549 at bde588d ------------------------------------------------------------
+
+describe('S1: a number followed by a dot or comma and more digits is not a finished number', () => {
+  it('"1.2.3" is not the value 1.2, and "10.0.0.1" is not 10', () => {
+    expect(groundQuote({ quote: 'Build 1.2.3 is live', page: 1, kind: 'number', value: 1.2 }, one('Build 1.2.3 is live.'))).toMatchObject({
+      status: 'NOT_CHECKED',
+      reason: 'ambiguous_value',
+    });
+    expect(groundQuote({ quote: 'Host 10.0.0.1 up', page: 1, kind: 'number', value: 10 }, one('Host 10.0.0.1 up'))).toMatchObject({
+      status: 'NOT_CHECKED',
+      reason: 'ambiguous_value',
+    });
+  });
+
+  it('"1,2345" is not 1234', () => {
+    expect(groundQuote({ quote: 'Lot 1,2345 shipped', page: 1, kind: 'number', value: 1234 }, one('Lot 1,2345 shipped')).reason).toBe('ambiguous_value');
+  });
+
+  it('a grouped decimal and a sentence-final dot still verify', () => {
+    expect(groundQuote({ quote: 'Total 1,250.50 USD', page: 1, kind: 'number', value: 1250.5 }, one('Total 1,250.50 USD')).status).toBe('VERIFIED');
+    expect(groundQuote({ quote: 'Rent is 1,800.', page: 1, kind: 'number', value: 1800 }, one('Rent is 1,800. Due monthly.')).status).toBe('VERIFIED');
+  });
+});
+
+describe('S1: every Unicode format character is invisible, not only a listed few', () => {
+  it('U+2061..U+2064, U+206A..U+206F, U+180E and tag characters are stripped', () => {
+    for (const c of [0x180e, 0x2061, 0x2062, 0x2063, 0x2064, 0x206a, 0x206f, 0xfff9, 0xe0041]) {
+      expect(normalizeForMatch(`ab${cp(c)}cd`)).toBe('abcd');
+    }
+  });
+
+  it('eight U+2061 cannot pad a template past the echo margin', () => {
+    const echo = 'Payment due within 30 days of invoice date';
+    const padded = echo + cp(0x2061).repeat(8);
+    expect(groundQuote({ quote: padded, page: 1 }, one(`${padded}.`), { echoes: [echo] })).toMatchObject({
+      status: 'NOT_CHECKED',
+      reason: 'template_echo',
+    });
+  });
+
+  it('the span still maps back to the original text across stripped format characters', () => {
+    const original = `Net${cp(0x2061)} 30 days${cp(0xe0041)} from delivery`;
+    const r = groundQuote({ quote: 'Net 30 days from delivery', page: 1 }, one(original));
+    expect(r.status).toBe('VERIFIED');
+    expect(normalizeForMatch(original.slice(...r.char_span!))).toBe('net 30 days from delivery');
+  });
+});
+
+describe('S2: a two-digit-year string that is no date does not block a real date', () => {
+  it('"99/99/00" next to an ISO date leaves the ISO date verifiable', () => {
+    expect(groundQuote({ quote: 'Ref 99/99/00 shipped 2026-03-04', page: 1, kind: 'date', value: '2026-03-04' }, one('Ref 99/99/00 shipped 2026-03-04')).status).toBe('VERIFIED');
+    // A real two-digit-year date still blocks it.
+    expect(groundQuote({ quote: 'Ref 29/02/00 shipped 2026-03-04', page: 1, kind: 'date', value: '2026-03-04' }, one('Ref 29/02/00 shipped 2026-03-04')).reason).toBe('ambiguous_value');
+  });
+});
+
+describe('pinned decisions (behaviour, not bugs)', () => {
+  it('a leading + is part of how the number is written, not its value: "+250" verifies 250', () => {
+    expect(groundQuote({ quote: 'Adjustment +250 USD', page: 1, kind: 'number', value: 250 }, one('Adjustment +250 USD')).status).toBe('VERIFIED');
+    // The value itself must be plain: "+250" as a value is not read.
+    expect(groundQuote({ quote: 'Adjustment +250 USD', page: 1, kind: 'number', value: '+250' }, one('Adjustment +250 USD')).reason).toBe('ambiguous_value');
+  });
+
+  it('leading zeros do not change a number: "09007199254740993" is 9007199254740993, and "007" is 7', () => {
+    const pages = one('Ref 09007199254740993 on the bill');
+    expect(groundQuote({ quote: 'Ref 09007199254740993', page: 1, kind: 'number', value: '9007199254740993' }, pages).status).toBe('VERIFIED');
+    expect(groundQuote({ quote: 'Ref 09007199254740993', page: 1, kind: 'number', value: '9007199254740992' }, pages).reason).toBe('value_not_in_quote');
+  });
+});
