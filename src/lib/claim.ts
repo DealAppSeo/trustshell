@@ -286,7 +286,12 @@ export function resolveClassifyUrl(
   apiUrl?: string,
   env: Record<string, string | undefined> = typeof process !== 'undefined' ? process.env : {},
 ): string {
-  const base = (apiUrl?.trim() || env.TRUSTSHELL_API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, '');
+  // Trailing slashes trimmed with a linear scan, not /\/+$/: that regex is polynomial on a long run of
+  // slashes (CodeQL js/polynomial-redos), and this URL can now arrive as SDK input (releaseByHal).
+  let base = apiUrl?.trim() || env.TRUSTSHELL_API_URL?.trim() || DEFAULT_API_URL;
+  let end = base.length;
+  while (end > 0 && base.charCodeAt(end - 1) === 47 /* '/' */) end -= 1;
+  base = base.slice(0, end);
   let parsed: URL;
   try {
     parsed = new URL(base + CLASSIFY_PATH);
