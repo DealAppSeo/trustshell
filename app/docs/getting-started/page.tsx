@@ -6,7 +6,7 @@ import { renderMarkdown } from "@/lib/markdown";
 export const metadata = {
   title: "Getting started — TrustShell",
   description:
-    "60-second path from npm install to a verified on-chain claim. Prerequisites, configuration, error handling.",
+    "60-second path from npm install to a keyless score read (score and tier), not an on-chain attestation. Prerequisites, configuration, error handling.",
 };
 
 // Read on every request so the docs always reflect main without rebuild.

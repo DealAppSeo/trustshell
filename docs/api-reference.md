@@ -202,8 +202,11 @@ Print an agent's live RepID and tier. Keyless. Options: `--json`.
 ```console
 $ trustshell repid trinity-shofet
 trinity-shofet
-  RepID 2070  (ESTABLISHED)
+  RepID 2236  (ESTABLISHED)
+  ERC-8004 ID  #5863  (on-chain: the engine's ownerOf read found an owner for this token, and the recorded registry is the canonical IdentityRegistry 0x8004A818BFB912233c491871b3d84c89A494BD9e)
 ```
+
+Recorded 2026-10-14 with 1.6.1. That is not the current score: the score moves, so gate on tier.
 
 <a id="cli-proof"></a>
 
@@ -217,9 +220,14 @@ $ trustshell proof trinity-shofet --verify
 trinity-shofet
   tier      postcard
   scheme    plonky3_range_check
-  statement repid_score=2070 threshold=999 tier=ESTABLISHED
+  createdAt 2026-10-10T12:01:55.555406+00:00
+  proof     14232 base64 chars
+  statement repid_score=2227 threshold=999 tier=ESTABLISHED
   verified  ✓ (client-side, 0.2.0)
 ```
+
+Recorded 2026-10-14 with 1.6.1. The score in the statement is the one the proof was made at
+(`createdAt`), not the current score.
 
 ### `trustshell badge <agentIdOrSlug> [--markdown]`
 
@@ -263,12 +271,12 @@ false.`), `Decided by exact calculation. No model was asked.`, `No checker was a
 `No answer in time.` If the endpoint asked a clarifying question, it follows on its own line, and
 a last line says so when text that looked like a key or personal data was removed before sending.
 
-`--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters`, `deciders` and
-`question` when the endpoint sent them, `reason` when the label was decided locally, and
-`scrubbed: true` when something was removed.
+`--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters`, `deciders`,
+`votes` and `question` when the endpoint sent them, `reason` when the label was decided locally, and
+`scrubbed: true` when something was removed. 1.6.0 drops `deciders` and `votes`; 1.6.1 keeps both.
 
 The endpoint itself (`POST /api/v1/classify`, public) answers `{label, latency_ms, by}`, plus
-`voters` and `deciders` when `by` is `votes`, and `question` only on a not-checked from the votes
+`voters`, `deciders` and `votes` (each decider's model family and verdict) when `by` is `votes`, and `question` only on a not-checked from the votes
 when the server has questions turned on (`CLASSIFY_QUESTIONS=on`; off by default). By default each
 visitor gets 100 checks per UTC day (`CLASSIFY_DAILY_LIMIT`); past that the endpoint answers 429,
 which the CLI reports as `not-checked`.
@@ -284,6 +292,9 @@ A timeout (6 s), a network failure, a non-200 or a body outside the contract is 
 Known secret shapes are stripped from the sentence before it is sent.
 
 ### `trustshell receipt <receiptId>`
+
+> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
+> `unknown command: receipt`, and the SDK does not export `kernelReceipt()`.
 
 Reads a policy-kernel receipt back from the engine (`GET /api/v1/kernel/receipt/:id`, which needs
 `REPID_API_KEY`; a key bound to one agent reads only that agent's receipts). It recomputes the
@@ -385,6 +396,10 @@ monty NOT_CHECKED
 
 ### `trustshell ground --source <file> --quote "<text>"`
 
+> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
+> `unknown option: --source`, and the SDK does not export `groundQuote()`, `groundClaims()` or
+> `LIMITATIONS`.
+
 Check a quoted claim against the document it cites, **locally**: no model, no network. Is the
 quote on the cited page, and (with `--kind number|date`) is the value in the quote? The source file
 is split into pages on form feed (`pdftotext` output); a file without one is page 1. Options:
@@ -445,9 +460,9 @@ a run or a session that happened — run these against your own and read the rea
 | `badge` | HyperDAG backend (rendering + verification are **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
-| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local** | `REPID_API_KEY` required |
+| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Main only, not in 1.6.1 | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
-| `ground` | **none** — reads the `--source` file | none |
+| `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 | `remember` | **none** — writes the local memory file | none |
@@ -482,7 +497,7 @@ Consolidated service health + last-24h economic activity + last cron telemetry.
 curl https://repid-engine-production.up.railway.app/api/v1/status
 ```
 
-**Example response (live snapshot, fields will reflect current state):**
+**Example response (a snapshot from 2026-05-27, not live; re-curl for the current state):**
 
 ```json
 {
@@ -518,7 +533,7 @@ curl https://repid-engine-production.up.railway.app/api/v1/status
 
 ### `GET /api/v1/receipts/hero`
 
-The first verified end-to-end economic loop: real USDC settlement → real on-chain reputation attestation. Every transaction hash is clickable on basescan.
+The first end-to-end economic loop, settled 2026-05-24 on Base Sepolia: real USDC settlement → real on-chain reputation attestation. Every transaction hash is clickable on basescan. It is a historical receipt, not the result of anything you install or run: the pay path (`executeA2A`) needs an API key and a funded testnet wallet.
 
 **Parameters:** none.
 
@@ -829,4 +844,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v1.6.1 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
+> Reflects the published `@hyperdag/trustshell` v1.6.1 surface, except the two sections marked main only (`trustshell receipt` and `trustshell ground`), and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).

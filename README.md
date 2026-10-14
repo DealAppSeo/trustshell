@@ -180,7 +180,7 @@ The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2
 
 ### Install straight from GitHub (no npm registry) — LIVE
 
-The same SDK installs directly from the repo, so you can pull it before (or independently of) the npm publish — useful for pinning a commit or as a registry-independent fallback:
+The SDK also installs directly from the repo. That gives you `main`, not 1.6.1 — useful for pinning a commit or as a registry-independent fallback:
 
 ```bash
 npm install github:DealAppSeo/trustshell
@@ -188,7 +188,7 @@ npm install github:DealAppSeo/trustshell
 npm install github:DealAppSeo/trustshell#<commit-or-branch>
 ```
 
-The package ships a committed `dist/`, so the GitHub install resolves the same `import` surface as the npm install — no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled).
+The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which is **not** the 1.6.1 export surface: `main` also has `trustshell ground`, `trustshell receipt`, `groundQuote`, `groundClaims` and `kernelReceipt`, and 1.6.1 has none of them. For exactly what npm serves, install `@hyperdag/trustshell@1.6.1`.
 
 ---
 
@@ -445,7 +445,7 @@ a last line says so when text that looked like a key or personal data was remove
 `--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters` and
 `question` when the endpoint sent them, `reason` when the label was decided locally, and
 `scrubbed: true` when something was removed. 1.6.0 drops the endpoint's `deciders` and `votes`;
-the source on main keeps both.
+1.6.1 keeps both.
 
 The endpoint itself answers `{label, latency_ms, by}`, plus `voters`, `deciders` and `votes` (each
 decider's model family and verdict) when `by` is `votes`, and `question` only on a not-checked from
@@ -462,7 +462,12 @@ the votes when the server has questions turned on (`CLASSIFY_QUESTIONS=on`; off 
 A timeout (6 s), a network failure, a non-200 or a body outside the contract is `not-checked`.
 Known secret shapes are stripped from the sentence before it is sent.
 
-### Ground a claim in its source (local, no network)
+### Ground a claim in its source (local, no network) — main only, not in 1.6.1
+
+> **Not in the published 1.6.1.** `trustshell ground`, `groundQuote` and `groundClaims` are on
+> `main` only. On a 1.6.1 install the command below exits `2` with `unknown option: --source`, and
+> the functions are not exported. They reach you from a GitHub install of `main` (above) or the
+> next release.
 
 `ground` checks a quoted claim against the document it cites, with no model and no network: is the
 quote really on the cited page, and is the claimed value really in that quote? Pages are split on
@@ -509,9 +514,9 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `badge` | HyperDAG backend (rendering is **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
-| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local** | `REPID_API_KEY` required |
+| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Main only, not in 1.6.1 | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
-| `ground` | **none** — reads the `--source` file | none |
+| `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 | `remember` | **none** — writes the local memory file | none |

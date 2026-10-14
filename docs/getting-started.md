@@ -39,11 +39,13 @@ trustshell --version
 
 ## 4. 60-second quickstart
 
-A copy-paste flow that takes you from zero to a verified on-chain RepID reference in about a minute.
+A copy-paste flow that takes you from zero to a keyless score read (`score` and `tier`) of an
+existing agent in about a minute. That read is not an on-chain attestation, and a keyless install
+does not mint an ERC-8004 token.
 
 ### Step 1 — Look up an existing on-chain agent (no key, no install, just `curl`)
 
-Verify the engine is live and the canonical ERC-8004 contracts are taking real traffic:
+Check that the engine answers, and read one existing agent's score:
 
 ```bash
 # Trinity-shofet, tokenId 5863, the most-recently-updated active agent:
@@ -60,7 +62,9 @@ The path takes the agent UUID, its name or slug (`trinity-shofet`), or its ERC-8
 (`5863`). Add `?with=id` to get `agent_id` back as well. An id that matches no agent answers `200`
 with `{"score":"NOT_CHECKED","tier":"NOT_CHECKED"}` — not a 404, and never a 0.
 
-The full economic loop receipt (a real $0.10 USDC settlement → real on-chain reputation attestation):
+The full economic loop receipt (a real $0.10 USDC settlement → real on-chain reputation attestation,
+settled 2026-05-24 on Base Sepolia). It is a historical receipt, not the result of this install: the
+pay path (`executeA2A`) needs an API key and a funded testnet wallet.
 
 ```bash
 curl https://repid-engine-production.up.railway.app/api/v1/receipts/hero
