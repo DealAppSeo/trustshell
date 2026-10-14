@@ -53,8 +53,8 @@ describe('cli remember and recall', () => {
 
     const out: string[] = [];
     const io: CliIO = { out: (s) => out.push(s), err: () => undefined };
-    expect(await run(parseArgs(['remember', 'ship the receipt']), {} as never, io)).toBe(0);
-    expect(await run(parseArgs(['remember', 'then look at it']), {} as never, io)).toBe(0);
+    expect(await run(parseArgs(['remember', '--trusted', 'ship the receipt']), {} as never, io)).toBe(0);
+    expect(await run(parseArgs(['remember', '--trusted', 'then look at it']), {} as never, io)).toBe(0);
     expect(out).toEqual(['remembered', 'remembered']);
 
     const notes = listNotes(db);

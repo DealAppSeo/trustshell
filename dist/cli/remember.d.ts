@@ -5,6 +5,10 @@
  * Personal data such as an email is NOT refused: local memory is the place for it.
  */
 export declare function refusedValue(value: string): boolean;
+/**
+ * Write one TRUSTED note: the operator vouched for it (`remember --trusted`). Every other note goes
+ * through rememberUntrusted (src/memory/quarantine.ts) and is quarantined.
+ */
 export declare function rememberNote(text: string, env?: NodeJS.ProcessEnv): void;
 /**
  * Save one value under key in the same local file.

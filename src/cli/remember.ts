@@ -17,6 +17,10 @@ export function refusedValue(value: string): boolean {
   return containsSecret(value) || /sb_secret_/i.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || PREFIXED_TOKEN.test(value);
 }
 
+/**
+ * Write one TRUSTED note: the operator vouched for it (`remember --trusted`). Every other note goes
+ * through rememberUntrusted (src/memory/quarantine.ts) and is quarantined.
+ */
 export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
   insertMemory(memoryDbPath(env), 'note', text, undefined, env);
 }

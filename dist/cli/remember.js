@@ -19,6 +19,10 @@ const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/;
 function refusedValue(value) {
     return (0, redact_1.containsSecret)(value) || /sb_secret_/i.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || redact_1.PREFIXED_TOKEN.test(value);
 }
+/**
+ * Write one TRUSTED note: the operator vouched for it (`remember --trusted`). Every other note goes
+ * through rememberUntrusted (src/memory/quarantine.ts) and is quarantined.
+ */
 function rememberNote(text, env = process.env) {
     (0, local_store_1.insertMemory)((0, local_store_1.memoryDbPath)(env), 'note', text, undefined, env);
 }

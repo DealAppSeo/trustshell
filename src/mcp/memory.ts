@@ -4,21 +4,38 @@
  *
  * IMMUNE SYSTEM v0. A note written through MCP did not come from the operator's keyboard: an agent
  * passed it, and it may carry a web page, a tool result or another agent's words. So it is stored
- * UNTRUSTED and QUARANTINED, and `recall` leaves it out until a check releases it
- * (`quarantine_release`, which grounds it against its source text, locally).
+ * UNTRUSTED and QUARANTINED, and `recall` leaves it out until the OPERATOR releases it at the CLI.
+ * There is deliberately no release over MCP: the writer must not be able to release its own note.
  */
 import { refusedValue } from '../cli/remember';
 import { formatRecall, memoryDbPath } from '../memory/local-store';
-import { releaseByGround, rememberUntrusted, type QuarantineRecord } from '../memory/quarantine';
+import { rememberUntrusted, type QuarantineRecord } from '../memory/quarantine';
 
 export function rememberLocal(
   text: string,
   env: NodeJS.ProcessEnv = process.env,
   source = 'mcp:remember',
-): { kind: 'note'; remembered: true; id: number; provenance: 'untrusted'; quarantined: true; reason: string | null } {
+  sourceText: string | null = null,
+): {
+  kind: 'note';
+  remembered: true;
+  id: number;
+  provenance: 'untrusted';
+  quarantined: true;
+  reason: string | null;
+  source_recorded: boolean;
+} {
   if (refusedValue(text)) throw new Error('remember refused');
-  const rec: QuarantineRecord = rememberUntrusted(text, { source }, env);
-  return { kind: 'note', remembered: true, id: rec.id, provenance: 'untrusted', quarantined: true, reason: rec.reason };
+  const rec: QuarantineRecord = rememberUntrusted(text, { source, sourceText }, env);
+  return {
+    kind: 'note',
+    remembered: true,
+    id: rec.id,
+    provenance: 'untrusted',
+    quarantined: true,
+    reason: rec.reason,
+    source_recorded: rec.source_recorded,
+  };
 }
 
 export function recallLocal(
@@ -26,14 +43,4 @@ export function recallLocal(
   opts: { includeQuarantined?: boolean } = {},
 ): { notes: string } {
   return { notes: formatRecall(memoryDbPath(env), env, opts) };
-}
-
-/** Ground release over MCP: the source is passed as text. Local, no network. */
-export function releaseLocal(
-  id: number,
-  sourceText: string,
-  page: number | null = null,
-  env: NodeJS.ProcessEnv = process.env,
-): ReturnType<typeof releaseByGround> {
-  return releaseByGround(id, sourceText, { page, sourceLabel: 'source_text (mcp)' }, env);
 }

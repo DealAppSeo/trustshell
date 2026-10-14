@@ -17,8 +17,27 @@ import {
   seal,
   unseal,
 } from './encrypt';
+import { ingest } from '../lib/ingest';
 
 const loadSqlite = createRequire(__filename);
+
+/** A quarantine reason that starts with this marks injection-looking text: described, never printed. */
+export const INJECTION_PREFIX = 'injection-looking text';
+/** What is printed in place of injection-looking text. */
+export const INJECTION_WITHHELD = '[text withheld: injection-looking text is described, never printed]';
+/** Why a note saved before taint labels is held: nothing recorded who wrote it. */
+export const LEGACY_REASON = 'legacy: saved before taint labels, so who wrote it is unknown';
+
+/**
+ * True when a quarantined note's text must be withheld and can never be released by a check: its
+ * reason says injection, OR its readable body screens as injection now (src/lib/ingest.ts). The
+ * second clause covers notes no screen ever saw: legacy rows, and encrypted rows read with the key.
+ */
+export function heldAsInjection(row: Pick<MemoryRow, 'body' | 'quarantine_reason'>): boolean {
+  if (typeof row.quarantine_reason === 'string' && row.quarantine_reason.startsWith(INJECTION_PREFIX)) return true;
+  if (row.body === SEALED_NO_KEY || row.body === SEALED_WRONG_KEY) return false;
+  return ingest(row.body).ingest !== 'clean';
+}
 
 export type MemoryKind = 'note' | 'pref' | 'do_not_send';
 
@@ -27,8 +46,8 @@ export type MemoryKind = 'note' | 'pref' | 'do_not_send';
  *   trusted    written by the operator (the CLI's `remember`, or SDK code that says so)
  *   untrusted  anything else (an MCP tool call, a web page, another agent): held in quarantine
  *   verified   was untrusted, and a recorded check released it
- * Rows written before this column existed read as trusted, source `legacy`: they came from the
- * CLI or MCP `remember`, and nothing recorded which, so that is stated rather than guessed.
+ * Rows written before this column existed are UNTRUSTED, source `legacy`, and quarantined: they came
+ * from the CLI or MCP `remember`, and nothing recorded which, so the file does not guess "trusted".
  */
 export type Provenance = 'trusted' | 'untrusted' | 'verified';
 
@@ -43,6 +62,8 @@ export type MemoryRow = {
   quarantine_reason?: string | null;
   released_by?: string | null;
   released_at?: string | null;
+  /** sha256 of the source document recorded when the note was stored; null when none was given. */
+  source_sha256?: string | null;
 };
 
 /** What a write says about where the text came from. Absent = trusted operator write. */
@@ -51,6 +72,7 @@ export type ProvenanceInput = {
   source: string;
   quarantined: boolean;
   reason?: string | null;
+  sourceSha256?: string | null;
 };
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS memory (
@@ -87,8 +109,7 @@ function ensureSchema(db: SqliteDb): void {
   const cols = db.prepare('PRAGMA table_info(memory)').all();
   const hasKey = cols.some((col) => String(col.name) === 'key');
   if (!hasKey) db.exec('ALTER TABLE memory ADD COLUMN key TEXT');
-  // Immune system v0 columns, added in place to this LOCAL file. Existing rows keep NULLs and
-  // read as legacy trusted.
+  // Immune system v0 columns, added in place to this LOCAL file.
   const have = new Set(cols.map((col) => String(col.name)));
   const TAINT_COLUMNS: ReadonlyArray<readonly [string, string]> = [
     ['provenance', 'TEXT'],
@@ -97,11 +118,18 @@ function ensureSchema(db: SqliteDb): void {
     ['quarantine_reason', 'TEXT'],
     ['released_by', 'TEXT'],
     ['released_at', 'TEXT'],
+    ['source_sha256', 'TEXT'],
   ];
   for (const [name, type] of TAINT_COLUMNS) {
     if (!have.has(name)) db.exec(`ALTER TABLE memory ADD COLUMN ${name} ${type}`);
   }
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
+  // FAIL CLOSED ON UPGRADE. A note with no provenance was saved before taint labels existed, by the
+  // CLI or by an MCP caller, and nothing says which. It is quarantined as untrusted, never read as
+  // trusted. Idempotent: every write since sets provenance, so this touches only pre-v0 notes.
+  db.prepare(
+    "UPDATE memory SET provenance = 'untrusted', source = 'legacy', quarantined = 1, quarantine_reason = ? WHERE kind = 'note' AND key IS NULL AND provenance IS NULL",
+  ).run(LEGACY_REASON);
 }
 
 function openDb(path: string): SqliteDb {
@@ -176,17 +204,20 @@ function asRow(row: Record<string, unknown>): MemoryRow {
     created_at: String(row.created_at),
   };
   if ('quarantined' in row) {
-    out.provenance = (row.provenance as Provenance | null) ?? 'trusted';
+    // Never default to trusted: a missing label is untrusted (ensureSchema has already quarantined it).
+    out.provenance = (row.provenance as Provenance | null) ?? 'untrusted';
     out.source = (row.source as string | null) ?? 'legacy';
     out.quarantined = Number(row.quarantined) === 1;
     out.quarantine_reason = (row.quarantine_reason as string | null) ?? null;
     out.released_by = (row.released_by as string | null) ?? null;
     out.released_at = (row.released_at as string | null) ?? null;
+    out.source_sha256 = (row.source_sha256 as string | null) ?? null;
   }
   return out;
 }
 
-const FULL_COLS = 'id, kind, body, created_at, provenance, source, quarantined, quarantine_reason, released_by, released_at';
+const FULL_COLS =
+  'id, kind, body, created_at, provenance, source, quarantined, quarantine_reason, released_by, released_at, source_sha256';
 
 export function insertMemory(
   path: string,
@@ -201,9 +232,9 @@ export function insertMemory(
     const stored = sealer(db, env)(body);
     const result = db
       .prepare(
-        'INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason, source_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null);
+      .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null, taint.sourceSha256 ?? null);
     return {
       id: Number(result.lastInsertRowid),
       kind,
@@ -215,6 +246,7 @@ export function insertMemory(
       quarantine_reason: taint.reason ?? null,
       released_by: null,
       released_at: null,
+      source_sha256: taint.sourceSha256 ?? null,
     };
   } finally {
     db.close();
@@ -274,17 +306,24 @@ export function getNote(path: string, id: number, env: NodeJS.ProcessEnv = proce
 }
 
 /**
- * Release one quarantined note: provenance becomes `verified` and `released_by` records the check.
- * Only a row that is still quarantined changes; the return says whether one did.
+ * Release one quarantined note: provenance becomes `verified` (a check passed) or `trusted` (the
+ * operator vouched), and `released_by` records which. Only a row that is still quarantined changes;
+ * the return says whether one did.
  */
-export function markReleased(path: string, id: number, releasedBy: string, now: string = new Date().toISOString()): boolean {
+export function markReleased(
+  path: string,
+  id: number,
+  releasedBy: string,
+  now: string = new Date().toISOString(),
+  provenance: 'verified' | 'trusted' = 'verified',
+): boolean {
   const db = openDb(path);
   try {
     const before = db.prepare('SELECT quarantined FROM memory WHERE id = ?').get(id);
     if (!before || Number(before.quarantined) !== 1) return false;
     db.prepare(
-      "UPDATE memory SET quarantined = 0, provenance = 'verified', released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1",
-    ).run(releasedBy, now, id);
+      'UPDATE memory SET quarantined = 0, provenance = ?, released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1',
+    ).run(provenance, releasedBy, now, id);
     return true;
   } finally {
     db.close();
@@ -314,7 +353,8 @@ export function countDoNotSend(path: string): number {
 /**
  * Notes in insert order, then a count. do_not_send bodies are not included.
  * Quarantined notes are left out, and when any exist a last line says how many, so nothing is
- * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason].
+ * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason],
+ * except injection-looking text, which is described and never printed (the same rule as list/explain).
  */
 export function formatRecall(
   path: string,
@@ -322,9 +362,11 @@ export function formatRecall(
   opts: { includeQuarantined?: boolean } = {},
 ): string {
   const rows = listNotes(path, env, { includeQuarantined: opts.includeQuarantined });
-  const notes = rows.map((row) =>
-    row.quarantined ? `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}] ${row.body}` : row.body,
-  );
+  const notes = rows.map((row) => {
+    if (!row.quarantined) return row.body;
+    const mark = `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}]`;
+    return heldAsInjection(row) ? `${mark} ${INJECTION_WITHHELD}` : `${mark} ${row.body}`;
+  });
   const lines = [...notes, `do_not_send COUNT ${countDoNotSend(path)}`];
   const held = countQuarantined(path);
   if (held > 0 && !opts.includeQuarantined) lines.push(`quarantined COUNT ${held} (trustshell quarantine list)`);

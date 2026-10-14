@@ -50,8 +50,8 @@ describe('local memory store', () => {
   it('remember writes a note and recall prints it, with do_not_send as a count', async () => {
     const out: string[] = [];
     const io: CliIO = { out: (s) => out.push(s), err: () => undefined };
-    expect(await run(parseArgs(['remember', 'ship the receipt']), {} as never, io)).toBe(0);
-    expect(await run(parseArgs(['remember', 'then look at it']), {} as never, io)).toBe(0);
+    expect(await run(parseArgs(['remember', '--trusted', 'ship the receipt']), {} as never, io)).toBe(0);
+    expect(await run(parseArgs(['remember', '--trusted', 'then look at it']), {} as never, io)).toBe(0);
     insertMemory(db, 'do_not_send', 'do-not-send-body', '2026-09-28T00:00:00.000Z');
     insertMemory(db, 'pref', 'pref-body', '2026-09-28T00:00:01.000Z');
 

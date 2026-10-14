@@ -169,7 +169,7 @@ describe('memory encryption, on', () => {
 
     it('remember then recall round-trips with the key', async () => {
       Object.assign(process.env, ON(db));
-      expect(await run(parseArgs(['remember', NOTE]), client(), io())).toBe(0);
+      expect(await run(parseArgs(['remember', '--trusted', NOTE]), client(), io())).toBe(0);
       const out = io();
       expect(await run(parseArgs(['recall']), client(), out)).toBe(0);
       expect(out.lines[0]).toBe(`${NOTE}\ndo_not_send COUNT 0`);

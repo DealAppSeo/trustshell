@@ -50,8 +50,10 @@ import {
   explainQuarantine,
   listQuarantined,
   releaseByGround,
+  releaseByOperator,
   releaseExitCode,
   rememberUntrusted,
+  type QuarantineListItem,
   type QuarantineRecord,
   type ReleaseOutcome,
 } from '../memory/quarantine';
@@ -142,8 +144,15 @@ export interface ParsedArgs {
   unit?: string;
   /** ground: template / label text the document prints for every reader (repeatable `--echo`). */
   echoes?: string[];
-  /** remember: the text did not come from the operator. It is stored quarantined; --source labels it. */
+  /** remember: the note is stored untrusted and quarantined (the default); --source labels it. */
   untrusted?: boolean;
+  /**
+   * remember: the operator vouches the note is theirs (`--trusted`), so it is stored trusted.
+   * quarantine release: the operator vouches for a held note (`--trusted`). Never over MCP.
+   */
+  trusted?: boolean;
+  /** remember: the document the untrusted note came from; its sha256 is recorded for a ground release. */
+  sourceFile?: string;
   /** recall: also print quarantined notes, each marked [QUARANTINED: reason]. */
   includeQuarantined?: boolean;
   /** quarantine: list | explain | release, and the note id. */
@@ -254,30 +263,37 @@ COMMANDS
       [--name <n>]           With --pai: PAI name (forwarded to init-pai).
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is the exact string 'true'.
-  remember "<text>"          Write a note into the local sqlite memory. No network.
+  remember "<text>"          Write a note into the local sqlite memory, UNTRUSTED and QUARANTINED:
+                             recall leaves it out until a check releases it. No network.
+  remember --trusted "<text>"
+                             You vouch you wrote it: stored trusted, and recall prints it.
   remember KEY VALUE         Save one value under KEY. Refuses a credential in EITHER position —
                              sb_secret_, db URIs, JWTs, PEM private keys, sk-/ghp_/AKIA/xoxb tokens,
                              labelled password=… . Publishable keys and emails are kept: not secrets.
                              Encoded secrets are NOT detected. No network.
-  remember --untrusted [--source <label>] "<text>"
-                             Store text that did NOT come from you (a web page, a tool result,
-                             another agent). It is QUARANTINED: recall leaves it out until a
-                             check releases it. Injection-looking text is held for good. No network.
+  remember [--untrusted] [--source <label>] [--source-file <file>] "<text>"
+                             Label where untrusted text came from. --source-file records the
+                             document's sha256, which a ground release needs. Injection-looking
+                             text is held for good. No network.
   recall                     Print saved notes. do_not_send rows print as a count only.
                              Quarantined notes are left out and counted on the last line.
       [--include-quarantined]
                              Also print them, each marked [QUARANTINED: reason].
   recall KEY                 Print the value for KEY. Missing is NOT_CHECKED, never empty.
   redact KEY                 Delete the KEY row. Missing is NOT_CHECKED. No network.
-  quarantine list            Notes held in quarantine: id, source, reason. No network.
-  quarantine explain <id>    One note's taint record: provenance, source, reason, and which check
-                             released it. Injection-looking text is described, never printed.
+  quarantine list            Notes held in quarantine: id, source, reason. Never the text. No network.
+  quarantine explain <id>    One note's taint record and text: provenance, source, reason, and which
+                             check released it. Injection-looking text is described, never printed.
   quarantine release <id> --source <file> [--page N]
-                             Release only if the WHOLE note is found (ground VERIFIED) in that
-                             source file. Local, no network.
+                             Release only if <file> is the document recorded with --source-file
+                             (same sha256) AND the WHOLE note is found in it (ground VERIFIED).
+                             No recorded document: NOT_CHECKED. Local, no network.
   quarantine release <id> --check hal
-                             Release only if the classify endpoint labels the note pass. NETWORK:
-                             POST <backend>/api/v1/classify, after the same scrub as check.
+                             Release only if the DEFAULT classify endpoint says pass by votes, two
+                             named deciders of different families both TRUE. NETWORK: POST
+                             <backend>/api/v1/classify, after the same scrub as check.
+  quarantine release <id> --trusted
+                             You vouch for it (not a check): stored trusted, released_by says so.
                              release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED until a receipt id exists. No scoreboard. No HAL wins.
@@ -359,7 +375,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   // Options that consume the NEXT argument. Indexed rather than for-of because a
   // value-taking flag has to be able to look ahead.
   const values: Record<string, string | undefined> = {};
-  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--quote', '--page', '--value', '--kind', '--unit', '--check']);
+  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check']);
   // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
   // only something shaped like an option is refused there.
   const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo']);
@@ -379,6 +395,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     else if (a === '--pai') flags.add('pai');
     else if (a === '--dry-run') flags.add('dry-run');
     else if (a === '--untrusted') flags.add('untrusted');
+    else if (a === '--trusted') flags.add('trusted');
     else if (a === '--include-quarantined') flags.add('include-quarantined');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
@@ -455,14 +472,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
       return { command: 'status', json, verify };
     case 'remember': {
       const text = rest.join(' ').trim();
-      if (flags.has('untrusted')) {
-        // Quarantined note path. Keyed values stay operator-only in v0.
-        // Always ONE note: every word after the flags is the text. There is no KEY VALUE form here.
-        if (!text) return { command: 'remember', json, verify, error: '`trustshell remember --untrusted` requires "<text>"' };
-        return { command: 'remember', operand: text, untrusted: true, source: values['source'], json, verify };
+      const labelled = values['source'] !== undefined || values['source-file'] !== undefined;
+      if (flags.has('trusted') && flags.has('untrusted')) {
+        return { command: 'remember', json, verify, error: '--trusted and --untrusted cannot both be set' };
       }
-      if (values['source'] !== undefined) {
-        return { command: 'remember', json, verify, error: '--source goes with --untrusted on remember' };
+      if (flags.has('trusted') && labelled) {
+        return { command: 'remember', json, verify, error: '--source and --source-file label untrusted text; a --trusted note is yours' };
+      }
+      if (flags.has('untrusted') || labelled) {
+        // Explicit untrusted note. Always ONE note: every word after the flags is the text. There is
+        // no KEY VALUE form here; keyed values carry no taint label in v0.
+        if (!text) return { command: 'remember', json, verify, error: '`trustshell remember --untrusted` requires "<text>"' };
+        return { command: 'remember', operand: text, untrusted: true, source: values['source'], sourceFile: values['source-file'], json, verify };
       }
       if (!text) {
         return {
@@ -485,7 +506,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
         return { command: 'remember', key, operand: value, json, verify };
       }
-      return { command: 'remember', operand: text, json, verify };
+      // One note. UNTRUSTED unless the operator says --trusted: a shell command can be run by an
+      // agent piping a web page as easily as by a person typing, and nothing here can tell which.
+      return flags.has('trusted')
+        ? { command: 'remember', operand: text, trusted: true, json, verify }
+        : { command: 'remember', operand: text, untrusted: true, json, verify };
     }
     case 'recall': {
       const key = rest.join(' ').trim();
@@ -508,14 +533,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
       if (sub === 'explain') return { command: 'quarantine', sub, id, json, verify };
       const check = values['check'];
       const source = values['source'];
+      const trusted = flags.has('trusted');
       if (check !== undefined && check !== 'hal') return usage('--check takes hal (or use --source <file> to ground it locally)');
-      if ((check === 'hal') === (source !== undefined)) {
-        return usage('`quarantine release` takes exactly one check: --source <file> (local) or --check hal (network)');
+      if ([check === 'hal', source !== undefined, trusted].filter(Boolean).length !== 1) {
+        return usage(
+          '`quarantine release` takes exactly one of: --source <file> (local ground check), --check hal (network), --trusted (you vouch for it)',
+        );
       }
       if (values['page'] !== undefined && (source === undefined || !/^[1-9]\d*$/.test(values['page']))) {
         return usage('--page goes with --source and must be a whole number, 1 or more');
       }
-      return { command: 'quarantine', sub, id, check, source, page: values['page'], json, verify };
+      return { command: 'quarantine', sub, id, check, source, trusted, page: values['page'], json, verify };
     }
     case 'redact': {
       const key = rest.join(' ').trim();
@@ -741,13 +769,10 @@ const realIO: CliIO = {
  * Execute a parsed command against a client and return the process exit code.
  * The client is injected so tests can pass a mock (no live network).
  */
-/** `quarantine list`: one line per held note. Injection-looking text is never reproduced. */
-export function formatQuarantineList(rows: readonly QuarantineRecord[]): string {
+/** `quarantine list`: one line per held note: id, source, reason. Never the text (use explain). */
+export function formatQuarantineList(rows: readonly QuarantineListItem[]): string {
   if (rows.length === 0) return 'quarantined COUNT 0';
-  const lines = rows.map((r) => {
-    const preview = r.body === null ? '[text withheld: injection-looking]' : JSON.stringify(r.body.length > 60 ? `${r.body.slice(0, 57)}...` : r.body);
-    return `${r.id}  source=${r.source}  reason=${r.reason ?? 'untrusted, not yet checked'}  ${preview}`;
-  });
+  const lines = rows.map((r) => `${r.id}  source=${r.source}  reason=${r.reason ?? 'untrusted, not yet checked'}`);
   return [...lines, `quarantined COUNT ${rows.length}`].join('\n');
 }
 
@@ -761,6 +786,7 @@ export function formatQuarantineRecord(r: QuarantineRecord): string {
     `reason      ${r.reason ?? '-'}`,
     `released_by ${r.released_by ?? '-'}`,
     `released_at ${r.released_at ?? '-'}`,
+    `source_doc  ${r.source_recorded ? 'recorded (sha256): a ground release must present this document' : 'none recorded: a ground release is NOT_CHECKED'}`,
     `created_at  ${r.created_at}`,
     `text        ${r.body === null ? '[withheld: injection-looking text is described, never printed]' : r.body}`,
   ].join('\n');
@@ -794,9 +820,26 @@ export async function run(
     case 'remember': {
       if (args.untrusted) {
         try {
-          const rec = rememberUntrusted(String(args.operand ?? ''), { source: args.source ?? 'cli:untrusted' });
+          let sourceText: string | null = null;
+          if (args.sourceFile !== undefined) {
+            // Local file only. Opens no socket. Only its sha256 is stored.
+            const fs = require('node:fs') as typeof import('node:fs');
+            try {
+              sourceText = fs.readFileSync(args.sourceFile, 'utf8');
+            } catch {
+              io.err(`remember: cannot read the source file: ${args.sourceFile}`);
+              return EXIT.USAGE;
+            }
+          }
+          const rec = rememberUntrusted(String(args.operand ?? ''), {
+            source: args.source ?? (args.sourceFile !== undefined ? `file:${args.sourceFile}` : 'cli:remember'),
+            sourceText,
+          });
           if (args.json) io.out(JSON.stringify(rec, null, 2));
-          else io.out(`quarantined ${rec.id} (${rec.reason})`);
+          else {
+            io.out(`quarantined ${rec.id} (${rec.reason})`);
+            io.err(`untrusted by default. If you wrote it yourself: trustshell quarantine release ${rec.id} --trusted (or remember --trusted next time)`);
+          }
           return EXIT.OK;
         } catch (e: any) {
           if (e?.message === 'remember refused') {
@@ -877,7 +920,9 @@ export async function run(
         }
         // release
         let outcome: ReleaseOutcome;
-        if (args.check === 'hal') {
+        if (args.trusted) {
+          outcome = releaseByOperator(id);
+        } else if (args.check === 'hal') {
           outcome = await releaseByHal(id);
         } else {
           // Local file only. Opens no socket.

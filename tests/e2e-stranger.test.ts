@@ -224,7 +224,7 @@ describe('stranger e2e on current main', () => {
     const homeBefore = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     const memory = join(dir, 'memory.sqlite');
     process.env.TRUSTSHELL_MEMORY = memory;
-    const remembered = await go(['remember', 'stranger note']);
+    const remembered = await go(['remember', '--trusted', 'stranger note']);
     expect(remembered.code).toBe(0);
     expect(remembered.out).toContain('remembered');
     const recall = await go(['recall']);
@@ -241,8 +241,9 @@ describe('stranger e2e on current main', () => {
     const gone = await go(['recall', 'desk']);
     expect(gone.out).toBe('NOT_CHECKED');
     expect(gone.out).not.toBe('');
-    // Immune system v0: an untrusted note is held out of recall until its source grounds it.
-    const held = await go(['remember', '--untrusted', '--source', 'manifest', 'Loaded 50 ft of cable, ordered 150 ft.']);
+    // Immune system v0: a note is untrusted by default, and held out of recall until the document
+    // recorded with it grounds it.
+    const held = await go(['remember', '--source', 'manifest', '--source-file', manifest, 'Loaded 50 ft of cable, ordered 150 ft.']);
     expect(held.code).toBe(0);
     expect(held.out).toMatch(/^quarantined \d+ /);
     const heldId = (/^quarantined (\d+)/.exec(held.out) ?? [])[1] as string;

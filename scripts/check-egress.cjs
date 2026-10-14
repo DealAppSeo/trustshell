@@ -61,7 +61,7 @@ const NONE_RUNS = {
   remember: {
     args: ['remember', 'egress check note'],
     env: { TRUSTSHELL_MEMORY_ENCRYPT: 'on', TRUSTSHELL_MEMORY_KEY: 'egress-check-passphrase' },
-    stdout: 'remembered',
+    stdout: 'quarantined 1 (untrusted: not yet checked)',
     exit: 0,
   },
   recall: { args: ['recall'], env: {}, stdout: 'do_not_send COUNT 0', exit: 0 },

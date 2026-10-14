@@ -174,7 +174,7 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY) and `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), and the quarantine tools `quarantine_list`, `quarantine_explain` and `quarantine_release`; no published release has them yet. On main, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). It has no purchase tool; buying is the SDK's `executeA2A`.
+In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` / `redact` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY) and `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), and the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP); no published release has them yet. On main, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). It has no purchase tool; buying is the SDK's `executeA2A`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
@@ -503,53 +503,60 @@ the claim.
 ### Quarantine (immune system v0) — main only, not in 1.6.1
 
 > **Not in the published 1.6.1.** This is on `main` for the next release. On 1.6.1, `quarantine`
-> is an unknown command, `remember --untrusted` is an unknown option, and an MCP `remember` stores
-> an ordinary note.
+> is an unknown command, `--trusted`, `--untrusted` and `--source-file` are unknown options, and
+> `remember "<text>"` stores an ordinary note that `recall` prints.
 
 Text an agent picks up from outside should not become something it acts on just because it was
 written down. In this package's **local memory**, every note now carries a **taint label**, and
 untrusted notes are held apart until a check passes.
 
+**Behaviour change:** `trustshell remember "<text>"` now stores the note **untrusted and
+quarantined**. A shell command can be run by an agent piping a web page as easily as by a person
+typing, and nothing here can tell which. Say `--trusted` when you wrote it yourself.
+
 ```bash
-trustshell remember "ship the receipt"                       # yours: trusted
-trustshell remember --untrusted --source https://example.test/manifest "holds 150 ft of cable"
+trustshell remember --trusted "ship the receipt"             # yours: trusted, recall prints it
+trustshell remember --source https://example.test/manifest --source-file manifest.txt "holds 150 ft of cable"
 # quarantined 2 (untrusted: not yet checked)
 trustshell recall                                            # leaves it out, and says so
 # ship the receipt
 # do_not_send COUNT 0
 # quarantined COUNT 1 (trustshell quarantine list)
-trustshell quarantine list
-trustshell quarantine release 2 --source manifest.txt --page 1   # local: ground it in its source
-trustshell quarantine release 2 --check hal                      # network: the classify endpoint
-trustshell quarantine explain 2                              # provenance, source, which check released it
+trustshell quarantine list                                   # id, source, reason: never the text
+trustshell quarantine explain 2                              # the record and the text
+trustshell quarantine release 2 --source manifest.txt --page 1   # local: ground it in the recorded document
+trustshell quarantine release 2 --check hal                      # network: two checkers on the default endpoint
+trustshell quarantine release 2 --trusted                        # your word, recorded as such
 ```
 
 **What it does:**
 - **Taint labels.** Every note records `provenance`: `trusted`, `untrusted` or `verified`, plus a `source`.
-  - A note you type with `trustshell remember` is `trusted`.
-  - A note written through the MCP `remember` tool, or with `remember --untrusted`, is `untrusted`.
-  - Notes saved before this existed read as `trusted`, source `legacy`. Nothing recorded who wrote them, so that is stated rather than guessed.
+  - Only `trustshell remember --trusted` stores a `trusted` note.
+  - `trustshell remember "<text>"` (with or without `--untrusted`), and the MCP `remember` tool, store it `untrusted`.
+  - Notes saved before this existed are `untrusted`, source `legacy`, and quarantined the first time the file is opened. Nothing recorded who wrote them, so the file does not guess "trusted".
 - **Quarantine.** An untrusted note is stored quarantined.
   - `recall` leaves it out and adds a `quarantined COUNT N` line, so nothing is hidden silently.
   - `recall --include-quarantined` (MCP: `include_quarantined: true`) prints it, marked `[QUARANTINED: reason]`.
-- **Release only by a passing check,** recorded in `released_by`:
-  - **ground**: the whole note is found, `VERIFIED`, in the source file you name (`--source`, optional `--page`). Local, no network.
-  - **hal**: the classify endpoint labels the note `pass` (`--check hal`). It is the only network path, and only when you ask for it. The note is scrubbed first, like `check`. If the scrubber changed it, it is **not** released, because the label would be about other text.
+  - `quarantine list` (and MCP `quarantine_list`, and `--json`) gives the id, source and reason, never the text. `quarantine explain <id>` gives one note's text.
+- **Release**, recorded in `released_by`:
+  - **ground**: `--source <file>` must be the document recorded when the note was stored (`remember --source-file <file>`, or MCP `remember` with `source_text`). Only its sha256 is kept, and the file you give must match it. Then the whole note must be found, `VERIFIED`, in it (optional `--page`). Local, no network. With no recorded document, or a different one, the result is `NOT_CHECKED`: a caller cannot ground a note against text it picks at release time, such as the note itself.
+  - **hal**: `--check hal` sends the note to `POST /api/v1/classify` on the **default** endpoint. It releases only on `pass` decided by votes, where two named deciders from two different model families both said `TRUE`. A custom `TRUSTSHELL_API_URL` releases nothing and is not asked. A `pass` by arithmetic, or one without both votes, is `NOT_CHECKED`. The note is scrubbed first, like `check`. If the scrubber changed it, it is **not** released, because the label would be about other text. This is the only network path, and only when you ask for it.
+  - **operator**: `--trusted` is your word, not a check. The note becomes `trusted`, and `released_by` says the operator vouched.
   - Any other result keeps the note held and records why.
 - **Exit codes for `release`:** `0` released, `1` held (the check failed), `2` not checked or no such note.
-- **Injection-looking text stays held.** It is screened by the package's fixed instruction-smuggling patterns. A match is quarantined with that reason, and **no check releases it**. `list` and `explain` describe it and never print it.
-- **MCP tools:** `quarantine_list`, `quarantine_explain`, and `quarantine_release` (ground, with the source passed as text). There is no HAL release over MCP.
-- **SDK exports:** `rememberUntrusted`, `listQuarantined`, `explainQuarantine`, `releaseByGround`, `releaseByHal`.
+- **Injection-looking text stays held.** It is screened by the package's fixed instruction-smuggling patterns, when stored and again when read (so legacy notes are screened too). A match is quarantined with that reason, and **nothing releases it**, not even `--trusted`. `list`, `explain` and `recall --include-quarantined` describe it and never print it.
+- **MCP tools:** `quarantine_list` and `quarantine_explain`. There is **no release tool over MCP**: an MCP caller is the untrusted writer, and it must not be able to release its own note.
+- **SDK exports:** `rememberUntrusted`, `listQuarantined`, `explainQuarantine`, `releaseByGround`, `releaseByHal`, `sourceDigest`. The release functions are operator surfaces. Do not hand them to an agent as tools.
 
 **What it does NOT do:**
 - **No sandboxed execution.** It holds *text* apart. It runs nothing in isolation.
 - **No adaptive learning.** The injection screen is a fixed set of patterns, not a model, and a novel phrasing can get past it. Such text still lands in quarantine as untrusted. It just is not flagged as injection, so a passing check could release it.
 - **Only this package's local memory.** An agent's own context window, and tool results it never stores here, are not quarantined.
+- **`--trusted` is the operator's word, and anything that can run your shell can say it.** The boundary this enforces is MCP versus your CLI, and untrusted-by-default for everything else.
 - **A release is not a truth verdict.**
-  - A `ground` release says the note's text is in the cited source, not that the source is true.
+  - A `ground` release says the note's text is in the document recorded with it. It does not say the document is true, or that whoever recorded it told the truth about where it came from.
   - A `hal` release says two checkers agreed, not that the note is safe to act on.
-- **No operator override in v0.** A note held by mistake stays out of `recall`; it is not deleted.
-- **Keyed values (`remember KEY VALUE`) are operator-only** and are not labelled untrusted.
+- **Keyed values (`remember KEY VALUE`) carry no taint label** in v0.
 
 ### What each command talks to
 
