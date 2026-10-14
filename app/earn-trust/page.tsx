@@ -404,11 +404,12 @@ export default function EarnTrustPage() {
           <p className="text-sm leading-relaxed">
             <span className="text-foreground font-semibold">Live since 1.7.0, in local memory only.</span>{' '}
             <span className="text-muted">
-              A note saved through the MCP remember tool, or with remember --untrusted, is stored
-              quarantined: recall leaves it out and says how many it held back. Only a passing check
-              releases it — the note found in the source file you name, locally, or a HAL check you ask
-              for. Text that reads like an instruction to the agent is screened by fixed patterns, and
-              no check releases it.
+              A note is stored quarantined unless you vouch for it with remember --trusted, and a note
+              an agent saves over MCP always is: recall leaves it out and says how many it held back. It
+              is released only by a passing check — the note found in the source document recorded
+              with it, locally, or two HAL checkers you ask for — or by your own word, recorded as
+              such. Text that reads like an instruction to the agent is screened by fixed patterns, and
+              nothing releases it.
             </span>
           </p>
           <p className="text-sm leading-relaxed">

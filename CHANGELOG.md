@@ -4,8 +4,30 @@ All notable changes to the `@hyperdag/trustshell` package.
 
 ## 1.7.0 — unreleased (dated when published)
 
-New commands, exports and MCP tools, so this is a minor release. No existing command, export or
-tool changed behaviour.
+New commands, exports and MCP tools, so this is a minor release. One existing behaviour changes on
+purpose: local memory now quarantines notes it cannot vouch for (below).
+
+- **BEHAVIOR CHANGE: local memory quarantines untrusted notes (immune system v0).**
+  - Every note now carries a taint label: `provenance` (`trusted` | `untrusted` | `verified`) and a
+    `source`.
+  - `trustshell remember "<text>"` now stores the note **untrusted and quarantined**, and `recall`
+    leaves it out and prints `quarantined COUNT N`. **If you wrote it yourself, add `--trusted`.** A
+    note written through the MCP `remember` tool is always untrusted.
+  - Notes saved by 1.6.1 or older are quarantined as `legacy` the first time 1.7.0 opens the file.
+    Nothing recorded who wrote them. `trustshell quarantine release <id> --trusted` vouches for one.
+  - A held note is released only by:
+    - a local ground check against the source document recorded with it
+      (`remember --source-file`; MCP `source_text`);
+    - a HAL check on the default endpoint (`--check hal`): two named deciders of two model
+      families must both say TRUE;
+    - the operator's word, recorded as such (`--trusted`, CLI only).
+  - Injection-looking text is never printed and never released.
+  - New: `trustshell quarantine list | explain | release`, the MCP tools `quarantine_list` and
+    `quarantine_explain` (there is no release over MCP), and the SDK exports `rememberUntrusted`,
+    `listQuarantined`, `explainQuarantine`, `releaseByGround`, `releaseByHal`, `releaseExitCode` and
+    `sourceDigest`.
+  - What it does not do: no sandboxed execution and no adaptive learning (the screen is a fixed
+    pattern list), and nothing outside this package's local memory. (tests/quarantine.test.ts.)
 
 - **`trustshell ground`: is a quote really in the document it cites?** It checks a quoted claim
   against a source file with no model and no network. Is the quote on the cited page, and with
@@ -41,8 +63,9 @@ tool changed behaviour.
   labelled at its block, checked against a clean 1.6.1 install; those labels now read "since
   1.7.0". Sample outputs that had no date are replaced with recorded, dated runs.
   (`npm run check:doc-version`, `npm run check:egress`.)
-- **Package size.** The tarball has 101 files: 1.6.1's 99, plus `dist/lib/ground.js` and
-  `ground.d.ts`. Runtime dependencies are unchanged: `@hyperdag/proof-verifier`,
+- **Package size.** The tarball has 105 files: 1.6.1's 99, plus `dist/lib/ground`,
+  `dist/memory/quarantine` and `dist/memory/quarantine-hal` (`.js` and `.d.ts` each). Runtime
+  dependencies are unchanged: `@hyperdag/proof-verifier`,
   `@modelcontextprotocol/sdk` and `zod`, with `ethers` still an optional peer.
 
 ## 1.6.1 — 2026-10-12

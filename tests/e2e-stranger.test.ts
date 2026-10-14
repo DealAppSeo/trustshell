@@ -182,7 +182,7 @@ describe('stranger e2e on current main', () => {
   it('runs the other commands that exist on main', async () => {
     const version = await go(['--version']);
     expect(version.code).toBe(0);
-    expect(version.out).toMatch(/1\.6/);
+    expect(version.out).toMatch(/1\.7/);
 
     const help = await go(['--help']);
     expect(help.code).toBe(0);

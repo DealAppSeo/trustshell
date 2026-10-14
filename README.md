@@ -148,7 +148,7 @@ npm install @hyperdag/trustshell
 
 This is the one live, published install today. It delivers all three protocols in one wrapper — **HAL** verification, **ERC-8004** portable RepID, and **x402** agent-to-agent payments — against the live backend.
 
-The package does not carry the Next.js/React site. The 1.7.0 tarball is 101 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.7.0 dependencies peerDependencies dist.fileCount`)
+The package does not carry the Next.js/React site. The 1.7.0 tarball is 105 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.7.0 dependencies peerDependencies dist.fileCount`)
 
 ### Which package do I install?
 

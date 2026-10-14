@@ -15,7 +15,7 @@ in three lines, against the **live** repid-engine. The read paths below need **n
 npm install @hyperdag/trustshell
 ```
 
-The package leaves the site out: the 1.7.0 tarball is 101 files (`dist/`, the command shims in
+The package leaves the site out: the 1.7.0 tarball is 105 files (`dist/`, the command shims in
 `bin/`, two scripts, `lib/interview.js`, and the README, changelog and license). `npm install`
 pulls `@hyperdag/proof-verifier`, `@modelcontextprotocol/sdk` and `zod` — no Next.js, React, or
 Supabase tree. `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only to
