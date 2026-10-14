@@ -1,9 +1,10 @@
 import { CopyReceiptLine } from '@/components/copy-receipt-line';
-import { receiptOf, type ReceiptInput } from '@/lib/check-receipt';
+import { receiptOf, type ReceiptInput, type ReceiptStatus } from '@/lib/check-receipt';
 
-const TONE: Record<'PROVISIONAL' | 'EXACT_CALCULATION' | 'NOT_CHECKED', string> = {
+const TONE: Record<ReceiptStatus, string> = {
   PROVISIONAL: 'text-amber-300 border-amber-500/40',
   EXACT_CALCULATION: 'text-sky-300 border-sky-500/40',
+  APPROXIMATE_CALCULATION: 'text-sky-300 border-sky-500/40',
   NOT_CHECKED: 'text-slate-300 border-slate-500/40',
 };
 
