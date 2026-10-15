@@ -44,6 +44,7 @@ const arg = (n, d) => { const i = argv.indexOf(n); return i >= 0 && argv[i + 1] 
 const VERSION = arg('--version', 'latest');
 const RPC = arg('--rpc', process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org');
 const ENGINE = arg('--engine', process.env.REPID_ENGINE_URL || 'https://repid-engine-production.up.railway.app');
+const SITE = arg('--site', process.env.TRUSTSHELL_SITE_URL || 'https://trustshell.dev');
 const AGENT = arg('--agent', 'trinity-sophia');
 const JSON_OUT = argv.includes('--json');
 
@@ -201,6 +202,51 @@ const recordEngineLeg = (leg, e) =>
   e?.engineDown || !engineReachable
     ? record(leg, 'NOT_CHECKED', 'engine unreachable — see engine.reachable')
     : record(leg, 'FAILED', String(e.stderr || e.message).slice(0, 160));
+
+// --- the receipt URL people post: trustshell.dev/receipt/:id -------------------------------------
+// The site does not render receipts; next.config.ts redirects /receipt/:id to the engine's keyless
+// page, the one renderer. Until 2026-10-14 that URL was a 404. This leg asks the ENGINE for its
+// newest receipt (contract id + settlement tx), opens it through the SITE, follows the redirects,
+// and requires a 200 page that names that settlement tx. A 404, or a page that does not show this
+// deal, is FAILED. Never having reached the site is NOT_CHECKED, as for the engine above.
+if (!engineReachable) {
+  record('site.receipt_url', 'NOT_CHECKED', 'engine unreachable — see engine.reachable');
+} else {
+  let latest = null;
+  try {
+    const r = await fetch(`${ENGINE}/api/v1/receipt/latest.json`, { signal: AbortSignal.timeout(20000) });
+    if (!r.ok) throw new Error(`the engine's newest receipt (/api/v1/receipt/latest.json) answered ${r.status}`);
+    latest = await r.json();
+    if (typeof latest?.contract_id !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(String(latest?.settlement_tx))) {
+      throw new Error('the engine\'s newest receipt has no contract_id or settlement tx to look for');
+    }
+  } catch (e) {
+    record('site.receipt_url', 'FAILED', String(e.message).slice(0, 160));
+    latest = null;
+  }
+  if (latest) {
+    const url = `${SITE}/receipt/${encodeURIComponent(latest.contract_id)}`;
+    let page = null;
+    try {
+      page = await fetch(url, { signal: AbortSignal.timeout(20000) }); // follows the 308 to www and the 307 to the engine
+    } catch (e) {
+      record('site.receipt_url', 'NOT_CHECKED', `no egress to ${SITE} from here (${String(e.message).slice(0, 80)})`);
+    }
+    if (page) {
+      const html = await page.text();
+      const evidence = { url, landed_at: page.url, status: page.status, contract_id: latest.contract_id, settlement_tx: latest.settlement_tx };
+      if (page.headers.get('x-deny-reason')) {
+        record('site.receipt_url', 'NOT_CHECKED', `egress to ${SITE} is blocked by this environment`, evidence);
+      } else if (page.status !== 200) {
+        record('site.receipt_url', 'FAILED', `${url} answered ${page.status} (landed at ${page.url})`, evidence);
+      } else if (!html.includes(latest.settlement_tx)) {
+        record('site.receipt_url', 'FAILED', `${url} landed at ${page.url}, which does not name this deal's settlement tx`, evidence);
+      } else {
+        record('site.receipt_url', 'MEASURED', `${url} → ${page.url}: 200, names settlement tx ${latest.settlement_tx.slice(0, 10)}…`, evidence);
+      }
+    }
+  }
+}
 
 // --- the four advertised capabilities ---------------------------------------
 // HAL. A live cross-provider quorum: the assertion is that real providers answered, not merely
