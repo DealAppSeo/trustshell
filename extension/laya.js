@@ -51,13 +51,20 @@
    * when missing or out of contract. All or nothing, as src/lib/claim.ts pathOf: a 'votes' with no
    * usable voter list, or a 'skipped' / 'deadline' claiming pass or veto, reports no path at all.
    */
-  const PATHS = ['arithmetic', 'votes', 'skipped', 'deadline'];
+  // 'arithmetic-approx' (repid-engine classify.ts, 2026-10-12): a whole-text equation the exact
+  // evaluator could not hold, compared as doubles within 1e-9 relative. It always decides. Any other
+  // `by` stays out of contract: not-checked, with OUT_OF_CONTRACT as the reason, never a pass.
+  const PATHS = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'deadline'];
+  /** The reason on a row whose answer named a path this file does not know (the CLI's "out of contract"). */
+  const OUT_OF_CONTRACT = 'out-of-contract';
   const VOTER_ID = /^[a-z0-9-]{1,32}$/;
   function pathOf(body, label) {
     if (!body || typeof body !== 'object') return {};
     const by = body.by;
     if (typeof by !== 'string' || !PATHS.includes(by)) return {};
     if ((by === 'skipped' || by === 'deadline') && label !== NOT_CHECKED) return {};
+    // The approximate path always decides; a not-checked that claims it is not the engine's answer.
+    if (by === 'arithmetic-approx' && label === NOT_CHECKED) return {};
     if (by !== 'votes') return { by };
     const voters = body.voters;
     if (!Array.isArray(voters) || voters.length === 0 || voters.length > 8) return {};
@@ -118,7 +125,15 @@
     const opts = options || {};
     const now = typeof opts.now === 'function' ? opts.now : clock;
     const start = now();
+    // Set once the reply is scrubbed and something was removed. The label is then about the text
+    // that was sent, not the text on screen, and the stamp says so (src/lib/claim.ts `scrubbed`).
+    let scrubbed = false;
     const done = (label, body) => {
+      const row = answer(label, body);
+      if (scrubbed) row.scrubbed = true;
+      return row;
+    };
+    const answer = (label, body) => {
       const latency_ms = Math.max(0, Math.round(now() - start));
       if (latency_ms > SLOW_MS) return { label: NOT_CHECKED, latency_ms, line: SLOW_LINE };
       if (body === undefined) return { label, latency_ms };
@@ -126,7 +141,7 @@
       // A `by` the server never sends ({"label":"pass","by":"skipped"}) means the answer is not the
       // server's, so its label decides nothing (XC1, night bus #449), as src/lib/claim.ts. No `by`
       // at all is an older endpoint and keeps its label.
-      if (body.by !== undefined && !path.by) return { label: NOT_CHECKED, latency_ms };
+      if (body.by !== undefined && !path.by) return { label: NOT_CHECKED, latency_ms, reason: OUT_OF_CONTRACT };
       return Object.assign({ label, latency_ms }, path);
     };
 
@@ -136,8 +151,11 @@
     // Known secret and personal-data formats are removed before anything is sent (scrub.js).
     const scrub = scrubber(opts);
     if (typeof scrub !== 'function') return done(NOT_CHECKED);
-    const cleaned = scrub(String(text ?? ''));
+    const raw = String(text ?? '');
+    const cleaned = scrub(raw);
+    // Nothing left to send: nothing was sent, so nothing is marked scrubbed.
     if (cleaned.trim() === '') return done(NOT_CHECKED);
+    scrubbed = cleaned !== raw;
 
     const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : TIMEOUT_MS;
     const controller = new AbortController();
@@ -182,7 +200,7 @@
     }
   }
 
-  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, callLaya, pathOf };
+  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, OUT_OF_CONTRACT, callLaya, pathOf };
 
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellLaya = api;

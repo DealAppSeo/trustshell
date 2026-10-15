@@ -70,6 +70,21 @@ function readThroughCentralDirectory(buf: Buffer): { name: string; data: Buffer 
 }
 
 describe('pack-extension', () => {
+  it('is reproducible: two packs of the same folder are the same bytes', () => {
+    // No clock, no directory order: the store upload and the CI release zip can be compared by hash.
+    // Across machines this also needs LF checkouts of extension/ (.gitattributes), or a Windows
+    // checkout packs CRLF files and the hash differs from CI's.
+    const dir = mkdtempSync(join(tmpdir(), 'ts-pack-repro-'));
+    const pack = (name: string) => {
+      spawnSync(process.execPath, [join(ROOT, 'scripts', 'pack-extension.mjs'), join(ROOT, 'extension'), join(dir, name)], { timeout: 60000 });
+      return readFileSync(join(dir, name));
+    };
+    const a = pack('a.zip');
+    expect(a.length).toBeGreaterThan(0);
+    expect(pack('b.zip').equals(a)).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('the zip contains manifest.json and does not contain a .env file', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ts-pack-'));
     const ext = join(dir, 'extension');

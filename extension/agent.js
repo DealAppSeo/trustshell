@@ -287,7 +287,8 @@
     if (r.outcome === 'verified') {
       lines.push(`Proof verified in your browser: RepID ${r.provenScore} is at least ${r.threshold} (${r.provenTier}).`);
       if (r.createdAt) lines.push(`Proof made ${r.createdAt.slice(0, 10)}. The live score can differ from the proven one.`);
-      if (r.attestation) lines.push(`On-chain receipt: ${r.attestation.slice(0, 10)}…`);
+      // The engine reports this id; nothing here reads it on chain, so it is not called a receipt.
+      if (r.attestation) lines.push(`Attestation id from the engine, not checked on chain here: ${r.attestation.slice(0, 10)}…`);
     } else if (r.outcome === 'not-verified') {
       lines.push('Proof NOT verified. Do not treat this score as proven.');
     } else if (r.reason === 'binding_unavailable') {

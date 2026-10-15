@@ -37,9 +37,14 @@ describe('toolbar popup', () => {
     const text = words.join(' ');
     expect(text).toContain('The reply text is sent to our checkers, Groq and Cerebras');
     expect(text).toContain('after the reply is on screen');
+    // XC1 on #554: "after the reply is on screen" alone was false in Only when I click, where nothing
+    // is sent until the click. Both modes, as store/LISTING.md and public/privacy.html say them.
+    expect(text).toContain('after the reply is on screen (or only when you click)');
     expect(text).toContain('not stored');
     expect(text).toContain('Do not paste secrets');
-    expect(text).toContain('Right-click any page and choose Check with TrustShell');
+    // The menu item exists only on a selection (select.js contexts: ['selection']); this line said
+    // "Right-click any page", and a right-click with nothing selected shows no such item.
+    expect(text).toContain('Select text on any page, right-click it, and choose Check with TrustShell');
     expect(text).toContain("Check an agent's RepID");
   });
 

@@ -41,7 +41,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
+import { LAUNCH_ARGS, chromiumExecutablePath, loadPlaywrightOrExit } from './chromium-path.mjs';
 import { loadTsFixture } from './ts-fixtures.mjs';
 
 const { chromium } = await loadPlaywrightOrExit();
@@ -49,7 +49,10 @@ const { chromium } = await loadPlaywrightOrExit();
 const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extension');
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
 const CAUGHT = 'Caught\nChecked and found false.';
+const SCRUBBED = 'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
 const CHECKING = 'Asking two checkers';
+const APPROX_LINE = 'Decided by approximate calculation, not exact. No model was asked.';
+const OUT_OF_CONTRACT_LINE = 'Out of contract: the answer named a path this version does not know. This is not a pass.';
 const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
 const SW_GLOBALS = ['trustshellSettings', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
@@ -127,6 +130,10 @@ try {
   try {
     context = await chromium.launchPersistentContext(userDataDir, {
       channel: 'chromium',
+      // PLAYWRIGHT_CHROMIUM / the sandbox path, as every other browser suite honours. Without it this
+      // suite could only use the one build its Playwright version names, and said NOT_CHECKED beside
+      // an installed Chromium.
+      executablePath: chromiumExecutablePath(),
       headless: true,
       args: [...LAUNCH_ARGS, `--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
     });
@@ -171,6 +178,13 @@ try {
         headers: { ...cors, 'content-type': 'application/json' },
         body: JSON.stringify({ label: 'veto', latency_ms: 1, by: 'votes', voters: ['groq', 'cerebras'] }),
       });
+    }
+    if (classifyMode === 'approx' || classifyMode === 'unknown-by') {
+      // The engine's approximate arithmetic (repid-engine classify.ts :567), and a `by` no contract lists.
+      const body = classifyMode === 'approx'
+        ? { label: 'veto', latency_ms: 0, by: 'arithmetic-approx' }
+        : { label: 'pass', latency_ms: 0, by: 'arithmetic-fuzzy' };
+      return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify(body) });
     }
     if (classifyMode === 'standin') {
       // Cerebras gave no answer and OpenRouter stood in: it received the text, but did not decide.
@@ -477,6 +491,37 @@ try {
     await page.close();
   }
 
+  // ---- f2. arithmetic-approx is Caught with the approximate line; an unknown `by` is Not checked and says why
+  for (const [mode, reply, wantStamp, wantLine, toastWanted] of [
+    ['approx', '2 ^ 0.5 = 1.5', CAUGHT, APPROX_LINE, true],
+    ['unknown-by', '2 ^ 0.5 = 1.414', 'Not checked', OUT_OF_CONTRACT_LINE, false],
+  ]) {
+    classifyMode = mode;
+    replyOverride = () => `<div data-message-author-role="assistant"><p>${reply}</p></div>`;
+    const page = await context.newPage();
+    const name = mode === 'approx'
+      ? 'chatgpt: an approximate-arithmetic veto is Caught, with the approximate line and the Caught toast'
+      : 'chatgpt: an unknown by is Not checked, and the line says it was out of contract';
+    try {
+      await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
+      const seen = await poll(() => page.evaluate(() => {
+        const stamp = document.getElementById('trustshell-stamp');
+        const line = document.getElementById('trustshell-check-line');
+        const toast = document.getElementById('trustshell-toast');
+        if (!stamp || !line) return null;
+        return { stamp: stamp.textContent, line: line.textContent, toast: toast ? toast.textContent : '' };
+      }), 10000).catch(() => null);
+      check(name,
+        Boolean(seen) && seen.stamp === wantStamp && seen.line === wantLine && Boolean(seen.toast) === toastWanted,
+        JSON.stringify(seen));
+    } catch (err) {
+      record(name, 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    replyOverride = null;
+    classifyMode = 'veto';
+    await page.close();
+  }
+
   // ---- e. the reply is scrubbed before it leaves the browser ----------------------------------
   // scrub.js must load before laya.js in the real manifest, or laya.js sends nothing. Values are
   // fake and assembled here so this file never holds a scanner-shaped string.
@@ -500,6 +545,13 @@ try {
           !sent.includes(email) && !sent.includes(awsId),
           `body has email=${sent.includes(email)} awsKey=${sent.includes(awsId)}`);
         check('chatgpt: the claim itself survives the scrub', text.includes('Two plus two is five.'), JSON.stringify(text));
+        // The CLI says when it removed something (src/lib/claim.ts SCRUBBED_LINE); so must the stamp.
+        const line = await poll(() => page.evaluate(() => {
+          const node = document.getElementById('trustshell-check-line');
+          return node && node.textContent ? node.textContent : null;
+        }), 10000).catch(() => null);
+        check('chatgpt: the line under the stamp says something was removed before sending',
+          typeof line === 'string' && line.endsWith(SCRUBBED), JSON.stringify(line));
       }
     } catch (err) {
       record('chatgpt: the classify request carries no email and no AWS key', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);

@@ -88,7 +88,7 @@ async function ask(text, options) {
 }
 
 /**
- * Stamp the last grok reply. A call over 3 seconds paints not-checked and the check line.
+ * Stamp the last grok reply. A call past the 6-second cap (classify.js SLOW_MS) paints not-checked and the check line.
  * options.current, when given, says whether this answer is still the newest; an older answer
  * is not painted, so it can never label a reply it did not read.
  */
