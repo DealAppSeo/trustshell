@@ -36,7 +36,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.releaseByHal = exports.UNCHECKED_REASON = exports.releaseExitCode = exports.releaseByGround = exports.explainQuarantine = exports.listQuarantined = exports.rememberUntrusted = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
+exports.releaseByHal = exports.UNCHECKED_REASON = exports.sourceDigest = exports.releaseExitCode = exports.releaseByGround = exports.explainQuarantine = exports.listQuarantined = exports.rememberUntrusted = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
 var trustshell_1 = require("./trustshell");
@@ -147,8 +147,10 @@ Object.defineProperty(exports, "LIMITATIONS", { enumerable: true, get: function 
 /**
  * Immune system v0: taint labels and quarantine for the package's LOCAL memory. A note that did not
  * come from the operator is stored untrusted and quarantined; recall leaves it out until a check
- * releases it (releaseByGround: local, no network; releaseByHal: the classify endpoint, network).
- * Injection-looking text is never released. See src/memory/quarantine.ts for what it does NOT do.
+ * releases it (releaseByGround: against the source document recorded at ingest, local, no network;
+ * releaseByHal: the default classify endpoint, two deciders, network). Injection-looking text is never
+ * released. The release functions are OPERATOR surfaces: do not hand them to an agent as tools.
+ * See src/memory/quarantine.ts for what it does NOT do.
  */
 var quarantine_1 = require("../memory/quarantine");
 Object.defineProperty(exports, "rememberUntrusted", { enumerable: true, get: function () { return quarantine_1.rememberUntrusted; } });
@@ -156,6 +158,7 @@ Object.defineProperty(exports, "listQuarantined", { enumerable: true, get: funct
 Object.defineProperty(exports, "explainQuarantine", { enumerable: true, get: function () { return quarantine_1.explainQuarantine; } });
 Object.defineProperty(exports, "releaseByGround", { enumerable: true, get: function () { return quarantine_1.releaseByGround; } });
 Object.defineProperty(exports, "releaseExitCode", { enumerable: true, get: function () { return quarantine_1.releaseExitCode; } });
+Object.defineProperty(exports, "sourceDigest", { enumerable: true, get: function () { return quarantine_1.sourceDigest; } });
 Object.defineProperty(exports, "UNCHECKED_REASON", { enumerable: true, get: function () { return quarantine_1.UNCHECKED_REASON; } });
 var quarantine_hal_1 = require("../memory/quarantine-hal");
 Object.defineProperty(exports, "releaseByHal", { enumerable: true, get: function () { return quarantine_hal_1.releaseByHal; } });

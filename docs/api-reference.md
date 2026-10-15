@@ -360,6 +360,8 @@ it in version control.
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
 
+On `main` (not in 1.6.1): the note is stored **untrusted and quarantined** unless you pass `--trusted` (you vouch you wrote it). `--source <label>` and `--source-file <file>` label untrusted text; `--source-file` records the document's sha256 for a later ground release. See `trustshell quarantine` below.
+
 `trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. No network.
 
 A note or value that looks like a credential is refused and nothing is written: API keys and tokens (AWS, Google, Stripe, GitHub, npm, Slack, Hugging Face, `sk-…`, `sb_secret_…`), JWTs, private keys (64-hex and PEM), database URLs, webhook URLs and labelled passwords. These are the same shapes the outbound scrubber removes. An email or a phone number is stored: the file is local.
@@ -384,15 +386,17 @@ On `main` (not in 1.6.1): quarantined notes are left out, and a last line `quara
 > **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
 > `unknown command: quarantine`.
 
-Immune system v0 for local memory. A note written with `remember --untrusted [--source <label>]`, or through the MCP `remember` tool, is stored with `provenance: untrusted` and is **quarantined**. Notes you type with `remember` are `trusted`. Rows saved before this existed read as `trusted`, source `legacy`.
+Immune system v0 for local memory. `remember "<text>"` (with or without `--untrusted`) and the MCP `remember` tool store the note with `provenance: untrusted`, **quarantined**. Only `remember --trusted` stores a `trusted` note. Notes saved before this existed are `untrusted`, source `legacy`, and quarantined when the file is first opened.
 
-- `list`: id, source and reason for each held note. Ends `quarantined COUNT N`. No network.
-- `explain <id>`: provenance, source, quarantined, reason, released_by, released_at. No network.
-- `release <id> --source <file> [--page N]`: released only if the **whole** note is found, `VERIFIED`, in that file (`ground`). Local, no network.
-- `release <id> --check hal`: released only if `POST /api/v1/classify` labels the note `pass`, after the same scrub as `check`. A note the scrubber changed is not released.
-- `release` exits `0` released, `1` held (the check failed), `2` not checked or no such note. A release sets `provenance: verified` and records the check in `released_by`.
-- Injection-looking text is screened by the fixed instruction-smuggling patterns, which are not a model. A match is held with that reason, never released by a check, and never printed by `list` or `explain`.
-- What it does not do: no sandboxed execution, no adaptive learning, nothing outside this package's local memory. A release is not a truth verdict. There is no operator override in v0.
+- `list`: id, source and reason for each held note, never its text (also with `--json`, and over MCP). Ends `quarantined COUNT N`. No network.
+- `explain <id>`: provenance, source, quarantined, reason, released_by, released_at, whether a source document was recorded, and the note's text. No network.
+- `release <id> --source <file> [--page N]`: `<file>` must be the document recorded with the note (`remember --source-file`, or MCP `remember` `source_text`; only its sha256 is kept). Then the **whole** note must be found, `VERIFIED`, in it (`ground`). No recorded document, or a different one, is `NOT_CHECKED`. Local, no network. The recorder supplied that document, so the note becomes `grounded`, never `verified`.
+- `release <id> --check hal`: released only if `POST /api/v1/classify` on the **default** endpoint labels the note `pass` by votes, with two named deciders of two different model families that both said `TRUE`. A custom `TRUSTSHELL_API_URL` is not asked and releases nothing. The note gets the same scrub as `check`; a note the scrubber changed is not released.
+- `release <id> --trusted`: the operator vouches for it. Not a check: the note becomes `trusted`, and `released_by` says so.
+- `release` takes exactly one of the three, and exits `0` released, `1` held (the check failed), `2` not checked or no such note. A HAL release sets `provenance: verified`, a ground release `grounded`, and `--trusted` sets `trusted`; `released_by` records which.
+- Injection-looking text is screened by the fixed instruction-smuggling patterns, which are not a model, when stored and again when read. A match is held with that reason, never released (not even with `--trusted`), and never printed by `list`, `explain` or `recall`. `remember --trusted` is screened too.
+- There is no release over MCP: the MCP caller is the untrusted writer.
+- What it does not do: no sandboxed execution, no adaptive learning, nothing outside this package's local memory. A release is not a truth verdict. `--trusted` is the operator's word, and anything that can run your shell can say it.
 
 ### `trustshell redact <key>`
 
@@ -488,7 +492,7 @@ a run or a session that happened — run these against your own and read the rea
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
-| `quarantine release --check hal` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only, after the same scrub as `check` | keyless |
+| `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |

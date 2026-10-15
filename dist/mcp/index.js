@@ -197,16 +197,21 @@ function createServer(client = makeClient()) {
     });
     registerTool('remember', {
         title: 'Local remember',
-        description: 'Write a note into the local sqlite memory. No network. A note written through this tool did not come from the operator, so it is stored UNTRUSTED and QUARANTINED: recall leaves it out until quarantine_release grounds it against its source. Injection-looking text is held for good.',
+        description: 'Write a note into the local sqlite memory. No network. A note written through this tool did not come from the operator, so it is stored UNTRUSTED and QUARANTINED: recall leaves it out until the operator releases it at the CLI. There is no release over MCP. Injection-looking text is held for good.',
         inputSchema: {
             text: zod_1.z.string().min(1).describe('The note to store.'),
             source: zod_1.z.string().min(1).max(200).optional().describe('Where the text came from (a URL, a tool name). Recorded as its provenance source.'),
+            source_text: zod_1.z
+                .string()
+                .max(2000000)
+                .optional()
+                .describe('The document the note came from. Only its sha256 is kept; the operator can later ground-release the note against that same document.'),
         },
-    }, async ({ text, source }) => {
+    }, async ({ text, source, source_text }) => {
         if ((0, remember_1.refusedValue)(text))
             return errorResult('remember refused');
         try {
-            return jsonResult((0, memory_1.rememberLocal)(text, process.env, source ? `mcp:${source}` : 'mcp:remember'));
+            return jsonResult((0, memory_1.rememberLocal)(text, process.env, source ? `mcp:${source}` : 'mcp:remember', source_text ?? null));
         }
         catch (e) {
             const message = e?.message === 'remember refused' ? 'remember refused' : `remember failed: ${e?.message ?? String(e)}`;
@@ -229,7 +234,7 @@ function createServer(client = makeClient()) {
     });
     registerTool('quarantine_list', {
         title: 'Quarantine list',
-        description: 'Notes held in quarantine: id, provenance source, reason. Injection-looking text is described, never reproduced. Local, no network.',
+        description: 'Notes held in quarantine: id, provenance, source, reason. Never the note text (quarantine_explain reads one note). Local, no network.',
         inputSchema: {},
     }, async () => {
         try {
@@ -254,23 +259,10 @@ function createServer(client = makeClient()) {
             return errorResult(`quarantine_explain failed: ${e?.message ?? String(e)}`);
         }
     });
-    registerTool('quarantine_release', {
-        title: 'Quarantine release (ground)',
-        description: 'Release a quarantined note ONLY if the whole note is found, VERIFIED, in source_text (the document it came from). Local and deterministic, no network. Anything else keeps it held and records why. Injection-looking text is never released.',
-        inputSchema: {
-            id: zod_1.z.number().int().positive().describe('The note id (from quarantine_list).'),
-            source_text: zod_1.z.string().min(1).describe('The source document as text; pages split on form feed.'),
-            page: zod_1.z.number().int().positive().optional().describe('The page the note cites. Found only on another page keeps it held.'),
-        },
-    }, async ({ id, source_text, page }) => {
-        try {
-            const { ground: _g, ...outcome } = (0, memory_1.releaseLocal)(id, source_text, page ?? null);
-            return jsonResult(outcome);
-        }
-        catch (e) {
-            return errorResult(`quarantine_release failed: ${e?.message ?? String(e)}`);
-        }
-    });
+    // NO quarantine_release tool, on purpose. An MCP caller is the untrusted writer: a release it could
+    // call would let it promote its own note (paste the note as its "source", or claim a pass). Release
+    // is the operator's, at the CLI: `trustshell quarantine release <id> --source <file> | --check hal |
+    // --trusted`.
     registerTool('redact', {
         title: 'Local redact',
         description: 'Delete one KEY row from the local sqlite memory. Missing is NOT_CHECKED. No network.',

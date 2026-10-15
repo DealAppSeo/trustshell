@@ -5,7 +5,19 @@
  * Personal data such as an email is NOT refused: local memory is the place for it.
  */
 export declare function refusedValue(value: string): boolean;
-export declare function rememberNote(text: string, env?: NodeJS.ProcessEnv): void;
+/**
+ * Write one TRUSTED note: the operator vouched for it (`remember --trusted`). Every other note goes
+ * through rememberUntrusted (src/memory/quarantine.ts) and is quarantined.
+ *
+ * The injection screen still runs: `--trusted` vouches for who wrote the note, not for what it says,
+ * and an operator can paste a payload as easily as an agent. Injection-looking text is stored
+ * quarantined with that reason (never printed, never released) and the reason is returned; a clean
+ * note returns null.
+ */
+export declare function rememberNote(text: string, env?: NodeJS.ProcessEnv): {
+    id: number;
+    reason: string;
+} | null;
 /**
  * Save one value under key in the same local file.
  * A secret-shaped value is refused and nothing is written. No network.

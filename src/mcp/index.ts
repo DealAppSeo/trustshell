@@ -55,7 +55,7 @@ import { resolvePackageVersion } from '../lib/version';
 import { buildStatusReport, statusJsonFromText } from '../cli/status';
 import { redactKey } from '../cli/redact-key';
 import { refusedValue } from '../cli/remember';
-import { recallLocal, releaseLocal, rememberLocal } from './memory';
+import { recallLocal, rememberLocal } from './memory';
 import { explainQuarantine, listQuarantined } from '../memory/quarantine';
 import { classifyClaim } from '../lib/claim';
 import { myJob } from '../lib/my-job';
@@ -231,16 +231,21 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     {
       title: 'Local remember',
       description:
-        'Write a note into the local sqlite memory. No network. A note written through this tool did not come from the operator, so it is stored UNTRUSTED and QUARANTINED: recall leaves it out until quarantine_release grounds it against its source. Injection-looking text is held for good.',
+        'Write a note into the local sqlite memory. No network. A note written through this tool did not come from the operator, so it is stored UNTRUSTED and QUARANTINED: recall leaves it out until the operator releases it at the CLI. There is no release over MCP. Injection-looking text is held for good.',
       inputSchema: {
         text: z.string().min(1).describe('The note to store.'),
         source: z.string().min(1).max(200).optional().describe('Where the text came from (a URL, a tool name). Recorded as its provenance source.'),
+        source_text: z
+          .string()
+          .max(2_000_000)
+          .optional()
+          .describe('The document the note came from. Only its sha256 is kept; the operator can later ground-release the note against that same document.'),
       },
     },
-    async ({ text, source }: { text: string; source?: string }) => {
+    async ({ text, source, source_text }: { text: string; source?: string; source_text?: string }) => {
       if (refusedValue(text)) return errorResult('remember refused');
       try {
-        return jsonResult(rememberLocal(text, process.env, source ? `mcp:${source}` : 'mcp:remember'));
+        return jsonResult(rememberLocal(text, process.env, source ? `mcp:${source}` : 'mcp:remember', source_text ?? null));
       } catch (e: any) {
         const message = e?.message === 'remember refused' ? 'remember refused' : `remember failed: ${e?.message ?? String(e)}`;
         return errorResult(message);
@@ -272,7 +277,7 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     {
       title: 'Quarantine list',
       description:
-        'Notes held in quarantine: id, provenance source, reason. Injection-looking text is described, never reproduced. Local, no network.',
+        'Notes held in quarantine: id, provenance, source, reason. Never the note text (quarantine_explain reads one note). Local, no network.',
       inputSchema: {},
     },
     async () => {
@@ -303,27 +308,10 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     },
   );
 
-  registerTool(
-    'quarantine_release',
-    {
-      title: 'Quarantine release (ground)',
-      description:
-        'Release a quarantined note ONLY if the whole note is found, VERIFIED, in source_text (the document it came from). Local and deterministic, no network. Anything else keeps it held and records why. Injection-looking text is never released.',
-      inputSchema: {
-        id: z.number().int().positive().describe('The note id (from quarantine_list).'),
-        source_text: z.string().min(1).describe('The source document as text; pages split on form feed.'),
-        page: z.number().int().positive().optional().describe('The page the note cites. Found only on another page keeps it held.'),
-      },
-    },
-    async ({ id, source_text, page }: { id: number; source_text: string; page?: number }) => {
-      try {
-        const { ground: _g, ...outcome } = releaseLocal(id, source_text, page ?? null) as ReturnType<typeof releaseLocal> & { ground?: unknown };
-        return jsonResult(outcome);
-      } catch (e: any) {
-        return errorResult(`quarantine_release failed: ${e?.message ?? String(e)}`);
-      }
-    },
-  );
+  // NO quarantine_release tool, on purpose. An MCP caller is the untrusted writer: a release it could
+  // call would let it promote its own note (paste the note as its "source", or claim a pass). Release
+  // is the operator's, at the CLI: `trustshell quarantine release <id> --source <file> | --check hal |
+  // --trusted`.
 
   registerTool(
     'redact',

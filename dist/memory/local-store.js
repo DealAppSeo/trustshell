@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.LEGACY_REASON = exports.INJECTION_WITHHELD = exports.INJECTION_PREFIX = void 0;
+exports.heldAsInjection = heldAsInjection;
 exports.memoryDbPath = memoryDbPath;
 exports.insertMemory = insertMemory;
 exports.listNotes = listNotes;
@@ -22,7 +24,26 @@ const node_module_1 = require("node:module");
 const node_os_1 = require("node:os");
 const node_path_1 = require("node:path");
 const encrypt_1 = require("./encrypt");
+const ingest_1 = require("../lib/ingest");
 const loadSqlite = (0, node_module_1.createRequire)(__filename);
+/** A quarantine reason that starts with this marks injection-looking text: described, never printed. */
+exports.INJECTION_PREFIX = 'injection-looking text';
+/** What is printed in place of injection-looking text. */
+exports.INJECTION_WITHHELD = '[text withheld: injection-looking text is described, never printed]';
+/** Why a note saved before taint labels is held: nothing recorded who wrote it. */
+exports.LEGACY_REASON = 'legacy: saved before taint labels, so who wrote it is unknown';
+/**
+ * True when a quarantined note's text must be withheld and can never be released by a check: its
+ * reason says injection, OR its readable body screens as injection now (src/lib/ingest.ts). The
+ * second clause covers notes no screen ever saw: legacy rows, and encrypted rows read with the key.
+ */
+function heldAsInjection(row) {
+    if (typeof row.quarantine_reason === 'string' && row.quarantine_reason.startsWith(exports.INJECTION_PREFIX))
+        return true;
+    if (row.body === encrypt_1.SEALED_NO_KEY || row.body === encrypt_1.SEALED_WRONG_KEY)
+        return false;
+    return (0, ingest_1.ingest)(row.body).ingest !== 'clean';
+}
 const SCHEMA = `CREATE TABLE IF NOT EXISTS memory (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   kind TEXT NOT NULL CHECK (kind IN ('note', 'pref', 'do_not_send')),
@@ -44,8 +65,7 @@ function ensureSchema(db) {
     const hasKey = cols.some((col) => String(col.name) === 'key');
     if (!hasKey)
         db.exec('ALTER TABLE memory ADD COLUMN key TEXT');
-    // Immune system v0 columns, added in place to this LOCAL file. Existing rows keep NULLs and
-    // read as legacy trusted.
+    // Immune system v0 columns, added in place to this LOCAL file.
     const have = new Set(cols.map((col) => String(col.name)));
     const TAINT_COLUMNS = [
         ['provenance', 'TEXT'],
@@ -54,12 +74,17 @@ function ensureSchema(db) {
         ['quarantine_reason', 'TEXT'],
         ['released_by', 'TEXT'],
         ['released_at', 'TEXT'],
+        ['source_sha256', 'TEXT'],
     ];
     for (const [name, type] of TAINT_COLUMNS) {
         if (!have.has(name))
             db.exec(`ALTER TABLE memory ADD COLUMN ${name} ${type}`);
     }
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
+    // FAIL CLOSED ON UPGRADE. A note with no provenance was saved before taint labels existed, by the
+    // CLI or by an MCP caller, and nothing says which. It is quarantined as untrusted, never read as
+    // trusted. Idempotent: every write since sets provenance, so this touches only pre-v0 notes.
+    db.prepare("UPDATE memory SET provenance = 'untrusted', source = 'legacy', quarantined = 1, quarantine_reason = ? WHERE kind = 'note' AND key IS NULL AND provenance IS NULL").run(exports.LEGACY_REASON);
 }
 function openDb(path) {
     try {
@@ -133,23 +158,25 @@ function asRow(row) {
         created_at: String(row.created_at),
     };
     if ('quarantined' in row) {
-        out.provenance = row.provenance ?? 'trusted';
+        // Never default to trusted: a missing label is untrusted (ensureSchema has already quarantined it).
+        out.provenance = row.provenance ?? 'untrusted';
         out.source = row.source ?? 'legacy';
         out.quarantined = Number(row.quarantined) === 1;
         out.quarantine_reason = row.quarantine_reason ?? null;
         out.released_by = row.released_by ?? null;
         out.released_at = row.released_at ?? null;
+        out.source_sha256 = row.source_sha256 ?? null;
     }
     return out;
 }
-const FULL_COLS = 'id, kind, body, created_at, provenance, source, quarantined, quarantine_reason, released_by, released_at';
+const FULL_COLS = 'id, kind, body, created_at, provenance, source, quarantined, quarantine_reason, released_by, released_at, source_sha256';
 function insertMemory(path, kind, body, now = new Date().toISOString(), env = process.env, taint = { provenance: 'trusted', source: 'operator', quarantined: false }) {
     const db = openDb(path);
     try {
         const stored = sealer(db, env)(body);
         const result = db
-            .prepare('INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason) VALUES (?, ?, ?, ?, ?, ?, ?)')
-            .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null);
+            .prepare('INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason, source_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null, taint.sourceSha256 ?? null);
         return {
             id: Number(result.lastInsertRowid),
             kind,
@@ -161,6 +188,7 @@ function insertMemory(path, kind, body, now = new Date().toISOString(), env = pr
             quarantine_reason: taint.reason ?? null,
             released_by: null,
             released_at: null,
+            source_sha256: taint.sourceSha256 ?? null,
         };
     }
     finally {
@@ -216,16 +244,17 @@ function getNote(path, id, env = process.env) {
     }
 }
 /**
- * Release one quarantined note: provenance becomes `verified` and `released_by` records the check.
+ * Release one quarantined note: provenance becomes `verified` (HAL), `grounded` (found in the
+ * recorder-supplied source) or `trusted` (the operator vouched), and `released_by` records which.
  * Only a row that is still quarantined changes; the return says whether one did.
  */
-function markReleased(path, id, releasedBy, now = new Date().toISOString()) {
+function markReleased(path, id, releasedBy, now = new Date().toISOString(), provenance = 'verified') {
     const db = openDb(path);
     try {
         const before = db.prepare('SELECT quarantined FROM memory WHERE id = ?').get(id);
         if (!before || Number(before.quarantined) !== 1)
             return false;
-        db.prepare("UPDATE memory SET quarantined = 0, provenance = 'verified', released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1").run(releasedBy, now, id);
+        db.prepare('UPDATE memory SET quarantined = 0, provenance = ?, released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1').run(provenance, releasedBy, now, id);
         return true;
     }
     finally {
@@ -256,10 +285,15 @@ function countDoNotSend(path) {
  * Notes in insert order, then a count. do_not_send bodies are not included.
  * Quarantined notes are left out, and when any exist a last line says how many, so nothing is
  * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason].
+ * Injection-looking text is described and never printed, whatever the row's label: a `--trusted`
+ * note gets the same screen as a quarantined one (the same rule as list/explain).
  */
 function formatRecall(path, env = process.env, opts = {}) {
     const rows = listNotes(path, env, { includeQuarantined: opts.includeQuarantined });
-    const notes = rows.map((row) => row.quarantined ? `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}] ${row.body}` : row.body);
+    const notes = rows.map((row) => {
+        const body = heldAsInjection(row) ? exports.INJECTION_WITHHELD : row.body;
+        return row.quarantined ? `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}] ${body}` : body;
+    });
     const lines = [...notes, `do_not_send COUNT ${countDoNotSend(path)}`];
     const held = countQuarantined(path);
     if (held > 0 && !opts.includeQuarantined)

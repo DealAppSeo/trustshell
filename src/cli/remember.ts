@@ -1,7 +1,8 @@
 /**
  * Write one local note, or one value under a key. No network.
  */
-import { insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
+import { INJECTION_PREFIX, insertMemory, memoryDbPath, writeKeyed } from '../memory/local-store';
+import { ingest } from '../lib/ingest';
 import { PREFIXED_TOKEN, containsSecret } from '../memory/redact';
 
 /** Authorization header tokens, including `Bearer <jwt>`. Tokens are assumed to be at least 8 characters. */
@@ -17,8 +18,29 @@ export function refusedValue(value: string): boolean {
   return containsSecret(value) || /sb_secret_/i.test(value) || /postgresql:\/\//i.test(value) || value.includes('eyJ') || BEARER.test(value) || PREFIXED_TOKEN.test(value);
 }
 
-export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): void {
-  insertMemory(memoryDbPath(env), 'note', text, undefined, env);
+/**
+ * Write one TRUSTED note: the operator vouched for it (`remember --trusted`). Every other note goes
+ * through rememberUntrusted (src/memory/quarantine.ts) and is quarantined.
+ *
+ * The injection screen still runs: `--trusted` vouches for who wrote the note, not for what it says,
+ * and an operator can paste a payload as easily as an agent. Injection-looking text is stored
+ * quarantined with that reason (never printed, never released) and the reason is returned; a clean
+ * note returns null.
+ */
+export function rememberNote(text: string, env: NodeJS.ProcessEnv = process.env): { id: number; reason: string } | null {
+  const screen = ingest(text);
+  if (screen.ingest === 'clean') {
+    insertMemory(memoryDbPath(env), 'note', text, undefined, env);
+    return null;
+  }
+  const reason = `${INJECTION_PREFIX}: ${screen.excerpt}`;
+  const row = insertMemory(memoryDbPath(env), 'note', text, undefined, env, {
+    provenance: 'untrusted',
+    source: 'operator (--trusted)',
+    quarantined: true,
+    reason,
+  });
+  return { id: row.id, reason };
 }
 
 /**

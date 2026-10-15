@@ -60,7 +60,6 @@ describe('trustshell MCP server', () => {
       'present_proof',
       'quarantine_explain',
       'quarantine_list',
-      'quarantine_release',
       'recall',
       'redact',
       'remember',
