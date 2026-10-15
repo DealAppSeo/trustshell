@@ -207,8 +207,10 @@ const recordEngineLeg = (leg, e) =>
 // The site does not render receipts; next.config.ts redirects /receipt/:id to the engine's keyless
 // page, the one renderer. Until 2026-10-14 that URL was a 404. This leg asks the ENGINE for its
 // newest receipt (contract id + settlement tx), opens it through the SITE, follows the redirects,
-// and requires a 200 page that names that settlement tx. A 404, or a page that does not show this
-// deal, is FAILED. Never having reached the site is NOT_CHECKED, as for the engine above.
+// and requires a 200 page that names that settlement tx AND is the engine's own receipt page (same
+// host as ENGINE, path /api/v1/receipt/<id>): a 200 somewhere else that merely echoes the tx is FAILED
+// (XC1 review of #555). A 404, or a page that does not show this deal, is FAILED. Never having reached
+// the site is NOT_CHECKED, as for the engine above.
 if (!engineReachable) {
   record('site.receipt_url', 'NOT_CHECKED', 'engine unreachable — see engine.reachable');
 } else {
@@ -235,10 +237,14 @@ if (!engineReachable) {
     if (page) {
       const html = await page.text();
       const evidence = { url, landed_at: page.url, status: page.status, contract_id: latest.contract_id, settlement_tx: latest.settlement_tx };
+      const expected = new URL(`/api/v1/receipt/${encodeURIComponent(latest.contract_id)}`, ENGINE);
+      const landed = new URL(page.url);
       if (page.headers.get('x-deny-reason')) {
         record('site.receipt_url', 'NOT_CHECKED', `egress to ${SITE} is blocked by this environment`, evidence);
       } else if (page.status !== 200) {
         record('site.receipt_url', 'FAILED', `${url} answered ${page.status} (landed at ${page.url})`, evidence);
+      } else if (landed.host !== expected.host || landed.pathname !== expected.pathname) {
+        record('site.receipt_url', 'FAILED', `${url} landed at ${page.url}, not the engine's receipt page ${expected.href}`, evidence);
       } else if (!html.includes(latest.settlement_tx)) {
         record('site.receipt_url', 'FAILED', `${url} landed at ${page.url}, which does not name this deal's settlement tx`, evidence);
       } else {
