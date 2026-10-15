@@ -15,8 +15,24 @@ const flat = (rel: string) => readFileSync(join(ROOT, rel), 'utf8').replace(/\r/
 describe('/trust-harness', () => {
   const src = flat('app/trust-harness/page.tsx');
 
+  it('says what runs today (two families on /check) and tags the third vote and the supermajority as Roadmap', () => {
+    // Round 1 tagged "Why at least three agents cross-validate" as shipped, while /how-verification says two checkers run.
+    expect(src).not.toMatch(/Why at least three agents cross-validate/);
+    expect(src).not.toMatch(/lets the quorum break a tie/);
+    expect(src).toContain('Why more than one family checks a claim');
+    expect(src).toContain('<ClaimTag tag="shipped" /> Today the check on');
+    expect(src).toContain('asks two model families, from different builders, and both must agree for a pass');
+    expect(src).toContain('<ClaimTag tag="roadmap" /> The design goes further, and none of this runs today.');
+    expect(src).toContain('A third vote from a different family would break a tie');
+    expect(src).toContain('agreement would have to clear a golden-ratio supermajority across more families');
+    // The design cases are labelled as design, not shown with a measured badge.
+    expect(src).toContain('Design: a clear supermajority');
+    expect(src).toContain('Design: a 2&#8211;1 split');
+    expect(src).not.toContain('<TrustBadge state="MEASURED" />');
+  });
+
   it('says a clear supermajority counts as a real check and that neither it nor a split writes to a score', () => {
-    expect(src).toContain('Independent families clear the bar. It counts as a real check. A check on this site writes nothing to a score.');
+    expect(src).toContain('Independent families would clear the bar. It would count as a real check. A check on this site writes nothing to a score.');
     expect(src).toContain('Neither writes anything to a score on this site; a score moves only when a holdout, a known answer or a person settles a result.');
     expect(src).not.toMatch(/it can move RepID/i);
     expect(src).not.toMatch(/can move standing on the test network/i);
