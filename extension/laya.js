@@ -39,11 +39,14 @@
     return Date.now();
   }
 
-  /** Only Laya's answer decides the label. The reply's own words never do. */
+  /**
+   * Only the endpoint's answer decides the label, and only an EXACT label: "Pass" or " pass" is out
+   * of contract and not-checked, as in src/lib/claim.ts labelOf. This used to trim and lowercase, so
+   * "Pass" was a pass here and not-checked in the CLI (XC1 on #554). Fail closed, like the CLI.
+   */
   function labelOf(body) {
     if (!body || typeof body !== 'object') return NOT_CHECKED;
-    const raw = typeof body.label === 'string' ? body.label.trim().toLowerCase() : '';
-    return LABELS.includes(raw) ? raw : NOT_CHECKED;
+    return typeof body.label === 'string' && LABELS.includes(body.label) ? body.label : NOT_CHECKED;
   }
 
   /**
@@ -57,6 +60,8 @@
   const PATHS = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'deadline'];
   /** The reason on a row whose answer named a path this file does not know (the CLI's "out of contract"). */
   const OUT_OF_CONTRACT = 'out-of-contract';
+  /** The reason on a row whose label was not exactly pass, veto or not-checked. */
+  const LABEL_OUT_OF_CONTRACT = 'label-out-of-contract';
   const VOTER_ID = /^[a-z0-9-]{1,32}$/;
   function pathOf(body, label) {
     if (!body || typeof body !== 'object') return {};
@@ -190,8 +195,9 @@
       const body = await Promise.race([call, timeout]);
       // The path rides only with a label the endpoint actually sent. An off-contract label becomes
       // not-checked here, and no path is reported for an answer this file decided.
-      const own = Boolean(body) && typeof body === 'object' && typeof body.label === 'string' &&
-        LABELS.includes(body.label.trim().toLowerCase());
+      const own = Boolean(body) && typeof body === 'object' && typeof body.label === 'string' && LABELS.includes(body.label);
+      // A JSON object whose label is not exactly one of the three: say so, as the CLI does.
+      if (!own && body && typeof body === 'object') return Object.assign(done(NOT_CHECKED), { reason: LABEL_OUT_OF_CONTRACT });
       return done(labelOf(body), own ? body : undefined);
     } catch {
       return done(NOT_CHECKED);
@@ -200,7 +206,7 @@
     }
   }
 
-  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, OUT_OF_CONTRACT, callLaya, pathOf };
+  const api = { PASS, VETO, NOT_CHECKED, LABELS, SLOW_MS, SLOW_LINE, TIMEOUT_MS, OUT_OF_CONTRACT, LABEL_OUT_OF_CONTRACT, callLaya, pathOf };
 
   if (typeof module === 'object' && module && module.exports) module.exports = api;
   if (typeof globalThis === 'object') globalThis.trustshellLaya = api;

@@ -131,10 +131,8 @@ export type ClaimPath = (typeof CLAIM_PATHS)[number];
 const VOTER_NAMES: Record<string, string> = {
   groq: 'Groq',
   cerebras: 'Cerebras',
-  'nvidia-nim': 'NVIDIA NIM',
   'workers-ai': 'Cloudflare Workers AI',
   openrouter: 'OpenRouter',
-  zai: 'Z.ai',
   mistral: 'Mistral',
   together: 'Together',
   fireworks: 'Fireworks',

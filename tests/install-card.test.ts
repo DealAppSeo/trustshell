@@ -27,7 +27,8 @@ describe('install card', () => {
   });
 
   // The reply leaves the browser. A tester is told before the steps, on both install surfaces.
-  const SENT = 'The reply text is sent to our checkers, Groq and Cerebras';
+  // A whole equation never reaches a model: it is computed by the engine (XC1 on #554).
+  const SENT = 'The reply text is sent to our engine. A reply that is one whole equation is computed there, with no model asked. Any other text is sent to our checkers, Groq and Cerebras.';
 
   it('both install surfaces say the reply is sent, before the first step', () => {
     const html = readFileSync(join(__dirname, '../public/install.html'), 'utf8');

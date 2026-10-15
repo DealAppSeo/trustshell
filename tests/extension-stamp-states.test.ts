@@ -3,8 +3,8 @@
  * and a miss never greens: a timeout, a skip, a non-200, a network error, an unreadable body
  * and an unknown label all paint Not checked, never Checks out.
  *
- *   in flight    Asking two checkers               (title: checking)
- *   2.5 s on     Still checking. Two checkers must agree.   (title: checking)
+ *   in flight    Checking…                         (title: checking)
+ *   2.5 s on     Still checking.                   (title: checking)
  *   pass         Checks out                        (title: pass)
  *   veto         Caught + the voter line           (title: veto)
  *   anything else Not checked                      (title: not-checked)
@@ -26,7 +26,7 @@ const classify = require('../extension/classify.js') as {
 };
 const toast = require('../extension/toast.js') as { CAUGHT: string };
 
-const CHECKING = 'Asking two checkers';
+const CHECKING = 'Checking…';
 const CHECKS_OUT = 'Checks out';
 const CAUGHT = 'Caught\nChecked and found false.';
 const NOT_CHECKED = 'Not checked';
@@ -338,7 +338,12 @@ describe('grok.com stamp', () => {
     ['pass', CHECKS_OUT, { fetchImpl: said('pass') }],
     ['veto', CAUGHT, { fetchImpl: said('veto') }],
     ['not-checked', NOT_CHECKED, { fetchImpl: said('not-checked') }],
-    ['an unknown label', NOT_CHECKED, { fetchImpl: said('probably') }],
+    // An off-contract label also says why, word for word the CLI's reason (XC1 on #554).
+    [
+      'an unknown label',
+      NOT_CHECKED + '\nNot checked: endpoint label is outside the contract (pass | veto | not-checked). This is not a pass.',
+      { fetchImpl: said('probably') },
+    ],
     ['a non-200', NOT_CHECKED, { fetchImpl: answer(503, '{"label":"pass"}') }],
     ['a network error', NOT_CHECKED, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } }],
     ['a timeout', NOT_CHECKED, { fetchImpl: hang, timeoutMs: 20 }],
@@ -419,7 +424,7 @@ describe('latency as opportunity: a long Checking says why the wait is worth it'
     expect(classify.STILL_MS).toBe(2500);
     expect(classify.stampText('checking', 1000, 1000 + classify.STILL_MS - 1)).toBe(CHECKING);
     expect(classify.stampText('checking', 1000, 1000 + classify.STILL_MS)).toBe(classify.CHECKING_LONGER);
-    expect(classify.CHECKING_LONGER).toBe('Still checking. Two checkers must agree.');
+    expect(classify.CHECKING_LONGER).toBe('Still checking.');
     // Only Checking grows a second wording: a settled label never does.
     expect(classify.stampText('pass', 0, 1e9)).toBe(CHECKS_OUT);
     expect(classify.stampText('not-checked', 0, 1e9)).toBe(NOT_CHECKED);

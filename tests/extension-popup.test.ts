@@ -15,7 +15,7 @@ describe('extension popup', () => {
     expect(html).not.toContain(CLAIM);
     expect(html).not.toContain('Caught');
     expect(html).not.toContain('popup-line');
-    expect(html).toContain('The reply text is sent to our checkers, Groq and Cerebras');
+    expect(html).toContain('Reply text goes to our engine once on screen (or only when you click). It computes a whole equation itself; other text goes to Groq and Cerebras.');
     expect(html.indexOf('popup-privacy')).toBeLessThan(html.indexOf('agent-form'));
   });
 

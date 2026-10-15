@@ -7,7 +7,7 @@
  * - a chat site switched off sends nothing and shows no stamp; settings that cannot be read check
  *   nothing (a switched-off site is never sent from because storage was slow)
  * - Only when I click: nothing is sent until the person clicks Check this reply
- * - the record keeps the stamp, the site and the time, never the text; the site comes from the
+ * - the record keeps the stamp, the site, the time and what decided it, never the text; the site comes from the
  *   tab's own URL, not from the message
  */
 export {};
@@ -115,7 +115,7 @@ describe('settings: what the person chose, and what happens when nothing was cho
   });
 });
 
-describe('the record: the stamp, the site and the time, never the text', () => {
+describe('the record: the stamp, the site, the time and what decided it, never the text', () => {
   it('the site comes from the tab URL, not from the message, and the text is never kept', () => {
     const e = settings.recordEntry(
       { label: 'veto', site: 'grok', text: 'secret reply text', by: 'votes', deciders: ['groq', 'cerebras', 'extra'] },
@@ -557,7 +557,8 @@ describe('the Options page', () => {
 describe('the words around it', () => {
   it('the privacy page says what the Options page keeps, and that it is never sent', () => {
     const privacy = read('public/privacy.html');
-    expect(privacy).toContain('a record of your last 20 stamps (the stamp, the chat site and the time, never the text)');
+    // The record also keeps what decided each stamp (by, deciders), so the page says so (XC1 on #564).
+    expect(privacy).toContain("a record of your last 20 stamps (the stamp, the chat site, the time and what decided it, such as the two checkers' names; never the text)");
     expect(privacy).toContain('The extension never sends them.');
     expect(privacy).toContain('A chat site you switch off sends nothing');
     expect(privacy).not.toContain('If you type a key');

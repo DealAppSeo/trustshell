@@ -94,10 +94,8 @@ exports.CLAIM_PATHS = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'd
 const VOTER_NAMES = {
     groq: 'Groq',
     cerebras: 'Cerebras',
-    'nvidia-nim': 'NVIDIA NIM',
     'workers-ai': 'Cloudflare Workers AI',
     openrouter: 'OpenRouter',
-    zai: 'Z.ai',
     mistral: 'Mistral',
     together: 'Together',
     fireworks: 'Fireworks',

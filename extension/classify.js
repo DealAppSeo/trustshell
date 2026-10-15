@@ -34,23 +34,30 @@
   const STAMP_WORDS = {
     ask: 'Check this reply',
     // Was "Checking with Groq and Cerebras" until 2026-10-06: wrong whenever a backup took a turn.
-    checking: 'Asking two checkers',
+    // Was 'Asking two checkers' until 2026-10-15: the stamp says it before `by` is known, and a whole
+    // equation is computed by the engine with no checker at all (XC1 on #564). Neutral until the answer says.
+    checking: 'Checking…',
     pass: 'Checks out',
     veto: 'Caught',
     'not-checked': 'Not checked',
   };
   const VETO_LINE = 'Checked and found false.';
   /**
+   * Under a Not checked whose answer was out of contract (laya.js reasons). Each line is word for
+   * word what the CLI prints for the same answer (src/lib/claim.ts explainClaim on its reason), and
+   * tests/claim-path-parity.test.ts compares them. Before 2026-10-15 the `by` line said "named a
+   * path this version does not know", which was wrong for a known path in a combination the
+   * contract refuses ({label: not-checked, by: arithmetic-approx}).
+   */
+  const OUT_OF_CONTRACT_LINE =
+    'Not checked: endpoint said what produced the label, out of contract (by / voters). This is not a pass.';
+  const LABEL_OUT_OF_CONTRACT_LINE =
+    'Not checked: endpoint label is outside the contract (pass | veto | not-checked). This is not a pass.';
+  /**
    * Under the stamp when the scrubber removed something before sending. The same sentence as
    * src/lib/claim.ts SCRUBBED_LINE (tests/claim-path-parity.test.ts compares them): without it, a
    * Checks out on a reply with a key in it would read as a verdict on text that was never sent.
    */
-  /**
-   * Under a Not checked whose answer named a path this version does not know (laya.js
-   * OUT_OF_CONTRACT). The CLI prints the same case as "out of contract"; an empty line here read as
-   * "nothing to say" about an answer that was refused.
-   */
-  const OUT_OF_CONTRACT_LINE = 'Out of contract: the answer named a path this version does not know. This is not a pass.';
   const SCRUBBED_LINE =
     'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
 
@@ -61,7 +68,7 @@
    * it claims nothing the response has not said yet.
    */
   const STILL_MS = 2500;
-  const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
+  const CHECKING_LONGER = 'Still checking.';
 
   /**
    * The row a host paints. `by` / `voters` (what produced the label, from laya.js pathOf) ride
@@ -77,7 +84,9 @@
    */
   function copyPath(row, out) {
     if (row && typeof row === 'object' && row.scrubbed === true) out.scrubbed = true;
-    if (row && typeof row === 'object' && row.reason === 'out-of-contract') out.reason = row.reason;
+    if (row && typeof row === 'object' && (row.reason === 'out-of-contract' || row.reason === 'label-out-of-contract')) {
+      out.reason = row.reason;
+    }
     if (!row || typeof row !== 'object' || typeof row.by !== 'string') return out;
     out.by = row.by;
     if (Array.isArray(row.voters)) out.voters = row.voters.slice();
@@ -298,10 +307,8 @@
   const VOTER_NAMES = {
     groq: 'Groq',
     cerebras: 'Cerebras',
-    'nvidia-nim': 'NVIDIA NIM',
     'workers-ai': 'Cloudflare Workers AI',
     openrouter: 'OpenRouter',
-    zai: 'Z.ai',
     mistral: 'Mistral',
     together: 'Together',
     fireworks: 'Fireworks',
@@ -359,7 +366,9 @@
         ? SLOW_LINE
         : row.label === 'not-checked' && row.reason === 'out-of-contract'
           ? OUT_OF_CONTRACT_LINE
-          : pathLine(row);
+          : row.label === 'not-checked' && row.reason === 'label-out-of-contract'
+            ? LABEL_OUT_OF_CONTRACT_LINE
+            : pathLine(row);
     if (row.scrubbed !== true) return line;
     return line ? line + ' ' + SCRUBBED_LINE : SCRUBBED_LINE;
   }
@@ -474,6 +483,7 @@
     VETO_LINE,
     SCRUBBED_LINE,
     OUT_OF_CONTRACT_LINE,
+    LABEL_OUT_OF_CONTRACT_LINE,
     STILL_MS,
     CHECKING_LONGER,
     copyPath,

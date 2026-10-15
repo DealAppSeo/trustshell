@@ -4,7 +4,7 @@
  * through extension/laya.js and extension/classify.js. Both sides must accept the same answers and
  * say the same words, and both must say NOTHING when the endpoint did not say (an older backend).
  */
-import { classifyClaim, pathLine, pathOf, SCRUBBED_LINE, type ClaimLabel } from '../src/lib/claim';
+import { classifyClaim, explainClaim, pathLine, pathOf, SCRUBBED_LINE, type ClaimLabel } from '../src/lib/claim';
 
 const laya = require('../extension/laya.js') as {
   pathOf: (body: unknown, label: string) => { by?: string; voters?: string[] };
@@ -103,8 +103,8 @@ describe('the words', () => {
     }
   });
   it('every checker in the pool has a name people can read', () => {
-    const body = { by: 'votes', voters: ['zai', 'mistral', 'together', 'fireworks'], deciders: ['zai', 'mistral'] };
-    expect(line('pass', body)).toBe('Z.ai and Mistral both said true.');
+    const body = { by: 'votes', voters: ['workers-ai', 'mistral', 'together', 'fireworks'], deciders: ['workers-ai', 'mistral'] };
+    expect(line('pass', body)).toBe('Cloudflare Workers AI and Mistral both said true.');
     expect(line('pass', { by: 'votes', voters: ['together', 'fireworks'] })).toBe('Together and Fireworks both said true.');
   });
   it('skipped and deadline say why nothing was decided', () => {
@@ -162,7 +162,8 @@ describe('end to end through each door, with the endpoint stubbed', () => {
     });
     expect(row.label).toBe('not-checked');
     expect(row).not.toHaveProperty('by');
-    expect(classify.lineFor(row)).toBe('');
+    // It says why, in the CLI's words: the label was outside the contract.
+    expect(classify.lineFor(row)).toBe('Not checked: endpoint label is outside the contract (pass | veto | not-checked). This is not a pass.');
   });
 
   it('grok carries the path to its stamp line (it rebuilds the row, as content.js does)', async () => {
@@ -209,6 +210,12 @@ describe('an answer that names a path it does not have is not checked, at every 
     { label: 'pass', by: 'votes' },
     { label: 'pass', by: 'not-a-path' },
     { label: 'not-checked', by: 'arithmetic-approx' },
+    // A label that is not EXACTLY one of the three (XC1 on #554). The extension used to trim and
+    // lowercase, so "Pass" was a pass there and not-checked in the CLI. Both doors are now strict.
+    { label: 'Pass' },
+    { label: ' pass' },
+    { label: 'VETO', by: 'votes', voters: ['groq', 'cerebras'] },
+    { label: 'pass ', by: 'arithmetic' },
     { label: 'veto', by: 'skipped' },
     { label: 'veto', by: 'votes', voters: [] },
     { label: 'pass', by: null },
@@ -227,9 +234,9 @@ describe('an answer that names a path it does not have is not checked, at every 
       });
       expect(row.label).toBe('not-checked');
       expect(row).not.toHaveProperty('by');
-      // Was '' (XC1 on #554: an empty line said nothing about an answer that was refused). The CLI
-      // gives its reason, "out of contract"; the stamp now says the same.
-      expect(classify.lineFor(row)).toBe((classify as unknown as { OUT_OF_CONTRACT_LINE: string }).OUT_OF_CONTRACT_LINE);
+      // The line under the stamp is word for word what the CLI prints for the same answer.
+      expect(classify.lineFor(row)).toBe(explainClaim(r));
+      expect(classify.lineFor(row)).toMatch(/out(side)? (of )?the contract|out of contract/);
     });
   }
 
@@ -353,5 +360,28 @@ describe('a scrubbed reply says so, at every door', () => {
     expect(empty.label).toBe('not-checked');
     expect(empty).not.toHaveProperty('scrubbed');
     expect(none).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The names a stamp can print for a checker are exactly the hosts the privacy page's closed list
+ * names (XC1 on #564). NVIDIA NIM and Z.ai are not in the engine's pool
+ * (repid-engine src/classify/free-votes.ts), so neither door carries a display name for them. An
+ * unknown id still prints as sent, and is never dressed up as a known host.
+ */
+describe('every checker name a door can show is on the privacy page', () => {
+  const privacy = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'public', 'privacy.html'), 'utf8') as string;
+  const namesIn = (file: string): string[] => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', file), 'utf8') as string;
+    const block = src.slice(src.indexOf('VOTER_NAMES'), src.indexOf('};', src.indexOf('VOTER_NAMES')));
+    return Array.from(block.matchAll(/:\s*'([^']+)'/g), (m) => m[1]!);
+  };
+  it('claim.ts and classify.js name the same hosts, and the privacy page names every one', () => {
+    const cli = namesIn('src/lib/claim.ts');
+    expect(namesIn('extension/classify.js')).toEqual(cli);
+    expect(cli.length).toBeGreaterThan(0);
+    expect(cli.filter((name) => !privacy.includes(name))).toEqual([]);
+    expect(cli).not.toContain('NVIDIA NIM');
+    expect(cli).not.toContain('Z.ai');
   });
 });

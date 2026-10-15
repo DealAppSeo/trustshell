@@ -42,7 +42,8 @@ const MEANING: Record<ClaimLabel, { title: string; body: string; tone: string }>
  * and no checker is asked, and its line then reads "Decided by exact calculation. No model was asked."
  * Nothing is staged: this shows for exactly as long as the request is in flight.
  */
-const BUSY_LINE = 'Asking two checkers at once…';
+// Neutral until the answer says what decided it: a whole equation asks no checker (XC1 on #564).
+const BUSY_LINE = 'Checking…';
 
 type LocalCause = 'limit' | 'timeout' | 'network' | 'http' | 'body' | 'unknown';
 
@@ -293,7 +294,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors resize-y"
       />
       <p id="check-privacy" className="text-sm text-[#94a3b8]">
-        What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.
+        What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.
       </p>
       <button
         type="submit"

@@ -50,10 +50,10 @@ const EXT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'extens
 const CLASSIFY = 'https://repid-engine-production.up.railway.app/api/v1/classify';
 const CAUGHT = 'Caught\nChecked and found false.';
 const SCRUBBED = 'Removed before sending: text that looked like a key or personal data. The result is about what was sent.';
-const CHECKING = 'Asking two checkers';
+const CHECKING = 'Checking…';
 const APPROX_LINE = 'Decided by approximate calculation, not exact. No model was asked.';
-const OUT_OF_CONTRACT_LINE = 'Out of contract: the answer named a path this version does not know. This is not a pass.';
-const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
+const OUT_OF_CONTRACT_LINE = 'Not checked: endpoint said what produced the label, out of contract (by / voters). This is not a pass.';
+const CHECKING_LONGER = 'Still checking.';
 const SW_GLOBALS = ['trustshellSettings', 'trustshellScrub', 'trustshellLaya', 'trustshellClassify', 'trustshellSelect'];
 const DECLARED = /has already been declared/i;
 
@@ -275,7 +275,8 @@ try {
       check('toolbar popup opens',
         info.form && !info.line && info.words > 0 && info.words < 80 &&
           info.text.includes('Groq and Cerebras') &&
-          info.text.includes('after the reply is on screen') &&
+          info.text.includes('once on screen (or only when you click)') &&
+          info.text.includes('It computes a whole equation itself') &&
           info.text.includes('not stored') &&
           info.text.includes('Do not paste secrets') &&
           info.text.includes('Check with TrustShell') &&
@@ -434,7 +435,7 @@ try {
         const s = await readStamp(page);
         return s && s.word === 'checking' && s.text === CHECKING_LONGER ? s : null;
       }, 5000, 100);
-      check('chatgpt: past 2.5 s the Checking stamp says two checkers must agree',
+      check('chatgpt: past 2.5 s the Checking stamp says it is still checking',
         Boolean(longer), longer ? JSON.stringify(longer.text) : 'never saw the longer checking line');
       // laya.js stops waiting just past 6 s. Past the cap the claim is Not checked.
       const ended = await poll(async () => {
