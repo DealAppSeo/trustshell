@@ -18,7 +18,7 @@ The legs ran as separate suites, so each is labelled with what it talked to.
 | 7 | the faucet: points at public faucets, reads the balance back, never dispenses | LIVE reads + STUB page | VERIFIED |
 | 8 | the practice stake, held until the agent is bound | STUB | VERIFIED |
 | 9 | pull the limit to zero, the next spend refuses | STUB chain | VERIFIED (see [refused-path.md](refused-path.md)) |
-| 10 | the score moves ONLY when a known answer settles it | none | NOT_CHECKED: the web has no settler; it shows the score unchanged and says why |
+| 10 | a check on this site writes nothing to a score (how scores move is on /repid) | none | NOT_CHECKED: the web has no settler; it shows the score unchanged and says why |
 
 ## 2 to 5, 8: the browser walk (`tests/e2e/stranger-path-walk.mjs`), phone leg
 

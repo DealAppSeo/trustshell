@@ -3,7 +3,7 @@
  * answer or a person, and the /check page has none of those, so it never says SETTLED. Not checked is
  * a no for a spend and a post. The copyable lines never carry the sentence.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { GATE_LINE, SCORE_LINE, receiptOf } from '../lib/check-receipt';
 
@@ -85,10 +85,37 @@ describe('receiptOf', () => {
     }
   });
 
-  it('the score line says nothing was written and that even a two-to-one vote never moves it', () => {
+  it('the score line says nothing was written, that a check here never writes one, and points at /repid for how scores move', () => {
     expect(SCORE_LINE).toMatch(/Nothing was written to any score/);
-    expect(SCORE_LINE).toMatch(/holdout, a known answer or a person/);
-    expect(SCORE_LINE).toMatch(/two-to-one/);
+    expect(SCORE_LINE).toMatch(/a check on this site never writes one/);
+    expect(SCORE_LINE).toMatch(/How scores move is on \/repid/);
+    expect(SCORE_LINE).toMatch(/two-to-one vote, is only PROVISIONAL/);
+    // The old line said a score moves ONLY when a holdout, a known answer or a person settles a result, and that a vote
+    // "never moves it". Both were universals about the whole system, not about this page.
+    expect(SCORE_LINE).not.toMatch(/moves only when/);
+    expect(SCORE_LINE).not.toMatch(/never moves it/);
+  });
+
+  it('the claim is checked against the page it points at: /repid carries the movers, so "only when a settler" is false', () => {
+    const repid = readFileSync(join(__dirname, '..', 'app', 'repid', 'page.tsx'), 'utf8').replace(/\s+/g, ' ');
+    for (const mover of ['code_contribution +25', 'referral +20', 'peacemaker +15', 'challenge', 'prediction']) {
+      expect(repid).toContain(mover);
+    }
+    expect(existsSync(join(__dirname, '..', 'app', 'repid', 'page.tsx'))).toBe(true);
+  });
+
+  it('no copy of the old universal is left in the receipt, the stranger path, the sim doc or the comments', () => {
+    const ext = readdirSync(join(__dirname, '..', 'extension')).filter((f) => f.endsWith('.js')).map((f) => `extension/${f}`);
+    const files = [
+      'lib/check-receipt.ts', 'lib/stranger-path.ts', 'components/check-receipt.tsx', 'docs/stranger-sims/happy-path.md',
+      'docs/stranger-sims/phone-width.md', 'README.md', 'src/cli/index.ts', ...ext,
+    ];
+    for (const f of files) {
+      const text = readFileSync(join(__dirname, '..', f), 'utf8').replace(/\s+/g, ' ');
+      expect(`${f}: ${/score moves only when/i.test(text)}`).toBe(`${f}: false`);
+      expect(`${f}: ${/score moves ONLY/.test(text)}`).toBe(`${f}: false`);
+      expect(`${f}: ${/does not move a score/.test(text)}`).toBe(`${f}: false`);
+    }
   });
 });
 

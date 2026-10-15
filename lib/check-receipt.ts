@@ -3,8 +3,11 @@
  * to a score. Built only from the fields the check endpoint sent, so it can say no more than the
  * answer did.
  *
- * THE LINE THIS PAGE HOLDS (Sean, 2026-10-12). A score moves only when a known answer confirms it.
- * Concretely, the same rule the policy kernel's receipt uses (repid-engine kernel-receipt/1):
+ * THE LINE THIS PAGE HOLDS (Sean, 2026-10-12). This page writes nothing to a score. It does NOT claim
+ * that no score anywhere moves except on a known answer: /repid documents other movers (code_contribution,
+ * referral, peacemaker, challenge, prediction), and whether the engine's score pipeline reads the settled
+ * label is the engine's own business (docs/stranger-sims/README.md). What this page says about votes is the
+ * policy kernel's receipt rule (repid-engine kernel-receipt/1):
  *
  *   - a VOTE ALONE is PROVISIONAL. Two checkers agreeing, or a two-to-one vote, is still a vote.
  *   - SETTLED needs a settler: a holdout, a known answer, or a person.
@@ -49,7 +52,7 @@ export type ReceiptView = {
 };
 
 export const SCORE_LINE =
-  'Nothing was written to any score by this check. A score moves only when a holdout, a known answer or a person settles a result. A vote on its own, even a two-to-one vote, never moves it.';
+  'Nothing was written to any score by this check, and a check on this site never writes one. How scores move is on /repid. A vote on its own, even a two-to-one vote, is only PROVISIONAL here.';
 
 export const GATE_LINE =
   'Not checked is a no for spending and for posting: nothing would go out on the strength of it.';

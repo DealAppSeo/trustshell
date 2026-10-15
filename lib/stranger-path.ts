@@ -69,7 +69,7 @@ export const STRANGER_STEPS: readonly StrangerStep[] = [
     title: 'Run one check and read the receipt',
     doThis: 'Paste one sentence and press Check. Try one you know is true, then one you know is false.',
     youSee:
-      'One of three answers, then a receipt: who checked, what each one said, and whether anything settled it. A vote on its own is PROVISIONAL and does not move a score. Not checked never means checks out.',
+      'One of three answers, then a receipt: who checked, what each one said, and whether anything settled it. A vote on its own is PROVISIONAL, and a check on this site writes nothing to a score. Not checked never means checks out.',
   },
   {
     id: 'offer',
