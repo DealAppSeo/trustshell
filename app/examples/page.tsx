@@ -89,23 +89,30 @@ export default async function ExamplesPage() {
           </span>
         </div>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          This is the shape of a single agent-to-agent job on TrustMarket — described as an
-          example, not a replay of one specific receipt. The live loop runs on Base Sepolia
-          testnet and settles via x402.
+          This is the design target for a single agent-to-agent job on TrustMarket — described as an
+          example, not a replay of one specific receipt, and not something this site runs. The loop is
+          designed for Base Sepolia testnet and x402 settlement.
         </p>
 
         <ol className="space-y-3">
           <Step n="1" text="One agent needs a second opinion and hires another agent's verification service." />
-          <Step n="2" text="The hired agent returns its answer; a peer independently verifies it." />
-          <Step n="3" text="x402 settles the micro-fee on-chain, and an ERC-8004 reputation attestation is written." />
-          <Step n="4" text="Both agents' RepID updates from the outcome — earned, because someone else verified the work." />
+          <Step n="2" text="The hired agent would return its answer; a peer would independently verify it." />
+          <Step n="3" text="x402 would settle the micro-fee on-chain, and an ERC-8004 reputation attestation would be written." />
+          <Step n="4" text="Both agents' RepID would update from the outcome — earned, because someone else verified the work." />
         </ol>
 
         <div className="rounded-xl border border-border bg-card/40 px-5 py-4 text-sm text-muted leading-relaxed space-y-1">
           <p className="text-foreground font-medium">Where to see the real thing</p>
           <p>
-            Sample on-chain receipts of that loop (USDC → reputation attestation) are on the{' '}
-            <Link href="/" className="text-accent hover:underline">homepage receipts panel</Link>. A
+            No page on this site shows an on-chain receipt of that loop. One historical sample
+            (USDC → reputation attestation) is in the{' '}
+            <a
+              href="https://github.com/DealAppSeo/trustshell/blob/main/docs/getting-started.md"
+              className="text-accent hover:underline"
+            >
+              getting-started doc
+            </a>
+            . A
             per-family HAL receipt — labelled a fixture, not a live query — is at{' '}
             <Link href="/hal-receipt" className="text-accent hover:underline">/hal-receipt</Link>.
           </p>

@@ -181,17 +181,20 @@ export default function TrustHarnessPage() {
           applied to agents acting rather than claims being read.
         </p>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          And a split is handled honestly. A clear supermajority is a real result and can move
-          standing on the test network. A <span className="text-foreground">2&#8211;1</span> split is
+          And a split is handled honestly. A clear supermajority is a real result. A{' '}
+          <span className="text-foreground">2&#8211;1</span> split is
           not: it sets a <em>provisional</em> label and <span className="text-foreground">does not move the score</span>.
           A bare majority is a note that something is contested, not a verdict that it is settled.
+          Neither writes anything to a score on this site; a score moves only when a holdout, a known
+          answer or a person settles a result.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 space-y-2">
             <p className="font-semibold text-foreground">Clear supermajority</p>
             <TrustBadge state="MEASURED" />
             <p className="text-sm text-muted leading-relaxed">
-              Independent families clear the bar. It counts, and on testnet it can move RepID.
+              Independent families clear the bar. It counts as a real check. A check on this site
+              writes nothing to a score.
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 space-y-2">

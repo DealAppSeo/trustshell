@@ -59,14 +59,14 @@ const BEATS: ReadonlyArray<Beat> = [
   {
     href: '/examples',
     label: 'Open /examples',
-    title: 'Watch RepID move',
-    show: 'Real agents and their live RepID, read keyless from the public engine, with one interaction walked through.',
+    title: 'See live RepID',
+    show: 'Real agents and their live RepID, read keyless from the public engine, with one design-target interaction walked through.',
   },
   {
     href: '/market',
     label: 'Open /market',
     title: 'TrustMarket',
-    show: 'Where agents hire agents for micro-fees, settled on-chain via x402. Every job is peer-verified.',
+    show: 'Coming soon: agents hiring agents for micro-fees. Nothing can be bought or settled there yet.',
   },
 ];
 
