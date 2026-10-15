@@ -34,7 +34,9 @@
   const STAMP_WORDS = {
     ask: 'Check this reply',
     // Was "Checking with Groq and Cerebras" until 2026-10-06: wrong whenever a backup took a turn.
-    checking: 'Asking two checkers',
+    // Was 'Asking two checkers' until 2026-10-15: the stamp says it before `by` is known, and a whole
+    // equation is computed by the engine with no checker at all (XC1 on #564). Neutral until the answer says.
+    checking: 'Checking…',
     pass: 'Checks out',
     veto: 'Caught',
     'not-checked': 'Not checked',
@@ -66,7 +68,7 @@
    * it claims nothing the response has not said yet.
    */
   const STILL_MS = 2500;
-  const CHECKING_LONGER = 'Still checking. Two checkers must agree.';
+  const CHECKING_LONGER = 'Still checking.';
 
   /**
    * The row a host paints. `by` / `voters` (what produced the label, from laya.js pathOf) ride
@@ -305,10 +307,8 @@
   const VOTER_NAMES = {
     groq: 'Groq',
     cerebras: 'Cerebras',
-    'nvidia-nim': 'NVIDIA NIM',
     'workers-ai': 'Cloudflare Workers AI',
     openrouter: 'OpenRouter',
-    zai: 'Z.ai',
     mistral: 'Mistral',
     together: 'Together',
     fireworks: 'Fireworks',

@@ -52,7 +52,7 @@ The reply text is sent to our engine after the reply is on screen. A reply that 
 
 On any other page, select text and choose Check with TrustShell. That selection is sent to the same engine, the same way, and only after that click. The label appears in a small toast.
 
-On the Options page, choose which chat sites it checks, and whether it checks each reply automatically or only when you click Check this reply. It keeps a record of your last 20 stamps in this browser, the stamp, the site and the time, never the text, which you can download or clear.
+On the Options page, choose which chat sites it checks, and whether it checks each reply automatically or only when you click Check this reply. It keeps a record of your last 20 stamps in this browser, the stamp, the site, the time and what decided it, never the text, which you can download or clear.
 
 In the popup, type an agent id to see its RepID and a proof checked in your browser. That id is sent to the same engine.
 
@@ -92,7 +92,7 @@ Stamps the last AI assistant reply on supported chat sites, or text the user sel
 
 ### Permission justification
 
-- **storage**: Keeps the Options page choices (which chat sites it checks, automatically or on click) and a record of the last 20 stamps (the stamp, the site and the time, never the text) in local extension storage on this device. Nothing in storage is sent anywhere.
+- **storage**: Keeps the Options page choices (which chat sites it checks, automatically or on click) and a record of the last 20 stamps (the stamp, the site, the time and what decided it, never the text) in local extension storage on this device. Nothing in storage is sent anywhere.
 - **contextMenus**: Adds one right-click item, Check with TrustShell, shown only when text is selected.
 - **activeTab**: When the user picks Check with TrustShell, gives access to that one tab so the result can be shown there. No tab is touched without that click.
 - **scripting**: After that click, adds a small toast to the same tab that says Checks out, Caught, or Not checked. Used only together with activeTab, and only after the click.
@@ -108,7 +108,9 @@ Stamps the last AI assistant reply on supported chat sites, or text the user sel
 Tick:
 
 - **Website content**: the reply text, or the text the user selected, is sent to the checking service.
-- **Web history**: the Options page record keeps the last 20 stamps with the chat site and the time, never the text. It stays in local extension storage on this device, and the extension never sends it. The store asks for local-only data too.
+- **Web history**: the Options page record keeps the last 20 stamps with the chat site, the time and what decided it, never the text. It stays in local extension storage on this device, and the extension never sends it. The store asks for local-only data too.
+
+Also sent, and not a box above: the agent id a user types in the popup goes to the same engine, to read that agent's public RepID and its proof (the privacy policy's popup paragraph says so). It identifies an AI agent, not the user.
 
 Leave every other box empty. Then tick all three statements: the data is not sold to third parties; it is not used or transferred for purposes unrelated to the single purpose; and it is not used to determine creditworthiness or for lending.
 

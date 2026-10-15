@@ -103,8 +103,8 @@ describe('the words', () => {
     }
   });
   it('every checker in the pool has a name people can read', () => {
-    const body = { by: 'votes', voters: ['zai', 'mistral', 'together', 'fireworks'], deciders: ['zai', 'mistral'] };
-    expect(line('pass', body)).toBe('Z.ai and Mistral both said true.');
+    const body = { by: 'votes', voters: ['workers-ai', 'mistral', 'together', 'fireworks'], deciders: ['workers-ai', 'mistral'] };
+    expect(line('pass', body)).toBe('Cloudflare Workers AI and Mistral both said true.');
     expect(line('pass', { by: 'votes', voters: ['together', 'fireworks'] })).toBe('Together and Fireworks both said true.');
   });
   it('skipped and deadline say why nothing was decided', () => {
@@ -360,5 +360,28 @@ describe('a scrubbed reply says so, at every door', () => {
     expect(empty.label).toBe('not-checked');
     expect(empty).not.toHaveProperty('scrubbed');
     expect(none).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The names a stamp can print for a checker are exactly the hosts the privacy page's closed list
+ * names (XC1 on #564). NVIDIA NIM and Z.ai are not in the engine's pool
+ * (repid-engine src/classify/free-votes.ts), so neither door carries a display name for them. An
+ * unknown id still prints as sent, and is never dressed up as a known host.
+ */
+describe('every checker name a door can show is on the privacy page', () => {
+  const privacy = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'public', 'privacy.html'), 'utf8') as string;
+  const namesIn = (file: string): string[] => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', file), 'utf8') as string;
+    const block = src.slice(src.indexOf('VOTER_NAMES'), src.indexOf('};', src.indexOf('VOTER_NAMES')));
+    return Array.from(block.matchAll(/:\s*'([^']+)'/g), (m) => m[1]!);
+  };
+  it('claim.ts and classify.js name the same hosts, and the privacy page names every one', () => {
+    const cli = namesIn('src/lib/claim.ts');
+    expect(namesIn('extension/classify.js')).toEqual(cli);
+    expect(cli.length).toBeGreaterThan(0);
+    expect(cli.filter((name) => !privacy.includes(name))).toEqual([]);
+    expect(cli).not.toContain('NVIDIA NIM');
+    expect(cli).not.toContain('Z.ai');
   });
 });

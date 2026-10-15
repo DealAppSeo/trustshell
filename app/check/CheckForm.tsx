@@ -42,7 +42,8 @@ const MEANING: Record<ClaimLabel, { title: string; body: string; tone: string }>
  * and no checker is asked, and its line then reads "Decided by exact calculation. No model was asked."
  * Nothing is staged: this shows for exactly as long as the request is in flight.
  */
-const BUSY_LINE = 'Asking two checkers at once…';
+// Neutral until the answer says what decided it: a whole equation asks no checker (XC1 on #564).
+const BUSY_LINE = 'Checking…';
 
 type LocalCause = 'limit' | 'timeout' | 'network' | 'http' | 'body' | 'unknown';
 
