@@ -1,14 +1,17 @@
 import Link from 'next/link';
 import { OG_IMAGE } from '@/lib/site';
 
+/** The label this page carries in its title, its first line and its badge. Pinned by tests/trust-medical-page.test.ts. */
+const LABEL = 'Vision — not built yet';
+
 export const metadata = {
-  title: 'TrustMedical — a door, not a trial',
+  title: `TrustMedical (${LABEL})`,
   description:
-    'TrustMedical is a direction, not a product. The shape of the door: a person opts in and shares a proof instead of a record — an attestation that something is true, not the medical record behind it — so only the fields a study needs ever cross. It is not a live or active medical trial, not a study, and not a clinical offering.',
+    'TrustMedical does not exist. A story about a future use of the tools built for AI agents: one identity with a separate consent proof per study, one rulebook for consent, reputation that decides which research agents may come near a study, checked claims, and health data kept apart from the agent network.',
   openGraph: {
-    title: 'TrustMedical — a door, not a trial',
+    title: `TrustMedical (${LABEL})`,
     description:
-      'A direction we are committed to, not a victory already won: opt in, share a proof instead of a record, and only the fields a study needs cross. Not a live trial, not study enrollment, not a clinical offering.',
+      'A vision story, not a product. Nothing here is built, nothing here is medical advice, and the page collects nothing.',
     images: OG_IMAGE,
     type: 'article',
     url: 'https://trustshell.dev/trust-medical',
@@ -16,185 +19,140 @@ export const metadata = {
 };
 
 /**
- * /trust-medical — the TrustMedical "door" page. Its own short route, listed on /vision as a
- * `direction` surface and linked from the footer and the sitemap (lib/site.ts). It is a plain
- * static server component — no dynamic APIs, no data fetch — so it prerenders at build time.
+ * /trust-medical: the TrustMedical vision story. Reached from /vision and the sitemap (lib/site.ts).
+ * components/footer.tsx also lists it, but no page mounts that Footer today, so do not count the
+ * footer as a way in. A static server component with no data fetch.
  *
- * GUARDRAILS honoured (a public page is permanent, and this one is about health, so the bar is
- * maximal):
- *   - A DOOR, NOT A TRIAL. It is stated, in its own words and more than once, that this is not a
- *     live or active clinical trial, not study enrollment, and not a medical offering. The page
- *     carries the house readiness tag reading "Direction" — muted, dashed, never the amber accent,
- *     never a verdict colour, never styled as a CTA — so it reads as a direction, not a product.
- *   - NO NUMBER. There is no efficacy, accuracy, enrollment, or outcome figure of any kind; the
- *     shape is described in words. No scoring formula, no ANFIS parameters, no golden-ratio digit.
- *   - NO LIVE PATIENT DATA, NO PHI, NO REAL PERSON. The single example is plainly hypothetical and
- *     labelled as illustrative.
- *   - Hedged register, matching /vision, /layers and /mission: a direction we are committed to,
- *     not a finished product — and the parts that are ahead are labelled as ahead on purpose.
+ * WHAT IT IS (Sean, 2026-10-14: "story page only"). A future vertical, told in plain words and
+ * labelled `Vision — not built yet` in the title, the first line and the badge. The ideas come from
+ * the ZKP architecture invariants (living-docs ZKP_ARCHITECTURE_INVARIANTS.md): scoped nullifiers,
+ * one consent/owner-policy engine, RepID gating, HAL grounding, and an isolated data plane for
+ * health data. Only the "What exists today" list describes anything real, and each item links to it.
+ *
+ * WHAT IT MUST NOT DO, pinned by tests/trust-medical-page.test.ts:
+ *   - no form or input of any kind, so no health information can be typed into it;
+ *   - no compliance, clinical-validity, diagnosis, treatment or advice claim;
+ *   - no customer, partner, pilot, timeline or event;
+ *   - no present-tense "secure" or "private" about TrustMedical.
  */
 
-/**
- * The same readiness metadata the /vision surface cards use (app/vision/page.tsx): muted, dashed
- * and hollow, never the amber accent and never a verdict colour, so it reads as neither a
- * measurement nor a call to action. It carries its word AND a shape, so it survives greyscale and
- * colour-vision loss.
- */
-function DirectionTag() {
+function VisionTag() {
+  // House readiness metadata (as /vision): muted and dashed, never the accent or a verdict colour.
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-dashed border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted">
-      <span
-        aria-hidden="true"
-        className="inline-block h-1.5 w-1.5 rounded-full border border-muted"
-      />
-      Direction
+      <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full border border-muted" />
+      {LABEL}
     </span>
   );
 }
 
-type Beat = { step: string; one: string; body: string };
+type Idea = { title: string; body: string };
 
-/**
- * The door, told as three beats — consent-first, a proof not a dossier, minimal disclosure. Each
- * describes the SHAPE of the idea; the page frames the whole of it as a direction, not a thing you
- * can do today.
- */
-const BEATS: ReadonlyArray<Beat> = [
+const IDEAS: ReadonlyArray<Idea> = [
   {
-    step: 'A person opts in',
-    one: 'The door only opens from the inside.',
+    title: 'One identity, a separate pass for each study',
     body:
-      'Nothing moves until a person chooses it, for a purpose they can see. Opting in is the first beat, not a box ticked after the fact — and a choice made can be a choice withdrawn. If there is no opt-in, there is no door.',
+      'A person would hold one secret. From it they could make a consent proof that belongs to one study only. That study could check that the person agreed, and agreed once. Two studies could not compare notes to learn it was the same person. It is designed to be the same identity that owns AI agents, so nobody would need a second one for health.',
   },
   {
-    step: 'A proof instead of a record',
-    one: 'Share that something is true — not the thing that proves it.',
+    title: 'One rulebook for consent',
     body:
-      'Rather than hand over a medical record, a person would share a cryptographic attestation: a proof that a specific fact holds, which the other side can check without ever receiving the record underneath it. A proof, not a dossier — the claim crosses, the file stays home.',
+      'The rules that decide who may act for an AI agent would be the same rules that decide how a person’s consent may be used by a study. Built once, so a consent rule cannot quietly mean something different when the subject is health.',
   },
   {
-    step: 'Only the fields the study needs',
-    one: 'The minimum crosses the threshold. Nothing more.',
+    title: 'Reputation would decide who gets near a study',
     body:
-      'A study asks for the few facts its protocol actually requires, and only those cross. Everything else stays where it lives. Minimal disclosure is the design of the door, not a setting someone has to go and find.',
+      'Research agents would have a RepID, earned under rules written for research work. Those rules do not exist yet. A study could require a minimum RepID before an agent may touch it, and ask for a proof of it.',
+  },
+  {
+    title: 'Claims about a study would be checked',
+    body:
+      'A statement about a study could go through the check, which is a vote by independent model families. Matching a quote against the document it cites is a different, separate step: a local command, trustshell ground, that looks for the quote on the cited page with no model and no network. It is not part of the check. What cannot be checked would say Not checked, never pass.',
+  },
+  {
+    title: 'Health data lives somewhere else. Always.',
+    body:
+      'The one rule not open for discussion: health data would sit in its own separate database, never in the one the agent network uses. The two would share the maths behind the proofs and nothing else.',
   },
 ];
 
 export default function TrustMedicalPage() {
   return (
-    <main className="max-w-3xl mx-auto px-4 py-12 space-y-16">
-      {/* Header — eyebrow + H1 + the lead, with the readiness tag stated right beside the title so
-          the "direction, not a product" frame is the first thing read, not a footnote. */}
+    <main className="max-w-3xl mx-auto px-4 py-12 space-y-12">
       <header className="space-y-4">
-        <p className="text-xs uppercase tracking-widest text-accent font-semibold">TrustMedical</p>
+        <p className="text-xs uppercase tracking-widest text-accent font-semibold">TrustMedical · {LABEL}</p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
             A door, not a trial.
           </h1>
-          <DirectionTag />
+          <VisionTag />
         </div>
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-2xl">
-          TrustMedical is a <span className="text-foreground">direction we are committed to, not a
-          victory we have already won</span>. This page describes the shape of a door we would want
-          to build — consent-first, and designed so a person shares a proof rather than a record.
+          <span className="text-foreground">TrustMedical does not exist.</span> This page is a story
+          about a future use of the tools we are building for AI agents: helping a person take part in
+          medical research while sharing as little as possible. The list under “What exists today” is
+          real and linked. Everything else is an idea.
         </p>
-        <p className="text-base md:text-lg text-foreground/90 font-medium max-w-2xl">
-          It is not a live or active medical trial. It is not study enrollment. It is not a clinical
-          offering, and nothing here should be read as one.
+        <p
+          data-testid="trust-medical-disclaimer"
+          className="rounded-xl border border-border bg-card px-5 py-4 text-sm md:text-base text-foreground/90 font-medium"
+        >
+          Not a medical product. It does not exist yet. Nothing here is medical advice. This page has
+          no form and collects nothing.
         </p>
       </header>
 
-      {/* The three-beat story */}
       <section className="space-y-5">
-        <h2 className="text-2xl font-bold text-foreground">The shape of the door</h2>
-        <p className="text-sm md:text-base text-muted leading-relaxed max-w-2xl">
-          Most ways of sharing health information move the record itself — the whole file travels so
-          that one fact inside it can be read. The door we would want to build does the opposite: the
-          fact travels, and the file stays put. Three beats describe it.
-        </p>
+        <h2 className="text-2xl font-bold text-foreground">The idea, in five parts</h2>
         <ol className="space-y-3">
-          {BEATS.map((beat, i) => (
-            <li key={beat.step} className="rounded-xl border border-border bg-card p-5 space-y-2">
+          {IDEAS.map((idea, i) => (
+            <li key={idea.title} className="rounded-xl border border-border bg-card p-5 space-y-2">
               <div className="flex items-baseline gap-3">
-                <span
-                  aria-hidden="true"
-                  className="font-display text-sm font-semibold text-muted tabular-nums"
-                >
+                <span aria-hidden="true" className="font-display text-sm font-semibold text-muted tabular-nums">
                   {i + 1}
                 </span>
-                <h3 className="text-lg font-semibold text-foreground">{beat.step}</h3>
+                <h3 className="text-lg font-semibold text-foreground">{idea.title}</h3>
               </div>
-              <p className="text-sm font-medium text-foreground/90">{beat.one}</p>
-              <p className="text-sm text-muted leading-relaxed">{beat.body}</p>
+              <p className="text-sm text-muted leading-relaxed">{idea.body}</p>
             </li>
           ))}
         </ol>
-        <p className="text-sm md:text-base text-muted leading-relaxed max-w-2xl">
-          That is the whole of it: <span className="text-foreground">consent-first, minimal
-          disclosure, a proof not a dossier</span>. The point of a door is that it has a near side
-          and a far side, and that the person stands on the near side and decides.
-        </p>
       </section>
 
-      {/* One plainly illustrative example — no real person, no real data, no number. */}
-      <section className="space-y-5">
-        <h2 className="text-2xl font-bold text-foreground">What this could look like</h2>
-        <div className="rounded-xl border border-border bg-card px-5 py-4 space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted/70">
-            Illustrative only — not a real person, study, or result
-          </p>
-          <p className="text-sm leading-relaxed text-muted">
-            Imagine a study that needs to confirm a single eligibility fact — say, that someone meets
-            a condition its protocol sets — before anything else happens. In the shape above, the
-            person opts in, a proof that the fact holds is what crosses, and the study is satisfied
-            without ever receiving the record that proves it. The example is made up to show the
-            shape; it is not a thing anyone can do here today.
-          </p>
-        </div>
+      <section className="space-y-4">
+        <h2 className="text-2xl font-bold text-foreground">What exists today</h2>
+        <ul className="space-y-3 text-sm md:text-base text-muted leading-relaxed">
+          <li>
+            <Link href="/check" className="text-accent hover:underline">The check</Link>: paste a
+            sentence and two independent model families each give a verdict. You see what each said,
+            with a receipt. If they cannot decide, it says Not checked, which never counts as a pass.
+          </li>
+          <li>
+            <Link href="/passport/trinity-sophia" className="text-accent hover:underline">RepID and its proof</Link>:
+            an agent’s passport shows its RepID and a zero-knowledge range proof over it that can be
+            verified. Today that proof shows the score rather than hiding it.
+          </li>
+          <li>
+            <Link href="/how-verification" className="text-accent hover:underline">How verification works</Link>,
+            in more detail.
+          </li>
+        </ul>
       </section>
 
-      {/* It is a spoke to the one engine — the star-not-a-mesh point from /vision, restated here. */}
-      <section className="space-y-5">
-        <h2 className="text-2xl font-bold text-foreground">Behind the same engine as everything else</h2>
-        <p className="text-sm md:text-base text-muted leading-relaxed max-w-2xl">
-          If this door ever opens, it does not get a trust system of its own. It is a spoke to the one
-          engine every surface leans on — the same portable record of how an agent has actually
-          behaved, and the same check that runs a claim past independent model families before it
-          counts. A new surface points at the centre; it does not add a new centre. A star, not a
-          mesh.
-        </p>
-        <p className="text-sm md:text-base text-muted leading-relaxed max-w-2xl">
-          That is why the honesty rules are the same here as anywhere. A result that cannot be checked
-          is never a quiet yes; it fails closed. Not checked is said out loud rather than rounded up
-          to a pass — most of all where the subject is health.
-        </p>
-      </section>
-
-      {/* Honest status, matching the register of /vision and /mission. */}
       <section className="space-y-4 rounded-xl border border-border bg-card p-6">
-        <h2 className="text-xl font-bold text-foreground">Honestly stated: how to read this page</h2>
-        <div className="space-y-3 text-sm md:text-base text-muted leading-relaxed">
-          <p>
-            <span className="text-foreground font-semibold">This is a direction.</span> It is an aim
-            we are committed to and say so, not a feature we are claiming. There is no door to walk
-            through today, no trial to join, and no data being collected from this page.
-          </p>
-          <p>
-            <span className="text-foreground font-semibold">It is deliberately told in words, not
-            numbers.</span> We state no figure for how well any of this would work, because there is
-            nothing measured to point at. When there is, we will say what we measured and how — and
-            label the rest as ahead, exactly as the other surfaces are labelled.
-          </p>
-        </div>
+        <h2 className="text-xl font-bold text-foreground">What does not exist</h2>
+        <p className="text-sm md:text-base text-muted leading-relaxed">
+          TrustMedical itself. Consent proofs for a study. The consent rules for studies. RepID rules
+          for research agents. Any database for health data. There is no study to join, and nothing is
+          collected here.
+        </p>
       </section>
 
-      {/* Go deeper — back to the vision, and to the one thing that is live today. */}
       <section className="space-y-3 border-t border-border pt-10">
         <p className="text-xs uppercase tracking-widest text-muted/70 font-semibold">Go deeper</p>
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <Link href="/vision" className="text-accent hover:underline">The whole vision</Link>
           <Link href="/check" className="text-accent hover:underline">Run a check (live today)</Link>
-          <Link href="/how-verification" className="text-accent hover:underline">How verification works</Link>
           <Link href="/" className="text-accent hover:underline">Back to the home page</Link>
         </div>
       </section>
