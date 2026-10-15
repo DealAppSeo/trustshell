@@ -66,6 +66,30 @@ describe('onchain.daily_deal — checkDealSettlement', () => {
     const r = run(DEAL(tamper));
     expect(r.wrong.join(' | ')).toMatch(problem);
   });
+
+  // repid-engine #1386: the public receipt names payer_wallet / payee_wallet. The 2026-10-14 values
+  // are the settlement row's [V prod, read-only] and checksummed, as the engine publishes them.
+  const PAYER = '0xdf6b8215D193b11B4903d223729c3CF7A6de271d';
+  const PAYEE = '0x7b84CCE5502d393DAa6533285eF3e2f8D3A13261';
+
+  it('wired: a receipt naming the real payer and payee passes, compared case-insensitively to the chain', () => {
+    const r = run(DEAL(`a.parties = oc.partiesFrom({ payer_wallet: '${PAYER}', payee_wallet: '${PAYEE}' });`));
+    expect(r.wrong).toEqual([]);
+    expect([r.from, r.to]).toEqual([PAYER.toLowerCase(), PAYEE.toLowerCase()]);
+  });
+
+  it('wired: a receipt naming another payee than the chain paid is FAILED', () => {
+    const r = run(DEAL(`a.parties = oc.partiesFrom({ payer_wallet: '${PAYER}', payee_wallet: '${OTHER}' });`));
+    expect(r.wrong.join(' | ')).toMatch(/USDC went to 0x7b84cce5502d393daa6533285ef3e2f8d3a13261, the deal names payee 0x1111/);
+  });
+
+  it.each([
+    ['no wallets (the engine before #1386)', `{}`],
+    ['only the payer (a half-named record)', `{ payer_wallet: '${PAYER}' }`],
+    ['a non-address payee', `{ payer_wallet: '${PAYER}', payee_wallet: 'trinity-sophia' }`],
+  ])('partiesFrom: %s states no parties (null), so the leg says NOT checked rather than passing', (_why, receipt) => {
+    expect(run(`({ oc }) => oc.partiesFrom(${receipt})`)).toBeNull();
+  });
 });
 
 // The engine supplies the agent NAMES; the token-to-agent binding comes from the IdentityRegistry's
