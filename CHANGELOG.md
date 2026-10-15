@@ -9,8 +9,8 @@ purpose: local memory quarantines notes it cannot vouch for. Each line names the
 makes it true.
 
 - **BEHAVIOR CHANGE: local memory quarantines untrusted notes (immune system v0).**
-  - Every note carries a taint label: `provenance` (`trusted` | `untrusted` | `verified`) and a
-    `source` (`src/memory/local-store.ts`).
+  - Every note carries a taint label, `provenance` (`trusted` | `untrusted` | `grounded` |
+    `verified`), and a `source` (`src/memory/local-store.ts`).
   - `trustshell remember "<text>"` stores the note **untrusted and quarantined**. `recall` leaves it
     out and prints `quarantined COUNT N`. **If you wrote it yourself, add `--trusted`.**
     (`src/cli/index.ts` remember parse; tests/quarantine.test.ts "CLI remember is UNTRUSTED by
@@ -22,16 +22,20 @@ makes it true.
   - A held note is released only by one of three:
     - **ground:** the note is found in the source document recorded with it (`remember
       --source-file`, or MCP `source_text`; only its sha256 is kept). No recorded document, or a
-      different one, is `NOT_CHECKED`. (`releaseByGround` in `src/memory/quarantine.ts`;
-      tests/quarantine.test.ts "ground release".)
+      different one, is `NOT_CHECKED`. Whoever stored the note also supplied the document, so the
+      note becomes `grounded`, never `verified`. (`releaseByGround` in `src/memory/quarantine.ts`;
+      tests/quarantine.test.ts "ground release", "(a) the SDK cannot self-ground".)
     - **hal:** `--check hal` on the default endpoint. It needs a `pass` by votes, from two named
-      deciders of two model families that both said TRUE. A custom endpoint is not asked.
-      (`src/memory/quarantine-hal.ts`; tests/quarantine.test.ts "hal release".)
+      deciders of two model families that both said TRUE. A custom endpoint is not asked. The SDK's
+      `releaseByHal(id, { timeoutMs })` takes no transport, so a caller cannot supply the answer.
+      The note becomes `verified`. (`src/memory/quarantine-hal.ts`; tests/quarantine.test.ts "hal
+      release", "(b) the public releaseByHal ignores an injected fetch".)
     - **operator:** `quarantine release <id> --trusted`, recorded as the operator's word and not a
       check. CLI only. (`releaseByOperator`; tests/quarantine.test.ts "--trusted releases".)
   - Injection-looking text, matched by the fixed patterns in `src/lib/ingest.ts`, is never printed
-    and never released (`heldAsInjection`; tests/quarantine.test.ts "injection-looking text stays
-    held").
+    and never released. That includes `remember --trusted`, which vouches for who wrote a note,
+    not for what it says. (`heldAsInjection`, `rememberNote`; tests/quarantine.test.ts
+    "injection-looking text stays held", "(c) remember --trusted still runs the injection screen".)
   - New commands, tools and exports:
     - `trustshell quarantine list | explain | release`;
     - the MCP tools `quarantine_list` and `quarantine_explain`. There is no release over MCP;
