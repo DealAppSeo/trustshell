@@ -184,7 +184,10 @@ describe('immune system v0 — quarantine', () => {
       expect(explainQuarantine(id)?.source_recorded).toBe(true);
       const b = io();
       expect(await run(parseArgs(['quarantine', 'release', String(id), '--source', src, '--page', '1']), {} as TrustShell, b.io)).toBe(0);
-      expect(b.out[0]).toMatch(new RegExp(`^released ${id} by ground: note found in the source document the recorder supplied \\(VERIFIED exact_match page 1\\)`));
+      expect(b.out[0]).toMatch(new RegExp(`^released ${id} by ground: note found in the source document the recorder supplied \\(quote found: exact_match, page 1\\)`));
+      // "verified" is the HAL release's word only: a grounded release never prints it, in any case.
+      expect(b.out[0]).not.toMatch(/verified/i);
+      expect(explainQuarantine(id)?.released_by).not.toMatch(/verified/i);
       expect(explainQuarantine(id)).toMatchObject({ provenance: 'grounded', quarantined: false });
       expect(listNotes(db).map((r) => r.body)).toEqual([NOTE]);
     });
@@ -385,6 +388,13 @@ describe('immune system v0 — quarantine', () => {
         expect(row).not.toMatch(/HyperDAG backend \(`TRUSTSHELL_API_URL`\)/);
       }
       expect(readFileSync(join(__dirname, '..', 'src/lib/ingest.ts'), 'utf8')).not.toMatch(/NOT wired/);
+    });
+
+    it('(d) --help says --check hal asks the default backend only, as the egress tables do', async () => {
+      const a = io();
+      expect(await run(parseArgs(['--help']), {} as TrustShell, a.io)).toBe(0);
+      const line = a.out.join('\n').split('\n').find((l) => /^\s+quarantine\s+NOTHING/.test(l));
+      expect(line).toMatch(/the DEFAULT backend's \/api\/v1\/classify/);
     });
   });
 
