@@ -16,6 +16,7 @@
  * before; this file pins that with the old pattern as an oracle.
  */
 import { containsSecret, redact } from '../src/memory/redact';
+import { LINEAR_LIMIT, growth } from './growth';
 
 const ext = require('../extension/scrub.js') as { redact: (v: unknown) => string };
 const both = (text: string): string => {
@@ -141,22 +142,9 @@ describe('the limits of an address are the limits of the rule', () => {
 });
 
 describe('linear, not quadratic', () => {
-  jest.setTimeout(180000); // the old rule needs seconds per shape; the fixed one needs milliseconds
-  // 8x the input is ~8x the time if linear and ~64x if quadratic; 24 splits them. Best of three runs each
-  // (and the second and third are skipped when the first is already slow), so a pause from a busy machine,
-  // the full suite runs in parallel, cannot make a linear scan look quadratic.
-  const best = (fn: (t: string) => unknown, text: string): number => {
-    fn(text); // warm
-    let fastest = Infinity;
-    for (let i = 0; i < 3; i += 1) {
-      const t0 = process.hrtime.bigint();
-      fn(text);
-      const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-      fastest = Math.min(fastest, ms);
-      if (ms > 1500) break;
-    }
-    return fastest;
-  };
+  jest.setTimeout(180000);
+  // Growth on 8x the input, interleaved medians of five, n scaled to the machine (tests/growth.ts): ~8 if
+  // linear, ~64 if quadratic, and machine load cancels in the ratio.
 
   // The shapes XC1 measured, and the ones the domain side of the rule adds.
   const SHAPES: Array<[string, (n: number) => string]> = [
@@ -167,25 +155,16 @@ describe('linear, not quadratic', () => {
     ['an @ first, then a long dotted run (the domain side)', (n) => 'x@' + 'a.'.repeat(n / 2)],
     ['a long local part, @, a long domain with no tld', (n) => 'a.'.repeat(n / 4) + '@' + 'b-'.repeat(n / 4)],
     ['@ everywhere', (n) => 'a@'.repeat(n / 2)],
-    ['addresses without a tld, back to back', (n) => 'jane@example '.repeat(n / 13)],
-    ['a 64-character local part and a long domain, repeated', (n) => ('a.'.repeat(32) + '@' + 'b.'.repeat(100)).repeat(n / 265)],
+    ['addresses without a tld, back to back', (n) => 'jane@example '.repeat(Math.floor(n / 13))],
+    ['a 64-character local part and a long domain, repeated', (n) => ('a.'.repeat(32) + '@' + 'b.'.repeat(100)).repeat(Math.floor(n / 265))],
   ];
 
   describe.each([
     ['src/memory/redact.ts', redact],
     ['extension/scrub.js', ext.redact],
-  ] as Array<[string, (v: string) => unknown]>)('%s', (_name, fn) => {
-    it.each(SHAPES)('%s', (_label, make) => {
-      // Sizes start at 32k, not 8k. At 8k several shapes finish in under 1 ms, so the 1 ms floor below
-      // replaced the small timing and the "ratio" became "the big run must take < 24 ms": true on a fast
-      // laptop, false on a slow CI runner for code that is linear (main, 2026-10-14: @ everywhere read
-      // 25.4 on CI while doubling-size timings showed exponent ~1.0). At 32k the small run is several ms,
-      // so the floor almost never binds and the ratio measures growth again. 8x and 24 are unchanged.
-      const small = Math.max(best(fn, make(32000)), 1);
-      const bigText = make(256000);
-      const big = best(fn, bigText);
-      expect(big / small).toBeLessThan(24);
-      expect(big).toBeLessThan(1500);
+  ] as Array<[string, (v: string) => unknown]>)('%s', (name, fn) => {
+    it.each(SHAPES)('%s', (label, make) => {
+      expect(growth(`email ${name} ${label}`, fn, make, 32000).ratio).toBeLessThan(LINEAR_LIMIT);
     });
   });
 });
