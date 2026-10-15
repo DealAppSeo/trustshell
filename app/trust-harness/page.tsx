@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { JourneySteps } from '@/components/journey-steps';
-import { TrustBadge } from '@/components/trust-state';
 
 export const metadata = {
   title: 'The trust harness — TrustShell',
@@ -168,38 +167,46 @@ export default function TrustHarnessPage() {
         </p>
       </section>
 
-      {/* 3 — why three or more cross-validate */}
+      {/* 3 — why more than one family checks a claim. TODAY: two families on /check. The third vote and the
+          golden-ratio supermajority are the design target (see /how-verification), tagged Roadmap. */}
       <section className="space-y-5">
-        <h2 className="text-2xl font-bold text-foreground">
-          Why at least three agents cross-validate <ClaimTag tag="shipped" />
-        </h2>
+        <h2 className="text-2xl font-bold text-foreground">Why more than one family checks a claim</h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          Two checkers can only agree or disagree; a disagreement with two voters is a deadlock. A
-          third vote — deliberately from a <span className="text-foreground">different model family</span> —
-          is what lets the quorum break a tie without letting one lineage decide alone. It is the same
-          principle as <Link href="/how-verification" className="text-accent hover:underline">disjoint-family verification</Link>,
-          applied to agents acting rather than claims being read.
+          <ClaimTag tag="shipped" /> Today the check on{' '}
+          <Link href="/check" className="text-accent hover:underline">/check</Link> asks two model
+          families, from different builders, and both must agree for a pass. A lone FALSE flags the
+          claim, and a lone TRUE with no independent second abstains, so one family that is wrong or
+          offline cannot carry a verdict alone. This is the same principle as{' '}
+          <Link href="/how-verification" className="text-accent hover:underline">disjoint-family verification</Link>.
         </p>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          And a split is handled honestly. A clear supermajority is a real result and can move
-          standing on the test network. A <span className="text-foreground">2&#8211;1</span> split is
-          not: it sets a <em>provisional</em> label and <span className="text-foreground">does not move the score</span>.
-          A bare majority is a note that something is contested, not a verdict that it is settled.
+          <ClaimTag tag="roadmap" /> The design goes further, and none of this runs today. A third vote
+          from a different family would break a tie without letting one lineage decide alone, and
+          agreement would have to clear a golden-ratio supermajority across more families. A split
+          would be handled honestly: a clear supermajority would be a real result, while a{' '}
+          <span className="text-foreground">2&#8211;1</span> split would only set a{' '}
+          <em>provisional</em> label and <span className="text-foreground">not move the score</span>. A
+          bare majority is a note that something is contested, not a verdict that it is settled.
+        </p>
+        <p className="text-sm text-muted leading-relaxed max-w-2xl">
+          Neither writes anything to a score on this site. How scores do move is documented on{' '}
+          <Link href="/repid" className="text-accent hover:underline">/repid</Link>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-            <p className="font-semibold text-foreground">Clear supermajority</p>
-            <TrustBadge state="MEASURED" />
+            <p className="font-semibold text-foreground">Design: a clear supermajority</p>
+            <ClaimTag tag="roadmap" />
             <p className="text-sm text-muted leading-relaxed">
-              Independent families clear the bar. It counts, and on testnet it can move RepID.
+              Independent families would clear the bar. It would count as a real check. A check on this
+              site writes nothing to a score.
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-            <p className="font-semibold text-foreground">A 2&#8211;1 split</p>
-            <TrustBadge state="NOT_CHECKED" detail="provisional — labelled as contested; it does not move the score" />
+            <p className="font-semibold text-foreground">Design: a 2&#8211;1 split</p>
+            <ClaimTag tag="roadmap" />
             <p className="text-sm text-muted leading-relaxed">
-              Not a clean result, so it is not treated as one. The label records the disagreement; the
-              score stays where it was.
+              Not a clean result, so it would not be treated as one. The label would record the
+              disagreement; the score would stay where it was.
             </p>
           </div>
         </div>
