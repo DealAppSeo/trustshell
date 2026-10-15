@@ -510,12 +510,14 @@ export default function EarnTrustPage() {
           >
             Run a check
           </Link>
-          <Link
-            href="/hal-receipt"
+          {/* A plain <a>, not <Link>: /receipt/latest is a redirect (next.config.ts) to the engine's
+              newest settled deal, not a page here, so there is nothing for Next to prefetch. */}
+          <a
+            href="/receipt/latest"
             className="rounded-md border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-card/60"
           >
-            See a receipt
-          </Link>
+            See the newest real receipt
+          </a>
         </div>
       </section>
 
