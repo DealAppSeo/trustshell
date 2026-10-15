@@ -384,4 +384,34 @@ describe('every checker name a door can show is on the privacy page', () => {
     expect(cli).not.toContain('NVIDIA NIM');
     expect(cli).not.toContain('Z.ai');
   });
+
+  // The engine's /classify pool, pinned (tests/fixtures/engine-voter-pool.json). Re-pin it with any
+  // engine pool change; this is what keeps the doors' names and the privacy list honest.
+  const pool = JSON.parse(
+    require('node:fs').readFileSync(require('node:path').join(__dirname, 'fixtures', 'engine-voter-pool.json'), 'utf8'),
+  ) as { pool: Array<{ provider: string; paid: boolean }> };
+  const idsIn = (file: string): string[] => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', file), 'utf8') as string;
+    const block = src.slice(src.indexOf('VOTER_NAMES'), src.indexOf('};', src.indexOf('VOTER_NAMES')));
+    return Array.from(block.matchAll(/['"]?([a-z0-9-]+)['"]?\s*:\s*'[^']+'/g), (m) => m[1]!).sort();
+  };
+
+  it('the ids both doors can name are exactly the hosts in the engine pool', () => {
+    const hosts = Array.from(new Set(pool.pool.map((v) => v.provider))).sort();
+    expect(idsIn('src/lib/claim.ts')).toEqual(hosts);
+    expect(idsIn('extension/classify.js')).toEqual(hosts);
+  });
+
+  it('the privacy page names the paid-only hosts as paid, and only those', () => {
+    const free = new Set(pool.pool.filter((v) => !v.paid).map((v) => v.provider));
+    const paidOnly = Array.from(new Set(pool.pool.filter((v) => v.paid && !free.has(v.provider)).map((v) => v.provider)));
+    const paidClause = (privacy.match(/only while we have paid checkers switched on, ([^.]+)\./) ?? [])[1] ?? '';
+    expect(paidClause).not.toBe('');
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src', 'lib', 'claim.ts'), 'utf8') as string;
+    const block = src.slice(src.indexOf('VOTER_NAMES'), src.indexOf('};', src.indexOf('VOTER_NAMES')));
+    const nameOf = new Map(Array.from(block.matchAll(/['"]?([a-z0-9-]+)['"]?\s*:\s*'([^']+)'/g), (m) => [m[1]!, m[2]!] as const));
+    expect(paidOnly.length).toBeGreaterThan(0);
+    for (const id of paidOnly) expect(paidClause).toContain(nameOf.get(id));
+    for (const id of free) expect(paidClause).not.toContain(nameOf.get(id));
+  });
 });

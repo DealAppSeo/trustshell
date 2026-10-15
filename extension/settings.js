@@ -11,8 +11,8 @@
    *   only when the person clicks Check this reply. Missing means every site on, automatically:
    *   what the extension did before the page existed. A mode this code does not recognise is not
    *   "missing": it asks first (see normalMode).
-   * - `record`: counts of each stamp, and the last RECENT_MAX stamps with the site and the time.
-   *   Never the text. The site comes from the URL of the tab that painted the stamp, never from
+   * - `record`: counts of each stamp, and the last RECENT_MAX stamps with the site, the time and
+   *   what decided it (`by`, and up to two `deciders` ids). Never the text. The site comes from the URL of the tab that painted the stamp, never from
    *   what that tab says about itself.
    */
   const SETTINGS_KEY = 'settings';

@@ -1,0 +1,20 @@
+{
+  "_source": "DealAppSeo/repid-engine src/classify/free-votes.ts VOTER_POOL (lines 730-748 at the pinned commit)",
+  "_engine_commit": "fe12048c97a92cfe3c80ad340756925e9c737ddd",
+  "_pinned_at": "2026-10-15",
+  "_why": "The privacy page's closed list of hosts and the checker names a stamp can print must match the hosts the engine's /classify pool can send to. Re-pin this file in the same change as any engine pool change; tests/claim-path-parity.test.ts compares all three. CLASSIFY_POOL can replace the pool at runtime, and the privacy page promises to change first.",
+  "pool": [
+    { "provider": "groq", "model": "openai/gpt-oss-120b", "paid": false },
+    { "provider": "groq", "model": "openai/gpt-oss-20b", "paid": false },
+    { "provider": "groq", "model": "qwen/qwen3.8-27b", "paid": false },
+    { "provider": "workers-ai", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "paid": false },
+    { "provider": "openrouter", "model": "google/gemma-4-31b-it:free", "paid": false },
+    { "provider": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free", "paid": false },
+    { "provider": "cerebras", "model": "qwen-3.8-27b", "paid": false },
+    { "provider": "cerebras", "model": "gemma-4-31b", "paid": true },
+    { "provider": "mistral", "model": "mistral-small-latest", "paid": true },
+    { "provider": "together", "model": "openai/gpt-oss-120b", "paid": true },
+    { "provider": "fireworks", "model": "accounts/fireworks/models/gpt-oss-120b", "paid": true },
+    { "provider": "openrouter", "model": "qwen/qwen-2.5-72b-instruct", "paid": true }
+  ]
+}
