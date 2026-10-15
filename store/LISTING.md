@@ -88,7 +88,7 @@ These are the real extension, loaded in Chromium, stamping a plain chat page. Ea
 
 ### Single purpose
 
-Stamps the last AI assistant reply on supported chat sites, or text the user selects, as Checks out, Caught, or Not checked, by sending it to two checker models.
+Stamps the last AI assistant reply on supported chat sites, or text the user selects, as Checks out, Caught, or Not checked, by sending it to a checking service. A text that is one whole equation is decided by calculation, exact or approximate, with no model asked; any other text is sent to two checker models.
 
 ### Permission justification
 

@@ -20,6 +20,11 @@ const LABELS: ClaimLabel[] = ['pass', 'veto', 'not-checked'];
 const BODIES: unknown[] = [
   {},
   { by: 'arithmetic' },
+  // repid-engine classify.ts :567 (2026-10-12): the double fallback for what exact arithmetic cannot
+  // hold. Both doors must accept it with pass and veto, refuse it with not-checked, and say the same
+  // line. Before #556 + #554 neither door listed it, and this list never sent it, so a split between
+  // them could not go red (XC1, 2026-10-14).
+  { by: 'arithmetic-approx' },
   { by: 'skipped' },
   { by: 'deadline' },
   { by: 'votes', voters: ['groq', 'cerebras'] },
@@ -60,6 +65,14 @@ describe('claim.ts and the extension agree on what an answer says produced it', 
 
 describe('the words', () => {
   const line = (label: ClaimLabel, body: unknown) => pathLine({ label, ...pathOf(body, label) });
+
+  it('approximate arithmetic says it is approximate, at both doors', () => {
+    const want = 'Decided by approximate calculation, not exact. No model was asked.';
+    for (const label of ['pass', 'veto'] as const) {
+      expect(line(label, { by: 'arithmetic-approx' })).toBe(want);
+      expect(classify.pathLine({ label, ...laya.pathOf({ by: 'arithmetic-approx' }, label) })).toBe(want);
+    }
+  });
 
   it('arithmetic says no model was asked', () => {
     expect(line('veto', { by: 'arithmetic' })).toBe('Decided by exact calculation. No model was asked.');
@@ -195,6 +208,7 @@ describe('an answer that names a path it does not have is not checked, at every 
     { label: 'pass', by: 'votes', voters: [] },
     { label: 'pass', by: 'votes' },
     { label: 'pass', by: 'not-a-path' },
+    { label: 'not-checked', by: 'arithmetic-approx' },
     { label: 'veto', by: 'skipped' },
     { label: 'veto', by: 'votes', voters: [] },
     { label: 'pass', by: null },

@@ -438,8 +438,10 @@ extension get the same label for the same sentence. Any operand with a URL schem
 
 It prints the label on its own line, then one line of explanation. When the endpoint says what
 produced the label, the next line names it: who decided (for example `Groq and Cerebras both said
-false.`), `Decided by exact calculation. No model was asked.`, `No checker was asked.` or
-`No answer in time.` If the endpoint asked a clarifying question, it follows on its own line, and
+false.`), `Decided by exact calculation. No model was asked.`, `Decided by approximate
+calculation, not exact. No model was asked.` (an equation the engine could only compare as decimals,
+such as a fractional power), `No checker was asked.` or `No answer in time.` An answer naming a path
+this version does not know is `not-checked`, never a pass. If the endpoint asked a clarifying question, it follows on its own line, and
 a last line says so when text that looked like a key or personal data was removed before sending.
 
 `--json` prints the result object: `label` and `latency_ms`, plus `by`, `voters` and
