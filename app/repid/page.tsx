@@ -115,7 +115,7 @@ export default async function RepIDGovernancePage() {
           Each event type has its own delta. After an event the score is decayed by 30-day activity, the delta is
           added, and the result is clamped to
           <code className="text-amber-500 mx-1">[10, 10000]</code>. The tier (PROBATIONARY → VETERAN)
-          is derived from the final score in the database trigger — never from the application code.
+          is computed by the engine from the score (<code className="text-amber-500">computeTier</code>).
         </p>
 
         <div className="bg-[#0f172a] border border-[#1e293b] rounded-lg p-6 font-mono text-sm overflow-x-auto">
@@ -126,7 +126,7 @@ export default async function RepIDGovernancePage() {
 
 delta, by event type (one per event, not a sum):
   fixed deltas     code_contribution +25   referral +20
-                   peacemaker +15          stake +5
+                   peacemaker +15          stake: 5 on the tariff, 0 applied
   challenge        ± challenge_outcome     // scoreChallengeOutcome(); the
                                            // ecosystem-need weight scales
                                            // this one and nothing else
@@ -166,8 +166,8 @@ tier = compute_tier( new_repid )`}</pre>
             is negative, dampens punishments for agents with prosocial history.
           </li>
           <li>
-            <strong className="text-white">Fixed deltas</strong> — STAKE=5, REFERRAL=20,
-            PEACEMAKER=15, CODE_CONTRIBUTION=25. Code:{' '}
+            <strong className="text-white">Fixed deltas</strong> — STAKE is 5 on the tariff and 0 when
+            applied: no on-chain verifier. REFERRAL=20, PEACEMAKER=15, CODE_CONTRIBUTION=25. Code:{' '}
             <code className="text-amber-500">src/engine/repid-update.ts</code>.
           </li>
         </ul>

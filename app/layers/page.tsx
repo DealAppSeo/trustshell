@@ -71,7 +71,7 @@ const BEATS: ReadonlyArray<Beat> = [
     layer: 'Sandbox',
     title: 'The specialist runs in a room',
     body:
-      "Its files and network are the ones named on its belt. A tool call to any other host is refused before the model ever sees a result — the wall is upstream of the answer, not a reaction to it.",
+      "Roadmap, not shipped: its files and network are the ones named on its belt. A tool call to any other host is refused before the model ever sees a result — the wall is upstream of the answer, not a reaction to it.",
   },
   {
     n: '2',
@@ -96,7 +96,7 @@ const BEATS: ReadonlyArray<Beat> = [
     layer: 'Harness',
     title: 'Autonomy is earned inside a ceiling the person already signed',
     body:
-      'Roughly 14 days and 20 actions with no "Caught" can restore a band the owner granted — it cannot raise the cap. A Caught, an off-list payee, or a dispute drops the band and asks the person. A rented agent gets the session, not the key, the memory, or root: the owner revokes, and everything under that session stops.',
+      'Roadmap, not shipped: roughly 14 days and 20 actions with no "Caught" can restore a band the owner granted — it cannot raise the cap. A Caught, an off-list payee, or a dispute drops the band and asks the person. A rented agent gets the session, not the key, the memory, or root: the owner revokes, and everything under that session stops.',
   },
 ];
 

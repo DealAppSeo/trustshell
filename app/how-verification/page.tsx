@@ -85,7 +85,7 @@ const OUTCOMES: ReadonlyArray<Outcome> = [
     word: 'Checks out',
     state: 'MEASURED',
     means: 'Two independent families looked at the claim and agreed it holds.',
-    blocks: 'Nothing — this is the clean result. It counts as a real check, and on the test network it can move RepID.',
+    blocks: 'Nothing — this is the clean result. It counts as a real check. A check on this site writes nothing to a score.',
   },
   {
     word: 'Caught',
@@ -199,10 +199,11 @@ export default function HowVerificationPage() {
       {/* 4 — what HAL fact-check looks at */}
       <section className="space-y-5">
         <h2 className="text-2xl font-bold text-foreground">
-          What the check actually looks at <ClaimTag tag="shipped" />
+          What HAL’s signals look at
         </h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          Inside each family, HAL fact-check reads a claim along a handful of qualitative signals.
+          Inside each family, HAL fact-check reads a claim along a handful of qualitative signals. The
+          check on this site returns a label and the votes; it does not return these signals.
           These are described here by <em>what they look at</em>, not by the weights or thresholds that
           turn them into a number — those are engine internals, and a page that printed them would be
           publishing tuning, not explaining a mechanism.

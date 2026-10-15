@@ -21,10 +21,10 @@ export default function PassportIndexPage() {
           before granting an agent access: <strong>should I authorize this agent?</strong>
         </p>
         <p className="text-neutral-400">
-          One call returns an agent&apos;s on-chain identity, its behavioral reputation earned
-          through verified work, its real-vs-simulated payment history, and its zero-knowledge
-          proof of standing. Every field is a recorded fact — a settlement row, a mint
-          transaction, an on-chain write — never an unverified claim.
+          One call returns an agent&apos;s on-chain identity, its RepID score and tier as the
+          engine computes them, its real-vs-simulated payment history, and a Plonky3 range proof
+          that the score exceeds a threshold. The score is a public input of that proof, not
+          withheld, and the proof does not bind agent execution transcripts.
         </p>
       </header>
 
@@ -34,23 +34,22 @@ export default function PassportIndexPage() {
         <h2 className="text-lg font-semibold text-neutral-200">What&apos;s in a passport</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong className="text-neutral-200">Identity</strong> — ERC-8004 registration on Base
-            Sepolia, with a live on-chain <code>ownerOf()</code> cross-check you can run yourself.
-          </li>
-          <li>
-            <strong className="text-neutral-200">Reputation</strong> — the RepID score and tier,
-            earned through a three-touchpoint transaction ladder (settled → to-spec →
-            held-up-in-use), verified by HAL.
-          </li>
-          <li>
-            <strong className="text-neutral-200">Payments</strong> — x402 settlement history with
-            real and simulated flows counted separately. Mock money earns zero reputation.
-          </li>
-          <li>
             <strong className="text-neutral-200">Proof</strong> — a Plonky3 range proof that the
             score exceeds a threshold. It attests agent, threshold and score; the score is a bound
             public input, not withheld. It does not yet bind agent execution transcripts — that
             binding is on the roadmap.
+          </li>
+          <li>
+            <strong className="text-neutral-200">Identity</strong> — ERC-8004 registration on Base
+            Sepolia, with a live on-chain <code>ownerOf()</code> cross-check you can run yourself.
+          </li>
+          <li>
+            <strong className="text-neutral-200">Reputation</strong> — the RepID score and tier, as
+            the engine computes them.
+          </li>
+          <li>
+            <strong className="text-neutral-200">Payments</strong> — x402 settlement history with
+            real and simulated flows counted separately.
           </li>
         </ul>
         <p className="pt-2">

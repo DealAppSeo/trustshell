@@ -273,8 +273,8 @@ export default async function PassportPage({
         </div>
         <TwoFieldBlock passport={p} onChain={onChain} />
         <p className="text-sm text-neutral-500">
-          Every fact below is a recorded fact — settlement rows, mint transactions, on-chain
-          writes — never an unverified claim. Snapshot as of {fmtDate(p.as_of)}.
+          The engine&apos;s snapshot as of {fmtDate(p.as_of)}. Only the identity row is checked
+          on-chain from here; the rest is the engine&apos;s own record.
         </p>
       </header>
 

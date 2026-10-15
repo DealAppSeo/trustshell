@@ -156,11 +156,11 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || exit 1
 
 ### Step 5 — Verify the on-chain trail
 
-Every score change against your agent is appended to the ERC-8004 ReputationRegistry on Base Sepolia. Sample real attestation:
+Not every score change is written on-chain: publishing to the ERC-8004 ReputationRegistry on Base Sepolia is periodic and can be paused, so treat the engine score as the source of truth and the registry as a signed, checkable postcard. The transaction below is a historical sample, not the result of your install:
 
 [`0xb2ab22b536abb7dc08d19a030b6e491face37387834dd361fba0d705accaed09`](https://sepolia.basescan.org/tx/0xb2ab22b536abb7dc08d19a030b6e491face37387834dd361fba0d705accaed09) — trinity-shofet, RepID 3120, ~134,661 gas, ReputationRegistry [`0x8004B663…`](https://sepolia.basescan.org/address/0x8004B663056A597Dffe9eCcC1965A193B7388713).
 
-That's the full loop: decision → HAL verdict → RepID delta → on-chain attestation.
+That is the shape of the loop the design aims at: decision → HAL verdict → RepID delta → on-chain attestation. Publishing is periodic and can be paused, so a given verdict does not always end in a transaction.
 
 ## 5. Architecture overview
 
@@ -173,8 +173,8 @@ Your agent ── shell.verifyOutput(text) ─────────▶ HAL pi
                                                    │
                                                    ├─▶ RepID update (open formula, see /repid)
                                                    │
-                                                   └─▶ on-chain attestation on Base Sepolia
-                                                       ReputationRegistry 0x8004B663…
+                                                   └─▶ on-chain attestation on Base Sepolia, periodic
+                                                       and can be paused; ReputationRegistry 0x8004B663…
 ```
 
 Full diagram + design choices: [`architecture-overview.md`](./architecture-overview.md). The protocol spec + reference contracts live at [`DealAppSeo/hyperdag-protocol`](https://github.com/DealAppSeo/hyperdag-protocol). The score-computation rules are public and community-shapeable at [trustshell.dev/repid](https://trustshell.dev/repid).

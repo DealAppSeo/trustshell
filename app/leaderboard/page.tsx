@@ -272,7 +272,6 @@ export default function LeaderboardPage() {
                       <th className="px-3 py-2 font-medium">Agent</th>
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium text-right">RepID</th>
-                      <th className="px-3 py-2 font-medium text-right">Accuracy</th>
                       <th className="px-3 py-2 font-medium text-right">Brier</th>
                       <th className="px-3 py-2 font-medium text-right">Rounds</th>
                       <th className="px-3 py-2 font-medium text-right">Errors</th>
@@ -292,8 +291,8 @@ export default function LeaderboardPage() {
                             {a.agent_id}
                           </span>
                           {a.verified && (
-                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-green-500/80">
-                              verified
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted">
+                              engine-flagged
                             </span>
                           )}
                         </td>
@@ -302,11 +301,6 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
                           {fmtInt(a.repid_total)}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted">
-                          {a.avg_accuracy == null
-                            ? '—'
-                            : `${(a.avg_accuracy * 100).toFixed(0)}%`}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-muted">
                           {fmt(a.avg_brier, 3)}
@@ -369,7 +363,12 @@ export default function LeaderboardPage() {
                       <th className="px-3 py-2 font-medium">#</th>
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium">Class</th>
-                      <th className="px-3 py-2 font-medium text-right">Accuracy</th>
+                      <th className="px-3 py-2 font-medium text-right">
+                        Accuracy
+                        <span className="block text-[10px] font-normal normal-case text-muted/70">
+                          {models.metric}
+                        </span>
+                      </th>
                       <th className="px-3 py-2 font-medium text-right">Brier</th>
                       <th className="px-3 py-2 font-medium text-right">Latency</th>
                       <th className="px-3 py-2 font-medium text-right">$/1M</th>

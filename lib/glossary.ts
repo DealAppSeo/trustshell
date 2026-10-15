@@ -358,11 +358,11 @@ export const TERMS: Term[] = [
     term: 'ZKP',
     expansion: 'Zero-Knowledge Proof',
     group: 'privacy',
-    status: 'not-live',
+    status: 'approximate',
     definition:
       'Proving a statement is true without revealing the data behind it — verification without surveillance.',
     note:
-      'NOT LIVE HERE, and the halves differ. PROVING — producing a proof — is a stub on this site: it generates nothing real, and nothing here is currently protected by one. VERIFYING — checking a proof someone else produced — is shipped and published as `@hyperdag/proof-verifier`. A verifier without a live prover protects nothing yet, so this stays labelled not-live; but the checking half is real code you can read, not a promise.',
+      'Real, with caveats, and the halves differ. PROVING is the engine’s job, not this site’s: it issues Plonky3 range proofs that a score exceeds a threshold, and each passport marks a proof as cryptographically verifiable or as a legacy stub. A proof attests the agent, the threshold and the score; the score is a public input, not withheld, and agent execution transcripts are not bound to it. VERIFYING — checking a proof someone else produced — is shipped and published as `@hyperdag/proof-verifier`; it is real code you can read.',
     related: ['plonky3', 'selective-disclosure'],
     deeper: { label: 'Privacy terms on HyperDAG', href: `${HYPERDAG_GLOSSARY}#privacy` },
   },
@@ -370,10 +370,10 @@ export const TERMS: Term[] = [
     slug: 'plonky3',
     term: 'Plonky3',
     group: 'privacy',
-    status: 'not-live',
-    definition: 'The STARK proving system the ZKP design targets.',
+    status: 'approximate',
+    definition: 'The STARK proving system the RepID range proofs use.',
     note:
-      'The PROVER is not running here — see ZKP. The VERIFIER is: `@hyperdag/proof-verifier` v0.2.0 is published on npm under Apache-2.0, a Rust crate compiled to WebAssembly that checks a Plonky3 RepID proof in your own browser or Node process rather than trusting a server that says `verified: true`. It is the strongest single piece of evidence that this is engineering rather than positioning — and it is waiting for the prover, not the other way round.',
+      'This site proves nothing itself — see ZKP for what the engine issues and what a proof does not bind. The VERIFIER is shipped: `@hyperdag/proof-verifier` v0.2.0 is published on npm under Apache-2.0, a Rust crate compiled to WebAssembly that checks a Plonky3 RepID proof in your own browser or Node process rather than trusting a server that says `verified: true`.',
     related: ['zkp'],
     deeper: {
       label: '@hyperdag/proof-verifier on npm',
