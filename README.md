@@ -500,9 +500,9 @@ receipt carries `LIMITATIONS`, `observed: null` (nothing in this package sets it
 `anchor_status: 'none'`. VERIFIED says the text is on the page. It does not say the quote supports
 the claim.
 
-### Quarantine (immune system v0) — main only, not in 1.6.1
+### Quarantine (immune system v0) — since 1.7.0
 
-> **Not in the published 1.6.1.** This is on `main` for the next release. On 1.6.1, `quarantine`
+> **Since 1.7.0.** On 1.6.1 and older, `quarantine`
 > is an unknown command, `--trusted`, `--untrusted` and `--source-file` are unknown options, and
 > `remember "<text>"` stores an ordinary note that `recall` prints.
 

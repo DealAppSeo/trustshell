@@ -360,7 +360,7 @@ it in version control.
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
 
-On `main` (not in 1.6.1): the note is stored **untrusted and quarantined** unless you pass `--trusted` (you vouch you wrote it). `--source <label>` and `--source-file <file>` label untrusted text; `--source-file` records the document's sha256 for a later ground release. See `trustshell quarantine` below.
+Since 1.7.0, the note is stored **untrusted and quarantined** unless you pass `--trusted` (you vouch you wrote it). `--source <label>` and `--source-file <file>` label untrusted text; `--source-file` records the document's sha256 for a later ground release. See `trustshell quarantine` below.
 
 `trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. No network.
 
@@ -379,11 +379,11 @@ Print saved notes, oldest first. A `do_not_send` row is not printed; the line is
 
 `trustshell recall <key>` prints that value. A missing key, or a blank value, prints `NOT_CHECKED`, never an empty string.
 
-On `main` (not in 1.6.1): quarantined notes are left out, and a last line `quarantined COUNT N (trustshell quarantine list)` says how many. `--include-quarantined` prints them, each marked `[QUARANTINED: reason]`.
+Since 1.7.0, quarantined notes are left out, and a last line `quarantined COUNT N (trustshell quarantine list)` says how many. `--include-quarantined` prints them, each marked `[QUARANTINED: reason]`.
 
 ### `trustshell quarantine list | explain <id> | release <id>`
 
-> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
+> **Since 1.7.0.** On 1.6.1 and older this command exits `2` with
 > `unknown command: quarantine`.
 
 Immune system v0 for local memory. `remember "<text>"` (with or without `--untrusted`) and the MCP `remember` tool store the note with `provenance: untrusted`, **quarantined**. Only `remember --trusted` stores a `trusted` note. Notes saved before this existed are `untrusted`, source `legacy`, and quarantined when the file is first opened.

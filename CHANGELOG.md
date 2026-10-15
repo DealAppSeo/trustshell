@@ -2,7 +2,7 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## 1.7.0 — unreleased (dated when published)
+## 1.7.0 — 2026-10-16
 
 New commands, exports and MCP tools, so this is a minor release. One existing behaviour changes on
 purpose: local memory quarantines notes it cannot vouch for. Each line names the code or test that
