@@ -80,6 +80,14 @@ makes it true.
   - For agents it is the MCP tool `kernel_receipt`.
 
   (`src/lib/kernel-client.ts`; tests/cli-receipt.test.ts, kernel-client.test.ts.)
+- **`check "<sentence>"` keeps the engine's approximate-arithmetic answer.** The engine can decide a
+  one-equation sentence by approximate (floating-point) calculation. `check` and the MCP
+  `check_claim` now keep that pass or veto and say `Decided by approximate calculation, not exact.
+  No model was asked.` Before, that answer read not-checked. A not-checked that claims this path
+  stays not-checked, and an unlisted path is still never a pass. (`CLAIM_PATHS` and `pathLine` in
+  `src/lib/claim.ts`; tests/claim-arith-approx.test.ts.)
+- The Chrome extension is not in this package. Its scrubbed-send line and its approximate-arithmetic
+  line now match the CLI word for word (tests/claim-path-parity.test.ts).
 - **Docs match the package.** Every surface that 1.6.1 lacks is labelled "since 1.7.0" at its
   block. Each label says what 1.6.1 does instead, and that was run on a clean 1.6.1 install
   (`npm run check:doc-version`; the stranger gate in this release's PR).
