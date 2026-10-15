@@ -9,6 +9,7 @@
  * that made the old rule quadratic.
  */
 import { redact, containsSecret } from '../src/memory/redact';
+import { LINEAR_LIMIT, growth } from './growth';
 
 type Scrub = { redact: (v: unknown) => string; containsSecret?: (v: string) => boolean };
 const ext = require('../extension/scrub.js') as Scrub;
@@ -67,52 +68,35 @@ describe('PEM private-key blocks are removed, on both scrubbers', () => {
 });
 
 describe('the PEM scan is linear', () => {
-  // The old rule: 61 / 272 / 879 ms for 2000 / 4000 / 8000 markers. A generous bound, a shape-based proof:
-  // 8000 markers with no END was the input that was quadratic.
+  jest.setTimeout(180000);
+  // The old rule: 61 / 272 / 879 ms for 2000 / 4000 / 8000 markers, i.e. quadratic. Timing is a growth
+  // ratio on 8x the input with interleaved medians (tests/growth.ts), never absolute milliseconds, so a
+  // busy machine cannot fail linear code and a quadratic scan still reads ~64 against a limit of 24.
   const MARKER = `${BEGIN('RSA PRIVATE KEY')} `;
+  const ENDS = `${END('RSA PRIVATE KEY')} `;
+  const ONE = block('PRIVATE KEY') + ' z ';
 
-  it.each([2000, 8000, 32000])('%i BEGIN markers and no END', (n) => {
+  it.each([2000, 8000, 32000])('%i BEGIN markers and no END: nothing removed, on both scrubbers', (n) => {
     const t = MARKER.repeat(n);
-    const t0 = Date.now();
-    const a = redact(t);
-    const b = ext.redact(t);
-    const took = Date.now() - t0;
-    expect(a).toBe(t);
-    expect(b).toBe(t);
-    expect(took).toBeLessThan(1500);
-  });
-
-  it('time grows with the input, not with its square', () => {
-    // Best of five runs each, so a pause from a busy machine (the full suite runs in parallel) cannot make a
-    // linear scan look quadratic. 8x the input is ~8x the time if linear and ~64x if quadratic; 24 splits them.
-    const best = (n: number): number => {
-      const t = MARKER.repeat(n);
-      redact(t); // warm
-      let fastest = Infinity;
-      for (let i = 0; i < 5; i += 1) {
-        const t0 = process.hrtime.bigint();
-        redact(t);
-        fastest = Math.min(fastest, Number(process.hrtime.bigint() - t0) / 1e6);
-      }
-      return fastest;
-    };
-    const small = Math.max(best(8000), 1);
-    const big = best(64000);
-    expect(big / small).toBeLessThan(24);
+    expect(redact(t)).toBe(t);
+    expect(ext.redact(t)).toBe(t);
   });
 
   it('many complete blocks are all removed in one pass', () => {
-    const one = block('PRIVATE KEY') + ' z ';
-    const t0 = Date.now();
-    const out = redact(one.repeat(3000));
-    expect(out).toBe(' z '.repeat(3000));
-    expect(Date.now() - t0).toBeLessThan(1500);
+    expect(redact(ONE.repeat(3000))).toBe(' z '.repeat(3000));
   });
 
-  it('many END markers and no BEGIN is cheap too', () => {
-    const t = `${END('RSA PRIVATE KEY')} `.repeat(32000);
-    const t0 = Date.now();
+  it('many END markers and no BEGIN: nothing removed', () => {
+    const t = ENDS.repeat(32000);
     expect(redact(t)).toBe(t);
-    expect(Date.now() - t0).toBeLessThan(1500);
+  });
+
+  it.each([
+    ['BEGIN markers and no END', (n: number) => MARKER.repeat(n), 4000],
+    ['END markers and no BEGIN', (n: number) => ENDS.repeat(n), 8000],
+    ['complete blocks', (n: number) => ONE.repeat(n), 3000],
+  ] as Array<[string, (n: number) => string, number]>)('time grows with the input, not its square: %s', (label, make, n) => {
+    expect(growth(`pem ts ${label}`, redact, make, n).ratio).toBeLessThan(LINEAR_LIMIT);
+    expect(growth(`pem ext ${label}`, ext.redact, make, n).ratio).toBeLessThan(LINEAR_LIMIT);
   });
 });
