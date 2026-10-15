@@ -41,9 +41,21 @@ export const topicAddress = (t) => `0x${String(t).slice(26)}`.toLowerCase();
  * THE DAILY DEAL. `deal` is the engine's feed entry; `dealReceipt` / `html` are the engine's public
  * receipt (JSON / page). Those are ONE source (the engine) repeating one hash, not corroboration. The
  * chain decides: exactly one USDC Transfer of the deal's amount, decoded from and to. `parties` is the
- * payer/payee wallets the deal record names, or null when it names none (today): then the transfer's
- * from/to are reported as chain facts and NOT tied to the named agents.
+ * payer/payee wallets the deal record names (partiesFrom), or null when it names none: then the
+ * transfer's from/to are reported as chain facts and NOT tied to the named agents.
  */
+/**
+ * The payer/payee wallets the engine's public deal receipt names for its buyer and provider
+ * (`payer_wallet` / `payee_wallet`, repid-engine #1386), or null unless BOTH are addresses. Null is
+ * "not stated", never a pass: the deal leg then says the parties are not checked.
+ */
+export function partiesFrom(dealReceipt) {
+  const payer = dealReceipt?.payer_wallet;
+  const payee = dealReceipt?.payee_wallet;
+  const addr = (a) => typeof a === 'string' && /^0x[0-9a-fA-F]{40}$/.test(a);
+  return addr(payer) && addr(payee) ? { payer, payee } : null;
+}
+
 export function checkDealSettlement({ deal, receipt, dealReceipt, html, minedAtMs, nowMs, parties = null }) {
   const wrong = [];
   if (receipt.status !== '0x1') wrong.push(`the settlement tx reverted (status ${receipt.status})`);

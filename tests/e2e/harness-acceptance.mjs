@@ -723,10 +723,11 @@ const tokenIdOf = async (agent) => {
 // 1. THE DAILY DOGFOOD DEAL. The newest REAL (non-simulated) settled x402 exchange in the public
 // marketplace feed must be exactly one USDC Transfer of the agreed amount on Base Sepolia, its public
 // receipt must name the same transaction, and the receipt page must render it.
-// THE PARTIES ARE NOT BOUND. The public deal record names agents, not wallets (the passport's
-// conservator_address is shared, and /contracts/:id needs a key), so the leg reports the Transfer's
-// from/to as chain facts and says the link to the named buyer and provider is not checked. The check
-// is written (checkDealSettlement `parties`); it runs the day the public receipt names the wallets.
+// THE PARTIES. The public receipt names the buyer's and provider's wallets as `payer_wallet` /
+// `payee_wallet` (repid-engine #1386, from the settlement row). When it does, the Transfer's from/to
+// must EQUAL them, and the line says the payer and payee match the named agents' wallets. A receipt
+// that names none (the engine before #1386, or a legacy row) leaves the parties NOT checked, said so
+// in the line: never a silent pass.
 let deal = null;
 let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its pointer
 {
@@ -746,15 +747,23 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
         const page = await fetch(`${ENGINE}/api/v1/receipt/${encodeURIComponent(deal.contract_id)}`, { signal: AbortSignal.timeout(25000) });
         const html = page.ok ? await page.text() : '';
         perf.onchain_deal_ms = since(td);
-        const c = oc.checkDealSettlement({ deal, receipt: r, dealReceipt, html, minedAtMs: minedAt, nowMs: Date.now(), parties: null });
+        const parties = oc.partiesFrom(dealReceipt);
+        const c = oc.checkDealSettlement({ deal, receipt: r, dealReceipt, html, minedAtMs: minedAt, nowMs: Date.now(), parties });
         const evidence = {
           contract_id: deal.contract_id, tx: deal.tx_hash, from: c.from, to: c.to, amount_raw: String(deal.amount),
           mined_at: new Date(minedAt).toISOString(), age_h: Number(c.ageH.toFixed(1)),
           engine_names: `${deal.buyer_agent_name} paid ${deal.provider_agent_name}`,
-          parties: 'NOT_CHECKED (the public deal record names no payer or payee wallet)',
+          parties: parties
+            ? `MEASURED (from/to equal the receipt's payer_wallet ${parties.payer} and payee_wallet ${parties.payee})`
+            : 'NOT_CHECKED (the public deal record names no payer or payee wallet)',
         };
         if (c.wrong.length) record('onchain.daily_deal', 'FAILED', c.wrong.join('; '), evidence);
-        else {
+        else if (parties) {
+          record('onchain.daily_deal', 'MEASURED',
+            `USDC ${deal.amount} (raw) moved from ${c.from} to ${c.to} in tx ${short(deal.tx_hash)} (status 0x1): payer and payee match ` +
+            `the wallets the engine's deal record names for ${deal.buyer_agent_name} and ${deal.provider_agent_name} ` +
+            `(feed, receipt and page: one source); mined ${c.ageH.toFixed(1)}h ago`, evidence);
+        } else {
           record('onchain.daily_deal', 'MEASURED',
             `USDC ${deal.amount} (raw) moved from ${c.from} to ${c.to} in tx ${short(deal.tx_hash)} (status 0x1), the tx the engine's ` +
             `deal record names (feed, receipt and page: one source); mined ${c.ageH.toFixed(1)}h ago. ` +
