@@ -14,7 +14,7 @@ const privacyFeatures = [
   {
     icon: ShieldCheck,
     title: 'ZKP commitments — not live yet',
-    description: 'The design commits spending parameters, tier attestations and constitutional bounds via Plonky3 STARK proofs. No such commitment exists today, and nothing here is currently protected by one. The only proof the engine reports is a Plonky3 range proof that a RepID score clears a threshold; it shows the score rather than hiding it, and this site verifies nothing. We list the commitments because they are the plan, and label them because a plan reported as a feature is exactly the failure this product exists to prevent.',
+    description: 'The design commits spending parameters, tier attestations and constitutional bounds via Plonky3 STARK proofs. No such commitment exists today, and nothing here is currently protected by one. The only proof the engine reports is a Plonky3 range proof that a RepID score clears a threshold, or a stub/fallback proof that the passport marks as one; it shows the score rather than hiding it, and this site verifies nothing. We list the commitments because they are the plan, and label them because a plan reported as a feature is exactly the failure this product exists to prevent.',
   },
 ];
 

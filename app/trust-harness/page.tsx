@@ -189,8 +189,8 @@ export default function TrustHarnessPage() {
           bare majority is a note that something is contested, not a verdict that it is settled.
         </p>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          Neither writes anything to a score on this site; a score moves only when a holdout, a known
-          answer or a person settles a result.
+          Neither writes anything to a score on this site. How scores do move is documented on{' '}
+          <Link href="/repid" className="text-accent hover:underline">/repid</Link>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-5 space-y-2">

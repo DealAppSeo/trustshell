@@ -104,14 +104,11 @@ export default async function ExamplesPage() {
         <div className="rounded-xl border border-border bg-card/40 px-5 py-4 text-sm text-muted leading-relaxed space-y-1">
           <p className="text-foreground font-medium">Where to see the real thing</p>
           <p>
-            No page on this site shows an on-chain receipt of that loop. One historical sample
-            (USDC → reputation attestation) is in the{' '}
-            <a
-              href="https://github.com/DealAppSeo/trustshell/blob/main/docs/getting-started.md"
-              className="text-accent hover:underline"
-            >
-              getting-started doc
-            </a>
+            One historical sample of that loop (a USDC settlement and the reputation attestation
+            that followed, each with a BaseScan link) is on the{' '}
+            <Link href="/docs/getting-started" className="text-accent hover:underline">
+              Getting started page
+            </Link>
             . A
             per-family HAL receipt — labelled a fixture, not a live query — is at{' '}
             <Link href="/hal-receipt" className="text-accent hover:underline">/hal-receipt</Link>.

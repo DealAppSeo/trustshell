@@ -33,9 +33,20 @@ describe('/trust-harness', () => {
 
   it('says a clear supermajority counts as a real check and that neither it nor a split writes to a score', () => {
     expect(src).toContain('Independent families would clear the bar. It would count as a real check. A check on this site writes nothing to a score.');
-    expect(src).toContain('Neither writes anything to a score on this site; a score moves only when a holdout, a known answer or a person settles a result.');
     expect(src).not.toMatch(/it can move RepID/i);
     expect(src).not.toMatch(/can move standing on the test network/i);
+  });
+
+  it('claims only that THIS site moves no score, and points at /repid for how scores move; /repid really documents the movers', () => {
+    // The old sentence said a score moves ONLY when a holdout, a known answer or a person settles a result. /repid documents
+    // other movers, so that universal was false. Assert the fact the new sentence leans on, not just its wording.
+    expect(src).not.toMatch(/a score moves only when/i);
+    expect(src).toContain('Neither writes anything to a score on this site. How scores do move is documented on');
+    expect(src).toContain('href="/repid"');
+    const repid = flat('app/repid/page.tsx');
+    for (const mover of ['code_contribution +25', 'referral +20', 'peacemaker +15', 'challenge', 'prediction']) {
+      expect(repid).toContain(mover);
+    }
   });
 });
 
@@ -54,10 +65,26 @@ describe('/demo and /examples', () => {
     expect(ex).not.toContain('The live loop runs on Base Sepolia');
     expect(ex).toContain('This is the design target for a single agent-to-agent job on TrustMarket');
     expect(ex).toContain('and not something this site runs');
-    expect(ex).toContain('No page on this site shows an on-chain receipt of that loop.');
     expect(ex).toContain('x402 would settle the micro-fee on-chain, and an ERC-8004 reputation attestation would be written.');
     expect(ex).toContain("Both agents' RepID would update from the outcome");
     expect(ex).not.toContain('x402 settles the micro-fee on-chain');
+  });
+
+  it('/examples points at a page that really shows the sample receipt, and says nothing false about where it is', () => {
+    // The old sentence said NO page on this site shows an on-chain receipt of that loop. /docs/getting-started renders
+    // docs/getting-started.md, which carries the USDC -> reputation receipt with two BaseScan links. Check the chain of facts.
+    const ex = flat('app/examples/page.tsx');
+    expect(ex).not.toMatch(/No page on this site shows an on-chain receipt/i);
+    expect(ex).toContain('href="/docs/getting-started"');
+    expect(ex).toContain('One historical sample of that loop');
+    // 1. the route exists and renders that markdown file
+    const route = flat('app/docs/getting-started/page.tsx');
+    expect(route).toContain('"docs", "getting-started.md"');
+    // 2. the file carries a settlement receipt: two BaseScan transaction links, called historical
+    const doc = readFileSync(join(ROOT, 'docs/getting-started.md'), 'utf8');
+    const links = doc.match(/https:\/\/sepolia\.basescan\.org\/tx\/0x[0-9a-fA-F]{64}/g) ?? [];
+    expect(new Set(links).size).toBeGreaterThanOrEqual(2);
+    expect(doc).toMatch(/historical receipt/);
   });
 });
 
@@ -71,5 +98,13 @@ describe('the privacy card', () => {
     expect(src).toContain('The only proof the engine reports is a Plonky3 range proof that a RepID score clears a threshold');
     expect(src).toContain('it shows the score rather than hiding it, and this site verifies nothing.');
     expect(src).toContain('ZKP commitments — not live yet');
+  });
+
+  it('does not say the range proof is the only proof: the passport can also show a stub/fallback proof, and the card says so', () => {
+    expect(src).toContain('or a stub/fallback proof that the passport marks as one');
+    // The fact behind it: the passport detail page really does mark an engine proof as a stub/fallback one.
+    const detail = flat('app/passport/[agentId]/page.tsx');
+    expect(detail).toContain('stub/fallback proof');
+    expect(detail).toContain('cryptographically_verifiable');
   });
 });
