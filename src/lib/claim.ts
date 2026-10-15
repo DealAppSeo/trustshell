@@ -116,7 +116,15 @@ export function withAnswer(claim: string, answer: string): string {
   return `${c}. Assume: ${a.replace(/[.!?]*$/, '')}.`;
 }
 
-export const CLAIM_PATHS = ['arithmetic', 'votes', 'skipped', 'deadline'] as const;
+/**
+ * What the endpoint says produced a label (repid-engine src/routes/classify.ts ClassifyPath).
+ * 'arithmetic-approx' (engine 2026-10-12, E-2): the whole text was one equation the engine's exact
+ * BigInt-rational evaluator could not hold (a fractional power, a result too large), so both sides
+ * were evaluated as doubles and called equal within 1e-9 relative (floor 1e-9). It always decides,
+ * pass or veto, and is never an exact calculation. Until this was listed here, its real answer was
+ * stamped not-checked. Any other `by` is still out of contract: not-checked, never a pass.
+ */
+export const CLAIM_PATHS = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'deadline'] as const;
 export type ClaimPath = (typeof CLAIM_PATHS)[number];
 
 /** Provider ids the endpoint may name, shown to people by these names. Unknown ids show as sent. */
@@ -144,6 +152,8 @@ export function pathOf(body: unknown, label: ClaimLabel): { by?: ClaimPath; vote
   const { by, voters, deciders } = body as { by?: unknown; voters?: unknown; deciders?: unknown };
   if (typeof by !== 'string' || !(CLAIM_PATHS as readonly string[]).includes(by)) return {};
   if ((by === 'skipped' || by === 'deadline') && label !== 'not-checked') return {};
+  // The approximate path always decides; a not-checked that claims it is not the engine's answer.
+  if (by === 'arithmetic-approx' && label === 'not-checked') return {};
   if (by !== 'votes') return { by: by as ClaimPath };
   if (!Array.isArray(voters) || voters.length === 0 || voters.length > MAX_VOTERS) return {};
   if (!voters.every((v) => typeof v === 'string' && VOTER_ID.test(v))) return {};
@@ -181,6 +191,9 @@ export function pathLine(r: Pick<ClaimResult, 'label' | 'by' | 'voters' | 'decid
   switch (r.by) {
     case 'arithmetic':
       return 'Decided by exact calculation. No model was asked.';
+    case 'arithmetic-approx':
+      // The engine sends no tolerance, so none is printed: it would be a number this answer did not carry.
+      return 'Decided by approximate calculation, not exact. No model was asked.';
     case 'skipped':
       return 'No checker was asked.';
     case 'deadline':

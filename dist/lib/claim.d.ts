@@ -63,7 +63,15 @@ export declare const ANSWER_MAX_CHARS = 200;
  * assumption the checkers lacked. PURE. Throws ClaimError on an empty answer: nothing is sent.
  */
 export declare function withAnswer(claim: string, answer: string): string;
-export declare const CLAIM_PATHS: readonly ["arithmetic", "votes", "skipped", "deadline"];
+/**
+ * What the endpoint says produced a label (repid-engine src/routes/classify.ts ClassifyPath).
+ * 'arithmetic-approx' (engine 2026-10-12, E-2): the whole text was one equation the engine's exact
+ * BigInt-rational evaluator could not hold (a fractional power, a result too large), so both sides
+ * were evaluated as doubles and called equal within 1e-9 relative (floor 1e-9). It always decides,
+ * pass or veto, and is never an exact calculation. Until this was listed here, its real answer was
+ * stamped not-checked. Any other `by` is still out of contract: not-checked, never a pass.
+ */
+export declare const CLAIM_PATHS: readonly ["arithmetic", "arithmetic-approx", "votes", "skipped", "deadline"];
 export type ClaimPath = (typeof CLAIM_PATHS)[number];
 /**
  * The path fields of an endpoint answer, or {} when they are missing or out of contract. PURE.

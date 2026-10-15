@@ -14,8 +14,9 @@
  * SETTLED, because nothing on this page can settle anything, and a receipt that claimed more than
  * its evidence would be the defect this product exists to catch.
  *
- * THREE OUTCOMES, NEVER TWO: PROVISIONAL (a vote, unsettled), EXACT_CALCULATION (no vote at all: the
- * sentence was an equation and was calculated), and NOT_CHECKED (no decision; counts as a no).
+ * THREE OUTCOMES, NEVER TWO: PROVISIONAL (a vote, unsettled), a CALCULATION (no vote at all: the
+ * sentence was an equation and was calculated, EXACT_CALCULATION or, when the engine had to compare
+ * decimals, APPROXIMATE_CALCULATION), and NOT_CHECKED (no decision; counts as a no).
  *
  * NO SENTENCE IN THE RECEIPT. The copyable lines carry who said what and nothing else, so pasting a
  * receipt somewhere never pastes the thing that was checked.
@@ -23,7 +24,7 @@
 import type { ClaimLabel, ClaimPath, ClaimVote } from '../src/lib/claim';
 import { receiptLine } from './hal-receipt';
 
-export type ReceiptStatus = 'PROVISIONAL' | 'EXACT_CALCULATION' | 'NOT_CHECKED';
+export type ReceiptStatus = 'PROVISIONAL' | 'EXACT_CALCULATION' | 'APPROXIMATE_CALCULATION' | 'NOT_CHECKED';
 
 export type ReceiptInput = {
   label: ClaimLabel;
@@ -74,6 +75,18 @@ export function receiptOf(r: ReceiptInput): ReceiptView {
       status: 'EXACT_CALCULATION',
       word: 'EXACT CALCULATION',
       statusLine: 'Decided by exact calculation. No model was asked, so there is no vote to settle.',
+      lines: [],
+      scoreLine: SCORE_LINE,
+      gateLine: null,
+    };
+  }
+
+  if (r.by === 'arithmetic-approx') {
+    return {
+      status: 'APPROXIMATE_CALCULATION',
+      word: 'APPROXIMATE CALCULATION',
+      statusLine:
+        'Decided by approximate calculation, not exact: the two sides were compared as decimals. No model was asked, so there is no vote to settle.',
       lines: [],
       scoreLine: SCORE_LINE,
       gateLine: null,

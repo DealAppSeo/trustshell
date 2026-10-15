@@ -81,7 +81,15 @@ function withAnswer(claim, answer) {
     const c = String(claim ?? '').trim().replace(/[.!?]*$/, '');
     return `${c}. Assume: ${a.replace(/[.!?]*$/, '')}.`;
 }
-exports.CLAIM_PATHS = ['arithmetic', 'votes', 'skipped', 'deadline'];
+/**
+ * What the endpoint says produced a label (repid-engine src/routes/classify.ts ClassifyPath).
+ * 'arithmetic-approx' (engine 2026-10-12, E-2): the whole text was one equation the engine's exact
+ * BigInt-rational evaluator could not hold (a fractional power, a result too large), so both sides
+ * were evaluated as doubles and called equal within 1e-9 relative (floor 1e-9). It always decides,
+ * pass or veto, and is never an exact calculation. Until this was listed here, its real answer was
+ * stamped not-checked. Any other `by` is still out of contract: not-checked, never a pass.
+ */
+exports.CLAIM_PATHS = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'deadline'];
 /** Provider ids the endpoint may name, shown to people by these names. Unknown ids show as sent. */
 const VOTER_NAMES = {
     groq: 'Groq',
@@ -108,6 +116,9 @@ function pathOf(body, label) {
     if (typeof by !== 'string' || !exports.CLAIM_PATHS.includes(by))
         return {};
     if ((by === 'skipped' || by === 'deadline') && label !== 'not-checked')
+        return {};
+    // The approximate path always decides; a not-checked that claims it is not the engine's answer.
+    if (by === 'arithmetic-approx' && label === 'not-checked')
         return {};
     if (by !== 'votes')
         return { by: by };
@@ -144,6 +155,9 @@ function pathLine(r) {
     switch (r.by) {
         case 'arithmetic':
             return 'Decided by exact calculation. No model was asked.';
+        case 'arithmetic-approx':
+            // The engine sends no tolerance, so none is printed: it would be a number this answer did not carry.
+            return 'Decided by approximate calculation, not exact. No model was asked.';
         case 'skipped':
             return 'No checker was asked.';
         case 'deadline':

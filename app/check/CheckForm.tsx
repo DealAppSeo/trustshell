@@ -121,7 +121,7 @@ function stepsOf(r: Result): string[] {
     out.push(`Sent to ${voterNames(r.voters)}.`);
     if (r.voters.length > 2) out.push('One of them could not answer, so a backup took its turn.');
   }
-  if (r.by === 'votes' || r.by === 'arithmetic') out.push(`Answered in ${(r.latency_ms / 1000).toFixed(1)} s.`);
+  if (r.by === 'votes' || r.by === 'arithmetic' || r.by === 'arithmetic-approx') out.push(`Answered in ${(r.latency_ms / 1000).toFixed(1)} s.`);
   return out;
 }
 
