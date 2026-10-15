@@ -19,8 +19,9 @@ export const metadata = {
 };
 
 /**
- * /trust-medical: the TrustMedical vision story. Reached from /vision, the footer and the sitemap
- * (lib/site.ts). A static server component with no data fetch.
+ * /trust-medical: the TrustMedical vision story. Reached from /vision and the sitemap (lib/site.ts).
+ * components/footer.tsx also lists it, but no page mounts that Footer today, so do not count the
+ * footer as a way in. A static server component with no data fetch.
  *
  * WHAT IT IS (Sean, 2026-10-14: "story page only"). A future vertical, told in plain words and
  * labelled `Vision — not built yet` in the title, the first line and the badge. The ideas come from
@@ -59,14 +60,14 @@ const IDEAS: ReadonlyArray<Idea> = [
       'The rules that decide who may act for an AI agent would be the same rules that decide how a person’s consent may be used by a study. Built once, so a consent rule cannot quietly mean something different when the subject is health.',
   },
   {
-    title: 'Reputation decides who gets near a study',
+    title: 'Reputation would decide who gets near a study',
     body:
-      'Research agents would earn a RepID the way any agent does: from work that was checked. A study could require a minimum RepID before an agent may touch it, and ask for a proof of it.',
+      'Research agents would have a RepID, earned under rules written for research work. Those rules do not exist yet. A study could require a minimum RepID before an agent may touch it, and ask for a proof of it.',
   },
   {
-    title: 'Claims about a study get checked',
+    title: 'Claims about a study would be checked',
     body:
-      'A statement about a study would go through the same check as everything else: independent model families, and quotes matched against their source. What cannot be checked would say Not checked, never pass.',
+      'A statement about a study could go through the check, which is a vote by independent model families. Matching a quote against the document it cites is a different, separate step: a local command, trustshell ground, that looks for the quote on the cited page with no model and no network. It is not part of the check. What cannot be checked would say Not checked, never pass.',
   },
   {
     title: 'Health data lives somewhere else. Always.',

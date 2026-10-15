@@ -88,9 +88,9 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   // sitemap is how an AI search engine finds them.
   { path: '/how-verification', priority: 0.7 },
   { path: '/trust-harness', priority: 0.7 },
-  // TrustMedical — the "door, not a trial" surface. A `direction` page reached from /vision, the
-  // footer and related pages, not the nav (the nav count is locked by tests/nav-fit.test.ts). The
-  // sitemap is how an AI search engine finds it.
+  // TrustMedical — the "door, not a trial" surface. A `direction` page reached from /vision, not the
+  // nav (the nav count is locked by tests/nav-fit.test.ts). components/footer.tsx lists it too, but no
+  // page mounts that Footer today. The sitemap is how an AI search engine finds it.
   { path: '/trust-medical', priority: 0.5 },
   { path: '/run', priority: 0.5 },
   { path: '/history', priority: 0.4 },
