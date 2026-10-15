@@ -275,7 +275,8 @@ try {
       check('toolbar popup opens',
         info.form && !info.line && info.words > 0 && info.words < 80 &&
           info.text.includes('Groq and Cerebras') &&
-          info.text.includes('after the reply is on screen') &&
+          info.text.includes('once on screen (or only when you click)') &&
+          info.text.includes('It computes a whole equation itself') &&
           info.text.includes('not stored') &&
           info.text.includes('Do not paste secrets') &&
           info.text.includes('Check with TrustShell') &&

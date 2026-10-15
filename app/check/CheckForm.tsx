@@ -293,7 +293,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors resize-y"
       />
       <p id="check-privacy" className="text-sm text-[#94a3b8]">
-        What you type is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.
+        What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.
       </p>
       <button
         type="submit"

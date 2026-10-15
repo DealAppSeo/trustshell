@@ -130,7 +130,7 @@ describe('store package', () => {
     expect(manifest.host_permissions).toEqual(['https://repid-engine-production.up.railway.app/*']);
     expect(manifest.permissions).toEqual(['storage', 'contextMenus', 'activeTab', 'scripting']);
     const popup = entries.find((entry) => entry.name === 'popup.html')!.data.toString('utf8');
-    expect(popup).toContain(SENT);
+    expect(popup).toContain('Reply text goes to our engine once on screen (or only when you click). It computes a whole equation itself; other text goes to Groq and Cerebras.');
     expect(names).toContain('select.js');
   });
 });
