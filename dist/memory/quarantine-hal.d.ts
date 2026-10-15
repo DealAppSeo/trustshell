@@ -16,6 +16,19 @@ import { type ClaimOptions, type ClaimResult } from '../lib/claim';
 import { type ReleaseOutcome } from './quarantine';
 /** Why a classify answer may not release a note, or null when it may. PURE. */
 export declare function halReleaseBlock(claim: ClaimResult): string | null;
-export declare function releaseByHal(id: number, opts?: ClaimOptions, env?: NodeJS.ProcessEnv): Promise<ReleaseOutcome & {
+/**
+ * Release a quarantined note by HAL. The public signature takes no transport and no endpoint: a
+ * caller that could inject `fetch` could hand back any answer, so only `timeoutMs` passes through.
+ */
+export declare function releaseByHal(id: number, opts?: {
+    timeoutMs?: number;
+}, env?: NodeJS.ProcessEnv): Promise<ReleaseOutcome & {
+    claim?: ClaimResult;
+}>;
+/**
+ * INTERNAL, for tests only: the same release with an injectable transport. NOT exported from the SDK
+ * (src/lib/index.ts), and the package's `exports` map does not expose this file.
+ */
+export declare function releaseByHalWith(id: number, opts?: ClaimOptions, env?: NodeJS.ProcessEnv): Promise<ReleaseOutcome & {
     claim?: ClaimResult;
 }>;

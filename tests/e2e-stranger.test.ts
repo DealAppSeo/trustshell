@@ -253,7 +253,7 @@ describe('stranger e2e on current main', () => {
     expect(listed.out).toContain('source=manifest');
     const released = await go(['quarantine', 'release', heldId, '--source', manifest, '--page', '1']);
     expect(released.code).toBe(0);
-    expect(released.out).toContain('by ground VERIFIED');
+    expect(released.out).toContain('by ground: note found in the source document the recorder supplied');
     expect((await go(['recall'])).out).toContain('Loaded 50 ft of cable, ordered 150 ft.');
     const homeAfter = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     expect(homeAfter).toBe(homeBefore);

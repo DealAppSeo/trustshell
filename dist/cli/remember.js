@@ -7,6 +7,7 @@ exports.rememberKey = rememberKey;
  * Write one local note, or one value under a key. No network.
  */
 const local_store_1 = require("../memory/local-store");
+const ingest_1 = require("../lib/ingest");
 const redact_1 = require("../memory/redact");
 /** Authorization header tokens, including `Bearer <jwt>`. Tokens are assumed to be at least 8 characters. */
 const BEARER = /\bBearer\s+[A-Za-z0-9_\-./]{8,}/;
@@ -22,9 +23,26 @@ function refusedValue(value) {
 /**
  * Write one TRUSTED note: the operator vouched for it (`remember --trusted`). Every other note goes
  * through rememberUntrusted (src/memory/quarantine.ts) and is quarantined.
+ *
+ * The injection screen still runs: `--trusted` vouches for who wrote the note, not for what it says,
+ * and an operator can paste a payload as easily as an agent. Injection-looking text is stored
+ * quarantined with that reason (never printed, never released) and the reason is returned; a clean
+ * note returns null.
  */
 function rememberNote(text, env = process.env) {
-    (0, local_store_1.insertMemory)((0, local_store_1.memoryDbPath)(env), 'note', text, undefined, env);
+    const screen = (0, ingest_1.ingest)(text);
+    if (screen.ingest === 'clean') {
+        (0, local_store_1.insertMemory)((0, local_store_1.memoryDbPath)(env), 'note', text, undefined, env);
+        return null;
+    }
+    const reason = `${local_store_1.INJECTION_PREFIX}: ${screen.excerpt}`;
+    const row = (0, local_store_1.insertMemory)((0, local_store_1.memoryDbPath)(env), 'note', text, undefined, env, {
+        provenance: 'untrusted',
+        source: 'operator (--trusted)',
+        quarantined: true,
+        reason,
+    });
+    return { id: row.id, reason };
 }
 /**
  * Save one value under key in the same local file.

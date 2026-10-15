@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.halReleaseBlock = halReleaseBlock;
 exports.releaseByHal = releaseByHal;
+exports.releaseByHalWith = releaseByHalWith;
 /**
  * quarantine-hal — release a quarantined note by the HAL classify path. THE ONLY NETWORK PATH in the
  * quarantine feature, kept in its own file so the local paths (remember, recall, list, explain, ground
@@ -38,7 +39,18 @@ function halReleaseBlock(claim) {
         return 'hal not-checked: both deciders are the same model family';
     return null;
 }
+/**
+ * Release a quarantined note by HAL. The public signature takes no transport and no endpoint: a
+ * caller that could inject `fetch` could hand back any answer, so only `timeoutMs` passes through.
+ */
 async function releaseByHal(id, opts = {}, env = process.env) {
+    return releaseByHalWith(id, { timeoutMs: opts.timeoutMs }, env);
+}
+/**
+ * INTERNAL, for tests only: the same release with an injectable transport. NOT exported from the SDK
+ * (src/lib/index.ts), and the package's `exports` map does not expose this file.
+ */
+async function releaseByHalWith(id, opts = {}, env = process.env) {
     const pre = (0, quarantine_1.preflight)(id, env);
     if (!('row' in pre))
         return pre;

@@ -871,7 +871,14 @@ export async function run(
             io.err('remember refused');
             return EXIT.USAGE;
           }
-        } else rememberNote(value);
+        } else {
+          const held = rememberNote(value);
+          if (held) {
+            io.out(`quarantined ${held.id} (${held.reason})`);
+            io.err('--trusted vouches for who wrote it, not for what it says: injection-looking text is held anyway.');
+            return EXIT.OK;
+          }
+        }
         io.out('remembered');
         return EXIT.OK;
       } catch (e: any) {

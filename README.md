@@ -530,7 +530,7 @@ trustshell quarantine release 2 --trusted                        # your word, re
 ```
 
 **What it does:**
-- **Taint labels.** Every note records `provenance`: `trusted`, `untrusted` or `verified`, plus a `source`.
+- **Taint labels.** Every note records `provenance`: `trusted`, `untrusted`, `grounded` or `verified`, plus a `source`.
   - Only `trustshell remember --trusted` stores a `trusted` note.
   - `trustshell remember "<text>"` (with or without `--untrusted`), and the MCP `remember` tool, store it `untrusted`.
   - Notes saved before this existed are `untrusted`, source `legacy`, and quarantined the first time the file is opened. Nothing recorded who wrote them, so the file does not guess "trusted".
@@ -539,22 +539,23 @@ trustshell quarantine release 2 --trusted                        # your word, re
   - `recall --include-quarantined` (MCP: `include_quarantined: true`) prints it, marked `[QUARANTINED: reason]`.
   - `quarantine list` (and MCP `quarantine_list`, and `--json`) gives the id, source and reason, never the text. `quarantine explain <id>` gives one note's text.
 - **Release**, recorded in `released_by`:
-  - **ground**: `--source <file>` must be the document recorded when the note was stored (`remember --source-file <file>`, or MCP `remember` with `source_text`). Only its sha256 is kept, and the file you give must match it. Then the whole note must be found, `VERIFIED`, in it (optional `--page`). Local, no network. With no recorded document, or a different one, the result is `NOT_CHECKED`: a caller cannot ground a note against text it picks at release time, such as the note itself.
-  - **hal**: `--check hal` sends the note to `POST /api/v1/classify` on the **default** endpoint. It releases only on `pass` decided by votes, where two named deciders from two different model families both said `TRUE`. A custom `TRUSTSHELL_API_URL` releases nothing and is not asked. A `pass` by arithmetic, or one without both votes, is `NOT_CHECKED`. The note is scrubbed first, like `check`. If the scrubber changed it, it is **not** released, because the label would be about other text. This is the only network path, and only when you ask for it.
+  - **ground**: `--source <file>` must be the document recorded when the note was stored (`remember --source-file <file>`, or MCP `remember` with `source_text`). Only its sha256 is kept, and the file you give must match it. Then the whole note must be found, `VERIFIED`, in it (optional `--page`). Local, no network. With no recorded document, or a different one, the result is `NOT_CHECKED`: a caller cannot ground a note against text it picks at release time, such as the note itself. Whoever stored the note also supplied that document, so a ground release is **not** a check they could not pass alone: the note becomes `grounded` (never `verified`), and `released_by` says the note was found in the source document the recorder supplied.
+  - **hal**: `--check hal` sends the note to `POST /api/v1/classify` on the **default** endpoint. It releases only on `pass` decided by votes, where two named deciders from two different model families both said `TRUE`; the note becomes `verified`. A custom `TRUSTSHELL_API_URL` releases nothing and is not asked. A `pass` by arithmetic, or one without both votes, is `NOT_CHECKED`. The note is scrubbed first, like `check`. If the scrubber changed it, it is **not** released, because the label would be about other text. This is the only network path, and only when you ask for it.
   - **operator**: `--trusted` is your word, not a check. The note becomes `trusted`, and `released_by` says the operator vouched.
   - Any other result keeps the note held and records why.
 - **Exit codes for `release`:** `0` released, `1` held (the check failed), `2` not checked or no such note.
-- **Injection-looking text stays held.** It is screened by the package's fixed instruction-smuggling patterns, when stored and again when read (so legacy notes are screened too). A match is quarantined with that reason, and **nothing releases it**, not even `--trusted`. `list`, `explain` and `recall --include-quarantined` describe it and never print it.
+- **Injection-looking text stays held.** It is screened by the package's fixed instruction-smuggling patterns, when stored and again when read (so legacy notes are screened too). That includes `remember --trusted`: the flag vouches for who wrote the note, not for what it says. A match is quarantined with that reason, and **nothing releases it**, not even `--trusted`. `recall` (with or without `--include-quarantined`), `list` and `explain` describe it and never print it.
 - **MCP tools:** `quarantine_list` and `quarantine_explain`. There is **no release tool over MCP**: an MCP caller is the untrusted writer, and it must not be able to release its own note.
-- **SDK exports:** `rememberUntrusted`, `listQuarantined`, `explainQuarantine`, `releaseByGround`, `releaseByHal`, `sourceDigest`. The release functions are operator surfaces. Do not hand them to an agent as tools.
+- **SDK exports:** `rememberUntrusted`, `listQuarantined`, `explainQuarantine`, `releaseByGround`, `releaseByHal`, `sourceDigest`. The release functions are operator surfaces. Do not hand them to an agent as tools. `releaseByHal(id, { timeoutMs })` takes no transport and no endpoint, so a caller cannot supply the answer it is checked against.
 
 **What it does NOT do:**
 - **No sandboxed execution.** It holds *text* apart. It runs nothing in isolation.
 - **No adaptive learning.** The injection screen is a fixed set of patterns, not a model, and a novel phrasing can get past it. Such text still lands in quarantine as untrusted. It just is not flagged as injection, so a passing check could release it.
 - **Only this package's local memory.** An agent's own context window, and tool results it never stores here, are not quarantined.
 - **`--trusted` is the operator's word, and anything that can run your shell can say it.** The boundary this enforces is MCP versus your CLI, and untrusted-by-default for everything else.
+- **Not a boundary against code in your own process.** Anything that can import the SDK can also write the memory file.
 - **A release is not a truth verdict.**
-  - A `ground` release says the note's text is in the document recorded with it. It does not say the document is true, or that whoever recorded it told the truth about where it came from.
+  - A `ground` release (`grounded`) says the note's text is in the document recorded with it. It does not say the document is true, or that whoever recorded it told the truth about where it came from.
   - A `hal` release says two checkers agreed, not that the note is safe to act on.
 - **Keyed values (`remember KEY VALUE`) carry no taint label** in v0.
 
@@ -581,7 +582,7 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
-| `quarantine release --check hal` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only, after the same scrub as `check` | keyless |
+| `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |

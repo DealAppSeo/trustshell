@@ -244,9 +244,9 @@ function getNote(path, id, env = process.env) {
     }
 }
 /**
- * Release one quarantined note: provenance becomes `verified` (a check passed) or `trusted` (the
- * operator vouched), and `released_by` records which. Only a row that is still quarantined changes;
- * the return says whether one did.
+ * Release one quarantined note: provenance becomes `verified` (HAL), `grounded` (found in the
+ * recorder-supplied source) or `trusted` (the operator vouched), and `released_by` records which.
+ * Only a row that is still quarantined changes; the return says whether one did.
  */
 function markReleased(path, id, releasedBy, now = new Date().toISOString(), provenance = 'verified') {
     const db = openDb(path);
@@ -284,16 +284,15 @@ function countDoNotSend(path) {
 /**
  * Notes in insert order, then a count. do_not_send bodies are not included.
  * Quarantined notes are left out, and when any exist a last line says how many, so nothing is
- * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason],
- * except injection-looking text, which is described and never printed (the same rule as list/explain).
+ * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason].
+ * Injection-looking text is described and never printed, whatever the row's label: a `--trusted`
+ * note gets the same screen as a quarantined one (the same rule as list/explain).
  */
 function formatRecall(path, env = process.env, opts = {}) {
     const rows = listNotes(path, env, { includeQuarantined: opts.includeQuarantined });
     const notes = rows.map((row) => {
-        if (!row.quarantined)
-            return row.body;
-        const mark = `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}]`;
-        return heldAsInjection(row) ? `${mark} ${exports.INJECTION_WITHHELD}` : `${mark} ${row.body}`;
+        const body = heldAsInjection(row) ? exports.INJECTION_WITHHELD : row.body;
+        return row.quarantined ? `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}] ${body}` : body;
     });
     const lines = [...notes, `do_not_send COUNT ${countDoNotSend(path)}`];
     const held = countQuarantined(path);

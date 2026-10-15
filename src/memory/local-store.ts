@@ -43,13 +43,17 @@ export type MemoryKind = 'note' | 'pref' | 'do_not_send';
 
 /**
  * Taint label (immune system v0). Where an entry came from, as far as this file can know it:
- *   trusted    written by the operator (the CLI's `remember`, or SDK code that says so)
+ *   trusted    the operator vouched for it (`remember --trusted`, or `quarantine release --trusted`)
  *   untrusted  anything else (an MCP tool call, a web page, another agent): held in quarantine
- *   verified   was untrusted, and a recorded check released it
+ *   grounded   was untrusted; released because the note was found in the source document recorded
+ *              with it. Whoever recorded the note also supplied that document, so this is NOT a
+ *              check the recorder could not satisfy alone.
+ *   verified   was untrusted; released by a check the caller cannot satisfy alone (HAL: two checkers
+ *              of two model families on the default endpoint)
  * Rows written before this column existed are UNTRUSTED, source `legacy`, and quarantined: they came
  * from the CLI or MCP `remember`, and nothing recorded which, so the file does not guess "trusted".
  */
-export type Provenance = 'trusted' | 'untrusted' | 'verified';
+export type Provenance = 'trusted' | 'untrusted' | 'grounded' | 'verified';
 
 export type MemoryRow = {
   id: number;
@@ -306,16 +310,16 @@ export function getNote(path: string, id: number, env: NodeJS.ProcessEnv = proce
 }
 
 /**
- * Release one quarantined note: provenance becomes `verified` (a check passed) or `trusted` (the
- * operator vouched), and `released_by` records which. Only a row that is still quarantined changes;
- * the return says whether one did.
+ * Release one quarantined note: provenance becomes `verified` (HAL), `grounded` (found in the
+ * recorder-supplied source) or `trusted` (the operator vouched), and `released_by` records which.
+ * Only a row that is still quarantined changes; the return says whether one did.
  */
 export function markReleased(
   path: string,
   id: number,
   releasedBy: string,
   now: string = new Date().toISOString(),
-  provenance: 'verified' | 'trusted' = 'verified',
+  provenance: 'verified' | 'grounded' | 'trusted' = 'verified',
 ): boolean {
   const db = openDb(path);
   try {
@@ -353,8 +357,9 @@ export function countDoNotSend(path: string): number {
 /**
  * Notes in insert order, then a count. do_not_send bodies are not included.
  * Quarantined notes are left out, and when any exist a last line says how many, so nothing is
- * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason],
- * except injection-looking text, which is described and never printed (the same rule as list/explain).
+ * hidden silently. With `includeQuarantined` they are printed, each marked [QUARANTINED: reason].
+ * Injection-looking text is described and never printed, whatever the row's label: a `--trusted`
+ * note gets the same screen as a quarantined one (the same rule as list/explain).
  */
 export function formatRecall(
   path: string,
@@ -363,9 +368,8 @@ export function formatRecall(
 ): string {
   const rows = listNotes(path, env, { includeQuarantined: opts.includeQuarantined });
   const notes = rows.map((row) => {
-    if (!row.quarantined) return row.body;
-    const mark = `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}]`;
-    return heldAsInjection(row) ? `${mark} ${INJECTION_WITHHELD}` : `${mark} ${row.body}`;
+    const body = heldAsInjection(row) ? INJECTION_WITHHELD : row.body;
+    return row.quarantined ? `[QUARANTINED: ${row.quarantine_reason ?? 'untrusted, not yet checked'}] ${body}` : body;
   });
   const lines = [...notes, `do_not_send COUNT ${countDoNotSend(path)}`];
   const held = countQuarantined(path);

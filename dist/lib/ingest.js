@@ -57,8 +57,10 @@ const BORDERLINE = [
 // malicious one verbatim. Runs on `clean`/`flag` excerpts (a `veto` excerpt is a fixed reason string).
 // ponytail: keyword heuristic with a KNOWN CEILING — a novel phrasing can evade both the verdict and
 // this redactor. That is exactly why `flag` defaults off (uncertainty→veto), why `clean` means
-// "no KNOWN injection" (not "provably safe"), and why this module is NOT exported / NOT wired into any
-// path yet. Upgrade path before production trust: a model-based injection classifier, not more regex.
+// "no KNOWN injection" (not "provably safe"). It is not exported from the SDK. It IS wired into local
+// memory's quarantine: src/memory/quarantine.ts rememberUntrusted, src/cli/remember.ts rememberNote,
+// and the read-time screen in src/memory/local-store.ts heldAsInjection. Upgrade path before
+// production trust: a model-based injection classifier, not more regex.
 const IMPERATIVE = /\b(ignore|disregard|forget|override|bypass|reveal|expose|leak|exfiltrate|approve|authorize|transfer|delete|drop|execute|eval|install|uninstall|act as|pretend|jailbreak|you are (?:now|actually)|you must|do not|don'?t|new instructions?|system prompt|developer mode)\b[\s\S]{0,80}/gi;
 function sanitizeExcerpt(content, chars) {
     return content.replace(IMPERATIVE, '[redacted-directive]').replace(/\s+/g, ' ').trim().slice(0, chars);

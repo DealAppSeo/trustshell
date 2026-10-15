@@ -21,7 +21,8 @@ exports.releaseExitCode = releaseExitCode;
  *     at the CLI, and the release records which:
  *       ground    the whole note is found, VERIFIED, in the source document RECORDED WHEN THE NOTE WAS
  *                 STORED (its sha256 is kept with the row). The document given at release must be that
- *                 same document. No recorded document = NOT_CHECKED. Local, no network.
+ *                 same document. No recorded document = NOT_CHECKED. Local, no network. Whoever recorded
+ *                 the note supplied that document too, so the row becomes `grounded`, never `verified`.
  *       hal       the DEFAULT classify endpoint labels the note `pass` by votes, with two named
  *                 deciders that both said TRUE (POST /api/v1/classify). The only network path; it
  *                 lives in quarantine-hal.ts so nothing local imports network code.
@@ -40,6 +41,8 @@ exports.releaseExitCode = releaseExitCode;
  *     A hal release says two checkers agreed, not that the note is safe to act on.
  *   - The release functions are OPERATOR surfaces. Exposing them to an agent as tools lets that agent
  *     release what it wrote; the MCP server here deliberately has no release tool.
+ *   - It is not a boundary against code in your own process: anything that can import the SDK can
+ *     also write the memory file. The public SDK just offers no way to forge a check's answer.
  */
 const node_crypto_1 = require("node:crypto");
 const ingest_1 = require("../lib/ingest");
@@ -155,8 +158,10 @@ function releaseByGround(id, sourceText, opts = {}, env = process.env) {
         (0, local_store_1.setQuarantineReason)((0, local_store_1.memoryDbPath)(env), id, reason);
         return { released: false, id, status: result.status === 'VETO' ? 'HELD' : 'NOT_CHECKED', reason, ground: result };
     }
-    const releasedBy = `ground VERIFIED ${result.reason} page ${result.found_on_page} in the source recorded at ingest${label}`;
-    (0, local_store_1.markReleased)((0, local_store_1.memoryDbPath)(env), id, releasedBy);
+    // The recorder supplied this document, so it is not a check the recorder could not satisfy alone:
+    // the label says so (provenance `grounded`), and `verified` stays reserved for HAL.
+    const releasedBy = `ground: note found in the source document the recorder supplied (VERIFIED ${result.reason} page ${result.found_on_page})${label}`;
+    (0, local_store_1.markReleased)((0, local_store_1.memoryDbPath)(env), id, releasedBy, undefined, 'grounded');
     return { released: true, id, check: 'ground', released_by: releasedBy, ground: result };
 }
 /**

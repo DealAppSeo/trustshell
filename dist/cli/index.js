@@ -797,8 +797,14 @@ async function run(args, client, io = realIO) {
                         return exports.EXIT.USAGE;
                     }
                 }
-                else
-                    (0, remember_1.rememberNote)(value);
+                else {
+                    const held = (0, remember_1.rememberNote)(value);
+                    if (held) {
+                        io.out(`quarantined ${held.id} (${held.reason})`);
+                        io.err('--trusted vouches for who wrote it, not for what it says: injection-looking text is held anyway.');
+                        return exports.EXIT.OK;
+                    }
+                }
                 io.out('remembered');
                 return exports.EXIT.OK;
             }

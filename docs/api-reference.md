@@ -388,11 +388,11 @@ Immune system v0 for local memory. `remember "<text>"` (with or without `--untru
 
 - `list`: id, source and reason for each held note, never its text (also with `--json`, and over MCP). Ends `quarantined COUNT N`. No network.
 - `explain <id>`: provenance, source, quarantined, reason, released_by, released_at, whether a source document was recorded, and the note's text. No network.
-- `release <id> --source <file> [--page N]`: `<file>` must be the document recorded with the note (`remember --source-file`, or MCP `remember` `source_text`; only its sha256 is kept). Then the **whole** note must be found, `VERIFIED`, in it (`ground`). No recorded document, or a different one, is `NOT_CHECKED`. Local, no network.
+- `release <id> --source <file> [--page N]`: `<file>` must be the document recorded with the note (`remember --source-file`, or MCP `remember` `source_text`; only its sha256 is kept). Then the **whole** note must be found, `VERIFIED`, in it (`ground`). No recorded document, or a different one, is `NOT_CHECKED`. Local, no network. The recorder supplied that document, so the note becomes `grounded`, never `verified`.
 - `release <id> --check hal`: released only if `POST /api/v1/classify` on the **default** endpoint labels the note `pass` by votes, with two named deciders of two different model families that both said `TRUE`. A custom `TRUSTSHELL_API_URL` is not asked and releases nothing. The note gets the same scrub as `check`; a note the scrubber changed is not released.
 - `release <id> --trusted`: the operator vouches for it. Not a check: the note becomes `trusted`, and `released_by` says so.
-- `release` takes exactly one of the three, and exits `0` released, `1` held (the check failed), `2` not checked or no such note. A check release sets `provenance: verified` and records the check in `released_by`.
-- Injection-looking text is screened by the fixed instruction-smuggling patterns, which are not a model, when stored and again when read. A match is held with that reason, never released (not even with `--trusted`), and never printed by `list`, `explain` or `recall --include-quarantined`.
+- `release` takes exactly one of the three, and exits `0` released, `1` held (the check failed), `2` not checked or no such note. A HAL release sets `provenance: verified`, a ground release `grounded`, and `--trusted` sets `trusted`; `released_by` records which.
+- Injection-looking text is screened by the fixed instruction-smuggling patterns, which are not a model, when stored and again when read. A match is held with that reason, never released (not even with `--trusted`), and never printed by `list`, `explain` or `recall`. `remember --trusted` is screened too.
 - There is no release over MCP: the MCP caller is the untrusted writer.
 - What it does not do: no sandboxed execution, no adaptive learning, nothing outside this package's local memory. A release is not a truth verdict. `--trusted` is the operator's word, and anything that can run your shell can say it.
 
@@ -490,7 +490,7 @@ a run or a session that happened — run these against your own and read the rea
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
-| `quarantine release --check hal` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only, after the same scrub as `check` | keyless |
+| `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
