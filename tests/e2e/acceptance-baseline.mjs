@@ -96,22 +96,7 @@ const BY_DESIGN_NOT_CHECKED = {
   },
 };
 
-/**
- * NOT_CHECKED legs whose surface does not exist YET. Not a refusal, so not BY_DESIGN: the day the
- * surface ships and the leg turns MEASURED, the entry goes STALE (third rule above) and must be deleted,
- * exactly like a fixed KNOWN_FAILED gap. A by-design entry has no such rule, which is why this is a
- * separate list rather than a quiet addition to the one above.
- */
-const KNOWN_NOT_CHECKED = {
-  'kernel.receipt_public': {
-    why: 'no keyless surface serves a sealed kernel receipt: GET /api/v1/kernel/receipt/:id is mounted ' +
-      'after authMiddleware (the leg measures the refusal each run), and the engine gate has no production ' +
-      'caller yet, so no sealed receipt exists to serve',
-    pointer: 'repid-engine #1371/#1374 (gate binding); a public read of kernel receipts is not built',
-  },
-};
-
-for (const [leg, e] of Object.entries({ ...KNOWN_FAILED, ...BY_DESIGN_NOT_CHECKED, ...KNOWN_NOT_CHECKED })) {
+for (const [leg, e] of Object.entries({ ...KNOWN_FAILED, ...BY_DESIGN_NOT_CHECKED })) {
   if (!e.why || !e.pointer) {
     console.error(`baseline entry "${leg}" has no why/pointer — an anonymous entry is a silencer, not a baseline`);
     process.exit(1);
@@ -166,7 +151,7 @@ for (const l of report.legs) {
   if (l.verdict === 'FAILED' && !KNOWN_FAILED[l.leg]) {
     problem('REGRESSION', l.leg, l.detail, `REGRESSION  ${l.leg} — FAILED and not in the baseline\n              ${l.detail ?? ''}`);
   }
-  if (l.verdict === 'NOT_CHECKED' && !BY_DESIGN_NOT_CHECKED[l.leg] && !KNOWN_NOT_CHECKED[l.leg]) {
+  if (l.verdict === 'NOT_CHECKED' && !BY_DESIGN_NOT_CHECKED[l.leg]) {
     problem('NOT_CHECKED', l.leg, l.detail,
       `NOT_CHECKED ${l.leg} — this job exists to provide the environment this leg needs\n` +
       `              ${l.detail ?? ''}`,
@@ -201,20 +186,6 @@ for (const [leg, e] of Object.entries(KNOWN_FAILED)) {
   }
 }
 
-for (const [leg, e] of Object.entries(KNOWN_NOT_CHECKED)) {
-  const v = verdictOf.get(leg);
-  if (v === undefined) {
-    problem('STALE', leg, 'in the baseline but the gate no longer reports this leg at all',
-      `STALE       ${leg} — in the baseline but the gate no longer reports this leg at all; remove or rename the entry`);
-  } else if (v === 'MEASURED') {
-    problem('STALE', leg, `now MEASURED — the surface exists, so delete the baseline entry (was: ${e.pointer})`,
-      `STALE       ${leg} — now MEASURED. THIS IS GOOD NEWS AND STILL A FAILURE: delete the entry.\n` +
-      `              was: ${e.pointer}`,
-    );
-  }
-  // FAILED is already a REGRESSION above (it is not in KNOWN_FAILED).
-}
-
 const counts = report.legs.reduce((a, l) => ((a[l.verdict] = (a[l.verdict] ?? 0) + 1), a), {});
 console.log(
   `@hyperdag/trustshell@${report.version} — ` +
@@ -225,10 +196,7 @@ const verdictMeta = { version: report.version, installed: report.installed ?? nu
 
 if (problems.length === 0) {
   writeVerdict(true, verdictMeta);
-  console.log(
-    `matches the baseline: ${Object.keys(KNOWN_FAILED).length} known gap(s), ` +
-    `${Object.keys(BY_DESIGN_NOT_CHECKED).length} refused by design, ${Object.keys(KNOWN_NOT_CHECKED).length} surface(s) not built yet.`,
-  );
+  console.log(`matches the baseline: ${Object.keys(KNOWN_FAILED).length} known gap(s), 1 refused by design.`);
   console.log('This is NOT "the MVP works" — it is "nothing changed". The known gaps are still open.');
   process.exit(0);
 }

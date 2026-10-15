@@ -728,27 +728,21 @@ if (chainReachable) {
 
 // --- ON-CHAIN RECEIPTS: what the product says happened, read back from Base Sepolia -----------
 //
-// Added 2026-10-14 (Sean: "more on-chain E2E tests with receipts"). Four legs, all KEYLESS and
+// Added 2026-10-14 (Sean: "more on-chain E2E tests with receipts"). Three legs, all KEYLESS and
 // READ-ONLY: nothing here signs, sends or writes anything, and nothing needs a secret.
 //
 // THE ENGINE IS ONLY A POINTER. Each leg asks a public engine endpoint WHICH transaction, proof or
 // attestation to look at, then establishes every load-bearing fact from the chain through the public
-// RPC: the tx status, the contract it hit, the token that moved and how much, the block time, and
-// whether an attestation exists and is unrevoked. An engine that named a wrong or stale artifact turns
-// a leg FAILED; it can never turn one MEASURED on its word alone.
+// RPC. Two engine URLs repeating one hash are ONE source, not corroboration. An engine that named a
+// wrong or stale artifact turns a leg FAILED; it can never turn one MEASURED on its word alone.
+// The decisions live in onchain-checks.mjs (pinned addresses, topics, schema and attester; never
+// read from the engine), and tests/onchain-checks.test.ts tampers with each one.
 //
-// FRESHNESS IS DATED FROM THE CHAIN, not from the engine's timestamps, and every bound is stated in
-// the failure message so a red night says how stale, not just "stale".
-const USDC_BASE_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-const EAS_BASE_SEPOLIA = '0x4200000000000000000000000000000000000021'; // EAS predeploy on Base (OP stack)
-const ERC20_TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-const HOUR = 3600 * 1000;
-const DEAL_MAX_AGE_H = 30;   // the dogfood deal settles daily around 12:00Z; one missed day goes red
-const WRITE_MAX_AGE_H = 48;  // the ReputationRegistry write rides the daily deal
-const PROOF_MAX_AGE_D = 7;   // the same bound zkrepid.freshness uses
-const SKEW_MAX_MIN = 15;     // the engine's settled_at must agree with the block it names
+// EVERY AGE IS DATED FROM THE CHAIN (a block time or an attestation time). Engine timestamps are only
+// ever COMPARED against the chain (settled_at vs the block; proof created_at vs the attestation), never
+// used as an age. Every bound is stated in the failure message.
+const oc = await import('./onchain-checks.mjs');
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
-const lower = (s) => String(s ?? '').toLowerCase();
 const short = (h) => `${String(h).slice(0, 10)}…`;
 
 const getEngineJson = async (path) => {
@@ -771,10 +765,22 @@ const onchainBlocked = () =>
   !engineReachable ? 'engine unreachable — see engine.reachable'
     : !chainReachable ? 'chain unreachable — see chain.reachable'
       : null;
+/** IdentityRegistry.tokenURI(agentId), read from the CHAIN (selector 0xc87b56dd), or null. */
+const tokenURIOf = async (agentId, AbiCoder) => {
+  const data = `0xc87b56dd${BigInt(agentId).toString(16).padStart(64, '0')}`;
+  const j = await rpc('eth_call', [{ to: oc.IDENTITY_REGISTRY, data }, 'latest']);
+  if (!j.result || j.result === '0x') return null;
+  try { return AbiCoder.defaultAbiCoder().decode(['string'], j.result)[0]; } catch { return null; }
+};
 
 // 1. THE DAILY DOGFOOD DEAL. The newest REAL (non-simulated) settled x402 exchange in the public
-// marketplace feed must be a successful USDC transfer of the agreed amount on Base Sepolia, its
-// public receipt must name the same transaction, and the receipt page must render it.
+// marketplace feed must be exactly one USDC Transfer of the agreed amount on Base Sepolia, its public
+// receipt must name the same transaction, and the receipt page must render it.
+// THE PARTIES ARE NOT BOUND. The public deal record names agents, not wallets (the passport's
+// conservator_address is shared, and /contracts/:id needs a key), so the leg reports the Transfer's
+// from/to as chain facts and says the link to the named buyer and provider is not checked. The check
+// is written (checkDealSettlement `parties`); it runs the day the public receipt names the wallets.
+let deal = null;
 let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its pointer
 {
   const blocked = onchainBlocked();
@@ -783,36 +789,29 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
     try {
       const td = Date.now();
       const feed = await getEngineJson('/api/v1/marketplace/recent-transactions?limit=10');
-      const deal = (feed.transactions ?? []).find((t) => t.is_simulated === false && t.status === 'settled' && TX_HASH.test(t.tx_hash ?? ''));
+      deal = (feed.transactions ?? []).find((t) => t.is_simulated === false && t.status === 'settled' && TX_HASH.test(t.tx_hash ?? '')) ?? null;
       if (!deal) {
         record('onchain.daily_deal', 'FAILED', 'the public feed shows no real (non-simulated) settled exchange with a settlement tx');
       } else {
         const r = await txReceipt(deal.tx_hash);
         const minedAt = await blockTimeMs(r.blockNumber);
-        const transfer = (r.logs ?? []).find((l) => lower(l.address) === lower(USDC_BASE_SEPOLIA) && l.topics?.[0] === ERC20_TRANSFER);
-        const moved = transfer ? BigInt(transfer.data) : null;
         dealReceipt = await getEngineJson(`/api/v1/receipt/${encodeURIComponent(deal.contract_id)}.json`);
         const page = await fetch(`${ENGINE}/api/v1/receipt/${encodeURIComponent(deal.contract_id)}`, { signal: AbortSignal.timeout(25000) });
         const html = page.ok ? await page.text() : '';
         perf.onchain_deal_ms = since(td);
-        const ageH = (Date.now() - minedAt) / HOUR;
-        const skewMin = Math.abs(minedAt - Date.parse(deal.settled_at)) / 60000;
-        const wrong = [];
-        if (r.status !== '0x1') wrong.push(`the settlement tx reverted (status ${r.status})`);
-        if (lower(r.to) !== lower(USDC_BASE_SEPOLIA)) wrong.push(`the settlement tx went to ${r.to}, not Base Sepolia USDC`);
-        if (moved === null) wrong.push('the settlement tx carries no USDC Transfer');
-        else if (moved !== BigInt(deal.amount)) wrong.push(`USDC moved ${moved}, the deal says ${deal.amount}`);
-        if (dealReceipt.settlement_tx !== deal.tx_hash) wrong.push(`the public receipt names settlement ${short(dealReceipt.settlement_tx)}, not ${short(deal.tx_hash)}`);
-        if (dealReceipt.is_simulated !== false) wrong.push('the public receipt marks the exchange simulated');
-        if (!html.includes(deal.tx_hash)) wrong.push(`the receipt page (${page.status}) does not show the settlement tx`);
-        if (!(skewMin <= SKEW_MAX_MIN)) wrong.push(`the engine says settled at ${deal.settled_at} but the tx was mined ${new Date(minedAt).toISOString()} (${skewMin.toFixed(0)} min apart)`);
-        if (!(ageH <= DEAL_MAX_AGE_H)) wrong.push(`the newest real deal was mined ${ageH.toFixed(1)}h ago (bound ${DEAL_MAX_AGE_H}h): the daily dogfood deal did not run`);
-        const evidence = { contract_id: deal.contract_id, tx: deal.tx_hash, mined_at: new Date(minedAt).toISOString(), age_h: Number(ageH.toFixed(1)), amount_raw: String(deal.amount) };
-        if (wrong.length) record('onchain.daily_deal', 'FAILED', wrong.join('; '), evidence);
+        const c = oc.checkDealSettlement({ deal, receipt: r, dealReceipt, html, minedAtMs: minedAt, nowMs: Date.now(), parties: null });
+        const evidence = {
+          contract_id: deal.contract_id, tx: deal.tx_hash, from: c.from, to: c.to, amount_raw: String(deal.amount),
+          mined_at: new Date(minedAt).toISOString(), age_h: Number(c.ageH.toFixed(1)),
+          engine_names: `${deal.buyer_agent_name} paid ${deal.provider_agent_name}`,
+          parties: 'NOT_CHECKED (the public deal record names no payer or payee wallet)',
+        };
+        if (c.wrong.length) record('onchain.daily_deal', 'FAILED', c.wrong.join('; '), evidence);
         else {
           record('onchain.daily_deal', 'MEASURED',
-            `${deal.buyer_agent_name} paid ${deal.provider_agent_name} ${deal.amount} USDC-raw: tx ${short(deal.tx_hash)} status 0x1 ` +
-            `to Base Sepolia USDC, Transfer matches, public receipt and page name it; mined ${ageH.toFixed(1)}h ago`, evidence);
+            `USDC ${deal.amount} (raw) moved from ${c.from} to ${c.to} in tx ${short(deal.tx_hash)} (status 0x1), the tx the engine's ` +
+            `deal record names (feed, receipt and page: one source); mined ${c.ageH.toFixed(1)}h ago. ` +
+            `That these wallets are ${deal.buyer_agent_name} and ${deal.provider_agent_name} is NOT checked: the public record names no wallets`, evidence);
         }
       }
     } catch (e) {
@@ -821,29 +820,41 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
   }
 }
 
-// 2. THE ERC-8004 REPUTATION WRITE. The newest on-chain RepID write the public record names must be a
-// successful transaction TO the ReputationRegistry address the published package exports (not the
-// address the engine reports), with a log the registry emitted, mined within 48h.
+// 2. THE ERC-8004 REPUTATION WRITE. The write the public record names must be a successful tx TO the
+// pinned ReputationRegistry (the published package's export must agree with the pin), carrying exactly
+// one NewFeedback tagged hyperdag_repid, for an ERC-8004 agent whose registration ON CHAIN
+// (IdentityRegistry.tokenURI) names one of the deal's named parties, with the value the engine states,
+// mined within 48h. A different in-window registry tx swapped in fails on agent or value. The engine
+// supplies the pointer, the agent NAMES and the value; the token-to-agent binding is read from chain,
+// never from the engine (XC1 review of #559: a token id taken from the passport was circular).
 //
 // WHY THE ENGINE NAMES THE TX: the public RPC caps eth_getLogs at a 200-block range (measured
 // 2026-10-14: "eth_getLogs is limited to a 200 range"), so finding the newest write by scanning 48h
-// (~86,400 blocks) would take ~430 calls. The pointer is the daily deal's receipt (`onchain_tx`), else
-// the sample agent's passport (`reputation_onchain.last_write`). The chain decides the verdict.
+// (~86,400 blocks) would take ~430 calls. The pointer is the daily deal's receipt (`onchain_tx`, with
+// its `onchain_repid` as the value; the receipt does not say WHICH party, so either named party is
+// accepted), else the sample agent's passport (`reputation_onchain.last_write`, agent = the sample
+// agent, no value stated). The chain decides the verdict.
 {
   const blocked = onchainBlocked();
   if (blocked) record('onchain.erc8004_reputation_write', 'NOT_CHECKED', blocked);
   else {
     try {
       const { REPUTATION_REGISTRY_BASE_SEPOLIA } = await fromColdInstall('@hyperdag/trustshell');
-      if (!/^0x[0-9a-fA-F]{40}$/.test(REPUTATION_REGISTRY_BASE_SEPOLIA ?? '')) {
-        throw new Error('the installed package exports no REPUTATION_REGISTRY_BASE_SEPOLIA');
+      if (String(REPUTATION_REGISTRY_BASE_SEPOLIA ?? '').toLowerCase() !== oc.REPUTATION_REGISTRY.toLowerCase()) {
+        throw new Error(`the installed package's REPUTATION_REGISTRY_BASE_SEPOLIA (${REPUTATION_REGISTRY_BASE_SEPOLIA}) is not the pinned registry ${oc.REPUTATION_REGISTRY}`);
       }
-      let tx = dealReceipt?.onchain_link_is_proven === true && TX_HASH.test(dealReceipt?.onchain_tx ?? '') ? dealReceipt.onchain_tx : null;
-      let source = 'the daily deal receipt';
-      if (!tx) {
+      const { AbiCoder } = await fromColdInstall('ethers');
+      let tx = null, source = null, expectAgents = [], expectValue = null;
+      if (dealReceipt?.onchain_link_is_proven === true && TX_HASH.test(dealReceipt?.onchain_tx ?? '') && deal) {
+        tx = dealReceipt.onchain_tx;
+        source = 'the daily deal receipt';
+        expectAgents = [deal.buyer_agent_name, deal.provider_agent_name];
+        expectValue = Number.isInteger(dealReceipt.onchain_repid) ? dealReceipt.onchain_repid : null;
+      } else {
         const passport = await getEngineJson(`/api/v1/passport/${encodeURIComponent(AGENT)}`);
         tx = TX_HASH.test(passport?.reputation_onchain?.last_write?.tx_hash ?? '') ? passport.reputation_onchain.last_write.tx_hash : null;
         source = `${AGENT}'s passport`;
+        expectAgents = [AGENT];
       }
       if (!tx) {
         record('onchain.erc8004_reputation_write', 'FAILED', 'neither the daily deal receipt nor the passport names an on-chain RepID write');
@@ -851,19 +862,23 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
         const tw = Date.now();
         const r = await txReceipt(tx);
         const minedAt = await blockTimeMs(r.blockNumber);
+        // The registration of every agent a NewFeedback in this tx names, from the IdentityRegistry.
+        const agentIds = [...new Set((r.logs ?? []).filter((l) => l.topics?.[0] === oc.NEW_FEEDBACK && l.topics.length === 4).map((l) => BigInt(l.topics[1]).toString()))];
+        const registrations = Object.fromEntries(await Promise.all(agentIds.map(async (id) => [id, await tokenURIOf(id, AbiCoder)])));
         perf.onchain_write_ms = since(tw);
-        const ageH = (Date.now() - minedAt) / HOUR;
-        const registry = lower(REPUTATION_REGISTRY_BASE_SEPOLIA);
-        const emitted = (r.logs ?? []).filter((l) => lower(l.address) === registry).length;
-        const wrong = [];
-        if (r.status !== '0x1') wrong.push(`the write reverted (status ${r.status})`);
-        if (lower(r.to) !== registry) wrong.push(`the write went to ${r.to}, not the ReputationRegistry ${REPUTATION_REGISTRY_BASE_SEPOLIA}`);
-        if (emitted === 0) wrong.push('the registry emitted no log in that tx');
-        if (!(ageH <= WRITE_MAX_AGE_H)) wrong.push(`the newest write was mined ${ageH.toFixed(1)}h ago (bound ${WRITE_MAX_AGE_H}h)`);
-        const evidence = { tx, source, block: parseInt(r.blockNumber, 16), mined_at: new Date(minedAt).toISOString(), age_h: Number(ageH.toFixed(1)) };
-        if (wrong.length) record('onchain.erc8004_reputation_write', 'FAILED', wrong.join('; '), evidence);
+        const c = oc.checkReputationWrite({
+          receipt: r, minedAtMs: minedAt, nowMs: Date.now(), expectAgents, registrations, expectValue, abi: AbiCoder.defaultAbiCoder(),
+        });
+        const evidence = {
+          tx, source, block: parseInt(r.blockNumber, 16), mined_at: new Date(minedAt).toISOString(), age_h: Number(c.ageH.toFixed(1)),
+          expected_agents: expectAgents, expected_value: expectValue, feedback: c.feedback,
+        };
+        if (c.wrong.length) record('onchain.erc8004_reputation_write', 'FAILED', c.wrong.join('; '), evidence);
         else record('onchain.erc8004_reputation_write', 'MEASURED',
-          `tx ${short(tx)} (from ${source}) status 0x1 to the ReputationRegistry, ${emitted} registry log(s), block ${evidence.block}, mined ${ageH.toFixed(1)}h ago`, evidence);
+          `tx ${short(tx)} (from ${source}) status 0x1 to the pinned ReputationRegistry: one NewFeedback tagged ${oc.REPID_FEEDBACK_TAG} for ERC-8004 ` +
+          `agent ${c.feedback.agentId}, registered on chain as "${c.feedback.registeredAs}" (a name match to ${expectAgents.join(' / ')}), ` +
+          `value ${c.feedback.value}${expectValue === null ? ' (no value stated by the engine to compare)' : ', as the engine states'}, ` +
+          `block ${evidence.block}, mined ${c.ageH.toFixed(1)}h ago`, evidence);
       }
     } catch (e) {
       record('onchain.erc8004_reputation_write', 'FAILED', String(e.message).slice(0, 200));
@@ -872,8 +887,9 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
 }
 
 // 3. THE zkRepID ANCHOR. The sample agent's latest real proof must verify CLIENT-SIDE with the
-// verifier a stranger installs, and the EAS attestation it names must resolve on Base Sepolia,
-// unrevoked, about the same agent and tier, made after the proof existed.
+// verifier a stranger installs, and the EAS attestation it names must resolve on Base Sepolia:
+// unexpired, unrevoked, under the pinned schema, by the pinned attester, about the same agent and
+// tier, attested no earlier than the proof and within 7 days by its block time.
 //
 // WHAT THIS DOES NOT CHECK, stated so the MEASURED cannot be over-read: the attestation is a BATCH
 // anchor (schema repid-real-proof-batch-v1: agentId, tier, merkleRoot, repidSnapshot, proofType,
@@ -896,66 +912,51 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
       const tz = Date.now();
       const v = await verify(pr.proof_bytes, pr.statement);
       perf.onchain_proof_verify_ms = since(tz);
-      const eas = new Interface(['function getAttestation(bytes32 uid) view returns (tuple(bytes32 uid, bytes32 schema, uint64 time, uint64 expirationTime, uint64 revocationTime, bytes32 refUID, address recipient, address attester, bool revocable, bytes data))']);
-      const wrong = [];
-      let att = null, payload = null;
-      if (v?.verified !== true) wrong.push(`the proof did NOT verify client-side: ${v?.error ?? 'no reason given'}`);
-      if (!TX_HASH.test(uid ?? '')) wrong.push('the proof names no EAS attestation uid');
-      else {
-        const call = await rpc('eth_call', [{ to: EAS_BASE_SEPOLIA, data: eas.encodeFunctionData('getAttestation', [uid]) }, 'latest']);
+      let att = null;
+      if (TX_HASH.test(uid ?? '')) {
+        const eas = new Interface(['function getAttestation(bytes32 uid) view returns (tuple(bytes32 uid, bytes32 schema, uint64 time, uint64 expirationTime, uint64 revocationTime, bytes32 refUID, address recipient, address attester, bool revocable, bytes data))']);
+        const call = await rpc('eth_call', [{ to: oc.EAS_BASE_SEPOLIA, data: eas.encodeFunctionData('getAttestation', [uid]) }, 'latest']);
         if (!call.result) throw new Error(`getAttestation failed${call.error ? `: ${call.error.message}` : ''}`);
         [att] = eas.decodeFunctionResult('getAttestation', call.result);
-        if (lower(att.uid) !== lower(uid)) wrong.push(`EAS has no attestation ${short(uid)} on Base Sepolia`);
-        else {
-          if (att.revocationTime !== 0n) wrong.push(`the attestation was REVOKED at ${new Date(Number(att.revocationTime) * 1000).toISOString()}`);
-          if (/^0x0{40}$/i.test(att.attester)) wrong.push('the attestation has no attester');
-          try {
-            payload = AbiCoder.defaultAbiCoder().decode(['string', 'string', 'bytes32', 'uint256', 'string', 'uint64'], att.data);
-          } catch { wrong.push('the attestation data does not decode as repid-real-proof-batch-v1'); }
-          if (payload && payload[0] !== pr.statement?.agent_id) wrong.push(`the attestation is about agent ${payload[0]}, the proof about ${pr.statement?.agent_id}`);
-          if (payload && payload[1] !== pr.statement?.tier) wrong.push(`the attestation says tier ${payload[1]}, the proof ${pr.statement?.tier}`);
-          if (Number(att.time) * 1000 < Date.parse(pr.created_at) - 60000) wrong.push('the attestation predates the proof it is said to anchor');
-        }
       }
-      const ageD = (Date.now() - Date.parse(pr.created_at)) / (24 * HOUR);
-      if (!(ageD <= PROOF_MAX_AGE_D)) wrong.push(`the latest proof is ${ageD.toFixed(1)} days old (bound ${PROOF_MAX_AGE_D})`);
+      const c = oc.checkAnchor({ verified: v, uid, att, statement: pr.statement, proofCreatedAt: pr.created_at, nowMs: Date.now(), abi: AbiCoder.defaultAbiCoder() });
       const evidence = {
-        agent: AGENT, verifier: verifierVersion, uid, created_at: pr.created_at,
+        agent: AGENT, verifier: verifierVersion, uid, proof_created_at: pr.created_at,
         attested_at: att ? new Date(Number(att.time) * 1000).toISOString() : null, attester: att?.attester ?? null,
-        schema_uid: att?.schema ?? null, proof_type: payload?.[4] ?? null, batch_inclusion: 'NOT_CHECKED (no inclusion path served)',
+        schema_uid: att?.schema ?? null, proof_type: c.payload?.[4] ?? null, batch_inclusion: 'NOT_CHECKED (no inclusion path served)',
       };
-      if (wrong.length) record('onchain.zkrepid_eas_anchor', 'FAILED', wrong.join('; '), evidence);
+      if (c.wrong.length) record('onchain.zkrepid_eas_anchor', 'FAILED', c.wrong.join('; '), evidence);
       else record('onchain.zkrepid_eas_anchor', 'MEASURED',
-        `${AGENT}'s latest proof verified client-side by @hyperdag/proof-verifier ${verifierVersion ?? '(version unread)'}; EAS ${short(uid)} resolves on Base Sepolia, ` +
-        `unrevoked, same agent and tier, attested ${evidence.attested_at}; batch inclusion not checked`, evidence);
+        `${AGENT}'s latest proof verified client-side by @hyperdag/proof-verifier ${verifierVersion ?? '(version unread)'}; EAS ${short(uid)} resolves on Base Sepolia: ` +
+        `unexpired, unrevoked, pinned schema and attester, same agent and tier, attested ${evidence.attested_at} (${c.ageD.toFixed(1)}d ago); batch inclusion not checked`, evidence);
     } catch (e) {
       record('onchain.zkrepid_eas_anchor', 'FAILED', String(e.message).slice(0, 200));
     }
   }
 }
 
-// 4. A SEALED KERNEL RECEIPT, PUBLICLY. Verifying a kernel-receipt/1 (its hash and its six-claim
-// envelope) needs a receipt a stranger can fetch without a key. None exists, and this leg MEASURES
-// that rather than assuming it: the only route that serves one, GET /api/v1/kernel/receipt/:id, is
-// mounted after authMiddleware, so a keyless request is refused. (Separately, the engine's gate has
-// no production caller yet, so no sealed receipt would exist to serve: repid-engine #1371.)
-// NOT_CHECKED with the measured reason, never a fabricated pass. Declared in acceptance-baseline.mjs
-// so it cannot hide: the moment it turns MEASURED, the baseline entry goes STALE and the job says so.
+// 4. A KERNEL RECEIPT IS PRIVATE, AND STAYS PRIVATE. A kernel-receipt/1 is NOT a public document by
+// design: GET /api/v1/kernel/receipt/:id sits behind authMiddleware, and a key bound to a different
+// agent gets 403 (repid-engine src/routes/kernel.ts, "A KEY BOUND TO ONE AGENT"). It carries the
+// subject's policy decision, payment and verification legs. The README, the API reference and the MCP
+// tool all say it needs REPID_API_KEY. The public receipt is the settled deal's, at
+// /api/v1/receipt/:id (legs above). So this leg measures the property that matters: a keyless read is
+// REFUSED (401/403) → MEASURED. A keyless 200, or a 404 (the route looked the id up for an
+// unauthenticated caller), is a leak → FAILED. Anything else (a 429 or a 5xx) cannot tell → NOT_CHECKED.
 if (!engineReachable) {
-  record('kernel.receipt_public', 'NOT_CHECKED', 'engine unreachable — see engine.reachable');
+  record('kernel.receipt_private', 'NOT_CHECKED', 'engine unreachable — see engine.reachable');
 } else {
   try {
     const res = await fetch(`${ENGINE}/api/v1/kernel/receipt/00000000-0000-4000-8000-000000000000`, { signal: AbortSignal.timeout(20000) });
     if (res.status === 401 || res.status === 403) {
-      record('kernel.receipt_public', 'NOT_CHECKED',
-        `no keyless surface serves a sealed kernel receipt: GET /api/v1/kernel/receipt/:id answered ${res.status} without a key. ` +
-        'The hash and six-claim check exists (trustshell receipt <id>) but needs REPID_API_KEY');
+      record('kernel.receipt_private', 'MEASURED', `GET /api/v1/kernel/receipt/:id refuses a keyless read (${res.status}): owner-scoped, as designed`);
+    } else if (res.status === 200 || res.status === 404) {
+      record('kernel.receipt_private', 'FAILED', `GET /api/v1/kernel/receipt/:id answered ${res.status} WITHOUT a key: the route read the ledger for an unauthenticated caller`);
     } else {
-      record('kernel.receipt_public', 'NOT_CHECKED',
-        `GET /api/v1/kernel/receipt/:id answered ${res.status} without a key, but there is no public index of receipt ids to fetch one by`);
+      record('kernel.receipt_private', 'NOT_CHECKED', `GET /api/v1/kernel/receipt/:id answered ${res.status} without a key; that is neither a refusal nor a read`);
     }
   } catch (e) {
-    record('kernel.receipt_public', 'NOT_CHECKED', `the kernel receipt route could not be probed: ${String(e.message).slice(0, 120)}`);
+    record('kernel.receipt_private', 'NOT_CHECKED', `the kernel receipt route could not be probed: ${String(e.message).slice(0, 120)}`);
   }
 }
 
