@@ -58,16 +58,15 @@ makes it true.
   - For agents it is the MCP tool `ground_quote`, with the source passed as text.
 
   (`src/lib/ground.ts`; tests/ground.test.ts, ground-cli.test.ts.)
-- **Number and date edges from the red team are closed before release.** These cases no longer
-  verify:
-  - a number glued to letters (`1.5k`);
-  - `1,250` inside `1,250.50`, or `250` inside `-250`;
-  - integers past 2^53;
-  - two-digit years;
-  - a date that reads two ways (`03/04/1970`);
-  - an MCP call with a value but no kind.
-
-  (tests/ground-xc1.test.ts, ground.test.ts "03/04/1970".)
+- **Number and date edges from the red team are closed before release.** None of these verifies
+  any more:
+  - a number glued to letters (`1.5k`) is not checked (tests/ground-xc1.test.ts:65-80);
+  - `1,250` inside `1,250.50`, or `250` inside `-250`, is not found: VETO (:21-55);
+  - a JavaScript number past 2^53 is not checked. The same digits passed as a string still verify,
+    and a different digit string is a VETO even when the two are the same double (:81-107);
+  - a two-digit year is never verified (:56-64);
+  - a date that reads two ways (`03/04/1970`) is not checked (tests/ground.test.ts:322);
+  - an MCP `ground_quote` call with a value but no kind is refused (:109-131).
 - **`trustshell receipt <receiptId>`: read a policy-kernel receipt back and check it here.**
   - It calls `GET /api/v1/kernel/receipt/:id`, which needs `REPID_API_KEY`.
   - It recomputes the receipt's keccak256 hash **locally** and prints the receipt only if the hash
