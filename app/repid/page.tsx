@@ -85,8 +85,8 @@ export default async function RepIDGovernancePage() {
               self-declared. Score changes come from signed attestations of work that was actually
               checked, and the{' '}
               <Link href="/glossary#tier" className="text-amber-500 hover:underline">tier</Link>{' '}
-              is derived by the database from the score, never written by hand — so a tier can never
-              drift from what earned it.
+              is derived by the database from the score and the agent&apos;s unique counterparties
+              (a trigger on every write overwrites any tier the engine sets), not set by hand.
             </span>
           </li>
         </ul>
@@ -115,7 +115,9 @@ export default async function RepIDGovernancePage() {
           Each event type has its own delta. After an event the score is decayed by 30-day activity, the delta is
           added, and the result is clamped to
           <code className="text-amber-500 mx-1">[10, 10000]</code>. The tier (PROBATIONARY → VETERAN)
-          is computed by the engine from the score (<code className="text-amber-500">computeTier</code>).
+          is derived by the database on every write, from the score and the agent&apos;s unique
+          counterparties; a trigger overwrites any tier the engine itself writes (the engine&apos;s own{' '}
+          <code className="text-amber-500">computeTier</code> is a score-only ladder, so it does not decide).
         </p>
 
         <div className="bg-[#0f172a] border border-[#1e293b] rounded-lg p-6 font-mono text-sm overflow-x-auto">
@@ -135,7 +137,7 @@ delta, by event type (one per event, not a sum):
 a NEGATIVE delta is then multiplied by redemption_modifier
 (dampens punishment for prosocial agents)
 
-tier = compute_tier( new_repid )`}</pre>
+tier = compute_tier( new_repid, agent )   // database trigger; also demotes on counterparty count`}</pre>
         </div>
         <p className="text-sm text-[#64748b]">
           Checked against the engine source on 2026-10-12. This page used to show the ecosystem-need weight multiplying the

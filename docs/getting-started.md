@@ -4,7 +4,7 @@ A frictionless first hour: install, run a real claim through HAL, see the verdic
 
 ## 1. What is TrustShell
 
-`@hyperdag/trustshell` is the open-source npm client for the HyperDAG trust layer. You send an AI agent decision (a string + a 0–1 certainty); the **HAL** (Hallucination Auditor Layer) scores it across multiple LLM providers and returns a `PASS` / `FLAG` / `VETO` verdict plus a delta on the agent's portable reputation (**RepID**). RepID is an engine-computed score, signed by a known address and published to a permissionless **ERC-8004** registry on Base Sepolia. Verification is keyless — and because the registry is permissionless, anyone may post their own row, so check the signer. (Not every score change is written on-chain: publishing is periodic and can be paused, so treat the engine score as the source of truth and the registry as a signed, checkable postcard.)
+`@hyperdag/trustshell` is the open-source npm client for the HyperDAG trust layer. You send an AI agent decision (a string + a 0–1 certainty); the **HAL** (Hallucination Auditor Layer) scores it across multiple LLM providers and returns a `PASS` / `FLAG` / `VETO` verdict, a trust score and signals. `verifyOutput` writes no RepID; the agent's portable reputation (**RepID**) is a separate, engine-computed score. RepID is an engine-computed score, signed by a known address and published to a permissionless **ERC-8004** registry on Base Sepolia. Verification is keyless — and because the registry is permissionless, anyone may post their own row, so check the signer. (Not every score change is written on-chain: publishing is periodic and can be paused, so treat the engine score as the source of truth and the registry as a signed, checkable postcard.)
 
 Three primitives: **RepID** (reputation), **HAL** (hallucination defense), **x402** (agent-to-agent payments). All Apache 2.0. The reputation algorithm itself is also open — see [trustshell.dev/repid](https://trustshell.dev/repid). New to the terms? The [glossary](./glossary.md) covers each in plain language.
 
@@ -160,21 +160,21 @@ Not every score change is written on-chain: publishing to the ERC-8004 Reputatio
 
 [`0xb2ab22b536abb7dc08d19a030b6e491face37387834dd361fba0d705accaed09`](https://sepolia.basescan.org/tx/0xb2ab22b536abb7dc08d19a030b6e491face37387834dd361fba0d705accaed09) — trinity-shofet, RepID 3120, ~134,661 gas, ReputationRegistry [`0x8004B663…`](https://sepolia.basescan.org/address/0x8004B663056A597Dffe9eCcC1965A193B7388713).
 
-That is the shape of the loop the design aims at: decision → HAL verdict → RepID delta → on-chain attestation. Publishing is periodic and can be paused, so a given verdict does not always end in a transaction.
+That is the shape of the loop the design aims at (decision → HAL verdict → RepID delta → on-chain attestation), not what `verifyOutput` does: it returns a verdict and writes no RepID. Publishing is periodic and can be paused, so a given score change does not always end in a transaction.
 
 ## 5. Architecture overview
 
-A 30-second mental model:
+A 30-second mental model. The top block is what `verifyOutput` does today; the bottom block is the design target, not something `verifyOutput` does:
 
 ```
 Your agent ── shell.verifyOutput(text) ─────────▶ HAL pipeline (multi-LLM cross-check)
                                                    │
-                                                   ├─▶ veto / pass verdict (returned to you)
-                                                   │
-                                                   ├─▶ RepID update (open formula, see /repid)
-                                                   │
-                                                   └─▶ on-chain attestation on Base Sepolia, periodic
-                                                       and can be paused; ReputationRegistry 0x8004B663…
+                                                   └─▶ verdict, trust score and signals (returned to you)
+                                                       -- today ends here; verifyOutput writes no RepID --
+
+Design target, NOT what verifyOutput does (the engine scores RepID by its own events, see /repid):
+   settled result ─▶ RepID update (open formula) ─▶ on-chain attestation on Base Sepolia,
+                                                     periodic and can be paused; ReputationRegistry 0x8004B663…
 ```
 
 Full diagram + design choices: [`architecture-overview.md`](./architecture-overview.md). The protocol spec + reference contracts live at [`DealAppSeo/hyperdag-protocol`](https://github.com/DealAppSeo/hyperdag-protocol). The score-computation rules are public and community-shapeable at [trustshell.dev/repid](https://trustshell.dev/repid).

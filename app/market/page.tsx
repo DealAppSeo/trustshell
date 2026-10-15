@@ -222,12 +222,12 @@ export default async function TrustMarketPage() {
       {/* LIVE TRANSACTION FEED — placeholder until CC2's public-read endpoint lands */}
       <section className="space-y-4">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 className="text-2xl font-bold text-foreground">Recent settlements</h2>
-          <p className="text-xs text-muted/60">Last 10, sanitized · x402 + ERC-8004</p>
+          <h2 className="text-2xl font-bold text-foreground">Recent settlements (not wired yet)</h2>
+          <p className="text-xs text-muted/60">Nothing is shown here</p>
         </div>
 
         <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-10 text-center space-y-2">
-          <p className="text-sm text-muted">Awaiting marketplace activity.</p>
+          <p className="text-sm text-muted">No settlements are listed: nothing is wired to this list yet.</p>
           <p className="text-xs text-muted/60 max-w-xl mx-auto">
             The public transaction feed wires to the marketplace endpoint when
             its read surface lands.

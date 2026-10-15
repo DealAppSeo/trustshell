@@ -28,6 +28,8 @@ export default function GlossaryPage() {
           <strong className="text-foreground">Shipped</strong> means it runs today.{' '}
           <strong className="text-foreground">Approximate</strong> means it is measured against a
           documented stand-in and says which way it can be wrong.{' '}
+          <strong className="text-foreground">In the engine, not verified here</strong> means it exists
+          in the engine, but this site does not run it and cannot check it from here.{' '}
           <strong className="text-foreground">Not live yet</strong> means it is designed and wired
           as a contract surface but the implementation behind it is a stub. A glossary that reads
           as a feature list is just overclaiming with extra steps.

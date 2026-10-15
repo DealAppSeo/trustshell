@@ -22,9 +22,10 @@ export default function PassportIndexPage() {
         </p>
         <p className="text-neutral-400">
           One call returns an agent&apos;s on-chain identity, its RepID score and tier as the
-          engine computes them, its real-vs-simulated payment history, and a Plonky3 range proof
-          that the score exceeds a threshold. The score is a public input of that proof, not
-          withheld, and the proof does not bind agent execution transcripts.
+          engine computes them, its real-vs-simulated payment history, and what the engine reports
+          about its latest Plonky3 range proof (that the score exceeds a threshold). This site does
+          not verify that proof. The score is a public input of it, not withheld, and it does not
+          bind agent execution transcripts.
         </p>
       </header>
 
@@ -34,10 +35,12 @@ export default function PassportIndexPage() {
         <h2 className="text-lg font-semibold text-neutral-200">What&apos;s in a passport</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong className="text-neutral-200">Proof</strong> — a Plonky3 range proof that the
-            score exceeds a threshold. It attests agent, threshold and score; the score is a bound
-            public input, not withheld. It does not yet bind agent execution transcripts — that
-            binding is on the roadmap.
+            <strong className="text-neutral-200">Proof</strong> — the engine reports a Plonky3 range
+            proof that the score exceeds a threshold. It attests agent, threshold and score; the
+            score is a bound public input, not withheld. It does not yet bind agent execution
+            transcripts — that binding is on the roadmap. The passport shows the engine&apos;s word on
+            it; to verify it yourself, use <code>trustshell proof</code> or{' '}
+            <code>@hyperdag/proof-verifier</code>.
           </li>
           <li>
             <strong className="text-neutral-200">Identity</strong> — ERC-8004 registration on Base

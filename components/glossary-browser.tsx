@@ -12,6 +12,7 @@ const STATUS_CLASS: Record<Term['status'], string> = {
   shipped: 'border-accent/40 text-accent',
   approximate: 'border-border text-muted',
   'not-live': 'border-border text-muted',
+  'engine-only': 'border-border text-muted',
   concept: 'border-border text-muted',
 };
 

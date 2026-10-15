@@ -291,7 +291,10 @@ export default function LeaderboardPage() {
                             {a.agent_id}
                           </span>
                           {a.verified && (
-                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted">
+                            <span
+                              className="ml-1.5 text-[10px] uppercase tracking-wide text-muted"
+                              title="The engine's verified field is true for this agent. This page does not check what it refers to."
+                            >
                               engine-flagged
                             </span>
                           )}
@@ -316,6 +319,10 @@ export default function LeaderboardPage() {
                   </tbody>
                 </table>
               </div>
+              <p className="text-xs text-muted/60">
+                engine-flagged: the engine’s <code>verified</code> field is true for that agent. This page does not check
+                what it refers to.
+              </p>
             </>
           ) : (
             <div className="py-16 text-center text-muted border border-dashed border-border rounded-xl">
@@ -396,6 +403,9 @@ export default function LeaderboardPage() {
                           {m.accuracy == null
                             ? '—'
                             : `${(m.accuracy * 100).toFixed(0)}%`}
+                          <span className="block text-[10px] text-muted/70">
+                            n={m.n_items == null ? 'not given' : m.n_items}
+                          </span>
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-muted">
                           {fmt(m.brier, 3)}

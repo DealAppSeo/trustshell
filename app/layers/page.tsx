@@ -87,7 +87,7 @@ const BEATS: ReadonlyArray<Beat> = [
     layer: 'Check',
     title: 'The stamp runs on the claim',
     body:
-      'Two model families agree, or it is Not checked — and a miss is not a pass. A 2-of-3 is a majority, not a truth: it may set the label and move testnet RepID, but it does not unlock a spend, a post, or a higher cap. The person still breaks the tie on money and health.',
+      'Two model families agree, or it is Not checked — and a miss is not a pass. A 2-of-3 is a majority, not a truth: it may set the label, but it moves no score (a check on this site writes nothing to one) and it does not unlock a spend, a post, or a higher cap. The person still breaks the tie on money and health.',
     note:
       'The router (ANFIS) routes; it does not grade. A local classifier (Laya) will take the first pass once it beats the current scrubber; until then it gates nothing. The stamp is the trust state you see on /check: Checks out, Caught, or Not checked.',
   },

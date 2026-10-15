@@ -46,7 +46,7 @@ function ClaimTag({ tag }: { tag: Tag }) {
   );
 }
 
-type Signal = { name: string; reads: string };
+type Signal = { name: string; reads: string; field: string; source: string };
 
 // Qualitative only — WHAT each signal looks at, never a threshold or a weight. The numbers that
 // turn these into a verdict are engine tuning and stay off a public page.
@@ -54,22 +54,32 @@ const SIGNALS: ReadonlyArray<Signal> = [
   {
     name: 'Evidence grounding',
     reads: 'Is the claim supported by something retrievable, or asserted into the air? A fluent sentence with nothing behind it is the common shape of a fabrication.',
+    field: 'evidenceQuality',
+    source: 'whatever the engine returns; the SDK reads 0 when it is absent',
   },
   {
     name: 'Confidence vs. content',
     reads: 'How sure the wording sounds, set against how much the answer actually commits to. Stated certainty that outruns the evidence is a flag, not a pass.',
+    field: 'certaintyAtClaim',
+    source: 'whatever the engine returns; the SDK reads 0 when it is absent',
   },
   {
     name: 'Scope',
     reads: 'Did the answer stay inside what was asked, or drift into territory it was never given? Drift is where confident, off-topic invention lives.',
+    field: 'scopeAppropriateness',
+    source: 'whatever the engine returns; the SDK reads 0 when it is absent',
   },
   {
     name: 'Model uncertainty',
     reads: 'The genuine spread in the underlying model’s own distribution for this prompt — the difference between "it knows" and "it is guessing smoothly".',
+    field: 'epistemicUncertainty',
+    source: 'the style-only extractor',
   },
   {
     name: 'Harm',
     reads: 'Whether the output carries a safety risk worth stopping before it reaches anything that can act on it.',
+    field: 'harmProbability',
+    source: 'the style-only extractor',
   },
 ];
 
@@ -115,12 +125,13 @@ export default function HowVerificationPage() {
           Why no single model gets to grade its own homework.
         </p>
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-2xl">
-          A check is only worth as much as the independence behind it. TrustShell runs a claim past
-          several <span className="text-foreground">uncorrelated model families</span> and lets a{' '}
-          <span className="text-foreground">golden-ratio supermajority</span> decide — so one
-          provider&apos;s bias, or one provider&apos;s outage, cannot fake a pass. When independence
-          is not there, the honest answer is <span className="text-foreground">Not checked</span>,
-          and that is never a quiet yes.
+          A check is only worth as much as the independence behind it. Today TrustShell runs a claim
+          past <span className="text-foreground">two uncorrelated model families</span> and both must
+          agree for a pass — so one provider&apos;s bias, or one provider&apos;s outage, cannot fake
+          one. A <span className="text-foreground">golden-ratio supermajority</span> across more
+          families is the design target, not what runs (see the Roadmap section below). When
+          independence is not there, the honest answer is{' '}
+          <span className="text-foreground">Not checked</span>, and that is never a quiet yes.
         </p>
       </header>
 
@@ -199,20 +210,25 @@ export default function HowVerificationPage() {
       {/* 4 — what HAL fact-check looks at */}
       <section className="space-y-5">
         <h2 className="text-2xl font-bold text-foreground">
-          What HAL’s signals look at
+          What HAL’s five signals are, and where they come from
         </h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          Inside each family, HAL fact-check reads a claim along a handful of qualitative signals. The
-          check on this site returns a label and the votes; it does not return these signals.
-          These are described here by <em>what they look at</em>, not by the weights or thresholds that
-          turn them into a number — those are engine internals, and a page that printed them would be
-          publishing tuning, not explaining a mechanism.
+          The SDK’s score result carries five signal fields. By the client code, the fact-check quorum
+          returns the providers and families that answered, each with a verdict, while the style-only
+          extractor returns the harm and epistemic fields; a signal the engine does not return reads 0
+          in the SDK. So these are a style analysis, and they are not what decides Checks out or
+          Caught on /check — that is the family vote. The check on this site returns a label and the
+          votes; it does not return these signals. They are described by <em>what they look at</em>,
+          not by the weights or thresholds that turn them into a number — those are engine internals.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           {SIGNALS.map((s) => (
             <div key={s.name} className="rounded-xl border border-border bg-card p-5 space-y-2">
               <p className="font-semibold text-foreground">{s.name}</p>
               <p className="text-sm text-muted leading-relaxed">{s.reads}</p>
+              <p className="text-[11px] text-muted/70 leading-relaxed">
+                SDK field <code>{s.field}</code> · from {s.source}
+              </p>
             </div>
           ))}
         </div>
