@@ -71,7 +71,7 @@ const BEATS: ReadonlyArray<Beat> = [
     layer: 'Sandbox',
     title: 'The specialist runs in a room',
     body:
-      "Its files and network are the ones named on its belt. A tool call to any other host is refused before the model ever sees a result — the wall is upstream of the answer, not a reaction to it.",
+      "Roadmap, not shipped: its files and network are the ones named on its belt. A tool call to any other host is refused before the model ever sees a result — the wall is upstream of the answer, not a reaction to it.",
   },
   {
     n: '2',
@@ -87,7 +87,7 @@ const BEATS: ReadonlyArray<Beat> = [
     layer: 'Check',
     title: 'The stamp runs on the claim',
     body:
-      'Two model families agree, or it is Not checked — and a miss is not a pass. A 2-of-3 is a majority, not a truth: it may set the label and move testnet RepID, but it does not unlock a spend, a post, or a higher cap. The person still breaks the tie on money and health.',
+      'Two model families agree, or it is Not checked — and a miss is not a pass. A 2-of-3 is a majority, not a truth: it may set the label, but it moves no score (a check on this site writes nothing to one) and it does not unlock a spend, a post, or a higher cap. The person still breaks the tie on money and health.',
     note:
       'The router (ANFIS) routes; it does not grade. A local classifier (Laya) will take the first pass once it beats the current scrubber; until then it gates nothing. The stamp is the trust state you see on /check: Checks out, Caught, or Not checked.',
   },
@@ -96,7 +96,7 @@ const BEATS: ReadonlyArray<Beat> = [
     layer: 'Harness',
     title: 'Autonomy is earned inside a ceiling the person already signed',
     body:
-      'Roughly 14 days and 20 actions with no "Caught" can restore a band the owner granted — it cannot raise the cap. A Caught, an off-list payee, or a dispute drops the band and asks the person. A rented agent gets the session, not the key, the memory, or root: the owner revokes, and everything under that session stops.',
+      'Roadmap, not shipped: roughly 14 days and 20 actions with no "Caught" can restore a band the owner granted — it cannot raise the cap. A Caught, an off-list payee, or a dispute drops the band and asks the person. A rented agent gets the session, not the key, the memory, or root: the owner revokes, and everything under that session stops.',
   },
 ];
 

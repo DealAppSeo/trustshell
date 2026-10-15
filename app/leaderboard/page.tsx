@@ -272,7 +272,6 @@ export default function LeaderboardPage() {
                       <th className="px-3 py-2 font-medium">Agent</th>
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium text-right">RepID</th>
-                      <th className="px-3 py-2 font-medium text-right">Accuracy</th>
                       <th className="px-3 py-2 font-medium text-right">Brier</th>
                       <th className="px-3 py-2 font-medium text-right">Rounds</th>
                       <th className="px-3 py-2 font-medium text-right">Errors</th>
@@ -292,8 +291,11 @@ export default function LeaderboardPage() {
                             {a.agent_id}
                           </span>
                           {a.verified && (
-                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-green-500/80">
-                              verified
+                            <span
+                              className="ml-1.5 text-[10px] uppercase tracking-wide text-muted"
+                              title="The engine's verified field is true for this agent. This page does not check what it refers to."
+                            >
+                              engine-flagged
                             </span>
                           )}
                         </td>
@@ -302,11 +304,6 @@ export default function LeaderboardPage() {
                         </td>
                         <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
                           {fmtInt(a.repid_total)}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted">
-                          {a.avg_accuracy == null
-                            ? '—'
-                            : `${(a.avg_accuracy * 100).toFixed(0)}%`}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-muted">
                           {fmt(a.avg_brier, 3)}
@@ -322,6 +319,10 @@ export default function LeaderboardPage() {
                   </tbody>
                 </table>
               </div>
+              <p className="text-xs text-muted/60">
+                engine-flagged: the engine’s <code>verified</code> field is true for that agent. This page does not check
+                what it refers to.
+              </p>
             </>
           ) : (
             <div className="py-16 text-center text-muted border border-dashed border-border rounded-xl">
@@ -369,7 +370,12 @@ export default function LeaderboardPage() {
                       <th className="px-3 py-2 font-medium">#</th>
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium">Class</th>
-                      <th className="px-3 py-2 font-medium text-right">Accuracy</th>
+                      <th className="px-3 py-2 font-medium text-right">
+                        Accuracy
+                        <span className="block text-[10px] font-normal normal-case text-muted/70">
+                          {models.metric}
+                        </span>
+                      </th>
                       <th className="px-3 py-2 font-medium text-right">Brier</th>
                       <th className="px-3 py-2 font-medium text-right">Latency</th>
                       <th className="px-3 py-2 font-medium text-right">$/1M</th>
@@ -397,6 +403,9 @@ export default function LeaderboardPage() {
                           {m.accuracy == null
                             ? '—'
                             : `${(m.accuracy * 100).toFixed(0)}%`}
+                          <span className="block text-[10px] text-muted/70">
+                            n={m.n_items == null ? 'not given' : m.n_items}
+                          </span>
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-muted">
                           {fmt(m.brier, 3)}

@@ -273,8 +273,8 @@ export default async function PassportPage({
         </div>
         <TwoFieldBlock passport={p} onChain={onChain} />
         <p className="text-sm text-neutral-500">
-          Every fact below is a recorded fact — settlement rows, mint transactions, on-chain
-          writes — never an unverified claim. Snapshot as of {fmtDate(p.as_of)}.
+          The engine&apos;s snapshot as of {fmtDate(p.as_of)}. Only the identity row is checked
+          on-chain from here; the rest is the engine&apos;s own record.
         </p>
       </header>
 
@@ -450,14 +450,14 @@ export default async function PassportPage({
         {p.zkp.latest_proof ? (
           <>
             <Row label="Scheme">{p.zkp.latest_proof.scheme ?? '—'}</Row>
-            <Row label="Cryptographically verifiable">
-              {p.zkp.latest_proof.cryptographically_verifiable ? (
-                <span className="text-green-500">yes</span>
-              ) : (
-                <span className="text-neutral-400">no (stub/fallback proof)</span>
-              )}
+            <Row label="Verifiable (reported by the engine)">
+              <span className="text-neutral-300">
+                {p.zkp.latest_proof.cryptographically_verifiable
+                  ? 'yes, the engine says so; this page did not check'
+                  : 'no (the engine marks it a stub/fallback proof)'}
+              </span>
             </Row>
-            <Row label="EAS anchor">{p.zkp.latest_proof.eas_attestation_uid ?? '—'}</Row>
+            <Row label="EAS anchor (uid reported by the engine)">{p.zkp.latest_proof.eas_attestation_uid ?? '—'}</Row>
             <Row label="Generated">{fmtDate(p.zkp.latest_proof.created_at)}</Row>
           </>
         ) : (

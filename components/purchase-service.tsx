@@ -1,5 +1,7 @@
 'use client';
 
+// NOT MOUNTED ANYWHERE. purchaseService POSTs /api/v1/agent/:agentId/trade, a route repid-engine does not have,
+// so /market shows "coming soon" instead of this button. Mount it again only once that route exists.
 import { useEffect, useState } from 'react';
 import { localDb, Agent } from '@/lib/db';
 import { purchaseService, TradeReceipt } from '@/lib/repid-engine';
@@ -100,7 +102,7 @@ export function PurchaseServiceButton({
                   <Row label="Service" value={serviceName} />
                   <Row label="Type" value={serviceType} mono />
                   <Row label="Fee" value={fmtUsdc(feeUsdc)} strong />
-                  <Row label="Settlement" value="x402 · on-chain USDC" />
+                  <Row label="Settlement" value="x402 · not live yet" />
                   <Row label="Min RepID" value={minRepid ? minRepid.toLocaleString() : '—'} />
                 </div>
 

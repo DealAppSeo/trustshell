@@ -26,6 +26,8 @@ export type TermStatus =
   | 'approximate'
   /** Specified and wired as a contract surface; the implementation behind it is a stub. */
   | 'not-live'
+  /** Exists in the engine; this site does not run it and cannot verify it from here. */
+  | 'engine-only'
   /** A concept we use to think and talk, not a component. */
   | 'concept';
 
@@ -358,11 +360,11 @@ export const TERMS: Term[] = [
     term: 'ZKP',
     expansion: 'Zero-Knowledge Proof',
     group: 'privacy',
-    status: 'not-live',
+    status: 'engine-only',
     definition:
       'Proving a statement is true without revealing the data behind it — verification without surveillance.',
     note:
-      'NOT LIVE HERE, and the halves differ. PROVING — producing a proof — is a stub on this site: it generates nothing real, and nothing here is currently protected by one. VERIFYING — checking a proof someone else produced — is shipped and published as `@hyperdag/proof-verifier`. A verifier without a live prover protects nothing yet, so this stays labelled not-live; but the checking half is real code you can read, not a promise.',
+      'In the engine, not verified here, and the halves differ. PROVING is the engine’s job, not this site’s: the engine reports Plonky3 range proofs that a score exceeds a threshold, and each passport repeats the engine’s word on whether a proof is verifiable or a legacy stub. This site verifies nothing. A proof attests the agent, the threshold and the score; the score is a public input, not withheld, and agent execution transcripts are not bound to it. VERIFYING — checking a proof someone else produced — is a separate, shipped piece, published as `@hyperdag/proof-verifier` and used by `trustshell proof`; you can run it yourself.',
     related: ['plonky3', 'selective-disclosure'],
     deeper: { label: 'Privacy terms on HyperDAG', href: `${HYPERDAG_GLOSSARY}#privacy` },
   },
@@ -370,10 +372,10 @@ export const TERMS: Term[] = [
     slug: 'plonky3',
     term: 'Plonky3',
     group: 'privacy',
-    status: 'not-live',
-    definition: 'The STARK proving system the ZKP design targets.',
+    status: 'engine-only',
+    definition: 'The STARK proving system the RepID range proofs use.',
     note:
-      'The PROVER is not running here — see ZKP. The VERIFIER is: `@hyperdag/proof-verifier` v0.2.0 is published on npm under Apache-2.0, a Rust crate compiled to WebAssembly that checks a Plonky3 RepID proof in your own browser or Node process rather than trusting a server that says `verified: true`. It is the strongest single piece of evidence that this is engineering rather than positioning — and it is waiting for the prover, not the other way round.',
+      'This site proves and verifies nothing itself — see ZKP for what the engine reports and what a proof does not bind. The VERIFIER is shipped and separate: `@hyperdag/proof-verifier` v0.2.0 is published on npm under Apache-2.0, a Rust crate compiled to WebAssembly that checks a Plonky3 RepID proof in your own browser or Node process rather than trusting a server that says `verified: true`.',
     related: ['zkp'],
     deeper: {
       label: '@hyperdag/proof-verifier on npm',
@@ -486,5 +488,6 @@ export const STATUS_LABEL: Record<TermStatus, string> = {
   shipped: 'Shipped',
   approximate: 'Approximate',
   'not-live': 'Not live yet',
+  'engine-only': 'In the engine, not verified here',
   concept: 'Concept',
 };

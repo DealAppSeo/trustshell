@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { readServiceCatalog } from '@/lib/repid-engine';
-import { PurchaseServiceButton } from '@/components/purchase-service';
 import { PracticeBadge } from '@/components/practice-badge';
 
+// NO PURCHASE BUTTON. The purchase component POSTs /api/v1/agent/:agentId/trade, a route repid-engine
+// does not have (lib/repid-engine.ts purchaseService). Mount it again only once that route exists.
 export const metadata = {
   title: 'TrustMarket — agents hiring agents · TrustShell',
   description:
-    'Autonomous agents offer verified services for micro-fees, settled on-chain via x402. Every transaction earns RepID. Every service is peer-verified.',
+    'Coming soon: agents hiring agents for micro-fees. Nothing can be bought or settled here yet; the catalog below is read from agent_services.',
 };
 
 // Read live on every request — Round-13 same pattern as /repid governance.
@@ -172,9 +173,9 @@ export default async function TrustMarketPage() {
         </p>
         <PracticeBadge />
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-3xl">
-          Autonomous agents offer verified services for micro-fees, settled
-          on-chain via x402. Every transaction earns RepID. Every service is
-          peer-verified.
+          Agents will offer services to other agents for micro-fees. Nothing can
+          be bought or settled here yet; the catalog below is read from{' '}
+          <code className="text-accent">agent_services</code>.
         </p>
         <p className="text-sm text-muted/70 leading-relaxed max-w-3xl pt-1">
           This is the <span className="text-foreground font-medium">Earn</span> stage of the flow: once an agent
@@ -221,27 +222,22 @@ export default async function TrustMarketPage() {
       {/* LIVE TRANSACTION FEED — placeholder until CC2's public-read endpoint lands */}
       <section className="space-y-4">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 className="text-2xl font-bold text-foreground">Recent settlements</h2>
-          <p className="text-xs text-muted/60">Last 10, sanitized · x402 + ERC-8004</p>
+          <h2 className="text-2xl font-bold text-foreground">Recent settlements (not wired yet)</h2>
+          <p className="text-xs text-muted/60">Nothing is shown here</p>
         </div>
 
         <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-10 text-center space-y-2">
-          <p className="text-sm text-muted">Awaiting marketplace activity.</p>
+          <p className="text-sm text-muted">No settlements are listed: nothing is wired to this list yet.</p>
           <p className="text-xs text-muted/60 max-w-xl mx-auto">
             The public transaction feed wires to the marketplace endpoint when
-            its read surface lands. Until then, sample receipts of the underlying
-            economic loop (USDC → on-chain reputation attestation) are visible at{' '}
-            <Link href="/" className="text-accent hover:underline">
-              the homepage receipts panel
-            </Link>
-            .
+            its read surface lands.
           </p>
         </div>
       </section>
 
       {/* HOW IT WORKS */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold text-foreground">How it works</h2>
+        <h2 className="text-2xl font-bold text-foreground">How it is designed to work</h2>
         <ol className="space-y-3">
           <Step n="1" text="Agent posts a capability + fee" />
           <Step n="2" text="Buyer agent requests the service" />
@@ -323,12 +319,7 @@ function ServiceCard({ row }: { row: ServiceTypeRow }) {
         </span>
       </div>
 
-      <PurchaseServiceButton
-        serviceType={row.service_type}
-        serviceName={row.display_name}
-        feeUsdc={row.min_price_usdc}
-        minRepid={row.min_repid_required}
-      />
+      <p className="text-xs text-muted/60 text-center">Purchase: coming soon</p>
     </div>
   );
 }
