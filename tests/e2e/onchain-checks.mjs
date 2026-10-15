@@ -20,6 +20,15 @@ export const ERC20_TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11
 export const NEW_FEEDBACK = '0x6a4a61743519c9d648a14e6493f47dbe3ff1aa29e7785c96c8326a205e58febc';
 /** The engine's ERC-8004 writer tags every RepID write tag1 = this (live log 2026-10-14). */
 export const REPID_FEEDBACK_TAG = 'hyperdag_repid';
+/**
+ * topics[3] of that NewFeedback: an indexed `string` is logged as keccak256(bytes(value)), so this is
+ * keccak256("hyperdag_repid"). Recomputed and matched to the live log's topics[3] 2026-10-14.
+ */
+export const REPID_FEEDBACK_TAG_TOPIC = '0xba5a93d572a22314cdb64ad7a5378fa53a5713c48d7aa04baa2685327a3cd78c';
+/** The ERC-8004 ReputationRegistry on Base Sepolia (pinned; the package export is cross-checked against it). */
+export const REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
+/** The ERC-8004 IdentityRegistry on Base Sepolia, read for tokenURI(agentId): the on-chain agent binding. */
+export const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 /** EAS schema uid of repid-real-proof-batch-v1 (on-chain, repid-engine reports/2026-07-26 BEAT24/26). */
 export const REPID_BATCH_SCHEMA_UID = '0x4e8445d9663aaaa7f74409c88c1652b2f2a44e2a86dd008d70543b9804c71cd6';
 /** The batch anchor's attester (public; repid-engine scripts/diag/verify-anchor-batch.ts EXPECTED_ATTESTER). */
@@ -46,6 +55,7 @@ export const topicAddress = (t) => `0x${String(t).slice(26)}`.toLowerCase();
  */
 export function checkDealSettlement({ deal, receipt, dealReceipt, html, minedAtMs, nowMs, parties = null }) {
   const wrong = [];
+  if (!receipt) return { wrong: [`the chain has no receipt for the settlement tx ${short(deal?.tx_hash)}`], from: null, to: null, ageH: null };
   if (receipt.status !== '0x1') wrong.push(`the settlement tx reverted (status ${receipt.status})`);
   if (lower(receipt.to) !== lower(USDC_BASE_SEPOLIA)) wrong.push(`the settlement tx went to ${receipt.to}, not Base Sepolia USDC`);
   const transfers = (receipt.logs ?? []).filter((l) =>
@@ -77,37 +87,79 @@ export function checkDealSettlement({ deal, receipt, dealReceipt, html, minedAtM
 }
 
 /**
- * THE ERC-8004 WRITE. The tx must succeed, go TO the registry, and carry a NewFeedback from it whose
- * agentId is one the engine says was written for (`expectAgentIds`: the deal's two parties' ERC-8004
- * token ids, or the sample agent's) and, when the engine states it (`expectValue`, the deal receipt's
- * onchain_repid), whose value equals it at 0 decimals, tagged REPID_FEEDBACK_TAG. Any registry tx in
- * the window, swapped in for this one, fails on agent or value.
+ * The agent an ERC-8004 IdentityRegistry tokenURI names, read from the CHAIN, or null. Two shapes are
+ * live (2026-10-14): an on-chain registration (`data:application/json;base64,…` with "name":"SOPHIA"),
+ * and a URL whose last path segment is the agent (`https://trustrepid.dev/agents/trinity-nexus`).
  */
-export function checkReputationWrite({ receipt, minedAtMs, nowMs, registry, expectAgentIds, expectValue = null, abi }) {
+export function agentNameFromTokenURI(uri) {
+  const s = String(uri ?? '');
+  try {
+    const m = /^data:application\/json(;base64)?,(.*)$/s.exec(s);
+    if (m) {
+      const json = JSON.parse(m[1] ? Buffer.from(m[2], 'base64').toString('utf8') : decodeURIComponent(m[2]));
+      return typeof json?.name === 'string' && json.name.trim() !== '' ? json.name.trim() : null;
+    }
+    if (/^https?:\/\//.test(s)) {
+      const seg = new URL(s).pathname.split('/').filter(Boolean).pop();
+      return seg ? decodeURIComponent(seg) : null;
+    }
+  } catch { /* an unreadable registration names nobody */ }
+  return null;
+}
+
+/**
+ * Does the on-chain registered name denote the agent the deal names? The fleet registers some agents by
+ * their short name (SOPHIA for trinity-sophia), so the comparison is case-insensitive with the fleet's
+ * `trinity-` prefix dropped on both sides. A NAME match, stated as such in the leg's line; it is not a
+ * key binding.
+ */
+export const bindsToAgent = (registeredName, agentName) => {
+  const norm = (n) => lower(n).trim().replace(/^trinity-/, '');
+  return registeredName !== null && norm(registeredName) !== '' && norm(registeredName) === norm(agentName);
+};
+
+/**
+ * THE ERC-8004 WRITE. The tx must succeed, go TO the pinned ReputationRegistry, and carry EXACTLY ONE
+ * NewFeedback from it (one write per tx is what the engine does; two is ambiguous and FAILED), tagged
+ * REPID_FEEDBACK_TAG in both the indexed topic and the data. Its agentId's registration, read from the
+ * IdentityRegistry ON CHAIN (`registrations`: { agentId: tokenURI }), must name one of `expectAgents`
+ * (the deal's two named parties, or the sample agent): the engine supplies the names, the chain the
+ * binding. When the engine states the value (`expectValue`, the deal receipt's onchain_repid) it must
+ * equal the written value at 0 decimals. A null receipt is FAILED here, not left to the caller.
+ */
+export function checkReputationWrite({ receipt, minedAtMs, nowMs, expectAgents, registrations = {}, expectValue = null, abi }) {
+  if (!receipt) return { wrong: ['the chain has no receipt for the reputation write'], feedback: null, ageH: null };
   const wrong = [];
   if (receipt.status !== '0x1') wrong.push(`the write reverted (status ${receipt.status})`);
-  if (lower(receipt.to) !== lower(registry)) wrong.push(`the write went to ${receipt.to}, not the ReputationRegistry ${registry}`);
+  if (lower(receipt.to) !== lower(REPUTATION_REGISTRY)) wrong.push(`the write went to ${receipt.to}, not the ReputationRegistry ${REPUTATION_REGISTRY}`);
   const events = (receipt.logs ?? [])
-    .filter((l) => lower(l.address) === lower(registry) && l.topics?.[0] === NEW_FEEDBACK && l.topics.length === 4)
+    .filter((l) => lower(l.address) === lower(REPUTATION_REGISTRY) && l.topics?.[0] === NEW_FEEDBACK && l.topics.length === 4)
     .map((l) => {
       const [feedbackIndex, value, decimals, tag1] = abi.decode(['uint64', 'int128', 'uint8', 'string', 'string', 'string', 'string', 'bytes32'], l.data);
-      return { agentId: BigInt(l.topics[1]).toString(), client: topicAddress(l.topics[2]), feedbackIndex: feedbackIndex.toString(), value: value.toString(), decimals: Number(decimals), tag1 };
+      return { agentId: BigInt(l.topics[1]).toString(), client: topicAddress(l.topics[2]), tagTopic: lower(l.topics[3]), feedbackIndex: feedbackIndex.toString(), value: value.toString(), decimals: Number(decimals), tag1 };
     });
-  const want = (expectAgentIds ?? []).map(String);
-  const mine = events.filter((e) => want.includes(e.agentId));
+  let feedback = null;
   if (events.length === 0) wrong.push('the registry emitted no NewFeedback in that tx');
-  else if (want.length === 0) wrong.push('the engine names no ERC-8004 agent id to compare the write against');
-  else if (mine.length === 0) wrong.push(`the NewFeedback is for agent ${events.map((e) => e.agentId).join(', ')}, not ${want.join(' or ')}`);
+  else if (events.length > 1) wrong.push(`the registry emitted ${events.length} NewFeedback events in one tx: which one is this deal's write is ambiguous`);
   else {
-    const e = mine[0];
+    const e = events[0];
+    const registeredAs = agentNameFromTokenURI(registrations[e.agentId]);
+    feedback = { ...e, registeredAs };
+    const wanted = (expectAgents ?? []).filter(Boolean);
+    if (wanted.length === 0) wrong.push('the engine names no agent to compare the write against');
+    else if (registeredAs === null) wrong.push(`the IdentityRegistry names no agent for ERC-8004 id ${e.agentId}`);
+    else if (!wanted.some((a) => bindsToAgent(registeredAs, a))) {
+      wrong.push(`the NewFeedback is for ERC-8004 agent ${e.agentId}, registered on chain as "${registeredAs}", not ${wanted.join(' or ')}`);
+    }
     if (expectValue !== null && !(e.decimals === 0 && e.value === String(expectValue))) {
       wrong.push(`the NewFeedback wrote ${e.value} (decimals ${e.decimals}), the engine says ${expectValue}`);
     }
     if (e.tag1 !== REPID_FEEDBACK_TAG) wrong.push(`the NewFeedback is tagged "${e.tag1}", not "${REPID_FEEDBACK_TAG}"`);
+    if (e.tagTopic !== REPID_FEEDBACK_TAG_TOPIC) wrong.push(`the NewFeedback's indexed tag topic ${short(e.tagTopic)} is not keccak256("${REPID_FEEDBACK_TAG}")`);
   }
   const ageH = (nowMs - minedAtMs) / HOUR;
   if (!(ageH <= WRITE_MAX_AGE_H)) wrong.push(`the newest write was mined ${ageH.toFixed(1)}h ago (bound ${WRITE_MAX_AGE_H}h)`);
-  return { wrong, feedback: mine[0] ?? null, ageH };
+  return { wrong, feedback, ageH };
 }
 
 /**

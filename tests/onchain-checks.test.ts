@@ -68,31 +68,79 @@ describe('onchain.daily_deal — checkDealSettlement', () => {
   });
 });
 
+// The engine supplies the agent NAMES; the token-to-agent binding comes from the IdentityRegistry's
+// tokenURI on chain (fx.registrations, read 2026-10-14). XC1 review of #559.
 const WRITE = (tamper: string) => `({ oc, fx, abi, clone }) => {
   const a = { receipt: clone(fx.repTx), minedAtMs: fx.repMinedAtMs, nowMs: fx.repMinedAtMs + 3600e3,
-    registry: '0x8004B663056A597Dffe9eCcC1965A193B7388713', expectAgentIds: Object.values(fx.partyTokenIds),
+    expectAgents: [fx.deal.buyer_agent_name, fx.deal.provider_agent_name], registrations: clone(fx.registrations),
     expectValue: fx.dealReceipt.onchain_repid, abi };
   const ev = a.receipt.logs.find((l) => l.topics[0] === oc.NEW_FEEDBACK);
   ${tamper}
   return oc.checkReputationWrite(a);
 }`;
+const OTHER_ID = `'0x' + (424242).toString(16).padStart(64, '0')`;
 
 describe('onchain.erc8004_reputation_write — checkReputationWrite', () => {
-  it('the real write passes: NewFeedback for a deal party with the value the receipt states', () => {
+  it('the real write passes: one NewFeedback for agent 3747, registered on chain as SOPHIA (= trinity-sophia), with the receipt\'s value', () => {
     const r = run(WRITE(''));
     expect(r.wrong).toEqual([]);
-    expect(r.feedback).toMatchObject({ agentId: '3747', value: '1384', decimals: 0, tag1: 'hyperdag_repid' });
+    expect(r.feedback).toMatchObject({ agentId: '3747', registeredAs: 'SOPHIA', value: '1384', decimals: 0, tag1: 'hyperdag_repid' });
   });
 
   it.each([
-    ['a swapped in-window registry tx for ANOTHER agent', `ev.topics[1] = '0x' + (424242).toString(16).padStart(64, '0');`, /NewFeedback is for agent 424242, not/],
+    ['a swapped in-window registry tx for ANOTHER agent, registered on chain as someone else',
+      `ev.topics[1] = ${OTHER_ID}; a.registrations['424242'] = 'https://trustrepid.dev/agents/someone-else';`, /registered on chain as "someone-else", not trinity-nexus or trinity-sophia/],
+    ['an agent id the IdentityRegistry names nobody for', `ev.topics[1] = ${OTHER_ID};`, /IdentityRegistry names no agent for ERC-8004 id 424242/],
+    ['the engine naming parties the chain registration does not', `a.expectAgents = ['trinity-orch', 'trinity-mel'];`, /registered on chain as "SOPHIA", not trinity-orch or trinity-mel/],
     ['the same agent written a different value', `a.expectValue = fx.dealReceipt.onchain_repid + 1;`, /wrote 1384 .*, the engine says 1385/],
+    ['a tx to another contract (registry pinned, not a parameter)', `a.receipt.to = '${OTHER}';`, /went to 0x1111.*, not the ReputationRegistry 0x8004B663/],
+    ['a NewFeedback emitted by another contract', `ev.address = '${OTHER}';`, /no NewFeedback/],
     ['a registry log that is not NewFeedback', `ev.topics[0] = '0x' + 'ab'.repeat(32);`, /no NewFeedback/],
-    ['a NewFeedback not tagged by the RepID writer', `ev.data = abi.encode(['uint64','int128','uint8','string','string','string','string','bytes32'], [5, 1384, 0, 'someone_else', '', '', '', '0x' + '00'.repeat(32)]);`, /tagged "someone_else"/],
+    ['a NewFeedback not tagged by the RepID writer (data)', `ev.data = abi.encode(['uint64','int128','uint8','string','string','string','string','bytes32'], [5, 1384, 0, 'someone_else', '', '', '', '0x' + '00'.repeat(32)]);`, /tagged "someone_else"/],
+    ['a NewFeedback whose INDEXED tag topic is not keccak256("hyperdag_repid")', `ev.topics[3] = '0x' + 'cd'.repeat(32);`, /indexed tag topic .* is not keccak256\("hyperdag_repid"\)/],
+    ['two NewFeedback events in one tx (exactly one may exist)', `a.receipt.logs.push(clone(ev));`, /2 NewFeedback events in one tx: .* ambiguous/],
     ['a write older than the window', `a.nowMs = fx.repMinedAtMs + 49 * 3600e3;`, /bound 48h/],
   ])('FAILED: %s', (_why, tamper, problem) => {
     const r = run(WRITE(tamper));
     expect(r.wrong.join(' | ')).toMatch(problem);
+  });
+
+  it('the pinned tag topic IS keccak256("hyperdag_repid") (recomputed, and equal to the real log)', () => {
+    const r = run(`({ oc, fx }) => {
+      const { keccak256, toUtf8Bytes } = require('ethers');
+      const ev = fx.repTx.logs.find((l) => l.topics[0] === oc.NEW_FEEDBACK);
+      return { computed: keccak256(toUtf8Bytes(oc.REPID_FEEDBACK_TAG)), pinned: oc.REPID_FEEDBACK_TAG_TOPIC, logged: ev.topics[3] };
+    }`);
+    expect(r.computed).toBe(r.pinned);
+    expect(r.logged).toBe(r.pinned);
+  });
+});
+
+describe('the on-chain agent binding — agentNameFromTokenURI / bindsToAgent', () => {
+  it('reads the name from both live tokenURI shapes, and nothing from junk', () => {
+    expect(run(`({ oc, fx }) => [oc.agentNameFromTokenURI(fx.registrations['3747']), oc.agentNameFromTokenURI(fx.registrations['6711'])]`)).toEqual(['SOPHIA', 'trinity-nexus']);
+    for (const junk of ['', 'not a uri', 'data:application/json;base64,!!!', 'data:application/json,{"name":""}', 'ipfs://Qm']) {
+      expect(run(`({ oc }) => oc.agentNameFromTokenURI(${JSON.stringify(junk)})`)).toBeNull();
+    }
+  });
+
+  it('matches case-insensitively with the fleet\'s trinity- prefix dropped, and nothing looser', () => {
+    expect(run(`({ oc }) => [
+      oc.bindsToAgent('SOPHIA', 'trinity-sophia'), oc.bindsToAgent('trinity-nexus', 'trinity-nexus'),
+      oc.bindsToAgent('SOPHIA', 'trinity-nexus'), oc.bindsToAgent('SOPHIA-2', 'trinity-sophia'),
+      oc.bindsToAgent(null, 'trinity-sophia'), oc.bindsToAgent('trinity-', 'trinity-'),
+    ]`)).toEqual([true, true, false, false, false, false]);
+  });
+});
+
+describe('a null chain receipt is FAILED by the check itself, never a throw left to the caller', () => {
+  it('checkDealSettlement', () => {
+    const r = run(`({ oc, fx }) => oc.checkDealSettlement({ deal: fx.deal, receipt: null, dealReceipt: fx.dealReceipt, html: '', minedAtMs: 0, nowMs: 0 })`);
+    expect(r.wrong).toEqual([expect.stringMatching(/chain has no receipt for the settlement tx/)]);
+  });
+  it('checkReputationWrite', () => {
+    const r = run(`({ oc, abi }) => oc.checkReputationWrite({ receipt: null, minedAtMs: 0, nowMs: 0, expectAgents: ['trinity-sophia'], abi })`);
+    expect(r.wrong).toEqual(['the chain has no receipt for the reputation write']);
   });
 });
 

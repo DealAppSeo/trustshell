@@ -713,11 +713,12 @@ const onchainBlocked = () =>
   !engineReachable ? 'engine unreachable — see engine.reachable'
     : !chainReachable ? 'chain unreachable — see chain.reachable'
       : null;
-/** The agent's ERC-8004 token id as its public passport states it, or null. */
-const tokenIdOf = async (agent) => {
-  const p = await getEngineJson(`/api/v1/passport/${encodeURIComponent(agent)}`);
-  const id = p?.identity_erc8004?.token_id;
-  return /^[0-9]+$/.test(String(id ?? '')) ? String(id) : null;
+/** IdentityRegistry.tokenURI(agentId), read from the CHAIN (selector 0xc87b56dd), or null. */
+const tokenURIOf = async (agentId, AbiCoder) => {
+  const data = `0xc87b56dd${BigInt(agentId).toString(16).padStart(64, '0')}`;
+  const j = await rpc('eth_call', [{ to: oc.IDENTITY_REGISTRY, data }, 'latest']);
+  if (!j.result || j.result === '0x') return null;
+  try { return AbiCoder.defaultAbiCoder().decode(['string'], j.result)[0]; } catch { return null; }
 };
 
 // 1. THE DAILY DOGFOOD DEAL. The newest REAL (non-simulated) settled x402 exchange in the public
@@ -768,15 +769,18 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
 }
 
 // 2. THE ERC-8004 REPUTATION WRITE. The write the public record names must be a successful tx TO the
-// ReputationRegistry the published package exports (not the address the engine reports), carrying a
-// NewFeedback for an agent the engine says was written for, with the value the engine states, mined
-// within 48h. A different in-window registry tx swapped in fails on agent or value.
+// pinned ReputationRegistry (the published package's export must agree with the pin), carrying exactly
+// one NewFeedback tagged hyperdag_repid, for an ERC-8004 agent whose registration ON CHAIN
+// (IdentityRegistry.tokenURI) names one of the deal's named parties, with the value the engine states,
+// mined within 48h. A different in-window registry tx swapped in fails on agent or value. The engine
+// supplies the pointer, the agent NAMES and the value; the token-to-agent binding is read from chain,
+// never from the engine (XC1 review of #559: a token id taken from the passport was circular).
 //
 // WHY THE ENGINE NAMES THE TX: the public RPC caps eth_getLogs at a 200-block range (measured
 // 2026-10-14: "eth_getLogs is limited to a 200 range"), so finding the newest write by scanning 48h
 // (~86,400 blocks) would take ~430 calls. The pointer is the daily deal's receipt (`onchain_tx`, with
-// its `onchain_repid` as the value; the receipt does not say WHICH party, so either party's token id
-// is accepted), else the sample agent's passport (`reputation_onchain.last_write`, agent = the sample
+// its `onchain_repid` as the value; the receipt does not say WHICH party, so either named party is
+// accepted), else the sample agent's passport (`reputation_onchain.last_write`, agent = the sample
 // agent, no value stated). The chain decides the verdict.
 {
   const blocked = onchainBlocked();
@@ -784,21 +788,21 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
   else {
     try {
       const { REPUTATION_REGISTRY_BASE_SEPOLIA } = await fromColdInstall('@hyperdag/trustshell');
-      if (!/^0x[0-9a-fA-F]{40}$/.test(REPUTATION_REGISTRY_BASE_SEPOLIA ?? '')) {
-        throw new Error('the installed package exports no REPUTATION_REGISTRY_BASE_SEPOLIA');
+      if (String(REPUTATION_REGISTRY_BASE_SEPOLIA ?? '').toLowerCase() !== oc.REPUTATION_REGISTRY.toLowerCase()) {
+        throw new Error(`the installed package's REPUTATION_REGISTRY_BASE_SEPOLIA (${REPUTATION_REGISTRY_BASE_SEPOLIA}) is not the pinned registry ${oc.REPUTATION_REGISTRY}`);
       }
       const { AbiCoder } = await fromColdInstall('ethers');
-      let tx = null, source = null, expectAgentIds = [], expectValue = null;
+      let tx = null, source = null, expectAgents = [], expectValue = null;
       if (dealReceipt?.onchain_link_is_proven === true && TX_HASH.test(dealReceipt?.onchain_tx ?? '') && deal) {
         tx = dealReceipt.onchain_tx;
         source = 'the daily deal receipt';
-        expectAgentIds = (await Promise.all([deal.buyer_agent_name, deal.provider_agent_name].map(tokenIdOf))).filter(Boolean);
+        expectAgents = [deal.buyer_agent_name, deal.provider_agent_name];
         expectValue = Number.isInteger(dealReceipt.onchain_repid) ? dealReceipt.onchain_repid : null;
       } else {
         const passport = await getEngineJson(`/api/v1/passport/${encodeURIComponent(AGENT)}`);
         tx = TX_HASH.test(passport?.reputation_onchain?.last_write?.tx_hash ?? '') ? passport.reputation_onchain.last_write.tx_hash : null;
         source = `${AGENT}'s passport`;
-        expectAgentIds = [await tokenIdOf(AGENT)].filter(Boolean);
+        expectAgents = [AGENT];
       }
       if (!tx) {
         record('onchain.erc8004_reputation_write', 'FAILED', 'neither the daily deal receipt nor the passport names an on-chain RepID write');
@@ -806,18 +810,21 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
         const tw = Date.now();
         const r = await txReceipt(tx);
         const minedAt = await blockTimeMs(r.blockNumber);
+        // The registration of every agent a NewFeedback in this tx names, from the IdentityRegistry.
+        const agentIds = [...new Set((r.logs ?? []).filter((l) => l.topics?.[0] === oc.NEW_FEEDBACK && l.topics.length === 4).map((l) => BigInt(l.topics[1]).toString()))];
+        const registrations = Object.fromEntries(await Promise.all(agentIds.map(async (id) => [id, await tokenURIOf(id, AbiCoder)])));
         perf.onchain_write_ms = since(tw);
         const c = oc.checkReputationWrite({
-          receipt: r, minedAtMs: minedAt, nowMs: Date.now(), registry: REPUTATION_REGISTRY_BASE_SEPOLIA,
-          expectAgentIds, expectValue, abi: AbiCoder.defaultAbiCoder(),
+          receipt: r, minedAtMs: minedAt, nowMs: Date.now(), expectAgents, registrations, expectValue, abi: AbiCoder.defaultAbiCoder(),
         });
         const evidence = {
           tx, source, block: parseInt(r.blockNumber, 16), mined_at: new Date(minedAt).toISOString(), age_h: Number(c.ageH.toFixed(1)),
-          expected_agent_ids: expectAgentIds, expected_value: expectValue, feedback: c.feedback,
+          expected_agents: expectAgents, expected_value: expectValue, feedback: c.feedback,
         };
         if (c.wrong.length) record('onchain.erc8004_reputation_write', 'FAILED', c.wrong.join('; '), evidence);
         else record('onchain.erc8004_reputation_write', 'MEASURED',
-          `tx ${short(tx)} (from ${source}) status 0x1 to the ReputationRegistry: NewFeedback for ERC-8004 agent ${c.feedback.agentId} ` +
+          `tx ${short(tx)} (from ${source}) status 0x1 to the pinned ReputationRegistry: one NewFeedback tagged ${oc.REPID_FEEDBACK_TAG} for ERC-8004 ` +
+          `agent ${c.feedback.agentId}, registered on chain as "${c.feedback.registeredAs}" (a name match to ${expectAgents.join(' / ')}), ` +
           `value ${c.feedback.value}${expectValue === null ? ' (no value stated by the engine to compare)' : ', as the engine states'}, ` +
           `block ${evidence.block}, mined ${c.ageH.toFixed(1)}h ago`, evidence);
       }
