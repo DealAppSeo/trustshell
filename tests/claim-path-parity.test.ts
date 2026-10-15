@@ -4,7 +4,7 @@
  * through extension/laya.js and extension/classify.js. Both sides must accept the same answers and
  * say the same words, and both must say NOTHING when the endpoint did not say (an older backend).
  */
-import { classifyClaim, pathLine, pathOf, SCRUBBED_LINE, type ClaimLabel } from '../src/lib/claim';
+import { classifyClaim, explainClaim, pathLine, pathOf, SCRUBBED_LINE, type ClaimLabel } from '../src/lib/claim';
 
 const laya = require('../extension/laya.js') as {
   pathOf: (body: unknown, label: string) => { by?: string; voters?: string[] };
@@ -162,7 +162,8 @@ describe('end to end through each door, with the endpoint stubbed', () => {
     });
     expect(row.label).toBe('not-checked');
     expect(row).not.toHaveProperty('by');
-    expect(classify.lineFor(row)).toBe('');
+    // It says why, in the CLI's words: the label was outside the contract.
+    expect(classify.lineFor(row)).toBe('Not checked: endpoint label is outside the contract (pass | veto | not-checked). This is not a pass.');
   });
 
   it('grok carries the path to its stamp line (it rebuilds the row, as content.js does)', async () => {
@@ -209,6 +210,12 @@ describe('an answer that names a path it does not have is not checked, at every 
     { label: 'pass', by: 'votes' },
     { label: 'pass', by: 'not-a-path' },
     { label: 'not-checked', by: 'arithmetic-approx' },
+    // A label that is not EXACTLY one of the three (XC1 on #554). The extension used to trim and
+    // lowercase, so "Pass" was a pass there and not-checked in the CLI. Both doors are now strict.
+    { label: 'Pass' },
+    { label: ' pass' },
+    { label: 'VETO', by: 'votes', voters: ['groq', 'cerebras'] },
+    { label: 'pass ', by: 'arithmetic' },
     { label: 'veto', by: 'skipped' },
     { label: 'veto', by: 'votes', voters: [] },
     { label: 'pass', by: null },
@@ -227,9 +234,9 @@ describe('an answer that names a path it does not have is not checked, at every 
       });
       expect(row.label).toBe('not-checked');
       expect(row).not.toHaveProperty('by');
-      // Was '' (XC1 on #554: an empty line said nothing about an answer that was refused). The CLI
-      // gives its reason, "out of contract"; the stamp now says the same.
-      expect(classify.lineFor(row)).toBe((classify as unknown as { OUT_OF_CONTRACT_LINE: string }).OUT_OF_CONTRACT_LINE);
+      // The line under the stamp is word for word what the CLI prints for the same answer.
+      expect(classify.lineFor(row)).toBe(explainClaim(r));
+      expect(classify.lineFor(row)).toMatch(/out(side)? (of )?the contract|out of contract/);
     });
   }
 

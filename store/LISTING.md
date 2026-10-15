@@ -36,7 +36,7 @@ Changing it means changing `extension/manifest.json` and uploading again.
 
 ## Summary
 
-Stamps a reply Checks out, Caught, or Not checked. The reply text is sent to our checkers, Groq and Cerebras, or a listed backup.
+Stamps a reply Checks out, Caught, or Not checked. Text goes to our engine: Groq and Cerebras check it, unless it is one equation.
 
 ## Description
 
@@ -48,9 +48,9 @@ The stamp says Checks out, Caught, or Not checked. One line under it says what d
 
 On chatgpt.com, chat.openai.com, claude.ai, gemini.google.com, deepseek.com and chat.deepseek.com, Caught also adds a toast: Caught. This reply did not pass. On grok.com, Caught shows on the stamp only, with no toast. Checks out does not add a toast. Not checked does not add a toast.
 
-The reply text is sent to our checkers, Groq and Cerebras, after the reply is on screen. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste secrets. Known key and personal-data formats are removed before sending. When something was removed, the line under the stamp says so.
+The reply text is sent to our engine after the reply is on screen. A reply that is one whole equation is computed there, with no model asked. Any other text is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste secrets. Known key and personal-data formats are removed before sending. When something was removed, the line under the stamp says so.
 
-On any other page, select text and choose Check with TrustShell. That selection is sent to the same checkers, and only after that click. The label appears in a small toast.
+On any other page, select text and choose Check with TrustShell. That selection is sent to the same engine, the same way, and only after that click. The label appears in a small toast.
 
 On the Options page, choose which chat sites it checks, and whether it checks each reply automatically or only when you click Check this reply. It keeps a record of your last 20 stamps in this browser, the stamp, the site and the time, never the text, which you can download or clear.
 

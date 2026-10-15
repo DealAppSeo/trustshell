@@ -47,7 +47,8 @@ describe('store package', () => {
     expect(summary).toContain('Caught');
     expect(summary).toContain('Not checked');
     expect(summary).not.toContain('pass, veto, or not-checked');
-    expect(summary).toContain(SENT);
+    // Not every text reaches a model: a whole equation is computed by the engine (XC1 on #554).
+    expect(summary).toContain('Text goes to our engine: Groq and Cerebras check it, unless it is one equation.');
     expect(description).toContain('Do not paste secrets');
     expect(description).toContain('after the reply is on screen');
     expect(description).toContain('Known key and personal-data formats are removed before sending.');
@@ -61,7 +62,9 @@ describe('store package', () => {
     expect(listing).not.toMatch(/\bJev\b/);
     expect(listing).not.toMatch(/receipt/i);
     expect(listing).not.toMatch(/\d+\s*%/);
-    expect(privacy).toContain(SENT);
+    expect(privacy).toContain('The reply text is sent to our engine. A reply that is one whole equation is computed there, with no model asked. Any other text is sent to our checkers, Groq and Cerebras.');
+    expect(description).toContain('The reply text is sent to our engine after the reply is on screen. A reply that is one whole equation is computed there, with no model asked. Any other text is sent to our checkers, Groq and Cerebras.');
+    expect(listing).not.toContain('That selection is sent to the same checkers');
     expect(privacy).toContain('It is not stored. Not printed is not the same as not sent.');
     expect(privacy.toLowerCase()).not.toContain('stake');
     expect(privacy).not.toMatch(/launched/i);

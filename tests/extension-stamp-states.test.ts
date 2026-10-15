@@ -338,7 +338,12 @@ describe('grok.com stamp', () => {
     ['pass', CHECKS_OUT, { fetchImpl: said('pass') }],
     ['veto', CAUGHT, { fetchImpl: said('veto') }],
     ['not-checked', NOT_CHECKED, { fetchImpl: said('not-checked') }],
-    ['an unknown label', NOT_CHECKED, { fetchImpl: said('probably') }],
+    // An off-contract label also says why, word for word the CLI's reason (XC1 on #554).
+    [
+      'an unknown label',
+      NOT_CHECKED + '\nNot checked: endpoint label is outside the contract (pass | veto | not-checked). This is not a pass.',
+      { fetchImpl: said('probably') },
+    ],
     ['a non-200', NOT_CHECKED, { fetchImpl: answer(503, '{"label":"pass"}') }],
     ['a network error', NOT_CHECKED, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } }],
     ['a timeout', NOT_CHECKED, { fetchImpl: hang, timeoutMs: 20 }],
