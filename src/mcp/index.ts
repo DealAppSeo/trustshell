@@ -189,6 +189,7 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         halScore: r.halScore,
         decisionReason: r.decisionReason,
         evidence: r.evidence,
+        seenBy: r.seenBy,
       });
     } catch (e: any) {
       return errorResult(`verify failed: ${e?.message ?? String(e)}`);

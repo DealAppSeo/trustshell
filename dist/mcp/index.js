@@ -178,6 +178,7 @@ function createServer(client = makeClient()) {
                 halScore: r.halScore,
                 decisionReason: r.decisionReason,
                 evidence: r.evidence,
+                seenBy: r.seenBy,
             });
         }
         catch (e) {

@@ -8,6 +8,7 @@ import { redact } from '../memory/redact';
 import { layaHook } from '../laya/hook';
 import { classify, type LayaLane } from './classify';
 import { apiBaseOrNull } from '../lib/api-url';
+import { localOnly } from '../lib/local-only';
 
 const CLASSIFY_TIMEOUT_MS = 200;
 
@@ -37,7 +38,8 @@ async function engineLane(
   env: NodeJS.ProcessEnv,
   fetchImpl: typeof fetch,
 ): Promise<LayaLane> {
-  if (env.OFFLINE === '1') return 'escalate';
+  // SEC F2: local-only does not post the claim here either.
+  if (env.OFFLINE === '1' || localOnly(undefined, env)) return 'escalate';
   const origin = engineOrigin(env);
   if (!origin) return 'escalate';
   const ac = new AbortController();

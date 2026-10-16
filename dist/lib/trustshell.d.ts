@@ -4,6 +4,7 @@
  *
  * From S-SDK1 spec + S-BUILD implementation.
  */
+import { type SeenBy } from './local-only';
 import type { AgentTurnOrigin } from './origin';
 import { type AgentIdentity } from './identity';
 import type { Grounding } from './honest-contract';
@@ -28,6 +29,11 @@ export interface TrustShellConfig {
      * Unset → `getAllowance` stays fail-closed (`no_allowance_set`).
      */
     readAllowance?: ReadAllowance;
+    /**
+     * SEC F2: refuse every send of your text (HAL verify/evaluate) with NOT_CHECKED, before any fetch.
+     * TRUSTSHELL_LOCAL_ONLY=1 does the same. Off by default. See src/lib/local-only.ts.
+     */
+    localOnly?: boolean;
 }
 /**
  * HAL's answer as the SDK reports it. NOT_CHECKED is its own state: HAL abstained, returned no
@@ -89,6 +95,8 @@ export interface ScoreResult {
     decisionReason: string;
     /** Per-provider evidence — "provider:VERDICT (note)" — the WHY behind the verdict. */
     evidence: string[];
+    /** SEC F2: which outside providers saw the text ([] = none were sent it; 'unknown' = the engine did not say). */
+    seenBy?: SeenBy;
     belief?: number;
     ignoranceMass?: number;
     confidence?: number;
@@ -130,6 +138,12 @@ export interface VerifyOutputResult {
     decisionReason: string;
     /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
     evidence: string[];
+    /**
+     * SEC F2: which outside providers saw the text: the engine's provider_responses (errored ones
+     * included; they received it), [] when nothing was sent (local-only), 'unknown' when the engine's
+     * answer does not say. Never guessed.
+     */
+    seenBy?: SeenBy;
     /** How this verdict is grounded: 'hal' when a real provider quorum spoke, 'none' when HAL could not check. */
     grounding: Grounding;
     /** The REAL provider quorum behind the verdict — a MEASURED count (evidence length), never a constant. */

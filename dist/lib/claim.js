@@ -37,6 +37,7 @@ exports.isUrlOperand = isUrlOperand;
  */
 const redact_1 = require("../memory/redact");
 const api_url_1 = require("./api-url");
+const local_only_1 = require("./local-only");
 exports.CLAIM_LABELS = ['pass', 'veto', 'not-checked'];
 /** The SDK's default backend origin (`TrustShell` constructor). Kept identical on purpose. */
 exports.DEFAULT_API_URL = 'https://repid-engine-production.up.railway.app';
@@ -296,6 +297,9 @@ async function classifyClaim(text, opts = {}) {
     const env = opts.env ?? (typeof process !== 'undefined' ? process.env : {});
     if (env.OFFLINE === '1')
         return mark({ label: 'not-checked', latency_ms: 0, reason: exports.OFFLINE_REASON });
+    // SEC F2: local-only sends nothing (CLI check, MCP check_claim and quarantine release all come here).
+    if ((0, local_only_1.localOnly)(opts.localOnly, opts.env))
+        return mark({ label: 'not-checked', latency_ms: 0, reason: local_only_1.LOCAL_ONLY_REASON });
     const url = resolveClassifyUrl(opts.apiUrl, opts.env);
     const fetchImpl = opts.fetchImpl ?? (typeof fetch === 'function' ? fetch : undefined);
     const now = opts.now ?? Date.now;
