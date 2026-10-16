@@ -38,43 +38,13 @@ export default function DocsIndex() {
             className="block rounded-lg border border-border bg-card hover:border-amber-500/40 transition-colors px-5 py-4"
           >
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">Getting started</span>
+              <span className="font-semibold text-foreground">Install in 60 seconds</span>
               <span className="text-accent">→</span>
             </div>
             <p className="text-sm text-muted mt-1">
-              60-second path from <code className="text-amber-500">npm install</code> to a keyless score
-              read (score and tier). Not an on-chain attestation; a keyless install mints nothing.
-              Prerequisites, configuration reference, error handling, where to get help.
-            </p>
-          </Link>
-        </li>
-
-        <li>
-          <Link
-            href="/model-card"
-            className="block rounded-lg border border-border bg-card hover:border-amber-500/40 transition-colors px-5 py-4"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">Model card</span>
-              <span className="text-accent">→</span>
-            </div>
-            <p className="text-sm text-muted mt-1">
-              Honesty A is FIXTURE. Help B is no ratings. The two stay separate.
-            </p>
-          </Link>
-        </li>
-
-        <li>
-          <Link
-            href="/hal-receipt"
-            className="block rounded-lg border border-border bg-card hover:border-amber-500/40 transition-colors px-5 py-4"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">Last measured week</span>
-              <span className="text-accent">→</span>
-            </div>
-            <p className="text-sm text-muted mt-1">
-              FIXTURE, not live. Counts per model family. NOT_CHECKED is its own column.
+              From <code className="text-amber-500">npm install</code> to a keyless score read (score and
+              tier). Not an on-chain attestation; a keyless install mints nothing. Prerequisites,
+              configuration, error handling, where to get help.
             </p>
           </Link>
         </li>
@@ -89,14 +59,50 @@ export default function DocsIndex() {
               <span className="text-accent">→</span>
             </div>
             <p className="text-sm text-muted mt-1">
-              Every SDK method, every CLI command, and the 8 public REST endpoints with example curls (the
-              status body is a 2026-05-27 snapshot, not live). Includes <code className="text-amber-500">/api/v1/status</code>,{" "}
+              Every SDK method, every CLI command, and the 8 public REST endpoints with example curls. One
+              example response is an old snapshot and says so. Includes <code className="text-amber-500">/api/v1/status</code>,{" "}
               <code className="text-amber-500">/hal/stats</code>, <code className="text-amber-500">/llm-trust</code>,{" "}
               <code className="text-amber-500">/repid/:id</code>, and more.
             </p>
           </Link>
         </li>
       </ul>
+
+      <section className="space-y-4">
+        <h2 className="text-sm uppercase tracking-widest text-muted font-semibold">How we measure</h2>
+        <ul className="space-y-4">
+          <li>
+            <Link
+              href="/model-card"
+              className="block rounded-lg border border-border bg-card hover:border-amber-500/40 transition-colors px-5 py-4"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground">Model card</span>
+                <span className="text-accent">→</span>
+              </div>
+              <p className="text-sm text-muted mt-1">
+                Two separate measures per model family: Honesty A (true, false, not checked) and Help B
+                (ratings). Labelled FIXTURE when the numbers are example data.
+              </p>
+            </Link>
+          </li>
+
+          <li>
+            <Link
+              href="/hal-receipt"
+              className="block rounded-lg border border-border bg-card hover:border-amber-500/40 transition-colors px-5 py-4"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground">Last measured week (example data)</span>
+                <span className="text-accent">→</span>
+              </div>
+              <p className="text-sm text-muted mt-1">
+                Counts per model family, with Not checked in its own column.
+              </p>
+            </Link>
+          </li>
+        </ul>
+      </section>
 
       <footer className="pt-6 border-t border-border">
         <p className="text-xs text-muted/60">

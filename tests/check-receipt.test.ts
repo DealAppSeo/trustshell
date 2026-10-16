@@ -124,7 +124,7 @@ describe('where the receipt is printed', () => {
   const page = readFileSync(join(ROOT, 'app/check/page.tsx'), 'utf8');
   const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
   it('the /check page turns it on and the home page does not', () => {
-    expect(page).toContain('<CheckForm receipt agent />');
+    expect(page).toContain('<CheckForm receipt agent afterResult={<StrangerNext step="check" />} />');
     expect(form).toContain('receipt = false');
     expect(form).toContain('agent = false');
     // The home page's check (components/hero.tsx) keeps its own card unchanged: no receipt, no agent strip.

@@ -93,7 +93,7 @@ export function Hero() {
             <a
               href="#add-agent"
               data-testid="hero-add"
-              className="inline-flex items-center justify-center rounded-lg border border-amber-600 px-5 py-3 text-sm font-bold text-amber-400 hover:bg-amber-600 hover:text-white transition-colors"
+              className="inline-flex items-center justify-center rounded-lg border border-amber-600 px-5 py-3 text-sm font-bold text-amber-400 hover:bg-amber-600 hover:text-black transition-colors"
             >
               Add it to the agent you already use
             </a>

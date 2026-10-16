@@ -81,7 +81,7 @@ export function HomeAgent() {
             <a
               href={CHROME_STORE_URL}
               data-testid="add-to-chrome"
-              className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-5 py-3 text-sm font-bold text-white hover:bg-amber-500"
+              className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-5 py-3 text-sm font-bold text-black hover:bg-amber-500"
             >
               Add to Chrome
             </a>
@@ -114,7 +114,7 @@ export function HomeAgent() {
                 aria-controls={`panel-${tab.id}`}
                 onClick={() => setCurrent(tab.id)}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                  selected ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-300'
+                  selected ? 'bg-amber-600 text-black' : 'bg-slate-800 text-slate-300'
                 }`}
               >
                 {tab.label}

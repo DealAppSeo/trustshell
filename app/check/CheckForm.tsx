@@ -90,6 +90,8 @@ type CheckFormProps = {
   receipt?: boolean;
   /** Screen 3 of the four: show the agent's score and ID as two fields beside the answer. */
   agent?: boolean;
+  /** Shown only once there is an answer: /check's way to the next screen. */
+  afterResult?: React.ReactNode;
 };
 
 type Result = {
@@ -163,7 +165,7 @@ function reportUrl(r: Result, title: string, path: string): string {
  * check(), and check() is reached only from a person's click: Check, a card, or Check again after
  * they answer the one question. A page load or a crawler sends nothing.
  */
-export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false }: CheckFormProps = {}) {
+export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false, afterResult }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -294,12 +296,13 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors resize-y"
       />
       <p id="check-privacy" className="text-sm text-[#94a3b8]">
-        What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.
+        What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.{' '}
+        <a href="/privacy.html" className="underline underline-offset-4 hover:text-white">Read the privacy policy.</a>
       </p>
       <button
         type="submit"
         disabled={busy || !text.trim()}
-        className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
+        className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:text-[#94a3b8] disabled:cursor-not-allowed text-black font-bold rounded-lg transition-colors"
       >
         {busy ? BUSY_LINE : 'Check'}
       </button>
@@ -386,7 +389,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
                   data-testid="check-again"
                   onClick={() => recheck()}
                   disabled={busy || !answer.trim()}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:text-[#94a3b8] disabled:cursor-not-allowed text-black text-sm font-bold rounded-lg"
                 >
                   Check again
                 </button>
@@ -399,18 +402,18 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
             </p>
           )}
           {!cause && (
-            <p className="text-xs text-[#64748b]" data-testid="check-at">
+            <p className="text-xs text-[#94a3b8]" data-testid="check-at">
               Checked at {new Date(result.at).toLocaleTimeString()}, live.
             </p>
           )}
           {!cause && (
-            <details className="pt-1 text-xs text-[#64748b]" data-testid="check-raw">
+            <details className="pt-1 text-xs text-[#94a3b8]" data-testid="check-raw">
               <summary className="cursor-pointer">What the engine answered</summary>
               <pre className="mt-2 overflow-x-auto rounded bg-[#0b1220] p-3 text-[#cbd5e1]">{JSON.stringify(engineAnswer(result), null, 2)}</pre>
             </details>
           )}
           {!cause && (result.label === 'pass' || result.label === 'veto') && (
-            <p className="text-xs text-[#64748b]">
+            <p className="text-xs text-[#94a3b8]">
               <a
                 href={reportUrl(result, meaning.title, path)}
                 target="_blank"
@@ -423,7 +426,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
               (opens a public GitHub issue you can edit before posting).
             </p>
           )}
-          <p className="text-xs text-[#64748b]" data-testid="check-machine-label">
+          <p className="text-xs text-[#94a3b8]" data-testid="check-machine-label">
             label: <code>{result.label}</code>
           </p>
         </div>
@@ -434,6 +437,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         </p>
       )}
       {agent && <AgentTwoFields resultAt={result?.at} />}
+      {result && afterResult}
     </form>
   );
 }

@@ -71,6 +71,17 @@ export default function RootLayout({
       <body className="min-h-screen font-sans antialiased">
         <TopNav />
         {children}
+        {/* The site footer: the privacy policy, the source and the package, on every page. Not
+            components/footer.tsx, the long link grid #246 kept off the landing. pb-24 below sm keeps
+            the last line clear of the home page's fixed mobile Check bar. */}
+        <footer className="border-t border-[#1e293b] px-4 pt-6 pb-24 sm:pb-6 text-sm text-[#94a3b8]">
+          <nav aria-label="Site" className="max-w-6xl mx-auto flex flex-wrap gap-x-6 gap-y-2">
+            <a href="/privacy.html" className="underline-offset-4 hover:text-white hover:underline">Privacy policy</a>
+            <a href="https://github.com/DealAppSeo/trustshell" className="underline-offset-4 hover:text-white hover:underline">Source on GitHub</a>
+            <a href="https://www.npmjs.com/package/@hyperdag/trustshell" className="underline-offset-4 hover:text-white hover:underline">npm</a>
+            <a href="https://github.com/DealAppSeo/trustshell/blob/main/LICENSE" className="underline-offset-4 hover:text-white hover:underline">Apache 2.0</a>
+          </nav>
+        </footer>
       </body>
     </html>
   );

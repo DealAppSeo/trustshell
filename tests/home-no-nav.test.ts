@@ -17,7 +17,7 @@ const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
 
 const STRANGER = [
   ['/start', 'Start'],
-  ['/#claim', 'Check'],
+  ['/check', 'Check'],
   ['/#add-agent', 'Add to your agent'],
   ['/docs', 'Docs'],
   ['/#where', 'Why'],

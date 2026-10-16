@@ -602,7 +602,7 @@ curl https://repid-engine-production.up.railway.app/api/v1/receipts/hero
 
 ### `GET /api/v1/hal/stats`
 
-HAL (Hallucination Auditor Layer) production statistics across the full pipeline: lifetime + last-24h counts on each canonical source table.
+HAL (Hallucination Assessment Layer) production statistics across the full pipeline: lifetime + last-24h counts on each canonical source table.
 
 **Parameters:** none.
 
