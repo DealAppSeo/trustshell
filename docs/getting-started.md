@@ -203,7 +203,7 @@ Environment variables the code in `src/` reads (`grep -rn 'env' src/`):
 | `TRUSTSHELL_MEMORY_ENCRYPT`, `TRUSTSHELL_MEMORY_KEY` | same | Opt-in encryption at rest for new notes. See [`api-reference.md`](./api-reference.md). |
 | `TRUSTSHELL_HOME` | SDK (`guardedX402Payment` audit log) | Directory for the local spend audit log. Default `~/.trustshell`. |
 | `TRUSTSHELL_LAYA` | CLI `verify` | `local` or `engine` runs a Laya lane before HAL, which can exit `2` (cheap lane, nothing sent to HAL) or `4` (ASK). Unset: straight to the HAL quorum. |
-| `OFFLINE` | CLI `status`, `bind-status`, `verify`; MCP `status` | `OFFLINE=1` skips the extra backend reads and reports them `NOT_CHECKED`. `verify` still calls HAL. |
+| `OFFLINE` | CLI `status`, `bind-status`, `check`, `verify`; MCP `status`, `check_claim` | `OFFLINE=1` sends nothing: the backend reads are skipped and reported `NOT_CHECKED`, and `check` (both forms) and `verify` print `NOT_CHECKED` and exit 2 before any network call. |
 
 Two more are read by the CLI. `status` prints a true `can_stake` as `live` only when
 `SAYS_STAKE_LIVE` is exactly `true`; otherwise it reads `shadow — not live`. And the CLI removes the

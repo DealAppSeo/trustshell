@@ -931,6 +931,22 @@ async function run(args, client, io = realIO) {
         }
         case 'verify':
         case 'evaluate': {
+            // SEC F3: OFFLINE=1 sends nothing. This used to print NOT_CHECKED AFTER the claim had gone to HAL.
+            if (process.env.OFFLINE === '1') {
+                if (args.json) {
+                    io.out(JSON.stringify({
+                        receipt_written: 'NOT_CHECKED',
+                        family_host_verdict: 'NOT_CHECKED',
+                        firstPass: 'first-pass NOT_CHECKED',
+                        receipt_id: 'NOT_CHECKED',
+                        reason: claim_1.OFFLINE_REASON,
+                    }, null, 2));
+                }
+                else {
+                    io.out(`NOT_CHECKED: ${claim_1.OFFLINE_REASON}. This is not a pass.`);
+                }
+                return exports.EXIT.NOT_CHECKED;
+            }
             const claim = String(args.operand ?? '');
             const lane = await (0, laya_lane_1.resolveLayaLane)(claim, process.env, fetch);
             if (lane === 'ask') {
@@ -965,22 +981,20 @@ async function run(args, client, io = realIO) {
                 });
                 const receipt = posted.status;
                 if (args.json) {
-                    const offline = process.env.OFFLINE === '1';
-                    const verdictLine = offline ? 'NOT_CHECKED' : (0, status_1.familyHostVerdictLine)(body, r.verdict);
                     const payload = {
                         receipt_written: (0, status_1.receiptWrittenValue)(receipt),
-                        family_host_verdict: verdictLine,
-                        ...(offline ? {} : r),
+                        family_host_verdict: (0, status_1.familyHostVerdictLine)(body, r.verdict),
+                        ...r,
                         firstPass: pass,
                     };
                     payload.receipt_id = posted.receiptId;
-                    const counted = offline ? undefined : (0, status_1.firstPassObject)(body);
+                    const counted = (0, status_1.firstPassObject)(body);
                     if (counted)
                         payload.first_pass = counted;
-                    const postHal = offline ? undefined : (0, status_1.postHalValue)(body);
+                    const postHal = (0, status_1.postHalValue)(body);
                     if (postHal)
                         payload.post_hal = postHal;
-                    const honestyRows = offline ? undefined : (0, status_1.honestyRowsValue)(body);
+                    const honestyRows = (0, status_1.honestyRowsValue)(body);
                     if (honestyRows !== undefined)
                         payload.honesty_rows = honestyRows;
                     io.out(JSON.stringify(payload, null, 2));
@@ -1086,6 +1100,14 @@ async function run(args, client, io = realIO) {
         case 'check': {
             if (!(0, claim_1.isUrlOperand)(String(args.operand ?? ''))) {
                 return runClaimCheck(String(args.operand ?? ''), args.json, io);
+            }
+            // SEC F3: OFFLINE=1 does not ask GitHub either. (The sentence form stops inside classifyClaim.)
+            if (process.env.OFFLINE === '1') {
+                if (args.json)
+                    io.out(JSON.stringify({ verdict: 'NOT_CHECKED', reason: claim_1.OFFLINE_REASON }, null, 2));
+                else
+                    io.out(`NOT_CHECKED: ${claim_1.OFFLINE_REASON}. This is not a pass.`);
+                return exports.EXIT.NOT_CHECKED;
             }
             // GitHub-only. Deliberately does NOT touch `client` — no backend, no key,
             // no account. That independence is the command's entire value.

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CLAIM_EXIT = exports.ClaimError = exports.SCRUBBED_LINE = exports.CLAIM_PATHS = exports.ANSWER_MAX_CHARS = exports.CLAIM_VERDICTS = exports.CLAIM_TIMEOUT_MS = exports.CLASSIFY_PATH = exports.DEFAULT_API_URL = exports.CLAIM_LABELS = void 0;
+exports.CLAIM_EXIT = exports.ClaimError = exports.SCRUBBED_LINE = exports.CLAIM_PATHS = exports.ANSWER_MAX_CHARS = exports.CLAIM_VERDICTS = exports.CLAIM_TIMEOUT_MS = exports.OFFLINE_REASON = exports.CLASSIFY_PATH = exports.DEFAULT_API_URL = exports.CLAIM_LABELS = void 0;
 exports.questionOf = questionOf;
 exports.withAnswer = withAnswer;
 exports.pathOf = pathOf;
@@ -40,6 +40,8 @@ exports.CLAIM_LABELS = ['pass', 'veto', 'not-checked'];
 /** The SDK's default backend origin (`TrustShell` constructor). Kept identical on purpose. */
 exports.DEFAULT_API_URL = 'https://repid-engine-production.up.railway.app';
 exports.CLASSIFY_PATH = '/api/v1/classify';
+/** Why a check was not sent under OFFLINE=1. The CLI's `verify` and `check <url>` print the same words. */
+exports.OFFLINE_REASON = 'OFFLINE=1 is set, so nothing was sent';
 /** Stop waiting after this. A later answer is not-checked, never a pass. */
 exports.CLAIM_TIMEOUT_MS = 6000;
 /** A label is one short word. A body larger than this is not an answer. */
@@ -296,6 +298,10 @@ async function classifyClaim(text, opts = {}) {
             : 'nothing to check: the sentence is empty');
     }
     const mark = (r) => (scrubbed ? { ...r, scrubbed: true } : r);
+    // SEC F3: OFFLINE=1 sends nothing. Every caller (CLI check, MCP check_claim, quarantine release) comes through here.
+    const env = opts.env ?? (typeof process !== 'undefined' ? process.env : {});
+    if (env.OFFLINE === '1')
+        return mark({ label: 'not-checked', latency_ms: 0, reason: exports.OFFLINE_REASON });
     const url = resolveClassifyUrl(opts.apiUrl, opts.env);
     const fetchImpl = opts.fetchImpl ?? (typeof fetch === 'function' ? fetch : undefined);
     const now = opts.now ?? Date.now;

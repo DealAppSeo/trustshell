@@ -304,6 +304,9 @@ function spawnCli(cli, args, { cwd, allow, logPath, extraEnv }) {
   // Drop tokens so `check` cannot pick up a real GITHUB_TOKEN and surprise us.
   delete env.GITHUB_TOKEN;
   delete env.GH_TOKEN;
+  // OFFLINE only where a run asks for it: an OFFLINE=1 left in the caller's shell would make the
+  // online runs send nothing and fail for the wrong reason.
+  if (!(extraEnv && extraEnv.OFFLINE)) delete env.OFFLINE;
   const r = spawnSync(process.execPath, ['-r', PRELOAD, cli, ...args], {
     cwd,
     env,
@@ -518,6 +521,23 @@ function main() {
     else if (ran.status !== 2) problems.push(`check "<sentence>" got not-checked but exited ${ran.status}, expected 2`);
   }
 
+  // SEC F3: OFFLINE=1 sends nothing from `check` (both forms) or `verify`. No host is allowed, so
+  // any fetch/http/https call is logged and refused, and the log must stay empty.
+  for (const [what, args] of [
+    ['check "<sentence>"', ['check', SENTENCE]],
+    ['check <github run url>', ['check', CHECK_URL_GITHUB]],
+    ['verify "<claim>"', ['verify', SENTENCE]],
+  ]) {
+    const cwd = mkdtempSync(join(tmpdir(), 'ts-egress-offline-'));
+    const logPath = join(cwd, 'egress.log');
+    writeFileSync(logPath, '');
+    const ran = spawnCli(compiled.cli, args, { cwd, allow: '', logPath, extraEnv: { OFFLINE: '1' } });
+    if (ran.error) problems.push(`OFFLINE=1 ${what}: spawn failed: ${ran.error.message}`);
+    else if (ran.log.length) problems.push(`OFFLINE=1 ${what} reached the network: ${ran.log.map((e) => `${e.kind} ${e.dest}`).join('; ')}`);
+    else if (!/not-checked|NOT_CHECKED/.test(ran.stdout)) problems.push(`OFFLINE=1 ${what} printed ${JSON.stringify(ran.stdout.trim().slice(0, 120))}, expected NOT_CHECKED`);
+    else if (ran.status !== 2) problems.push(`OFFLINE=1 ${what} exited ${ran.status}, expected 2`);
+  }
+
   try {
     rmSync(outDir, { recursive: true, force: true });
   } catch {
@@ -528,7 +548,7 @@ function main() {
 
   console.log('VERIFIED');
   console.log(
-    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com; check "<sentence>" reached only /api/v1/classify, once, with a pasted email removed`,
+    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com; check "<sentence>" reached only /api/v1/classify, once, with a pasted email removed; with OFFLINE=1, check (both forms) and verify made zero network calls and exited 2 NOT_CHECKED`,
   );
   process.exit(EXIT_VERIFIED);
 }

@@ -80,6 +80,8 @@ describe('the check script itself', () => {
       cwd: ROOT,
     });
     expect(r.stdout).toMatch(/^VERIFIED\b/m);
+    // SEC F3: the run includes OFFLINE=1 check (both forms) and verify, with zero network calls.
+    expect(r.stdout).toContain('with OFFLINE=1, check (both forms) and verify made zero network calls');
     expect(r.status).toBe(0);
-  }, 60_000);
+  }, 120_000);
 });
