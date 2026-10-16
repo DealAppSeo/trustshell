@@ -255,6 +255,16 @@ describe('stranger e2e on current main', () => {
     expect(released.code).toBe(0);
     expect(released.out).toContain('by ground: note found in the source document the recorder supplied');
     expect((await go(['recall'])).out).toContain('Loaded 50 ft of cable, ordered 150 ft.');
+    // Learning loop: a job the stranger creates, their correction accepted and injected verbatim,
+    // kept out of recall, and rulers that say "not measured" rather than a number.
+    expect((await go(['learn', 'job', 'add', 'ship', '--mode', 'delegate', 'When I ship, I want green tests, so I can merge.'])).code).toBe(0);
+    const corrected = await go(['learn', 'correct', '--job', 'ship', 'Run the linter before you say done.']);
+    expect(corrected.out).toMatch(/^eval case \d+, then lesson \d+ \(candidate\)$/);
+    const lessonId = (/lesson (\d+)/.exec(corrected.out) ?? [])[1] as string;
+    expect((await go(['learn', 'accept', lessonId])).code).toBe(0);
+    expect((await go(['learn', 'inject', '--job', 'ship'])).out).toContain('- Run the linter before you say done.');
+    expect((await go(['recall'])).out).not.toContain('linter');
+    expect((await go(['learn', 'report'])).out).toContain('not measured');
     const homeAfter = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     expect(homeAfter).toBe(homeBefore);
 
