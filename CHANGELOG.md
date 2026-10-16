@@ -4,10 +4,61 @@ All notable changes to the `@hyperdag/trustshell` package.
 
 ## 1.7.0 — 2026-10-16
 
-New commands, exports and MCP tools, so this is a minor release. One existing behaviour changes on
-purpose: local memory quarantines notes it cannot vouch for. Each line names the code or test that
-makes it true.
+New commands, exports and MCP tools, so this is a minor release. Some existing behaviour changes on
+purpose, each marked BEHAVIOR CHANGE below:
+- local memory quarantines notes it cannot vouch for;
+- MCP tools that read the network answer `{untrusted_data, screening}`, and the MCP `redact` tool
+  is gone;
+- `OFFLINE=1` sends nothing;
+- `TRUSTSHELL_API_URL` must be https.
 
+Each line names the code or test that makes it true.
+
+- **BEHAVIOR CHANGE for MCP consumers: network-read tool results are enveloped untrusted data
+  (#573).**
+  - These tools now answer `{untrusted_data, screening}` instead of the bare result:
+    `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `status`, `check_claim`,
+    `my_job` and `kernel_receipt`, plus the aliases `verify`, `evaluate`, `repid` and `getRepID`.
+  - **An agent that read `verdict` must now read `untrusted_data.verdict`.** Every other field
+    moves under `untrusted_data` the same way.
+  - Every string in `untrusted_data` is run through `ingest()`. A string that reads as instructions
+    is replaced by `[withheld: ...]` and its path is listed in `screening.withheld`;
+    `screening.ingest` is `clean` or `veto`. Error messages carrying a remote body are screened the
+    same way. `ingest()` is a fixed keyword screen with a known ceiling; the envelope tells the
+    agent the whole payload is data, never instructions.
+  - Local tools are unchanged: `remember`, `recall`, `quarantine_list`, `quarantine_explain`,
+    `ground_quote` and `verify_proof`.
+
+  (`screenRemote` in `src/mcp/index.ts`; tests/mcp-untrusted-data.test.ts "screenRemote withholds
+  a smuggled instruction and names where it was", "get_repid wraps clean data too".)
+- **BEHAVIOR CHANGE: the MCP `redact` tool is removed (#573).** Any connected agent could use it to
+  delete the operator's keyed rows. `trustshell redact <key>` at the CLI is unchanged.
+  (tests/mcp-untrusted-data.test.ts "the tool is gone, and an operator key row survives everything
+  an MCP caller can reach".)
+- **BEHAVIOR CHANGE: `OFFLINE=1` sends nothing (#572).**
+  - `verify`, `check "<sentence>"`, `check <run url>`, the MCP `check_claim` and `quarantine release
+    --check hal` print `NOT_CHECKED` (or `not-checked`) and exit 2 before any network call.
+  - In 1.6.1, `OFFLINE=1 verify` still sent the claim to HAL and exited 0, and `check` still sent
+    the text.
+
+  (`OFFLINE_REASON` and `classifyClaim` in `src/lib/claim.ts`; tests/offline-sends-nothing.test.ts;
+  `npm run check:egress`.)
+- **BEHAVIOR CHANGE: `TRUSTSHELL_API_URL` (and the SDK's `apiUrl`) must be https (#574).**
+  - Plain `http://` is allowed only for localhost, 127.0.0.1 or [::1]. Any other plain-http origin
+    is refused before anything is sent.
+  - `REPID_API_KEY` is sent only to an https origin, never to plain http, not even to localhost.
+  - A non-default origin prints one `WARNING:` line on stderr per process.
+  - Every reader of the override goes through one resolver: the SDK, the kernel receipt, `check`,
+    MCP `check_claim`, `my_job`, `status`, `bind-status` and `verify`'s engine lane.
+
+  (`resolveApiBase` and `ApiUrlError` in `src/lib/api-url.ts`; tests/api-url-https-only.test.ts.)
+- **The local memory file is private to you (#575).**
+  - On first use the memory folder is created 0700. The file is created 0600 and set back to 0600
+    every time it is opened, so a world-readable file left by 1.6.1 is tightened.
+  - On Windows, a folder it creates gets an ACL for the current user only (best effort).
+  - An existing folder keeps its mode.
+
+  (`openDb` in `src/memory/local-store.ts`; tests/memory-perms.test.ts.)
 - **BEHAVIOR CHANGE: local memory quarantines untrusted notes (immune system v0).**
   - Every note carries a taint label, `provenance` (`trusted` | `untrusted` | `grounded` |
     `verified`), and a `source` (`src/memory/local-store.ts`).
@@ -87,6 +138,13 @@ makes it true.
   `src/lib/claim.ts`; tests/claim-arith-approx.test.ts.)
 - The Chrome extension is not in this package. Its scrubbed-send line and its approximate-arithmetic
   line now match the CLI word for word (tests/claim-path-parity.test.ts).
+- **Extension only, not in the npm tarball: a fresh install sends nothing until the person opts in
+  (#571).** With no stored settings, every chat site is off and ask-first. At install, the Options
+  page opens and says what is sent and where. Stored settings are kept as they were.
+  (`extension/settings.js`, `extension/background.js`; tests/extension-first-run.test.ts.)
+- **Site and docs only, not in the npm tarball: UX quick wins (#577).** These add a privacy link and
+  a footer, fix contrast, put the /check box first, make evidence links honest, and spell HAL
+  "Hallucination Assessment Layer" in the docs. (tests/ux-quick-wins.test.ts.)
 - **`check` no longer has display names for NVIDIA NIM and Z.ai.** Neither is in the engine's voter
   pool, and neither is on the privacy page's list. An id with no display name still prints as the
   engine sent it. (`VOTER_NAMES` in `src/lib/claim.ts`; tests/claim-path-parity.test.ts "the ids
@@ -94,7 +152,7 @@ makes it true.
 - **Docs match the package.** Every surface that 1.6.1 lacks is labelled "since 1.7.0" at its
   block. Each label says what 1.6.1 does instead, and that was run on a clean 1.6.1 install
   (`npm run check:doc-version`; the stranger gate in this release's PR).
-- **Package size.** The tarball has 105 files: 1.6.1's 99, plus `dist/lib/ground`,
+- **Package size.** The tarball has 107 files: 1.6.1's 99, plus `dist/lib/ground`, `dist/lib/api-url`,
   `dist/memory/quarantine` and `dist/memory/quarantine-hal` (`.js` and `.d.ts` each).
   - Runtime dependencies are unchanged: `@hyperdag/proof-verifier`, `@modelcontextprotocol/sdk` and
     `zod`, with `ethers` still an optional peer (`package.json`; `npm pack --dry-run`).
