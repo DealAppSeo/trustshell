@@ -11,6 +11,8 @@ exports.recordEpisode = recordEpisode;
 exports.rateEpisode = rateEpisode;
 exports.correct = correct;
 exports.acceptLesson = acceptLesson;
+exports.retirementOf = retirementOf;
+exports.reacceptLesson = reacceptLesson;
 exports.declineLesson = declineLesson;
 exports.listLessons = listLessons;
 exports.addAttempt = addAttempt;
@@ -258,7 +260,10 @@ exports.execCheck = execCheck;
  * Run a registered check and write its outcome on an episode whose check id was frozen at its start:
  * --episode, --turn, else the newest open episode on that job that froze this check, else a new
  * episode that froze it now. A command that did not exit (killed, timed out, could not start) writes
- * nothing: NOT_CHECKED. A fail retires every accepted lesson injected into that episode (§2.5).
+ * nothing: NOT_CHECKED. A fail retires the accepted lessons injected into that episode whose scope is this
+ * check or no check (job-wide), with a receipt line each (§2.5); a lesson scoped to another check is not
+ * evidence-tested by this check and stays accepted. `inject` uses the same scope rule, so a lesson only
+ * reaches episodes whose own check can retire it.
  */
 function runCheck(id, opts = {}, env = process.env, now = new Date(), exec = exports.execCheck) {
     function named(db, checkId) {
@@ -467,11 +472,29 @@ function lessonRow(db, id) {
 }
 /**
  * The person accepts a lesson: its body is released as trusted with LESSON_ACCEPTED and the lesson may be
- * injected for 30 days, in one transaction. Accepting an accepted lesson renews the 30 days. A RETIRED
- * lesson can be re-accepted, only this way: the retirement receipt is returned first and a re-accept
- * receipt is recorded. Held (quarantined) and declined lessons are refused. Nothing re-accepts by itself.
+ * injected for 30 days, in one transaction. Accepting an accepted lesson renews the 30 days. Held
+ * (quarantined), declined and RETIRED lessons are refused: a retired lesson comes back only through
+ * `reacceptLesson`, which the CLI puts behind a terminal and the person typing the id back.
  */
 function acceptLesson(id, env = process.env, now = new Date()) {
+    return settle(id, false, env, now);
+}
+/** The retirement receipt of a retired lesson, or a refusal when it is not retired. Writes nothing. */
+function retirementOf(id, env = process.env) {
+    const lesson = writeDb(env, (db) => lessonRow(db, id));
+    if (lesson.status !== 'retired')
+        throw new LearnError(`lesson ${id} is ${lesson.status}, not retired; there is nothing to re-accept`);
+    return String(lesson.status_reason ?? 'retired');
+}
+/**
+ * Re-accept a RETIRED lesson, recording a re-accept receipt that quotes the retirement. Only this
+ * function does it, only for a retired lesson, and the CLI calls it only after the person, at an
+ * interactive terminal, typed the lesson id back (`learn reaccept`). It is not an MCP tool.
+ */
+function reacceptLesson(id, env = process.env, now = new Date()) {
+    return settle(id, true, env, now);
+}
+function settle(id, reaccept, env, now) {
     const path = (0, local_store_1.memoryDbPath)(env);
     const bodyId = withDb(path, (db) => Number(lessonRow(db, id).body_id));
     const [body] = (0, local_store_1.readRows)(path, [bodyId], env);
@@ -481,6 +504,11 @@ function acceptLesson(id, env = process.env, now = new Date()) {
         const held = tx(db, () => {
             const lesson = lessonRow(db, id);
             const status = lesson.status;
+            if (reaccept && status !== 'retired')
+                throw new LearnError(`lesson ${id} is ${status}, not retired; there is nothing to re-accept`);
+            if (!reaccept && status === 'retired') {
+                throw new LearnError(`lesson ${id} is retired (${lesson.status_reason ?? 'no reason recorded'}); \`learn accept\` does not bring it back. If you want it back, run \`trustshell learn reaccept ${id}\` yourself at a terminal`);
+            }
             if (status !== 'candidate' && status !== 'accepted' && status !== 'retired') {
                 throw new LearnError(`lesson ${id} is ${status} (${lesson.status_reason ?? 'no reason recorded'}); it cannot be accepted`);
             }
@@ -569,7 +597,8 @@ function cloze(text) {
 }
 /**
  * What goes into the model's context for one turn of a job, and the episode that records it.
- *   - Only this job's lessons that the person accepted, unexpired, verbatim, through `injectable`.
+ *   - Only this job's lessons that the person accepted, unexpired, verbatim, through `injectable`, and
+ *     only those scoped to no check (job-wide) or to the check this episode froze at its start.
  *   - At most 5 lessons and 400 tokens in all, the scaffold and the cloze included; a lesson that does
  *     not fit whole is left out, never cut. If the scaffold and the cloze alone would pass 400, the
  *     cloze is left out and the text says so.
@@ -593,6 +622,9 @@ function inject(opts, env = process.env, now = new Date()) {
         return tx(db, () => {
             const { row } = upsertEpisode(db, { job: job.slug, turn: opts.turn }, now);
             applyRecord(db, row, { check: opts.check, askSha256: opts.askSha256, model: opts.model, family: opts.family }, now);
+            // Scope (the same rule retirement uses): a lesson reaches this episode only when it is job-wide or
+            // scoped to the check this episode froze. With no frozen check, job-wide lessons only.
+            const frozen = str(db.prepare('SELECT check_id FROM learn_episode WHERE id = ?').get(row.id)?.check_id);
             let attemptId = num(row.attempt_id);
             if (attemptId === null) {
                 const open = db.prepare('SELECT id FROM learn_attempt WHERE job = ? AND episode_id IS NULL ORDER BY id DESC LIMIT 1').get(job.slug);
@@ -604,8 +636,8 @@ function inject(opts, env = process.env, now = new Date()) {
             }
             const attempt = attemptId === null ? undefined : db.prepare('SELECT body_id FROM learn_attempt WHERE id = ?').get(attemptId);
             const lessons = db
-                .prepare("SELECT id, body_id FROM learn_lesson WHERE job = ? AND status = 'accepted' AND expires_at > ? ORDER BY accepted_at DESC, id DESC")
-                .all(job.slug, iso(now))
+                .prepare("SELECT id, body_id FROM learn_lesson WHERE job = ? AND status = 'accepted' AND expires_at > ? AND (check_id IS NULL OR check_id = ?) ORDER BY accepted_at DESC, id DESC")
+                .all(job.slug, iso(now), frozen)
                 .map((l) => ({ id: Number(l.id), body_id: Number(l.body_id) }));
             return { path, job, episode: Number(row.id), prior: JSON.parse(String(row.injected)), attemptBody: num(attempt?.body_id), lessons };
         });

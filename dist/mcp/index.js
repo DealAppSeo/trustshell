@@ -301,16 +301,21 @@ function createServer(client = makeClient()) {
     const LEARN_LABEL = /^[A-Za-z0-9._:/@+-]{1,120}$/;
     registerTool('learn_lessons_for', {
         title: 'Learn: lessons for a job',
-        description: "The lessons the person accepted for this job, in their own words, verbatim, plus the instruction for the mode they chose (learn: ask for their attempt first; cowork: ask for their prediction first). At most 5 lessons and 400 tokens; recorded on the turn's episode as loop_tokens. In learn mode, no lesson is shown until the person records an attempt. Empty text when the job is unknown or there is no memory file. Local, no network.",
+        description: "The lessons the person accepted for this job, in their own words, verbatim, plus the instruction for the mode they chose (learn: ask for their attempt first; cowork: ask for their prediction first). Only job-wide lessons and lessons scoped to the episode's check are shown. At most 5 lessons and 400 tokens; recorded on the turn's episode as loop_tokens. In learn mode, no lesson is shown until the person records an attempt. Empty text when the job is unknown or there is no memory file. Local, no network.",
         inputSchema: {
             job: zod_1.z.string().regex(LEARN_SLUG).describe('The job slug the person created (trustshell learn job add).'),
             turn: zod_1.z.string().regex(LEARN_LABEL).optional().describe('A key for this turn; a second call with the same key updates the same episode.'),
             model: zod_1.z.string().regex(LEARN_LABEL).optional().describe('Your model id, recorded on the episode.'),
             family: zod_1.z.string().regex(LEARN_LABEL).optional().describe('Your model family (claude, gpt, gemini, ...), recorded on the episode.'),
+            check: zod_1.z
+                .string()
+                .regex(LEARN_LABEL)
+                .optional()
+                .describe("The check this turn will be judged by (one the person registered on the job); frozen on the episode. Only job-wide lessons and lessons scoped to this check are shown."),
         },
-    }, async ({ job, turn, model, family }) => {
+    }, async ({ job, turn, model, family, check }) => {
         try {
-            const r = (0, store_1.inject)({ job, turn, model, family }, process.env);
+            const r = (0, store_1.inject)({ job, turn, model, family, check }, process.env);
             return jsonResult(r ?? { text: '', episode: null, lessons: [], loop_tokens: 0 });
         }
         catch (e) {

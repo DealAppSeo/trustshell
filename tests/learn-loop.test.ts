@@ -20,6 +20,7 @@ import {
   LearnError,
   RECONCILED,
   acceptLesson,
+  reacceptLesson,
   addAttempt,
   addCheck,
   addJob,
@@ -642,7 +643,24 @@ describe('v1.1 — A: back up the file before the one-time rebuild', () => {
   });
 });
 
-describe('v1.1 — B: retirement is scoped, and the person can re-accept', () => {
+describe('v1.1/v1.2 — B: scope decides both injection and retirement; only the person re-accepts', () => {
+  it('a lesson scoped to check A never reaches an episode frozen on check B; no frozen check gets job-wide lessons only', () => {
+    job('ship');
+    addCheck('ship', 'ship-lint', 'npm run lint', env, T0);
+    const onA = accepted('ship', 'Lint before you push.', at(1), 'ship-lint');
+    const wide = accepted('ship', 'Say what you did not check.', at(2));
+    const onB = inject({ job: 'ship', turn: 'b', check: 'ship-tests' }, env, at(3))!;
+    expect(onB.lessons).toEqual([wide]);
+    expect(onB.text).not.toContain('Lint before you push.');
+    const none = inject({ job: 'ship', turn: 'n' }, env, at(4))!;
+    expect(none.lessons).toEqual([wide]);
+    const a = inject({ job: 'ship', turn: 'a', check: 'ship-lint' }, env, at(5))!;
+    expect([...a.lessons].sort()).toEqual([onA, wide].sort());
+    // A failure of A on the episode that injected it still retires it.
+    const r = runCheck('ship-lint', { turn: 'a' }, env, at(6), fail);
+    expect(r.retired.map((l) => Number(/^lesson (\d+)/.exec(l)![1])).sort()).toEqual([onA, wide].sort());
+  });
+
   it('a fail retires lessons on that check and job-wide lessons; a lesson on another check stays accepted', () => {
     job('ship');
     addCheck('ship', 'ship-lint', 'npm run lint', env, T0);
@@ -650,7 +668,11 @@ describe('v1.1 — B: retirement is scoped, and the person can re-accept', () =>
     const wide = accepted('ship', 'Say what you did not check.', at(2));
     const other = accepted('ship', 'Lint before you push.', at(3), 'ship-lint');
     const first = inject({ job: 'ship', turn: 'a', check: 'ship-tests' }, env, at(4))!;
-    expect([...first.lessons].sort()).toEqual([own, wide, other].sort());
+    expect([...first.lessons].sort()).toEqual([own, wide].sort());
+    // Even if another check's lesson were on the episode (an older build injected unscoped), it survives.
+    const h0 = openMemoryDb(db);
+    h0.prepare('UPDATE learn_episode SET injected = ? WHERE id = ?').run(JSON.stringify([own, wide, other]), first.episode);
+    h0.close();
     const r = runCheck('ship-tests', { turn: 'a' }, env, at(5), fail);
     expect(r.retired.map((l) => Number(/^lesson (\d+)/.exec(l)![1])).sort()).toEqual([own, wide].sort());
     const status = Object.fromEntries(listLessons('ship', env).map((l) => [l.id, l.status]));
@@ -662,27 +684,76 @@ describe('v1.1 — B: retirement is scoped, and the person can re-accept', () =>
     expect(Number(held)).toBe(2);
   });
 
-  it('learn accept re-accepts a retired lesson, printing the retirement receipt first and recording a re-accept receipt', async () => {
+  /** A retired lesson, and the receipt runCheck wrote for it. */
+  function retiredLesson(): number {
     job('ship');
     const kept = accepted('ship', 'Run the linter before you say done.');
     inject({ job: 'ship', turn: 'a', check: 'ship-tests' }, env, at(1));
     runCheck('ship-tests', { turn: 'a' }, env, at(2), fail);
-    expect(inject({ job: 'ship', turn: 'b' }, env, at(3))!.text).not.toContain('linter');
-    const out: string[] = [];
+    expect(listLessons('ship', env)[0]!.status).toBe('retired');
+    return kept;
+  }
+
+  it('learn accept refuses a retired lesson and points at reaccept', async () => {
+    const kept = retiredLesson();
+    expect(() => acceptLesson(kept, env, at(3))).toThrow(/is retired .*learn reaccept/);
+    const err: string[] = [];
     const { runLearn } = await import('../src/learn/cli');
-    expect(await runLearn(['accept', String(kept)], { out: (s) => out.push(s), err: (s) => out.push(s) }, env)).toBe(0);
-    expect(out[0]).toMatch(new RegExp(`^lesson ${kept} was retired: check ship-tests failed on episode \\d+ with this lesson injected$`));
+    expect(await runLearn(['accept', String(kept)], { out: () => undefined, err: (s) => err.push(s) }, env)).toBe(2);
+    expect(listLessons('ship', env)[0]!.status).toBe('retired');
+  });
+
+  it('learn reaccept without an interactive terminal refuses and writes nothing', async () => {
+    const kept = retiredLesson();
+    const { runLearn, stdinTerminal } = await import('../src/learn/cli');
+    const before = JSON.stringify(listLessons('ship', env));
+    // The real stdin too, unless this run happens to have one attached (then it would prompt).
+    for (const tty of [{ isTTY: false, ask: jest.fn() }, ...(process.stdin.isTTY ? [] : [stdinTerminal])]) {
+      const out: string[] = [];
+      const err: string[] = [];
+      expect(await runLearn(['reaccept', String(kept)], { out: (s) => out.push(s), err: (s) => err.push(s) }, env, tty)).toBe(2);
+      expect(out[0]).toMatch(new RegExp(`^lesson ${kept} was retired: check ship-tests failed`));
+      expect(err.join('\n')).toContain('refused, nothing was written');
+      if ('mock' in tty.ask) expect(tty.ask).not.toHaveBeenCalled();
+    }
+    expect(JSON.stringify(listLessons('ship', env))).toBe(before);
+  });
+
+  it('learn reaccept at a terminal with the id typed back writes the re-accept receipt; a wrong id writes nothing', async () => {
+    const kept = retiredLesson();
+    const { runLearn } = await import('../src/learn/cli');
+    const wrong: string[] = [];
+    expect(await runLearn(['reaccept', String(kept)], { out: () => undefined, err: (s) => wrong.push(s) }, env, { isTTY: true, ask: async () => 'yes' })).toBe(2);
+    expect(listLessons('ship', env)[0]!.status).toBe('retired');
+    const out: string[] = [];
+    const asked: string[] = [];
+    const tty = {
+      isTTY: true,
+      ask: async (q: string) => {
+        asked.push(q);
+        return ` ${kept}\n`; // what a person types, with the newline
+      },
+    };
+    expect(await runLearn(['reaccept', String(kept)], { out: (s) => out.push(s), err: (s) => out.push(s) }, env, tty)).toBe(0);
+    expect(out[0]).toMatch(new RegExp(`^lesson ${kept} was retired: check ship-tests failed`));
+    expect(asked[0]).toContain(`Type ${kept}`);
     expect(out[1]).toMatch(new RegExp(`^lesson ${kept} accepted until `));
     expect(out[2]).toMatch(/^receipt: re-accepted by the person at .*; before that: retired: check ship-tests failed/);
-    expect(listLessons('ship', env)[0]!.reason).toMatch(/^re-accepted by the person/);
+    expect(listLessons('ship', env)[0]).toEqual(expect.objectContaining({ status: 'accepted', reason: expect.stringMatching(/^re-accepted by the person/) }));
     expect(inject({ job: 'ship', turn: 'c' }, env)!.text).toContain('Run the linter before you say done.');
   });
 
-  it('declined lessons still cannot be accepted', () => {
+  it('declined lessons still cannot be accepted, and reaccept only takes retired ones', () => {
     job('ship');
     const c = correct({ job: 'ship', text: 'Declined words.' }, env, T0);
     declineLesson(c.lesson, env, T0);
     expect(() => acceptLesson(c.lesson, env, T0)).toThrow(/is declined/);
+    expect(() => reacceptLesson(c.lesson, env, T0)).toThrow(/not retired/);
+  });
+
+  it('there is no MCP tool that accepts or re-accepts', () => {
+    const server = createServer({} as TrustShell) as unknown as { _registeredTools: Record<string, unknown> };
+    expect(Object.keys(server._registeredTools).filter((n) => /accept/i.test(n))).toEqual([]);
   });
 });
 

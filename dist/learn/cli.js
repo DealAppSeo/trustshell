@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LEARN_USAGE = void 0;
+exports.LEARN_USAGE = exports.stdinTerminal = void 0;
 exports.runLearn = runLearn;
 /**
  * `trustshell learn …` — the learning loop's verbs. Local sqlite only; no network.
@@ -10,6 +10,19 @@ exports.runLearn = runLearn;
  */
 const store_1 = require("./store");
 const report_1 = require("./report");
+const node_readline_1 = require("node:readline");
+exports.stdinTerminal = {
+    get isTTY() {
+        return process.stdin.isTTY === true;
+    },
+    ask: (question) => new Promise((resolve) => {
+        const rl = (0, node_readline_1.createInterface)({ input: process.stdin, output: process.stderr });
+        rl.question(question, (answer) => {
+            rl.close();
+            resolve(answer);
+        });
+    }),
+};
 exports.LEARN_USAGE = `trustshell learn — the learning loop (local; nothing leaves the machine)
   learn job add <slug> --mode delegate|cowork|learn "When …, I want …, so I can …"
   learn job list
@@ -22,7 +35,9 @@ exports.LEARN_USAGE = `trustshell learn — the learning loop (local; nothing le
   learn correct --job <slug> [--check C] [--episode N] [--credit <label>] [--note "<paraphrase>"] "<your words>"
                                                        eval case first, then a candidate lesson
                [--derived-from-untrusted <label>]     the text is not yours: held for good, never injected
-  learn accept <lesson> | learn decline <lesson>      accept also re-accepts a retired lesson, with receipts
+  learn accept <lesson> | learn decline <lesson>
+  learn reaccept <lesson>                             bring back a RETIRED lesson: prints why it was retired,
+                                                       then asks you, at a terminal, to type its id back
   learn lessons [--job <slug>]
   learn attempt --job <slug> [--episode N] "<your attempt>"
   learn inject --job <slug> [--turn K] [--check C] [--model M] [--family F] [--ask-sha256 H]
@@ -78,7 +93,7 @@ function ref(opt) {
         throw new store_1.LearnError('give --episode or --turn, not both');
     return { episode: whole('--episode', opt.episode), turn: opt.turn };
 }
-async function dispatch(argv, io, env) {
+async function dispatch(argv, io, env, tty) {
     const { pos, opt } = parse(argv);
     const [verb, ...rest] = pos;
     const text = rest.join(' ').trim();
@@ -186,11 +201,28 @@ async function dispatch(argv, io, env) {
             only(rest, 1);
             const lesson = id('`learn accept`', rest[0]);
             const r = (0, store_1.acceptLesson)(lesson, env);
-            if (r.retired_receipt)
-                io.out(`lesson ${lesson} was ${r.retired_receipt}`);
             io.out(`lesson ${lesson} accepted until ${r.expires_at}`);
-            if (r.reaccept_receipt)
-                io.out(`receipt: ${r.reaccept_receipt}`);
+            return 0;
+        }
+        case 'reaccept': {
+            // Only the person brings a retired lesson back: the retirement receipt first, then an interactive
+            // terminal and the lesson id typed back. A script or an agent's shell has no TTY, so it is refused
+            // before anything is written. Not an MCP tool.
+            only(rest, 1);
+            const lesson = id('`learn reaccept`', rest[0]);
+            io.out(`lesson ${lesson} was ${(0, store_1.retirementOf)(lesson, env)}`);
+            if (!tty.isTTY) {
+                io.err(`learn reaccept: refused, nothing was written. It needs you at an interactive terminal to type the lesson id back; this input is not a terminal.`);
+                return 2;
+            }
+            const typed = (await tty.ask(`Type ${lesson} to re-accept this lesson for 30 days: `)).trim();
+            if (typed !== String(lesson)) {
+                io.err(`learn reaccept: you typed ${JSON.stringify(typed.slice(0, 20))}, not ${lesson}; nothing was written`);
+                return 2;
+            }
+            const r = (0, store_1.reacceptLesson)(lesson, env);
+            io.out(`lesson ${lesson} accepted until ${r.expires_at}`);
+            io.out(`receipt: ${r.reaccept_receipt}`);
             return 0;
         }
         case 'decline': {
@@ -286,9 +318,9 @@ async function dispatch(argv, io, env) {
             throw new store_1.LearnError(verb ? `unknown learn verb: ${verb}` : 'learn needs a verb');
     }
 }
-async function runLearn(argv, io, env = process.env) {
+async function runLearn(argv, io, env = process.env, tty = exports.stdinTerminal) {
     try {
-        return await dispatch(argv, io, env);
+        return await dispatch(argv, io, env, tty);
     }
     catch (e) {
         if (e instanceof store_1.LearnError) {

@@ -46,7 +46,10 @@ export type CheckRun = {
  * Run a registered check and write its outcome on an episode whose check id was frozen at its start:
  * --episode, --turn, else the newest open episode on that job that froze this check, else a new
  * episode that froze it now. A command that did not exit (killed, timed out, could not start) writes
- * nothing: NOT_CHECKED. A fail retires every accepted lesson injected into that episode (§2.5).
+ * nothing: NOT_CHECKED. A fail retires the accepted lessons injected into that episode whose scope is this
+ * check or no check (job-wide), with a receipt line each (§2.5); a lesson scoped to another check is not
+ * evidence-tested by this check and stays accepted. `inject` uses the same scope rule, so a lesson only
+ * reaches episodes whose own check can retire it.
  */
 export declare function runCheck(id: string, opts?: {
     episode?: number;
@@ -106,11 +109,19 @@ export type Acceptance = {
 };
 /**
  * The person accepts a lesson: its body is released as trusted with LESSON_ACCEPTED and the lesson may be
- * injected for 30 days, in one transaction. Accepting an accepted lesson renews the 30 days. A RETIRED
- * lesson can be re-accepted, only this way: the retirement receipt is returned first and a re-accept
- * receipt is recorded. Held (quarantined) and declined lessons are refused. Nothing re-accepts by itself.
+ * injected for 30 days, in one transaction. Accepting an accepted lesson renews the 30 days. Held
+ * (quarantined), declined and RETIRED lessons are refused: a retired lesson comes back only through
+ * `reacceptLesson`, which the CLI puts behind a terminal and the person typing the id back.
  */
 export declare function acceptLesson(id: number, env?: NodeJS.ProcessEnv, now?: Date): Acceptance;
+/** The retirement receipt of a retired lesson, or a refusal when it is not retired. Writes nothing. */
+export declare function retirementOf(id: number, env?: NodeJS.ProcessEnv): string;
+/**
+ * Re-accept a RETIRED lesson, recording a re-accept receipt that quotes the retirement. Only this
+ * function does it, only for a retired lesson, and the CLI calls it only after the person, at an
+ * interactive terminal, typed the lesson id back (`learn reaccept`). It is not an MCP tool.
+ */
+export declare function reacceptLesson(id: number, env?: NodeJS.ProcessEnv, now?: Date): Acceptance;
 /** Decline a candidate, or revert an accepted lesson: its body goes back to quarantine, in one transaction. */
 export declare function declineLesson(id: number, env?: NodeJS.ProcessEnv, now?: Date): void;
 export type LessonListItem = {
@@ -142,7 +153,8 @@ export type Injection = {
 };
 /**
  * What goes into the model's context for one turn of a job, and the episode that records it.
- *   - Only this job's lessons that the person accepted, unexpired, verbatim, through `injectable`.
+ *   - Only this job's lessons that the person accepted, unexpired, verbatim, through `injectable`, and
+ *     only those scoped to no check (job-wide) or to the check this episode froze at its start.
  *   - At most 5 lessons and 400 tokens in all, the scaffold and the cloze included; a lesson that does
  *     not fit whole is left out, never cut. If the scaffold and the cloze alone would pass 400, the
  *     cloze is left out and the text says so.

@@ -15,8 +15,10 @@ All notable changes to the `@hyperdag/trustshell` package.
   once, in one transaction, keeping every row and id, and only by a `learn` command. Before the
   rebuild the file is copied to `<file>.bak-<UTC time>` (0600); if the copy fails, nothing is
   rebuilt. `recall` and `quarantine` still read notes only.
-- A failed check retires only the injected lessons scoped to that check or to no check, and
-  `learn accept` can re-accept a retired lesson, with receipts. `learn correct --credit <label>`
+- Lesson scope applies to both ends: `inject` shows a lesson only on episodes frozen on its check (or
+  any episode, when it is job-wide), and a failed check retires only the injected lessons scoped to it
+  or to no check. `learn accept` refuses a retired lesson; `learn reaccept <id>` brings one back only
+  at an interactive terminal with the id typed back, with receipts. `learn correct --credit <label>`
   records who prompted a correction; `--derived-from-untrusted <label>` (formerly `--source`, which
   still works and warns) marks text that is not yours. `inject` records `--model` / `--family`, and
   `examples/learn-hook/stop.mjs` fills in each turn's model, family and tokens.

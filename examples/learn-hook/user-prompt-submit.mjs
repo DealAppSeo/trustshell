@@ -16,6 +16,8 @@
  * ENV
  *   TRUSTSHELL_LEARN_JOB    the job slug for this project. Required, or the hook does nothing.
  *   TRUSTSHELL_LEARN_CHECK  optional: a check you registered on that job; frozen on the turn's episode.
+ *                           It also scopes what is shown: job-wide lessons plus lessons scoped to this
+ *                           check. Unset: job-wide lessons only.
  *   TRUSTSHELL_LEARN_MODEL  optional: the model id (claude-opus-5-5), recorded on the episode.
  *   TRUSTSHELL_LEARN_FAMILY optional: the model family (claude, gpt, gemini). Without it the episode has no
  *                           family and ruler 1 leaves it out. examples/learn-hook/stop.mjs fills both in

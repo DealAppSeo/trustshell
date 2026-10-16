@@ -7,6 +7,8 @@
 import {
   LearnError,
   acceptLesson,
+  reacceptLesson,
+  retirementOf,
   addAttempt,
   addCheck,
   addJob,
@@ -26,8 +28,29 @@ import {
   type Outcome,
 } from './store';
 import { buildReport } from './report';
+import { createInterface } from 'node:readline';
 
 export type LearnIO = { out: (s: string) => void; err: (s: string) => void };
+
+/**
+ * The terminal `learn reaccept` needs: is stdin an interactive TTY, and a way to ask one question on it.
+ * Injected so tests can simulate one; the default is this process's own stdin.
+ */
+export type Terminal = { isTTY: boolean; ask: (question: string) => Promise<string> };
+
+export const stdinTerminal: Terminal = {
+  get isTTY() {
+    return process.stdin.isTTY === true;
+  },
+  ask: (question) =>
+    new Promise((resolve) => {
+      const rl = createInterface({ input: process.stdin, output: process.stderr });
+      rl.question(question, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    }),
+};
 
 export const LEARN_USAGE = `trustshell learn — the learning loop (local; nothing leaves the machine)
   learn job add <slug> --mode delegate|cowork|learn "When …, I want …, so I can …"
@@ -41,7 +64,9 @@ export const LEARN_USAGE = `trustshell learn — the learning loop (local; nothi
   learn correct --job <slug> [--check C] [--episode N] [--credit <label>] [--note "<paraphrase>"] "<your words>"
                                                        eval case first, then a candidate lesson
                [--derived-from-untrusted <label>]     the text is not yours: held for good, never injected
-  learn accept <lesson> | learn decline <lesson>      accept also re-accepts a retired lesson, with receipts
+  learn accept <lesson> | learn decline <lesson>
+  learn reaccept <lesson>                             bring back a RETIRED lesson: prints why it was retired,
+                                                       then asks you, at a terminal, to type its id back
   learn lessons [--job <slug>]
   learn attempt --job <slug> [--episode N] "<your attempt>"
   learn inject --job <slug> [--turn K] [--check C] [--model M] [--family F] [--ask-sha256 H]
@@ -95,7 +120,7 @@ function ref(opt: Record<string, string>): { episode?: number; turn?: string } {
   return { episode: whole('--episode', opt.episode), turn: opt.turn };
 }
 
-async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Promise<number> {
+async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv, tty: Terminal): Promise<number> {
   const { pos, opt } = parse(argv);
   const [verb, ...rest] = pos;
   const text = rest.join(' ').trim();
@@ -194,9 +219,28 @@ async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Pr
       only(rest, 1);
       const lesson = id('`learn accept`', rest[0]);
       const r = acceptLesson(lesson, env);
-      if (r.retired_receipt) io.out(`lesson ${lesson} was ${r.retired_receipt}`);
       io.out(`lesson ${lesson} accepted until ${r.expires_at}`);
-      if (r.reaccept_receipt) io.out(`receipt: ${r.reaccept_receipt}`);
+      return 0;
+    }
+    case 'reaccept': {
+      // Only the person brings a retired lesson back: the retirement receipt first, then an interactive
+      // terminal and the lesson id typed back. A script or an agent's shell has no TTY, so it is refused
+      // before anything is written. Not an MCP tool.
+      only(rest, 1);
+      const lesson = id('`learn reaccept`', rest[0]);
+      io.out(`lesson ${lesson} was ${retirementOf(lesson, env)}`);
+      if (!tty.isTTY) {
+        io.err(`learn reaccept: refused, nothing was written. It needs you at an interactive terminal to type the lesson id back; this input is not a terminal.`);
+        return 2;
+      }
+      const typed = (await tty.ask(`Type ${lesson} to re-accept this lesson for 30 days: `)).trim();
+      if (typed !== String(lesson)) {
+        io.err(`learn reaccept: you typed ${JSON.stringify(typed.slice(0, 20))}, not ${lesson}; nothing was written`);
+        return 2;
+      }
+      const r = reacceptLesson(lesson, env);
+      io.out(`lesson ${lesson} accepted until ${r.expires_at}`);
+      io.out(`receipt: ${r.reaccept_receipt}`);
       return 0;
     }
     case 'decline': {
@@ -281,9 +325,14 @@ async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Pr
   }
 }
 
-export async function runLearn(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv = process.env): Promise<number> {
+export async function runLearn(
+  argv: string[],
+  io: LearnIO,
+  env: NodeJS.ProcessEnv = process.env,
+  tty: Terminal = stdinTerminal,
+): Promise<number> {
   try {
-    return await dispatch(argv, io, env);
+    return await dispatch(argv, io, env, tty);
   } catch (e) {
     if (e instanceof LearnError) {
       io.err(`learn: ${e.message}`);

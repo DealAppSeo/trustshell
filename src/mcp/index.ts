@@ -350,17 +350,22 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
     {
       title: 'Learn: lessons for a job',
       description:
-        "The lessons the person accepted for this job, in their own words, verbatim, plus the instruction for the mode they chose (learn: ask for their attempt first; cowork: ask for their prediction first). At most 5 lessons and 400 tokens; recorded on the turn's episode as loop_tokens. In learn mode, no lesson is shown until the person records an attempt. Empty text when the job is unknown or there is no memory file. Local, no network.",
+        "The lessons the person accepted for this job, in their own words, verbatim, plus the instruction for the mode they chose (learn: ask for their attempt first; cowork: ask for their prediction first). Only job-wide lessons and lessons scoped to the episode's check are shown. At most 5 lessons and 400 tokens; recorded on the turn's episode as loop_tokens. In learn mode, no lesson is shown until the person records an attempt. Empty text when the job is unknown or there is no memory file. Local, no network.",
       inputSchema: {
         job: z.string().regex(LEARN_SLUG).describe('The job slug the person created (trustshell learn job add).'),
         turn: z.string().regex(LEARN_LABEL).optional().describe('A key for this turn; a second call with the same key updates the same episode.'),
         model: z.string().regex(LEARN_LABEL).optional().describe('Your model id, recorded on the episode.'),
         family: z.string().regex(LEARN_LABEL).optional().describe('Your model family (claude, gpt, gemini, ...), recorded on the episode.'),
+        check: z
+          .string()
+          .regex(LEARN_LABEL)
+          .optional()
+          .describe("The check this turn will be judged by (one the person registered on the job); frozen on the episode. Only job-wide lessons and lessons scoped to this check are shown."),
       },
     },
-    async ({ job, turn, model, family }: { job: string; turn?: string; model?: string; family?: string }) => {
+    async ({ job, turn, model, family, check }: { job: string; turn?: string; model?: string; family?: string; check?: string }) => {
       try {
-        const r = inject({ job, turn, model, family }, process.env);
+        const r = inject({ job, turn, model, family, check }, process.env);
         return jsonResult(r ?? { text: '', episode: null, lessons: [], loop_tokens: 0 });
       } catch (e) {
         return errorResult(`learn_lessons_for failed: ${e instanceof Error ? e.message : String(e)}`);
