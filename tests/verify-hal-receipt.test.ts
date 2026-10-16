@@ -214,7 +214,8 @@ describe('verify hal receipt POST', () => {
     const seen = install(() => jsonResponse(200, { written: true }));
     const cap = capture();
     const code = await run(parseArgs(['verify', CLAIM]), new TrustShell({ apiUrl: ENGINE }), cap.io);
-    expect(code).toBe(0);
+    // SEC F3: OFFLINE verify sends nothing at all (not only no receipt) and is NOT_CHECKED, exit 2.
+    expect(code).toBe(2);
     expect(seen.receipts).toHaveLength(0);
     expect(cap.out.join('\n')).not.toContain('receipt NOT_CHECKED');
   });

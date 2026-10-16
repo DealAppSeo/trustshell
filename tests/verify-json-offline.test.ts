@@ -73,7 +73,9 @@ describe('verify --json offline', () => {
 
   it('OFFLINE=1 is NOT_CHECKED, not PASS', async () => {
     process.env.OFFLINE = '1';
+    let sent = 0;
     global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      sent += 1;
       const url = String(input);
       const method = (init?.method ?? 'GET').toUpperCase();
       if (method === 'POST' && url.endsWith('/api/v1/hal/evaluate')) {
@@ -98,7 +100,9 @@ describe('verify --json offline', () => {
     }) as typeof fetch;
 
     const { code, raw, body } = await verifyJson();
-    expect(code).toBe(0);
+    // SEC F3: this used to exit 0 after the claim had gone to HAL. Now nothing is sent, exit 2.
+    expect(sent).toBe(0);
+    expect(code).toBe(2);
     expect(raw).toContain('NOT_CHECKED');
     expect(raw).not.toMatch(/\bPASS\b/);
     expect(body.receipt_written).toBe('NOT_CHECKED');

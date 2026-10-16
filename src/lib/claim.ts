@@ -27,6 +27,8 @@ export type ClaimLabel = (typeof CLAIM_LABELS)[number];
 /** The SDK's default backend origin (`TrustShell` constructor). Kept identical on purpose. */
 export const DEFAULT_API_URL = 'https://repid-engine-production.up.railway.app';
 export const CLASSIFY_PATH = '/api/v1/classify';
+/** Why a check was not sent under OFFLINE=1. The CLI's `verify` and `check <url>` print the same words. */
+export const OFFLINE_REASON = 'OFFLINE=1 is set, so nothing was sent';
 /** Stop waiting after this. A later answer is not-checked, never a pass. */
 export const CLAIM_TIMEOUT_MS = 6000;
 /** A label is one short word. A body larger than this is not an answer. */
@@ -342,6 +344,9 @@ export async function classifyClaim(text: string, opts: ClaimOptions = {}): Prom
     );
   }
   const mark = (r: ClaimResult): ClaimResult => (scrubbed ? { ...r, scrubbed: true } : r);
+  // SEC F3: OFFLINE=1 sends nothing. Every caller (CLI check, MCP check_claim, quarantine release) comes through here.
+  const env = opts.env ?? (typeof process !== 'undefined' ? process.env : {});
+  if (env.OFFLINE === '1') return mark({ label: 'not-checked', latency_ms: 0, reason: OFFLINE_REASON });
   const url = resolveClassifyUrl(opts.apiUrl, opts.env);
 
   const fetchImpl = opts.fetchImpl ?? (typeof fetch === 'function' ? fetch : undefined);

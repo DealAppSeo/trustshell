@@ -30,7 +30,7 @@ import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
-import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE, pathLine } from '../lib/claim';
+import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE, pathLine, OFFLINE_REASON } from '../lib/claim';
 import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
 import {
   verifyChain,
@@ -1001,6 +1001,21 @@ export async function run(
 
     case 'verify':
     case 'evaluate': {
+      // SEC F3: OFFLINE=1 sends nothing. This used to print NOT_CHECKED AFTER the claim had gone to HAL.
+      if (process.env.OFFLINE === '1') {
+        if (args.json) {
+          io.out(JSON.stringify({
+            receipt_written: 'NOT_CHECKED',
+            family_host_verdict: 'NOT_CHECKED',
+            firstPass: 'first-pass NOT_CHECKED',
+            receipt_id: 'NOT_CHECKED',
+            reason: OFFLINE_REASON,
+          }, null, 2));
+        } else {
+          io.out(`NOT_CHECKED: ${OFFLINE_REASON}. This is not a pass.`);
+        }
+        return EXIT.NOT_CHECKED;
+      }
       const claim = String(args.operand ?? '');
       const lane = await resolveLayaLane(claim, process.env, fetch);
       if (lane === 'ask') {
@@ -1038,20 +1053,18 @@ export async function run(
         });
         const receipt = posted.status;
         if (args.json) {
-          const offline = process.env.OFFLINE === '1';
-          const verdictLine = offline ? 'NOT_CHECKED' : familyHostVerdictLine(body, r.verdict);
           const payload: Record<string, unknown> = {
             receipt_written: receiptWrittenValue(receipt),
-            family_host_verdict: verdictLine,
-            ...(offline ? {} : r),
+            family_host_verdict: familyHostVerdictLine(body, r.verdict),
+            ...r,
             firstPass: pass,
           };
           payload.receipt_id = posted.receiptId;
-          const counted = offline ? undefined : firstPassObject(body);
+          const counted = firstPassObject(body);
           if (counted) payload.first_pass = counted;
-          const postHal = offline ? undefined : postHalValue(body);
+          const postHal = postHalValue(body);
           if (postHal) payload.post_hal = postHal;
-          const honestyRows = offline ? undefined : honestyRowsValue(body);
+          const honestyRows = honestyRowsValue(body);
           if (honestyRows !== undefined) payload.honesty_rows = honestyRows;
           io.out(JSON.stringify(payload, null, 2));
         } else {
@@ -1146,6 +1159,12 @@ export async function run(
     case 'check': {
       if (!isUrlOperand(String(args.operand ?? ''))) {
         return runClaimCheck(String(args.operand ?? ''), args.json, io);
+      }
+      // SEC F3: OFFLINE=1 does not ask GitHub either. (The sentence form stops inside classifyClaim.)
+      if (process.env.OFFLINE === '1') {
+        if (args.json) io.out(JSON.stringify({ verdict: 'NOT_CHECKED', reason: OFFLINE_REASON }, null, 2));
+        else io.out(`NOT_CHECKED: ${OFFLINE_REASON}. This is not a pass.`);
+        return EXIT.NOT_CHECKED;
       }
       // GitHub-only. Deliberately does NOT touch `client` — no backend, no key,
       // no account. That independence is the command's entire value.

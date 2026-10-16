@@ -3,6 +3,8 @@ export type ClaimLabel = (typeof CLAIM_LABELS)[number];
 /** The SDK's default backend origin (`TrustShell` constructor). Kept identical on purpose. */
 export declare const DEFAULT_API_URL = "https://repid-engine-production.up.railway.app";
 export declare const CLASSIFY_PATH = "/api/v1/classify";
+/** Why a check was not sent under OFFLINE=1. The CLI's `verify` and `check <url>` print the same words. */
+export declare const OFFLINE_REASON = "OFFLINE=1 is set, so nothing was sent";
 /** Stop waiting after this. A later answer is not-checked, never a pass. */
 export declare const CLAIM_TIMEOUT_MS = 6000;
 export interface ClaimResult {

@@ -130,7 +130,8 @@ describe('verify --json receipt_written', () => {
       return jsonResponse(404, {});
     }) as typeof fetch;
     const { code, raw, body } = await verifyJson();
-    expect(code).toBe(0);
+    // SEC F3: NOT_CHECKED exits 2 (never the pass code), and nothing at all was sent.
+    expect(code).toBe(2);
     expect(receiptPosts).toBe(0);
     expect(body.receipt_written).toBe('NOT_CHECKED');
     expect(body.receipt_written).not.toBe(0);
