@@ -5,10 +5,10 @@
  * were not an object at all all fell through to AUTO-SEND. A person who chose "Only when I click" could be
  * silently reverted by a migration or a typo, and their reply sent without a click.
  *
- * Now: auto-send happens only for an EXACT `auto`, or for nothing stored at all. Anything else is ask-first.
+ * Now: auto-send happens only for an EXACT stored `auto`. Anything else is ask-first.
  *
- * NOT changed here (a product decision for Sean, X-2a): what a fresh install does. Nothing stored is still
- * `auto`, and these tests pin that so nobody mistakes this change for flipping the default.
+ * X-2a, the fresh install, was decided by SEC F1 (2026-10-16): nothing stored is now ask-first with every
+ * site off (tests/extension-first-run.test.ts). The rows below that pinned the old `auto` default now pin that.
  *
  * It can only ask more. It never sends something that used to be held back.
  */
@@ -41,9 +41,9 @@ function fakeLocal(bag: Record<string, unknown> = {}) {
 
 beforeEach(() => settings.__reset());
 
-describe('X-2b: normalSettings keeps auto-send for an exact auto, and for nothing stored', () => {
-  it('nothing stored is the product default, AUTO (X-2a is Sean\'s call, not this change)', () => {
-    expect(settings.normalSettings(undefined).mode).toBe('auto');
+describe('X-2b: normalSettings keeps auto-send for an exact auto only', () => {
+  it('nothing stored is ask-first (SEC F1 decided X-2a)', () => {
+    expect(settings.normalSettings(undefined).mode).toBe('click');
   });
 
   it('an exact "auto" is auto', () => {
@@ -95,9 +95,9 @@ describe('X-2b: the same, read from storage the way the extension reads it', () 
     expect(cfg?.mode).toBe('click');
   });
 
-  it('nothing in storage is still auto after ready()', async () => {
+  it('nothing in storage is ask-first after ready() (SEC F1)', async () => {
     const cfg = await settings.ready({ local: fakeLocal({}) });
-    expect(cfg?.mode).toBe('auto');
+    expect(cfg?.mode).toBe('click');
   });
 
   it('settings that cannot be read are still null (nothing is checked), not defaults', async () => {
@@ -173,16 +173,16 @@ describe('X-2b: end to end, a reply is NOT sent when the stored mode is not an e
     }
   });
 
-  it('the default is untouched: nothing stored still sends without a click', async () => {
+  it('nothing stored (a fresh install) asks first and sends nothing (SEC F1)', async () => {
     const engine = stubEngine('pass');
     try {
       require('../extension/scrub.js');
       require('../extension/laya.js');
       await settings.ready({ local: fakeLocal({}) });
       const api = loadClassifyWithRealSettings();
-      expect(api.knownRow('Paris is the capital of France.')).toBeNull();
-      expect((await api.classifyReply('Paris is the capital of France.')).label).toBe('pass');
-      expect(engine.sent).toHaveLength(1);
+      expect(api.knownRow('Paris is the capital of France.')).toEqual({ label: 'ask', latency_ms: 0 });
+      expect(await api.classifyReply('Paris is the capital of France.')).toEqual({ label: 'ask', latency_ms: 0 });
+      expect(engine.sent).toHaveLength(0);
     } finally {
       engine.restore();
     }

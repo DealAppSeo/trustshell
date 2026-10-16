@@ -64,13 +64,13 @@ function fakeLocal(bag: Record<string, unknown> = {}) {
 beforeEach(() => settings.__reset());
 
 describe('settings: what the person chose, and what happens when nothing was chosen', () => {
-  it('missing is every site on, automatically: what the extension did before the page', () => {
+  it('missing (a fresh install) is every site off, only when clicked (SEC F1; tests/extension-first-run.test.ts)', () => {
     const s = settings.normalSettings(undefined);
-    expect(Object.values(s.sites).every(Boolean)).toBe(true);
-    expect(s.mode).toBe('auto');
+    expect(Object.values(s.sites).some(Boolean)).toBe(false);
+    expect(s.mode).toBe('click');
   });
 
-  it('a site is off only when switched off; auto only when exactly auto (or nothing stored)', () => {
+  it('stored settings: a site is off only when switched off; auto only when exactly auto', () => {
     const s = settings.normalSettings({ sites: { claude: false, grok: 'no', gemini: 0 }, mode: 'CLICK' });
     expect(s.sites.claude).toBe(false);
     expect(s.sites.grok).toBe(true);

@@ -8,9 +8,10 @@
    * and are never sent anywhere:
    *
    * - `settings`: which chat sites are checked, and whether a reply is checked automatically or
-   *   only when the person clicks Check this reply. Missing means every site on, automatically:
-   *   what the extension did before the page existed. A mode this code does not recognise is not
-   *   "missing": it asks first (see normalMode).
+   *   only when the person clicks Check this reply. Missing (a fresh install) means every site OFF,
+   *   only when clicked: nothing is sent until the person switches a site on, on the page that opens
+   *   at install and says what is sent and where (SEC F1, 2026-10-16). Automatically is a choice
+   *   they make there, never the default. A mode this code does not recognise asks first (normalMode).
    * - `record`: counts of each stamp, and the last RECENT_MAX stamps with the site, the time and
    *   what decided it (`by`, and up to two `deciders` ids). Never the text. The site comes from the URL of the tab that painted the stamp, never from
    *   what that tab says about itself.
@@ -35,26 +36,31 @@
   const BY = ['arithmetic', 'arithmetic-approx', 'votes', 'skipped', 'deadline'];
   const VOTER_ID = /^[a-z0-9-]{1,24}$/;
 
-  /**
-   * How a reply is checked. Automatically only for an EXACT `auto`, or when nothing at all was stored
-   * (undefined: a fresh install, the product default, which is a separate decision and is not changed
-   * here). Anything else is ask-first: a wrong-case "Click", a stray word, a null, a missing key, or
-   * settings that are not an object. This used to read `mode === 'click' ? 'click' : 'auto'`, so every
-   * value the code did not recognise FELL THROUGH TO AUTO-SEND, and a person who had chosen "Only when I
-   * click" could be silently reverted by a migration or a typo.
-   */
-  function normalMode(raw) {
-    if (raw === undefined) return AUTO;
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return CLICK;
-    return raw.mode === AUTO ? AUTO : CLICK;
+  /** Settings someone actually saved: a plain object. Anything else is treated as nothing stored. */
+  function isStored(raw) {
+    return Boolean(raw) && typeof raw === 'object' && !Array.isArray(raw);
   }
 
-  /** A site is off only when it was switched off. The mode is auto only when it is exactly auto, or unset. */
+  /**
+   * How a reply is checked. Automatically only for an EXACT stored `auto`. Anything else is ask-first:
+   * nothing stored (a fresh install, SEC F1), a wrong-case "Click", a stray word, a null, a missing key,
+   * or settings that are not an object. This once read `mode === 'click' ? 'click' : 'auto'`, so every
+   * value the code did not recognise FELL THROUGH TO AUTO-SEND (X-2b), and until SEC F1 a fresh install
+   * auto-sent every reply on every site before the person had read what is sent where.
+   */
+  function normalMode(raw) {
+    return isStored(raw) && raw.mode === AUTO ? AUTO : CLICK;
+  }
+
+  /**
+   * Nothing stored (a fresh install): every site OFF until the person switches one on. Stored settings
+   * keep their meaning for an existing install: a site is off only when it was switched off.
+   */
   function normalSettings(raw) {
-    const r = raw && typeof raw === 'object' ? raw : {};
-    const stored = r.sites && typeof r.sites === 'object' ? r.sites : {};
+    const fresh = !isStored(raw);
+    const stored = !fresh && raw.sites && typeof raw.sites === 'object' ? raw.sites : {};
     const sites = {};
-    for (let i = 0; i < SITES.length; i++) sites[SITES[i].id] = stored[SITES[i].id] !== false;
+    for (let i = 0; i < SITES.length; i++) sites[SITES[i].id] = !fresh && stored[SITES[i].id] !== false;
     return { sites, mode: normalMode(raw) };
   }
 
