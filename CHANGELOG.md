@@ -2,6 +2,161 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.7.0 — 2026-10-16
+
+New commands, exports and MCP tools, so this is a minor release. Some existing behaviour changes on
+purpose, each marked BEHAVIOR CHANGE below:
+- local memory quarantines notes it cannot vouch for;
+- MCP tools that read the network answer `{untrusted_data, screening}`, and the MCP `redact` tool
+  is gone;
+- `OFFLINE=1` sends nothing;
+- `TRUSTSHELL_API_URL` must be https.
+
+Each line names the code or test that makes it true.
+
+- **BEHAVIOR CHANGE for MCP consumers: network-read tool results are enveloped untrusted data
+  (#573).**
+  - These tools now answer `{untrusted_data, screening}` instead of the bare result:
+    `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `status`, `check_claim`,
+    `my_job` and `kernel_receipt`, plus the aliases `verify`, `evaluate`, `repid` and `getRepID`.
+  - **An agent that read `verdict` must now read `untrusted_data.verdict`.** Every other field
+    moves under `untrusted_data` the same way.
+  - Every string in `untrusted_data` is run through `ingest()`. A string that reads as instructions
+    is replaced by `[withheld: ...]` and its path is listed in `screening.withheld`;
+    `screening.ingest` is `clean` or `veto`. Error messages carrying a remote body are screened the
+    same way. `ingest()` is a fixed keyword screen with a known ceiling; the envelope tells the
+    agent the whole payload is data, never instructions.
+  - Local tools are unchanged: `remember`, `recall`, `quarantine_list`, `quarantine_explain`,
+    `ground_quote` and `verify_proof`.
+
+  (`screenRemote` in `src/mcp/index.ts`; tests/mcp-untrusted-data.test.ts "screenRemote withholds
+  a smuggled instruction and names where it was", "get_repid wraps clean data too".)
+- **BEHAVIOR CHANGE: the MCP `redact` tool is removed (#573).** Any connected agent could use it to
+  delete the operator's keyed rows. `trustshell redact <key>` at the CLI is unchanged.
+  (tests/mcp-untrusted-data.test.ts "the tool is gone, and an operator key row survives everything
+  an MCP caller can reach".)
+- **BEHAVIOR CHANGE: `OFFLINE=1` sends nothing (#572).**
+  - `verify`, `check "<sentence>"`, `check <run url>`, the MCP `check_claim` and `quarantine release
+    --check hal` print `NOT_CHECKED` (or `not-checked`) and exit 2 before any network call.
+  - In 1.6.1, `OFFLINE=1 verify` still sent the claim to HAL and exited 0, and `check` still sent
+    the text.
+
+  (`OFFLINE_REASON` and `classifyClaim` in `src/lib/claim.ts`; tests/offline-sends-nothing.test.ts;
+  `npm run check:egress`.)
+- **BEHAVIOR CHANGE: `TRUSTSHELL_API_URL` (and the SDK's `apiUrl`) must be https (#574).**
+  - Plain `http://` is allowed only for localhost, 127.0.0.1 or [::1]. Any other plain-http origin
+    is refused before anything is sent.
+  - `REPID_API_KEY` is sent only to an https origin, never to plain http, not even to localhost.
+  - A non-default origin prints one `WARNING:` line on stderr per process.
+  - Every reader of the override goes through one resolver: the SDK, the kernel receipt, `check`,
+    MCP `check_claim`, `my_job`, `status`, `bind-status` and `verify`'s engine lane.
+
+  (`resolveApiBase` and `ApiUrlError` in `src/lib/api-url.ts`; tests/api-url-https-only.test.ts.)
+- **The local memory file is private to you (#575).**
+  - On first use the memory folder is created 0700. The file is created 0600 and set back to 0600
+    every time it is opened, so a world-readable file left by 1.6.1 is tightened.
+  - On Windows, a folder it creates gets an ACL for the current user only (best effort).
+  - An existing folder keeps its mode.
+
+  (`openDb` in `src/memory/local-store.ts`; tests/memory-perms.test.ts.)
+- **BEHAVIOR CHANGE: local memory quarantines untrusted notes (immune system v0).**
+  - Every note carries a taint label, `provenance` (`trusted` | `untrusted` | `grounded` |
+    `verified`), and a `source` (`src/memory/local-store.ts`).
+  - `trustshell remember "<text>"` stores the note **untrusted and quarantined**. `recall` leaves it
+    out and prints `quarantined COUNT N`. **If you wrote it yourself, add `--trusted`.**
+    (`src/cli/index.ts` remember parse; tests/quarantine.test.ts "CLI remember is UNTRUSTED by
+    default".)
+  - A note written through the MCP `remember` tool is always untrusted (`src/mcp/memory.ts`;
+    tests/mcp-memory.test.ts).
+  - Notes saved by 1.6.1 or older are quarantined as `legacy` the first time 1.7.0 opens the file
+    (`src/memory/local-store.ts` ensureSchema; tests/quarantine.test.ts "a pre-v0 memory file").
+  - A held note is released only by one of three:
+    - **ground:** the note is found in the source document recorded with it (`remember
+      --source-file`, or MCP `source_text`; only its sha256 is kept). No recorded document, or a
+      different one, is `NOT_CHECKED`. Whoever stored the note also supplied the document, so the
+      note becomes `grounded`, never `verified`. (`releaseByGround` in `src/memory/quarantine.ts`;
+      tests/quarantine.test.ts "ground release", "(a) the SDK cannot self-ground".)
+    - **hal:** `--check hal` on the default endpoint. It needs a `pass` by votes, from two named
+      deciders of two model families that both said TRUE. A custom endpoint is not asked. The SDK's
+      `releaseByHal(id, { timeoutMs })` takes no transport, so a caller cannot supply the answer.
+      The note becomes `verified`. (`src/memory/quarantine-hal.ts`; tests/quarantine.test.ts "hal
+      release", "(b) the public releaseByHal ignores an injected fetch".)
+    - **operator:** `quarantine release <id> --trusted`, recorded as the operator's word and not a
+      check. CLI only. (`releaseByOperator`; tests/quarantine.test.ts "--trusted releases".)
+  - Injection-looking text, matched by the fixed patterns in `src/lib/ingest.ts`, is never printed
+    and never released. That includes `remember --trusted`, which vouches for who wrote a note,
+    not for what it says. (`heldAsInjection`, `rememberNote`; tests/quarantine.test.ts
+    "injection-looking text stays held", "(c) remember --trusted still runs the injection screen".)
+  - New commands, tools and exports:
+    - `trustshell quarantine list | explain | release`;
+    - the MCP tools `quarantine_list` and `quarantine_explain`. There is no release over MCP;
+    - the SDK exports `rememberUntrusted`, `listQuarantined`, `explainQuarantine`,
+      `releaseByGround`, `releaseByHal`, `releaseExitCode` and `sourceDigest`.
+
+    (tests/mcp.test.ts tool list; tests/quarantine.test.ts "the SDK exports".)
+  - It holds text in this package's local memory and nothing else. It runs nothing in isolation,
+    and its screen is a fixed pattern list.
+- **`trustshell ground`: is a quote really in the document it cites?** It checks a quoted claim
+  against a source file with no model and no network.
+  - It checks that the quote is on the cited page, and with `--kind number|date` that the value is
+    in the quote.
+  - Exits: `VERIFIED` 0, `VETO` 1, and `NOT_CHECKED` 2, which is never a pass.
+  - Pages split on form feed (`pdftotext` output).
+  - `--echo` marks template text, so a quote that only repeats it is `NOT_CHECKED template_echo`.
+  - In code: `groundQuote`, `groundClaims`, `splitPages` and `LIMITATIONS`. Every receipt carries
+    `LIMITATIONS`, `observed: null` and `anchor_status: 'none'`.
+  - `VERIFIED` says the text is on the page. It does not say the quote supports the claim.
+  - For agents it is the MCP tool `ground_quote`, with the source passed as text.
+
+  (`src/lib/ground.ts`; tests/ground.test.ts, ground-cli.test.ts.)
+- **Number and date edges from the red team are closed before release.** None of these verifies
+  any more:
+  - a number glued to letters (`1.5k`) is not checked (tests/ground-xc1.test.ts:65-80);
+  - `1,250` inside `1,250.50`, or `250` inside `-250`, is not found: VETO (:21-55);
+  - a JavaScript number past 2^53 is not checked. The same digits passed as a string still verify,
+    and a different digit string is a VETO even when the two are the same double (:81-107);
+  - a two-digit year is never verified (:56-64);
+  - a date that reads two ways (`03/04/1970`) is not checked (tests/ground.test.ts:322);
+  - an MCP `ground_quote` call with a value but no kind is refused (:109-131).
+- **`trustshell receipt <receiptId>`: read a policy-kernel receipt back and check it here.**
+  - It calls `GET /api/v1/kernel/receipt/:id`, which needs `REPID_API_KEY`.
+  - It recomputes the receipt's keccak256 hash **locally** and prints the receipt only if the hash
+    matches.
+  - It then prints the **six claims** one by one, never as one rollup badge.
+  - Exits: 0 when the hash matches; 1 when the receipt does not match its own hash; 3 for no key, or
+    when the engine refused.
+  - New in code: `kernelReceipt()` and the six-claim exports (`SIX_CLAIM_KEYS`, `SixClaim`,
+    `SixClaimStatement`). `kernelReceiptHash()` was already exported in 1.6.1.
+  - For agents it is the MCP tool `kernel_receipt`.
+
+  (`src/lib/kernel-client.ts`; tests/cli-receipt.test.ts, kernel-client.test.ts.)
+- **`check "<sentence>"` keeps the engine's approximate-arithmetic answer.** The engine can decide a
+  one-equation sentence by approximate (floating-point) calculation. `check` and the MCP
+  `check_claim` now keep that pass or veto and say `Decided by approximate calculation, not exact.
+  No model was asked.` Before, that answer read not-checked. A not-checked that claims this path
+  stays not-checked, and an unlisted path is still never a pass. (`CLAIM_PATHS` and `pathLine` in
+  `src/lib/claim.ts`; tests/claim-arith-approx.test.ts.)
+- The Chrome extension is not in this package. Its scrubbed-send line and its approximate-arithmetic
+  line now match the CLI word for word (tests/claim-path-parity.test.ts).
+- **Extension only, not in the npm tarball: a fresh install sends nothing until the person opts in
+  (#571).** With no stored settings, every chat site is off and ask-first. At install, the Options
+  page opens and says what is sent and where. Stored settings are kept as they were.
+  (`extension/settings.js`, `extension/background.js`; tests/extension-first-run.test.ts.)
+- **Site and docs only, not in the npm tarball: UX quick wins (#577).** These add a privacy link and
+  a footer, fix contrast, put the /check box first, make evidence links honest, and spell HAL
+  "Hallucination Assessment Layer" in the docs. (tests/ux-quick-wins.test.ts.)
+- **`check` no longer has display names for NVIDIA NIM and Z.ai.** Neither is in the engine's voter
+  pool, and neither is on the privacy page's list. An id with no display name still prints as the
+  engine sent it. (`VOTER_NAMES` in `src/lib/claim.ts`; tests/claim-path-parity.test.ts "the ids
+  both doors can name are exactly the hosts in the engine pool".)
+- **Docs match the package.** Every surface that 1.6.1 lacks is labelled "since 1.7.0" at its
+  block. Each label says what 1.6.1 does instead, and that was run on a clean 1.6.1 install
+  (`npm run check:doc-version`; the stranger gate in this release's PR).
+- **Package size.** The tarball has 107 files: 1.6.1's 99, plus `dist/lib/ground`, `dist/lib/api-url`,
+  `dist/memory/quarantine` and `dist/memory/quarantine-hal` (`.js` and `.d.ts` each).
+  - Runtime dependencies are unchanged: `@hyperdag/proof-verifier`, `@modelcontextprotocol/sdk` and
+    `zod`, with `ethers` still an optional peer (`package.json`; `npm pack --dry-run`).
+
 ## 1.6.1 — 2026-10-12
 
 - **One call where there used to be two for a minted passport.** The SDK now reads the engine's

@@ -1,12 +1,12 @@
 const COMMANDS = [
-  'npm i -g @hyperdag/trustshell@1.6.1',
+  'npm i -g @hyperdag/trustshell@1.7.0',
   'trustshell verify "paste your own claim"',
   'trustshell repid trinity-shofet',
 ];
 
 export const metadata = {
   title: 'TrustShell',
-  description: 'npm i -g @hyperdag/trustshell@1.6.1',
+  description: 'npm i -g @hyperdag/trustshell@1.7.0',
 };
 
 export default function Page() {

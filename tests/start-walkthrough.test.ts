@@ -81,7 +81,7 @@ describe('/start', () => {
   });
 
   it('a terminal user is told how to make an agent from the terminal', () => {
-    expect(planFor('terminal', 'fresh').some((s) => s.code === 'npx @hyperdag/trustshell@1.6.0 init --pai')).toBe(true);
+    expect(planFor('terminal', 'fresh').some((s) => s.code === 'npx @hyperdag/trustshell@1.7.0 init --pai')).toBe(true);
   });
 
   it('fresh is offered first, and a fresh plan always ends at claiming the agent', () => {

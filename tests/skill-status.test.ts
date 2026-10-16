@@ -49,7 +49,7 @@ describe('trustshell skill lists status', () => {
     }
     expect(agent).toContain('ChatGPT and Grok apps: not yet.');
     expect(skill).toContain('The ChatGPT and Grok apps do not load MCP servers yet');
-    expect(agent).toContain("'-p', '@hyperdag/trustshell@1.6.1', 'trustshell-mcp'");
+    expect(agent).toContain("'-p', '@hyperdag/trustshell@1.7.0', 'trustshell-mcp'");
     expect(skill).toContain('`npx -y -p`');
     expect(skill).not.toContain('Check a claim in the chat you already use');
     expect(skill).not.toContain('I have a terminal');

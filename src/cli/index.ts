@@ -340,7 +340,8 @@ NETWORK EGRESS (what each command dials, and nothing else)
   ground                           NOTHING. Reads the --source file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
-  quarantine                       NOTHING, except release --check hal: the backend's /api/v1/classify.
+  quarantine                       NOTHING, except release --check hal: the DEFAULT backend's /api/v1/classify
+                                   only. A TRUSTSHELL_API_URL pointing elsewhere is not asked.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 

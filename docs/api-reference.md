@@ -295,7 +295,7 @@ Known secret shapes are stripped from the sentence before it is sent.
 
 ### `trustshell receipt <receiptId>`
 
-> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
+> **Since 1.7.0.** On 1.6.1 and older this command exits `2` with
 > `unknown command: receipt`, and the SDK does not export `kernelReceipt()`.
 
 Reads a policy-kernel receipt back from the engine (`GET /api/v1/kernel/receipt/:id`, which needs
@@ -360,7 +360,7 @@ it in version control.
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
 
-On `main` (not in 1.6.1): the note is stored **untrusted and quarantined** unless you pass `--trusted` (you vouch you wrote it). `--source <label>` and `--source-file <file>` label untrusted text; `--source-file` records the document's sha256 for a later ground release. See `trustshell quarantine` below.
+Since 1.7.0, the note is stored **untrusted and quarantined** unless you pass `--trusted` (you vouch you wrote it). `--source <label>` and `--source-file <file>` label untrusted text; `--source-file` records the document's sha256 for a later ground release. See `trustshell quarantine` below.
 
 `trustshell remember <key> <value>` stores one value under that key in the same file. Remembering the same key again replaces the value. No network.
 
@@ -379,11 +379,11 @@ Print saved notes, oldest first. A `do_not_send` row is not printed; the line is
 
 `trustshell recall <key>` prints that value. A missing key, or a blank value, prints `NOT_CHECKED`, never an empty string.
 
-On `main` (not in 1.6.1): quarantined notes are left out, and a last line `quarantined COUNT N (trustshell quarantine list)` says how many. `--include-quarantined` prints them, each marked `[QUARANTINED: reason]`.
+Since 1.7.0, quarantined notes are left out, and a last line `quarantined COUNT N (trustshell quarantine list)` says how many. `--include-quarantined` prints them, each marked `[QUARANTINED: reason]`.
 
 ### `trustshell quarantine list | explain <id> | release <id>`
 
-> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
+> **Since 1.7.0.** On 1.6.1 and older this command exits `2` with
 > `unknown command: quarantine`.
 
 Immune system v0 for local memory. `remember "<text>"` (with or without `--untrusted`) and the MCP `remember` tool store the note with `provenance: untrusted`, **quarantined**. Only `remember --trusted` stores a `trusted` note. Notes saved before this existed are `untrusted`, source `legacy`, and quarantined when the file is first opened.
@@ -419,7 +419,7 @@ monty NOT_CHECKED
 
 ### `trustshell ground --source <file> --quote "<text>"`
 
-> **Main only — not in the published 1.6.1.** On 1.6.1 this command exits `2` with
+> **Since 1.7.0.** On 1.6.1 and older this command exits `2` with
 > `unknown option: --source`, and the SDK does not export `groundQuote()`, `groundClaims()` or
 > `LIMITATIONS`.
 
@@ -483,9 +483,9 @@ a run or a session that happened — run these against your own and read the rea
 | `badge` | HyperDAG backend (rendering + verification are **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
-| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Main only, not in 1.6.1 | `REPID_API_KEY` required |
+| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Since 1.7.0 | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
-| `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
+| `ground` | **none** — reads the `--source` file. Since 1.7.0 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
 | `remember` | **none** — writes the local memory file | none |
@@ -869,4 +869,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v1.6.1 surface, except the two sections marked main only (`trustshell receipt` and `trustshell ground`), and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
+> Reflects the published `@hyperdag/trustshell` v1.7.0 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
