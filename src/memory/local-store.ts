@@ -40,7 +40,16 @@ export function heldAsInjection(row: Pick<MemoryRow, 'body' | 'quarantine_reason
   return ingest(row.body).ingest !== 'clean';
 }
 
-export type MemoryKind = 'note' | 'pref' | 'do_not_send';
+/**
+ * note / pref / do_not_send are the original kinds. The learning loop (src/learn) adds two of its
+ * own, so its rows can never be read as notes: `listNotes`, `formatRecall`, `countQuarantined` and the
+ * quarantine commands select kind = 'note' only.
+ *   lesson  a correction, verbatim, in the person's words. Written untrusted + quarantined; only
+ *           `trustshell learn accept` releases it (src/learn/store.ts).
+ *   learn   the person's other learn text: a job line, an attempt, a probe criterion.
+ */
+export type MemoryKind = 'note' | 'pref' | 'do_not_send' | 'lesson' | 'learn';
+const KINDS = "'note', 'pref', 'do_not_send', 'lesson', 'learn'";
 
 /**
  * Taint label (immune system v0). Where an entry came from, as far as this file can know it:
@@ -82,10 +91,49 @@ export type ProvenanceInput = {
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS memory (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind TEXT NOT NULL CHECK (kind IN ('note', 'pref', 'do_not_send')),
+  kind TEXT NOT NULL CHECK (kind IN (${KINDS})),
   body TEXT NOT NULL,
   created_at TEXT NOT NULL
 )`;
+
+/** Every column, in order, for the one-time rebuild below. */
+const ALL_COLUMNS =
+  'id, kind, body, created_at, key, provenance, source, quarantined, quarantine_reason, released_by, released_at, source_sha256';
+
+/**
+ * A file made before the learn kinds has CHECK (kind IN ('note', 'pref', 'do_not_send')) baked into
+ * its table, and SQLite cannot alter a CHECK. So the table is rebuilt ONCE, in one transaction: copy
+ * every row with its id, swap the tables, keep the AUTOINCREMENT high-water mark so a deleted id is
+ * never reused. Any failure rolls back and leaves the old table exactly as it was.
+ */
+function widenKinds(db: SqliteDb): void {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'memory'").get();
+  if (!row || String(row.sql).includes("'lesson'")) return;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const seq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'memory'").get();
+    db.exec(`CREATE TABLE memory_widen (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL CHECK (kind IN (${KINDS})),
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      key TEXT, provenance TEXT, source TEXT, quarantined INTEGER NOT NULL DEFAULT 0,
+      quarantine_reason TEXT, released_by TEXT, released_at TEXT, source_sha256 TEXT
+    )`);
+    db.exec(`INSERT INTO memory_widen (${ALL_COLUMNS}) SELECT ${ALL_COLUMNS} FROM memory`);
+    db.exec('DROP TABLE memory');
+    db.exec('ALTER TABLE memory_widen RENAME TO memory');
+    if (seq) {
+      const top = db.prepare('SELECT COALESCE(MAX(id), 0) AS n FROM memory').get();
+      db.prepare("DELETE FROM sqlite_sequence WHERE name = 'memory'").run();
+      db.prepare("INSERT INTO sqlite_sequence (name, seq) VALUES ('memory', ?)").run(Math.max(Number(seq.seq), Number(top?.n ?? 0)));
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
 
 type Statement = {
   run(...params: unknown[]): { lastInsertRowid: number | bigint };
@@ -128,6 +176,7 @@ function ensureSchema(db: SqliteDb): void {
   for (const [name, type] of TAINT_COLUMNS) {
     if (!have.has(name)) db.exec(`ALTER TABLE memory ADD COLUMN ${name} ${type}`);
   }
+  widenKinds(db);
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
   // FAIL CLOSED ON UPGRADE. A note with no provenance was saved before taint labels existed, by the
   // CLI or by an MCP caller, and nothing says which. It is quarantined as untrusted, never read as
@@ -468,4 +517,52 @@ export function deleteKeyed(path: string, key: string): 'redacted' | 'NOT_CHECKE
   } finally {
     db.close();
   }
+}
+
+/**
+ * The open handle, for src/learn/store.ts and its own learn_* tables in this same file (same path,
+ * same owner-only mode, same NOT_CHECKED errors). That module never reads the memory table through
+ * it: memory rows are read with readRows, and only `injectable` decides what may reach a model.
+ */
+export function openMemoryDb(path: string): SqliteDb {
+  return openDb(path);
+}
+export type { SqliteDb };
+
+/** What `learn accept` writes into released_by. A lesson row without it was never accepted. */
+export const LESSON_ACCEPTED = 'learn accept: the person accepted this lesson';
+
+/**
+ * Rows by id, any kind, with the taint record and the body opened (a sealed body that cannot be
+ * opened reads as its placeholder, never ciphertext). Quarantined rows are INCLUDED so the learn
+ * commands can say why a row is held: a caller that sends text to a model filters with `injectable`.
+ */
+export function readRows(path: string, ids: readonly number[], env: NodeJS.ProcessEnv = process.env): MemoryRow[] {
+  if (ids.length === 0) return [];
+  const db = openDb(path);
+  try {
+    const open = opener(db, env);
+    const marks = ids.map(() => '?').join(', ');
+    return db
+      .prepare(`SELECT ${FULL_COLS} FROM memory WHERE id IN (${marks}) ORDER BY id ASC`)
+      .all(...ids)
+      .map(asRow)
+      .map((row) => ({ ...row, body: open(row.body).body }));
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * May this row's text go into a model's context? Only the person's own words, released by the person:
+ *   lesson  not quarantined, trusted, and released by `learn accept` (LESSON_ACCEPTED). A row inserted
+ *           without taint defaults to trusted but carries no such release, so it stays out.
+ *   learn   the person's own CLI text (an attempt): trusted and not quarantined.
+ * Both: readable (not a sealed placeholder) and not injection-looking now (the formatRecall screen).
+ */
+export function injectable(row: MemoryRow): boolean {
+  if (row.quarantined !== false || row.provenance !== 'trusted') return false;
+  if (row.body === SEALED_NO_KEY || row.body === SEALED_WRONG_KEY || heldAsInjection(row)) return false;
+  if (row.kind === 'lesson') return row.released_by === LESSON_ACCEPTED;
+  return row.kind === 'learn';
 }

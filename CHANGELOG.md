@@ -2,6 +2,19 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## Unreleased (main)
+
+- **`trustshell learn`: the learning loop v1, local.** Jobs you create; checks you register, whose
+  exit code is the only outcome the rulers read; your corrections, stored verbatim as an eval case and
+  then a lesson that stays quarantined until you accept it; `learn inject` (and MCP
+  `learn_lessons_for`) prints this job's accepted lessons, at most 5 and 400 tokens, counted as
+  `loop_tokens`; learn and co-work modes; unaided probes; spaced review; `learn report`, which
+  prints `not measured` until a ruler has its data. MCP `learn_record` stores the agent's outcome
+  where no ruler reads it. No network. Example hook: `examples/learn-hook/user-prompt-submit.mjs`.
+- The local memory file gains two kinds, `lesson` and `learn`. A file made before this is rebuilt
+  once, in one transaction, keeping every row and id. `recall` and `quarantine` still read notes
+  only.
+
 ## 1.6.1 — 2026-10-12
 
 - **One call where there used to be two for a minted passport.** The SDK now reads the engine's

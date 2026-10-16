@@ -10,7 +10,15 @@ export declare const LEGACY_REASON = "legacy: saved before taint labels, so who 
  * second clause covers notes no screen ever saw: legacy rows, and encrypted rows read with the key.
  */
 export declare function heldAsInjection(row: Pick<MemoryRow, 'body' | 'quarantine_reason'>): boolean;
-export type MemoryKind = 'note' | 'pref' | 'do_not_send';
+/**
+ * note / pref / do_not_send are the original kinds. The learning loop (src/learn) adds two of its
+ * own, so its rows can never be read as notes: `listNotes`, `formatRecall`, `countQuarantined` and the
+ * quarantine commands select kind = 'note' only.
+ *   lesson  a correction, verbatim, in the person's words. Written untrusted + quarantined; only
+ *           `trustshell learn accept` releases it (src/learn/store.ts).
+ *   learn   the person's other learn text: a job line, an attempt, a probe criterion.
+ */
+export type MemoryKind = 'note' | 'pref' | 'do_not_send' | 'lesson' | 'learn';
 /**
  * Taint label (immune system v0). Where an entry came from, as far as this file can know it:
  *   trusted    the operator vouched for it (`remember --trusted`, or `quarantine release --trusted`)
@@ -45,6 +53,18 @@ export type ProvenanceInput = {
     quarantined: boolean;
     reason?: string | null;
     sourceSha256?: string | null;
+};
+type Statement = {
+    run(...params: unknown[]): {
+        lastInsertRowid: number | bigint;
+    };
+    all(...params: unknown[]): Record<string, unknown>[];
+    get(...params: unknown[]): Record<string, unknown> | undefined;
+};
+type SqliteDb = {
+    exec(sql: string): void;
+    prepare(sql: string): Statement;
+    close(): void;
 };
 export declare function memoryDbPath(env?: NodeJS.ProcessEnv, home?: string): string;
 export declare function insertMemory(path: string, kind: MemoryKind, body: string, now?: string, env?: NodeJS.ProcessEnv, taint?: ProvenanceInput): MemoryRow;
@@ -91,3 +111,26 @@ export declare function writeKeyed(path: string, key: string, body: string, now?
 export declare function readKeyed(path: string, key: string, env?: NodeJS.ProcessEnv): string;
 /** Delete the row for key. Missing is NOT_CHECKED, not an empty success. */
 export declare function deleteKeyed(path: string, key: string): 'redacted' | 'NOT_CHECKED';
+/**
+ * The open handle, for src/learn/store.ts and its own learn_* tables in this same file (same path,
+ * same owner-only mode, same NOT_CHECKED errors). That module never reads the memory table through
+ * it: memory rows are read with readRows, and only `injectable` decides what may reach a model.
+ */
+export declare function openMemoryDb(path: string): SqliteDb;
+export type { SqliteDb };
+/** What `learn accept` writes into released_by. A lesson row without it was never accepted. */
+export declare const LESSON_ACCEPTED = "learn accept: the person accepted this lesson";
+/**
+ * Rows by id, any kind, with the taint record and the body opened (a sealed body that cannot be
+ * opened reads as its placeholder, never ciphertext). Quarantined rows are INCLUDED so the learn
+ * commands can say why a row is held: a caller that sends text to a model filters with `injectable`.
+ */
+export declare function readRows(path: string, ids: readonly number[], env?: NodeJS.ProcessEnv): MemoryRow[];
+/**
+ * May this row's text go into a model's context? Only the person's own words, released by the person:
+ *   lesson  not quarantined, trusted, and released by `learn accept` (LESSON_ACCEPTED). A row inserted
+ *           without taint defaults to trusted but carries no such release, so it stays out.
+ *   learn   the person's own CLI text (an attempt): trusted and not quarantined.
+ * Both: readable (not a sealed placeholder) and not injection-looking now (the formatRecall screen).
+ */
+export declare function injectable(row: MemoryRow): boolean;

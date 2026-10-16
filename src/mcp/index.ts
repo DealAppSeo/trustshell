@@ -32,6 +32,11 @@
  *                      locally, with its six claims (src/lib/kernel-client.ts kernelReceipt).
  *   - ground_quote   — `trustshell ground` parity: is the quote really in the source text, on the
  *                      cited page, with the value in it? Local, no network (src/lib/ground.ts).
+ *   - learn_lessons_for — `trustshell learn inject` parity: the job's accepted lessons, verbatim, plus
+ *                      the scaffold the person chose; recorded as loop_tokens. Local (src/learn).
+ *   - learn_record   — episode metadata for this turn. The caller's outcome is stored as agent_outcome
+ *                      and no ruler reads it; there is no tool that runs a check, accepts a lesson or
+ *                      writes a correction: those are the person's, at the CLI.
  *
  * There is no `redact` tool (SEC F8, 2026-10-16): it let any connected agent delete the operator's
  * keyed rows, and an MCP caller cannot write a keyed row, so it has none of its own to delete.
@@ -61,6 +66,7 @@ import { resolvePackageVersion } from '../lib/version';
 import { buildStatusReport, statusJsonFromText } from '../cli/status';
 import { refusedValue } from '../cli/remember';
 import { recallLocal, rememberLocal } from './memory';
+import { inject, recordEpisode, sha256 } from '../learn/store';
 import { explainQuarantine, listQuarantined } from '../memory/quarantine';
 import { classifyClaim } from '../lib/claim';
 import { myJob } from '../lib/my-job';
@@ -330,6 +336,61 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
         return jsonResult(recallLocal(process.env, { includeQuarantined: include_quarantined === true }));
       } catch (e: any) {
         return errorResult(`recall failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  // --- learning loop (src/learn): read lessons for a job; record this turn's metadata ---------------
+  // An MCP caller is the agent being measured, so it gets no write that moves a ruler: no check run,
+  // no accept, no correction, no rating. Its outcome is stored as agent_outcome and ignored.
+  const LEARN_SLUG = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  const LEARN_LABEL = /^[A-Za-z0-9._:/@+-]{1,120}$/;
+  registerTool(
+    'learn_lessons_for',
+    {
+      title: 'Learn: lessons for a job',
+      description:
+        "The lessons the person accepted for this job, in their own words, verbatim, plus the instruction for the mode they chose (learn: ask for their attempt first; cowork: ask for their prediction first). At most 5 lessons and 400 tokens; recorded on the turn's episode as loop_tokens. In learn mode, no lesson is shown until the person records an attempt. Empty text when the job is unknown or there is no memory file. Local, no network.",
+      inputSchema: {
+        job: z.string().regex(LEARN_SLUG).describe('The job slug the person created (trustshell learn job add).'),
+        turn: z.string().regex(LEARN_LABEL).optional().describe('A key for this turn; a second call with the same key updates the same episode.'),
+      },
+    },
+    async ({ job, turn }: { job: string; turn?: string }) => {
+      try {
+        const r = inject({ job, turn }, process.env);
+        return jsonResult(r ?? { text: '', episode: null, lessons: [], loop_tokens: 0 });
+      } catch (e: any) {
+        return errorResult(`learn_lessons_for failed: ${e?.message ?? String(e)}`);
+      }
+    },
+  );
+
+  registerTool(
+    'learn_record',
+    {
+      title: 'Learn: record this turn',
+      description:
+        "Record metadata for this turn's episode: model, model family, tokens, the check id frozen at the start (one the person registered on the job), your confidence BEFORE the check runs, and your own outcome. Your outcome is stored as agent_outcome and no ruler reads it: only the person's registered check (trustshell learn check run) writes a check outcome. The ask is hashed and never stored. Local, no network.",
+      inputSchema: {
+        job: z.string().regex(LEARN_SLUG).optional().describe('The job slug; needed when this creates a new episode.'),
+        episode: z.number().int().positive().optional().describe('An existing episode id.'),
+        turn: z.string().regex(LEARN_LABEL).optional().describe('The turn key; a second record with the same key updates that episode.'),
+        model: z.string().regex(LEARN_LABEL).optional(),
+        family: z.string().regex(LEARN_LABEL).optional().describe('Model family, e.g. claude, gpt, gemini.'),
+        tokens: z.number().int().min(0).optional().describe('Task tokens for this turn.'),
+        check: z.string().regex(LEARN_LABEL).optional().describe('The check id, frozen at the start of the episode.'),
+        confidence: z.number().min(0).max(1).optional().describe('Your probability that the check will pass, stated before it runs.'),
+        outcome: z.enum(['pass', 'fail']).optional().describe('Your own outcome. Stored as agent_outcome; read by no ruler.'),
+        ask: z.string().max(200_000).optional().describe('The ask. Only its sha256 is kept.'),
+      },
+    },
+    async (a: { job?: string; episode?: number; turn?: string; model?: string; family?: string; tokens?: number; check?: string; confidence?: number; outcome?: 'pass' | 'fail'; ask?: string }) => {
+      try {
+        const { ask, ...rest } = a;
+        return jsonResult(recordEpisode({ ...rest, askSha256: ask === undefined ? undefined : sha256(ask) }, process.env));
+      } catch (e: any) {
+        return errorResult(`learn_record failed: ${e?.message ?? String(e)}`);
       }
     },
   );
