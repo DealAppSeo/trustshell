@@ -73,9 +73,10 @@ describe('SEC F10: the backend override is https only, and the key never goes to
     await client.getRepID('trinity-shofet').catch(() => undefined);
     await client.getRepID('trinity-shofet').catch(() => undefined);
     expect(spy.calls[0]!.auth).toBe(`Bearer ${TOKEN}`);
-    const warnings = stderr.filter((s) => s.includes('https://engine-f10.test'));
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toMatch(/^WARNING: /);
+    // The host is read back out of the line and compared whole (a substring test is what CodeQL's
+    // js/incomplete-url-substring-sanitization flags, even in a test).
+    const named = stderr.map((s) => /^WARNING: TrustShell is using the backend (\S+), /.exec(s)?.[1]).filter(Boolean);
+    expect(named.map((u) => new URL(u as string).host)).toEqual(['engine-f10.test']);
   });
 
   it('the default backend prints no warning', () => {
