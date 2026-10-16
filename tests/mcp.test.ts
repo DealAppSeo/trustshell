@@ -61,7 +61,6 @@ describe('trustshell MCP server', () => {
       'quarantine_explain',
       'quarantine_list',
       'recall',
-      'redact',
       'remember',
       'repid',
       'status',
@@ -70,6 +69,8 @@ describe('trustshell MCP server', () => {
       'verify_proof',
     ]);
     expect(names).not.toContain('stake');
+    // SEC F8: no redact over MCP (tests/mcp-untrusted-data.test.ts).
+    expect(names).not.toContain('redact');
   });
 
   // The camelCase names are PUBLISHED (1.4.0 is live on npm), so dropping one is a breaking
@@ -101,7 +102,7 @@ describe('trustshell MCP server', () => {
     const server: any = createServer(client);
     const r = await getTool(server, 'verify_output').handler({ text: 'claim' });
     expect((client as any).verifyOutput).toHaveBeenCalledWith('claim');
-    expect(JSON.parse(r.content[0].text).verdict).toBe('PASS');
+    expect(JSON.parse(r.content[0].text).untrusted_data.verdict).toBe('PASS');
   });
 
   it('get_repid passes the agentId through, same as getRepID', async () => {
@@ -109,7 +110,7 @@ describe('trustshell MCP server', () => {
     const server: any = createServer(client);
     const r = await getTool(server, 'get_repid').handler({ agentId: 'trinity-shofet' });
     expect((client as any).getRepID).toHaveBeenCalledWith('trinity-shofet');
-    expect(JSON.parse(r.content[0].text).tier).toBe('ESTABLISHED');
+    expect(JSON.parse(r.content[0].text).untrusted_data.tier).toBe('ESTABLISHED');
   });
 
   it('repid is the same lookup as get_repid', async () => {
@@ -117,7 +118,7 @@ describe('trustshell MCP server', () => {
     const server: any = createServer(client);
     const r = await getTool(server, 'repid').handler({ agentId: 'trinity-shofet' });
     expect((client as any).getRepID).toHaveBeenCalledWith('trinity-shofet');
-    expect(JSON.parse(r.content[0].text).repid).toBe(1000);
+    expect(JSON.parse(r.content[0].text).untrusted_data.repid).toBe(1000);
   });
 
   it('verify_proof delegates to client.verifyProof for a presentation', async () => {
@@ -157,7 +158,7 @@ describe('trustshell MCP server', () => {
       const server: any = createServer(mockClient());
       const r = await getTool(server, 'status').handler({});
       expect(r.isError).toBeUndefined();
-      expect(JSON.parse(r.content[0].text).status).toContain('NOT_CHECKED');
+      expect(JSON.parse(r.content[0].text).untrusted_data.status).toContain('NOT_CHECKED');
     } finally {
       if (prev === undefined) delete process.env.OFFLINE;
       else process.env.OFFLINE = prev;
@@ -187,7 +188,7 @@ describe('trustshell MCP server', () => {
     const tool = getTool(server, 'evaluate');
     const res = await tool.handler({ text: 'The capital of France is Paris.' });
     expect((client.verifyOutput as jest.Mock)).toHaveBeenCalledWith('The capital of France is Paris.');
-    expect(JSON.parse(res.content[0].text).verdict).toBe('PASS');
+    expect(JSON.parse(res.content[0].text).untrusted_data.verdict).toBe('PASS');
   });
 
   it('verify tool delegates to client.verifyOutput and returns a JSON text block', async () => {
@@ -197,7 +198,7 @@ describe('trustshell MCP server', () => {
     const res = await tool.handler({ text: 'The Eiffel Tower is in Paris.' });
     expect((client.verifyOutput as jest.Mock)).toHaveBeenCalledWith('The Eiffel Tower is in Paris.');
     expect(res.content[0].type).toBe('text');
-    expect(JSON.parse(res.content[0].text).verdict).toBe('PASS');
+    expect(JSON.parse(res.content[0].text).untrusted_data.verdict).toBe('PASS');
   });
 
   it('getLeaderboard tool passes the board arg through to the client', async () => {
@@ -206,7 +207,7 @@ describe('trustshell MCP server', () => {
     const tool = getTool(server, 'getLeaderboard');
     const res = await tool.handler({ board: 'agents' });
     expect((client.getLeaderboard as jest.Mock)).toHaveBeenCalledWith('agents');
-    expect(JSON.parse(res.content[0].text).kind).toBe('agents');
+    expect(JSON.parse(res.content[0].text).untrusted_data.kind).toBe('agents');
   });
 
   it('getRepID tool passes the agentId through to the client', async () => {
@@ -215,7 +216,7 @@ describe('trustshell MCP server', () => {
     const tool = getTool(server, 'getRepID');
     const res = await tool.handler({ agentId: 'agent-123' });
     expect((client.getRepID as jest.Mock)).toHaveBeenCalledWith('agent-123');
-    expect(JSON.parse(res.content[0].text).tier).toBe('ESTABLISHED');
+    expect(JSON.parse(res.content[0].text).untrusted_data.tier).toBe('ESTABLISHED');
   });
 
   it('present_proof delegates to client.presentProof with verify', async () => {
@@ -224,7 +225,7 @@ describe('trustshell MCP server', () => {
     const tool = getTool(server, 'present_proof');
     const res = await tool.handler({ agentId: 'trinity-shofet', verify: true });
     expect((client.presentProof as jest.Mock)).toHaveBeenCalledWith('trinity-shofet', { verify: true });
-    expect(JSON.parse(res.content[0].text).verification.verified).toBe(true);
+    expect(JSON.parse(res.content[0].text).untrusted_data.verification.verified).toBe(true);
   });
 
   it('surfaces client errors as an isError result (never throws to the transport)', async () => {

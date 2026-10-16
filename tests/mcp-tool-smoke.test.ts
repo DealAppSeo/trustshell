@@ -57,7 +57,7 @@ const mcp = require(path.join(process.cwd(), 'src', 'mcp', 'index.ts'));
 const server = mcp.createServer();
 const names = Object.keys(server._registeredTools || {});
 if (process.env.SMOKE_INJECT_STAKE === '1') names.push('stake');
-const need = ['verify', 'repid', 'status', 'remember', 'recall', 'redact'];
+const need = ['verify', 'repid', 'status', 'remember', 'recall'];
 for (const name of need) {
   if (!names.includes(name)) {
     console.error('missing ' + name);

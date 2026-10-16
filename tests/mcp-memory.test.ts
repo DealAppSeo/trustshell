@@ -7,7 +7,7 @@ import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from '../src/mcp/index';
 import { TrustShell } from '../src/lib/trustshell';
-import { listNotes, writeKeyed } from '../src/memory/local-store';
+import { listNotes, readKeyed, writeKeyed } from '../src/memory/local-store';
 
 const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
 const src = ['src/mcp/memory.ts', 'src/mcp/index.ts']
@@ -91,15 +91,13 @@ describe('mcp local memory', () => {
     expect(verifyOutput).not.toHaveBeenCalled();
   });
 
-  it('redact deletes the keyed row and a missing key is NOT_CHECKED', async () => {
+  // SEC F8: this tool deleted any operator key row for any connected agent. It is gone; the CLI keeps it.
+  it('there is no redact over MCP, and the operator key row is still there', async () => {
     writeKeyed(db, 'desk', 'local only');
     const server = createServer({} as TrustShell) as unknown as {
       _registeredTools?: Record<string, { handler: (args: unknown) => Promise<{ content: { text: string }[] }> }>;
     };
-    const gone = await getTool(server, 'redact').handler({ key: 'desk' });
-    expect(JSON.parse(gone.content[0].text)).toEqual({ result: 'redacted' });
-    const missing = await getTool(server, 'redact').handler({ key: 'desk' });
-    expect(JSON.parse(missing.content[0].text)).toEqual({ result: 'NOT_CHECKED' });
-    expect(missing.content[0].text).not.toBe('');
+    expect(() => getTool(server, 'redact')).toThrow('missing tool redact');
+    expect(readKeyed(db, 'desk')).toBe('local only');
   });
 });

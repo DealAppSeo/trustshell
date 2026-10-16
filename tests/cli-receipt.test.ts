@@ -73,13 +73,13 @@ describe('trustshell receipt', () => {
     const tool = (createServer(NO_CLIENT) as unknown as { _registeredTools: Record<string, { handler: (a: unknown) => Promise<{ content: Array<{ text: string }> }> }> })._registeredTools['kernel_receipt']!;
     const r = await hashedReceipt();
     answer(200, { receipt_id: RID, receipt: r, entries: [], six_claims: envelope(r) });
-    const ok = JSON.parse((await tool.handler({ receipt_id: RID })).content[0]!.text);
+    const ok = JSON.parse((await tool.handler({ receipt_id: RID })).content[0]!.text).untrusted_data;
     expect(ok).toMatchObject({ ok: true, receipt_id: RID, six_claims_note: null });
     expect(Object.keys(ok.six_claims.predicate.claims)).toEqual([...SIX_CLAIM_KEYS]);
     const edited: any = JSON.parse(JSON.stringify(r));
     edited.decision.executed = true;
     answer(200, { receipt_id: RID, receipt: edited, entries: [], six_claims: envelope(r) });
-    const bad = JSON.parse((await tool.handler({ receipt_id: RID })).content[0]!.text);
+    const bad = JSON.parse((await tool.handler({ receipt_id: RID })).content[0]!.text).untrusted_data;
     expect(bad).toMatchObject({ ok: false, reason: 'receipt_hash_mismatch' });
   });
 

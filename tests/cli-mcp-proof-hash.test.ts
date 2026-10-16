@@ -50,7 +50,7 @@ describe('CLI proof --verify and MCP present_proof share a hash', () => {
       agentId: 'trinity-shofet',
       verify: true,
     });
-    const mcp = JSON.parse(res.content[0].text);
+    const mcp = JSON.parse(res.content[0].text).untrusted_data;
     expect(mcp.proofHash).toBe(HASH);
     expect(hashProofBytes(mcp.proofBytes)).toBe(HASH);
   });

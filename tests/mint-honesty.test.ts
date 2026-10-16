@@ -349,12 +349,12 @@ describe('TrustShell.getIdentity / getRepID, end to end with fetch stubbed', () 
     for (const bad of [TX, NEAR_MISS, 'pending-mint:trinity-w3c']) {
       serve(passport({ contract_address: bad }));
       const res = await tool().handler({ agentId: 'trinity-sophia' });
-      const body = JSON.parse(res.content[0]!.text);
+      const body = JSON.parse(res.content[0]!.text).untrusted_data;
       expect(body.identity.registeredOnchain).toBe('NOT_CHECKED');
       expect(body.minted).toBeNull();
     }
     serve(passport());
-    const good = JSON.parse((await tool().handler({ agentId: 'trinity-sophia' })).content[0]!.text);
+    const good = JSON.parse((await tool().handler({ agentId: 'trinity-sophia' })).content[0]!.text).untrusted_data;
     expect(good.identity.registeredOnchain).toBe('MINTED');
     expect(good.minted).toBe(true);
   });

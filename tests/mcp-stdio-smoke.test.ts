@@ -96,10 +96,11 @@ describe('mcp stdio smoke', () => {
       await client.connect(transport);
       const listed = await client.listTools();
       const names = listed.tools.map((tool) => tool.name);
-      for (const name of ['verify', 'repid', 'status', 'remember', 'recall', 'redact']) {
+      for (const name of ['verify', 'repid', 'status', 'remember', 'recall']) {
         expect(names).toContain(name);
       }
       expect(names).not.toContain('stake');
+      expect(names).not.toContain('redact');
       const result = await client.callTool({
         name: 'remember',
         arguments: { text: `note ${SECRET}` },

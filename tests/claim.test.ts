@@ -240,7 +240,7 @@ describe('MCP check_claim and the CLI share ONE function', () => {
     for (const label of ['pass', 'veto', 'not-checked'] as const) {
       stubFetch(() => reply(200, { label, latency_ms: 9 }));
       const res = await tool('check_claim').handler({ text: 'a sentence' });
-      expect(JSON.parse(res.content[0].text)).toEqual({ label, latency_ms: 9 });
+      expect(JSON.parse(res.content[0].text).untrusted_data).toEqual({ label, latency_ms: 9 });
       const io = captureIO();
       const code = await runClaimCheck('a sentence', false, io);
       expect(io.lines[0]).toBe(label);
