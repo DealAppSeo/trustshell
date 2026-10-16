@@ -509,6 +509,7 @@ a run or a session that happened — run these against your own and read the rea
 | `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `profile` | **none** — reads and writes `.trustshell/profile.md`. Main only, not in 1.6.1 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
@@ -519,8 +520,8 @@ a run or a session that happened — run these against your own and read the rea
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
 
-`init` is the only command that writes to your working directory, and it writes exactly one file:
-`.trustshell/profile.md`.
+`init` and `profile` are the only commands that write to your working directory, and they write exactly
+one file: `.trustshell/profile.md`.
 
 ### `trustshell --help` / `--version`
 
