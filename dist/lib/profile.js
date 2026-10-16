@@ -15,15 +15,47 @@
  * artefact must contain nothing you did not deliberately write. Auto-detecting a
  * name is a convenience that silently converts a local file into a disclosure
  * the first time anyone runs `report`.
+ *
+ * The personal sections (values, people helped, style, constraints, model priorities) follow the
+ * same rule: empty, never inferred, written only by the person, shared only under share_personal.
+ * They are not rendered at all until one holds something, so a default profile stays
+ * byte-identical to the one written before they existed.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_TRUST = exports.AUTONOMY_VALUES = exports.PROFILE_VERSION = void 0;
+exports.DEFAULT_TRUST = exports.PERSONAL_SECTIONS = exports.STYLE_KEYS = exports.PRESETS = exports.PRIORITY_NAMES = exports.AUTONOMY_VALUES = exports.PROFILE_VERSION = void 0;
 exports.defaultProfile = defaultProfile;
+exports.personalSectionsSet = personalSectionsSet;
+exports.renderPersonalSection = renderPersonalSection;
 exports.renderProfile = renderProfile;
 exports.parseProfile = parseProfile;
+exports.splitOrder = splitOrder;
+exports.checkOrder = checkOrder;
+exports.checkPreset = checkPreset;
+exports.checkText = checkText;
+exports.writePersonalSection = writePersonalSection;
 /** Bump only on a breaking change to the file's shape. */
 exports.PROFILE_VERSION = 1;
 exports.AUTONOMY_VALUES = ['ask_first', 'do_then_tell', 'just_do_it'];
+/**
+ * Model priorities (F4): a full ranking of the three, or one preset. Stored here only. Nothing
+ * sends it to an engine yet; that needs the router change (F1).
+ */
+exports.PRIORITY_NAMES = ['cost', 'speed', 'quality'];
+exports.PRESETS = ['balanced', 'cost-first', 'speed-first', 'quality-first'];
+/** Character and style (Blueprint §2): tone, detail level, risk appetite, working hours. */
+exports.STYLE_KEYS = ['tone', 'detail', 'risk', 'hours'];
+/**
+ * The personal sections and their headings, in file order. Jobs to be done are NOT here: they
+ * live in the learn module's own job list.
+ */
+exports.PERSONAL_SECTIONS = {
+    values: 'Values',
+    people: 'People I help',
+    style: 'Style',
+    constraints: 'Constraints',
+    priorities: 'Model priorities',
+};
+const SECTION_KEYS = Object.keys(exports.PERSONAL_SECTIONS);
 /**
  * The project's canonical gates, not numbers invented here: CONFIDENCE_GATE =
  * 0.8 and REPID_HITL_GATE = 70. `ask_first` is the most conservative autonomy.
@@ -38,21 +70,65 @@ function defaultProfile() {
         version: exports.PROFILE_VERSION,
         share_identity: false,
         share_context: false,
+        share_personal: false,
         identity: '',
         context: '',
         trust: { ...exports.DEFAULT_TRUST },
+        values: [],
+        people: [],
+        style: {},
+        constraints: [],
+        priorities: null,
     };
+}
+/** The personal sections that hold something, in file order. */
+function personalSectionsSet(p) {
+    return SECTION_KEYS.filter((s) => s === 'style' ? Object.keys(p.style).length > 0 : s === 'priorities' ? p.priorities !== null : p[s].length > 0);
+}
+const SECTION_NOTE = {
+    values: '<!-- What you care about, most important first, in your own words. None of\n     these sections is in a report unless share_personal is true. -->',
+    people: '<!-- Who you want to help, and why it matters to you. -->',
+    style: `<!-- One per line, key: value. Keys: ${exports.STYLE_KEYS.join(', ')}. -->`,
+    constraints: '<!-- Lines that must hold: "never leaves my device", a budget, a time limit. -->',
+    priorities: `<!-- order: ${exports.PRIORITY_NAMES.join(', ')} (all three, most important first), or
+     preset: ${exports.PRESETS.join(' | ')}.
+     Stored here only; nothing sends it to a model yet. -->`,
+};
+function sectionItems(p, s) {
+    switch (s) {
+        case 'values':
+            return p.values.map((v, i) => `${i + 1}. ${v}`);
+        case 'people':
+            return p.people.map((x, i) => `${i + 1}. ${x.who}${x.why ? ` — why: ${x.why}` : ''}`);
+        case 'style':
+            return exports.STYLE_KEYS.filter((k) => p.style[k]).map((k) => `${k}: ${p.style[k]}`);
+        case 'constraints':
+            return p.constraints.map((c, i) => `${i + 1}. ${c}`);
+        case 'priorities':
+            if (!p.priorities)
+                return [];
+            return ['preset' in p.priorities ? `preset: ${p.priorities.preset}` : `order: ${p.priorities.order.join(', ')}`];
+    }
+}
+/** One personal section, heading to note, newline-terminated. An empty body is a blank line, like Identity. */
+function renderPersonalSection(p, s) {
+    return `# ${exports.PERSONAL_SECTIONS[s]}\n${sectionItems(p, s).join('\n')}\n${SECTION_NOTE[s]}\n`;
 }
 /**
  * The file `init` writes. The comments are load-bearing: they are where a reader
  * learns that the blanks are deliberate, so nobody "helpfully" auto-fills them.
  */
 function renderProfile(p = defaultProfile()) {
+    // The personal block (and its share flag) is rendered only once it holds something or sharing
+    // is on, so a profile without it is byte-identical to the one written before it existed.
+    const personal = p.share_personal || personalSectionsSet(p).length > 0;
+    const shareLine = personal ? `share_personal: ${p.share_personal}\n` : '';
+    const block = personal ? '\n' + SECTION_KEYS.map((s) => renderPersonalSection(p, s)).join('\n') : '';
     return `---
 trustshell_profile: ${p.version}
 share_identity: ${p.share_identity}
 share_context: ${p.share_context}
----
+${shareLine}---
 
 # Identity
 ${p.identity}
@@ -70,7 +146,7 @@ ${p.context}
 autonomy: ${p.trust.autonomy}
 confidence_gate: ${p.trust.confidence_gate}
 hitl_gate: ${p.trust.hitl_gate}
-`;
+${block}`;
 }
 function parseFrontmatter(text) {
     const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -181,10 +257,126 @@ function parseProfile(text) {
             version,
             share_identity: parseBool(fm['share_identity'], 'share_identity', problems),
             share_context: parseBool(fm['share_context'], 'share_context', problems),
+            share_personal: parseBool(fm['share_personal'], 'share_personal', problems),
             identity: sectionBody(text, 'Identity'),
             context: sectionBody(text, 'Context'),
             trust,
+            ...parsePersonal(text, problems),
         },
         problems,
     };
+}
+/** List lines with an optional `1.` / `-` marker stripped. Order is rank. */
+function listItems(body) {
+    return body
+        .split('\n')
+        .map((l) => l.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, '').trim())
+        .filter(Boolean);
+}
+/** An unparseable line drops only that line and is reported; nothing is guessed. */
+function parsePersonal(text, problems) {
+    const body = (s) => sectionBody(text, exports.PERSONAL_SECTIONS[s]);
+    const people = listItems(body('people')).map((item) => {
+        const m = item.match(/^(.*?)\s+[—–-]+\s*why:\s*(.*)$/i);
+        return m ? { who: (m[1] ?? '').trim(), why: (m[2] ?? '').trim() } : { who: item, why: '' };
+    });
+    const style = {};
+    for (const line of listItems(body('style'))) {
+        const kv = line.match(/^([A-Za-z_]+)\s*:\s*(.+)$/);
+        const key = kv?.[1]?.toLowerCase();
+        if (kv && exports.STYLE_KEYS.includes(key ?? ''))
+            style[key] = (kv[2] ?? '').trim();
+        else
+            problems.push({ field: 'style', detail: `"${line}" is not one of ${exports.STYLE_KEYS.join(', ')} as key: value — ignored` });
+    }
+    // Anything unclear about priorities resolves to NONE set, the same as an absent section.
+    const found = [];
+    for (const line of listItems(body('priorities'))) {
+        const kv = line.match(/^(preset|order)\s*:\s*(.*)$/i);
+        const isPreset = kv?.[1]?.toLowerCase() === 'preset';
+        const raw = kv?.[2] ?? '';
+        const err = !kv ? `"${line}" is neither preset: nor order:` : isPreset ? checkPreset(raw) : checkOrder(splitOrder(raw));
+        if (err)
+            problems.push({ field: 'priorities', detail: `${err} — no priorities set` });
+        else
+            found.push(isPreset ? { preset: raw.trim() } : { order: splitOrder(raw) });
+    }
+    if (found.length > 1)
+        problems.push({ field: 'priorities', detail: 'more than one preset:/order: line — no priorities set' });
+    return {
+        values: listItems(body('values')),
+        people,
+        style,
+        constraints: listItems(body('constraints')),
+        priorities: found.length === 1 ? (found[0] ?? null) : null,
+    };
+}
+/** `cost,quality speed` → ['cost','quality','speed'], lower-cased. */
+function splitOrder(raw) {
+    return raw.split(/[\s,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+}
+/** null when `names` ranks all three priorities exactly once; otherwise why not. */
+function checkOrder(names) {
+    const seen = new Set();
+    for (const n of names) {
+        if (!exports.PRIORITY_NAMES.includes(n))
+            return `unknown priority "${n}" — use ${exports.PRIORITY_NAMES.join(', ')}`;
+        if (seen.has(n))
+            return `"${n}" is listed twice`;
+        seen.add(n);
+    }
+    if (seen.size !== exports.PRIORITY_NAMES.length)
+        return `rank all three (${exports.PRIORITY_NAMES.join(', ')}), or use a preset`;
+    return null;
+}
+/** null when `raw` is a known preset; otherwise why not. */
+function checkPreset(raw) {
+    return exports.PRESETS.includes(raw.trim()) ? null : `unknown preset "${raw.trim()}" — use ${exports.PRESETS.join(', ')}`;
+}
+/**
+ * null when `raw` can be stored as one entry and read back unchanged; otherwise why not. One line,
+ * so it cannot open a new section; no comment markers, because the parser strips comments.
+ */
+function checkText(raw, what) {
+    const t = raw.trim();
+    if (!t)
+        return `${what} is empty`;
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f\u007f]/.test(t))
+        return `${what} must be one line of plain text`;
+    if (t.length > 280)
+        return `${what} is longer than 280 characters`;
+    if (/<!--|-->/.test(t))
+        return `${what} cannot contain <!-- or -->`;
+    return null;
+}
+/**
+ * PURE. Rewrite ONE personal section of an existing profile file to match `p`, leaving every other
+ * byte alone: hand edits, comments and unknown sections elsewhere survive. A file with no personal
+ * section yet gets the whole block appended, in file order, exactly as `renderProfile` would write
+ * it, and the `share_personal` flag is added to the frontmatter as written in `p` (false unless the
+ * person set it).
+ */
+function writePersonalSection(text, p, s) {
+    const eol = text.includes('\r\n') ? '\r\n' : '\n';
+    let out = text;
+    if (parseFrontmatter(out)['share_personal'] === undefined) {
+        out = out.replace(/^(---\r?\n[\s\S]*?)(\r?\n---)/, `$1${eol}share_personal: ${p.share_personal}$2`);
+    }
+    const lines = out.split(/\r?\n/);
+    const headingOf = (l) => l.match(/^#\s+(.*?)\s*$/)?.[1]?.toLowerCase();
+    const start = lines.findIndex((l) => headingOf(l) === exports.PERSONAL_SECTIONS[s].toLowerCase());
+    const section = renderPersonalSection(p, s);
+    if (start === -1) {
+        const headings = new Set(lines.map(headingOf));
+        const anyPersonal = SECTION_KEYS.some((k) => headings.has(exports.PERSONAL_SECTIONS[k].toLowerCase()));
+        const add = anyPersonal ? section : SECTION_KEYS.map((k) => renderPersonalSection(p, k)).join('\n');
+        return (out.replace(/(\r?\n)*$/, eol) + eol + add).replace(/\r?\n/g, eol);
+    }
+    let end = start + 1;
+    while (end < lines.length && headingOf(lines[end] ?? '') === undefined)
+        end += 1;
+    const replacement = section.replace(/\n$/, '').split('\n');
+    lines.splice(start, end - start, ...replacement, '');
+    return lines.join(eol);
 }

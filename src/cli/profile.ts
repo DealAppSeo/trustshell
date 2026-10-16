@@ -267,9 +267,11 @@ export async function runProfile(op: ProfileOp, io: ProfileIo, fs: ProfileFs, js
     }
     if (job) said.push(learnJobHint(job));
     if (never) {
-      profile = { ...profile, constraints: [...profile.constraints, never] };
+      // The answer names what must NOT happen. Stored bare, "email a client" would read as a rule to do it.
+      const line = /^never/i.test(never) ? never : `Must never happen: ${never}`;
+      profile = { ...profile, constraints: [...profile.constraints, line] };
       out = writePersonalSection(out, profile, 'constraints');
-      said.push(`constraint ${profile.constraints.length}: ${never}`);
+      said.push(`constraint ${profile.constraints.length}: ${line}`);
     }
     if (!who && !job && !never) said.push('all three skipped; nothing written');
   } else {

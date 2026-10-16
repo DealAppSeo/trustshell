@@ -11,7 +11,7 @@
  * machine" stays answerable by reading one row of the egress table.
  */
 import type { InspectResult } from './inspect';
-import type { Profile } from './profile';
+import { type Profile } from './profile';
 /**
  * CONFIRMED 0 · INCONSISTENT 1 · UNSUPPORTED 3.
  *
@@ -54,6 +54,8 @@ export interface ReportResult {
     /** Included ONLY when the matching share_* flag is true. Absent otherwise — not empty-string. */
     identity?: string;
     context?: string;
+    /** The personal sections that hold something, ONLY when share_personal is true. */
+    personal?: Partial<Pick<Profile, 'values' | 'people' | 'style' | 'constraints' | 'priorities'>>;
     withheld: string[];
     does_not_prove: string[];
 }

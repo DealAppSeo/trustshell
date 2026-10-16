@@ -125,7 +125,8 @@ const SECTION_NOTE: Record<PersonalSection, string> = {
   style: `<!-- One per line, key: value. Keys: ${STYLE_KEYS.join(', ')}. -->`,
   constraints: '<!-- Lines that must hold: "never leaves my device", a budget, a time limit. -->',
   priorities: `<!-- order: ${PRIORITY_NAMES.join(', ')} (all three, most important first), or
-     preset: ${PRESETS.join(' | ')}. Stored here only; nothing sends it to a model yet. -->`,
+     preset: ${PRESETS.join(' | ')}.
+     Stored here only; nothing sends it to a model yet. -->`,
 };
 
 function sectionItems(p: Profile, s: PersonalSection): string[] {

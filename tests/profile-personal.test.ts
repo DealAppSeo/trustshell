@@ -320,7 +320,7 @@ describe('first-run interview', () => {
     const text = files.get(PROFILE_PATH) as string;
     const p = parseProfile(text).profile;
     expect(p.people).toEqual([{ who: 'my team', why: '' }]);
-    expect(p.constraints).toEqual(['email a client without asking me']);
+    expect(p.constraints).toEqual(['Must never happen: email a client without asking me']);
     expect(text).not.toContain('invoice');
     expect(p.share_personal).toBe(false);
     const said = out.join('\n');
@@ -361,7 +361,7 @@ describe('first-run interview', () => {
     expect(code).toBe(0);
     const p = parseProfile(files.get(PROFILE_PATH) as string).profile;
     expect(p.people.map((x) => x.who)).toEqual(['new founders']);
-    expect(p.constraints).toEqual(['spend over budget']);
+    expect(p.constraints).toEqual(['Must never happen: spend over budget']);
   });
 
   it('a credential in an answer is refused before anything is written', () => {

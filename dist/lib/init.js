@@ -79,6 +79,8 @@ function formatInitCard(r) {
         '',
         '  no network  ·  no account  ·  nothing collected',
         '',
+        // Offered, never run: init itself asks nothing.
+        ...(r.outcome === 'EXISTS' ? [] : ['  Optional: `trustshell profile interview` asks three questions, each skippable.', '']),
         '  Still manual:',
         ...r.still_manual.map((s) => `    - ${s}`),
     ];
