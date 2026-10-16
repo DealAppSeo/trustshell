@@ -87,6 +87,10 @@ makes it true.
   `src/lib/claim.ts`; tests/claim-arith-approx.test.ts.)
 - The Chrome extension is not in this package. Its scrubbed-send line and its approximate-arithmetic
   line now match the CLI word for word (tests/claim-path-parity.test.ts).
+- **`check` no longer has display names for NVIDIA NIM and Z.ai.** Neither is in the engine's voter
+  pool, and neither is on the privacy page's list. An id with no display name still prints as the
+  engine sent it. (`VOTER_NAMES` in `src/lib/claim.ts`; tests/claim-path-parity.test.ts "the ids
+  both doors can name are exactly the hosts in the engine pool".)
 - **Docs match the package.** Every surface that 1.6.1 lacks is labelled "since 1.7.0" at its
   block. Each label says what 1.6.1 does instead, and that was run on a clean 1.6.1 install
   (`npm run check:doc-version`; the stranger gate in this release's PR).
