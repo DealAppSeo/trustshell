@@ -346,8 +346,9 @@ function checkText(raw, what) {
         return `${what} must be one line of plain text`;
     if (t.length > 280)
         return `${what} is longer than 280 characters`;
-    if (/<!--|-->/.test(t))
-        return `${what} cannot contain <!-- or -->`;
+    // `--!>` too: an HTML viewer of the file ends a comment there, even though our parser does not.
+    if (/<!--|--!?>/.test(t))
+        return `${what} cannot contain <!--, --> or --!>`;
     return null;
 }
 /**

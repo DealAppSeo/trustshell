@@ -389,7 +389,8 @@ export function checkText(raw: string, what: string): string | null {
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(t)) return `${what} must be one line of plain text`;
   if (t.length > 280) return `${what} is longer than 280 characters`;
-  if (/<!--|-->/.test(t)) return `${what} cannot contain <!-- or -->`;
+  // `--!>` too: an HTML viewer of the file ends a comment there, even though our parser does not.
+  if (/<!--|--!?>/.test(t)) return `${what} cannot contain <!--, --> or --!>`;
   return null;
 }
 

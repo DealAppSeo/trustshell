@@ -278,6 +278,7 @@ describe('input at the trust boundary', () => {
   it.each<[string[], RegExp]>([
     [['add', 'value', 'two\nlines'], /one line/],
     [['add', 'value', 'sneaky <!-- comment'], /<!--/],
+    [['add', 'value', 'ends a comment --!> here'], /--!>/],
     [['add', 'value', '   '], /empty/],
     [['add', 'constraint', 'x'.repeat(281)], /280/],
     [['add', 'constraint', 'my key is sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789'], /credential/],
