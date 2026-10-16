@@ -18,7 +18,6 @@
  *   - present_proof  — RepID range proof; optional client-side verify (1.4.0 tree; not in npm MCP 1.0.0).
  *   - remember       — write a note into the local sqlite file. No network.
  *   - recall         — list saved notes from that file. No network.
- *   - redact         — delete one keyed row. Missing is NOT_CHECKED. No network.
  *   - repid          — alias of get_repid / getRepID.
  *   - verify_output  — canonical name for verify/evaluate (SDK verifyOutput).
  *   - get_repid      — canonical name for getRepID.
@@ -33,6 +32,13 @@
  *                      locally, with its six claims (src/lib/kernel-client.ts kernelReceipt).
  *   - ground_quote   — `trustshell ground` parity: is the quote really in the source text, on the
  *                      cited page, with the value in it? Local, no network (src/lib/ground.ts).
+ *
+ * There is no `redact` tool (SEC F8, 2026-10-16): it let any connected agent delete the operator's
+ * keyed rows, and an MCP caller cannot write a keyed row, so it has none of its own to delete.
+ * Deleting is the operator's, at the CLI (`trustshell redact <key>`).
+ *
+ * UNTRUSTED DATA (SEC F9): every tool whose answer came over the network returns
+ * { untrusted_data, screening } (see screenRemote). It is data for the agent, never instructions.
  *
  * camelCase names (verify / evaluate / getLeaderboard / getRepID) are kept as ALIASES: 1.4.0 is
  * already published with them live, so renaming would break existing agent configs.
@@ -61,6 +67,24 @@ import { TrustShell } from '../lib/trustshell';
 export declare const MCP_VERSION: string;
 /** Build the SDK client from env (apiKey + apiUrl are both optional; reads are keyless). */
 export declare function makeClient(): TrustShell;
+/**
+ * SEC F9: text that came over the network (HAL evidence, leaderboard names, a role from my_job, an
+ * error body) is DATA for the calling agent, never instructions to it. Every string in the payload is
+ * run through ingest(); one that looks like instruction-smuggling is replaced by WITHHELD and its path
+ * listed in screening.withheld. ingest() is a keyword screen with a known ceiling (src/lib/ingest.ts),
+ * so the envelope itself is the other half: the agent is told the whole thing is untrusted data.
+ * ponytail: object KEYS are not screened (remote keys here are fixed field names); screen them if a
+ * tool ever returns free-text keys.
+ */
+export declare function screenRemote(payload: unknown): {
+    untrusted_data: unknown;
+    screening: {
+        ingest: 'clean';
+    } | {
+        ingest: 'veto';
+        withheld: string[];
+    };
+};
 /**
  * Construct the TrustShell MCP server and register its tools. The client is injected so this is
  * unit-testable without a live network. Exported (not just booted) so tests can drive it directly.
