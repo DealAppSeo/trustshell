@@ -354,11 +354,13 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       inputSchema: {
         job: z.string().regex(LEARN_SLUG).describe('The job slug the person created (trustshell learn job add).'),
         turn: z.string().regex(LEARN_LABEL).optional().describe('A key for this turn; a second call with the same key updates the same episode.'),
+        model: z.string().regex(LEARN_LABEL).optional().describe('Your model id, recorded on the episode.'),
+        family: z.string().regex(LEARN_LABEL).optional().describe('Your model family (claude, gpt, gemini, ...), recorded on the episode.'),
       },
     },
-    async ({ job, turn }: { job: string; turn?: string }) => {
+    async ({ job, turn, model, family }: { job: string; turn?: string; model?: string; family?: string }) => {
       try {
-        const r = inject({ job, turn }, process.env);
+        const r = inject({ job, turn, model, family }, process.env);
         return jsonResult(r ?? { text: '', episode: null, lessons: [], loop_tokens: 0 });
       } catch (e) {
         return errorResult(`learn_lessons_for failed: ${e instanceof Error ? e.message : String(e)}`);

@@ -12,8 +12,14 @@ All notable changes to the `@hyperdag/trustshell` package.
   prints `not measured` until a ruler has its data. MCP `learn_record` stores the agent's outcome
   where no ruler reads it. No network. Example hook: `examples/learn-hook/user-prompt-submit.mjs`.
 - The local memory file gains two kinds, `lesson` and `learn`. A file made before this is rebuilt
-  once, in one transaction, keeping every row and id. `recall` and `quarantine` still read notes
-  only.
+  once, in one transaction, keeping every row and id, and only by a `learn` command. Before the
+  rebuild the file is copied to `<file>.bak-<UTC time>` (0600); if the copy fails, nothing is
+  rebuilt. `recall` and `quarantine` still read notes only.
+- A failed check retires only the injected lessons scoped to that check or to no check, and
+  `learn accept` can re-accept a retired lesson, with receipts. `learn correct --credit <label>`
+  records who prompted a correction; `--derived-from-untrusted <label>` (formerly `--source`, which
+  still works and warns) marks text that is not yours. `inject` records `--model` / `--family`, and
+  `examples/learn-hook/stop.mjs` fills in each turn's model, family and tokens.
 
 ## 1.6.1 — 2026-10-12
 

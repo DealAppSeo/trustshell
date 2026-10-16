@@ -7,7 +7,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { insertMemory, openMemoryDb } from '../src/memory/local-store';
@@ -15,6 +15,7 @@ import { acceptLesson, addCheck, addJob, correct, declineLesson, snapshot } from
 
 const ROOT = join(__dirname, '..');
 const HOOK = join(ROOT, 'examples', 'learn-hook', 'user-prompt-submit.mjs');
+const STOP = join(ROOT, 'examples', 'learn-hook', 'stop.mjs');
 const DAY = 86_400_000;
 /** (Cast: the root tsconfig's Next types make NODE_ENV required on ProcessEnv.) */
 const envOf = (vars: Record<string, string | undefined>) => vars as NodeJS.ProcessEnv;
@@ -56,6 +57,50 @@ describe('examples/learn-hook/user-prompt-submit.mjs', () => {
     return spawnSync(process.execPath, [HOOK], { input: JSON.stringify(event), env: childEnv, encoding: 'utf8', cwd: dir });
   }
 
+  function stop(payload: Record<string, unknown>, extra: Record<string, string | undefined> = {}) {
+    const childEnv = envOf({ ...process.env, TRUSTSHELL_MEMORY: db, TRUSTSHELL_CLI: cli, TRUSTSHELL_LEARN_JOB: 'ship', ...extra });
+    for (const [k, v] of Object.entries(childEnv)) if (v === undefined) delete childEnv[k];
+    return spawnSync(process.execPath, [STOP], { input: JSON.stringify(payload), env: childEnv, encoding: 'utf8', cwd: dir });
+  }
+
+  it("stop.mjs fills in the turn's model, family and tokens from the transcript, and never opens a new episode", () => {
+    addJob('ship', 'delegate', 'When I ship a change, I want the tests green, so I can merge.', env, new Date());
+    const prompt = 'Fix the flaky test.';
+    expect(hook(prompt).status).toBe(0); // the prompt hook opens this turn's episode
+    const transcript = join(dir, 'transcript.jsonl');
+    const lines = (entries: unknown[]) => entries.map((e) => JSON.stringify(e)).join('\n');
+    writeFileSync(
+      transcript,
+      lines([
+        { type: 'user', message: { role: 'user', content: 'an earlier prompt' } },
+        { type: 'assistant', message: { model: 'claude-opus-5-5', usage: { input_tokens: 999, output_tokens: 1 } } },
+        { type: 'user', message: { role: 'user', content: prompt } },
+        { type: 'assistant', message: { model: 'claude-opus-5-5', usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 10 } } },
+        { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok' }] } },
+        { type: 'assistant', message: { model: 'claude-opus-5-5', usage: { input_tokens: 200, output_tokens: 40, cache_creation_input_tokens: 5 } } },
+      ]),
+    );
+    const r = stop({ session_id: 'sess-1', transcript_path: transcript, cwd: dir, hook_event_name: 'Stop', stop_hook_active: false });
+    expect([r.status, r.stdout]).toEqual([0, '']);
+    const eps = snapshot(env)!.episodes;
+    expect(eps).toHaveLength(1);
+    expect(eps[0]).toEqual(expect.objectContaining({ family: 'claude', tokens: 405, check_outcome: null, agent_outcome: null }));
+    const conn = openMemoryDb(db);
+    expect(conn.prepare('SELECT model FROM learn_episode').get()).toEqual({ model: 'claude-opus-5-5' });
+    conn.close();
+
+    // A turn the prompt hook never opened: nothing is written.
+    writeFileSync(transcript, lines([{ type: 'user', message: { role: 'user', content: 'a prompt with no episode' } }, { type: 'assistant', message: { model: 'claude-opus-5-5', usage: { output_tokens: 3 } } }]));
+    expect(stop({ session_id: 'sess-1', transcript_path: transcript, hook_event_name: 'Stop' }).status).toBe(0);
+    expect(snapshot(env)!.episodes).toHaveLength(1);
+  }, 300_000);
+
+  it('the prompt hook records the model and family from TRUSTSHELL_LEARN_MODEL / TRUSTSHELL_LEARN_FAMILY', () => {
+    addJob('ship', 'delegate', 'When I ship a change, I want the tests green, so I can merge.', env, new Date());
+    expect(hook('anything', { TRUSTSHELL_LEARN_MODEL: 'claude-opus-5-5', TRUSTSHELL_LEARN_FAMILY: 'claude' }).status).toBe(0);
+    expect(snapshot(env)!.episodes[0]!.family).toBe('claude');
+  }, 300_000);
+
   it('prints the accepted lesson; declined, quarantined, expired, other-job lessons and the paraphrase note are absent', () => {
     const now = new Date();
     for (const slug of ['ship', 'other']) {
@@ -66,7 +111,7 @@ describe('examples/learn-hook/user-prompt-submit.mjs', () => {
     acceptLesson(keep.lesson, env, now);
     const no = correct({ job: 'ship', text: 'DECLINED lesson.' }, env, now);
     declineLesson(no.lesson, env, now);
-    correct({ job: 'ship', text: 'QUARANTINED copy of a web page.', source: 'https://example.com' }, env, now);
+    correct({ job: 'ship', text: 'QUARANTINED copy of a web page.', derivedFrom: 'https://example.com' }, env, now);
     const old = new Date(now.getTime() - 31 * DAY);
     const stale = correct({ job: 'ship', text: 'EXPIRED lesson.' }, env, old);
     acceptLesson(stale.lesson, env, old);

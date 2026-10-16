@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.execCheck = exports.SCAFFOLD = exports.LearnError = exports.LADDER_DAYS = exports.LESSON_DAYS = exports.MAX_LOOP_TOKENS = exports.MAX_LESSONS = exports.MODES = void 0;
+exports.execCheck = exports.RECONCILED = exports.SCAFFOLD = exports.LearnError = exports.LADDER_DAYS = exports.LESSON_DAYS = exports.MAX_LOOP_TOKENS = exports.MAX_LESSONS = exports.MODES = void 0;
 exports.estimateTokens = estimateTokens;
 exports.sha256 = sha256;
 exports.addJob = addJob;
@@ -27,7 +27,8 @@ exports.snapshot = snapshot;
  *
  * WHERE THINGS LIVE. One sqlite file: the local memory (src/memory/local-store.ts).
  *   - TEXT the person wrote (a correction, a job line, an attempt, a probe criterion) goes through
- *     insertMemory with an explicit taint label, so it is sealed when TRUSTSHELL_MEMORY_ENCRYPT is on
+ *     insertRow (insertMemory on the learn connection, in the same transaction as its learn_* row) with an
+ *     explicit taint label, so it is sealed when TRUSTSHELL_MEMORY_ENCRYPT is on
  *     and screened like every other row. A correction is kind `lesson`, untrusted and QUARANTINED
  *     until the person runs `learn accept`; nothing here reads the memory table directly.
  *   - Everything else is metadata in learn_* tables: slugs, ids, counts, hashes, timestamps, and the
@@ -118,11 +119,17 @@ const SCHEMA = [
     id INTEGER PRIMARY KEY AUTOINCREMENT, lesson_id INTEGER NOT NULL, step INTEGER NOT NULL, due_at TEXT NOT NULL,
     result TEXT CHECK (result IN ('yes', 'no')), answered_at TEXT, created_at TEXT NOT NULL)`,
 ];
+/** Why reconcile put a lesson back in quarantine: its body was released but the lesson is not accepted. */
+exports.RECONCILED = 'learn: released body of a lesson that is not accepted, put back in quarantine';
 function withDb(path, fn) {
     const db = (0, local_store_1.openMemoryDb)(path);
     try {
         for (const sql of SCHEMA)
             db.exec(sql);
+        // Every write below keeps a lesson's body and its status in one transaction. This also repairs a
+        // file written otherwise (an older build, a crash between two connections): a released body whose
+        // lesson is not accepted goes back to quarantine.
+        db.prepare("UPDATE memory SET quarantined = 1, quarantine_reason = ? WHERE kind = 'lesson' AND quarantined = 0 AND id IN (SELECT body_id FROM learn_lesson WHERE status != 'accepted')").run(exports.RECONCILED);
         return fn(db);
     }
     finally {
@@ -208,13 +215,12 @@ function addJob(slug, mode, jtbd, env = process.env, now = new Date()) {
     if (!line)
         throw new LearnError('a job needs its one line: "When …, I want …, so I can …"');
     refuseSecret(line);
-    const path = (0, local_store_1.memoryDbPath)(env);
-    withDb(path, (db) => {
+    writeDb(env, (db) => tx(db, () => {
         if (getJob(db, slug))
             throw new LearnError(`job ${slug} already exists`);
-    });
-    const row = (0, local_store_1.insertMemory)(path, 'learn', line, iso(now), env, personTaint('cli:learn job add', line));
-    withDb(path, (db) => db.prepare("INSERT INTO learn_job (slug, mode, jtbd_id, created_by, created_at) VALUES (?, ?, ?, 'person', ?)").run(slug, mode, row.id, iso(now)));
+        const row = (0, local_store_1.insertRow)(db, 'learn', line, iso(now), env, personTaint('cli:learn job add', line));
+        db.prepare("INSERT INTO learn_job (slug, mode, jtbd_id, created_by, created_at) VALUES (?, ?, ?, 'person', ?)").run(slug, mode, row.id, iso(now));
+    }));
 }
 function listJobs(env = process.env) {
     return (readDb(env, (db, path) => {
@@ -296,14 +302,17 @@ function runCheck(id, opts = {}, env = process.env, now = new Date(), exec = exp
         db.prepare('UPDATE learn_episode SET check_outcome = ?, check_at = ?, updated_at = ? WHERE id = ?').run(outcome, t, t, episodeId);
         const retired = [];
         if (outcome === 'fail') {
+            // Only the lessons this failure is evidence against: scoped to this check, or job-wide (no
+            // check). A lesson scoped to another check stays accepted. Its body goes back to quarantine.
             const injected = JSON.parse(String(ep?.injected ?? '[]'));
             for (const lessonId of injected) {
+                const lesson = db.prepare('SELECT body_id, check_id FROM learn_lesson WHERE id = ? AND status = ?').get(lessonId, 'accepted');
+                if (!lesson || (lesson.check_id !== null && lesson.check_id !== check.id))
+                    continue;
                 const reason = `retired: check ${check.id} failed on episode ${episodeId} with this lesson injected`;
-                const changed = db
-                    .prepare("UPDATE learn_lesson SET status = 'retired', status_reason = ?, updated_at = ? WHERE id = ? AND status = 'accepted'")
-                    .run(reason, t, lessonId);
-                if (Number(changed.changes ?? 0) > 0)
-                    retired.push(`lesson ${lessonId} ${reason}`);
+                db.prepare("UPDATE learn_lesson SET status = 'retired', status_reason = ?, updated_at = ? WHERE id = ?").run(reason, t, lessonId);
+                (0, local_store_1.requarantineRow)(db, Number(lesson.body_id), `learn: ${reason}`);
+                retired.push(`lesson ${lessonId} ${reason}`);
             }
         }
         return { check: check.id, episode: episodeId, exit, outcome, retired };
@@ -402,42 +411,45 @@ function rateEpisode(episode, rating, env = process.env, now = new Date()) {
     });
 }
 /**
- * The person's correction, verbatim. FAILURE FIRST (§2.2): the eval case is written before the lesson,
- * in one transaction. The lesson body is kind `lesson`, UNTRUSTED and QUARANTINED until `learn accept`
- * (§8.3). Text that came from somewhere else (`source`: a page, another agent, a model) is held for good
- * and never accepted; so is injection-looking text. A model's paraphrase (`note`) is kept as an ordinary
- * quarantined note, never injected. A secret-shaped correction or note writes nothing.
+ * The person's correction, verbatim. FAILURE FIRST (§2.2): the eval case is written before the lesson.
+ * The body row, the eval case and the lesson are ONE transaction on one connection. The lesson body is
+ * kind `lesson`, UNTRUSTED and QUARANTINED until `learn accept` (§8.3). `derivedFrom` marks text
+ * that is not the person's (held for good, never accepted); so is injection-looking text. `credit`
+ * only records who prompted it. A secret-shaped correction or note writes nothing.
  */
 function correct(input, env = process.env, now = new Date()) {
     const text = input.text;
     if (!text.trim())
-        throw new LearnError('a correction needs its text, in the person\'s own words');
+        throw new LearnError("a correction needs its text, in the person's own words");
     refuseSecret(text, input.note);
-    const path = (0, local_store_1.memoryDbPath)(env);
-    withDb(path, (db) => {
+    const derived = input.derivedFrom === undefined ? undefined : label('--derived-from-untrusted', input.derivedFrom);
+    const credit = input.credit === undefined ? undefined : label('--credit', input.credit);
+    const screen = (0, ingest_1.ingest)(text);
+    const status = screen.ingest !== 'clean' || derived !== undefined ? 'quarantined' : 'candidate';
+    const reason = screen.ingest !== 'clean'
+        ? `${local_store_1.INJECTION_PREFIX}: ${screen.excerpt}`
+        : derived !== undefined
+            ? `derived from untrusted content (${derived}): never injected, never accepted`
+            : 'candidate: waiting for the person to run learn accept';
+    const source = derived !== undefined ? `learn:derived-from-untrusted:${derived}` : credit !== undefined ? `cli:learn correct (credit: ${credit})` : 'cli:learn correct';
+    const t = iso(now);
+    return writeDb(env, (db) => tx(db, () => {
         requireJob(db, input.job);
         if (input.check !== undefined)
             requireCheck(db, input.job, input.check);
         if (input.episode !== undefined && !episodeRow(db, { episode: input.episode }))
             throw new LearnError(`no episode ${input.episode}`);
-    });
-    const screen = (0, ingest_1.ingest)(text);
-    const source = input.source === undefined ? undefined : label('source', input.source);
-    const status = screen.ingest !== 'clean' || source !== undefined ? 'quarantined' : 'candidate';
-    const reason = screen.ingest !== 'clean'
-        ? `${local_store_1.INJECTION_PREFIX}: ${screen.excerpt}`
-        : source !== undefined
-            ? `derived from untrusted content (${source}): never injected, never accepted`
-            : 'candidate: waiting for the person to run learn accept';
-    const t = iso(now);
-    const body = (0, local_store_1.insertMemory)(path, 'lesson', text, t, env, {
-        provenance: 'untrusted',
-        source: source !== undefined ? `learn:${source}` : 'cli:learn correct',
-        quarantined: true,
-        reason,
-    });
-    const note = input.note?.trim() ? (0, quarantine_1.rememberUntrusted)(input.note, { source: 'learn:paraphrase' }, env).id : null;
-    return withDb(path, (db) => tx(db, () => {
+        const body = (0, local_store_1.insertRow)(db, 'lesson', text, t, env, { provenance: 'untrusted', source, quarantined: true, reason });
+        let note = null;
+        if (input.note?.trim()) {
+            const noteScreen = (0, ingest_1.ingest)(input.note);
+            note = (0, local_store_1.insertRow)(db, 'note', input.note, t, env, {
+                provenance: 'untrusted',
+                source: 'learn:paraphrase',
+                quarantined: true,
+                reason: noteScreen.ingest === 'clean' ? quarantine_1.UNCHECKED_REASON : `${local_store_1.INJECTION_PREFIX}: ${noteScreen.excerpt}`,
+            }).id;
+        }
         const evalId = Number(db
             .prepare('INSERT INTO learn_eval (job, check_id, body_id, episode_id, created_at) VALUES (?, ?, ?, ?, ?)')
             .run(input.job, input.check ?? null, body.id, input.episode ?? null, t).lastInsertRowid);
@@ -454,42 +466,51 @@ function lessonRow(db, id) {
     return row;
 }
 /**
- * The person accepts a lesson: its row is released as trusted with LESSON_ACCEPTED, and it may be
- * injected for 30 days. Accepting an accepted lesson renews the 30 days. Held, declined or retired
- * lessons are refused; write a new correction instead.
+ * The person accepts a lesson: its body is released as trusted with LESSON_ACCEPTED and the lesson may be
+ * injected for 30 days, in one transaction. Accepting an accepted lesson renews the 30 days. A RETIRED
+ * lesson can be re-accepted, only this way: the retirement receipt is returned first and a re-accept
+ * receipt is recorded. Held (quarantined) and declined lessons are refused. Nothing re-accepts by itself.
  */
 function acceptLesson(id, env = process.env, now = new Date()) {
     const path = (0, local_store_1.memoryDbPath)(env);
-    const lesson = withDb(path, (db) => lessonRow(db, id));
-    const status = lesson.status;
-    if (status !== 'candidate' && status !== 'accepted') {
-        throw new LearnError(`lesson ${id} is ${status} (${lesson.status_reason ?? 'no reason recorded'}); it cannot be accepted`);
-    }
-    const [body] = (0, local_store_1.readRows)(path, [Number(lesson.body_id)], env);
-    if (!body || (0, local_store_1.heldAsInjection)(body)) {
-        withDb(path, (db) => db.prepare("UPDATE learn_lesson SET status = 'quarantined', status_reason = ?, updated_at = ? WHERE id = ?").run(`${local_store_1.INJECTION_PREFIX}: found when the lesson was accepted`, iso(now), id));
-        throw new LearnError(`lesson ${id} reads as injection-looking text; it is held and cannot be accepted`);
-    }
+    const bodyId = withDb(path, (db) => Number(lessonRow(db, id).body_id));
+    const [body] = (0, local_store_1.readRows)(path, [bodyId], env);
     const t = iso(now);
-    if (body.quarantined)
-        (0, local_store_1.markReleased)(path, body.id, local_store_1.LESSON_ACCEPTED, t, 'trusted');
     const expires = iso(new Date(now.getTime() + exports.LESSON_DAYS * DAY));
-    withDb(path, (db) => {
-        db.prepare("UPDATE learn_lesson SET status = 'accepted', status_reason = NULL, accepted_at = ?, expires_at = ?, updated_at = ? WHERE id = ?").run(t, expires, t, id);
-        if (!db.prepare('SELECT 1 FROM learn_review WHERE lesson_id = ? AND result IS NULL').get(id)) {
-            db.prepare('INSERT INTO learn_review (lesson_id, step, due_at, created_at) VALUES (?, 0, ?, ?)').run(id, iso(new Date(now.getTime() + exports.LADDER_DAYS[0] * DAY)), t);
-        }
+    return withDb(path, (db) => {
+        const held = tx(db, () => {
+            const lesson = lessonRow(db, id);
+            const status = lesson.status;
+            if (status !== 'candidate' && status !== 'accepted' && status !== 'retired') {
+                throw new LearnError(`lesson ${id} is ${status} (${lesson.status_reason ?? 'no reason recorded'}); it cannot be accepted`);
+            }
+            if (!body || (0, local_store_1.heldAsInjection)(body)) {
+                db.prepare("UPDATE learn_lesson SET status = 'quarantined', status_reason = ?, updated_at = ? WHERE id = ?").run(`${local_store_1.INJECTION_PREFIX}: found when the lesson was accepted`, t, id);
+                return true;
+            }
+            const retired = status === 'retired' ? String(lesson.status_reason ?? 'retired') : null;
+            const receipt = retired === null ? null : `re-accepted by the person at ${t}; before that: ${retired}`;
+            (0, local_store_1.releaseRow)(db, bodyId, local_store_1.LESSON_ACCEPTED, t, 'trusted');
+            db.prepare("UPDATE learn_lesson SET status = 'accepted', status_reason = ?, accepted_at = ?, expires_at = ?, updated_at = ? WHERE id = ?").run(receipt, t, expires, t, id);
+            if (!db.prepare('SELECT 1 FROM learn_review WHERE lesson_id = ? AND result IS NULL').get(id)) {
+                db.prepare('INSERT INTO learn_review (lesson_id, step, due_at, created_at) VALUES (?, 0, ?, ?)').run(id, iso(new Date(now.getTime() + exports.LADDER_DAYS[0] * DAY)), t);
+            }
+            return { expires_at: expires, retired_receipt: retired, reaccept_receipt: receipt };
+        });
+        if (held === true)
+            throw new LearnError(`lesson ${id} reads as injection-looking text; it is held and cannot be accepted`);
+        return held;
     });
-    return { expires_at: expires };
 }
-/** Decline a candidate, or revert an accepted lesson. It is never injected again. */
+/** Decline a candidate, or revert an accepted lesson: its body goes back to quarantine, in one transaction. */
 function declineLesson(id, env = process.env, now = new Date()) {
-    writeDb(env, (db) => {
+    writeDb(env, (db) => tx(db, () => {
         const lesson = lessonRow(db, id);
         if (lesson.status !== 'candidate' && lesson.status !== 'accepted')
             throw new LearnError(`lesson ${id} is ${lesson.status}`);
         db.prepare("UPDATE learn_lesson SET status = 'declined', status_reason = 'declined by the person', updated_at = ? WHERE id = ?").run(iso(now), id);
-    });
+        (0, local_store_1.requarantineRow)(db, Number(lesson.body_id), 'learn: declined by the person');
+    }));
 }
 function listLessons(job, env = process.env) {
     return (readDb(env, (db, path) => {
@@ -512,20 +533,17 @@ function addAttempt(input, env = process.env, now = new Date()) {
     if (!input.text.trim())
         throw new LearnError('an attempt needs its text');
     refuseSecret(input.text);
-    const path = (0, local_store_1.memoryDbPath)(env);
-    withDb(path, (db) => {
+    return writeDb(env, (db) => tx(db, () => {
         requireJob(db, input.job);
         if (input.episode !== undefined && !episodeRow(db, { episode: input.episode }))
             throw new LearnError(`no episode ${input.episode}`);
-    });
-    const row = (0, local_store_1.insertMemory)(path, 'learn', input.text, iso(now), env, personTaint('cli:learn attempt', input.text));
-    return withDb(path, (db) => {
+        const row = (0, local_store_1.insertRow)(db, 'learn', input.text, iso(now), env, personTaint('cli:learn attempt', input.text));
         const id = Number(db.prepare('INSERT INTO learn_attempt (job, body_id, episode_id, created_at) VALUES (?, ?, ?, ?)').run(input.job, row.id, input.episode ?? null, iso(now))
             .lastInsertRowid);
         if (input.episode !== undefined)
             db.prepare('UPDATE learn_episode SET attempt_id = ? WHERE id = ?').run(id, input.episode);
         return id;
-    });
+    }));
 }
 /**
  * A recall item cut by code from the person's own words: the longest word (4+ letters) is blanked,
@@ -552,12 +570,16 @@ function cloze(text) {
 /**
  * What goes into the model's context for one turn of a job, and the episode that records it.
  *   - Only this job's lessons that the person accepted, unexpired, verbatim, through `injectable`.
- *   - At most 5 lessons and 400 tokens in all; a lesson that does not fit whole is left out, never cut.
+ *   - At most 5 lessons and 400 tokens in all, the scaffold and the cloze included; a lesson that does
+ *     not fit whole is left out, never cut. If the scaffold and the cloze alone would pass 400, the
+ *     cloze is left out and the text says so.
  *   - learn mode: with no attempt by the person on this episode, the scaffold only, no lesson bodies
  *     (§8.2). After `learn attempt`, the lessons and one cloze from that attempt.
  *   - cowork mode: the prediction-first line, then the lessons.
- * Missing memory file or unknown job: null, nothing written. The tokens printed are added to the
- * episode's loop_tokens, so the loop's own cost is never left out of a ruler.
+ * Missing memory file or unknown job: null, nothing written. The tokens printed are recorded as the
+ * episode's loop_tokens, so the loop's own cost is never left out of a ruler; a second inject on the
+ * same turn does not count them again (the larger of the two is kept). `model` / `family` are recorded
+ * on the episode, so the hook path can be measured by ruler 1.
  */
 function inject(opts, env = process.env, now = new Date()) {
     if (!SLUG.test(opts.job))
@@ -570,7 +592,7 @@ function inject(opts, env = process.env, now = new Date()) {
             return null;
         return tx(db, () => {
             const { row } = upsertEpisode(db, { job: job.slug, turn: opts.turn }, now);
-            applyRecord(db, row, { check: opts.check, askSha256: opts.askSha256 }, now);
+            applyRecord(db, row, { check: opts.check, askSha256: opts.askSha256, model: opts.model, family: opts.family }, now);
             let attemptId = num(row.attempt_id);
             if (attemptId === null) {
                 const open = db.prepare('SELECT id FROM learn_attempt WHERE job = ? AND episode_id IS NULL ORDER BY id DESC LIMIT 1').get(job.slug);
@@ -606,10 +628,22 @@ function inject(opts, env = process.env, now = new Date()) {
             recall = `Recall question for the end, cut from the person's own attempt (fill the blank): ${blank}`;
     }
     const header = `[trustshell learn] job ${plan.job.slug} · ${plan.job.mode} · episode ${plan.episode}`;
+    /** The whole text, so the cap is measured on exactly what is printed. */
+    const render = (lessonLines, recallLine) => {
+        const parts = [...fixed];
+        if (lessonLines.length)
+            parts.push("Lessons, in the person's own words:", ...lessonLines);
+        if (recallLine)
+            parts.push(recallLine);
+        return parts.length ? [header, ...parts].join('\n') : '';
+    };
+    if (recall && estimateTokens(render([], recall)) > exports.MAX_LOOP_TOKENS) {
+        recall = null;
+        fixed.push(`The recall question was left out: with the scaffold it would pass the ${exports.MAX_LOOP_TOKENS}-token cap.`);
+    }
     const used = [];
     const lines = [];
     if (!withheld) {
-        const budget = exports.MAX_LOOP_TOKENS - estimateTokens([header, ...fixed, recall ?? '', "Lessons, in the person's own words:"].join('\n'));
         for (const l of plan.lessons) {
             if (used.length >= exports.MAX_LESSONS)
                 break;
@@ -617,22 +651,17 @@ function inject(opts, env = process.env, now = new Date()) {
             if (!row || !(0, local_store_1.injectable)(row))
                 continue;
             const line = `- ${row.body}`;
-            if (estimateTokens([...lines, line].join('\n')) > budget)
+            if (estimateTokens(render([...lines, line], recall)) > exports.MAX_LOOP_TOKENS)
                 continue;
             lines.push(line);
             used.push(l.id);
         }
     }
-    const parts = [...fixed];
-    if (lines.length)
-        parts.push("Lessons, in the person's own words:", ...lines);
-    if (recall)
-        parts.push(recall);
-    const text = parts.length ? [header, ...parts].join('\n') : '';
+    const text = render(lines, recall);
     const tokens = estimateTokens(text);
     writeDb(env, (db) => {
         const injected = [...new Set([...plan.prior, ...used])];
-        db.prepare('UPDATE learn_episode SET loop_tokens = loop_tokens + ?, injected = ?, updated_at = ? WHERE id = ?').run(tokens, JSON.stringify(injected), iso(now), plan.episode);
+        db.prepare('UPDATE learn_episode SET loop_tokens = MAX(loop_tokens, ?), injected = ?, updated_at = ? WHERE id = ?').run(tokens, JSON.stringify(injected), iso(now), plan.episode);
     });
     return { text, episode: plan.episode, lessons: used, loop_tokens: tokens };
 }
@@ -642,16 +671,15 @@ function addProbe(input, env = process.env, now = new Date()) {
     if (!input.criterion.trim())
         throw new LearnError('a probe needs its criterion, written before the attempt');
     refuseSecret(input.criterion);
-    const path = (0, local_store_1.memoryDbPath)(env);
-    withDb(path, (db) => {
+    return writeDb(env, (db) => tx(db, () => {
         const job = requireJob(db, input.job);
         if (job.mode !== 'learn')
             throw new LearnError(`job ${job.slug} is in ${job.mode} mode; unaided probes are for learn jobs`);
         requireCheck(db, job.slug, input.check);
-    });
-    const row = (0, local_store_1.insertMemory)(path, 'learn', input.criterion, iso(now), env, personTaint('cli:learn probe add', input.criterion));
-    return withDb(path, (db) => Number(db.prepare('INSERT INTO learn_probe (job, check_id, criterion_id, created_at) VALUES (?, ?, ?, ?)').run(input.job, input.check, row.id, iso(now))
-        .lastInsertRowid));
+        const row = (0, local_store_1.insertRow)(db, 'learn', input.criterion, iso(now), env, personTaint('cli:learn probe add', input.criterion));
+        return Number(db.prepare('INSERT INTO learn_probe (job, check_id, criterion_id, created_at) VALUES (?, ?, ?, ?)').run(input.job, input.check, row.id, iso(now))
+            .lastInsertRowid);
+    }));
 }
 /** Score one unaided attempt on a probe: 1 when its check exits 0, 0 otherwise. Prints no lesson. */
 function runProbe(id, env = process.env, now = new Date(), exec = exports.execCheck) {

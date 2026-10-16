@@ -38,12 +38,13 @@ export const LEARN_USAGE = `trustshell learn — the learning loop (local; nothi
                [--check <check>] [--confidence 0-1] [--outcome pass|fail] [--ask-sha256 H]
                                                        --outcome is stored as the agent's, read by no ruler
   learn rate <episode> accept|edit|reject             your rating; reported, outside rulers 1-2
-  learn correct --job <slug> [--check C] [--episode N] [--source <label>] [--note "<paraphrase>"] "<your words>"
+  learn correct --job <slug> [--check C] [--episode N] [--credit <label>] [--note "<paraphrase>"] "<your words>"
                                                        eval case first, then a candidate lesson
-  learn accept <lesson> | learn decline <lesson>
+               [--derived-from-untrusted <label>]     the text is not yours: held for good, never injected
+  learn accept <lesson> | learn decline <lesson>      accept also re-accepts a retired lesson, with receipts
   learn lessons [--job <slug>]
   learn attempt --job <slug> [--episode N] "<your attempt>"
-  learn inject --job <slug> [--turn K] [--check C] [--ask-sha256 H]
+  learn inject --job <slug> [--turn K] [--check C] [--model M] [--family F] [--ask-sha256 H]
   learn probe add --job <slug> --check <check> --criterion "<written before the attempt>"
   learn probe run <probe>
   learn review | learn review <review> yes|no
@@ -51,7 +52,7 @@ export const LEARN_USAGE = `trustshell learn — the learning loop (local; nothi
 
 const VALUE = new Set([
   '--job', '--mode', '--turn', '--episode', '--model', '--family', '--tokens', '--check', '--confidence',
-  '--outcome', '--source', '--note', '--id', '--cmd', '--ask-sha256', '--criterion',
+  '--outcome', '--source', '--derived-from-untrusted', '--credit', '--note', '--id', '--cmd', '--ask-sha256', '--criterion',
 ]);
 
 function parse(argv: string[]): { pos: string[]; opt: Record<string, string> } {
@@ -168,7 +169,21 @@ async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Pr
     }
     case 'correct': {
       if (!opt.job) throw new LearnError('`learn correct` needs --job');
-      const r = correct({ job: opt.job, text, check: opt.check, episode: whole('--episode', opt.episode), source: opt.source, note: opt.note }, env);
+      if (opt.source !== undefined && opt['derived-from-untrusted'] !== undefined) throw new LearnError('give --derived-from-untrusted once (--source is its old name)');
+      // DEPRECATED: --source used to name where a correction came from, and silently made it untrusted.
+      if (opt.source !== undefined) io.err('warning: --source is deprecated and means --derived-from-untrusted: this lesson will never be injectable. To credit who prompted it, use --credit.');
+      const r = correct(
+        {
+          job: opt.job,
+          text,
+          check: opt.check,
+          episode: whole('--episode', opt.episode),
+          derivedFrom: opt['derived-from-untrusted'] ?? opt.source,
+          credit: opt.credit,
+          note: opt.note,
+        },
+        env,
+      );
       io.out(`eval case ${r.eval}, then lesson ${r.lesson} (${r.status})`);
       if (r.status === 'candidate') io.err(`your words, held until you accept them: trustshell learn accept ${r.lesson}`);
       else io.err(`held: ${r.reason}`);
@@ -179,7 +194,9 @@ async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Pr
       only(rest, 1);
       const lesson = id('`learn accept`', rest[0]);
       const r = acceptLesson(lesson, env);
+      if (r.retired_receipt) io.out(`lesson ${lesson} was ${r.retired_receipt}`);
       io.out(`lesson ${lesson} accepted until ${r.expires_at}`);
+      if (r.reaccept_receipt) io.out(`receipt: ${r.reaccept_receipt}`);
       return 0;
     }
     case 'decline': {
@@ -210,7 +227,7 @@ async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Pr
       if (!opt.job) throw new LearnError('`learn inject` needs --job');
       let r: ReturnType<typeof inject> = null;
       try {
-        r = inject({ job: opt.job, turn: opt.turn, check: opt.check, askSha256: opt['ask-sha256'] }, env);
+        r = inject({ job: opt.job, turn: opt.turn, check: opt.check, askSha256: opt['ask-sha256'], model: opt.model, family: opt.family }, env);
       } catch (e) {
         if (e instanceof LearnError) throw e;
         io.err(`learn inject: nothing injected (${e instanceof Error ? e.message : String(e)})`);

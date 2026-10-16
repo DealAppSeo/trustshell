@@ -54,6 +54,12 @@ export type ProvenanceInput = {
     reason?: string | null;
     sourceSha256?: string | null;
 };
+/**
+ * Does this CREATE TABLE text already admit every kind? Reads the actual `CHECK (kind IN (...))` list
+ * and compares it as a set, rather than looking for one word anywhere in the text. A table with no
+ * CHECK on kind admits any kind, so it needs no rebuild.
+ */
+export declare function admitsLearnKinds(createSql: string): boolean;
 type Statement = {
     run(...params: unknown[]): {
         lastInsertRowid: number | bigint;
@@ -68,6 +74,12 @@ type SqliteDb = {
 };
 export declare function memoryDbPath(env?: NodeJS.ProcessEnv, home?: string): string;
 export declare function insertMemory(path: string, kind: MemoryKind, body: string, now?: string, env?: NodeJS.ProcessEnv, taint?: ProvenanceInput): MemoryRow;
+/**
+ * insertMemory on a handle the caller already holds, so src/learn can write the memory row and its own
+ * learn_* row in ONE transaction on one connection. Same sealing, same taint columns. The taint is
+ * required here: a learn write always says where its text came from.
+ */
+export declare function insertRow(db: SqliteDb, kind: MemoryKind, body: string, now: string, env: NodeJS.ProcessEnv, taint: ProvenanceInput): MemoryRow;
 /**
  * Notes in insert order. A sealed note that cannot be opened reads as a placeholder line, never ciphertext.
  * QUARANTINED NOTES ARE LEFT OUT unless `includeQuarantined` is set: untrusted text does not reach a
@@ -87,6 +99,13 @@ export declare function getNote(path: string, id: number, env?: NodeJS.ProcessEn
  * Only a row that is still quarantined changes; the return says whether one did.
  */
 export declare function markReleased(path: string, id: number, releasedBy: string, now?: string, provenance?: 'verified' | 'grounded' | 'trusted'): boolean;
+/** markReleased on a handle the caller holds (one transaction with a learn_* write). */
+export declare function releaseRow(db: SqliteDb, id: number, releasedBy: string, now: string, provenance: 'verified' | 'grounded' | 'trusted'): boolean;
+/**
+ * Put a released learn row back in quarantine, with why (a declined or retired lesson). Only kinds
+ * `lesson` and `learn`: notes are released and held by the quarantine commands, never from here.
+ */
+export declare function requarantineRow(db: SqliteDb, id: number, reason: string): void;
 /** Record why a quarantined note stays held (a failed check). It stays quarantined. */
 export declare function setQuarantineReason(path: string, id: number, reason: string): void;
 export declare function countDoNotSend(path: string): number;
@@ -116,7 +135,9 @@ export declare function deleteKeyed(path: string, key: string): 'redacted' | 'NO
  * same owner-only mode, same NOT_CHECKED errors). That module never reads the memory table through
  * it: memory rows are read with readRows, and only `injectable` decides what may reach a model.
  */
-export declare function openMemoryDb(path: string): SqliteDb;
+export declare function openMemoryDb(path: string, opts?: {
+    copyFile?: (from: string, to: string) => void;
+}): SqliteDb;
 export type { SqliteDb };
 /** What `learn accept` writes into released_by. A lesson row without it was never accepted. */
 export declare const LESSON_ACCEPTED = "learn accept: the person accepted this lesson";

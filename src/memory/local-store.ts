@@ -3,7 +3,7 @@
  * TRUSTSHELL_MEMORY points tests and CI at a temp file.
  */
 import { execFileSync } from 'node:child_process';
-import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
+import { chmodSync, closeSync, constants as fsConstants, copyFileSync, mkdirSync, openSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir, userInfo } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -96,6 +96,18 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS memory (
   created_at TEXT NOT NULL
 )`;
 
+/**
+ * Does this CREATE TABLE text already admit every kind? Reads the actual `CHECK (kind IN (...))` list
+ * and compares it as a set, rather than looking for one word anywhere in the text. A table with no
+ * CHECK on kind admits any kind, so it needs no rebuild.
+ */
+export function admitsLearnKinds(createSql: string): boolean {
+  const m = /CHECK\s*\(\s*kind\s+IN\s*\(([^)]*)\)\s*\)/i.exec(createSql);
+  if (!m) return true;
+  const have = new Set([...(m[1] as string).matchAll(/'([^']*)'/g)].map((x) => x[1]));
+  return [...KINDS.matchAll(/'([^']*)'/g)].every((x) => have.has(x[1]));
+}
+
 /** Every column, in order, for the one-time rebuild below. */
 const ALL_COLUMNS =
   'id, kind, body, created_at, key, provenance, source, quarantined, quarantine_reason, released_by, released_at, source_sha256';
@@ -108,12 +120,25 @@ const ALL_COLUMNS =
  *
  * DEFAULT-INERT: only the learn commands call it (openMemoryDb, before any learn write). A file nobody
  * runs `learn` on keeps its table as it was; a new file is created with the wide CHECK already.
+ *
+ * BACKUP FIRST. Inside the write lock and before anything changes, the whole file is copied next to
+ * itself as `<file>.bak-<UTC time>` (0600), and its path is printed once on stderr. If the copy fails,
+ * nothing is rebuilt: the error is thrown and the transaction rolls back untouched.
  */
-function widenKinds(db: SqliteDb): void {
+function widenKinds(db: SqliteDb, path: string, copy: (from: string, to: string) => void): void {
   const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'memory'").get();
-  if (!row || String(row.sql).includes("'lesson'")) return;
+  if (!row || admitsLearnKinds(String(row.sql))) return;
   db.exec('BEGIN IMMEDIATE');
   try {
+    // The time with its separators removed (20261016T101500123Z): a Windows file name cannot hold ':'.
+    const backup = `${path}.bak-${new Date().toISOString().replace(/[-:.]/g, '')}`;
+    try {
+      copy(path, backup);
+      chmodSync(backup, 0o600);
+    } catch (err) {
+      throw new Error(`NOT_CHECKED could not back up ${path} to ${backup} (${(err as Error)?.message ?? String(err)}); the memory table was not changed`);
+    }
+    process.stderr.write(`trustshell: backed up ${path} to ${backup} before widening its memory table (once)\n`);
     const seq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'memory'").get();
     db.exec(`CREATE TABLE memory_widen (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -315,28 +340,37 @@ export function insertMemory(
 ): MemoryRow {
   const db = openDb(path);
   try {
-    const stored = sealer(db, env)(body);
-    const result = db
-      .prepare(
-        'INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason, source_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      )
-      .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null, taint.sourceSha256 ?? null);
-    return {
-      id: Number(result.lastInsertRowid),
-      kind,
-      body,
-      created_at: now,
-      provenance: taint.provenance,
-      source: taint.source,
-      quarantined: taint.quarantined,
-      quarantine_reason: taint.reason ?? null,
-      released_by: null,
-      released_at: null,
-      source_sha256: taint.sourceSha256 ?? null,
-    };
+    return insertRow(db, kind, body, now, env, taint);
   } finally {
     db.close();
   }
+}
+
+/**
+ * insertMemory on a handle the caller already holds, so src/learn can write the memory row and its own
+ * learn_* row in ONE transaction on one connection. Same sealing, same taint columns. The taint is
+ * required here: a learn write always says where its text came from.
+ */
+export function insertRow(db: SqliteDb, kind: MemoryKind, body: string, now: string, env: NodeJS.ProcessEnv, taint: ProvenanceInput): MemoryRow {
+  const stored = sealer(db, env)(body);
+  const result = db
+    .prepare(
+      'INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason, source_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    )
+    .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null, taint.sourceSha256 ?? null);
+  return {
+    id: Number(result.lastInsertRowid),
+    kind,
+    body,
+    created_at: now,
+    provenance: taint.provenance,
+    source: taint.source,
+    quarantined: taint.quarantined,
+    quarantine_reason: taint.reason ?? null,
+    released_by: null,
+    released_at: null,
+    source_sha256: taint.sourceSha256 ?? null,
+  };
 }
 
 /**
@@ -405,15 +439,34 @@ export function markReleased(
 ): boolean {
   const db = openDb(path);
   try {
-    const before = db.prepare('SELECT quarantined FROM memory WHERE id = ?').get(id);
-    if (!before || Number(before.quarantined) !== 1) return false;
-    db.prepare(
-      'UPDATE memory SET quarantined = 0, provenance = ?, released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1',
-    ).run(provenance, releasedBy, now, id);
-    return true;
+    return releaseRow(db, id, releasedBy, now, provenance);
   } finally {
     db.close();
   }
+}
+
+/** markReleased on a handle the caller holds (one transaction with a learn_* write). */
+export function releaseRow(
+  db: SqliteDb,
+  id: number,
+  releasedBy: string,
+  now: string,
+  provenance: 'verified' | 'grounded' | 'trusted',
+): boolean {
+  const before = db.prepare('SELECT quarantined FROM memory WHERE id = ?').get(id);
+  if (!before || Number(before.quarantined) !== 1) return false;
+  db.prepare(
+    'UPDATE memory SET quarantined = 0, provenance = ?, released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1',
+  ).run(provenance, releasedBy, now, id);
+  return true;
+}
+
+/**
+ * Put a released learn row back in quarantine, with why (a declined or retired lesson). Only kinds
+ * `lesson` and `learn`: notes are released and held by the quarantine commands, never from here.
+ */
+export function requarantineRow(db: SqliteDb, id: number, reason: string): void {
+  db.prepare("UPDATE memory SET quarantined = 1, quarantine_reason = ? WHERE id = ? AND kind IN ('lesson', 'learn')").run(reason, id);
 }
 
 /** Record why a quarantined note stays held (a failed check). It stays quarantined. */
@@ -527,10 +580,13 @@ export function deleteKeyed(path: string, key: string): 'redacted' | 'NOT_CHECKE
  * same owner-only mode, same NOT_CHECKED errors). That module never reads the memory table through
  * it: memory rows are read with readRows, and only `injectable` decides what may reach a model.
  */
-export function openMemoryDb(path: string): SqliteDb {
+export function openMemoryDb(
+  path: string,
+  opts: { copyFile?: (from: string, to: string) => void } = {},
+): SqliteDb {
   const db = openDb(path);
   try {
-    widenKinds(db);
+    widenKinds(db, path, opts.copyFile ?? ((from, to) => copyFileSync(from, to, fsConstants.COPYFILE_EXCL)));
   } catch (err) {
     db.close();
     throw err;

@@ -18,6 +18,8 @@ export declare const SCAFFOLD: Record<Mode, string>;
  */
 export declare function estimateTokens(text: string): number;
 export declare function sha256(text: string): string;
+/** Why reconcile put a lesson back in quarantine: its body was released but the lesson is not accepted. */
+export declare const RECONCILED = "learn: released body of a lesson that is not accepted, put back in quarantine";
 export declare function addJob(slug: string, mode: string, jtbd: string, env?: NodeJS.ProcessEnv, now?: Date): void;
 export type JobListItem = {
     slug: string;
@@ -77,30 +79,39 @@ export type Correction = {
     reason: string;
     note: number | null;
 };
-/**
- * The person's correction, verbatim. FAILURE FIRST (§2.2): the eval case is written before the lesson,
- * in one transaction. The lesson body is kind `lesson`, UNTRUSTED and QUARANTINED until `learn accept`
- * (§8.3). Text that came from somewhere else (`source`: a page, another agent, a model) is held for good
- * and never accepted; so is injection-looking text. A model's paraphrase (`note`) is kept as an ordinary
- * quarantined note, never injected. A secret-shaped correction or note writes nothing.
- */
-export declare function correct(input: {
+export type CorrectionInput = {
     job: string;
     text: string;
     check?: string;
     episode?: number;
-    source?: string;
+    /** The text came from somewhere else (a page, another agent, a model): held for good, never injected. */
+    derivedFrom?: string;
+    /** Who prompted the correction (a reviewer, a PR). Provenance only: the lesson stays the person's. */
+    credit?: string;
+    /** A model's paraphrase, kept as an ordinary quarantined note and never injected. */
     note?: string;
-}, env?: NodeJS.ProcessEnv, now?: Date): Correction;
-/**
- * The person accepts a lesson: its row is released as trusted with LESSON_ACCEPTED, and it may be
- * injected for 30 days. Accepting an accepted lesson renews the 30 days. Held, declined or retired
- * lessons are refused; write a new correction instead.
- */
-export declare function acceptLesson(id: number, env?: NodeJS.ProcessEnv, now?: Date): {
-    expires_at: string;
 };
-/** Decline a candidate, or revert an accepted lesson. It is never injected again. */
+/**
+ * The person's correction, verbatim. FAILURE FIRST (§2.2): the eval case is written before the lesson.
+ * The body row, the eval case and the lesson are ONE transaction on one connection. The lesson body is
+ * kind `lesson`, UNTRUSTED and QUARANTINED until `learn accept` (§8.3). `derivedFrom` marks text
+ * that is not the person's (held for good, never accepted); so is injection-looking text. `credit`
+ * only records who prompted it. A secret-shaped correction or note writes nothing.
+ */
+export declare function correct(input: CorrectionInput, env?: NodeJS.ProcessEnv, now?: Date): Correction;
+export type Acceptance = {
+    expires_at: string;
+    retired_receipt: string | null;
+    reaccept_receipt: string | null;
+};
+/**
+ * The person accepts a lesson: its body is released as trusted with LESSON_ACCEPTED and the lesson may be
+ * injected for 30 days, in one transaction. Accepting an accepted lesson renews the 30 days. A RETIRED
+ * lesson can be re-accepted, only this way: the retirement receipt is returned first and a re-accept
+ * receipt is recorded. Held (quarantined) and declined lessons are refused. Nothing re-accepts by itself.
+ */
+export declare function acceptLesson(id: number, env?: NodeJS.ProcessEnv, now?: Date): Acceptance;
+/** Decline a candidate, or revert an accepted lesson: its body goes back to quarantine, in one transaction. */
 export declare function declineLesson(id: number, env?: NodeJS.ProcessEnv, now?: Date): void;
 export type LessonListItem = {
     id: number;
@@ -132,18 +143,24 @@ export type Injection = {
 /**
  * What goes into the model's context for one turn of a job, and the episode that records it.
  *   - Only this job's lessons that the person accepted, unexpired, verbatim, through `injectable`.
- *   - At most 5 lessons and 400 tokens in all; a lesson that does not fit whole is left out, never cut.
+ *   - At most 5 lessons and 400 tokens in all, the scaffold and the cloze included; a lesson that does
+ *     not fit whole is left out, never cut. If the scaffold and the cloze alone would pass 400, the
+ *     cloze is left out and the text says so.
  *   - learn mode: with no attempt by the person on this episode, the scaffold only, no lesson bodies
  *     (§8.2). After `learn attempt`, the lessons and one cloze from that attempt.
  *   - cowork mode: the prediction-first line, then the lessons.
- * Missing memory file or unknown job: null, nothing written. The tokens printed are added to the
- * episode's loop_tokens, so the loop's own cost is never left out of a ruler.
+ * Missing memory file or unknown job: null, nothing written. The tokens printed are recorded as the
+ * episode's loop_tokens, so the loop's own cost is never left out of a ruler; a second inject on the
+ * same turn does not count them again (the larger of the two is kept). `model` / `family` are recorded
+ * on the episode, so the hook path can be measured by ruler 1.
  */
 export declare function inject(opts: {
     job: string;
     turn?: string;
     check?: string;
     askSha256?: string;
+    model?: string;
+    family?: string;
 }, env?: NodeJS.ProcessEnv, now?: Date): Injection | null;
 /** The person writes the criterion BEFORE the attempt. Learn jobs only; scored by a registered check. */
 export declare function addProbe(input: {

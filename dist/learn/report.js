@@ -51,15 +51,17 @@ function buildReport(snap, now = new Date()) {
     const out = [`learn report · ${now.toISOString()} · rulers read check outcomes only (trustshell learn check run)`];
     const tag = (job, check, family) => `job ${job} · check ${check} · family ${family} · evalset ${evalset(snap, job)}`;
     // Ruler 1: same-check pass rate, first 10 vs next 10, same model family (a family change voids the job).
+    // An episode with no recorded family is left out: it is neither a family change nor a data point.
     const r1 = [];
+    const familied = checked.filter((e) => e.family !== null);
     for (const c of snap.checks.filter((x) => known.has(x.job))) {
-        const runs = checked.filter((e) => e.job === c.job && e.check_id === c.id).sort(byCheckTime);
-        const fams = [...new Set(checked.filter((e) => e.job === c.job).map((e) => e.family ?? 'unrecorded'))];
+        const runs = familied.filter((e) => e.job === c.job && e.check_id === c.id).sort(byCheckTime);
+        const fams = [...new Set(familied.filter((e) => e.job === c.job).map((e) => e.family))];
         const label = `ruler 1 same-check pass rate · job ${c.job} · check ${c.id}`;
         if (fams.length > 1)
             r1.push(`${label}: void, the model family changed on this job (${fams.join(', ')})`);
         else if (runs.length < exports.RULER1_N)
-            r1.push(`${label}: not measured (needs ${exports.RULER1_N} checked episodes)`);
+            r1.push(`${label}: not measured (needs ${exports.RULER1_N} checked episodes with a recorded model family)`);
         else {
             const w = runs.slice(0, exports.RULER1_N);
             const pass = (xs) => xs.filter((e) => e.check_outcome === 'pass').length;

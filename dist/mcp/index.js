@@ -305,10 +305,12 @@ function createServer(client = makeClient()) {
         inputSchema: {
             job: zod_1.z.string().regex(LEARN_SLUG).describe('The job slug the person created (trustshell learn job add).'),
             turn: zod_1.z.string().regex(LEARN_LABEL).optional().describe('A key for this turn; a second call with the same key updates the same episode.'),
+            model: zod_1.z.string().regex(LEARN_LABEL).optional().describe('Your model id, recorded on the episode.'),
+            family: zod_1.z.string().regex(LEARN_LABEL).optional().describe('Your model family (claude, gpt, gemini, ...), recorded on the episode.'),
         },
-    }, async ({ job, turn }) => {
+    }, async ({ job, turn, model, family }) => {
         try {
-            const r = (0, store_1.inject)({ job, turn }, process.env);
+            const r = (0, store_1.inject)({ job, turn, model, family }, process.env);
             return jsonResult(r ?? { text: '', episode: null, lessons: [], loop_tokens: 0 });
         }
         catch (e) {
