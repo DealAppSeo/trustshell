@@ -10,6 +10,7 @@
     p { margin: 0 0 8px; }
     label { display: block; margin: 4px 0; }
     .note { color: #4b5563; font-size: 13px; }
+    code { word-break: break-all; }
     ol { margin: 6px 0 10px; padding-left: 22px; }
     li { margin: 2px 0; }
     button { margin-right: 8px; }
@@ -18,6 +19,15 @@
 <body>
   <h1>Your TrustShell</h1>
   <p id="options-privacy" class="note">Your choices and your record stay in this browser. The extension never sends them.</p>
+
+  <section aria-labelledby="sent">
+    <h2 id="sent">What is sent, and where</h2>
+    <p id="options-off"><strong>Nothing is sent until you switch on a chat site below.</strong> A new install starts with every site off, and with checks only when you click.</p>
+    <p>When a reply is checked, the extension sends its text, with known key and personal-data formats removed, to our engine at <code>https://repid-engine-production.up.railway.app/api/v1/classify</code>.</p>
+    <p>A reply that is one whole equation is computed there, with no model asked. Any other text is passed by the engine to outside AI companies that check it: Groq and Cerebras, or a backup from this list only: Cloudflare Workers AI, OpenRouter, and, only while we have paid checkers switched on, Mistral, Together and Fireworks.</p>
+    <p>If you choose Automatically below, every reply on a site you switched on is sent once it is on screen, without a click.</p>
+    <p class="note">Text you select and send with Check with TrustShell (right-click) goes the same way, only on that click. An agent id typed in the toolbar popup goes to the same engine. Full details: <a href="https://www.trustshell.dev/privacy.html" target="_blank" rel="noopener">trustshell.dev/privacy.html</a>.</p>
+  </section>
 
   <section aria-labelledby="where">
     <h2 id="where">Where it checks</h2>

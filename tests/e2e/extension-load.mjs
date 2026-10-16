@@ -19,6 +19,9 @@
  *      to cooperate on: laya.js makes the call, classify.js returns it and owns the words, the host
  *      script paints it, toast.js adds the catch line. If any of them failed to load, the stamp
  *      reads Not checked or never appears.
+ *   0. SEC F1, a fresh install: the Options page opens by itself and says what is sent and where;
+ *      with nothing chosen every site is off, so a chat page gets no stamp and sends nothing. The
+ *      suite then opts in (every site, Automatically) the way the Options page saves it.
  *   f. Your TrustShell: the record holds every host's stamp and no text, the Options page shows it
  *      live, a chat site switched off sends nothing, and Only when I click sends only on the click
  *   d. the other states on chatgpt, in real Chromium: a 500 whose body says pass paints Not checked;
@@ -325,6 +328,49 @@ try {
     record('toolbar popup opens', 'NOT_CHECKED', 'no service worker to ask');
   }
 
+  // ---- 0. SEC F1: a fresh install sends nothing until the person opts in ------------------------
+  const setSettings = (value) => sw.evaluate((v) => new Promise((done) => {
+    if (v === null) chrome.storage.local.remove('settings', () => done(true));
+    else chrome.storage.local.set({ settings: v }, () => done(true));
+  }), value);
+  const ALL_ON = { chatgpt: true, claude: true, gemini: true, grok: true, deepseek: true };
+  const noStampNoSend = async (name, url) => {
+    const before = classifyCalls.length;
+    const page = await context.newPage();
+    try {
+      await page.goto(url, { waitUntil: 'load', timeout: 15000 });
+      await new Promise((r) => setTimeout(r, 3000));
+      const stamp = await page.evaluate(() => Boolean(document.getElementById('trustshell-stamp')));
+      check(name, !stamp && classifyCalls.length === before, `stamp=${stamp} classify calls=${classifyCalls.length - before}`);
+    } catch (err) {
+      record(name, 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
+    }
+    await page.close();
+  };
+  if (sw) {
+    const firstRun = await poll(async () => {
+      const page = context.pages().find((p) => p.url().endsWith('/options.html'));
+      if (!page) return null;
+      return page.evaluate(() => {
+        const text = document.body ? document.body.innerText : '';
+        const on = [...document.querySelectorAll('input[name="site"]')].filter((b) => b.checked).length;
+        const click = document.querySelector('input[name="mode"][value="click"]');
+        return text.includes('What is sent, and where') && click && click.checked
+          ? { on, endpoint: text.includes('/api/v1/classify'), groq: text.includes('Groq') }
+          : null;
+      });
+    }, 10000);
+    check('SEC F1: at install the Options page opens by itself: every site off, ask-first, and it says what is sent where',
+      Boolean(firstRun) && firstRun.on === 0 && firstRun.endpoint && firstRun.groq,
+      firstRun ? JSON.stringify(firstRun) : 'no options.html tab opened at install, or it did not show the disclosure');
+    for (const p of context.pages().filter((p) => p.url().endsWith('/options.html'))) await p.close();
+    await noStampNoSend('SEC F1: a fresh install shows no stamp on a chat site and sends nothing', HOSTS[0].url);
+    // The person opts in: every site, Automatically. Everything below runs on that choice.
+    await setSettings({ sites: ALL_ON, mode: 'auto' });
+  } else {
+    record('SEC F1: a fresh install sends nothing until the person opts in', 'NOT_CHECKED', 'no service worker');
+  }
+
   // ---- c. content scripts on the five hosts ---------------------------------------------------
   for (const host of HOSTS) {
     const page = await context.newPage();
@@ -596,12 +642,7 @@ try {
   // service worker. Every stamp painted above is already in the record, so it is checked first.
   if (sw) {
     const extId = new URL(sw.url()).host;
-    const setSettings = (value) => sw.evaluate((v) => new Promise((done) => {
-      if (v === null) chrome.storage.local.remove('settings', () => done(true));
-      else chrome.storage.local.set({ settings: v }, () => done(true));
-    }), value);
     const getRecord = () => sw.evaluate(() => new Promise((done) => chrome.storage.local.get(['record'], (v) => done(v.record || null))));
-    const ALL_ON = { chatgpt: true, claude: true, gemini: true, grok: true, deepseek: true };
 
     const rec = await poll(async () => {
       const r = await getRecord();
@@ -711,7 +752,6 @@ try {
       ['a stray mode word', { sites: ALL_ON, mode: 'manual' }],
       ['a null mode', { sites: ALL_ON, mode: null }],
       ['a mode key that was dropped', { sites: ALL_ON }],
-      ['settings that are not an object', 'auto'],
     ]) {
       await setSettings(value);
       const before = classifyCalls.length;
@@ -730,25 +770,13 @@ try {
       }
       await page.close();
     }
-    // Control, so the block above cannot pass by the extension simply being broken: with NOTHING stored the
-    // reply is still checked automatically. That default (X-2a) is Sean's call and this change leaves it alone.
+    // SEC F1 decided X-2a: nothing stored, or settings that are not an object, is a fresh install. Every
+    // site is off, so the reply gets no stamp and is not sent. (The ask-first rows above are the control:
+    // they paint Check this reply, so this cannot pass by the extension simply being broken.)
     await setSettings(null);
-    {
-      const before = classifyCalls.length;
-      const page = await context.newPage();
-      try {
-        await page.goto(chatgpt.url, { waitUntil: 'load', timeout: 15000 });
-        const stamp = await poll(() => page.evaluate(() => {
-          const s = document.getElementById('trustshell-stamp');
-          return s && s.dataset.stamp === 'veto' ? s.textContent : null;
-        }), 10000);
-        check('control: with nothing stored the reply is still checked automatically (X-2a is unchanged)',
-          stamp === CAUGHT && classifyCalls.length === before + 1, `${JSON.stringify(stamp)} classify calls=${classifyCalls.length - before}`);
-      } catch (err) {
-        record('control: with nothing stored the reply is still checked automatically (X-2a is unchanged)', 'NOT_CHECKED', String(err && err.message).split('\n')[0]);
-      }
-      await page.close();
-    }
+    await noStampNoSend('SEC F1: with nothing stored, no stamp and nothing sent', chatgpt.url);
+    await setSettings('auto');
+    await noStampNoSend('SEC F1: settings that are not an object, no stamp and nothing sent', chatgpt.url);
     await setSettings(null);
   } else {
     record('Your TrustShell: Options page, site switch, click mode', 'NOT_CHECKED', 'no service worker');
