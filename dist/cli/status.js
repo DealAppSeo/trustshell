@@ -17,6 +17,7 @@ exports.loadHonestyBody = loadHonestyBody;
 exports.firstPassText = firstPassText;
 exports.buildStatusReport = buildStatusReport;
 exports.statusJsonFromText = statusJsonFromText;
+const api_url_1 = require("../lib/api-url");
 const DEFAULT_ENGINE = 'https://repid-engine-production.up.railway.app';
 const NOT_CHECKED_LINES = [
     'can_verify NOT_CHECKED',
@@ -30,7 +31,8 @@ function engineBase(env) {
     if (!Object.prototype.hasOwnProperty.call(env, 'TRUSTSHELL_API_URL'))
         return DEFAULT_ENGINE;
     const trimmed = (env.TRUSTSHELL_API_URL ?? '').trim();
-    return trimmed.length > 0 ? trimmed.replace(/\/$/, '') : null;
+    // SEC F10: plain http to another host is refused (NOT_CHECKED, said on stderr).
+    return trimmed.length > 0 ? (0, api_url_1.apiBaseOrNull)(trimmed, env) : null;
 }
 /** True only when the caller set TRUSTSHELL_API_URL to a non-empty value. */
 function trustshellApiUrlSet(env) {

@@ -52,6 +52,7 @@ exports.buildX402Payment = buildX402Payment;
 const optional_ethers_1 = require("./optional-ethers");
 const node_crypto_1 = require("node:crypto");
 const redact_1 = require("../memory/redact");
+const api_url_1 = require("./api-url");
 const origin_1 = require("./origin");
 const honest_contract_1 = require("./honest-contract");
 const identity_1 = require("./identity");
@@ -140,9 +141,9 @@ class TrustShell {
     constructor(config = {}) {
         this.listeners = {};
         this.config = config;
-        this.baseUrl = config.apiUrl ||
-            (typeof process !== 'undefined' ? process.env?.TRUSTSHELL_API_URL : undefined) ||
-            'https://repid-engine-production.up.railway.app';
+        // SEC F10: https only (plain http only for localhost), refused here before anything is sent, and a
+        // non-default origin is announced on stderr (src/lib/api-url.ts).
+        this.baseUrl = (0, api_url_1.resolveApiBase)(config.apiUrl);
     }
     /**
      * Construct a TrustShell and confirm the backend is reachable (real connectivity check, not a
@@ -206,7 +207,8 @@ class TrustShell {
         const headers = {
             'Content-Type': 'application/json',
         };
-        if (this.config.apiKey) {
+        // SEC F10: the key goes to an https origin only, never to plain http (not even localhost).
+        if (this.config.apiKey && (0, api_url_1.isHttps)(this.baseUrl)) {
             headers['Authorization'] = `Bearer ${this.config.apiKey}`;
         }
         return headers;

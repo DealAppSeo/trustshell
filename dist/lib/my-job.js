@@ -19,7 +19,7 @@ exports.myJob = myJob;
  */
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
-const claim_1 = require("./claim");
+const api_url_1 = require("./api-url");
 const TOOL_PREFIX = 'read:tool:';
 function resolveAgentId(env = process.env, read = (p) => (0, node_fs_1.readFileSync)(p, 'utf8')) {
     const fromEnv = env.TRUSTSHELL_AGENT_ID?.trim();
@@ -42,7 +42,15 @@ async function myJob(opts = {}) {
             reason: 'This server does not know which agent it serves. Add "env": { "TRUSTSHELL_AGENT_ID": "<your agent id>" } to the trustshell entry in your MCP config, or start it from the folder that holds .trustshell/credentials.json.',
         };
     }
-    const base = (env.TRUSTSHELL_API_URL?.trim() || claim_1.DEFAULT_API_URL).replace(/\/+$/, '');
+    let base;
+    try {
+        base = (0, api_url_1.resolveApiBase)(undefined, env);
+    }
+    catch (e) {
+        if (e instanceof api_url_1.ApiUrlError)
+            return { status: 'NOT_CHECKED', reason: e.message };
+        throw e;
+    }
     const doFetch = opts.fetchImpl ?? ((url) => fetch(url));
     let grants;
     try {

@@ -154,7 +154,7 @@ describe('CLI: trustshell check "<sentence>"', () => {
   async function cli(argv: string[], respond: () => any) {
     stubFetch(respond);
     const io = captureIO();
-    const code = await run(parseArgs(argv), new TrustShell({ apiUrl: 'http://unused.invalid' }), io);
+    const code = await run(parseArgs(argv), new TrustShell({ apiUrl: 'https://unused.invalid' }), io);
     return { code, io };
   }
 
@@ -230,7 +230,7 @@ describe('CLI: trustshell check "<sentence>"', () => {
 
 describe('MCP check_claim and the CLI share ONE function', () => {
   function tool(name: string) {
-    const server: any = createServer(new TrustShell({ apiUrl: 'http://unused.invalid' }));
+    const server: any = createServer(new TrustShell({ apiUrl: 'https://unused.invalid' }));
     const t = server._registeredTools?.[name];
     expect(t).toBeDefined();
     return t;

@@ -38,6 +38,7 @@ exports.kernelReceipt = kernelReceipt;
  */
 const optional_ethers_1 = require("./optional-ethers");
 const trustshell_1 = require("./trustshell");
+const api_url_1 = require("./api-url");
 exports.KERNEL_RECEIPT_SCHEMA = 'kernel-receipt/1';
 /** Thrown by `requireKernelAllow`. Carries the full refusal so the caller can log the codes. */
 class KernelRefusedError extends trustshell_1.TrustShellError {
@@ -86,19 +87,15 @@ function client(reason, detail, argsHash = null, status = null) {
 }
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 /**
- * Drop trailing slashes with a scan, not a regex. `/\/+$/` is quadratic on a string of many slashes
- * that does not end in one (every start position re-consumes the run before failing at the anchor),
- * and `apiUrl` is caller input, so that is a ReDoS (CodeQL js/polynomial-redos). This is linear.
+ * SEC F10: https only (plain http only for localhost); throws ApiUrlError before anything is sent.
+ * Trailing slashes are dropped there with a linear scan (CodeQL js/polynomial-redos on caller input).
  */
-function trimTrailingSlashes(s) {
-    let end = s.length;
-    while (end > 0 && s.charCodeAt(end - 1) === 47 /* '/' */)
-        end--;
-    return s.slice(0, end);
-}
 function apiUrlOf(opts) {
-    const env = typeof process !== 'undefined' ? process.env?.TRUSTSHELL_API_URL : undefined;
-    return trimTrailingSlashes(opts.apiUrl || env || 'https://repid-engine-production.up.railway.app');
+    return (0, api_url_1.resolveApiBase)(opts.apiUrl);
+}
+/** SEC F10: the bearer key goes to an https origin only, never to plain http. */
+function authOf(opts) {
+    return opts.apiKey && (0, api_url_1.isHttps)(apiUrlOf(opts)) ? { authorization: `Bearer ${opts.apiKey}` } : {};
 }
 /**
  * Is this answer an ALLOW for exactly the request we sent? Returns null when it is, else why not.
@@ -180,7 +177,7 @@ async function kernelDecide(input, opts = {}) {
         try {
             res = await doFetch(`${apiUrlOf(opts)}/api/v1/kernel/decide`, {
                 method: 'POST',
-                headers: { 'content-type': 'application/json', ...(opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {}) },
+                headers: { 'content-type': 'application/json', ...authOf(opts) },
                 body: JSON.stringify(body),
                 signal: controller.signal,
                 redirect: 'error',
@@ -188,6 +185,8 @@ async function kernelDecide(input, opts = {}) {
         }
         catch (e) {
             const aborted = e?.name === 'AbortError' || controller.signal.aborted;
+            if (e instanceof api_url_1.ApiUrlError)
+                return client('api_url_refused', e.message, argsHash);
             return client(aborted ? 'timeout' : 'network_error', aborted ? 'the kernel did not answer in time' : 'the kernel could not be reached', argsHash);
         }
         finally {
@@ -303,13 +302,15 @@ async function kernelReceipt(receiptId, opts = {}) {
         try {
             res = await doFetch(`${apiUrlOf(opts)}/api/v1/kernel/receipt/${encodeURIComponent(receiptId)}`, {
                 method: 'GET',
-                headers: { accept: 'application/json', ...(opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {}) },
+                headers: { accept: 'application/json', ...authOf(opts) },
                 signal: controller.signal,
                 redirect: 'error',
             });
         }
         catch (e) {
             const aborted = e?.name === 'AbortError' || controller.signal.aborted;
+            if (e instanceof api_url_1.ApiUrlError)
+                return fail('api_url_refused', e.message);
             return fail(aborted ? 'timeout' : 'network_error', aborted ? 'the engine did not answer in time' : 'the engine could not be reached');
         }
         finally {

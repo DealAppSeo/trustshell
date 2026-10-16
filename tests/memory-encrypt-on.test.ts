@@ -154,7 +154,7 @@ describe('memory encryption, on', () => {
       const errs: string[] = [];
       return { lines, errs, out: (s) => lines.push(s), err: (s) => errs.push(s) };
     }
-    const client = () => new TrustShell({ apiUrl: 'http://unused.invalid' });
+    const client = () => new TrustShell({ apiUrl: 'https://unused.invalid' });
 
     it('remember with the flag on and no key fails with the reason, and writes nothing', async () => {
       Object.assign(process.env, env({ TRUSTSHELL_MEMORY: db, TRUSTSHELL_MEMORY_ENCRYPT: 'on' }));

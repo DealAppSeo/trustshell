@@ -197,7 +197,7 @@ Environment variables the code in `src/` reads (`grep -rn 'env' src/`):
 | Env var | Read by | Description |
 |---|---|---|
 | `REPID_API_KEY` | CLI, MCP server | Optional API key, sent as `Authorization: Bearer` when set. No CLI command or MCP tool needs it. |
-| `TRUSTSHELL_API_URL` | SDK, CLI, MCP server | Override the backend origin. |
+| `TRUSTSHELL_API_URL` | SDK, CLI, MCP server | Override the backend origin. It must be `https://` (plain `http://` only for localhost, 127.0.0.1 or [::1]); anything else is refused before anything is sent. A non-default origin prints a `WARNING:` line on stderr. `REPID_API_KEY` is sent only to an `https://` origin. |
 | `GITHUB_TOKEN` | CLI `check <runUrl>` | Optional. Raises the GitHub rate limit; a rejected token is retried anonymously. |
 | `TRUSTSHELL_MEMORY` | CLI `remember` / `recall` / `redact`, MCP memory tools | Path of the local memory file. Default `~/.trustshell/memory.sqlite`. |
 | `TRUSTSHELL_MEMORY_ENCRYPT`, `TRUSTSHELL_MEMORY_KEY` | same | Opt-in encryption at rest for new notes. See [`api-reference.md`](./api-reference.md). |
