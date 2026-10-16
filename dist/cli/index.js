@@ -70,6 +70,7 @@ const traps_1 = require("./traps");
 const kernel_client_1 = require("../lib/kernel-client");
 const ground_1 = require("../lib/ground");
 const node_path_1 = require("node:path");
+const cli_1 = require("../learn/cli");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -211,6 +212,10 @@ COMMANDS
   quarantine release <id> --trusted
                              You vouch for it (not a check): stored trusted, released_by says so.
                              release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
+  learn <verb>               The learning loop, local: jobs you create, checks you register, your
+                             corrections as lessons you accept, injected verbatim (max 5 / 400
+                             tokens), unaided probes, spaced review, rulers. trustshell learn for
+                             the verbs. No network.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED until a receipt id exists. No scoreboard. No HAL wins.
   ground --source <file> --quote "<text>"
@@ -256,6 +261,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   ground                           NOTHING. Reads the --source file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
+  learn                            NOTHING. Local sqlite only; check run executes your registered command.
   quarantine                       NOTHING, except release --check hal: the backend's /api/v1/classify.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
@@ -284,6 +290,9 @@ function looksLikeOption(a) {
  * `argv` is the slice AFTER the node binary + script path (i.e. `process.argv.slice(2)`).
  */
 function parseArgs(argv) {
+    // `learn` has its own verbs and options (src/learn/cli.ts); they never reach the flag loop below.
+    if (argv[0] === 'learn')
+        return { command: 'learn', learnArgv: argv.slice(1), json: false, verify: false };
     const flags = new Set();
     const positionals = [];
     // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -813,6 +822,8 @@ async function run(args, client, io = realIO) {
                 return exports.EXIT.RUNTIME;
             }
         }
+        case 'learn':
+            return (0, cli_1.runLearn)(args.learnArgv ?? [], io);
         case 'recall': {
             try {
                 io.out(args.key ? (0, recall_1.recallKey)(args.key) : (0, recall_1.recallNotes)(process.env, { includeQuarantined: args.includeQuarantined }));

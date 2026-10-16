@@ -64,6 +64,7 @@ import { buildTrapsList, formatTrapsList } from './traps';
 import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/kernel-client';
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { join } from 'node:path';
+import { runLearn } from '../learn/cli';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -104,6 +105,7 @@ export type Command =
   | 'bind-status'
   | 'traps'
   | 'ground'
+  | 'learn'
   | 'help'
   | 'version';
 
@@ -160,6 +162,8 @@ export interface ParsedArgs {
   id?: string;
   /** quarantine release: `hal` runs the classify check (network); otherwise --source grounds it locally. */
   check?: string;
+  /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
+  learnArgv?: string[];
   /** A usage error message; when set the caller should print help + exit USAGE. */
   error?: string;
 }
@@ -295,6 +299,10 @@ COMMANDS
   quarantine release <id> --trusted
                              You vouch for it (not a check): stored trusted, released_by says so.
                              release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
+  learn <verb>               The learning loop, local: jobs you create, checks you register, your
+                             corrections as lessons you accept, injected verbatim (max 5 / 400
+                             tokens), unaided probes, spaced review, rulers. trustshell learn for
+                             the verbs. No network.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED until a receipt id exists. No scoreboard. No HAL wins.
   ground --source <file> --quote "<text>"
@@ -340,6 +348,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   ground                           NOTHING. Reads the --source file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
+  learn                            NOTHING. Local sqlite only; check run executes your registered command.
   quarantine                       NOTHING, except release --check hal: the backend's /api/v1/classify.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
@@ -370,6 +379,8 @@ function looksLikeOption(a: string): boolean {
  * `argv` is the slice AFTER the node binary + script path (i.e. `process.argv.slice(2)`).
  */
 export function parseArgs(argv: string[]): ParsedArgs {
+  // `learn` has its own verbs and options (src/learn/cli.ts); they never reach the flag loop below.
+  if (argv[0] === 'learn') return { command: 'learn', learnArgv: argv.slice(1), json: false, verify: false };
   const flags = new Set<string>();
   const positionals: string[] = [];
   // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -886,6 +897,9 @@ export async function run(
         return EXIT.RUNTIME;
       }
     }
+
+    case 'learn':
+      return runLearn(args.learnArgv ?? [], io);
 
     case 'recall': {
       try {

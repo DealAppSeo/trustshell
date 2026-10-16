@@ -1,20 +1,27 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LEGACY_REASON = exports.INJECTION_WITHHELD = exports.INJECTION_PREFIX = void 0;
+exports.LESSON_ACCEPTED = exports.LEGACY_REASON = exports.INJECTION_WITHHELD = exports.INJECTION_PREFIX = void 0;
 exports.heldAsInjection = heldAsInjection;
+exports.admitsLearnKinds = admitsLearnKinds;
 exports.memoryDbPath = memoryDbPath;
 exports.insertMemory = insertMemory;
+exports.insertRow = insertRow;
 exports.listNotes = listNotes;
 exports.listQuarantinedRows = listQuarantinedRows;
 exports.countQuarantined = countQuarantined;
 exports.getNote = getNote;
 exports.markReleased = markReleased;
+exports.releaseRow = releaseRow;
+exports.requarantineRow = requarantineRow;
 exports.setQuarantineReason = setQuarantineReason;
 exports.countDoNotSend = countDoNotSend;
 exports.formatRecall = formatRecall;
 exports.writeKeyed = writeKeyed;
 exports.readKeyed = readKeyed;
 exports.deleteKeyed = deleteKeyed;
+exports.openMemoryDb = openMemoryDb;
+exports.readRows = readRows;
+exports.injectable = injectable;
 /**
  * Local memory sqlite. Default file is ~/.trustshell/memory.sqlite.
  * TRUSTSHELL_MEMORY points tests and CI at a temp file.
@@ -45,12 +52,81 @@ function heldAsInjection(row) {
         return false;
     return (0, ingest_1.ingest)(row.body).ingest !== 'clean';
 }
+const KINDS = "'note', 'pref', 'do_not_send', 'lesson', 'learn'";
 const SCHEMA = `CREATE TABLE IF NOT EXISTS memory (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind TEXT NOT NULL CHECK (kind IN ('note', 'pref', 'do_not_send')),
+  kind TEXT NOT NULL CHECK (kind IN (${KINDS})),
   body TEXT NOT NULL,
   created_at TEXT NOT NULL
 )`;
+/**
+ * Does this CREATE TABLE text already admit every kind? Reads the actual `CHECK (kind IN (...))` list
+ * and compares it as a set, rather than looking for one word anywhere in the text. A table with no
+ * CHECK on kind admits any kind, so it needs no rebuild.
+ */
+function admitsLearnKinds(createSql) {
+    const m = /CHECK\s*\(\s*kind\s+IN\s*\(([^)]*)\)\s*\)/i.exec(createSql);
+    if (!m)
+        return true;
+    const have = new Set([...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]));
+    return [...KINDS.matchAll(/'([^']*)'/g)].every((x) => have.has(x[1]));
+}
+/** Every column, in order, for the one-time rebuild below. */
+const ALL_COLUMNS = 'id, kind, body, created_at, key, provenance, source, quarantined, quarantine_reason, released_by, released_at, source_sha256';
+/**
+ * A file made before the learn kinds has CHECK (kind IN ('note', 'pref', 'do_not_send')) baked into
+ * its table, and SQLite cannot alter a CHECK. So the table is rebuilt ONCE, in one transaction: copy
+ * every row with its id, swap the tables, keep the AUTOINCREMENT high-water mark so a deleted id is
+ * never reused. Any failure rolls back and leaves the old table exactly as it was.
+ *
+ * DEFAULT-INERT: only the learn commands call it (openMemoryDb, before any learn write). A file nobody
+ * runs `learn` on keeps its table as it was; a new file is created with the wide CHECK already.
+ *
+ * BACKUP FIRST. Inside the write lock and before anything changes, the whole file is copied next to
+ * itself as `<file>.bak-<UTC time>` (0600), and its path is printed once on stderr. If the copy fails,
+ * nothing is rebuilt: the error is thrown and the transaction rolls back untouched.
+ */
+function widenKinds(db, path, copy) {
+    const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'memory'").get();
+    if (!row || admitsLearnKinds(String(row.sql)))
+        return;
+    db.exec('BEGIN IMMEDIATE');
+    try {
+        // The time with its separators removed (20261016T101500123Z): a Windows file name cannot hold ':'.
+        const backup = `${path}.bak-${new Date().toISOString().replace(/[-:.]/g, '')}`;
+        try {
+            copy(path, backup);
+            (0, node_fs_1.chmodSync)(backup, 0o600);
+        }
+        catch (err) {
+            throw new Error(`NOT_CHECKED could not back up ${path} to ${backup} (${err?.message ?? String(err)}); the memory table was not changed`);
+        }
+        process.stderr.write(`trustshell: backed up ${path} to ${backup} before widening its memory table (once)\n`);
+        const seq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'memory'").get();
+        db.exec(`CREATE TABLE memory_widen (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL CHECK (kind IN (${KINDS})),
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      key TEXT, provenance TEXT, source TEXT, quarantined INTEGER NOT NULL DEFAULT 0,
+      quarantine_reason TEXT, released_by TEXT, released_at TEXT, source_sha256 TEXT
+    )`);
+        db.exec(`INSERT INTO memory_widen (${ALL_COLUMNS}) SELECT ${ALL_COLUMNS} FROM memory`);
+        db.exec('DROP TABLE memory');
+        db.exec('ALTER TABLE memory_widen RENAME TO memory');
+        db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
+        if (seq) {
+            const top = db.prepare('SELECT COALESCE(MAX(id), 0) AS n FROM memory').get();
+            db.prepare("DELETE FROM sqlite_sequence WHERE name = 'memory'").run();
+            db.prepare("INSERT INTO sqlite_sequence (name, seq) VALUES ('memory', ?)").run(Math.max(Number(seq.seq), Number(top?.n ?? 0)));
+        }
+        db.exec('COMMIT');
+    }
+    catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+    }
+}
 function memoryDbPath(env = process.env, home = (0, node_os_1.homedir)()) {
     const override = env.TRUSTSHELL_MEMORY;
     if (typeof override === 'string' && override.trim().length > 0)
@@ -203,27 +279,35 @@ const FULL_COLS = 'id, kind, body, created_at, provenance, source, quarantined, 
 function insertMemory(path, kind, body, now = new Date().toISOString(), env = process.env, taint = { provenance: 'trusted', source: 'operator', quarantined: false }) {
     const db = openDb(path);
     try {
-        const stored = sealer(db, env)(body);
-        const result = db
-            .prepare('INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason, source_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-            .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null, taint.sourceSha256 ?? null);
-        return {
-            id: Number(result.lastInsertRowid),
-            kind,
-            body,
-            created_at: now,
-            provenance: taint.provenance,
-            source: taint.source,
-            quarantined: taint.quarantined,
-            quarantine_reason: taint.reason ?? null,
-            released_by: null,
-            released_at: null,
-            source_sha256: taint.sourceSha256 ?? null,
-        };
+        return insertRow(db, kind, body, now, env, taint);
     }
     finally {
         db.close();
     }
+}
+/**
+ * insertMemory on a handle the caller already holds, so src/learn can write the memory row and its own
+ * learn_* row in ONE transaction on one connection. Same sealing, same taint columns. The taint is
+ * required here: a learn write always says where its text came from.
+ */
+function insertRow(db, kind, body, now, env, taint) {
+    const stored = sealer(db, env)(body);
+    const result = db
+        .prepare('INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason, source_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(kind, stored, now, taint.provenance, taint.source, taint.quarantined ? 1 : 0, taint.reason ?? null, taint.sourceSha256 ?? null);
+    return {
+        id: Number(result.lastInsertRowid),
+        kind,
+        body,
+        created_at: now,
+        provenance: taint.provenance,
+        source: taint.source,
+        quarantined: taint.quarantined,
+        quarantine_reason: taint.reason ?? null,
+        released_by: null,
+        released_at: null,
+        source_sha256: taint.sourceSha256 ?? null,
+    };
 }
 /**
  * Notes in insert order. A sealed note that cannot be opened reads as a placeholder line, never ciphertext.
@@ -281,15 +365,26 @@ function getNote(path, id, env = process.env) {
 function markReleased(path, id, releasedBy, now = new Date().toISOString(), provenance = 'verified') {
     const db = openDb(path);
     try {
-        const before = db.prepare('SELECT quarantined FROM memory WHERE id = ?').get(id);
-        if (!before || Number(before.quarantined) !== 1)
-            return false;
-        db.prepare('UPDATE memory SET quarantined = 0, provenance = ?, released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1').run(provenance, releasedBy, now, id);
-        return true;
+        return releaseRow(db, id, releasedBy, now, provenance);
     }
     finally {
         db.close();
     }
+}
+/** markReleased on a handle the caller holds (one transaction with a learn_* write). */
+function releaseRow(db, id, releasedBy, now, provenance) {
+    const before = db.prepare('SELECT quarantined FROM memory WHERE id = ?').get(id);
+    if (!before || Number(before.quarantined) !== 1)
+        return false;
+    db.prepare('UPDATE memory SET quarantined = 0, provenance = ?, released_by = ?, released_at = ?, quarantine_reason = NULL WHERE id = ? AND quarantined = 1').run(provenance, releasedBy, now, id);
+    return true;
+}
+/**
+ * Put a released learn row back in quarantine, with why (a declined or retired lesson). Only kinds
+ * `lesson` and `learn`: notes are released and held by the quarantine commands, never from here.
+ */
+function requarantineRow(db, id, reason) {
+    db.prepare("UPDATE memory SET quarantined = 1, quarantine_reason = ? WHERE id = ? AND kind IN ('lesson', 'learn')").run(reason, id);
 }
 /** Record why a quarantined note stays held (a failed check). It stays quarantined. */
 function setQuarantineReason(path, id, reason) {
@@ -382,4 +477,60 @@ function deleteKeyed(path, key) {
     finally {
         db.close();
     }
+}
+/**
+ * The open handle, for src/learn/store.ts and its own learn_* tables in this same file (same path,
+ * same owner-only mode, same NOT_CHECKED errors). That module never reads the memory table through
+ * it: memory rows are read with readRows, and only `injectable` decides what may reach a model.
+ */
+function openMemoryDb(path, opts = {}) {
+    const db = openDb(path);
+    try {
+        widenKinds(db, path, opts.copyFile ?? ((from, to) => (0, node_fs_1.copyFileSync)(from, to, node_fs_1.constants.COPYFILE_EXCL)));
+    }
+    catch (err) {
+        db.close();
+        throw err;
+    }
+    return db;
+}
+/** What `learn accept` writes into released_by. A lesson row without it was never accepted. */
+exports.LESSON_ACCEPTED = 'learn accept: the person accepted this lesson';
+/**
+ * Rows by id, any kind, with the taint record and the body opened (a sealed body that cannot be
+ * opened reads as its placeholder, never ciphertext). Quarantined rows are INCLUDED so the learn
+ * commands can say why a row is held: a caller that sends text to a model filters with `injectable`.
+ */
+function readRows(path, ids, env = process.env) {
+    if (ids.length === 0)
+        return [];
+    const db = openDb(path);
+    try {
+        const open = opener(db, env);
+        const marks = ids.map(() => '?').join(', ');
+        return db
+            .prepare(`SELECT ${FULL_COLS} FROM memory WHERE id IN (${marks}) ORDER BY id ASC`)
+            .all(...ids)
+            .map(asRow)
+            .map((row) => ({ ...row, body: open(row.body).body }));
+    }
+    finally {
+        db.close();
+    }
+}
+/**
+ * May this row's text go into a model's context? Only the person's own words, released by the person:
+ *   lesson  not quarantined, trusted, and released by `learn accept` (LESSON_ACCEPTED). A row inserted
+ *           without taint defaults to trusted but carries no such release, so it stays out.
+ *   learn   the person's own CLI text (an attempt): trusted and not quarantined.
+ * Both: readable (not a sealed placeholder) and not injection-looking now (the formatRecall screen).
+ */
+function injectable(row) {
+    if (row.quarantined !== false || row.provenance !== 'trusted')
+        return false;
+    if (row.body === encrypt_1.SEALED_NO_KEY || row.body === encrypt_1.SEALED_WRONG_KEY || heldAsInjection(row))
+        return false;
+    if (row.kind === 'lesson')
+        return row.released_by === exports.LESSON_ACCEPTED;
+    return row.kind === 'learn';
 }

@@ -174,7 +174,7 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; main removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY) and `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), and the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP); no published release has them yet. On main, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). It has no purchase tool; buying is the SDK's `executeA2A`. On main, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
+In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; main removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY) and `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), and the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP), and the learning-loop tools `learn_lessons_for` and `learn_record` (see "Learning loop v1" below); no published release has them yet. On main, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). It has no purchase tool; buying is the SDK's `executeA2A`. On main, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
@@ -561,6 +561,32 @@ trustshell quarantine release 2 --trusted                        # your word, re
   - A `hal` release says two checkers agreed, not that the note is safe to act on.
 - **Keyed values (`remember KEY VALUE`) carry no taint label** in v0.
 
+### Learning loop v1 — main only, not in 1.6.1
+
+> **Not in the published 1.6.1.** On 1.6.1, `learn` is an unknown command.
+
+A local loop where your corrections become lessons the agent sees, and rulers say whether anything
+improved. It does nothing until you create a job, and nothing leaves the machine.
+
+```bash
+trustshell learn job add ship --mode delegate "When I ship a change, I want the tests green, so I can merge."
+trustshell learn check add --job ship --id ship-tests --cmd "npm test"
+trustshell learn correct --job ship --check ship-tests "Run the linter before you say done."
+# eval case 1, then lesson 1 (candidate)
+trustshell learn accept 1
+trustshell learn inject --job ship        # what examples/learn-hook/user-prompt-submit.mjs prints each turn
+trustshell learn check run ship-tests     # the only writer of a check outcome: the command's exit code
+trustshell learn report
+```
+
+- **Only your words reach the model.** A correction is stored verbatim, untrusted and quarantined, until you `accept` it. Declined, held, expired (30 days) and other jobs' lessons never print. At most 5 lessons and 400 tokens per turn, counted as `loop_tokens`.
+- **The agent does not grade itself.** `learn record` and the MCP `learn_record` store the agent's outcome where no ruler reads it. Only `learn check run`, the command you registered, writes the outcome the rulers use. A failed check on a turn that carried a lesson retires that lesson, if it is scoped to that check or to no check. A lesson scoped to a check is only shown on turns judged by that check. Only you bring a retired lesson back: `learn reaccept <id>` shows why it was retired and needs you at a terminal to type the id back.
+- **Hooks.** `examples/learn-hook/user-prompt-submit.mjs` runs `inject` on every prompt (set `TRUSTSHELL_LEARN_JOB`, `TRUSTSHELL_LEARN_CHECK` for the check the turn is judged by, and `TRUSTSHELL_LEARN_MODEL` / `TRUSTSHELL_LEARN_FAMILY` so the episode carries its model). `examples/learn-hook/stop.mjs` fills in the turn's model, family and tokens from the transcript at the end of the turn.
+- **Credit is not taint.** `learn correct --credit <reviewer>` records who prompted your correction. `--derived-from-untrusted <label>` says the text is not yours, and that lesson is never injected.
+- **Your memory file is backed up first.** The first `learn` command on an older memory file copies it to `memory.sqlite.bak-<UTC time>` before it widens the table once.
+- **The mode you choose changes what is shown.** In `learn` mode no lesson is shown until you record your own attempt, and the recall question is a blank cut from it. `learn probe` and `learn review` measure you unaided.
+- **What it does NOT do:** it does not show that anything compounds yet. `learn report` prints `not measured` until each ruler has its minimum data, and says so when nothing compounded. It does not stop an agent with your shell from running `learn accept`: the boundary is MCP versus your CLI, as with `--trusted`. A correction that reads like an injection is held, even when it is yours. Token counts are estimates (characters / 4). The loop never writes your profile.
+
 ### What each command talks to
 
 Egress is per command, and `check <runUrl>` is deliberately the odd one out — it is the only
@@ -584,6 +610,7 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
+| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. Main only, not in 1.6.1 | none |
 | `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |

@@ -2,6 +2,27 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## Unreleased (main)
+
+- **`trustshell learn`: the learning loop v1, local.** Jobs you create; checks you register, whose
+  exit code is the only outcome the rulers read; your corrections, stored verbatim as an eval case and
+  then a lesson that stays quarantined until you accept it; `learn inject` (and MCP
+  `learn_lessons_for`) prints this job's accepted lessons, at most 5 and 400 tokens, counted as
+  `loop_tokens`; learn and co-work modes; unaided probes; spaced review; `learn report`, which
+  prints `not measured` until a ruler has its data. MCP `learn_record` stores the agent's outcome
+  where no ruler reads it. No network. Example hook: `examples/learn-hook/user-prompt-submit.mjs`.
+- The local memory file gains two kinds, `lesson` and `learn`. A file made before this is rebuilt
+  once, in one transaction, keeping every row and id, and only by a `learn` command. Before the
+  rebuild the file is copied to `<file>.bak-<UTC time>` (0600); if the copy fails, nothing is
+  rebuilt. `recall` and `quarantine` still read notes only.
+- Lesson scope applies to both ends: `inject` shows a lesson only on episodes frozen on its check (or
+  any episode, when it is job-wide), and a failed check retires only the injected lessons scoped to it
+  or to no check. `learn accept` refuses a retired lesson; `learn reaccept <id>` brings one back only
+  at an interactive terminal with the id typed back, with receipts. `learn correct --credit <label>`
+  records who prompted a correction; `--derived-from-untrusted <label>` (formerly `--source`, which
+  still works and warns) marks text that is not yours. `inject` records `--model` / `--family`, and
+  `examples/learn-hook/stop.mjs` fills in each turn's model, family and tokens.
+
 ## 1.6.1 — 2026-10-12
 
 - **One call where there used to be two for a minted passport.** The SDK now reads the engine's
