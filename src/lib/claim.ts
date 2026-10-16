@@ -20,6 +20,7 @@
  * command honours), else the live backend the SDK defaults to.
  */
 import { redact } from '../memory/redact';
+import { resolveApiBase } from './api-url';
 
 export const CLAIM_LABELS = ['pass', 'veto', 'not-checked'] as const;
 export type ClaimLabel = (typeof CLAIM_LABELS)[number];
@@ -292,27 +293,21 @@ export interface ClaimOptions {
   env?: Record<string, string | undefined>;
 }
 
-/** Resolve the full classify URL. PURE. Throws {@link ClaimError} on a non-http(s) base. */
+/**
+ * Resolve the full classify URL. Throws {@link ClaimError} for a base src/lib/api-url.ts refuses
+ * (SEC F10: https only, plain http only for localhost), before anything is sent.
+ */
 export function resolveClassifyUrl(
   apiUrl?: string,
   env: Record<string, string | undefined> = typeof process !== 'undefined' ? process.env : {},
 ): string {
-  // Trailing slashes trimmed with a linear scan, not /\/+$/: that regex is polynomial on a long run of
-  // slashes (CodeQL js/polynomial-redos), and this URL can now arrive as SDK input (releaseByHal).
-  let base = apiUrl?.trim() || env.TRUSTSHELL_API_URL?.trim() || DEFAULT_API_URL;
-  let end = base.length;
-  while (end > 0 && base.charCodeAt(end - 1) === 47 /* '/' */) end -= 1;
-  base = base.slice(0, end);
-  let parsed: URL;
+  let base: string;
   try {
-    parsed = new URL(base + CLASSIFY_PATH);
-  } catch {
-    throw new ClaimError(`backend URL is not a valid URL: ${base}`);
+    base = resolveApiBase(apiUrl, env);
+  } catch (e) {
+    throw new ClaimError(e instanceof Error ? e.message : String(e));
   }
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new ClaimError(`backend URL must be http or https: ${base}`);
-  }
-  return parsed.href;
+  return new URL(base + CLASSIFY_PATH).href;
 }
 
 /** Only the endpoint's own label decides. Anything outside the contract is not-checked. PURE. */

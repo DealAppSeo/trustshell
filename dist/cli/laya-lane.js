@@ -10,10 +10,12 @@ exports.resolveLayaLane = resolveLayaLane;
 const redact_1 = require("../memory/redact");
 const hook_1 = require("../laya/hook");
 const classify_1 = require("./classify");
+const api_url_1 = require("../lib/api-url");
 const CLASSIFY_TIMEOUT_MS = 200;
 function engineOrigin(env) {
-    const trimmed = (env.TRUSTSHELL_API_URL ?? '').trim().replace(/\/$/, '');
-    return trimmed.length > 0 ? trimmed : null;
+    const trimmed = (env.TRUSTSHELL_API_URL ?? '').trim();
+    // SEC F10: plain http to another host is refused; the claim is not posted there.
+    return trimmed.length > 0 ? (0, api_url_1.apiBaseOrNull)(trimmed, env) : null;
 }
 function asLane(value) {
     if (typeof value !== 'string')

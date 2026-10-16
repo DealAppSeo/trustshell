@@ -15,7 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DEFAULT_API_URL } from './claim';
+import { ApiUrlError, resolveApiBase } from './api-url';
 
 export type MyJob =
   | {
@@ -63,7 +63,13 @@ export async function myJob(opts: { env?: Env; read?: (p: string) => string; fet
         'This server does not know which agent it serves. Add "env": { "TRUSTSHELL_AGENT_ID": "<your agent id>" } to the trustshell entry in your MCP config, or start it from the folder that holds .trustshell/credentials.json.',
     };
   }
-  const base = (env.TRUSTSHELL_API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, '');
+  let base: string;
+  try {
+    base = resolveApiBase(undefined, env);
+  } catch (e) {
+    if (e instanceof ApiUrlError) return { status: 'NOT_CHECKED', reason: e.message };
+    throw e;
+  }
   const doFetch: FetchLike = opts.fetchImpl ?? ((url) => fetch(url) as unknown as ReturnType<FetchLike>);
   let grants: GrantLike[];
   try {

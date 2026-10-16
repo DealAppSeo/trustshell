@@ -122,7 +122,10 @@ export interface ClaimOptions {
     now?: () => number;
     env?: Record<string, string | undefined>;
 }
-/** Resolve the full classify URL. PURE. Throws {@link ClaimError} on a non-http(s) base. */
+/**
+ * Resolve the full classify URL. Throws {@link ClaimError} for a base src/lib/api-url.ts refuses
+ * (SEC F10: https only, plain http only for localhost), before anything is sent.
+ */
 export declare function resolveClassifyUrl(apiUrl?: string, env?: Record<string, string | undefined>): string;
 /** Only the endpoint's own label decides. Anything outside the contract is not-checked. PURE. */
 export declare function labelOf(body: unknown): ClaimLabel | null;

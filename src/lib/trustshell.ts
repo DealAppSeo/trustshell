@@ -8,6 +8,7 @@
 import { loadEthers } from './optional-ethers';
 import { createHash } from 'node:crypto';
 import { redact } from '../memory/redact';
+import { isHttps, resolveApiBase } from './api-url';
 import { assertOriginCanPay } from './origin';
 import type { AgentTurnOrigin } from './origin';
 import {
@@ -641,9 +642,9 @@ export class TrustShell {
 
   constructor(config: TrustShellConfig = {}) {
     this.config = config;
-    this.baseUrl = config.apiUrl ||
-      (typeof process !== 'undefined' ? process.env?.TRUSTSHELL_API_URL : undefined) ||
-      'https://repid-engine-production.up.railway.app';
+    // SEC F10: https only (plain http only for localhost), refused here before anything is sent, and a
+    // non-default origin is announced on stderr (src/lib/api-url.ts).
+    this.baseUrl = resolveApiBase(config.apiUrl);
   }
 
   /**
@@ -704,7 +705,8 @@ export class TrustShell {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    if (this.config.apiKey) {
+    // SEC F10: the key goes to an https origin only, never to plain http (not even localhost).
+    if (this.config.apiKey && isHttps(this.baseUrl)) {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
     return headers;

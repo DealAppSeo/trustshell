@@ -499,13 +499,18 @@ describe('kernelDecide: only a clean ALLOW, bound to this request, is a yes', ()
         ['https://e.example.invalid/', 'https://e.example.invalid'],
         ['https://e.example.invalid///', 'https://e.example.invalid'],
         ['https://e.example.invalid/base/', 'https://e.example.invalid/base'],
-        ['///', ''],
       ];
       for (const [given, want] of urls) {
         const f = fakeFetch(() => json(500, {}));
         await kernelDecide(callInput(), { fetch: f, apiUrl: given });
         expect((f as jest.Mock).mock.calls[0]![0]).toBe(`${want}/api/v1/kernel/decide`);
       }
+      // An all-slash url is no URL at all. It used to be sent as a relative path; since SEC F10 it is
+      // refused, and nothing is sent.
+      const f = fakeFetch(() => json(500, {}));
+      const out = await kernelDecide(callInput(), { fetch: f, apiUrl: '///' });
+      expect(out.allowed).toBe(false);
+      expect(f as jest.Mock).not.toHaveBeenCalled();
     });
   });
 

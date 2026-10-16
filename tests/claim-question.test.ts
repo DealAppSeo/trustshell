@@ -83,7 +83,7 @@ describe('through classifyClaim and the CLI', () => {
     stub({ label: 'not-checked', latency_ms: 5, by: 'votes', voters: ['groq', 'cerebras'], question: Q });
     const lines: string[] = [];
     const io: CliIO = { out: (s) => lines.push(s), err: () => undefined };
-    const code = await run(parseArgs(['check', SWITCH]), new TrustShell({ apiUrl: 'http://unused.invalid' }), io);
+    const code = await run(parseArgs(['check', SWITCH]), new TrustShell({ apiUrl: 'https://unused.invalid' }), io);
     expect(code).toBe(2);
     expect(lines.some((l) => l.startsWith(`One question: ${Q}`))).toBe(true);
   });
