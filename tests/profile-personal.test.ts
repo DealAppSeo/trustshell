@@ -14,6 +14,7 @@ import {
   type Profile,
 } from '../src/lib/profile';
 import { buildReport, formatReportCard } from '../src/lib/report';
+import { stillManual } from '../src/lib/init';
 import { verifyChain, nextEntry } from '../src/lib/inspect';
 import { parseArgs } from '../src/cli/index';
 import { applyOp, parseProfileOp, runProfile, PROFILE_PATH, type ProfileFs, type ProfileOp } from '../src/cli/profile';
@@ -89,6 +90,12 @@ function op(argv: string[]): ProfileOp {
 describe('the default is silence', () => {
   it('renderProfile(defaultProfile()) is byte-identical to the pre-change golden', () => {
     expect(renderProfile(defaultProfile())).toBe(GOLDEN_DEFAULT);
+  });
+
+  it('init names share_personal among the flags it leaves false', () => {
+    const line = stillManual().find((l) => /share flag/.test(l)) ?? '';
+    expect(line).toMatch(/share_identity, share_context, and share_personal/);
+    expect(line).not.toMatch(/Both share flags/);
   });
 
   it('every personal section is empty and share_personal is false', () => {
@@ -194,6 +201,27 @@ describe('round trip, section by section', () => {
     expect(parseProfile(out).profile.values).toEqual(['x']);
   });
 
+  it('a mixed-ending file is byte-identical outside the edited section (buffers, not parsed values)', () => {
+    // Identity written by hand; endings alternate \n / \r\n so neither is used everywhere.
+    let i = 0;
+    const mixed = renderProfile(full())
+      .replace('# Identity\n', '# Identity\nSean, by hand\n')
+      .replace(/\n/g, () => (i++ % 2 ? '\r\n' : '\n'));
+    const cut = (t: string) => [t.slice(0, t.indexOf('# Values')), t.slice(t.indexOf('# Values'), t.indexOf('# People I help')), t.slice(t.indexOf('# People I help'))];
+    const [beforeIn = '', , afterIn = ''] = cut(mixed);
+    expect(beforeIn).toContain('Sean, by hand');
+    expect(beforeIn).toMatch(/\r\n/);
+    expect(beforeIn).toMatch(/[^\r]\n/);
+
+    const out = writePersonalSection(mixed, { ...parseProfile(mixed).profile, values: ['Only this', 'and this'] }, 'values');
+    const [beforeOut = '', section = '', afterOut = ''] = cut(out);
+    expect(Buffer.from(beforeOut)).toEqual(Buffer.from(beforeIn));
+    expect(Buffer.from(afterOut)).toEqual(Buffer.from(afterIn));
+    // Inside the edited section, one ending throughout (the file's dominant one).
+    expect(/\r\n/.test(section) && /[^\r]\n/.test(section)).toBe(false);
+    expect(parseProfile(out).profile.values).toEqual(['Only this', 'and this']);
+  });
+
   it('hand-written list markers and "— why:" are read the same as the rendered ones', () => {
     const text = `${GOLDEN_DEFAULT}\n# Values\n- first\n* second\n\n# People I help\n- my team - why: they rely on me\n`;
     const { profile, problems } = parseProfile(text);
@@ -263,6 +291,16 @@ describe('model priorities: validated, never guessed', () => {
 
   it('a ranked order is accepted with commas or spaces', () => {
     expect(op(['set', 'priorities', 'cost,', 'quality', 'speed'])).toEqual({ op: 'set-priorities', order: ['cost', 'quality', 'speed'] });
+  });
+
+  it('a valid line beside an invalid one still sets NO priorities, and the problem names the bad line', () => {
+    for (const body of ['preset: balanced\npreset: turbo', 'order: cost, speed, quality\nfast please']) {
+      const { profile, problems } = parseProfile(`${GOLDEN_DEFAULT}\n# Model priorities\n${body}\n`);
+      expect(profile.priorities).toBeNull();
+      const mine = problems.filter((p) => p.field === 'priorities');
+      expect(mine.map((p) => p.detail).join(' ')).toContain(`line "${body.split('\n')[1]}"`);
+      expect(mine.every((p) => p.detail.endsWith('no priorities set'))).toBe(true);
+    }
   });
 
   it('a hand-edited bad line in the file resolves to no priorities, and says so', () => {

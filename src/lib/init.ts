@@ -38,7 +38,7 @@ export function stillManual(): string[] {
   return [
     'Nothing writes .trustshell/session.jsonl yet. `inspect` will report NO_LOG until a recorder appends to it.',
     'The OpenClaw plugin seam is not implemented — its interface is not in this repository, so init cannot register a recorder.',
-    'Both share flags are false. `report` will withhold identity and context until you set them yourself.',
+    'Every share flag is false: share_identity, share_context, and share_personal (written once a values, people, style, constraints or priorities section holds something). `report` will withhold identity, context and those personal sections until you set them yourself.',
   ];
 }
 

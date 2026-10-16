@@ -289,26 +289,32 @@ function parsePersonal(text, problems) {
         else
             problems.push({ field: 'style', detail: `"${line}" is not one of ${exports.STYLE_KEYS.join(', ')} as key: value — ignored` });
     }
-    // Anything unclear about priorities resolves to NONE set, the same as an absent section.
+    // ANY problem in this section resolves to NONE set, the same as an absent section: a valid line
+    // beside an invalid one is not a ranking the person can be assumed to mean.
     const found = [];
+    let unclear = false;
     for (const line of listItems(body('priorities'))) {
         const kv = line.match(/^(preset|order)\s*:\s*(.*)$/i);
         const isPreset = kv?.[1]?.toLowerCase() === 'preset';
         const raw = kv?.[2] ?? '';
-        const err = !kv ? `"${line}" is neither preset: nor order:` : isPreset ? checkPreset(raw) : checkOrder(splitOrder(raw));
-        if (err)
-            problems.push({ field: 'priorities', detail: `${err} — no priorities set` });
+        const err = !kv ? 'it is neither preset: nor order:' : isPreset ? checkPreset(raw) : checkOrder(splitOrder(raw));
+        if (err) {
+            unclear = true;
+            problems.push({ field: 'priorities', detail: `line "${line}": ${err} — no priorities set` });
+        }
         else
             found.push(isPreset ? { preset: raw.trim() } : { order: splitOrder(raw) });
     }
-    if (found.length > 1)
-        problems.push({ field: 'priorities', detail: 'more than one preset:/order: line — no priorities set' });
+    if (found.length > 1) {
+        unclear = true;
+        problems.push({ field: 'priorities', detail: `${found.length} preset:/order: lines, expected one — no priorities set` });
+    }
     return {
         values: listItems(body('values')),
         people,
         style,
         constraints: listItems(body('constraints')),
-        priorities: found.length === 1 ? (found[0] ?? null) : null,
+        priorities: unclear ? null : (found[0] ?? null),
     };
 }
 /** `cost,quality speed` → ['cost','quality','speed'], lower-cased. */
@@ -359,25 +365,35 @@ function checkText(raw, what) {
  * person set it).
  */
 function writePersonalSection(text, p, s) {
-    const eol = text.includes('\r\n') ? '\r\n' : '\n';
-    let out = text;
-    if (parseFrontmatter(out)['share_personal'] === undefined) {
-        out = out.replace(/^(---\r?\n[\s\S]*?)(\r?\n---)/, `$1${eol}share_personal: ${p.share_personal}$2`);
+    // Every line keeps its own ending, so a mixed-ending file stays byte-stable outside the edited
+    // section. Lines written here use the file's dominant ending (a tie goes to \n).
+    const chunks = (t) => t.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+    const lines = chunks(text);
+    const crlf = lines.filter((l) => l.endsWith('\r\n')).length;
+    const eol = crlf * 2 > lines.filter((l) => l.endsWith('\n')).length ? '\r\n' : '\n';
+    const own = (block) => chunks(block.replace(/\n/g, eol));
+    const bare = (l) => l.replace(/\r?\n$/, '');
+    const headingOf = (l) => bare(l).match(/^#\s+(.*?)\s*$/)?.[1]?.toLowerCase();
+    const close = bare(lines[0] ?? '') === '---' ? lines.findIndex((l, i) => i > 0 && bare(l) === '---') : -1;
+    if (close > 0 && parseFrontmatter(text)['share_personal'] === undefined) {
+        lines.splice(close, 0, `share_personal: ${p.share_personal}${eol}`);
     }
-    const lines = out.split(/\r?\n/);
-    const headingOf = (l) => l.match(/^#\s+(.*?)\s*$/)?.[1]?.toLowerCase();
     const start = lines.findIndex((l) => headingOf(l) === exports.PERSONAL_SECTIONS[s].toLowerCase());
     const section = renderPersonalSection(p, s);
     if (start === -1) {
         const headings = new Set(lines.map(headingOf));
         const anyPersonal = SECTION_KEYS.some((k) => headings.has(exports.PERSONAL_SECTIONS[k].toLowerCase()));
         const add = anyPersonal ? section : SECTION_KEYS.map((k) => renderPersonalSection(p, k)).join('\n');
-        return (out.replace(/(\r?\n)*$/, eol) + eol + add).replace(/\r?\n/g, eol);
+        const last = lines[lines.length - 1];
+        if (last !== undefined && !last.endsWith('\n'))
+            lines[lines.length - 1] = last + eol;
+        const endsBlank = last !== undefined && bare(last) === '';
+        return lines.join('') + (endsBlank ? '' : eol) + own(add).join('');
     }
     let end = start + 1;
     while (end < lines.length && headingOf(lines[end] ?? '') === undefined)
         end += 1;
-    const replacement = section.replace(/\n$/, '').split('\n');
-    lines.splice(start, end - start, ...replacement, '');
-    return lines.join(eol);
+    const atEnd = end === lines.length;
+    lines.splice(start, end - start, ...own(section), ...(atEnd ? [] : [eol]));
+    return lines.join('');
 }
