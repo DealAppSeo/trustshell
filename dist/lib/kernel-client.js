@@ -87,17 +87,9 @@ function client(reason, detail, argsHash = null, status = null) {
 }
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 /**
- * Drop trailing slashes with a scan, not a regex. `/\/+$/` is quadratic on a string of many slashes
- * that does not end in one (every start position re-consumes the run before failing at the anchor),
- * and `apiUrl` is caller input, so that is a ReDoS (CodeQL js/polynomial-redos). This is linear.
+ * SEC F10: https only (plain http only for localhost); throws ApiUrlError before anything is sent.
+ * Trailing slashes are dropped there with a linear scan (CodeQL js/polynomial-redos on caller input).
  */
-function trimTrailingSlashes(s) {
-    let end = s.length;
-    while (end > 0 && s.charCodeAt(end - 1) === 47 /* '/' */)
-        end--;
-    return s.slice(0, end);
-}
-/** SEC F10: https only (plain http only for localhost); throws ApiUrlError before anything is sent. */
 function apiUrlOf(opts) {
     return (0, api_url_1.resolveApiBase)(opts.apiUrl);
 }
