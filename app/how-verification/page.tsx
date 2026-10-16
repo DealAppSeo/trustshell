@@ -283,9 +283,9 @@ export default function HowVerificationPage() {
       <section className="space-y-4 rounded-xl border border-border bg-card p-6">
         <h2 className="text-xl font-bold text-foreground">See it run, and see the evidence</h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          The check is the one piece you can run right now with nothing installed. The receipt and the
-          model card are the evidence behind a verdict — what was checked, by which families, and what
-          they said.
+          The check is the one piece you can run right now with nothing installed, and it prints its own
+          receipt under the answer: who checked and what each one said. The newest real receipt is a paid
+          deal between two agents.
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
@@ -294,22 +294,23 @@ export default function HowVerificationPage() {
           >
             Check a sentence
           </Link>
-          <Link
-            href="/hal-receipt"
+          {/* A plain <a>: /receipt/latest is a redirect (next.config.ts) to the engine, not a page here. */}
+          <a
+            href="/receipt/latest"
             className="rounded-md border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-card/60"
           >
-            See a receipt
-          </Link>
+            See the newest real receipt
+          </a>
           <Link
             href="/model-card"
             className="rounded-md border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-card/60"
           >
-            Read the model card
+            Read the model card (may be example data)
           </Link>
         </div>
         <p className="text-xs text-muted/70 leading-relaxed">
-          The receipt page is a fixture — it shows the shape of a real receipt, not a live one. The
-          whole journey runs on Base Sepolia testnet; the money there is practice money with no value.
+          The model card says FIXTURE when its numbers are example data, not a live count. The whole
+          journey runs on Base Sepolia testnet; the money there is practice money with no value.
         </p>
       </section>
 

@@ -286,6 +286,9 @@ async function walk(label, viewport) {
   await page.locator('[data-testid="rail-skip"]').click();
   await page.waitForURL(/\/check$/);
   check(`${tag} Skip on screen 2 lands on screen 3`, (await text(page, '[data-testid="stranger-rail"] summary')).match(/step 3 of 4/i) !== null);
+  // On /check the rail is a folded one-line breadcrumb (the box comes first); open it the way a person would.
+  check(`${tag} screen 3 has no Next before a check`, (await page.locator('[data-testid="rail-next"]').count()) === 0);
+  await page.locator('[data-testid="stranger-rail"] summary').click();
   check(`${tag} screen 3 says a vote alone is PROVISIONAL, before you check`, /PROVISIONAL/.test(await text(page, '[data-testid="rail-see"]')));
   check(`${tag} your agent is shown as TWO fields: score and ID`, await until(async () => /field 1 · score/i.test(await text(page, '[data-testid="agent-two-fields"]')) && /field 2 · erc-8004 id/i.test(await text(page, '[data-testid="agent-two-fields"]'))));
   check(`${tag} the new agent's score reads 200 and its ID reads "None yet" (off-chain only)`, (await text(page, '[data-testid="two-fields-score"]')).includes('200') && /None yet/.test(await text(page, '[data-testid="two-fields-id"]')));

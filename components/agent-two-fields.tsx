@@ -95,7 +95,7 @@ export function AgentTwoFields({ resultAt }: { resultAt?: number }) {
         Your agent: <span className="font-bold">{agent.name}</span>
       </p>
       {latest === null ? (
-        <p className="text-xs text-[#64748b]">Reading…</p>
+        <p className="text-xs text-[#94a3b8]">Reading…</p>
       ) : latest.state === 'NOT_CHECKED' ? (
         <p className="text-sm text-[#94a3b8]" data-testid="two-fields-not-checked">
           Not checked: {WHY[latest.reason]} That is not a score of zero.
@@ -103,7 +103,7 @@ export function AgentTwoFields({ resultAt }: { resultAt?: number }) {
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           <div data-testid="two-fields-score">
-            <p className="text-[11px] font-mono uppercase tracking-widest text-[#64748b]">Field 1 · Score</p>
+            <p className="text-[11px] font-mono uppercase tracking-widest text-[#94a3b8]">Field 1 · Score</p>
             <p className="text-lg font-bold text-white">{read?.score ?? 'Not checked'}</p>
             {moved && (
               <p className="text-xs text-[#94a3b8]" data-testid="two-fields-moved">
@@ -112,7 +112,7 @@ export function AgentTwoFields({ resultAt }: { resultAt?: number }) {
             )}
           </div>
           <div data-testid="two-fields-id">
-            <p className="text-[11px] font-mono uppercase tracking-widest text-[#64748b]">Field 2 · ERC-8004 ID</p>
+            <p className="text-[11px] font-mono uppercase tracking-widest text-[#94a3b8]">Field 2 · ERC-8004 ID</p>
             <p className="text-lg font-bold text-white">
               {read?.token.state === 'ID' ? `#${read.token.id}` : read?.mint === 'NOT_MINTED' ? 'None yet' : 'Not checked'}
             </p>
@@ -130,7 +130,7 @@ export function AgentTwoFields({ resultAt }: { resultAt?: number }) {
           </div>
         </div>
       )}
-      <p className="text-xs text-[#64748b]">The score is how it has behaved. The ID is which agent it is. Two different things.</p>
+      <p className="text-xs text-[#94a3b8]">The score is how it has behaved. The ID is which agent it is. Two different things.</p>
     </section>
   );
 }

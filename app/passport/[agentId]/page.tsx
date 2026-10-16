@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { REPID_ENGINE_URL } from '@/lib/repid-engine';
 import { TrustBadge } from '@/components/trust-state';
 import {
+  IDENTITY_REGISTRY_BASE_SEPOLIA,
   embeddedOnChain,
   mintTxUrlShown,
   mintVerdictOf,
@@ -213,6 +214,33 @@ function RegistryValue({ shown }: { shown: RegistryShown }) {
   );
 }
 
+/**
+ * "Check it yourself" goes to the chain, not to the engine. BaseScan cannot prefill the token, so the
+ * label names it; the registry is a proxy, so ownerOf sits under Read as Proxy. The engine's own read
+ * stays beside it, labelled as the engine's.
+ */
+function OwnerOfLinks({ tokenRaw, engineHref }: { tokenRaw: unknown; engineHref: string }) {
+  const t = tokenIdShown(tokenRaw);
+  return (
+    <>
+      <a
+        href={`https://sepolia.basescan.org/address/${IDENTITY_REGISTRY_BASE_SEPOLIA}#readProxyContract`}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="ownerof-basescan"
+        className="text-amber-500 underline"
+      >
+        Read ownerOf({t.state === 'ID' ? t.id : 'token id'}) yourself on BaseScan →
+      </a>{' '}
+      <span className="text-neutral-400">(Read as Proxy, then ownerOf.) Or see </span>
+      <a href={engineHref} target="_blank" rel="noopener noreferrer" className="text-neutral-400 underline">
+        the engine&apos;s own read
+      </a>
+      <span className="text-neutral-400">.</span>
+    </>
+  );
+}
+
 function TokenValue({ raw }: { raw: unknown }) {
   const t = tokenIdShown(raw);
   return t.state === 'ID' ? <span data-testid="token-id">{t.id}</span> : <TrustBadge state="NOT_CHECKED" detail={t.reason} />;
@@ -313,14 +341,7 @@ export default async function PassportPage({
               </Row>
             )}
             <Row label="Live check">
-              <a
-                href={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-500 underline"
-              >
-                Cross-verify ownerOf() on-chain now →
-              </a>
+              <OwnerOfLinks tokenRaw={id.token_id} engineHref={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`} />
             </Row>
           </>
         ) : verdict.recorded ? (
@@ -355,14 +376,7 @@ export default async function PassportPage({
               </Row>
             )}
             <Row label="Live check">
-              <a
-                href={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-500 underline"
-              >
-                Cross-verify ownerOf() on-chain now →
-              </a>
+              <OwnerOfLinks tokenRaw={id.token_id} engineHref={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`} />
             </Row>
           </>
         ) : id.registered_onchain === 'UNVERIFIED' ? (
@@ -384,14 +398,7 @@ export default async function PassportPage({
               <TokenValue raw={id.token_id} />
             </Row>
             <Row label="Resolve it">
-              <a
-                href={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-500 underline"
-              >
-                Cross-verify ownerOf() on-chain now →
-              </a>
+              <OwnerOfLinks tokenRaw={id.token_id} engineHref={`${REPID_ENGINE_URL}${id.live_verification_endpoint}`} />
             </Row>
           </>
         ) : (

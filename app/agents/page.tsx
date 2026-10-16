@@ -89,7 +89,7 @@ export default function AgentsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-5xl mx-auto space-y-8 px-4">
       <div className="space-y-2">
         <h2 className="text-3xl font-bold">Your Agents</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
@@ -212,7 +212,9 @@ export default function AgentsPage() {
             in a 320 viewport). The two cancelled out visually — the padding put the cards
             back where the margin had taken them — so removing both leaves the layout
             identical and costs only 8px of scroll viewport. */}
-        <ol className="flex gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:overflow-visible">
+        {/* Two columns on a phone, so every card's words wrap inside it. It was a sideways scroller,
+            and the scroller cut "Bring your own key on Connect." mid-word (UX audit 2026-10-16). */}
+        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             { n: 1, t: 'Create an agent', d: 'Name it + optional rules.', here: true },
             { n: 2, t: 'Connect a model', d: 'Bring your own key on Connect.' },
@@ -225,7 +227,7 @@ export default function AgentsPage() {
           ].map((s) => (
             <li
               key={s.n}
-              className={`shrink-0 min-w-[10rem] sm:min-w-0 p-3 rounded-lg bg-[#0f172a] border border-[#1e293b] border-l-2 ${s.here ? 'border-l-amber-500' : 'border-l-[#1e293b]'}`}
+              className={`min-w-0 p-3 rounded-lg bg-[#0f172a] border border-[#1e293b] border-l-2 ${s.here ? 'border-l-amber-500' : 'border-l-[#1e293b]'}`}
             >
               <div className={`text-xs font-mono ${s.here ? 'text-amber-400' : 'text-[#475569]'}`}>STEP {s.n}{s.here ? ' · you are here' : ''}</div>
               <div className="font-medium text-white text-sm mt-1">{s.t}</div>

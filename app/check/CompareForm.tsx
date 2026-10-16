@@ -80,13 +80,14 @@ export default function CompareForm() {
           ))}
         </div>
         <p id="compare-privacy" className="text-sm text-[#94a3b8]">
-          Each answer is checked on its own, by the same checkers as above. It is not stored. Do not paste anything private.
+          Each answer is checked on its own, by the same checkers as above. It is not stored. Do not paste anything private.{' '}
+          <a href="/privacy.html" className="underline underline-offset-4 hover:text-white">Read the privacy policy.</a>
         </p>
         <button
           type="submit"
           data-testid="compare-submit"
           disabled={busy || !first.trim() || !second.trim()}
-          className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
+          className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:text-[#94a3b8] disabled:cursor-not-allowed text-black font-bold rounded-lg transition-colors"
         >
           {busy ? 'Checking both at once…' : 'Check both'}
         </button>
@@ -105,7 +106,7 @@ export default function CompareForm() {
                     data-testid="compare-stamp"
                     data-label={r.label}
                   >
-                    <p className="text-xs text-[#64748b]">{i === 0 ? 'First answer' : 'Second answer'}</p>
+                    <p className="text-xs text-[#94a3b8]">{i === 0 ? 'First answer' : 'Second answer'}</p>
                     <p className="text-lg font-bold" title={r.label}>
                       {STAMP_TITLES[r.label]}
                     </p>

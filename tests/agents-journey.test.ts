@@ -66,11 +66,12 @@ describe('the strip has a column for every step it renders', () => {
     // like a bug and which no screenshot at one width would reliably show.
   });
 
-  it('keeps the mobile strip a deliberate scroller, not a page overflow', () => {
-    // Below `sm` the steps are a horizontal scroll strip by design. It scrolls inside its own
-    // box, which is NOT the sideways-scrolling page defect measured on 2026-09-01 — and the
-    // distinction is exactly what that fix turned on, so it is pinned rather than assumed.
-    expect(AGENTS).toContain('overflow-x-auto');
-    expect(AGENTS).toContain('sm:overflow-visible');
+  it('wraps the strip into two columns on a phone instead of a scroller that cuts the cards off', () => {
+    // Below `sm` the steps were a horizontal scroll strip, and on a 375px phone the visible edge
+    // cut "Bring your own key on Connec…" (UX audit 2026-10-16, UX-33). A grid divides the width it
+    // is given, so it cannot overflow the page either.
+    expect(AGENTS).toContain('grid grid-cols-2 gap-3 sm:grid-cols-5');
+    expect(AGENTS).not.toContain('overflow-x-auto');
+    expect(AGENTS).not.toContain('min-w-[10rem]');
   });
 });

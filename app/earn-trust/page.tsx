@@ -168,7 +168,7 @@ const DIFFS: ReadonlyArray<Diff> = [
   {
     dimension: 'Is the claim true?',
     guardrail: 'A filter scans the wording and hopes. One model marking its own homework.',
-    ecosystem: 'Disjoint model families that fail differently must clear a golden-ratio supermajority, so no single provider’s bias or outage can fake a pass.',
+    ecosystem: 'Today two model families, from different builders, must both agree for a pass, so one provider’s bias or outage cannot fake a pass on its own. A golden-ratio supermajority across more families is the design target, not what runs.',
   },
   {
     dimension: 'When a check cannot run',
