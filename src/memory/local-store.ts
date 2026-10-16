@@ -2,9 +2,10 @@
  * Local memory sqlite. Default file is ~/.trustshell/memory.sqlite.
  * TRUSTSHELL_MEMORY points tests and CI at a temp file.
  */
-import { mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, closeSync, mkdirSync, openSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
   SEALED_NO_KEY,
@@ -136,9 +137,38 @@ function ensureSchema(db: SqliteDb): void {
   ).run(LEGACY_REASON);
 }
 
+/**
+ * SEC F6: the memory holds the operator's notes and keyed values, so it is owner-only. A folder this
+ * creates is 0700, and the file is created 0600 and put back to 0600 on every open (an existing
+ * world-readable file is tightened). An existing folder keeps its mode. On Windows those modes do
+ * nothing, so a folder this creates gets an ACL for the current user only. The default
+ * ~/.trustshell already inherits the user profile's ACL (the user, SYSTEM, Administrators).
+ */
+function ownerOnly(path: string): void {
+  const created = mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  if (created && process.platform === 'win32') windowsOwnerOnly(created);
+  closeSync(openSync(path, 'a', 0o600));
+  chmodSync(path, 0o600);
+}
+
+/**
+ * Grant the current user full control first, and only then drop the inherited entries, so a failure
+ * part way never leaves the folder with no one able to open it.
+ * ponytail: best effort, by user name; if icacls is missing or refuses, the folder keeps the ACL it
+ * inherited. Use the user's SID instead if a name ever fails to resolve.
+ */
+function windowsOwnerOnly(dir: string): void {
+  try {
+    execFileSync('icacls', [dir, '/grant:r', `${userInfo().username}:(OI)(CI)F`], { stdio: 'ignore', windowsHide: true });
+    execFileSync('icacls', [dir, '/inheritance:r'], { stdio: 'ignore', windowsHide: true });
+  } catch {
+    /* keeps the inherited ACL */
+  }
+}
+
 function openDb(path: string): SqliteDb {
   try {
-    mkdirSync(dirname(path), { recursive: true });
+    ownerOnly(path);
     const { DatabaseSync } = loadSqlite('node:sqlite') as {
       DatabaseSync: new (location: string) => SqliteDb;
     };

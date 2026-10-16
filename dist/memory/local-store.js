@@ -19,6 +19,7 @@ exports.deleteKeyed = deleteKeyed;
  * Local memory sqlite. Default file is ~/.trustshell/memory.sqlite.
  * TRUSTSHELL_MEMORY points tests and CI at a temp file.
  */
+const node_child_process_1 = require("node:child_process");
 const node_fs_1 = require("node:fs");
 const node_module_1 = require("node:module");
 const node_os_1 = require("node:os");
@@ -86,9 +87,38 @@ function ensureSchema(db) {
     // trusted. Idempotent: every write since sets provenance, so this touches only pre-v0 notes.
     db.prepare("UPDATE memory SET provenance = 'untrusted', source = 'legacy', quarantined = 1, quarantine_reason = ? WHERE kind = 'note' AND key IS NULL AND provenance IS NULL").run(exports.LEGACY_REASON);
 }
+/**
+ * SEC F6: the memory holds the operator's notes and keyed values, so it is owner-only. A folder this
+ * creates is 0700, and the file is created 0600 and put back to 0600 on every open (an existing
+ * world-readable file is tightened). An existing folder keeps its mode. On Windows those modes do
+ * nothing, so a folder this creates gets an ACL for the current user only. The default
+ * ~/.trustshell already inherits the user profile's ACL (the user, SYSTEM, Administrators).
+ */
+function ownerOnly(path) {
+    const created = (0, node_fs_1.mkdirSync)((0, node_path_1.dirname)(path), { recursive: true, mode: 0o700 });
+    if (created && process.platform === 'win32')
+        windowsOwnerOnly(created);
+    (0, node_fs_1.closeSync)((0, node_fs_1.openSync)(path, 'a', 0o600));
+    (0, node_fs_1.chmodSync)(path, 0o600);
+}
+/**
+ * Grant the current user full control first, and only then drop the inherited entries, so a failure
+ * part way never leaves the folder with no one able to open it.
+ * ponytail: best effort, by user name; if icacls is missing or refuses, the folder keeps the ACL it
+ * inherited. Use the user's SID instead if a name ever fails to resolve.
+ */
+function windowsOwnerOnly(dir) {
+    try {
+        (0, node_child_process_1.execFileSync)('icacls', [dir, '/grant:r', `${(0, node_os_1.userInfo)().username}:(OI)(CI)F`], { stdio: 'ignore', windowsHide: true });
+        (0, node_child_process_1.execFileSync)('icacls', [dir, '/inheritance:r'], { stdio: 'ignore', windowsHide: true });
+    }
+    catch {
+        /* keeps the inherited ACL */
+    }
+}
 function openDb(path) {
     try {
-        (0, node_fs_1.mkdirSync)((0, node_path_1.dirname)(path), { recursive: true });
+        ownerOnly(path);
         const { DatabaseSync } = loadSqlite('node:sqlite');
         const db = new DatabaseSync(path);
         ensureSchema(db);
