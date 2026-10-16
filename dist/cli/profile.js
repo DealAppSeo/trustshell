@@ -242,7 +242,7 @@ async function runProfile(op, io, fs, json = false) {
             said.push(learnJobHint(job));
         if (never) {
             // The answer names what must NOT happen. Stored bare, "email a client" would read as a rule to do it.
-            const line = /^never/i.test(never) ? never : `Must never happen: ${never}`;
+            const line = /^never\b/i.test(never) ? never : `Must never happen: ${never}`;
             profile = { ...profile, constraints: [...profile.constraints, line] };
             out = (0, profile_1.writePersonalSection)(out, profile, 'constraints');
             said.push(`constraint ${profile.constraints.length}: ${line}`);
