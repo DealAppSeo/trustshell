@@ -21,6 +21,7 @@
  */
 import { redact } from '../memory/redact';
 import { resolveApiBase } from './api-url';
+import { LOCAL_ONLY_REASON, localOnly } from './local-only';
 
 export const CLAIM_LABELS = ['pass', 'veto', 'not-checked'] as const;
 export type ClaimLabel = (typeof CLAIM_LABELS)[number];
@@ -293,6 +294,8 @@ export interface ClaimOptions {
   timeoutMs?: number;
   now?: () => number;
   env?: Record<string, string | undefined>;
+  /** SEC F2: refuse to send (not-checked) before any fetch. TRUSTSHELL_LOCAL_ONLY=1 does the same. */
+  localOnly?: boolean;
 }
 
 /**
@@ -342,6 +345,8 @@ export async function classifyClaim(text: string, opts: ClaimOptions = {}): Prom
   // SEC F3: OFFLINE=1 sends nothing. Every caller (CLI check, MCP check_claim, quarantine release) comes through here.
   const env = opts.env ?? (typeof process !== 'undefined' ? process.env : {});
   if (env.OFFLINE === '1') return mark({ label: 'not-checked', latency_ms: 0, reason: OFFLINE_REASON });
+  // SEC F2: local-only sends nothing (CLI check, MCP check_claim and quarantine release all come here).
+  if (localOnly(opts.localOnly, opts.env)) return mark({ label: 'not-checked', latency_ms: 0, reason: LOCAL_ONLY_REASON });
   const url = resolveClassifyUrl(opts.apiUrl, opts.env);
 
   const fetchImpl = opts.fetchImpl ?? (typeof fetch === 'function' ? fetch : undefined);

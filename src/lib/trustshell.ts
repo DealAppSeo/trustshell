@@ -9,6 +9,7 @@ import { loadEthers } from './optional-ethers';
 import { createHash } from 'node:crypto';
 import { redact } from '../memory/redact';
 import { isHttps, resolveApiBase } from './api-url';
+import { LOCAL_ONLY_REASON, localOnly, seenByFromHal, type SeenBy } from './local-only';
 import { assertOriginCanPay } from './origin';
 import type { AgentTurnOrigin } from './origin';
 import {
@@ -45,6 +46,11 @@ export interface TrustShellConfig {
    * Unset → `getAllowance` stays fail-closed (`no_allowance_set`).
    */
   readAllowance?: ReadAllowance;
+  /**
+   * SEC F2: refuse every send of your text (HAL verify/evaluate) with NOT_CHECKED, before any fetch.
+   * TRUSTSHELL_LOCAL_ONLY=1 does the same. Off by default. See src/lib/local-only.ts.
+   */
+  localOnly?: boolean;
 }
 
 /**
@@ -137,6 +143,8 @@ export interface ScoreResult {
   decisionReason: string;
   /** Per-provider evidence — "provider:VERDICT (note)" — the WHY behind the verdict. */
   evidence: string[];
+  /** SEC F2: which outside providers saw the text ([] = none were sent it; 'unknown' = the engine did not say). */
+  seenBy?: SeenBy;
   // SBFA v0.2 Glass Box (fact-check path; see VerifyOutputResult for field docs). Forwarded to verifyOutput.
   belief?: number;
   ignoranceMass?: number;
@@ -182,6 +190,12 @@ export interface VerifyOutputResult {
   decisionReason: string;
   /** Per-provider evidence behind the verdict (e.g. "mistral:FALSE (Eiffel Tower is in Paris)"). */
   evidence: string[];
+  /**
+   * SEC F2: which outside providers saw the text: the engine's provider_responses (errored ones
+   * included; they received it), [] when nothing was sent (local-only), 'unknown' when the engine's
+   * answer does not say. Never guessed.
+   */
+  seenBy?: SeenBy;
   /** How this verdict is grounded: 'hal' when a real provider quorum spoke, 'none' when HAL could not check. */
   grounding: Grounding;
   /** The REAL provider quorum behind the verdict — a MEASURED count (evidence length), never a constant. */
@@ -713,6 +727,21 @@ export class TrustShell {
   }
 
   async score(response: string, options: ScoreOptions = {}): Promise<ScoreResult> {
+    // SEC F2: local-only sends nothing. NOT_CHECKED, no trust earned, and nobody saw the text.
+    if (localOnly(this.config.localOnly)) {
+      return {
+        trustScore: 0,
+        halScore: 0,
+        signals: { harmProbability: 0, epistemicUncertainty: 0, evidenceQuality: 0, scopeAppropriateness: 0, certaintyAtClaim: 0 },
+        verdict: 'NOT_CHECKED',
+        flaggedHallucination: false,
+        provider: 'none',
+        model: 'none',
+        decisionReason: `NOT_CHECKED — ${LOCAL_ONLY_REASON}`,
+        evidence: [],
+        seenBy: [],
+      };
+    }
     const url = `${this.baseUrl}/api/v1/hal/evaluate`;
 
     // The live /api/v1/hal/evaluate contract takes { text, context?, strictness? } — NOT
@@ -809,6 +838,7 @@ export class TrustShell {
         agreement: sig.agreement,
         decisionReason,
         evidence,
+        seenBy: seenByFromHal(data),
         belief: typeof sbfa?.belief === 'number' ? sbfa.belief : undefined,
         ignoranceMass: typeof sbfa?.ignorance_mass === 'number' ? sbfa.ignorance_mass : undefined,
         confidence: typeof sbfa?.confidence === 'number' ? sbfa.confidence : derivedConfidence,
@@ -893,6 +923,7 @@ export class TrustShell {
       signals: r.signals,
       decisionReason: r.decisionReason,
       evidence: r.evidence,
+      seenBy: r.seenBy,
       // Honest grounding contract (T4): grounding + the REAL quorum, both from the actual evidence.
       grounding: verifyOutputGrounding(r.evidence.length),
       providersUsed: countProviders({ evidence: r.evidence }),

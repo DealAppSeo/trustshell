@@ -123,6 +123,8 @@ export interface ClaimOptions {
     timeoutMs?: number;
     now?: () => number;
     env?: Record<string, string | undefined>;
+    /** SEC F2: refuse to send (not-checked) before any fetch. TRUSTSHELL_LOCAL_ONLY=1 does the same. */
+    localOnly?: boolean;
 }
 /**
  * Resolve the full classify URL. Throws {@link ClaimError} for a base src/lib/api-url.ts refuses
