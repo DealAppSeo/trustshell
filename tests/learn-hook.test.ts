@@ -16,6 +16,8 @@ import { acceptLesson, addCheck, addJob, correct, declineLesson, snapshot } from
 const ROOT = join(__dirname, '..');
 const HOOK = join(ROOT, 'examples', 'learn-hook', 'user-prompt-submit.mjs');
 const DAY = 86_400_000;
+/** (Cast: the root tsconfig's Next types make NODE_ENV required on ProcessEnv.) */
+const envOf = (vars: Record<string, string | undefined>) => vars as NodeJS.ProcessEnv;
 
 let outDir = '';
 let cli = '';
@@ -35,21 +37,21 @@ afterAll(() => {
 describe('examples/learn-hook/user-prompt-submit.mjs', () => {
   let dir = '';
   let db = '';
-  let env: NodeJS.ProcessEnv = {};
+  let env = envOf({});
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'ts-learn-hook-'));
     db = join(dir, 'memory.sqlite');
-    env = { TRUSTSHELL_MEMORY: db };
+    env = envOf({ TRUSTSHELL_MEMORY: db });
   });
 
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  function hook(prompt: string, extra: NodeJS.ProcessEnv = {}) {
+  function hook(prompt: string, extra: Record<string, string | undefined> = {}) {
     const event = { session_id: 'sess-1', transcript_path: join(dir, 't.jsonl'), cwd: dir, hook_event_name: 'UserPromptSubmit', prompt };
-    const childEnv: NodeJS.ProcessEnv = { ...process.env, TRUSTSHELL_MEMORY: db, TRUSTSHELL_CLI: cli, TRUSTSHELL_LEARN_JOB: 'ship', ...extra };
+    const childEnv = envOf({ ...process.env, TRUSTSHELL_MEMORY: db, TRUSTSHELL_CLI: cli, TRUSTSHELL_LEARN_JOB: 'ship', ...extra });
     for (const [k, v] of Object.entries(childEnv)) if (v === undefined) delete childEnv[k];
     return spawnSync(process.execPath, [HOOK], { input: JSON.stringify(event), env: childEnv, encoding: 'utf8', cwd: dir });
   }

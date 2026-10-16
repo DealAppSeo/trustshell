@@ -312,7 +312,7 @@ function createServer(client = makeClient()) {
             return jsonResult(r ?? { text: '', episode: null, lessons: [], loop_tokens: 0 });
         }
         catch (e) {
-            return errorResult(`learn_lessons_for failed: ${e?.message ?? String(e)}`);
+            return errorResult(`learn_lessons_for failed: ${e instanceof Error ? e.message : String(e)}`);
         }
     });
     registerTool('learn_record', {
@@ -336,7 +336,7 @@ function createServer(client = makeClient()) {
             return jsonResult((0, store_1.recordEpisode)({ ...rest, askSha256: ask === undefined ? undefined : (0, store_1.sha256)(ask) }, process.env));
         }
         catch (e) {
-            return errorResult(`learn_record failed: ${e?.message ?? String(e)}`);
+            return errorResult(`learn_record failed: ${e instanceof Error ? e.message : String(e)}`);
         }
     });
     registerTool('quarantine_list', {

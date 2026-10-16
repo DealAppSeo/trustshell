@@ -360,8 +360,8 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       try {
         const r = inject({ job, turn }, process.env);
         return jsonResult(r ?? { text: '', episode: null, lessons: [], loop_tokens: 0 });
-      } catch (e: any) {
-        return errorResult(`learn_lessons_for failed: ${e?.message ?? String(e)}`);
+      } catch (e) {
+        return errorResult(`learn_lessons_for failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     },
   );
@@ -389,8 +389,8 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
       try {
         const { ask, ...rest } = a;
         return jsonResult(recordEpisode({ ...rest, askSha256: ask === undefined ? undefined : sha256(ask) }, process.env));
-      } catch (e: any) {
-        return errorResult(`learn_record failed: ${e?.message ?? String(e)}`);
+      } catch (e) {
+        return errorResult(`learn_record failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     },
   );

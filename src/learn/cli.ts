@@ -211,9 +211,9 @@ async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Pr
       let r: ReturnType<typeof inject> = null;
       try {
         r = inject({ job: opt.job, turn: opt.turn, check: opt.check, askSha256: opt['ask-sha256'] }, env);
-      } catch (e: any) {
+      } catch (e) {
         if (e instanceof LearnError) throw e;
-        io.err(`learn inject: nothing injected (${e?.message ?? String(e)})`);
+        io.err(`learn inject: nothing injected (${e instanceof Error ? e.message : String(e)})`);
         return 0;
       }
       if (r && r.text) io.out(r.text);
@@ -267,13 +267,13 @@ async function dispatch(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv): Pr
 export async function runLearn(argv: string[], io: LearnIO, env: NodeJS.ProcessEnv = process.env): Promise<number> {
   try {
     return await dispatch(argv, io, env);
-  } catch (e: any) {
+  } catch (e) {
     if (e instanceof LearnError) {
       io.err(`learn: ${e.message}`);
       if (/^(unknown|learn needs)/.test(e.message)) io.err(LEARN_USAGE);
       return 2;
     }
-    io.err(`learn failed: ${e?.message ?? String(e)}`);
+    io.err(`learn failed: ${e instanceof Error ? e.message : String(e)}`);
     return 3;
   }
 }

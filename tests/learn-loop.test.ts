@@ -51,12 +51,14 @@ const JTBD = 'When I ship a change, I want the tests green, so I can merge witho
 
 let dir = '';
 let db = '';
-let env: NodeJS.ProcessEnv = {};
+/** A minimal env: only the memory path. (Cast: the root tsconfig's Next types make NODE_ENV required.) */
+const envOf = (vars: Record<string, string | undefined>) => vars as NodeJS.ProcessEnv;
+let env = envOf({});
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'ts-learn-'));
   db = join(dir, 'memory.sqlite');
-  env = { TRUSTSHELL_MEMORY: db };
+  env = envOf({ TRUSTSHELL_MEMORY: db });
 });
 
 afterEach(() => {
@@ -461,6 +463,24 @@ describe('a memory file from before the learn kinds', () => {
     after.close();
     expect(ids).toEqual([2]);
     expect(lessonId).toBeGreaterThan(2);
+  });
+
+  it('is left alone by the memory commands: only a learn command widens it (default-inert)', () => {
+    openOld(db).close();
+    const tableSql = () => {
+      const { DatabaseSync } = createRequire(__filename)('node:sqlite') as {
+        DatabaseSync: new (p: string) => { prepare(s: string): { get(): { sql: string } }; close(): void };
+      };
+      const h = new DatabaseSync(db);
+      const sql = h.prepare("SELECT sql FROM sqlite_master WHERE name = 'memory'").get().sql;
+      h.close();
+      return sql;
+    };
+    insertMemory(db, 'note', 'a note', T0.toISOString(), env);
+    formatRecall(db, env);
+    expect(tableSql()).not.toContain("'lesson'");
+    listJobs(env);
+    expect(tableSql()).toContain("'lesson'");
   });
 });
 

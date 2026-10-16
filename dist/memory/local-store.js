@@ -62,6 +62,9 @@ const ALL_COLUMNS = 'id, kind, body, created_at, key, provenance, source, quaran
  * its table, and SQLite cannot alter a CHECK. So the table is rebuilt ONCE, in one transaction: copy
  * every row with its id, swap the tables, keep the AUTOINCREMENT high-water mark so a deleted id is
  * never reused. Any failure rolls back and leaves the old table exactly as it was.
+ *
+ * DEFAULT-INERT: only the learn commands call it (openMemoryDb, before any learn write). A file nobody
+ * runs `learn` on keeps its table as it was; a new file is created with the wide CHECK already.
  */
 function widenKinds(db) {
     const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'memory'").get();
@@ -81,6 +84,7 @@ function widenKinds(db) {
         db.exec(`INSERT INTO memory_widen (${ALL_COLUMNS}) SELECT ${ALL_COLUMNS} FROM memory`);
         db.exec('DROP TABLE memory');
         db.exec('ALTER TABLE memory_widen RENAME TO memory');
+        db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
         if (seq) {
             const top = db.prepare('SELECT COALESCE(MAX(id), 0) AS n FROM memory').get();
             db.prepare("DELETE FROM sqlite_sequence WHERE name = 'memory'").run();
@@ -123,7 +127,6 @@ function ensureSchema(db) {
         if (!have.has(name))
             db.exec(`ALTER TABLE memory ADD COLUMN ${name} ${type}`);
     }
-    widenKinds(db);
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS memory_key_unique ON memory(key) WHERE key IS NOT NULL');
     // FAIL CLOSED ON UPGRADE. A note with no provenance was saved before taint labels existed, by the
     // CLI or by an MCP caller, and nothing says which. It is quarantined as untrusted, never read as
@@ -432,7 +435,15 @@ function deleteKeyed(path, key) {
  * it: memory rows are read with readRows, and only `injectable` decides what may reach a model.
  */
 function openMemoryDb(path) {
-    return openDb(path);
+    const db = openDb(path);
+    try {
+        widenKinds(db);
+    }
+    catch (err) {
+        db.close();
+        throw err;
+    }
+    return db;
 }
 /** What `learn accept` writes into released_by. A lesson row without it was never accepted. */
 exports.LESSON_ACCEPTED = 'learn accept: the person accepted this lesson';

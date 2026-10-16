@@ -211,7 +211,7 @@ async function dispatch(argv, io, env) {
             catch (e) {
                 if (e instanceof store_1.LearnError)
                     throw e;
-                io.err(`learn inject: nothing injected (${e?.message ?? String(e)})`);
+                io.err(`learn inject: nothing injected (${e instanceof Error ? e.message : String(e)})`);
                 return 0;
             }
             if (r && r.text)
@@ -279,7 +279,7 @@ async function runLearn(argv, io, env = process.env) {
                 io.err(exports.LEARN_USAGE);
             return 2;
         }
-        io.err(`learn failed: ${e?.message ?? String(e)}`);
+        io.err(`learn failed: ${e instanceof Error ? e.message : String(e)}`);
         return 3;
     }
 }
