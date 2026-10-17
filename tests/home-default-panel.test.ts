@@ -1,5 +1,6 @@
 /**
- * The default view on "/" is the check form under Try to trick it, with nothing to open first.
+ * The default view on "/" is the job, a real result, and the check form, with nothing to open first
+ * (2026-10-16: the measured cards fold under the box; the box is the one action).
  *
  * It used to be an install-and-verify command block (FIRST_COMMANDS) plus "copy the family host
  * verdict line", with the chat and terminal options behind two reveal buttons. The home page is
@@ -12,18 +13,18 @@ import { join } from 'node:path';
 const hero = readFileSync(join(__dirname, '../components/hero.tsx'), 'utf8').replace(/\r/g, '');
 
 describe('home default view', () => {
-  it('is the check form with its three cards, before the one link down to the next steps, with no panel to open', () => {
+  it('is the result card and the check form with its folded cards, with no panel to open', () => {
     const start = hero.indexOf('return (');
     expect(start).toBeGreaterThan(-1);
     const view = hero.slice(start);
     const form = view.indexOf('<CheckForm');
-    // Since the 2026-10-05 home page the terminal and agent steps are on screen 3 (#add-agent).
-    const add = view.indexOf('href="#add-agent"');
+    expect(view.indexOf('<HeroResult />')).toBeGreaterThan(-1);
+    expect(view.indexOf('<HeroResult />')).toBeLessThan(form);
     expect(form).toBeGreaterThan(-1);
-    expect(add).toBeGreaterThan(form);
-    expect(view.slice(form, add)).toContain('samples={HOME_SAMPLES} boxLabel="Or paste the answer you almost used"');
-    // 2026-10-06: Paste both sits in the same panel, folded, before the link down.
-    expect(view.slice(form, add)).toContain('<CompareForm />');
+    expect(view.slice(form)).toContain('samples={TRY_ONE}');
+    expect(view.slice(form)).toContain('samplesLabel=');
+    // 2026-10-06: Paste both sits in the same panel, folded.
+    expect(view.slice(form)).toContain('<CompareForm />');
     expect(hero).toMatch(/import \{[^}]*\bHOME_SAMPLES\b[^}]*\} from '@\/lib\/home-samples';/);
     // Sean, 2026-10-06: no prefilled box under a caption that gives the answer away.
     expect(hero).not.toContain('initialText=');

@@ -40,16 +40,18 @@ export function JourneySteps({ current }: { current?: JourneyStage }) {
   // first". The strip cannot see state; only each page's own result can say a step worked.
   return (
     <nav aria-label="Where you are in the journey" className="min-w-0">
-      <p className="mb-2 text-xs font-mono uppercase tracking-widest text-muted/70">Where you are</p>
-      {/* A horizontal scroll strip below sm, a six-column row at sm and up. The grid divides the
-          width it is given, so the count never overflows the page sideways. */}
-      <ol className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-6 sm:overflow-visible">
+      <p className="mb-2 text-xs font-mono uppercase tracking-widest text-muted">Where you are</p>
+      {/* Three columns on a phone (two rows: the number and the step's name, the detail line from sm
+          up), six from sm. It was a sideways scroller below sm, and a scroller cuts the last cards off
+          at the screen edge (UX audit 2026-10-16, the same fix /agents had). A grid divides the width
+          it is given, so the count never overflows the page sideways. */}
+      <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6">
         {STAGES.map((s, i) => {
           const isHere = s.id === current;
           const body = (
             <>
               <span
-                className={`block text-[11px] font-mono ${isHere ? 'text-accent' : 'text-muted/60'}`}
+                className={`block text-xs font-mono ${isHere ? 'text-accent' : 'text-muted'}`}
               >
                 {i + 1}
                 {isHere ? ' · you are here' : ''}
@@ -59,14 +61,14 @@ export function JourneySteps({ current }: { current?: JourneyStage }) {
               >
                 {s.label}
               </span>
-              <span className="mt-0.5 block text-[11px] leading-snug text-muted/60">{s.detail}</span>
+              <span className="mt-0.5 hidden text-xs leading-snug text-muted sm:block">{s.detail}</span>
             </>
           );
           const shell = `block h-full rounded-lg border border-border border-l-2 bg-card/50 p-3 ${
             isHere ? 'border-l-accent' : 'border-l-border'
           }`;
           return (
-            <li key={s.id} className="shrink-0 min-w-[9rem] sm:min-w-0">
+            <li key={s.id} className="min-w-0">
               {isHere ? (
                 // The current stage is not a link to itself; it is where you already are.
                 <div className={shell} aria-current="step">

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import { VisionHero } from '@/components/vision-hero';
 import { Hero } from '@/components/hero';
 import { HomeAgent } from '@/components/home-agent';
-import { HomeCost } from '@/components/home-cost';
+import { HomeYourAgent } from '@/components/home-your-agent';
+import { HomeProof } from '@/components/home-proof';
 import { HomeQuestions } from '@/components/home-questions';
+import { HomeCost } from '@/components/home-cost';
 import { HomeWhere } from '@/components/home-where';
 import { StickyCheck } from '@/components/sticky-check';
 
@@ -28,14 +29,24 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * THE HOME PAGE BY JOBS (UX copy, 2026-10-16; E:\dev\reports\2026-10-16\TRUSTSHELL_UX_COPY.md), in
+ * the order of how many visitors have them:
+ *   1. Check one answer before acting on it: the first screen, zero clicks to start (Hero).
+ *   2. Get the same check where they already chat: one row of three choices (HomeAgent).
+ *   3. Make an agent they can trust: one door, to /pai (HomeYourAgent).
+ * Then the proof (HomeProof), and the why last, as small cards and folded sections (HomeQuestions,
+ * HomeCost, HomeWhere). The vision stays; it takes a back seat to showing what the product does.
+ */
 export default function Home() {
   return (
     <main className="min-h-screen bg-background">
-      <VisionHero />
       <Hero />
+      <HomeAgent />
+      <HomeYourAgent />
+      <HomeProof />
       <HomeQuestions />
       <HomeCost />
-      <HomeAgent />
       <HomeWhere />
       <StickyCheck />
     </main>

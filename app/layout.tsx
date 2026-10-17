@@ -69,17 +69,26 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable} ${plexSerif.variable} bg-background`}
     >
       <body className="min-h-screen font-sans antialiased">
+        {/* WCAG 2.4.1: the first Tab lands here, and Enter skips the nav. Visible only when focused. */}
+        <a
+          href="#content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded focus:bg-amber-600 focus:px-4 focus:py-3 focus:font-bold focus:text-black"
+        >
+          Skip to content
+        </a>
         <TopNav />
-        {children}
+        <div id="content" tabIndex={-1} className="outline-none">
+          {children}
+        </div>
         {/* The site footer: the privacy policy, the source and the package, on every page. Not
             components/footer.tsx, the long link grid #246 kept off the landing. pb-24 below sm keeps
             the last line clear of the home page's fixed mobile Check bar. */}
         <footer className="border-t border-[#1e293b] px-4 pt-6 pb-24 sm:pb-6 text-sm text-[#94a3b8]">
-          <nav aria-label="Site" className="max-w-6xl mx-auto flex flex-wrap gap-x-6 gap-y-2">
-            <a href="/privacy.html" className="underline-offset-4 hover:text-white hover:underline">Privacy policy</a>
-            <a href="https://github.com/DealAppSeo/trustshell" className="underline-offset-4 hover:text-white hover:underline">Source on GitHub</a>
-            <a href="https://www.npmjs.com/package/@hyperdag/trustshell" className="underline-offset-4 hover:text-white hover:underline">npm</a>
-            <a href="https://github.com/DealAppSeo/trustshell/blob/main/LICENSE" className="underline-offset-4 hover:text-white hover:underline">Apache 2.0</a>
+          <nav aria-label="Site" className="max-w-6xl mx-auto flex flex-wrap gap-x-6">
+            <a href="/privacy.html" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Privacy policy</a>
+            <a href="https://github.com/DealAppSeo/trustshell" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Source on GitHub</a>
+            <a href="https://www.npmjs.com/package/@hyperdag/trustshell" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">npm</a>
+            <a href="https://github.com/DealAppSeo/trustshell/blob/main/LICENSE" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Apache 2.0</a>
           </nav>
         </footer>
       </body>

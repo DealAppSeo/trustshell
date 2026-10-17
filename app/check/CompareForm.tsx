@@ -50,7 +50,7 @@ export default function CompareForm() {
 
   return (
     <details className="rounded-xl border border-[#1e293b] bg-[#0b1220] p-4" data-testid="compare">
-      <summary className="cursor-pointer text-sm font-semibold text-[#e2e8f0]">
+      <summary className="cursor-pointer py-3 text-sm font-semibold text-[#e2e8f0]">
         Got two answers that disagree? Paste both
       </summary>
       <form onSubmit={checkBoth} className="mt-4 space-y-3" data-testid="compare-form">
@@ -74,7 +74,7 @@ export default function CompareForm() {
                 value={value}
                 onChange={(e) => set(e.target.value)}
                 aria-describedby="compare-privacy"
-                className="w-full px-3 py-2 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base focus:outline-none focus:border-amber-500 resize-y"
+                className="w-full px-3 py-2 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/60 resize-y"
               />
             </div>
           ))}

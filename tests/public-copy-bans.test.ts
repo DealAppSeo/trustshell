@@ -17,6 +17,11 @@ const FILES = [
   'app/why/blame/page.tsx',
   'app/why/harness/page.tsx',
   'components/home-questions.tsx',
+  // The home page by jobs (2026-10-16): every new home section is scanned too.
+  'components/hero-result.tsx',
+  'components/home-your-agent.tsx',
+  'components/home-proof.tsx',
+  'components/vision-hero.tsx',
   'components/why-article.tsx',
   'lib/why-questions.ts',
   'app/start/page.tsx',

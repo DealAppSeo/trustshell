@@ -13,30 +13,32 @@
  */
 export function HomeCost() {
   return (
-    <section
-      aria-labelledby="cost"
-      data-testid="home-cost"
-      className="px-4 sm:px-6 py-12 bg-slate-950 text-white border-t border-slate-800"
-    >
-      <div className="max-w-2xl w-full min-w-0 mx-auto space-y-4">
-        <h2 id="cost" className="text-2xl sm:text-3xl font-bold text-white text-wrap">
+    <section aria-labelledby="cost" data-testid="home-cost" className="px-4 sm:px-6 py-2 bg-slate-950 text-white">
+      {/* Folded since 2026-10-16: part of the why, under the cards. The heading and its line stay on screen. */}
+      <div className="max-w-3xl w-full min-w-0 mx-auto rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
+        <h2 id="cost" className="text-lg sm:text-xl font-bold text-white text-wrap">
           What a wrong answer really costs
         </h2>
-        <p className="text-lg text-indigo-300 font-semibold">The check is free. The miss is not.</p>
-        <p className="text-base text-slate-300 text-wrap">
-          A confident wrong answer doesn&apos;t arrive as an invoice. It arrives as the hour you spend building on it,
-          the tokens you burn arguing with it, and the momentum you lose when you find out and start over. The second
-          confident answer, the one that contradicts the first, is worse: now you&apos;re researching the AI instead of
-          building.
-        </p>
-        <p className="text-base text-slate-300 text-wrap">
-          TrustShell runs before that spend. Two other AIs read the answer, and you see Checks out, Caught or Not
-          checked, with what each one said. Not checked means they did not agree, or could not answer, so look before
-          you lean on it. It never means the answer checks out.
-        </p>
-        <p className="text-sm text-slate-400" data-testid="home-cost-free">
-          Free to try. No signup, no wallet.
-        </p>
+        <p className="text-base text-indigo-300 font-semibold">The check is free. The miss is not.</p>
+        <details className="group space-y-4">
+          <summary className="cursor-pointer py-3 text-sm font-semibold text-amber-400 underline underline-offset-4 hover:text-amber-300">
+            Read more
+          </summary>
+          <p className="text-base text-slate-300 text-wrap">
+            A confident wrong answer doesn&apos;t arrive as an invoice. It arrives as the hour you spend building on it,
+            the tokens you burn arguing with it, and the momentum you lose when you find out and start over. The second
+            confident answer, the one that contradicts the first, is worse: now you&apos;re researching the AI instead of
+            building.
+          </p>
+          <p className="text-base text-slate-300 text-wrap">
+            TrustShell runs before that spend. Two other AIs read the answer, and you see Checks out, Caught or Not
+            checked, with what each one said. Not checked means they did not agree, or could not answer, so look before
+            you lean on it. It never means the answer checks out.
+          </p>
+          <p className="text-sm text-slate-400" data-testid="home-cost-free">
+            Free to try. No signup, no wallet.
+          </p>
+        </details>
       </div>
     </section>
   );

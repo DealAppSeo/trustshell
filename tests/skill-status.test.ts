@@ -43,8 +43,8 @@ describe('trustshell skill lists status', () => {
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
     const agent = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
     expect(skill).toContain('trustshell status');
-    for (const words of ['Try to trick it', 'Add it to the agent you already use']) {
-      expect(hero).toContain(words);
+    for (const words of ['No answer handy? Try one of ours', 'Get the check where you already use AI']) {
+      expect(`${hero}\n${agent}`).toContain(words);
       expect(skill).toContain(words);
     }
     expect(agent).toContain('ChatGPT and Grok apps: not yet.');

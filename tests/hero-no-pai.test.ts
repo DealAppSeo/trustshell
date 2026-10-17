@@ -10,8 +10,8 @@ describe('hero copy', () => {
   it('fails if the hero names a PAI or a CMO belt', () => {
     expect(hero).not.toContain('PAI');
     expect(hero).not.toContain('CMO belt');
-    expect(hero).toContain('AI lies.');
-    expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
+    expect(hero).toContain('Get a second opinion before you use an AI answer.');
+    expect(hero).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
     expect(hero).not.toContain('Get a receipt');
   });
 });
