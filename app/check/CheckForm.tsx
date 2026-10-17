@@ -85,6 +85,12 @@ type CheckFormProps = {
    * above it stays on screen). /check leaves it open: that page is the check, and reads it in full.
    */
   privacyFolded?: boolean;
+  /**
+   * The home page: the button looks active from the start. Pressing it on an empty box sends nothing,
+   * puts the cursor in the box and shows this one line, instead of a button that looks dead. /check
+   * keeps the disabled button.
+   */
+  emptyHint?: string;
 };
 
 type Result = {
@@ -158,7 +164,7 @@ function reportUrl(r: Result, title: string, path: string): string {
  * check(), and check() is reached only from a person's click: Check, a card, or Check again after
  * they answer the one question. A page load or a crawler sends nothing.
  */
-export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false, afterResult, submitLabel = 'Check', samplesLabel, privacyFolded = false }: CheckFormProps = {}) {
+export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false, afterResult, submitLabel = 'Check', samplesLabel, privacyFolded = false, emptyHint }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -167,6 +173,9 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
   const [error, setError] = useState<string | null>(null);
   // The answer that was last brought into view, so a re-render (typing an answer) never scrolls again.
   const shownAt = useRef(0);
+  const box = useRef<HTMLTextAreaElement>(null);
+  // Shown after an empty press, until the person types.
+  const [hint, setHint] = useState(false);
 
   /**
    * On a phone the cards stack above the box, so an answer to a card lands screens below the tap.
@@ -184,6 +193,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
     if (result && !result.reason) setPrevious({ asked: result.asked, label: result.label });
     setResult(null);
     setError(null);
+    setHint(false);
     setBusy(true);
     try {
       const r = await classifyClaim(sentence, { apiUrl: ENGINE, env: {} });
@@ -210,6 +220,12 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // An empty press sends nothing: it points at the box instead (emptyHint, the home page).
+    if (!text.trim()) {
+      setHint(true);
+      box.current?.focus();
+      return;
+    }
     void check(text);
   }
 
@@ -273,23 +289,33 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
   );
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" data-testid="check-form">
+    <form onSubmit={onSubmit} noValidate={Boolean(emptyHint)} className="space-y-4" data-testid="check-form">
       {!samplesLabel && cards}
       <label htmlFor="claim" className="block text-sm font-medium text-[#94a3b8]">
         {boxLabel}
       </label>
       <textarea
+        ref={box}
         id="claim"
         name="claim"
         required
         rows={4}
         maxLength={MAX_CHARS}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setHint(false);
+        }}
         placeholder="Paste something an AI told you"
-        aria-describedby="check-privacy"
+        aria-describedby={hint ? 'check-hint check-privacy' : 'check-privacy'}
+        aria-invalid={hint || undefined}
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#94a3b8] focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/60 transition-colors resize-y"
       />
+      {hint && emptyHint && (
+        <p id="check-hint" role="alert" className="text-sm font-medium text-amber-400" data-testid="check-hint">
+          {emptyHint}
+        </p>
+      )}
       {/* The short line is always on screen. The full sentence of where the text goes is open on /check
           and one click away on the home page. Both sit above the Check button, so they come before
           anything is sent. */}
@@ -305,7 +331,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
       </details>
       <button
         type="submit"
-        disabled={busy || !text.trim()}
+        disabled={busy || (!emptyHint && !text.trim())}
         className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-600/40 disabled:text-black/70 disabled:cursor-not-allowed text-black font-bold rounded-lg transition-colors"
       >
         {busy ? BUSY_LINE : submitLabel}

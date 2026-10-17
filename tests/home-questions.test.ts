@@ -74,10 +74,10 @@ describe('the three questions on the home page', () => {
   // "Before you pay" heads the recorded result card.
   it('the subhead is the second opinion, and the cards name the moments that matter', () => {
     expect(text(home)).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
-    // text() joins tags with a space, so the bold words in the legend read "Checks out :".
-    expect(text(home).replace(/\s+:/g, ':')).toContain(
-      'Checks out: checked and found true. Caught: checked and found false. Not checked: they did not agree, or could not answer, so look before you lean on it.',
-    );
+    // The legend is three chips (2026-10-16): icon, word, short meaning.
+    for (const chip of ['Checks out checked and found true', 'Caught checked and found false', 'Not checked not decided, so look before you lean on it']) {
+      expect(text(home)).toContain(chip);
+    }
     for (const moment of ['Before you pay', 'Before you cite it', 'Before you run it']) expect(text(home)).toContain(moment);
   });
 });

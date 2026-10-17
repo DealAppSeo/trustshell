@@ -89,8 +89,11 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     const submit = buttons(checkForm).filter((b) => /type="submit"/.test(b));
     expect(submit).toHaveLength(1);
     expect(words(submit[0] ?? '')).toBe('Check this answer');
-    // Empty box: Check waits for text.
-    expect(submit[0]).toMatch(/\sdisabled=""/);
+    // 2026-10-16: on home the button looks active from the start. An empty press sends nothing; it
+    // focuses the box and shows one line (CheckForm emptyHint). /check keeps the disabled button (below).
+    expect(submit[0]).not.toMatch(/\sdisabled=""/);
+    expect(home.html).toMatch(/<form[^>]*novalidate=""[^>]*data-testid="check-form"/i);
+    expect(home.html).not.toContain('data-testid="check-hint"');
     const fold = home.html.indexOf('data-testid="check-cards-fold"');
     expect(fold).toBeGreaterThan(home.html.indexOf('type="submit"'));
     expect(home.html.indexOf('data-testid="check-cards"')).toBeGreaterThan(fold);

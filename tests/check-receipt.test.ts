@@ -130,6 +130,6 @@ describe('where the receipt is printed', () => {
     // The home page's check (components/hero.tsx) keeps its own card unchanged: no receipt, no agent strip.
     const call = hero.slice(hero.indexOf('<CheckForm'), hero.indexOf('/>', hero.indexOf('<CheckForm')));
     expect(call).toContain('samples={TRY_ONE}');
-    expect(call).not.toMatch(/receipt|agent/);
+    expect(call).not.toMatch(/\breceipt\b|\bagent\b/);
   });
 });

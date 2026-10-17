@@ -2,6 +2,7 @@ import CheckForm from '@/app/check/CheckForm';
 import CompareForm from '@/app/check/CompareForm';
 import { HeroResult } from '@/components/hero-result';
 import { HERO_RUN, HOME_SAMPLES } from '@/lib/home-samples';
+import { MEANING } from '@/lib/stamp-words';
 
 /**
  * JOB 1, ON THE FIRST SCREEN: "An AI just told me something I'm about to use. Is it right?"
@@ -30,6 +31,17 @@ import { HERO_RUN, HOME_SAMPLES } from '@/lib/home-samples';
  */
 const TRY_ONE = HOME_SAMPLES.filter((s) => s.text !== HERO_RUN.text);
 
+/**
+ * The three results, as three chips under the card. Each short meaning restates the live result words
+ * ("Checked and found true." / "Checked and found false." / "Not decided.") and the cost section's
+ * "so look before you lean on it".
+ */
+const LEGEND = [
+  { label: 'pass', meaning: 'checked and found true' },
+  { label: 'veto', meaning: 'checked and found false' },
+  { label: 'not-checked', meaning: 'not decided, so look before you lean on it' },
+] as const;
+
 export function Hero() {
   return (
     <section
@@ -51,12 +63,18 @@ export function Hero() {
 
         <div className="min-w-0 space-y-3 lg:col-start-2 lg:row-start-1 lg:row-span-2">
           <HeroResult />
-          <p className="text-sm text-slate-400" data-testid="hero-legend">
-            <strong className="text-emerald-400">Checks out</strong>: checked and found true.{' '}
-            <strong className="text-red-400">Caught</strong>: checked and found false.{' '}
-            <strong className="text-amber-400">Not checked</strong>: they did not agree, or could not answer, so look before
-            you lean on it.
-          </p>
+          <ul aria-label="What each result means" className="flex flex-wrap gap-2" data-testid="hero-legend">
+            {LEGEND.map(({ label, meaning }) => (
+              <li
+                key={label}
+                className={`inline-flex max-w-full items-baseline gap-1.5 rounded-lg border bg-[#0f172a] px-3 py-1.5 text-sm ${MEANING[label].tone}`}
+              >
+                <span aria-hidden="true">{MEANING[label].icon}</span>
+                <strong className="font-semibold">{MEANING[label].title}</strong>
+                <span className="text-slate-300">{meaning}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-2">
@@ -66,6 +84,7 @@ export function Hero() {
             boxLabel="Now check your own"
             submitLabel="Check this answer"
             privacyFolded
+            emptyHint="Paste an answer in the box first, then check it."
           />
           <CompareForm />
         </div>

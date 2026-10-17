@@ -334,7 +334,14 @@ async function walkHome(browser, phone, pageErrors) {
   const buttonBox = await checkButton.boundingBox().catch(() => null);
   check('home: the privacy line sits above the Check button', Boolean(privacyBox && buttonBox) && privacyBox.y + privacyBox.height <= buttonBox.y,
     `privacy ${privacyBox ? Math.round(privacyBox.y) : 'missing'} / button ${buttonBox ? Math.round(buttonBox.y) : 'missing'}`);
-  check('home: Check waits for text in the empty box', await checkButton.isDisabled());
+  // 2026-10-16: the button looks active; an empty press sends nothing, focuses the box, shows one line.
+  check('home: Check looks active on an empty box', (await checkButton.isDisabled()) === false);
+  await checkButton.click();
+  const hint = await home.locator('[data-testid=check-hint]').textContent().catch(() => null);
+  const focused = await home.evaluate(() => document.activeElement?.id ?? null);
+  const q2 = await quiet();
+  check('home: an empty press points at the box and sends nothing', hint === 'Paste an answer in the box first, then check it.' && focused === 'claim' && q2.ok,
+    JSON.stringify({ hint, focused, quiet: q2.note }));
   check('home: Paste both is folded away until opened', (await home.locator('[data-testid=compare-form]').isVisible()) === false);
   check('home: no sideways scroll on a 390px phone', (await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
   const text = await home.locator('body').innerText();
@@ -348,7 +355,14 @@ async function walkHome(browser, phone, pageErrors) {
   check('home: job 2 is the check where you already use AI', text.includes('Get the check where you already use AI') && ['Claude Desktop', 'Cursor', 'Claude Code'].every((name) => text.includes(name)));
   check('home: job 3 is one door, to /pai', (await home.locator('#your-agent a[href="/pai"]').count()) === 1);
   check('home: the why comes last, with where this goes folded in it', text.includes('Where this goes') && all.includes('Known key and personal-data formats are removed before sending.'));
-  check('home: a sticky Check is on screen at 390px', await home.locator('[data-testid=sticky-check]').isVisible());
+  // The sticky Check stays off the first screen, so it never covers the legend or doubles the button,
+  // and appears once the legend and the box are both scrolled away.
+  check('home: no sticky Check over the first screen at 390px', (await home.locator('[data-testid=sticky-check]').isVisible()) === false);
+  await home.locator('#where').scrollIntoViewIfNeeded();
+  await home.waitForTimeout(400);
+  check('home: the sticky Check appears once the box is scrolled away', await home.locator('[data-testid=sticky-check]').isVisible());
+  await home.evaluate(() => window.scrollTo(0, 0));
+  await home.waitForTimeout(400);
   check('home: no number followed by ms anywhere on the page', !/\d\s*ms\b/i.test(text), (text.match(/[^\n]*\d\s*ms\b[^\n]*/i) ?? [''])[0]);
   check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status|The average is not 45|the truth comes out|source of truth/.test(text));
   check('home: no measured record shows before a card is picked (guess first)', !text.includes('When we measured this sentence'));
