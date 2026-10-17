@@ -25,14 +25,16 @@ const SOURCE = readFileSync(join(__dirname, '..', 'components', 'top-nav.tsx'), 
 
 /**
  * Measured by the label budget, 2026-10-05, after the row shrank to four links
- * (Check, Add to your agent, Docs, Why). The long label is about 170px; the row
+ * (then: Check, Add to your agent, Docs, Why). The long label is about 170px; the row
  * with the wordmark lands near 510px. md (768) clears that with more than 200px
  * to spare. The row stays hidden below md, which is every 390px phone.
  * Re-measure on a production build if a label grows, then update BREAKPOINT.
  */
 // 2026-10-07: Start added as a fifth link. Re-measured on a production build at a 768px viewport:
 // document scrollWidth 768, i.e. no overflow (tests/e2e/journey-walk.mjs checks it on every run).
-const MEASURED_LINK_COUNT = 5;
+// 2026-10-16: four links by job (Check, Add to your AI, Your agent, Docs), fewer than the five
+// measured above, so md still clears the row. Re-measured at 768px on the preview build.
+const MEASURED_LINK_COUNT = 4;
 const BREAKPOINT = 'md';
 
 describe('top nav fits the viewport it appears in', () => {

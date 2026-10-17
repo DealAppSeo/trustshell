@@ -24,8 +24,8 @@ describe('site install copy matches published 1.4.0', () => {
   it('hero is the one-screen win and does not interpolate package.json', () => {
     expect(hero).not.toMatch(/packageJson\.version/);
     expect(agentScreen).not.toMatch(/packageJson\.version/);
-    expect(hero).toContain('AI lies.');
-    expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
+    expect(hero).toContain('Get a second opinion before you use an AI answer.');
+    expect(readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8')).toContain('Free. No signup. No wallet. Don&apos;t paste anything private.');
     expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.1';");
     // Pinned to the same version as the install line: `check "<sentence>"` ships in 1.5.0 and later.
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');

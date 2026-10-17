@@ -15,6 +15,7 @@ import {
 import { founderMode, FOUNDER_EVENT_LABEL, type FounderEventKind } from '@/lib/founder-mode';
 import { FounderPanel } from '@/components/founder-panel';
 import { TrustBadge } from '@/components/trust-state';
+import { JourneySteps } from '@/components/journey-steps';
 
 /**
  * The PAI: one conversation in front of the trust kernel.
@@ -76,9 +77,13 @@ export default function PaiPage() {
   const [runsLeft, setRunsLeft] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Follow the conversation once the person has said something. Not on open: the opening messages
+  // would scroll the header and the "where you are" bar off a phone screen before anyone reads them.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [msgs.length]);
+    if (!msgs.some((m) => m.role === 'you')) return;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    bottomRef.current?.scrollIntoView({ behavior: still ? 'auto' : 'smooth' });
+  }, [msgs]);
 
   // Boot: resume an existing PAI, or open the interview.
   useEffect(() => {
@@ -363,15 +368,18 @@ export default function PaiPage() {
           type="button"
           onClick={toggleFounder}
           aria-pressed={founderOn}
-          className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+          className={`shrink-0 min-h-11 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
             founderOn
               ? 'border-amber-500/60 bg-amber-600/15 text-amber-400'
-              : 'border-[#1e293b] text-[#64748b] hover:text-[#94a3b8]'
+              : 'border-[#1e293b] text-[#94a3b8] hover:text-white'
           }`}
         >
           Founder Mode {founderOn ? 'ON' : 'off'}
         </button>
       </header>
+
+      {/* The same "where you are" bar as /bind (2026-10-16): the PAI is step 1 of the agent path. */}
+      <JourneySteps current="create" />
 
       {/*
         The banner stays above the fold because it changes what every subsequent action MEANS —

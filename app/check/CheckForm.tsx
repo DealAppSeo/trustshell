@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { CheckReceipt } from '@/components/check-receipt';
 import { AgentTwoFields } from '@/components/agent-two-fields';
+import { MEANING } from '@/lib/stamp-words';
 import { classifyClaim, DEFAULT_API_URL, ClaimError, SCRUBBED_LINE, ANSWER_MAX_CHARS, pathLine, voterNames, votesLine, withAnswer, type ClaimLabel, type ClaimPath, type ClaimVote } from '@/src/lib/claim';
 
 // NEXT_PUBLIC_* is inlined only for a literal reference, so it is spelled out here.
@@ -10,29 +11,9 @@ const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || DEFAULT_API_URL;
 // The route reads at most this much prose (repid-engine DEFAULT_MAX_PROSE_CHARS).
 const MAX_CHARS = 1500;
 
-// The words a stranger reads are the same words the extension stamp shows. The machine label
-// (pass / veto / not-checked) stays on the page, in the title and the small "label" line, for
-// anyone comparing with the CLI or the API. The lines name no voter: a whole-text equation is
-// checked by exact calculation before any model is asked (repid-engine src/routes/classify.ts),
-// and an over-long text is not sent to them at all, and the response does not say which path
-// answered. So each line below is true on every path.
-const MEANING: Record<ClaimLabel, { title: string; body: string; tone: string }> = {
-  pass: {
-    title: 'Checks out',
-    body: 'Checked and found true.',
-    tone: 'text-emerald-400 border-emerald-500/40',
-  },
-  veto: {
-    title: 'Caught',
-    body: 'Checked and found false. Do not rely on it.',
-    tone: 'text-red-400 border-red-500/40',
-  },
-  'not-checked': {
-    title: 'Not checked',
-    body: 'Not decided. Opinions and predictions land here, and so does a check that could not finish. Not checked never means it checks out.',
-    tone: 'text-amber-400 border-amber-500/40',
-  },
-};
+// The words a stranger reads, one source with the home page's recorded result card (lib/stamp-words.ts).
+// The machine label (pass / veto / not-checked) stays on the page, in the title and the small "label"
+// line, for anyone comparing with the CLI or the API.
 
 /**
  * While a check runs. It used to say "Checking with Groq and Cerebras…", which was wrong whenever a
@@ -92,6 +73,13 @@ type CheckFormProps = {
   agent?: boolean;
   /** Shown only once there is an answer: /check's way to the next screen. */
   afterResult?: React.ReactNode;
+  /** The submit button's words when idle. /check keeps "Check". */
+  submitLabel?: string;
+  /**
+   * When set, the cards fold under the Check button behind this summary, so the box is the one action
+   * on the screen and the cards are there for anyone who wants a ready example (the home page).
+   */
+  samplesLabel?: string;
 };
 
 type Result = {
@@ -165,7 +153,7 @@ function reportUrl(r: Result, title: string, path: string): string {
  * check(), and check() is reached only from a person's click: Check, a card, or Check again after
  * they answer the one question. A page load or a crawler sends nothing.
  */
-export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false, afterResult }: CheckFormProps = {}) {
+export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false, afterResult, submitLabel = 'Check', samplesLabel }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -257,29 +245,31 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
   const steps = result && !cause ? stepsOf(result) : [];
   const reaction = result && !cause ? reactionOf(previous, result) : '';
 
+  const cards = samples && samples.length > 0 && (
+    <ul className="grid gap-3 sm:grid-cols-3" data-testid="check-cards">
+      {samples.map((s) => (
+        <li key={s.text}>
+          <button
+            type="button"
+            onClick={() => pick(s)}
+            disabled={busy}
+            aria-pressed={result?.asked === s.text}
+            data-testid="check-card"
+            data-sample={s.text}
+            className="flex h-full w-full flex-col justify-between rounded-xl border border-[#1e293b] bg-[#0f172a] p-4 text-left hover:border-amber-500 aria-pressed:border-amber-500 disabled:opacity-60 transition-colors"
+          >
+            <span className="block text-sm font-semibold text-amber-400">{s.label}</span>
+            <span className="mt-2 block text-sm text-[#e2e8f0]">{s.text}</span>
+            <span className="mt-3 block text-xs font-semibold text-[#94a3b8]">Check this one</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <form onSubmit={onSubmit} className="space-y-4" data-testid="check-form">
-      {samples && samples.length > 0 && (
-        <ul className="grid gap-3 sm:grid-cols-3" data-testid="check-cards">
-          {samples.map((s) => (
-            <li key={s.text}>
-              <button
-                type="button"
-                onClick={() => pick(s)}
-                disabled={busy}
-                aria-pressed={result?.asked === s.text}
-                data-testid="check-card"
-                data-sample={s.text}
-                className="flex h-full w-full flex-col justify-between rounded-xl border border-[#1e293b] bg-[#0f172a] p-4 text-left hover:border-amber-500 aria-pressed:border-amber-500 disabled:opacity-60 transition-colors"
-              >
-                <span className="block text-sm font-semibold text-amber-400">{s.label}</span>
-                <span className="mt-2 block text-sm text-[#e2e8f0]">{s.text}</span>
-                <span className="mt-3 block text-xs font-semibold text-[#94a3b8]">Check this one</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {!samplesLabel && cards}
       <label htmlFor="claim" className="block text-sm font-medium text-[#94a3b8]">
         {boxLabel}
       </label>
@@ -291,21 +281,38 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         maxLength={MAX_CHARS}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="The Eiffel Tower is in Paris."
+        placeholder="Paste something an AI told you"
         aria-describedby="check-privacy"
-        className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors resize-y"
+        className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#94a3b8] focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/60 transition-colors resize-y"
       />
-      <p id="check-privacy" className="text-sm text-[#94a3b8]">
-        What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.{' '}
-        <a href="/privacy.html" className="underline underline-offset-4 hover:text-white">Read the privacy policy.</a>
+      {/* The short line is always on screen; the full sentence of where the text goes opens on demand.
+          Both sit above the Check button, so they are read before anything is sent. */}
+      <p className="text-sm text-[#cbd5e1]" data-testid="check-note">
+        Free. No signup. No wallet. Don&apos;t paste anything private.
       </p>
+      <details className="text-sm text-[#94a3b8]" data-testid="check-privacy-fold">
+        <summary className="cursor-pointer py-3 underline underline-offset-4 hover:text-white">Where your text goes</summary>
+        <p id="check-privacy" className="mt-1 text-sm text-[#94a3b8]">
+          What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.{' '}
+          <a href="/privacy.html" className="underline underline-offset-4 hover:text-white">Read the privacy policy.</a>
+        </p>
+      </details>
       <button
         type="submit"
         disabled={busy || !text.trim()}
-        className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:text-[#94a3b8] disabled:cursor-not-allowed text-black font-bold rounded-lg transition-colors"
+        className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-600/40 disabled:text-black/70 disabled:cursor-not-allowed text-black font-bold rounded-lg transition-colors"
       >
-        {busy ? BUSY_LINE : 'Check'}
+        {busy ? BUSY_LINE : submitLabel}
       </button>
+
+      {samplesLabel && cards && (
+        <details className="space-y-3" data-testid="check-cards-fold">
+          <summary className="cursor-pointer py-3 text-sm font-semibold text-[#cbd5e1] underline underline-offset-4 hover:text-white">
+            {samplesLabel}
+          </summary>
+          {cards}
+        </details>
+      )}
 
       {meaning && result && (
         <div
@@ -315,9 +322,12 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
           data-source={cause ? 'local' : 'checkers'}
           className={`rounded-lg border bg-[#0f172a] p-4 space-y-1 ${meaning.tone}`}
         >
-          <p className="text-2xl font-bold" data-testid="check-label" data-label={result.label} title={result.label}>
-            {meaning.title}
-          </p>
+          <div className="flex items-center gap-2 text-2xl font-bold">
+            <span aria-hidden="true">{meaning.icon}</span>
+            <p data-testid="check-label" data-label={result.label} title={result.label}>
+              {meaning.title}
+            </p>
+          </div>
           {cause ? (
             <p className="text-[#cbd5e1]" data-testid="check-why" data-cause={cause}>
               {LOCAL_LINE[cause]}
@@ -382,7 +392,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
                       recheck();
                     }
                   }}
-                  className="flex-1 min-w-0 px-3 py-2 bg-[#0b1220] border border-[#1e293b] rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                  className="flex-1 min-w-0 px-3 py-2 bg-[#0b1220] border border-[#1e293b] rounded-lg text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/60"
                 />
                 <button
                   type="button"
@@ -408,7 +418,7 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
           )}
           {!cause && (
             <details className="pt-1 text-xs text-[#94a3b8]" data-testid="check-raw">
-              <summary className="cursor-pointer">What the engine answered</summary>
+              <summary className="cursor-pointer py-3">What the engine answered</summary>
               <pre className="mt-2 overflow-x-auto rounded bg-[#0b1220] p-3 text-[#cbd5e1]">{JSON.stringify(engineAnswer(result), null, 2)}</pre>
             </details>
           )}

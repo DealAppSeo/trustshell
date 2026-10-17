@@ -91,3 +91,29 @@ export const HOME_SAMPLES: readonly CheckSample[] = [
 
 /** The two misattributed quotes, measured 2026-10-06: Not checked on all ten calls (five each). */
 export const UNSOURCED_QUOTE_RUNS = { on: '2026-10-06', quotes: 2, times: 10, of: 10 } as const;
+
+/**
+ * THE RESULT CARD AT THE TOP OF THE HOME PAGE (components/hero-result.tsx). Shown, not described: one
+ * real check of the price trap, exactly as production answered it, with its date. Not a mock and not a
+ * fixture the page invents: the response below is copied from the call recorded in HERO_RUN_RECORD,
+ * and the card reads only these fields. If production's answer moves, re-run the command in that file
+ * and replace this object and its date together. Never edit the card's words by hand.
+ */
+export const HERO_RUN_RECORD = 'https://github.com/DealAppSeo/trustshell/blob/main/docs/measurements/hero-card-2026-10-16.md';
+
+export const HERO_RUN = {
+  text: PRICE_TRAP,
+  at: '2026-10-16T23:32:24Z',
+  on: '2026-10-16',
+  response: {
+    label: 'veto',
+    latency_ms: 2596,
+    by: 'votes',
+    voters: ['groq', 'cerebras', 'groq'],
+    deciders: ['groq', 'groq'],
+    votes: [
+      { voter: 'groq', family: 'gpt-oss', verdict: 'FALSE' },
+      { voter: 'groq', family: 'qwen', verdict: 'FALSE' },
+    ],
+  },
+} as const;

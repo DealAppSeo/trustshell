@@ -9,6 +9,7 @@ import { parseRegister } from '@/lib/create-pai-parse';
 import { OWNED_GLASS } from '@/components/after-agent';
 import { GiveRole } from '@/components/give-role';
 import { StrangerRail } from '@/components/stranger-rail';
+import { JourneySteps } from '@/components/journey-steps';
 
 /**
  * Read at MODULE SCOPE as a literal `process.env.NAME`, which is the only form
@@ -131,7 +132,7 @@ export default function AgentsPage() {
               {/* role="alert" so the failure reaches a screen reader too — the whole
                   defect was a state change nobody was told about. */}
               {error && <p role="alert" className="text-sm text-[#ff6b6b]">{error}</p>}
-              <p className="text-xs text-[#64748b] text-center">Registers a cryptographic identity, then take it to <span className="text-[#94a3b8]">Connect</span> to run it.</p>
+              <p className="text-xs text-[#94a3b8] text-center">Registers a cryptographic identity, then take it to <span className="text-white">Connect</span> to run it with your own model key.</p>
             </form>
           </div>
 
@@ -201,41 +202,11 @@ export default function AgentsPage() {
           and every tool on its belt. Nothing is assigned for them. */}
       <GiveRole agents={agents} />
 
-      {/* The 4-step journey — CONTEXT below the form, not a control. Horizontal swipe strip
-          on phones, a row on desktop. The current step is a left-accent + label, never an
-          amber-filled card that could be mistaken for the Create button. */}
-      <div className="pt-1">
-        <div className="text-xs font-mono text-[#475569] mb-2">HOW IT WORKS</div>
-        {/* The `-mx-1 px-1` pair that used to be here made this element 8px wider than its
-            container and shifted it 4px left, so its right edge sat 4px past the page and
-            sideways-scrolled /agents at every phone width (MEASURED 2026-09-01: ol width 328
-            in a 320 viewport). The two cancelled out visually — the padding put the cards
-            back where the margin had taken them — so removing both leaves the layout
-            identical and costs only 8px of scroll viewport. */}
-        {/* Two columns on a phone, so every card's words wrap inside it. It was a sideways scroller,
-            and the scroller cut "Bring your own key on Connect." mid-word (UX audit 2026-10-16). */}
-        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {[
-            { n: 1, t: 'Create an agent', d: 'Name it + optional rules.', here: true },
-            { n: 2, t: 'Connect a model', d: 'Bring your own key on Connect.' },
-            { n: 3, t: 'Run prompts', d: 'HAL scores every response.' },
-            { n: 4, t: 'Earn RepID', d: 'Honest agents climb the Leaderboard.' },
-            // app/bind/page.tsx calls itself "the last step of the journey" and "the last
-            // thing the walkthrough asks of you". This strip ended at step 4, so the product
-            // told people the journey finished one step before it does.
-            { n: 5, t: 'Claim it', d: 'Sign once to prove it is yours.' },
-          ].map((s) => (
-            <li
-              key={s.n}
-              className={`min-w-0 p-3 rounded-lg bg-[#0f172a] border border-[#1e293b] border-l-2 ${s.here ? 'border-l-amber-500' : 'border-l-[#1e293b]'}`}
-            >
-              <div className={`text-xs font-mono ${s.here ? 'text-amber-400' : 'text-[#475569]'}`}>STEP {s.n}{s.here ? ' · you are here' : ''}</div>
-              <div className="font-medium text-white text-sm mt-1">{s.t}</div>
-              <div className="text-xs text-[#94a3b8] mt-0.5 leading-snug">{s.d}</div>
-            </li>
-          ))}
-        </ol>
-      </div>
+      {/* The agent path, the same "where you are" bar as /bind, /faucet, /stake and /spend (2026-10-16).
+          It replaced this page's own five-step strip, which told the same story in different words and a
+          different count, so a visitor met two maps of one path. What the old strip said is still on this
+          page: HAL scoring and RepID in the intro, and Connect under the Create button. */}
+      <JourneySteps current="create" />
 
       <p className="text-xs text-[#94a3b8] leading-relaxed max-w-2xl">
         Free · no wallet · your first runs need no email — add one later to raise the daily limit.

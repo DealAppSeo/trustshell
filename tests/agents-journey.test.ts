@@ -27,10 +27,16 @@ import { join } from 'node:path';
 const AGENTS = readFileSync(join(__dirname, '..', 'app', 'agents', 'page.tsx'), 'utf8');
 const BIND = readFileSync(join(__dirname, '..', 'app', 'bind', 'page.tsx'), 'utf8');
 
-/** Step objects in the journey strip: `{ n: 1, t: '…', d: '…' }`. */
-const STEPS = Array.from(AGENTS.matchAll(/\{\s*n:\s*(\d+),\s*t:\s*'([^']+)'/g), (m) => ({
-  n: Number(m[1]),
-  title: m[2],
+// 2026-10-16: /agents shows the shared six-step bar (components/journey-steps.tsx), the same one as
+// /bind, /faucet, /stake and /spend, in place of its own five-step strip. One source for the path, so
+// the two stories cannot drift apart again. The tripwires below read that one source.
+const STRIP = readFileSync(join(__dirname, '..', 'components', 'journey-steps.tsx'), 'utf8');
+
+/** Stages in the shared bar: `{ id: 'create', href: '/agents', label: 'Create', … }`. */
+const STAGES = Array.from(STRIP.matchAll(/\{\s*id:\s*'([a-z]+)',\s*href:\s*'([^']+)',\s*label:\s*'([^']+)'/g), (m) => ({
+  id: m[1]!,
+  href: m[2]!,
+  label: m[3]!,
 }));
 
 describe('the agents page leads to the step that finishes the journey', () => {
@@ -39,39 +45,39 @@ describe('the agents page leads to the step that finishes the journey', () => {
     expect(AGENTS).toContain('href="/bind"');
   });
 
-  it('still ends its journey where /bind says the journey ends', () => {
-    // Not a proxy for the copy — /bind asserts this about itself, and the two drifted apart
-    // once already. If /bind stops claiming to be the last step, this should be re-decided
-    // rather than quietly left pointing at the wrong place.
-    expect(BIND).toMatch(/last step of the journey/i);
-    // Not `.at(-1)`: this suite compiles against tsconfig.sdk.json (ES2020), and @types/node 26 no longer
-    // declares Array.prototype.at, so `.at` stopped type-checking when #517 bumped it (main's check went red).
-    expect(STEPS[STEPS.length - 1]?.title).toMatch(/claim/i);
+  it('shows the shared bar, with Create marked, and the bar reaches Claim on /bind', () => {
+    expect(AGENTS).toContain('<JourneySteps current="create" />');
+    expect(STAGES[0]).toEqual({ id: 'create', href: '/agents', label: 'Create' });
+    expect(STAGES.find((s) => s.href === '/bind')?.label).toMatch(/claim/i);
+    // /bind still calls itself the end of what the walkthrough ASKS of you: the claim is the last thing
+    // that needs anything from the person. Fund, stake, trade and earn follow on the same bar.
+    expect(BIND).toMatch(/last thing the walkthrough asks of you/i);
   });
 
-  it('numbers the steps consecutively from 1', () => {
-    expect(STEPS.length).toBeGreaterThan(0);
-    expect(STEPS.map((s) => s.n)).toEqual(STEPS.map((_, i) => i + 1));
+  it('has exactly one map of the path on /agents', () => {
+    // Two strips with different counts (five here, six on /bind) told one path two ways.
+    expect(AGENTS).not.toMatch(/\{\s*n:\s*\d+,\s*t:\s*'/);
+    expect(AGENTS.match(/<JourneySteps /g)).toHaveLength(1);
   });
 });
 
 describe('the strip has a column for every step it renders', () => {
   it('matches sm:grid-cols-N to the number of steps', () => {
-    const cols = AGENTS.match(/sm:grid-cols-(\d+)/);
+    const cols = STRIP.match(/sm:grid-cols-(\d+)/);
     expect(cols).not.toBeNull();
-    expect(Number(cols![1])).toBe(STEPS.length);
+    expect(Number(cols![1])).toBe(STAGES.length);
     // If this failed because you added or removed a step: change `sm:grid-cols-N` on the same
     // <ol> to match. A grid divides the width it is given, so the count cannot cause a page
     // overflow either way — the failure mode is a card wrapping onto a second row, which looks
     // like a bug and which no screenshot at one width would reliably show.
   });
 
-  it('wraps the strip into two columns on a phone instead of a scroller that cuts the cards off', () => {
+  it('wraps the strip into columns on a phone instead of a scroller that cuts the cards off', () => {
     // Below `sm` the steps were a horizontal scroll strip, and on a 375px phone the visible edge
     // cut "Bring your own key on Connec…" (UX audit 2026-10-16, UX-33). A grid divides the width it
     // is given, so it cannot overflow the page either.
-    expect(AGENTS).toContain('grid grid-cols-2 gap-3 sm:grid-cols-5');
-    expect(AGENTS).not.toContain('overflow-x-auto');
-    expect(AGENTS).not.toContain('min-w-[10rem]');
+    expect(STRIP).toContain('grid grid-cols-3 gap-2 sm:grid-cols-6');
+    expect(STRIP).not.toContain('overflow-x-auto');
+    expect(STRIP).not.toMatch(/min-w-\[\d+rem\]/);
   });
 });

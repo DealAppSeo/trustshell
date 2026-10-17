@@ -29,10 +29,10 @@ describe('landing close', () => {
     const headline = close.slice(close.indexOf('<h2'), close.indexOf('</h2>'));
     expect(headline).toContain(CLOSE_LINE);
     expect(headline).not.toMatch(/VETO/);
-    expect(hero).toContain('AI lies.');
-    expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
+    expect(hero).toContain('Get a second opinion before you use an AI answer.');
+    expect(hero).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
     expect(hero).not.toMatch(/Get a receipt/);
-    expect(hero).toContain('No wallet.');
+    expect(readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8')).toContain('No wallet.');
     expect(hero).not.toMatch(/connect wallet|your wallet|add wallet|Wallet and stake/i);
   });
 
