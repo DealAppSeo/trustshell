@@ -80,6 +80,11 @@ type CheckFormProps = {
    * on the screen and the cards are there for anyone who wants a ready example (the home page).
    */
   samplesLabel?: string;
+  /**
+   * Fold the full privacy sentence under "Where your text goes" (the home page, where the short line
+   * above it stays on screen). /check leaves it open: that page is the check, and reads it in full.
+   */
+  privacyFolded?: boolean;
 };
 
 type Result = {
@@ -153,7 +158,7 @@ function reportUrl(r: Result, title: string, path: string): string {
  * check(), and check() is reached only from a person's click: Check, a card, or Check again after
  * they answer the one question. A page load or a crawler sends nothing.
  */
-export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false, afterResult, submitLabel = 'Check', samplesLabel }: CheckFormProps = {}) {
+export default function CheckForm({ initialText = '', samples, boxLabel = 'One sentence', receipt = false, agent = false, afterResult, submitLabel = 'Check', samplesLabel, privacyFolded = false }: CheckFormProps = {}) {
   const [text, setText] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -285,12 +290,13 @@ export default function CheckForm({ initialText = '', samples, boxLabel = 'One s
         aria-describedby="check-privacy"
         className="w-full px-4 py-3 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white text-base placeholder-[#94a3b8] focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/60 transition-colors resize-y"
       />
-      {/* The short line is always on screen; the full sentence of where the text goes opens on demand.
-          Both sit above the Check button, so they are read before anything is sent. */}
+      {/* The short line is always on screen. The full sentence of where the text goes is open on /check
+          and one click away on the home page. Both sit above the Check button, so they come before
+          anything is sent. */}
       <p className="text-sm text-[#cbd5e1]" data-testid="check-note">
         Free. No signup. No wallet. Don&apos;t paste anything private.
       </p>
-      <details className="text-sm text-[#94a3b8]" data-testid="check-privacy-fold">
+      <details open={!privacyFolded} className="text-sm text-[#94a3b8]" data-testid="check-privacy-fold">
         <summary className="cursor-pointer py-3 underline underline-offset-4 hover:text-white">Where your text goes</summary>
         <p id="check-privacy" className="mt-1 text-sm text-[#94a3b8]">
           What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.{' '}

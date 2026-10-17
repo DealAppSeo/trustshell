@@ -187,6 +187,8 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(text.split(PRIVACY)).toHaveLength(2);
     expect(text).toContain("Free. No signup. No wallet. Don't paste anything private.");
     expect(home.html.indexOf('data-testid="check-note"')).toBeLessThan(home.html.indexOf('id="check-privacy"'));
+    // Folded on home only: /check keeps the full sentence open (below).
+    expect(home.html).toMatch(/<details class="[^"]*" data-testid="check-privacy-fold">/);
     const privacyAt = home.html.indexOf('id="check-privacy"');
     expect(privacyAt).toBeGreaterThan(-1);
     expect(privacyAt).toBeLessThan(home.html.indexOf('type="submit"'));
@@ -313,6 +315,7 @@ describe('/check is unchanged by the props the home page uses', () => {
     expect(check.html).not.toContain('data-testid="check-cards"');
     expect(words(check.html)).toContain('One sentence');
     expect(words(check.html).split(PRIVACY)).toHaveLength(2);
+    expect(check.html).toMatch(/<details open="" class="[^"]*" data-testid="check-privacy-fold">/);
   });
 });
 

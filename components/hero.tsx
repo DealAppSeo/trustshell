@@ -65,6 +65,7 @@ export function Hero() {
             samplesLabel="No answer handy? Try one of ours. One is wrong, one is right."
             boxLabel="Now check your own"
             submitLabel="Check this answer"
+            privacyFolded
           />
           <CompareForm />
         </div>
