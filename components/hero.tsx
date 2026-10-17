@@ -67,11 +67,14 @@ export function Hero() {
             {LEGEND.map(({ label, meaning }) => (
               <li
                 key={label}
-                className={`inline-flex max-w-full items-baseline gap-1.5 rounded-lg border bg-[#0f172a] px-3 py-1.5 text-sm ${MEANING[label].tone}`}
+                className={`flex max-w-full items-baseline gap-1.5 rounded-lg border bg-[#0f172a] px-3 py-1.5 text-sm ${MEANING[label].tone}`}
               >
                 <span aria-hidden="true">{MEANING[label].icon}</span>
-                <strong className="font-semibold">{MEANING[label].title}</strong>
-                <span className="text-slate-300">{meaning}</span>
+                {/* One run of text, so a long meaning wraps like a sentence inside the chip on a phone. */}
+                <span>
+                  <strong className="font-semibold">{MEANING[label].title}</strong>{" "}
+                  <span className="text-slate-300">{meaning}</span>
+                </span>
               </li>
             ))}
           </ul>
