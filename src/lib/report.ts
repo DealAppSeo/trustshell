@@ -12,7 +12,7 @@
  */
 
 import type { InspectResult } from './inspect';
-import type { Profile } from './profile';
+import { personalSectionsSet, type Profile } from './profile';
 
 /**
  * CONFIRMED 0 · INCONSISTENT 1 · UNSUPPORTED 3.
@@ -49,6 +49,8 @@ export interface ReportResult {
   /** Included ONLY when the matching share_* flag is true. Absent otherwise — not empty-string. */
   identity?: string;
   context?: string;
+  /** The personal sections that hold something, ONLY when share_personal is true. */
+  personal?: Partial<Pick<Profile, 'values' | 'people' | 'style' | 'constraints' | 'priorities'>>;
   withheld: string[];
   does_not_prove: string[];
 }
@@ -187,6 +189,14 @@ export function buildReport(input: ReportInput): ReportResult {
     withheld.push('context — set share_context: true in .trustshell/profile.md to include it');
   }
 
+  // Values, people helped, style, constraints and model priorities: one flag, default false.
+  const set = personalSectionsSet(profile);
+  if (set.length && profile.share_personal) {
+    out.personal = Object.fromEntries(set.map((s) => [s, profile[s]])) as ReportResult['personal'];
+  } else if (set.length) {
+    withheld.push(`${set.join(', ')} — set share_personal: true in .trustshell/profile.md to include them`);
+  }
+
   return out;
 }
 
@@ -212,6 +222,7 @@ export function formatReportCard(r: ReportResult): string {
   );
   if (r.identity) lines.push('', `  identity  ${r.identity}`);
   if (r.context) lines.push('', `  context   ${r.context}`);
+  if (r.personal) lines.push('', '  personal (share_personal: true)', ...Object.entries(r.personal).map(([k, v]) => `    ${k.padEnd(12)}${JSON.stringify(v)}`));
   if (r.withheld.length) {
     lines.push('', '  Withheld by your profile:');
     for (const w of r.withheld) lines.push(`    - ${w}`);

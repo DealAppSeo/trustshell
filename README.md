@@ -606,6 +606,7 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `profile` | **none** — reads and writes `.trustshell/profile.md`. Main only, not in 1.6.1 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
@@ -618,10 +619,12 @@ to the HyperDAG backend's classify endpoint and nothing else):
 
 No command uploads your input anywhere other than the host named above.
 
-`init` is the one command that writes to your working directory, and it writes exactly one file:
-`.trustshell/profile.md`. It never overwrites without `--force`, and it collects **nothing** — not
-your git config, hostname, username or email. Every share flag in the file it generates starts
-`false`, so `report` withholds identity and context until you turn them on yourself. (This sentence
+`init` and `profile` are the commands that write to your working directory, and they write exactly one
+file: `.trustshell/profile.md`. `init` never overwrites without `--force`, `profile` changes only the
+section you name, and neither collects **anything** — not your git config, hostname, username or
+email. Every share flag in the file starts `false`, so `report` withholds identity, context and the
+personal sections (values, people you help, style, constraints, model priorities) until you turn
+them on yourself. (This sentence
 used to read "the published CLI writes no files into your working directory." That was true until
 `init` shipped, and a promise nobody re-checks is how a README starts lying.)
 

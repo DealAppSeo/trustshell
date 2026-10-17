@@ -356,6 +356,38 @@ ask_first`, `confidence_gate: 0.8`, `hitl_gate: 70`.
 The profile is yours and stays local; add `.trustshell/` to your `.gitignore` if you do not want
 it in version control.
 
+### `trustshell profile show | add | set | remove | interview`
+
+On `main` (not in 1.6.1). Read and edit the personal sections of `.trustshell/profile.md`. **No network.**
+Every entry is text you type; nothing is detected or inferred. These sections:
+
+- **Values**: ranked, in your own words. Use `profile add value "<text>"`. To re-rank, edit the file.
+- **People I help**: use `profile add person "<who>" --why "<why>"` (`--why` is optional).
+- **Style**: use `profile set style <key> <value>`, where the key is `tone`, `detail`, `risk` or `hours`.
+- **Constraints**: use `profile add constraint "<text>"`, for example "client data never leaves my device".
+- **Model priorities**: use `profile set priorities cost,quality,speed` (all three, most important
+  first, no duplicates) or `profile set priorities --preset balanced|cost-first|speed-first|quality-first`.
+  These are stored only: nothing sends them to a model yet.
+
+`profile remove <section> <n>` removes an entry: values, people and constraints by number, style by
+key, priorities with no number. `profile show` prints the file, or `NO_PROFILE` if there is none.
+
+None of these sections appears in `report` unless you set `share_personal: true` in the file. That
+flag defaults to `false`, and anything other than `true` is read as `false`. Until a section holds
+something, none of it is written, so a fresh profile is unchanged from `init`. An edit rewrites only
+the section it touches. A file with a problem (an unknown style key, an unknown preset) is never
+rewritten: the command prints the problem, exits 1, and writes nothing. Text that is not one line,
+contains `<!--` or `-->`, or looks like a credential is refused with exit 2.
+
+`profile interview` asks three questions. Each one can be skipped and says why it is asked:
+- Who do you most want to help? The answer goes to People I help.
+- What is one thing you need done this week? This is printed back as a `learn job add` hint and is
+  never stored in the profile.
+- What must never happen? The answer goes to Constraints.
+
+Without a terminal, pass the answers with `--answers "who|this week|never"` and leave a part empty to
+skip it.
+
 ### `trustshell remember <text>`
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
@@ -509,6 +541,7 @@ a run or a session that happened — run these against your own and read the rea
 | `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `profile` | **none** — reads and writes `.trustshell/profile.md`. Main only, not in 1.6.1 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
@@ -519,8 +552,8 @@ a run or a session that happened — run these against your own and read the rea
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
 
-`init` is the only command that writes to your working directory, and it writes exactly one file:
-`.trustshell/profile.md`.
+`init` and `profile` are the only commands that write to your working directory, and they write exactly
+one file: `.trustshell/profile.md`.
 
 ### `trustshell --help` / `--version`
 

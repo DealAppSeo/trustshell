@@ -210,6 +210,10 @@ describe('stranger e2e on current main', () => {
     expect(init.code).toBe(0);
     expect(existsSync(join(dir, '.trustshell', 'profile.md'))).toBe(true);
     expect(init.out).toMatch(/no network/);
+    // Read-only here: a profile edit writes .trustshell/ in the cwd, which in this process is the repo.
+    const profile = await go(['profile', 'show']);
+    expect(profile.code).toBe(0);
+    expect(profile.out).toMatch(/NO_PROFILE|trustshell_profile: 1/);
 
     const report = await go(['report', '--session', missing]);
     expect(report.code).toBe(3);

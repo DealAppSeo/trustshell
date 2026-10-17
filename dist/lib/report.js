@@ -17,6 +17,7 @@ exports.reportLimits = reportLimits;
 exports.buildReport = buildReport;
 exports.reportExitCode = reportExitCode;
 exports.formatReportCard = formatReportCard;
+const profile_1 = require("./profile");
 /**
  * PURE. The whole decision, in one readable table of cases.
  *
@@ -141,6 +142,14 @@ function buildReport(input) {
     else if (profile.context) {
         withheld.push('context — set share_context: true in .trustshell/profile.md to include it');
     }
+    // Values, people helped, style, constraints and model priorities: one flag, default false.
+    const set = (0, profile_1.personalSectionsSet)(profile);
+    if (set.length && profile.share_personal) {
+        out.personal = Object.fromEntries(set.map((s) => [s, profile[s]]));
+    }
+    else if (set.length) {
+        withheld.push(`${set.join(', ')} — set share_personal: true in .trustshell/profile.md to include them`);
+    }
     return out;
 }
 function reportExitCode(v) {
@@ -164,6 +173,8 @@ function formatReportCard(r) {
         lines.push('', `  identity  ${r.identity}`);
     if (r.context)
         lines.push('', `  context   ${r.context}`);
+    if (r.personal)
+        lines.push('', '  personal (share_personal: true)', ...Object.entries(r.personal).map(([k, v]) => `    ${k.padEnd(12)}${JSON.stringify(v)}`));
     if (r.withheld.length) {
         lines.push('', '  Withheld by your profile:');
         for (const w of r.withheld)
