@@ -1,0 +1,1415 @@
+{
+  "event": "t12-double-elim",
+  "playedAt": "2026-10-18T18:26:51.483Z",
+  "chain": "base-sepolia",
+  "chainId": 84532,
+  "models": [
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
+    "openai/gpt-oss-120b"
+  ],
+  "maxPlies": 24,
+  "stake": "recorded, not transferred. Winner keeps the opponent stake sized by the opponent prediction.",
+  "games": [
+    {
+      "n": 1,
+      "bracket": "winners",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "c5",
+        "e5",
+        "Nc6",
+        "Nc3",
+        "Nf6",
+        "exf6",
+        "exf6",
+        "Nce2",
+        "d6",
+        "Nf3",
+        "d5",
+        "a3",
+        "Be7",
+        "b3",
+        "O-O",
+        "a4",
+        "Be6",
+        "Nf4",
+        "Bd6",
+        "a5",
+        "Qb6",
+        "a6",
+        "Bxf4"
+      ],
+      "predictions": {
+        "white": 0.5,
+        "black": 0.48,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.0005,
+        "black": 0.00048
+      },
+      "score": 0,
+      "whiteBrier": 0.25,
+      "blackBrier": 0.27040000000000003,
+      "fallbacks": 1,
+      "tokens": {
+        "prompt": 5423,
+        "completion": 3751
+      }
+    },
+    {
+      "n": 2,
+      "bracket": "winners",
+      "models": {
+        "white": "qwen/qwen3.8-27b",
+        "black": "openai/gpt-oss-120b"
+      },
+      "winner": "white",
+      "termination": "checkmate",
+      "plies": 13,
+      "moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Nc3",
+        "a6",
+        "Nxe5",
+        "b6",
+        "Bc4",
+        "d6",
+        "Bxf7+",
+        "Ke7",
+        "Nd5#"
+      ],
+      "predictions": {
+        "white": 0.55,
+        "black": 0.45,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00055,
+        "black": 0.00045000000000000004
+      },
+      "score": 1,
+      "whiteBrier": 0.20249999999999996,
+      "blackBrier": 0.2025,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 3006,
+        "completion": 1922
+      }
+    },
+    {
+      "n": 3,
+      "bracket": "winners",
+      "models": {
+        "white": "openai/gpt-oss-120b",
+        "black": "openai/gpt-oss-20b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nc6",
+        "Nf3",
+        "Nf6",
+        "e5",
+        "Nxe5",
+        "Nxe5",
+        "a6",
+        "Nc6",
+        "d5",
+        "c3",
+        "bxc6",
+        "c4",
+        "e5",
+        "cxd5",
+        "Qxd5",
+        "Na3",
+        "Qxd2+",
+        "Bxd2",
+        "g6",
+        "Nb5",
+        "h6",
+        "Na7",
+        "a5"
+      ],
+      "predictions": {
+        "white": 0.38,
+        "black": 0.4,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00038,
+        "black": 0.0004
+      },
+      "score": 1,
+      "whiteBrier": 0.3844,
+      "blackBrier": 0.16000000000000003,
+      "fallbacks": 3,
+      "tokens": {
+        "prompt": 6160,
+        "completion": 8357
+      }
+    },
+    {
+      "n": 4,
+      "bracket": "winners",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "e5",
+        "d5",
+        "Nc3",
+        "Nc6",
+        "exf6",
+        "exf6",
+        "Nxd5",
+        "Qxd5",
+        "Qe2+",
+        "Qe4",
+        "a3",
+        "Qxe2+",
+        "Bxe2",
+        "Bf5",
+        "a4",
+        "O-O-O",
+        "a5",
+        "Nxa5",
+        "b3",
+        "Nc6",
+        "Nf3",
+        "Rxd2"
+      ],
+      "predictions": {
+        "white": 0.95,
+        "black": 0.5,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00095,
+        "black": 0.0005
+      },
+      "score": 0,
+      "whiteBrier": 0.9025,
+      "blackBrier": 0.25,
+      "fallbacks": 1,
+      "tokens": {
+        "prompt": 5321,
+        "completion": 3662
+      }
+    },
+    {
+      "n": 5,
+      "bracket": "winners",
+      "models": {
+        "white": "qwen/qwen3.8-27b",
+        "black": "openai/gpt-oss-120b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "Nf3",
+        "Nxe4",
+        "Nc3",
+        "Nxf2",
+        "Kxf2",
+        "Nc6",
+        "d4",
+        "a6",
+        "Bc4",
+        "b6",
+        "Bxf7+",
+        "Kxf7",
+        "d5",
+        "d6",
+        "Ne5+",
+        "Nxe5",
+        "Qf3+",
+        "Nxf3",
+        "Kxf3",
+        "c6",
+        "dxc6",
+        "e6"
+      ],
+      "predictions": {
+        "white": 0.55,
+        "black": 0.35,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00055,
+        "black": 0.00035
+      },
+      "score": 0,
+      "whiteBrier": 0.30250000000000005,
+      "blackBrier": 0.42250000000000004,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 5097,
+        "completion": 4833
+      }
+    },
+    {
+      "n": 6,
+      "bracket": "winners",
+      "models": {
+        "white": "openai/gpt-oss-120b",
+        "black": "openai/gpt-oss-20b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nc6",
+        "Nf3",
+        "Nf6",
+        "Nd4",
+        "Nxd4",
+        "Qe2",
+        "Nxe4",
+        "b3",
+        "b6",
+        "b4",
+        "Nxc2+",
+        "Kd1",
+        "Rb8",
+        "a4",
+        "Rb7",
+        "d4",
+        "a6",
+        "f4",
+        "c6",
+        "a5",
+        "Qc7",
+        "axb6",
+        "d6"
+      ],
+      "predictions": {
+        "white": 0.5,
+        "black": 0.05,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.0005,
+        "black": 0.00005
+      },
+      "score": 0,
+      "whiteBrier": 0.25,
+      "blackBrier": 0.9025,
+      "fallbacks": 5,
+      "tokens": {
+        "prompt": 6138,
+        "completion": 8574
+      }
+    },
+    {
+      "n": 7,
+      "bracket": "winners",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "e5",
+        "d5",
+        "exd6",
+        "cxd6",
+        "Nc3",
+        "Nc6",
+        "Nce2",
+        "d5",
+        "Nc3",
+        "Rb8",
+        "a3",
+        "e6",
+        "Nxd5",
+        "exd5",
+        "b3",
+        "Ra8",
+        "a4",
+        "Qe7+",
+        "Qe2",
+        "Qxe2+",
+        "Kxe2",
+        "Bb4"
+      ],
+      "predictions": {
+        "white": 0.42,
+        "black": 0.52,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00042,
+        "black": 0.0005200000000000001
+      },
+      "score": 0,
+      "whiteBrier": 0.17639999999999997,
+      "blackBrier": 0.2304,
+      "fallbacks": 3,
+      "tokens": {
+        "prompt": 5361,
+        "completion": 3678
+      }
+    },
+    {
+      "n": 8,
+      "bracket": "winners",
+      "models": {
+        "white": "qwen/qwen3.8-27b",
+        "black": "openai/gpt-oss-120b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Nc3",
+        "Nge7",
+        "Nxe5",
+        "a6",
+        "Nxc6",
+        "bxc6",
+        "d4",
+        "d6",
+        "Bc4",
+        "Nf5",
+        "O-O",
+        "f6",
+        "exf5",
+        "g6",
+        "fxg6",
+        "h6",
+        "Bxa6",
+        "Rb8",
+        "Bxc8",
+        "Rxc8"
+      ],
+      "predictions": {
+        "white": 0.48,
+        "black": 0.95,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00048,
+        "black": 0.00095
+      },
+      "score": 1,
+      "whiteBrier": 0.27040000000000003,
+      "blackBrier": 0.9025,
+      "fallbacks": 2,
+      "tokens": {
+        "prompt": 5475,
+        "completion": 4582
+      }
+    },
+    {
+      "n": 9,
+      "bracket": "winners",
+      "models": {
+        "white": "openai/gpt-oss-120b",
+        "black": "openai/gpt-oss-20b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nc6",
+        "Nc3",
+        "e5",
+        "Nf3",
+        "Nf6",
+        "Nxe5",
+        "b5",
+        "Nxc6",
+        "a6",
+        "Nxd8",
+        "Kxd8",
+        "e5",
+        "c6",
+        "e6",
+        "d6",
+        "e7+",
+        "Kxe7",
+        "a3",
+        "g6",
+        "b3",
+        "Rb8",
+        "d3",
+        "h6"
+      ],
+      "predictions": {
+        "white": 0.95,
+        "black": 0.05,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00095,
+        "black": 0.00005
+      },
+      "score": 1,
+      "whiteBrier": 0.0025000000000000044,
+      "blackBrier": 0.0025000000000000005,
+      "fallbacks": 2,
+      "tokens": {
+        "prompt": 6076,
+        "completion": 8672
+      }
+    },
+    {
+      "n": 10,
+      "bracket": "winners",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "e5",
+        "Nc6",
+        "e6",
+        "dxe6",
+        "d4",
+        "e5",
+        "dxe5",
+        "Nxe5",
+        "Na3",
+        "Nc6",
+        "Nb5",
+        "e5",
+        "Nxc7+",
+        "Qxc7",
+        "a3",
+        "Nd4",
+        "a4",
+        "Nxc2+",
+        "Qxc2",
+        "Qxc2",
+        "Nf3",
+        "Qxf2+"
+      ],
+      "predictions": {
+        "white": 0.05,
+        "black": 0.48,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00005,
+        "black": 0.00048
+      },
+      "score": 0,
+      "whiteBrier": 0.0025000000000000005,
+      "blackBrier": 0.27040000000000003,
+      "fallbacks": 1,
+      "tokens": {
+        "prompt": 5616,
+        "completion": 4294
+      }
+    },
+    {
+      "n": 11,
+      "bracket": "winners",
+      "models": {
+        "white": "qwen/qwen3.8-27b",
+        "black": "openai/gpt-oss-120b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Nc3",
+        "Nge7",
+        "d4",
+        "Nxd4",
+        "Nxd4",
+        "a5",
+        "Bc4",
+        "b5",
+        "Bxf7+",
+        "Kxf7",
+        "O-O",
+        "c5",
+        "Nc6",
+        "d6",
+        "Nxd8+",
+        "Kg8",
+        "Nxb5",
+        "g6",
+        "Nxd6",
+        "h6"
+      ],
+      "predictions": {
+        "white": 0.65,
+        "black": 0.95,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.0006500000000000001,
+        "black": 0.00095
+      },
+      "score": 1,
+      "whiteBrier": 0.12249999999999998,
+      "blackBrier": 0.9025,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 5339,
+        "completion": 4097
+      }
+    },
+    {
+      "n": 12,
+      "bracket": "losers",
+      "models": {
+        "white": "openai/gpt-oss-120b",
+        "black": "openai/gpt-oss-20b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nc6",
+        "Nf3",
+        "Nf6",
+        "Bc4",
+        "e5",
+        "Bxf7+",
+        "Kxf7",
+        "Nxe5+",
+        "Nxe5",
+        "a3",
+        "a6",
+        "Qh5+",
+        "Nxh5",
+        "O-O",
+        "g5",
+        "a4",
+        "b6",
+        "a5",
+        "c6",
+        "b4",
+        "d6",
+        "axb6",
+        "h6"
+      ],
+      "predictions": {
+        "white": 0.07,
+        "black": 0.05,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00007000000000000001,
+        "black": 0.00005
+      },
+      "score": 0,
+      "whiteBrier": 0.004900000000000001,
+      "blackBrier": 0.9025,
+      "fallbacks": 1,
+      "tokens": {
+        "prompt": 5779,
+        "completion": 8600
+      }
+    },
+    {
+      "n": 13,
+      "bracket": "losers",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "e5",
+        "d5",
+        "d4",
+        "Nc6",
+        "exf6",
+        "Nxd4",
+        "Qxd4",
+        "exf6",
+        "Qxd5",
+        "Qxd5",
+        "Nc3",
+        "Qe4+",
+        "Be3",
+        "Qxe3+",
+        "Nce2",
+        "Qxf2+",
+        "Kxf2",
+        "Bc5+",
+        "Nd4",
+        "Bxd4+",
+        "Ke2",
+        "Bxg1"
+      ],
+      "predictions": {
+        "white": 0.05,
+        "black": 0.35,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00005,
+        "black": 0.00035
+      },
+      "score": 0,
+      "whiteBrier": 0.0025000000000000005,
+      "blackBrier": 0.42250000000000004,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 5174,
+        "completion": 3563
+      }
+    },
+    {
+      "n": 14,
+      "bracket": "losers",
+      "models": {
+        "white": "qwen/qwen3.8-27b",
+        "black": "openai/gpt-oss-120b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "Nf3",
+        "Nxe4",
+        "Nc3",
+        "e5",
+        "d4",
+        "c5",
+        "Nxe4",
+        "Nc6",
+        "Nxc5",
+        "a6",
+        "Bc4",
+        "d5",
+        "Bb5",
+        "b6",
+        "Nxe5",
+        "f6",
+        "Nxc6",
+        "g6",
+        "Nxd8+",
+        "Kxd8",
+        "Ne6+",
+        "Bxe6"
+      ],
+      "predictions": {
+        "white": 0.55,
+        "black": 0.34,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00055,
+        "black": 0.00034
+      },
+      "score": 1,
+      "whiteBrier": 0.20249999999999996,
+      "blackBrier": 0.11560000000000002,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 5652,
+        "completion": 4999
+      }
+    },
+    {
+      "n": 15,
+      "bracket": "losers",
+      "models": {
+        "white": "openai/gpt-oss-120b",
+        "black": "openai/gpt-oss-20b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nc6",
+        "Nf3",
+        "Nf6",
+        "Nc3",
+        "e5",
+        "Nxe5",
+        "Nxe5",
+        "Nd5",
+        "Nxe4",
+        "a4",
+        "Nf3+",
+        "gxf3",
+        "Qe7",
+        "b3",
+        "Qd8",
+        "a5",
+        "Nxd2",
+        "c3",
+        "b5",
+        "h3",
+        "c5",
+        "a6",
+        "d6"
+      ],
+      "predictions": {
+        "white": 0.7,
+        "black": 0.95,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.0007,
+        "black": 0.00095
+      },
+      "score": 0,
+      "whiteBrier": 0.48999999999999994,
+      "blackBrier": 0.0025000000000000044,
+      "fallbacks": 1,
+      "tokens": {
+        "prompt": 6144,
+        "completion": 8283
+      }
+    },
+    {
+      "n": 16,
+      "bracket": "losers",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "c5",
+        "e5",
+        "Nc6",
+        "Nc3",
+        "Nf6",
+        "Nd5",
+        "Nxd5",
+        "e6",
+        "dxe6",
+        "c4",
+        "Nf6",
+        "a4",
+        "e5",
+        "a5",
+        "Qxd2+",
+        "Bxd2",
+        "Nd5",
+        "a6",
+        "Nc3",
+        "b3",
+        "Nxd1",
+        "b4",
+        "Nxb4"
+      ],
+      "predictions": {
+        "white": 0.05,
+        "black": 0.25,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00005,
+        "black": 0.00025
+      },
+      "score": 0,
+      "whiteBrier": 0.0025000000000000005,
+      "blackBrier": 0.5625,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 5366,
+        "completion": 4190
+      }
+    },
+    {
+      "n": 17,
+      "bracket": "losers",
+      "models": {
+        "white": "qwen/qwen3.8-27b",
+        "black": "openai/gpt-oss-120b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "Nf3",
+        "Nxe4",
+        "Nc3",
+        "Nc6",
+        "Nxe4",
+        "Rb8",
+        "Nc5",
+        "a6",
+        "Bc4",
+        "b6",
+        "Bxf7+",
+        "Kxf7",
+        "Ne6",
+        "d6",
+        "Nxd8+",
+        "Nxd8",
+        "O-O",
+        "c6",
+        "Ne5+",
+        "dxe5",
+        "Qf3+",
+        "Bf5"
+      ],
+      "predictions": {
+        "white": 0.75,
+        "black": 0.18,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00075,
+        "black": 0.00017999999999999998
+      },
+      "score": 1,
+      "whiteBrier": 0.0625,
+      "blackBrier": 0.0324,
+      "fallbacks": 1,
+      "tokens": {
+        "prompt": 4799,
+        "completion": 4470
+      }
+    },
+    {
+      "n": 18,
+      "bracket": "losers",
+      "models": {
+        "white": "openai/gpt-oss-120b",
+        "black": "openai/gpt-oss-20b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "Nf3",
+        "Nc6",
+        "Nd4",
+        "Nf6",
+        "Nxc6",
+        "d6",
+        "Nxa7",
+        "b6",
+        "Nxc8",
+        "Qd7",
+        "Nxd6+",
+        "cxd6",
+        "Nc3",
+        "O-O-O",
+        "Nd5",
+        "Kb7",
+        "Nxb6",
+        "e6",
+        "Nxd7",
+        "g6",
+        "Nxf8",
+        "Rd7",
+        "Nxh7",
+        "Rxh7"
+      ],
+      "predictions": {
+        "white": 0.48,
+        "black": 0.05,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00048,
+        "black": 0.00005
+      },
+      "score": 1,
+      "whiteBrier": 0.27040000000000003,
+      "blackBrier": 0.0025000000000000005,
+      "fallbacks": 4,
+      "tokens": {
+        "prompt": 5726,
+        "completion": 8395
+      }
+    },
+    {
+      "n": 19,
+      "bracket": "losers",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nf6",
+        "Nc3",
+        "d5",
+        "Nxd5",
+        "Nxd5",
+        "Bb5+",
+        "Nc6",
+        "Bc4",
+        "Nf6",
+        "Bxf7+",
+        "Kxf7",
+        "Qh5+",
+        "Nxh5",
+        "Rb1",
+        "Nf6",
+        "a4",
+        "Nxe4",
+        "b4",
+        "Nxf2",
+        "c4",
+        "Nxb4",
+        "d3",
+        "Nfxd3+"
+      ],
+      "predictions": {
+        "white": 0.05,
+        "black": 0.45,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00005,
+        "black": 0.00045000000000000004
+      },
+      "score": 0,
+      "whiteBrier": 0.0025000000000000005,
+      "blackBrier": 0.30250000000000005,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 5118,
+        "completion": 4567
+      }
+    },
+    {
+      "n": 20,
+      "bracket": "losers",
+      "models": {
+        "white": "qwen/qwen3.8-27b",
+        "black": "openai/gpt-oss-120b"
+      },
+      "winner": "black",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Nc3",
+        "Qe7",
+        "Nxe5",
+        "a6",
+        "Nxc6",
+        "b6",
+        "Bxa6",
+        "d6",
+        "Bxc8",
+        "f6",
+        "Bd7+",
+        "Kxd7",
+        "O-O",
+        "Rb8",
+        "Nxb8+",
+        "Kc8",
+        "Qg4+",
+        "Kxb8",
+        "Qc8+",
+        "Kxc8"
+      ],
+      "predictions": {
+        "white": 0.65,
+        "black": 0.28,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.0006500000000000001,
+        "black": 0.00028000000000000003
+      },
+      "score": 0,
+      "whiteBrier": 0.42250000000000004,
+      "blackBrier": 0.5184,
+      "fallbacks": 1,
+      "tokens": {
+        "prompt": 5314,
+        "completion": 4528
+      }
+    },
+    {
+      "n": 21,
+      "bracket": "losers",
+      "models": {
+        "white": "openai/gpt-oss-120b",
+        "black": "openai/gpt-oss-20b"
+      },
+      "winner": null,
+      "termination": "adjudicated-draw",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nc6",
+        "d4",
+        "Nf6",
+        "Nf3",
+        "Nxd4",
+        "a4",
+        "Nxf3+",
+        "gxf3",
+        "Nxe4",
+        "f4",
+        "Nxf2",
+        "b4",
+        "Nd3+",
+        "cxd3",
+        "Rb8",
+        "d4",
+        "Ra8",
+        "h4",
+        "b5",
+        "a5",
+        "c5",
+        "d5",
+        "e5"
+      ],
+      "predictions": {
+        "white": 0.38,
+        "black": 0.62,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00038,
+        "black": 0.00062
+      },
+      "score": 0.5,
+      "whiteBrier": 0.0144,
+      "blackBrier": 0.0144,
+      "fallbacks": 0,
+      "tokens": {
+        "prompt": 5722,
+        "completion": 9097
+      }
+    },
+    {
+      "n": 22,
+      "bracket": "final",
+      "models": {
+        "white": "openai/gpt-oss-20b",
+        "black": "qwen/qwen3.8-27b"
+      },
+      "winner": "white",
+      "termination": "adjudicated",
+      "plies": 24,
+      "moves": [
+        "e4",
+        "Nc6",
+        "e5",
+        "Nf6",
+        "e6",
+        "dxe6",
+        "c4",
+        "e5",
+        "c5",
+        "Nd5",
+        "a3",
+        "Nf6",
+        "Nc3",
+        "Rb8",
+        "d3",
+        "Qxd3",
+        "Qxd3",
+        "e6",
+        "a4",
+        "Bxc5",
+        "Rb1",
+        "O-O",
+        "a5",
+        "Bxf2+"
+      ],
+      "predictions": {
+        "white": 0.05,
+        "black": 0.35,
+        "whiteParsed": true,
+        "blackParsed": true
+      },
+      "stakesEth": {
+        "white": 0.00005,
+        "black": 0.00035
+      },
+      "score": 1,
+      "whiteBrier": 0.9025,
+      "blackBrier": 0.12249999999999998,
+      "fallbacks": 2,
+      "tokens": {
+        "prompt": 5714,
+        "completion": 4552
+      }
+    }
+  ],
+  "standings": [
+    {
+      "name": "trinity-chesed",
+      "losses": 0,
+      "cep": 1651,
+      "rd": 180,
+      "games": 5,
+      "purseEth": 0.0027,
+      "meanBrier": 0.39,
+      "repid": 1348,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6709"
+    },
+    {
+      "name": "trinity-veritas",
+      "losses": 2,
+      "cep": 1404,
+      "rd": 165,
+      "games": 6,
+      "purseEth": 0.0008,
+      "meanBrier": 0.31,
+      "repid": 1906,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "5864"
+    },
+    {
+      "name": "trinity-gcm",
+      "losses": 2,
+      "cep": 1372,
+      "rd": 192,
+      "games": 4,
+      "purseEth": -0.00035,
+      "meanBrier": 0.227,
+      "repid": 1138,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6708"
+    },
+    {
+      "name": "trinity-torch",
+      "losses": 2,
+      "cep": 1339,
+      "rd": 173,
+      "games": 6,
+      "purseEth": 0.00042,
+      "meanBrier": 0.304,
+      "repid": 1609,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6707"
+    },
+    {
+      "name": "trinity-hdm",
+      "losses": 2,
+      "cep": 1235,
+      "rd": 202,
+      "games": 4,
+      "purseEth": -0.0004,
+      "meanBrier": 0.333,
+      "repid": 1161,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6712"
+    },
+    {
+      "name": "trinity-shofet",
+      "losses": 2,
+      "cep": 1161,
+      "rd": 222,
+      "games": 3,
+      "purseEth": -0.0005,
+      "meanBrier": 0.272,
+      "repid": 2236,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "5863"
+    },
+    {
+      "name": "trinity-nexus",
+      "losses": 2,
+      "cep": 1148,
+      "rd": 215,
+      "games": 3,
+      "purseEth": 0.0001,
+      "meanBrier": 0.103,
+      "repid": 2348,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6711"
+    },
+    {
+      "name": "trinity-mel",
+      "losses": 2,
+      "cep": 1121,
+      "rd": 220,
+      "games": 3,
+      "purseEth": -0.00024,
+      "meanBrier": 0.132,
+      "repid": 1314,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6710"
+    },
+    {
+      "name": "trinity-w3c",
+      "losses": 2,
+      "cep": 1112,
+      "rd": 223,
+      "games": 3,
+      "purseEth": 0.00003,
+      "meanBrier": 0.15,
+      "repid": 1851,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6706"
+    },
+    {
+      "name": "trinity-sophia",
+      "losses": 2,
+      "cep": 1024,
+      "rd": 221,
+      "games": 3,
+      "purseEth": -0.0007,
+      "meanBrier": 0.547,
+      "repid": 1384,
+      "tier": "ESTABLISHED",
+      "mint": "UNVERIFIED",
+      "tokenId": "3747"
+    },
+    {
+      "name": "trinity-orch",
+      "losses": 2,
+      "cep": 1010,
+      "rd": 261,
+      "games": 2,
+      "purseEth": -0.00057,
+      "meanBrier": 0.127,
+      "repid": 1929,
+      "tier": "ESTABLISHED",
+      "mint": "MINTED",
+      "tokenId": "6705"
+    },
+    {
+      "name": "trinity-apm",
+      "losses": 2,
+      "cep": 883,
+      "rd": 248,
+      "games": 2,
+      "purseEth": -0.00129,
+      "meanBrier": 0.509,
+      "repid": 1386,
+      "tier": "ESTABLISHED",
+      "mint": "UNVERIFIED",
+      "tokenId": "1585"
+    }
+  ],
+  "modelsSummary": [
+    {
+      "model": "openai/gpt-oss-20b",
+      "games": 15,
+      "score": 4.5,
+      "brier": 4.2283,
+      "fallbacks": 8,
+      "meanBrier": 0.282
+    },
+    {
+      "model": "qwen/qwen3.8-27b",
+      "games": 15,
+      "score": 12,
+      "brier": 4.0166,
+      "fallbacks": 4,
+      "meanBrier": 0.268
+    },
+    {
+      "model": "openai/gpt-oss-120b",
+      "games": 14,
+      "score": 5.5,
+      "brier": 4.513,
+      "fallbacks": 16,
+      "meanBrier": 0.322
+    }
+  ],
+  "champion": "trinity-chesed",
+  "tokens": {
+    "prompt": 119520,
+    "completion": 121666
+  },
+  "onchain": {
+    "txHash": "0xfcbb44d3fb928479d5b80af022b611b70e5e8c247bbabec17dbb2c659c62b257",
+    "blockNumber": 48289873,
+    "registry": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    "tokenId": "6709",
+    "champion": "trinity-chesed",
+    "tag1": "chess",
+    "tag2": "double-elim",
+    "value": 1651,
+    "basescan": "https://sepolia.basescan.org/tx/0xfcbb44d3fb928479d5b80af022b611b70e5e8c247bbabec17dbb2c659c62b257",
+    "note": "Chess-tagged feedback on the champion. Not a hyperdag_repid write. Stakes were not transferred."
+  }
+}
