@@ -6,6 +6,7 @@
 //   /api/v1/leaderboard/agents  → the RepID agent board (Round scoring)
 //   /api/v1/leaderboard/models  → per-model board with two lenses (performance / value)
 import { useEffect, useState } from 'react';
+import { JourneySteps } from '@/components/journey-steps';
 
 const REPID_ENGINE_URL =
   process.env.NEXT_PUBLIC_REPID_ENGINE_URL ??
@@ -166,6 +167,9 @@ export default function LeaderboardPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12 space-y-10">
+      {/* The same "where you are" bar as /bind (2026-10-16): watching RepID move is the last step. */}
+      <JourneySteps current="earn" />
+
       {/* HEADER */}
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-widest text-accent font-semibold">

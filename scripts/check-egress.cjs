@@ -79,6 +79,11 @@ const NONE_RUNS = {
   // quarantine list reads the local memory file. An empty temp file holds nothing.
   // (`quarantine release --check hal` is a separate row: it dials the classify endpoint.)
   quarantine: { args: ['quarantine', 'list'], env: {}, stdout: 'quarantined COUNT 0', exit: 0 },
+  // learn report reads the local memory file; a missing file is a no-op that says so.
+  // (tests/learn-loop.test.ts runs every learn verb, CLI and MCP, with sockets trapped.)
+  learn: { args: ['learn', 'report'], env: {}, stdout: 'learn report: no memory file, nothing measured', exit: 0 },
+  // profile writes .trustshell/profile.md in the empty cwd: the write path is held to the claim too.
+  profile: { args: ['profile', 'add', 'value', 'egress check value'], env: {}, stdout: 'added values 1: egress check value', exit: 0 },
 };
 
 /** The sentence form of `check`: it must reach the backend's classify path and nothing else. */

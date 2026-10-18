@@ -356,6 +356,38 @@ ask_first`, `confidence_gate: 0.8`, `hitl_gate: 70`.
 The profile is yours and stays local; add `.trustshell/` to your `.gitignore` if you do not want
 it in version control.
 
+### `trustshell profile show | add | set | remove | interview`
+
+In this tree, not in the published 1.7.0. Read and edit the personal sections of `.trustshell/profile.md`. **No network.**
+Every entry is text you type; nothing is detected or inferred. These sections:
+
+- **Values**: ranked, in your own words. Use `profile add value "<text>"`. To re-rank, edit the file.
+- **People I help**: use `profile add person "<who>" --why "<why>"` (`--why` is optional).
+- **Style**: use `profile set style <key> <value>`, where the key is `tone`, `detail`, `risk` or `hours`.
+- **Constraints**: use `profile add constraint "<text>"`, for example "client data never leaves my device".
+- **Model priorities**: use `profile set priorities cost,quality,speed` (all three, most important
+  first, no duplicates) or `profile set priorities --preset balanced|cost-first|speed-first|quality-first`.
+  These are stored only: nothing sends them to a model yet.
+
+`profile remove <section> <n>` removes an entry: values, people and constraints by number, style by
+key, priorities with no number. `profile show` prints the file, or `NO_PROFILE` if there is none.
+
+None of these sections appears in `report` unless you set `share_personal: true` in the file. That
+flag defaults to `false`, and anything other than `true` is read as `false`. Until a section holds
+something, none of it is written, so a fresh profile is unchanged from `init`. An edit rewrites only
+the section it touches. A file with a problem (an unknown style key, an unknown preset) is never
+rewritten: the command prints the problem, exits 1, and writes nothing. Text that is not one line,
+contains `<!--` or `-->`, or looks like a credential is refused with exit 2.
+
+`profile interview` asks three questions. Each one can be skipped and says why it is asked:
+- Who do you most want to help? The answer goes to People I help.
+- What is one thing you need done this week? This is printed back as a `learn job add` hint and is
+  never stored in the profile.
+- What must never happen? The answer goes to Constraints.
+
+Without a terminal, pass the answers with `--answers "who|this week|never"` and leave a part empty to
+skip it.
+
 ### `trustshell remember <text>`
 
 Write one note into the local sqlite file `~/.trustshell/memory.sqlite` (`TRUSTSHELL_MEMORY` overrides the path). No network. The row kind is `note`.
@@ -397,6 +429,27 @@ Immune system v0 for local memory. `remember "<text>"` (with or without `--untru
 - Injection-looking text is screened by the fixed instruction-smuggling patterns, which are not a model, when stored and again when read. A match is held with that reason, never released (not even with `--trusted`), and never printed by `list`, `explain` or `recall`. `remember --trusted` is screened too.
 - There is no release over MCP: the MCP caller is the untrusted writer.
 - What it does not do: no sandboxed execution, no adaptive learning, nothing outside this package's local memory. A release is not a truth verdict. `--trusted` is the operator's word, and anything that can run your shell can say it.
+
+### `trustshell learn <verb>`
+
+> **Not in the published 1.7.0.** On 1.7.0 and 1.6.1 this command exits `2` with
+> `unknown command: learn`.
+
+The learning loop v1, local. Nothing leaves the machine. `trustshell learn` alone lists the verbs.
+
+- `job add <slug> --mode delegate|cowork|learn "<When …, I want …, so I can …>"`, `job list`: the jobs are yours. An episode under a slug you did not create is stored and left out of every ruler.
+- `check add --job <slug> --id <check> --cmd "<command>"`; `check run <check> [--episode N | --turn K]`: the **only** writer of a check outcome, from the command's exit code (exit `0` pass, `1` fail, `2` the command did not exit and nothing was written). A fail retires the accepted lessons injected into that episode that are scoped to that check, or to no check (job-wide), with a receipt line each. A lesson scoped to another check stays accepted.
+- `record`: episode metadata (model, family, tokens, the check id frozen at the start, confidence before the check runs). `--outcome` is stored as the agent's and read by no ruler. A second `record` with the same `--turn` updates the same episode.
+- `rate <episode> accept|edit|reject`: your rating, reported, outside the agent rulers.
+- `correct --job <slug> "<your words>"`: writes an eval case, then a candidate lesson, verbatim, untrusted and quarantined until `accept <lesson>`. `--derived-from-untrusted <label>` marks text that is not yours (a page, another agent, a model): held for good, never injectable. `--source` is its deprecated old name and prints a warning saying so. `--credit <label>` records who prompted the correction and leaves the lesson yours. `--note` keeps a model paraphrase as a quarantined note, never injected. Secret-shaped text writes nothing; injection-looking text is held.
+- `accept <lesson>` (30 days, renewable), `decline <lesson>`, `lessons [--job <slug>]`. `accept` refuses a retired lesson. `reaccept <lesson>` brings one back: it prints the retirement receipt, then needs an interactive terminal and the lesson id typed back before it writes, and records a re-accept receipt. Without a terminal it refuses and writes nothing. There is no MCP tool for either. `decline` puts the lesson's text back in quarantine.
+- `inject --job <slug> [--turn K] [--check C] [--model M] [--family F]`: what a prompt hook prints. Only this job's accepted, unexpired lessons that are job-wide or scoped to the check this episode froze (no frozen check: job-wide only), verbatim, at most 5 and 400 tokens with the scaffold and the cloze included, recorded as the episode's `loop_tokens` (a second inject on the same turn does not count them again). If the scaffold and the cloze alone would pass 400, the cloze is left out and the text says so. `--model` and `--family` are recorded on the episode; an episode with no family is left out of ruler 1. In `learn` mode: the scaffold only until `attempt --job <slug> "<your attempt>"`, then the lessons and one blank cut from your attempt. In `cowork` mode: it asks for your prediction first. A missing memory file or an unknown job prints nothing and exits `0`.
+- `probe add --job <slug> --check <check> --criterion "<text>"`, `probe run <probe>`: an unaided attempt on a `learn` job, criterion written first, scored 1 or 0 by the check. No lesson is printed.
+- `review`, `review <review> yes|no`: spaced review on a 1/3/7/14/30-day ladder. A miss goes back to the 1-day step.
+- `report`: the rulers, each with its job, check id, model family and eval-set hash, or `not measured`.
+- MCP: `learn_lessons_for` (the same text as `inject`) and `learn_record` (metadata; its outcome is the agent's). No MCP tool runs a check, accepts a lesson or writes a correction.
+- Example hooks for Claude Code: `examples/learn-hook/user-prompt-submit.mjs` (`UserPromptSubmit`: runs `inject`; env `TRUSTSHELL_LEARN_JOB`, optional `TRUSTSHELL_LEARN_CHECK` (freezes that check on the turn and scopes the lessons shown), `TRUSTSHELL_LEARN_MODEL`, `TRUSTSHELL_LEARN_FAMILY`) and `examples/learn-hook/stop.mjs` (`Stop`: fills in that turn's model, family and tokens from the transcript; it never opens a new episode and never writes an outcome).
+- The first `learn` command on a memory file made before `learn` existed rebuilds its table once, in one transaction. It first copies the file to `<file>.bak-<UTC time>` (0600) next to it and prints that path. If the copy fails, nothing is rebuilt.
 
 ### `trustshell redact <key>`
 
@@ -488,17 +541,19 @@ a run or a session that happened — run these against your own and read the rea
 | `ground` | **none** — reads the `--source` file. Since 1.7.0 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `profile` | **none** — reads and writes `.trustshell/profile.md`. In this tree, not in the published 1.7.0 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
+| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. In this tree, not in the published 1.7.0 | none |
 | `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
 
-`init` is the only command that writes to your working directory, and it writes exactly one file:
-`.trustshell/profile.md`.
+`init` and `profile` are the only commands that write to your working directory, and they write exactly
+one file: `.trustshell/profile.md`.
 
 ### `trustshell --help` / `--version`
 

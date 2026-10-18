@@ -18,7 +18,9 @@ import { join } from 'node:path';
 import type { ReactElement } from 'react';
 
 const ROOT = join(__dirname, '..');
-import { HOME_SAMPLES, SPEED_TRAP } from '../lib/home-samples';
+import { HERO_RUN, HOME_SAMPLES, SPEED_TRAP } from '../lib/home-samples';
+// The hero offers the measured cards whose answer is not already on screen in the result card.
+const TRY_ONE = HOME_SAMPLES.filter((s) => s.text !== HERO_RUN.text);
 const PRIVACY =
   'What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.';
 const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
@@ -74,32 +76,65 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(home.calls).toHaveLength(0);
   });
 
-  it('renders Try to trick it: three cards ready to click, then an empty box for your own', () => {
-    // Sean, 2026-10-06: the prefilled box under "The average is not 45" read as a canned demo.
+  it('renders the box first, empty, with the folded cards under the one Check button', () => {
+    // 2026-10-16 (UX by jobs): the box is the one action on the first screen. The measured cards fold
+    // under it, and the price card is not offered there: its real result is the card at the top.
     expect(home.html).toContain('data-testid="check-form"');
-    expect(text).toContain('Try to trick it');
-    expect(text).toContain('Two of these are wrong and one is right. Guess first, then pick one and watch two other AIs check it, live.');
     const box = home.html.match(/<textarea\b[^>]*\bid="claim"[^>]*>([\s\S]*?)<\/textarea>/);
     expect(box?.[1]).toBe('');
-    expect(text).toContain('Or paste the answer you almost used');
+    expect(text).toContain('Now check your own');
+    expect(home.html).toContain('placeholder="Paste something an AI told you"');
     // The check form's own Check button. The folded "Paste both" form below it has its own.
     const checkForm = home.html.slice(home.html.indexOf('data-testid="check-form"'), home.html.indexOf('</form>'));
     const submit = buttons(checkForm).filter((b) => /type="submit"/.test(b));
     expect(submit).toHaveLength(1);
-    expect(words(submit[0] ?? '')).toBe('Check');
-    // Empty box: Check waits for text. The cards are the first thing to click.
-    expect(submit[0]).toMatch(/\sdisabled=""/);
-    expect(home.html.indexOf('data-testid="check-cards"')).toBeLessThan(home.html.indexOf('id="claim"'));
+    expect(words(submit[0] ?? '')).toBe('Check this answer');
+    // 2026-10-16: on home the button looks active from the start. An empty press sends nothing; it
+    // focuses the box and shows one line (CheckForm emptyHint). /check keeps the disabled button (below).
+    expect(submit[0]).not.toMatch(/\sdisabled=""/);
+    expect(home.html).toMatch(/<form[^>]*novalidate=""[^>]*data-testid="check-form"/i);
+    expect(home.html).not.toContain('data-testid="check-hint"');
+    const fold = home.html.indexOf('data-testid="check-cards-fold"');
+    expect(fold).toBeGreaterThan(home.html.indexOf('type="submit"'));
+    expect(home.html.indexOf('data-testid="check-cards"')).toBeGreaterThan(fold);
+    expect(text).toContain('No answer handy? Try one of ours. One is wrong, one is right.');
+    // One wrong, one right: a fact about the two sentences, held by their recorded labels.
+    expect(TRY_ONE.map((s) => s.why?.when).sort()).toEqual(['pass', 'veto']);
   });
 
-  it('offers every measured card, each a type="button" that shows exactly the sentence it checks', () => {
+  it('shows one real, dated result in the hero, read from the recorded production response', () => {
+    // Shown, not described (UX copy 2026-10-16). Never a made-up result: HERO_RUN is the response the
+    // call in docs/measurements/hero-card-2026-10-16.md got back, and the card reads only its fields.
+    const card = home.html.slice(home.html.indexOf('data-testid="hero-result"'), home.html.indexOf('</figure>'));
+    expect(card.length).toBeGreaterThan(0);
+    expect(home.html.indexOf('data-testid="hero-result"')).toBeLessThan(home.html.indexOf('id="claim"'));
+    expect(card).toContain(`data-label="${HERO_RUN.response.label}"`);
+    const said = words(card);
+    expect(said).toContain('An AI said:');
+    expect(said).toContain(HERO_RUN.text);
+    expect(said).toContain('Caught');
+    expect(said).toContain('Checked and found false. Do not rely on it.');
+    expect(said).toContain('Groq (gpt-oss) said false. Groq (qwen) said false.');
+    expect(said).toContain(`Checked live on ${HERO_RUN.on}.`);
+    expect(card).toContain('href="https://github.com/DealAppSeo/trustshell/blob/main/docs/measurements/hero-card-2026-10-16.md"');
+    // The stored arithmetic shows only because the recorded label is the one it explains.
+    const price = HOME_SAMPLES.find((s) => s.text === HERO_RUN.text)!;
+    expect(price.why?.when).toBe(HERO_RUN.response.label);
+    expect(said).toContain(price.why!.text);
+    // The record on disk is the same response, byte for byte.
+    const record = readFileSync(join(ROOT, 'docs/measurements/hero-card-2026-10-16.md'), 'utf8');
+    expect(record).toContain(JSON.stringify(HERO_RUN.response));
+    expect(record).toContain(HERO_RUN.at);
+  });
+
+  it('offers every measured card not already shown, each a type="button" that shows exactly the sentence it checks', () => {
     const samples = buttons(home.html).filter((b) => b.includes('data-testid="check-card"'));
     const decode = (v: string) => v.replace(/&#x27;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"');
-    expect(samples.map((b) => decode(b.match(/data-sample="([^"]*)"/)?.[1] ?? ''))).toEqual(HOME_SAMPLES.map((x) => x.text));
+    expect(samples.map((b) => decode(b.match(/data-sample="([^"]*)"/)?.[1] ?? ''))).toEqual(TRY_ONE.map((x) => x.text));
     // A <button> in a form defaults to submit. Every one that is not Check must say type="button".
     for (const b of samples) expect(b).toMatch(/type="button"/);
     for (const [i, b] of samples.entries()) {
-      expect(words(b)).toContain(HOME_SAMPLES[i]!.label);
+      expect(words(b)).toContain(TRY_ONE[i]!.label);
       expect(b).toMatch(/aria-pressed="false"/);
       expect(b).not.toMatch(/\sdisabled=""/);
     }
@@ -112,7 +147,11 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(compare).toHaveLength(1);
     expect(compare[0]).toMatch(/type="submit"/);
     expect(compare[0]).toMatch(/\sdisabled=""/);
-    expect(buttons(home.html)).toHaveLength(1 + HOME_SAMPLES.length + tabs.length + compare.length);
+    // Plus "Copy the setup" under the MCP paste (2026-10-16): type="button", it writes to the clipboard only.
+    const copy = buttons(home.html).filter((b) => b.includes('data-testid="copy-setup"'));
+    expect(copy).toHaveLength(1);
+    expect(copy[0]).toMatch(/type="button"/);
+    expect(buttons(home.html)).toHaveLength(1 + TRY_ONE.length + tabs.length + compare.length + copy.length);
   });
 
   it('keeps a card, and its why, only where production returned that label on every call', () => {
@@ -142,54 +181,59 @@ describe('home page is the check form, and rendering it sends nothing', () => {
   });
 
   it('renders no explanation before a check: a why line appears only after the checkers answer', () => {
+    // The one exception is the hero's recorded result, whose checkers did answer (see above).
     expect(home.html).not.toContain('data-testid="check-why-sample"');
-    for (const x of HOME_SAMPLES) if (x.why) expect(text).not.toContain(x.why.text);
+    for (const x of TRY_ONE) if (x.why) expect(text).not.toContain(x.why.text);
   });
 
-  it('puts the privacy sentence, once, above the Check button', () => {
+  it('puts the privacy sentence, once, above the Check button, behind the short line that stays on screen', () => {
     expect(text.split(PRIVACY)).toHaveLength(2);
+    expect(text).toContain("Free. No signup. No wallet. Don't paste anything private.");
+    expect(home.html.indexOf('data-testid="check-note"')).toBeLessThan(home.html.indexOf('id="check-privacy"'));
+    // Folded on home only: /check keeps the full sentence open (below).
+    expect(home.html).toMatch(/<details class="[^"]*" data-testid="check-privacy-fold">/);
     const privacyAt = home.html.indexOf('id="check-privacy"');
     expect(privacyAt).toBeGreaterThan(-1);
     expect(privacyAt).toBeLessThan(home.html.indexOf('type="submit"'));
   });
 
-  it('says the pain, then the second sure answer, then the product, then the live example, then why it is the obvious one', () => {
-    // Sean said GO 2026-10-05 for this order (Grok's structure, with the example made live), and on
-    // 2026-10-06 for these lines: the pain is two sure answers that cannot both be right, and the
-    // product is a second opinion where you see what each checker said.
-    const ACT = "Or it sounds sure and it's wrong.";
-    const PAIN = "Ask again, and it's just as sure the other way. Both can't be right.";
-    const SOLUTION =
-      'TrustShell gets you a second opinion before you build on it. Two other AIs check the answer, and you see what each one said: Checks out, Caught, or Not checked. If they disagree, it tells you instead of guessing.';
-    const ANY = 'Works with whatever model you use.';
-    const SETUP = 'Two of these are wrong and one is right. Guess first, then pick one and watch two other AIs check it, live.';
+  it('says the job, then the second opinion, then shows a result, then the box: and promises nothing more', () => {
+    // 2026-10-16 (Sean: "what is this and why should I care, jobs to be done"). The first screen is job 1.
+    const H1 = 'Get a second opinion before you use an AI answer.';
+    const SUB = 'Paste the answer. Two other AIs check it, and you see what each one said.';
     const h1 = home.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
-    expect(words(h1?.[1] ?? '')).toBe('AI lies.');
-    expect(words(h1?.[3] ?? '')).toBe(ACT);
+    expect(words(h1?.[1] ?? '')).toBe(H1);
+    expect(words(h1?.[3] ?? '')).toBe(SUB);
+    expect(home.html.match(/<h1\b/g)).toHaveLength(1);
     const lines = text.split('\n');
     const at = (line: string) => lines.indexOf(line);
-    expect(at('AI lies.')).toBeGreaterThan(-1);
-    expect(at(ACT)).toBe(at('AI lies.') + 1);
-    expect(at(PAIN)).toBe(at(ACT) + 1);
-    expect(at(SOLUTION)).toBe(at(PAIN) + 1);
-    expect(at(ANY)).toBe(at(SOLUTION) + 1);
-    expect(at('Try to trick it')).toBe(at(ANY) + 1);
-    expect(at(SETUP)).toBe(at('Try to trick it') + 1);
-    expect(at('Or paste the answer you almost used')).toBeGreaterThan(at(SETUP));
-    const wontCall = lines.findIndex((l) => l.startsWith('What it will not call:'));
-    expect(wontCall).toBeGreaterThan(at('Or paste the answer you almost used'));
-    const compare = at('Got two answers that disagree? Paste both');
-    expect(compare).toBeGreaterThan(wontCall);
-    const glass = at('The black box becomes a glass box: you see who checked it, and what they said.');
-    expect(glass).toBeGreaterThan(compare);
-    expect(at('No signup. No wallet. Leave whenever you want.')).toBeGreaterThan(glass);
-    expect(at('Add it to the agent you already use')).toBeGreaterThan(glass);
+    expect(at(H1)).toBeGreaterThan(-1);
+    expect(at(SUB)).toBe(at(H1) + 1);
+    expect(at('An AI said:')).toBeGreaterThan(at(SUB));
+    expect(at('Now check your own')).toBeGreaterThan(at('An AI said:'));
+    // The jobs, in order: the box, then the check where you already use AI, then the agent, then the
+    // proof, then the why. The vision is the last thing, not the first.
+    const job2 = at('Get the check where you already use AI');
+    const job3 = at('Want an agent you can trust?');
+    const proof = at('The runs behind this page');
+    const why = at('Why we built this');
+    expect(job2).toBeGreaterThan(at('Got two answers that disagree? Paste both'));
+    expect(job3).toBeGreaterThan(job2);
+    expect(proof).toBeGreaterThan(job3);
+    expect(why).toBeGreaterThan(proof);
+    expect(at('It all begins with trust. Trust that is earned.')).toBeGreaterThan(why);
+    expect(at('AI lies. Or it sounds sure and it\'s wrong. Ask again, and it\'s just as sure the other way. Both can\'t be right.')).toBeGreaterThan(why);
     // The first screen makes no promise the code does not keep. The model that wrote a reply stakes
     // nothing today, and the portable record and any saving are not live or not measured. And it
     // never calls two models agreeing "the truth" (Sean, 2026-10-06: not a source of truth).
-    const firstScreen = lines.slice(0, at('Add it to the agent you already use') + 1).join('\n');
-    expect(firstScreen).not.toMatch(/receipt|autonomy|\bkeys?\b|\bHAL\b|\bstakes?\b|preferences|sav(e|es|ing) you money/i);
+    const firstScreen = lines.slice(0, job2 + 1).join('\n');
+    expect(firstScreen).not.toMatch(/receipt|autonomy|\bkeys?\b|\bHAL\b|\bstakes?\b|preferences|sav(e|es|ing) you money|wallet field/i);
     expect(text).not.toMatch(/the truth comes out|source of truth|proves? (it|the truth)/i);
+    // Job 3 has one door, to /pai, and it says the test network.
+    const agent = home.html.slice(home.html.indexOf('id="your-agent"'), home.html.indexOf('id="proof"'));
+    expect(agent.match(/href="\/pai"/g)).toHaveLength(1);
+    expect(words(agent)).toContain('Make your agent');
+    expect(words(agent)).toContain('Claiming, funding and spending run on Base Sepolia, a test network.');
   });
 
   it('says what it will not call, with the runs and the date', () => {
@@ -199,7 +243,7 @@ describe('home page is the check form, and rendering it sends nothing', () => {
   });
 
   it('names what a wrong answer costs without a price, a plan, or a promise of one', () => {
-    const cost = words(home.html.slice(home.html.indexOf('data-testid="home-cost"'), home.html.indexOf('id="add-agent"')));
+    const cost = words(home.html.slice(home.html.indexOf('data-testid="home-cost"'), home.html.indexOf('id="where"')));
     expect(cost).toContain('What a wrong answer really costs');
     expect(cost).toContain('The check is free. The miss is not.');
     expect(cost).toContain('Free to try. No signup, no wallet.');
@@ -207,10 +251,14 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(cost).not.toMatch(/\$\d|per month|\/mo\b|pricing|paid lane|comes later|plans?\b/i);
   });
 
-  it('puts every door on screen 3, in order: Chrome, the MCP apps, the terminal, with real commands', () => {
+  it('puts every door in job 2, in order: Chrome, the MCP apps, the terminal, each folded, with real commands', () => {
     const add = home.html.indexOf('id="add-agent"');
     expect(add).toBeGreaterThan(home.html.indexOf('</form>'));
-    const screen3 = words(home.html.slice(add, home.html.indexOf('id="where"')));
+    const job2 = home.html.slice(add, home.html.indexOf('id="your-agent"'));
+    // Progressive disclosure: three closed <details>, so the paste and the commands open on a click.
+    expect(job2.match(/<details\b/g)).toHaveLength(3);
+    expect(job2).not.toMatch(/<details\b[^>]*\bopen\b/);
+    const screen3 = words(job2);
     const chrome = screen3.indexOf('In Chrome');
     const mcp = screen3.indexOf('In Claude Desktop, Cursor or Claude Code');
     const terminal = screen3.indexOf('In your terminal');
@@ -270,6 +318,7 @@ describe('/check is unchanged by the props the home page uses', () => {
     expect(check.html).not.toContain('data-testid="check-cards"');
     expect(words(check.html)).toContain('One sentence');
     expect(words(check.html).split(PRIVACY)).toHaveLength(2);
+    expect(check.html).toMatch(/<details open="" class="[^"]*" data-testid="check-privacy-fold">/);
   });
 });
 

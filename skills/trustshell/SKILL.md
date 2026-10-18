@@ -59,9 +59,9 @@ Do not wrap that bin in `npx`. Do not add a second MCP package.
 
 ## On trustshell.dev
 
-The homepage opens on a live check. Under `Try to trick it` are three sample claims, two wrong and one right (a price, a citation and a command), and a box for pasting the answer you almost used. Each answer shows what each checker said, and the date and count of the runs that put the card there. Under that, `Got two answers that disagree? Paste both` checks two answers side by side. Nothing is sent on load.
+The homepage opens on a check, by job. First, one real result with its date (a price sentence that came back Caught, and what each checker said), then a box for pasting the answer you almost used. Under `No answer handy? Try one of ours` are two more measured sentences, one wrong and one right (a citation and a command). Each answer shows what each checker said, and the date and count of the runs that put the card there. Under that, `Got two answers that disagree? Paste both` checks two answers side by side. Nothing is sent on load.
 
-A button under it, `Add it to the agent you already use`, jumps to three ways in:
+The next section, `Get the check where you already use AI`, opens three ways in:
 
 - In Chrome: the extension stamps replies on ChatGPT, Claude, Gemini, Grok and DeepSeek.
 - In Claude Desktop, Cursor or Claude Code: an MCP paste. It runs `trustshell-mcp` from `@hyperdag/trustshell@1.7.0` through `npx -y -p`, for someone without the global install. With the prerequisite above, use the block under MCP instead. The ChatGPT and Grok apps do not load MCP servers yet; on their websites the Chrome extension stamps replies.
@@ -70,6 +70,8 @@ A button under it, `Add it to the agent you already use`, jumps to three ways in
 ```bash
 npm i -g @hyperdag/trustshell@1.7.0
 ```
+
+After that, `Want an agent you can trust?` leads to /pai: three questions make an agent, and the same six-step bar as /bind shows the rest of the path (claim, fund, stake, trade, earn).
 
 ## Limits
 

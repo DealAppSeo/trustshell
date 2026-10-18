@@ -47,8 +47,11 @@ describe('the three questions on the home page', () => {
       'A cage on the agent, or a check you can take with you?',
     ]);
     const at = home.indexOf('data-testid="home-questions"');
+    // 2026-10-16 (UX by jobs): the why comes last, after the three jobs and the proof.
     expect(at).toBeGreaterThan(home.indexOf('</form>'));
-    expect(at).toBeLessThan(home.indexOf('id="add-agent"'));
+    expect(at).toBeGreaterThan(home.indexOf('id="add-agent"'));
+    expect(at).toBeGreaterThan(home.indexOf('id="your-agent"'));
+    expect(at).toBeGreaterThan(home.indexOf('id="proof"'));
     let last = at;
     for (const q of WHY_QUESTIONS) {
       const card = home.indexOf(`href="/why/${q.slug}"`, at);
@@ -67,11 +70,14 @@ describe('the three questions on the home page', () => {
   });
 
   // 2026-10-06 (Sean's GO): the moments that matter moved onto the cards ("Before you pay", "Before
-  // you cite it", "Before you run it"), and the solution line became the product in one sentence.
-  it('the solution line is the second opinion, and the cards name the moments that matter', () => {
-    expect(text(home)).toContain(
-      'TrustShell gets you a second opinion before you build on it. Two other AIs check the answer, and you see what each one said: Checks out, Caught, or Not checked. If they disagree, it tells you instead of guessing.',
-    );
+  // you cite it", "Before you run it"). 2026-10-16: the second opinion is the headline and subhead, and
+  // "Before you pay" heads the recorded result card.
+  it('the subhead is the second opinion, and the cards name the moments that matter', () => {
+    expect(text(home)).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
+    // The legend is three chips (2026-10-16): icon, word, short meaning.
+    for (const chip of ['Checks out checked and found true', 'Caught checked and found false', 'Not checked not decided, so look before you lean on it']) {
+      expect(text(home)).toContain(chip);
+    }
     for (const moment of ['Before you pay', 'Before you cite it', 'Before you run it']) expect(text(home)).toContain(moment);
   });
 });

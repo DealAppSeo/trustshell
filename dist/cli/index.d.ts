@@ -26,6 +26,7 @@
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { type AgentIdentity } from '../lib/identity';
+import { type ProfileOp } from './profile';
 import { type QuarantineListItem, type QuarantineRecord } from '../memory/quarantine';
 import { type KernelReceiptRead } from '../lib/kernel-client';
 import { type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
@@ -48,7 +49,7 @@ export declare const EXIT: {
     /** Laya ask. A person has to answer. HAL was not called. */
     readonly ASK: 4;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'learn' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -102,6 +103,10 @@ export interface ParsedArgs {
     id?: string;
     /** quarantine release: `hal` runs the classify check (network); otherwise --source grounds it locally. */
     check?: string;
+    /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
+    learnArgv?: string[];
+    /** profile: the parsed subcommand (show / add / set / remove / interview). */
+    profileOp?: ProfileOp;
     /** A usage error message; when set the caller should print help + exit USAGE. */
     error?: string;
 }

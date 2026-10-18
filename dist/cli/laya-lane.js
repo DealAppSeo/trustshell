@@ -11,6 +11,7 @@ const redact_1 = require("../memory/redact");
 const hook_1 = require("../laya/hook");
 const classify_1 = require("./classify");
 const api_url_1 = require("../lib/api-url");
+const local_only_1 = require("../lib/local-only");
 const CLASSIFY_TIMEOUT_MS = 200;
 function engineOrigin(env) {
     const trimmed = (env.TRUSTSHELL_API_URL ?? '').trim();
@@ -35,7 +36,8 @@ function laneFromBody(body) {
     return asLane(record.classify) ?? asLane(record.lane);
 }
 async function engineLane(claim, env, fetchImpl) {
-    if (env.OFFLINE === '1')
+    // SEC F2: local-only does not post the claim here either.
+    if (env.OFFLINE === '1' || (0, local_only_1.localOnly)(undefined, env))
         return 'escalate';
     const origin = engineOrigin(env);
     if (!origin)

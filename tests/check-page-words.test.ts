@@ -12,13 +12,16 @@ import { join } from 'node:path';
 
 const form = readFileSync(join(__dirname, '../app/check/CheckForm.tsx'), 'utf8').replace(/\r/g, '');
 const page = readFileSync(join(__dirname, '../app/check/page.tsx'), 'utf8').replace(/\r/g, '');
+// One source since 2026-10-16, shared with the home page's recorded result card.
+const words = readFileSync(join(__dirname, '../lib/stamp-words.ts'), 'utf8').replace(/\r/g, '');
 const PRIVACY = 'What you type is sent to our engine. A whole equation is computed there, with no model asked; anything else is sent to our checkers, Groq and Cerebras. If one cannot answer, a backup checker takes its turn: Cloudflare Workers AI (Llama), or another listed in our privacy policy. It is not stored. Do not paste anything private.';
 
 describe('/check words', () => {
   it('titles each label in the stranger words', () => {
-    expect(form).toMatch(/pass: \{\s*title: 'Checks out'/);
-    expect(form).toMatch(/veto: \{\s*title: 'Caught'/);
-    expect(form).toMatch(/'not-checked': \{\s*title: 'Not checked'/);
+    expect(form).toContain("import { MEANING } from '@/lib/stamp-words';");
+    expect(words).toMatch(/pass: \{\s*title: 'Checks out'/);
+    expect(words).toMatch(/veto: \{\s*title: 'Caught'/);
+    expect(words).toMatch(/'not-checked': \{\s*title: 'Not checked'/);
     expect(page).toContain('Checks out');
     expect(page).toContain('Caught');
     expect(page).toContain('Not checked');

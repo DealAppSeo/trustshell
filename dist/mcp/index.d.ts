@@ -32,6 +32,11 @@
  *                      locally, with its six claims (src/lib/kernel-client.ts kernelReceipt).
  *   - ground_quote   — `trustshell ground` parity: is the quote really in the source text, on the
  *                      cited page, with the value in it? Local, no network (src/lib/ground.ts).
+ *   - learn_lessons_for — `trustshell learn inject` parity: the job's accepted lessons, verbatim, plus
+ *                      the scaffold the person chose; recorded as loop_tokens. Local (src/learn).
+ *   - learn_record   — episode metadata for this turn. The caller's outcome is stored as agent_outcome
+ *                      and no ruler reads it; there is no tool that runs a check, accepts a lesson or
+ *                      writes a correction: those are the person's, at the CLI.
  *
  * There is no `redact` tool (SEC F8, 2026-10-16): it let any connected agent delete the operator's
  * keyed rows, and an MCP caller cannot write a keyed row, so it has none of its own to delete.

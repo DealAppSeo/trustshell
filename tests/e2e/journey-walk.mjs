@@ -131,16 +131,17 @@ page.on('pageerror', (e) => errs.push(e.message));
 const sideways = async () => page.evaluate(() => document.documentElement.scrollWidth);
 
 try {
-  // ── Start: in the nav, two questions, one plan ──
+  // ── Your agent: in the nav (2026-10-16), one click to /pai. /start: one link from job 2 on home ──
   const wide = await browser.newPage({ viewport: { width: 768, height: 800 } });
   await wide.goto(`${base}/`, { waitUntil: 'networkidle' });
-  const startLink = wide.getByRole('navigation').getByRole('link', { name: 'Start', exact: true });
-  check('Start is in the nav at 768px', await startLink.isVisible());
+  const agentLink = wide.getByRole('navigation').getByRole('link', { name: 'Your agent', exact: true });
+  check('Your agent is in the nav at 768px', await agentLink.isVisible());
   const navSw = await wide.evaluate(() => document.documentElement.scrollWidth);
-  check('the five-link nav does not overflow at 768px', navSw <= 768, `scrollWidth ${navSw}`);
-  await startLink.click();
-  await wide.waitForURL(`${base}/start`);
-  check('Start leads to /start', true);
+  check('the four-link nav does not overflow at 768px', navSw <= 768, `scrollWidth ${navSw}`);
+  check('the home page links /start from job 2', (await wide.locator('#add-agent a[href="/start"]').count()) === 1);
+  await agentLink.click();
+  await wide.waitForURL(`${base}/pai`);
+  check('Your agent leads to /pai', true);
   await wide.close();
 
   await page.goto(`${base}/start`, { waitUntil: 'networkidle' });

@@ -39,9 +39,9 @@ const BANNED = [
 
 describe('public landing source', () => {
   it('keeps the one screen and none of the measured leaks', () => {
-    expect(hero).toContain('AI lies.');
-    expect(hero).toContain('Or it sounds sure and it&apos;s wrong.');
-    expect(hero).toContain('No signup. No wallet. Leave whenever you want.');
+    expect(hero).toContain('Get a second opinion before you use an AI answer.');
+    expect(hero).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
+    expect(readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8')).toContain('Free. No signup. No wallet. Don&apos;t paste anything private.');
     expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.7.0');
     expect(source).not.toContain('trustshell status');
     // The two check samples are the only sentences that may name a city, and only as a sample.

@@ -210,6 +210,10 @@ describe('stranger e2e on current main', () => {
     expect(init.code).toBe(0);
     expect(existsSync(join(dir, '.trustshell', 'profile.md'))).toBe(true);
     expect(init.out).toMatch(/no network/);
+    // Read-only here: a profile edit writes .trustshell/ in the cwd, which in this process is the repo.
+    const profile = await go(['profile', 'show']);
+    expect(profile.code).toBe(0);
+    expect(profile.out).toMatch(/NO_PROFILE|trustshell_profile: 1/);
 
     const report = await go(['report', '--session', missing]);
     expect(report.code).toBe(3);
@@ -255,6 +259,16 @@ describe('stranger e2e on current main', () => {
     expect(released.code).toBe(0);
     expect(released.out).toContain('by ground: note found in the source document the recorder supplied');
     expect((await go(['recall'])).out).toContain('Loaded 50 ft of cable, ordered 150 ft.');
+    // Learning loop: a job the stranger creates, their correction accepted and injected verbatim,
+    // kept out of recall, and rulers that say "not measured" rather than a number.
+    expect((await go(['learn', 'job', 'add', 'ship', '--mode', 'delegate', 'When I ship, I want green tests, so I can merge.'])).code).toBe(0);
+    const corrected = await go(['learn', 'correct', '--job', 'ship', 'Run the linter before you say done.']);
+    expect(corrected.out).toMatch(/^eval case \d+, then lesson \d+ \(candidate\)$/);
+    const lessonId = (/lesson (\d+)/.exec(corrected.out) ?? [])[1] as string;
+    expect((await go(['learn', 'accept', lessonId])).code).toBe(0);
+    expect((await go(['learn', 'inject', '--job', 'ship'])).out).toContain('- Run the linter before you say done.');
+    expect((await go(['recall'])).out).not.toContain('linter');
+    expect((await go(['learn', 'report'])).out).toContain('not measured');
     const homeAfter = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     expect(homeAfter).toBe(homeBefore);
 
@@ -319,7 +333,7 @@ describe('stranger e2e on current main', () => {
     // The install steps are on screen 3 since the 2026-10-05 home page.
     const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
     const landing = `${page}\n${hero}\n${agentScreen}`;
-    expect(hero).toContain('AI lies.');
+    expect(hero).toContain('Get a second opinion before you use an AI answer.');
     expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
     expect(hero).not.toContain('Check a claim in the chat you already use');
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');

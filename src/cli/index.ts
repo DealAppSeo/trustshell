@@ -42,6 +42,7 @@ import {
 import { buildReport, formatReportCard, reportExitCode, type EvidenceDoc } from '../lib/report';
 import { buildStatusReport, familyHostVerdictLine, firstPassLines, firstPassObject, honestyRowsLine, honestyRowsValue, loadHonestyBody, postHalReceipt, postHalValue, receiptHumanLine, receiptWrittenValue, statusJsonFromText, trustshellApiUrlSet } from './status';
 import { parseProfile, defaultProfile } from '../lib/profile';
+import { nodeProfileFs, parseProfileOp, runProfile, terminalAsk, type ProfileOp } from './profile';
 import { resolveLayaLane } from './laya-lane';
 import { rememberKey, rememberNote, refusedValue } from './remember';
 import { recallKey, recallNotes } from './recall';
@@ -64,6 +65,7 @@ import { buildTrapsList, formatTrapsList } from './traps';
 import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/kernel-client';
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { join } from 'node:path';
+import { runLearn } from '../learn/cli';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -96,6 +98,7 @@ export type Command =
   | 'inspect'
   | 'init'
   | 'report'
+  | 'profile'
   | 'status'
   | 'remember'
   | 'recall'
@@ -104,6 +107,7 @@ export type Command =
   | 'bind-status'
   | 'traps'
   | 'ground'
+  | 'learn'
   | 'help'
   | 'version';
 
@@ -160,6 +164,10 @@ export interface ParsedArgs {
   id?: string;
   /** quarantine release: `hal` runs the classify check (network); otherwise --source grounds it locally. */
   check?: string;
+  /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
+  learnArgv?: string[];
+  /** profile: the parsed subcommand (show / add / set / remove / interview). */
+  profileOp?: ProfileOp;
   /** A usage error message; when set the caller should print help + exit USAGE. */
   error?: string;
 }
@@ -262,6 +270,22 @@ COMMANDS
                              trustshell init --pai dry-run is the same path.
       [--name <n>]           With --pai: PAI name (forwarded to init-pai).
       [--answers <a|b|c>]    With --pai: non-interactive interview answers.
+  profile [show]             Print .trustshell/profile.md. No network. Values, people you help,
+                             style, constraints and model priorities are yours: nothing fills
+                             them in, and report leaves them out unless share_personal is true.
+  profile add value "<text>"           Add a value, ranked last (edit the file to re-rank).
+  profile add person "<who>" [--why "<why>"]
+  profile add constraint "<text>"      A line that must hold, e.g. "never leaves my device".
+  profile set style <key> <value>      key: tone, detail, risk or hours.
+  profile set priorities cost,quality,speed
+                             Rank all three, most important first. Or --preset balanced,
+                             cost-first, speed-first or quality-first. Stored only: nothing
+                             sends it to a model yet.
+  profile remove <section> <n>         values, people or constraints by number; style by key;
+                             priorities with no number.
+  profile interview          Three questions, each skippable. Who you help and what must never
+      [--answers <a|b|c>]    happen go into the profile; this week's job is printed as a
+                             trustshell learn job add hint, never stored here.
   status                     Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is the exact string 'true'.
   remember "<text>"          Write a note into the local sqlite memory, UNTRUSTED and QUARANTINED:
                              recall leaves it out until a check releases it. No network.
@@ -295,6 +319,10 @@ COMMANDS
   quarantine release <id> --trusted
                              You vouch for it (not a check): stored trusted, released_by says so.
                              release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
+  learn <verb>               The learning loop, local: jobs you create, checks you register, your
+                             corrections as lessons you accept, injected verbatim (max 5 / 400
+                             tokens), unaided probes, spaced review, rulers. trustshell learn for
+                             the verbs. No network.
   bind-status                Read after-create. Print can_bind. can_stake true stays shadow — not live. No send.
   traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED until a receipt id exists. No scoreboard. No HAL wins.
   ground --source <file> --quote "<text>"
@@ -340,8 +368,10 @@ NETWORK EGRESS (what each command dials, and nothing else)
   ground                           NOTHING. Reads the --source file.
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
+  learn                            NOTHING. Local sqlite only; check run executes your registered command.
   quarantine                       NOTHING, except release --check hal: the DEFAULT backend's /api/v1/classify
                                    only. A TRUSTSHELL_API_URL pointing elsewhere is not asked.
+  profile                          NOTHING. Reads and writes .trustshell/profile.md.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -371,15 +401,17 @@ function looksLikeOption(a: string): boolean {
  * `argv` is the slice AFTER the node binary + script path (i.e. `process.argv.slice(2)`).
  */
 export function parseArgs(argv: string[]): ParsedArgs {
+  // `learn` has its own verbs and options (src/learn/cli.ts); they never reach the flag loop below.
+  if (argv[0] === 'learn') return { command: 'learn', learnArgv: argv.slice(1), json: false, verify: false };
   const flags = new Set<string>();
   const positionals: string[] = [];
   // Options that consume the NEXT argument. Indexed rather than for-of because a
   // value-taking flag has to be able to look ahead.
   const values: Record<string, string | undefined> = {};
-  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check']);
+  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset']);
   // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
   // only something shaped like an option is refused there.
-  const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo']);
+  const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo', '--why']);
   // `--echo` may be given more than once; every value is kept, in order.
   const echoes: string[] = [];
   // After a bare `--` every argument is text, even one that starts with a dash: that is the standard way
@@ -614,6 +646,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
         answers: values['answers'],
         ...(positional !== undefined && !dryWord ? { operand: positional } : {}),
       };
+    }
+    case 'profile': {
+      const op = parseProfileOp(rest, { why: values['why'], preset: values['preset'], answers: values['answers'] });
+      return 'error' in op ? { command: 'profile', json, verify, error: op.error } : { command: 'profile', json, verify, profileOp: op };
     }
     case 'help':
       return { command: 'help', json, verify };
@@ -887,6 +923,9 @@ export async function run(
         return EXIT.RUNTIME;
       }
     }
+
+    case 'learn':
+      return runLearn(args.learnArgv ?? [], io);
 
     case 'recall': {
       try {
@@ -1223,6 +1262,10 @@ export async function run(
         return EXIT.RUNTIME;
       }
     }
+
+    case 'profile':
+      // Local file only. Opens no socket.
+      return runProfile(args.profileOp ?? { op: 'show' }, { ...io, ask: terminalAsk() }, nodeProfileFs(), args.json);
 
     case 'inspect': {
       // Local file only. Opens no socket.

@@ -51,7 +51,7 @@ describe('home screens below the hero', () => {
     expect(agent.AGENT_TABS.map((tab) => tab.label)).toEqual(['Claude Desktop', 'Cursor', 'Claude Code']);
     expect(agent.NOT_YET).toBe('ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.');
     const html = renderHome();
-    expect(html).toContain('Add it to the agent you already use');
+    expect(html).toContain('Get the check where you already use AI');
     expect(html).toContain('id="add-agent"');
     expect(html).toContain('Where this goes');
     expect(html).toContain('id="where"');
@@ -62,7 +62,7 @@ describe('home screens below the hero', () => {
     expect(html).toContain('sm:hidden');
     const sticky = html.match(/<a\b[^>]*data-testid="sticky-check"[^>]*>/)?.[0] ?? '';
     expect(sticky).not.toMatch(/type="submit"/);
-    const addAt = html.indexOf('Add it to the agent you already use');
+    const addAt = html.indexOf('Get the check where you already use AI');
     const whereAt = html.indexOf('Where this goes');
     const heroAt = html.indexOf('<h1');
     expect(heroAt).toBeGreaterThan(-1);
@@ -71,7 +71,15 @@ describe('home screens below the hero', () => {
   });
 
   it('does not say the lines that are not true', () => {
-    const files = ['components/home-agent.tsx', 'components/home-where.tsx', 'components/sticky-check.tsx', 'components/top-nav.tsx'];
+    const files = [
+      'components/home-agent.tsx',
+      'components/home-where.tsx',
+      'components/sticky-check.tsx',
+      'components/top-nav.tsx',
+      'components/hero-result.tsx',
+      'components/home-your-agent.tsx',
+      'components/home-proof.tsx',
+    ];
     const source = files.map((rel) => readFileSync(join(ROOT, rel), 'utf8')).join('\n');
     for (const line of FORBIDDEN) expect(source).not.toContain(line);
     expect(source).not.toMatch(/\d\s*ms\b|accuracy\s*%|%\s*accurate/i);

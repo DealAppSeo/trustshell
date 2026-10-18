@@ -53,6 +53,7 @@ const optional_ethers_1 = require("./optional-ethers");
 const node_crypto_1 = require("node:crypto");
 const redact_1 = require("../memory/redact");
 const api_url_1 = require("./api-url");
+const local_only_1 = require("./local-only");
 const origin_1 = require("./origin");
 const honest_contract_1 = require("./honest-contract");
 const identity_1 = require("./identity");
@@ -214,6 +215,21 @@ class TrustShell {
         return headers;
     }
     async score(response, options = {}) {
+        // SEC F2: local-only sends nothing. NOT_CHECKED, no trust earned, and nobody saw the text.
+        if ((0, local_only_1.localOnly)(this.config.localOnly)) {
+            return {
+                trustScore: 0,
+                halScore: 0,
+                signals: { harmProbability: 0, epistemicUncertainty: 0, evidenceQuality: 0, scopeAppropriateness: 0, certaintyAtClaim: 0 },
+                verdict: 'NOT_CHECKED',
+                flaggedHallucination: false,
+                provider: 'none',
+                model: 'none',
+                decisionReason: `NOT_CHECKED — ${local_only_1.LOCAL_ONLY_REASON}`,
+                evidence: [],
+                seenBy: [],
+            };
+        }
         const url = `${this.baseUrl}/api/v1/hal/evaluate`;
         // The live /api/v1/hal/evaluate contract takes { text, context?, strictness? } — NOT
         // { response, ... }. strictness 2 selects the cross-provider fact-check quorum (the real
@@ -293,6 +309,7 @@ class TrustShell {
                 agreement: sig.agreement,
                 decisionReason,
                 evidence,
+                seenBy: (0, local_only_1.seenByFromHal)(data),
                 belief: typeof sbfa?.belief === 'number' ? sbfa.belief : undefined,
                 ignoranceMass: typeof sbfa?.ignorance_mass === 'number' ? sbfa.ignorance_mass : undefined,
                 confidence: typeof sbfa?.confidence === 'number' ? sbfa.confidence : derivedConfidence,
@@ -368,6 +385,7 @@ class TrustShell {
             signals: r.signals,
             decisionReason: r.decisionReason,
             evidence: r.evidence,
+            seenBy: r.seenBy,
             // Honest grounding contract (T4): grounding + the REAL quorum, both from the actual evidence.
             grounding: (0, honest_contract_1.verifyOutputGrounding)(r.evidence.length),
             providersUsed: (0, honest_contract_1.countProviders)({ evidence: r.evidence }),
