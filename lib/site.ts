@@ -68,6 +68,9 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   { path: '/market', priority: 0.7 },
   { path: '/examples', priority: 0.6 },
   { path: '/stake', priority: 0.7 },
+  // Agent chess. Off the nav: tests/nav-fit.test.ts locks that row at four links.
+  // The sitemap is how a crawler finds /chess.
+  { path: '/chess', priority: 0.6 },
   { path: '/campaign', priority: 0.7 },
   { path: '/leaderboard', priority: 0.7 },
   { path: '/repid', priority: 0.7 },
