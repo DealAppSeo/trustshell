@@ -50,7 +50,7 @@ describe('stranger nav', () => {
     expect(agentScreen).toContain('Get the check where you already use AI');
     expect(agentScreen).toContain('In your terminal');
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
-    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.6.1';");
+    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.7.0';");
     expect(agentScreen).toContain('In Claude Desktop, Cursor or Claude Code');
     expect(agentScreen).toContain('ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.');
     expect(hero).not.toContain('Claude, ChatGPT, Grok, Cursor');

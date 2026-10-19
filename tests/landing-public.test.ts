@@ -42,7 +42,7 @@ describe('public landing source', () => {
     expect(hero).toContain('Get a second opinion before you use an AI answer.');
     expect(hero).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
     expect(readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8')).toContain('Free. No signup. No wallet. Don&apos;t paste anything private.');
-    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.6.1');
+    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.7.0');
     expect(source).not.toContain('trustshell status');
     // The two check samples are the only sentences that may name a city, and only as a sample.
     expect(withoutSamples(hero)).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);

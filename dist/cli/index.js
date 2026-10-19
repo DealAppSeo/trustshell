@@ -279,7 +279,8 @@ NETWORK EGRESS (what each command dials, and nothing else)
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
   learn                            NOTHING. Local sqlite only; check run executes your registered command.
-  quarantine                       NOTHING, except release --check hal: the backend's /api/v1/classify.
+  quarantine                       NOTHING, except release --check hal: the DEFAULT backend's /api/v1/classify
+                                   only. A TRUSTSHELL_API_URL pointing elsewhere is not asked.
   profile                          NOTHING. Reads and writes .trustshell/profile.md.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.

@@ -266,7 +266,7 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     expect(mcp).toBeGreaterThan(chrome);
     expect(terminal).toBeGreaterThan(mcp);
     expect(screen3).toContain(`npx @hyperdag/trustshell check "${SPEED_TRAP}"`);
-    expect(screen3).toContain('npm i -g @hyperdag/trustshell@1.6.1');
+    expect(screen3).toContain('npm i -g @hyperdag/trustshell@1.7.0');
     expect(screen3).toContain('trustshell-mcp');
     expect(screen3).toContain(NOT_YET);
     // Until the store listing is live the page says so, and offers the checked test build.

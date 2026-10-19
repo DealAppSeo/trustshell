@@ -39,7 +39,7 @@ Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists:
 
 | | Today |
 |---|---|
-| npm `latest` | **1.6.1** (`npm view @hyperdag/trustshell version`). |
+| npm `latest` | **1.7.0** (`npm view @hyperdag/trustshell version`). |
 | HAL quorum | **3 answering / 5 configured** (MEASURED 2026-10-06, `GET /api/v1/hal/stats` → `quorum_health`, 24-hour window). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
@@ -148,14 +148,14 @@ npm install @hyperdag/trustshell
 
 This is the one live, published install today. It delivers all three protocols in one wrapper — **HAL** verification, **ERC-8004** portable RepID, and **x402** agent-to-agent payments — against the live backend.
 
-The package does not carry the Next.js/React site. The 1.6.1 tarball is 91 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.6.1 dependencies peerDependencies dist.fileCount`)
+The package does not carry the Next.js/React site. The 1.7.0 tarball is 107 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.7.0 dependencies peerDependencies dist.fileCount`)
 
 ### Which package do I install?
 
 | If you're… | Install | What you get |
 |---|---|---|
 | A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — HAL verification + ERC-8004 RepID + x402 payments, in your TypeScript/JS |
-| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.6.1`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
+| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.7.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
 | Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone Plonky3 proof checking. It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
 
 **Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a separate package it depends on: npm installs it alongside, and the published tarball contains none of its files.**
@@ -165,7 +165,7 @@ The package does not carry the Next.js/React site. The 1.6.1 tarball is 91 files
 The MCP server is the `trustshell-mcp` bin inside `@hyperdag/trustshell`. A global install puts it on PATH:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.6.1
+npm i -g @hyperdag/trustshell@1.7.0
 ```
 
 Then add it to your Claude Desktop / Cursor / Claude Code config:
@@ -174,13 +174,13 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.6.1 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). 1.6.0 had all of these except `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; main removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. The source on main also registers `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY) and `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), and the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP), and the learning-loop tools `learn_lessons_for` and `learn_record` (see "Learning loop v1" below); no published release has them yet. On main, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). It has no purchase tool; buying is the SDK's `executeA2A`. On main, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
+In 1.7.0 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY), `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). `kernel_receipt`, `ground_quote`, `quarantine_list` and `quarantine_explain` are new in 1.7.0; 1.6.1 had the rest, and 1.6.0 also lacked `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; 1.7.0 removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. Since 1.7.0, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). This tree also registers `learn_lessons_for` and `learn_record` (see "Learning loop v1" below); the published 1.7.0 tarball does not include them. It has no purchase tool; buying is the SDK's `executeA2A`. Since 1.7.0, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
 ### Install straight from GitHub (no npm registry) — LIVE
 
-The SDK also installs directly from the repo. That gives you `main`, not 1.6.1 — useful for pinning a commit or as a registry-independent fallback:
+The SDK also installs directly from the repo. That gives you `main`, which can run ahead of the published 1.7.0 — useful for pinning a commit or as a registry-independent fallback:
 
 ```bash
 npm install github:DealAppSeo/trustshell
@@ -188,7 +188,7 @@ npm install github:DealAppSeo/trustshell
 npm install github:DealAppSeo/trustshell#<commit-or-branch>
 ```
 
-The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which is **not** the 1.6.1 export surface: `main` also has `trustshell ground`, `trustshell receipt`, `groundQuote`, `groundClaims` and `kernelReceipt`, and 1.6.1 has none of them. For exactly what npm serves, install `@hyperdag/trustshell@1.6.1`.
+The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which can run ahead of the published release. For exactly what npm serves, install `@hyperdag/trustshell@1.7.0`.
 
 ---
 
@@ -464,12 +464,10 @@ the votes when the server has questions turned on (`CLASSIFY_QUESTIONS=on`; off 
 A timeout (6 s), a network failure, a non-200 or a body outside the contract is `not-checked`.
 Known secret shapes are stripped from the sentence before it is sent.
 
-### Ground a claim in its source (local, no network) — main only, not in 1.6.1
+### Ground a claim in its source (local, no network) — since 1.7.0
 
-> **Not in the published 1.6.1.** `trustshell ground`, `groundQuote` and `groundClaims` are on
-> `main` only. On a 1.6.1 install the command below exits `2` with `unknown option: --source`, and
-> the functions are not exported. They reach you from a GitHub install of `main` (above) or the
-> next release.
+> **Since 1.7.0.** On 1.6.1 and older the command below exits `2` with `unknown option: --source`,
+> and `groundQuote` / `groundClaims` are not exported.
 
 `ground` checks a quoted claim against the document it cites, with no model and no network: is the
 quote really on the cited page, and is the claimed value really in that quote? Pages are split on
@@ -502,9 +500,9 @@ receipt carries `LIMITATIONS`, `observed: null` (nothing in this package sets it
 `anchor_status: 'none'`. VERIFIED says the text is on the page. It does not say the quote supports
 the claim.
 
-### Quarantine (immune system v0) — main only, not in 1.6.1
+### Quarantine (immune system v0) — since 1.7.0
 
-> **Not in the published 1.6.1.** This is on `main` for the next release. On 1.6.1, `quarantine`
+> **Since 1.7.0.** On 1.6.1 and older, `quarantine`
 > is an unknown command, `--trusted`, `--untrusted` and `--source-file` are unknown options, and
 > `remember "<text>"` stores an ordinary note that `recall` prints.
 
@@ -561,9 +559,9 @@ trustshell quarantine release 2 --trusted                        # your word, re
   - A `hal` release says two checkers agreed, not that the note is safe to act on.
 - **Keyed values (`remember KEY VALUE`) carry no taint label** in v0.
 
-### Learning loop v1 — main only, not in 1.6.1
+### Learning loop v1 — in this tree, not in the published 1.7.0
 
-> **Not in the published 1.6.1.** On 1.6.1, `learn` is an unknown command.
+> **Not in the published 1.7.0.** On 1.7.0 and 1.6.1, `learn` is an unknown command.
 
 A local loop where your corrections become lessons the agent sees, and rulers say whether anything
 improved. It does nothing until you create a job, and nothing leaves the machine.
@@ -601,17 +599,17 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `badge` | HyperDAG backend (rendering is **local**) | keyless |
 | `check` | **`api.github.com` only** — no backend, no telemetry | none; `GITHUB_TOKEN` optional, rate limit only |
 | `check "<sentence>"` | HyperDAG backend (`TRUSTSHELL_API_URL`), `/api/v1/classify` only | keyless |
-| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Main only, not in 1.6.1 | `REPID_API_KEY` required |
+| `receipt` | HyperDAG backend (`TRUSTSHELL_API_URL`), `GET /api/v1/kernel/receipt/:id` only; the hash check is **local**. Since 1.7.0 | `REPID_API_KEY` required |
 | `inspect` | **none** — reads a local file | none |
-| `ground` | **none** — reads the `--source` file. Main only, not in 1.6.1 | none |
+| `ground` | **none** — reads the `--source` file. Since 1.7.0 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
-| `profile` | **none** — reads and writes `.trustshell/profile.md`. Main only, not in 1.6.1 | none |
+| `profile` | **none** — reads and writes `.trustshell/profile.md`. In this tree, not in the published 1.7.0 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
-| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. Main only, not in 1.6.1 | none |
+| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. In this tree, not in the published 1.7.0 | none |
 | `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
@@ -668,10 +666,10 @@ Run `trustshell --help` for the full reference.
 
 ## Agent skill
 
-OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.6.1` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
+OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.7.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.6.1
+npm i -g @hyperdag/trustshell@1.7.0
 
 trustshell verify "<claim>"
 trustshell repid <id>

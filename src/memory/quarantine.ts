@@ -198,7 +198,9 @@ export function releaseByGround(
   }
   // The recorder supplied this document, so it is not a check the recorder could not satisfy alone:
   // the label says so (provenance `grounded`), and `verified` stays reserved for HAL.
-  const releasedBy = `ground: note found in the source document the recorder supplied (VERIFIED ${result.reason} page ${result.found_on_page})${label}`;
+  // No "VERIFIED" here: that word is the quote check's status, and on a released row it would read as
+  // the `verified` provenance, which only a HAL release earns.
+  const releasedBy = `ground: note found in the source document the recorder supplied (quote found: ${result.reason}, page ${result.found_on_page})${label}`;
   markReleased(memoryDbPath(env), id, releasedBy, undefined, 'grounded');
   return { released: true, id, check: 'ground', released_by: releasedBy, ground: result };
 }

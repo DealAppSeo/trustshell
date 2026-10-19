@@ -1,7 +1,7 @@
 ---
 name: trustshell
 description: Fact-check a claim, read an agent's live RepID, verify its ZK proof, or print after-create and Honesty A by shelling out to the published bins. Use when the user asks to verify a claim, look up a RepID, check a proof, see can_verify, or attach the local trustshell MCP server.
-metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trustshell-mcp"]},"install":[{"id":"npm","kind":"node","package":"@hyperdag/trustshell@1.6.1","bins":["trustshell","trustshell-mcp","hal"],"label":"Install @hyperdag/trustshell@1.6.1"}]}}
+metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trustshell-mcp"]},"install":[{"id":"npm","kind":"node","package":"@hyperdag/trustshell@1.7.0","bins":["trustshell","trustshell-mcp","hal"],"label":"Install @hyperdag/trustshell@1.7.0"}]}}
 ---
 
 # Trustshell
@@ -11,7 +11,7 @@ metadata: {"openclaw":{"emoji":"🛡️","requires":{"bins":["trustshell","trust
 The bins must already be on PATH:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.6.1
+npm i -g @hyperdag/trustshell@1.7.0
 ```
 
 That install provides `trustshell`, `hal`, and `trustshell-mcp`. If `trustshell` is not on PATH, stop and say so. Do not install another package and do not start a server.
@@ -64,11 +64,11 @@ The homepage opens on a check, by job. First, one real result with its date (a p
 The next section, `Get the check where you already use AI`, opens three ways in:
 
 - In Chrome: the extension stamps replies on ChatGPT, Claude, Gemini, Grok and DeepSeek.
-- In Claude Desktop, Cursor or Claude Code: an MCP paste. It runs `trustshell-mcp` from `@hyperdag/trustshell@1.6.1` through `npx -y -p`, for someone without the global install. With the prerequisite above, use the block under MCP instead. The ChatGPT and Grok apps do not load MCP servers yet; on their websites the Chrome extension stamps replies.
+- In Claude Desktop, Cursor or Claude Code: an MCP paste. It runs `trustshell-mcp` from `@hyperdag/trustshell@1.7.0` through `npx -y -p`, for someone without the global install. With the prerequisite above, use the block under MCP instead. The ChatGPT and Grok apps do not load MCP servers yet; on their websites the Chrome extension stamps replies.
 - In your terminal: one `check` of a sample sentence through `npx`. It exits 0 when it checks out, 1 when caught, 2 when not checked. To keep it installed:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.6.1
+npm i -g @hyperdag/trustshell@1.7.0
 ```
 
 After that, `Want an agent you can trust?` leads to /pai: three questions make an agent, and the same six-step bar as /bind shows the rest of the path (claim, fund, stake, trade, earn).
