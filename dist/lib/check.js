@@ -206,6 +206,25 @@ async function runCheck(url, env = process.env) {
             { ok: Boolean(sha), label: 'The commit exists on the remote', detail: sha },
         ],
         does_not_prove: exports.DOES_NOT_PROVE,
+        run: {
+            id: typeof run.body.id === 'number' ? run.body.id : null,
+            attempt: typeof run.body.run_attempt === 'number' ? run.body.run_attempt : null,
+            workflow: String(run.body.name ?? ''),
+            workflow_path: String(run.body.path ?? ''),
+            status: String(run.body.status ?? ''),
+            conclusion: typeof run.body.conclusion === 'string' ? run.body.conclusion : null,
+        },
+        jobs: {
+            http_status: jobs.status,
+            total: totalJobs,
+            items: jobList.map((j) => ({
+                name: String(j?.name ?? ''),
+                status: String(j?.status ?? ''),
+                conclusion: typeof j?.conclusion === 'string' ? j.conclusion : null,
+                head_sha: String(j?.head_sha ?? ''),
+                run_attempt: typeof j?.run_attempt === 'number' ? j.run_attempt : null,
+            })),
+        },
     };
 }
 /**

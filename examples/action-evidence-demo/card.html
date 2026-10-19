@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>DEMO · TrustShell evidence card</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--muted:#57606a;--line:#d0d7de;--ok:#1a7f37;--bad:#cf222e;--nc:#9a6700;--code:#f6f8fa}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--ok:#3fb950;--bad:#f85149;--nc:#d29922;--code:#161b22}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:24px 16px}h1{font-size:20px;margin:0 0 12px}h2{font-size:16px;margin:24px 0 8px}
+ul{padding-left:20px;margin:0}li{margin:4px 0;overflow-wrap:anywhere}code{background:var(--code);border:1px solid var(--line);border-radius:4px;padding:0 4px;font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}
+.banner{border:2px solid var(--nc);border-radius:6px;padding:8px 12px;margin-bottom:16px}.facts li{list-style:none;margin-left:-20px}
+.SUPPORTED>strong:first-child{color:var(--ok)}.CONTRADICTED>strong:first-child{color:var(--bad)}.nc>strong:first-child{color:var(--nc)}
+.details{color:var(--muted);font-size:14px}footer{margin-top:24px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+</style>
+</head>
+<body><main>
+<p class="banner"><strong>DEMO.</strong> Sample output for review, generated from a real public GitHub Actions run. Not an official TrustShell result.</p>
+<h1>TrustShell · claims checked against a GitHub Actions run</h1>
+<ul class="facts">
+<li><strong>Run</strong> <code>DealAppSeo/trustshell</code> · run 39290226738 · attempt 1 · commit <code>5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5</code></li>
+<li><strong>Workflow</strong> <code>check</code> · <code>.github/workflows/check.yml</code></li>
+<li><strong>GitHub reports</strong> status <code>completed</code> · conclusion <code>success</code> · check verdict <strong>COMPLETE</strong></li>
+<li><strong>Jobs</strong> 1 of 1 read (HTTP 200): 1 success</li>
+<li><strong>Observed</strong> 2026-10-19T22:32:01.512Z from api.github.com (LIVE at that time)</li>
+<li><strong>Evidence class</strong> PLATFORM_REPORTED: GitHub describing its own run. A platform record, not an independent grade.</li>
+</ul>
+<h2>Claims: 2 supported · 1 contradicted · 3 not checked</h2>
+<ul>
+<li class="CONTRADICTED"><strong>CONTRADICTED</strong> <code>All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2).</code><ul class="details"><li><strong>Template</strong> <code>gha.run_id</code></li><li><strong>Why</strong> The claim names attempt 2; GitHub&#39;s record for run 39290226738 is attempt 1, its latest.</li><li><strong>Scope</strong> Run identity only: which run and which attempt this record describes. Not what the run proves.</li><li><strong>Fields</strong> <code>/observation/owner</code>, <code>/observation/repo</code>, <code>/observation/run_id</code>, <code>/observation/run_attempt</code></li></ul></li>
+<li class="SUPPORTED"><strong>SUPPORTED</strong> <code>All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2).</code><ul class="details"><li><strong>Template</strong> <code>ci.run_passed</code></li><li><strong>Why</strong> GitHub reports conclusion &quot;success&quot;; 1 of 1 job concluded success, all on this commit and attempt.</li><li><strong>Scope</strong> This one workflow run (run 39290226738, attempt 1, commit 5cd68edc782f): the run conclusion and the conclusions of its jobs. Not which tests exist or ran, and not any other workflow on this commit.</li><li><strong>Fields</strong> <code>/observation/status</code>, <code>/observation/conclusion</code>, <code>/observation/check/verdict</code>, <code>/observation/jobs</code></li></ul></li>
+<li class="SUPPORTED"><strong>SUPPORTED</strong> <code>All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2).</code><ul class="details"><li><strong>Template</strong> <code>git.head_sha</code></li><li><strong>Why</strong> The run&#39;s head_sha 5cd68edc782f begins with 5cd68edc.</li><li><strong>Scope</strong> Commit identity only: which commit this run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.</li><li><strong>Fields</strong> <code>/observation/head_sha</code></li></ul></li>
+</ul>
+<h2>Not checked (none of these is a pass)</h2>
+<ul>
+<li class="nc"><strong>Task completion: not checked.</strong> <code>Done.</code> &quot;Done&quot; is not a fact a workflow run records. Only the narrower claims mapped from the same text are checked.</li>
+<li class="nc"><strong>Broader security: not checked.</strong> <code>The 1.7.0 release is production ready and fully secure.</code> A CI run conclusion is not a security review, and no security result is mapped.</li>
+<li class="nc"><strong>Production readiness: not checked.</strong> <code>The 1.7.0 release is production ready and fully secure.</code> Readiness is a judgement, not something a workflow run reports.</li>
+<li class="nc"><strong>Cryptographic integrity: not checked.</strong> No signed attestation was present or verified. This version does not read attestations.</li>
+</ul>
+<h2>What this does not prove</h2>
+<ul>
+<li>This is what GitHub can confirm. It is not a judgement about whether the code is correct.</li>
+<li>It cannot show work done outside this repository, or on a branch that was never pushed.</li>
+<li>A passing test suite proves the tests that exist passed — not that the right tests exist.</li>
+<li>It does not establish who or what authored the change.</li>
+<li>SUPPORTED means the platform record matches the narrow scope written next to the claim. It is not a finding that the claim is true in any broader sense.</li>
+<li>Only this one workflow run was read. Other workflows, check suites and status checks on the same commit were not.</li>
+<li>Every observed fact is GitHub reporting on its own run (PLATFORM_REPORTED). Nothing was re-run or independently observed.</li>
+<li>Broader security: not checked. A CI conclusion is not a security review.</li>
+<li>The record is not signed. Its SHA-256 shows whether the record changed after it was made, not who made it.</li>
+</ul>
+<footer>Record <code>dev.trustshell.action-evidence/0.1-draft</code> · sha-256 <code>f016d2c22e534fcc0ede452be09e41202014329e50a1564f41f195489493d4be</code> over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded</footer>
+</main></body>
+</html>

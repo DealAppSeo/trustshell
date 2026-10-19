@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.INIT_PAI_DOC = exports.INIT_PAI_SCRIPT = exports.VERSION = exports.EXIT = void 0;
+exports.MAX_CLAIMS_FILE_BYTES = exports.INIT_PAI_DOC = exports.INIT_PAI_SCRIPT = exports.VERSION = exports.EXIT = void 0;
 exports.resolveInitPai = resolveInitPai;
 exports.runInitPai = runInitPai;
 exports.parseArgs = parseArgs;
@@ -18,6 +18,7 @@ exports.makeClient = makeClient;
 exports.formatQuarantineList = formatQuarantineList;
 exports.formatQuarantineRecord = formatQuarantineRecord;
 exports.run = run;
+exports.readClaimsInput = readClaimsInput;
 exports.runClaimCheck = runClaimCheck;
 exports.main = main;
 exports.isEntryPath = isEntryPath;
@@ -52,6 +53,8 @@ const identity_1 = require("../lib/identity");
 const badge_1 = require("../lib/badge");
 const version_1 = require("../lib/version");
 const check_1 = require("../lib/check");
+const action_evidence_1 = require("../lib/action-evidence");
+const evidence_card_1 = require("../lib/evidence-card");
 const claim_1 = require("../lib/claim");
 const init_1 = require("../lib/init");
 const inspect_1 = require("../lib/inspect");
@@ -154,6 +157,17 @@ COMMANDS
                              plainly what it does NOT prove. No account, no key, no backend —
                              talks to api.github.com and nothing else.
                              EXIT 0 COMPLETE, 1 FAILED/INCONSISTENT, 3 INCONCLUSIVE.
+  check <runUrl> --claims <file|text>
+                             Map what an agent said (a "done" message, a PR description) onto
+                             what that run reports. Each claim is SUPPORTED, CONTRADICTED or
+                             NOT_CHECKED by a fixed template: no model, no backend, api.github.com
+                             only. An existing file is read; any other value is the text itself.
+                             Prints a Markdown card; --json prints the record
+                             (dev.trustshell.action-evidence/0.1-draft) and its RFC 8785 SHA-256.
+      [--out <dir>]          Also write record.json, card.md and card.html into <dir>.
+      [--demo]               Mark both cards DEMO.
+                             EXIT 0 every claim SUPPORTED on a COMPLETE run, 1 a claim CONTRADICTED
+                             or the run FAILED/INCONSISTENT, 3 anything NOT_CHECKED.
   check "<sentence>"         Label one sentence pass / veto / not-checked — the same label the
                              Chrome extension shows (POST <backend>/api/v1/classify). Any
                              operand that is not a URL is a sentence. Prints the label, then
@@ -317,10 +331,10 @@ function parseArgs(argv) {
     // Options that consume the NEXT argument. Indexed rather than for-of because a
     // value-taking flag has to be able to look ahead.
     const values = {};
-    const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset']);
+    const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset', '--claims', '--out']);
     // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
     // only something shaped like an option is refused there.
-    const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo', '--why']);
+    const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo', '--why', '--claims']);
     // `--echo` may be given more than once; every value is kept, in order.
     const echoes = [];
     // After a bare `--` every argument is text, even one that starts with a dash: that is the standard way
@@ -350,6 +364,8 @@ function parseArgs(argv) {
             flags.add('trusted');
         else if (a === '--include-quarantined')
             flags.add('include-quarantined');
+        else if (a === '--demo')
+            flags.add('demo');
         else if (a === '-h' || a === '--help')
             flags.add('help');
         else if (a === '-v' || a === '--version')
@@ -421,6 +437,17 @@ function parseArgs(argv) {
             // (`trustshell verify The capital of France is Paris.` used to send only "The" to HAL.)
             const isFreeText = cmd === 'verify' || cmd === 'evaluate' || (cmd === 'check' && !(0, claim_1.isUrlOperand)(operand));
             const full = isFreeText ? rest.join(' ') : operand;
+            if (cmd === 'check' && (values['claims'] !== undefined || values['out'] !== undefined || flags.has('demo'))) {
+                // Refused rather than ignored: `check "<sentence>" --claims x` would otherwise send the
+                // sentence to the classify endpoint and quietly drop the claims the caller meant to map.
+                if (isFreeText) {
+                    return { command: 'check', json, verify, error: '--claims needs a GitHub Actions run URL: trustshell check <runUrl> --claims <file|text>' };
+                }
+                if (values['claims'] === undefined) {
+                    return { command: 'check', json, verify, error: '--out and --demo apply only with --claims' };
+                }
+                return { command: 'check', operand: full, json, verify, claims: values['claims'], out: values['out'], demo: flags.has('demo') };
+            }
             return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
         }
         case 'status':
@@ -1143,6 +1170,8 @@ async function run(args, client, io = realIO) {
                     io.out(`NOT_CHECKED: ${claim_1.OFFLINE_REASON}. This is not a pass.`);
                 return exports.EXIT.NOT_CHECKED;
             }
+            if (args.claims !== undefined)
+                return runClaimsAgainstRun(args, io);
             // GitHub-only. Deliberately does NOT touch `client` — no backend, no key,
             // no account. That independence is the command's entire value.
             try {
@@ -1278,6 +1307,71 @@ async function run(args, client, io = realIO) {
         default:
             io.out(HELP);
             return exports.EXIT.OK;
+    }
+}
+/** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
+exports.MAX_CLAIMS_FILE_BYTES = 256 * 1024;
+/**
+ * `--claims <file|text>`: an existing file is read; any other value is the claim text itself.
+ *
+ * One guard against the silent case: a value shaped like a file name (`pr-body.md`) that does not
+ * exist is a usage error, not one unmapped claim reading "pr-body.md". A typo in a path must not
+ * produce a card that looks like it checked something.
+ */
+function readClaimsInput(value, fs = require('node:fs')) {
+    if (!value.trim())
+        throw new Error('--claims is empty');
+    let st;
+    try {
+        st = fs.statSync(value);
+    }
+    catch {
+        st = undefined;
+    }
+    if (st?.isFile()) {
+        if (st.size > exports.MAX_CLAIMS_FILE_BYTES)
+            throw new Error(`--claims file is ${st.size} bytes; the limit is ${exports.MAX_CLAIMS_FILE_BYTES}`);
+        return { text: String(fs.readFileSync(value, 'utf8')), from: 'file' };
+    }
+    if (/^[\w.\\/:-]+\.(?:md|markdown|txt|json)$/i.test(value.trim()))
+        throw new Error(`--claims names a file that does not exist: ${value}`);
+    return { text: value, from: 'text' };
+}
+/**
+ * `trustshell check <runUrl> --claims <file|text>`. GitHub only, exactly like the URL form: the
+ * record is built from `runCheck`, whose one host is api.github.com. Writes files only when
+ * `--out` names a directory.
+ */
+async function runClaimsAgainstRun(args, io) {
+    let claimText;
+    try {
+        claimText = readClaimsInput(args.claims).text;
+    }
+    catch (e) {
+        io.err(`check failed: ${e?.message ?? String(e)}`);
+        return exports.EXIT.USAGE;
+    }
+    try {
+        const { record, digest } = await (0, action_evidence_1.inspectRunClaims)(args.operand, claimText);
+        const card = (0, evidence_card_1.renderCardMarkdown)(record, { demo: args.demo });
+        if (args.out) {
+            const fs = require('node:fs');
+            fs.mkdirSync(args.out, { recursive: true });
+            fs.writeFileSync((0, node_path_1.join)(args.out, 'record.json'), JSON.stringify({ record, digest }, null, 2) + '\n');
+            fs.writeFileSync((0, node_path_1.join)(args.out, 'card.md'), card);
+            fs.writeFileSync((0, node_path_1.join)(args.out, 'card.html'), (0, evidence_card_1.renderCardHtml)(record, { demo: args.demo }));
+            io.err(`wrote record.json, card.md and card.html to ${args.out}`);
+        }
+        io.out(args.json ? JSON.stringify({ record, digest }, null, 2) : card);
+        return (0, action_evidence_1.claimsExitCode)(record);
+    }
+    catch (e) {
+        if (e instanceof check_1.CheckError) {
+            io.err(`check failed: ${e.message}`);
+            return e.usage ? exports.EXIT.USAGE : exports.EXIT.RUNTIME;
+        }
+        io.err(`check failed: ${e?.message ?? String(e)}`);
+        return exports.EXIT.RUNTIME;
     }
 }
 /**

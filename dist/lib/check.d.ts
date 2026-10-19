@@ -40,6 +40,32 @@ export interface CheckResult {
         detail: string;
     }[];
     does_not_prove: string[];
+    /**
+     * The run facts the verdict above was computed from, as GitHub sent them. Additive, so that
+     * `check --claims` can map a claim onto a FIELD rather than onto the card's sentences. A field
+     * GitHub did not send is null or '', never guessed.
+     */
+    run: {
+        id: number | null;
+        attempt: number | null;
+        workflow: string;
+        workflow_path: string;
+        status: string;
+        conclusion: string | null;
+    };
+    /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
+    jobs: {
+        http_status: number;
+        total: number;
+        items: CheckJob[];
+    };
+}
+export interface CheckJob {
+    name: string;
+    status: string;
+    conclusion: string | null;
+    head_sha: string;
+    run_attempt: number | null;
 }
 /** Parse a GitHub Actions run URL. PURE — no I/O, so URL handling is testable. */
 export declare function parseRun(url: string): ParsedRun | null;

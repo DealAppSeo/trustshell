@@ -39,6 +39,33 @@ export interface CheckResult {
   authenticated: boolean;
   checks: { ok: boolean | null; label: string; detail: string }[];
   does_not_prove: string[];
+  /**
+   * The run facts the verdict above was computed from, as GitHub sent them. Additive, so that
+   * `check --claims` can map a claim onto a FIELD rather than onto the card's sentences. A field
+   * GitHub did not send is null or '', never guessed.
+   */
+  run: {
+    id: number | null;
+    attempt: number | null;
+    workflow: string;
+    workflow_path: string;
+    status: string;
+    conclusion: string | null;
+  };
+  /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
+  jobs: {
+    http_status: number;
+    total: number;
+    items: CheckJob[];
+  };
+}
+
+export interface CheckJob {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  head_sha: string;
+  run_attempt: number | null;
 }
 
 /** Parse a GitHub Actions run URL. PURE — no I/O, so URL handling is testable. */
@@ -234,6 +261,25 @@ export async function runCheck(url: string, env: Record<string, string | undefin
       { ok: Boolean(sha), label: 'The commit exists on the remote', detail: sha },
     ],
     does_not_prove: DOES_NOT_PROVE,
+    run: {
+      id: typeof run.body.id === 'number' ? run.body.id : null,
+      attempt: typeof run.body.run_attempt === 'number' ? run.body.run_attempt : null,
+      workflow: String(run.body.name ?? ''),
+      workflow_path: String(run.body.path ?? ''),
+      status: String(run.body.status ?? ''),
+      conclusion: typeof run.body.conclusion === 'string' ? run.body.conclusion : null,
+    },
+    jobs: {
+      http_status: jobs.status,
+      total: totalJobs,
+      items: jobList.map((j) => ({
+        name: String(j?.name ?? ''),
+        status: String(j?.status ?? ''),
+        conclusion: typeof j?.conclusion === 'string' ? j.conclusion : null,
+        head_sha: String(j?.head_sha ?? ''),
+        run_attempt: typeof j?.run_attempt === 'number' ? j.run_attempt : null,
+      })),
+    },
   };
 }
 

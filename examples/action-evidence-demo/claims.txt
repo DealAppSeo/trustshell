@@ -1,0 +1,2 @@
+Done. All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2).
+The 1.7.0 release is production ready and fully secure.
