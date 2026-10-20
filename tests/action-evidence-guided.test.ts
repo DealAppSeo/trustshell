@@ -437,11 +437,17 @@ describe('"all required checks pass" is a different claim from "all checks pass"
     expect(req((await inspect(fx, REQ)).record).reason).toMatch(/requires no checks/);
   });
 
-  it('without --guided it is never decided', async () => {
-    expect(req((await inspect(PR583(), REQ, false)).record).status).toBe('NOT_CHECKED');
-    const cited = req((await inspect(PR583(), 'All required checks pass in run 39357728240.', false)).record);
-    expect(cited.status).toBe('NOT_CHECKED');
-    expect(cited.reason).toMatch(/required checks were not read/);
+  it('without --guided it is not even read: "required" stays an unread word, so the record is as on main (XC1 Q-R2)', async () => {
+    const { record } = await inspect(PR583(), 'All required checks pass in run 39357728240.', false);
+    expect(only(record, 'ci.required_checks_pass')).toEqual([]);
+    expect(record.claims.filter((c) => c.status !== 'NOT_CHECKED')).toEqual([]);
+  });
+
+  it('NOT_CHECKED when the change edits its own workflows, as for "all checks pass" (XC1 Q-R1)', async () => {
+    const fx = evidence('guided-pr583-run.json', 'guided-pr583-checks.json', (r) => {
+      for (const [k, v] of Object.entries(r)) if (k.includes('/files?')) v.body.push({ filename: '.github/workflows/check.yml' });
+    });
+    expect(req((await inspect(fx, REQ)).record).reason).toMatch(/edits its own workflows/);
   });
 });
 

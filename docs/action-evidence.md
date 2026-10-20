@@ -133,7 +133,7 @@ does not match:
 |---|---|---|---|---|
 | `gha.run_succeeded` | "the workflow passed", "the check workflow succeeded", "run 123456 passed" | conclusion `success`, every job read, at least one job ran, all on this commit and attempt; **and** the line cites the run id (a workflow name, if the line gives one, must be this workflow's) | the run finished with another conclusion (same identification required) | the run is unfinished, or has no readable conclusion; jobs missing, unreadable, truncated, all skipped, or on another commit (or with no commit); a success run with a failed job; a commit cited without the run id, even with the workflow named (a commit has many workflow runs, and two workflow files can share one display name); another workflow named |
 | `ci.all_checks_pass` | "all checks pass", "CI is green", "everything is green" | **never**: one run is not every check | the run concluded `failure`, `timed_out` or `startup_failure`, or one of its jobs did | otherwise, including every green run |
-| `ci.required_checks_pass` | "all required checks pass", "the required checks are green" | **never** without `--guided`: one run does not say which checks the base branch requires | **never** without `--guided` | always, unless `--guided` (see below) |
+| `ci.required_checks_pass` | "all required checks pass", "the required checks are green", **read only with `--guided`** (without it, "required" stays an unread word and the line decides nothing, as before) | see guided mode below | see guided mode below | see guided mode below |
 | `ci.tests_pass` | "all tests pass", "the unit tests are green" | **never**: a run record does not say which tests ran | **never**: a failed run does not say a test failed | always |
 | `ci.build_unscoped` | "the build passes" | never: names no workflow or check | never | always |
 
@@ -202,7 +202,7 @@ decision.
 branch requires, not the other checks on the commit:
 - **SUPPORTED** when the rules were read, require at least one check, and every required check
   reported from the app it is pinned to and passed, on a complete list, with no check on the commit
-  failed on an earlier attempt;
+  failed on an earlier attempt, and a change that does not edit its own workflows;
 - **CONTRADICTED** when a required check failed;
 - **NOT_CHECKED** otherwise. A required check that never reported is absence, not failure, and a
   base branch that requires nothing gives the claim nothing to be about.

@@ -107,6 +107,10 @@ export interface RecordDigest {
 /** SHA-256 over the RFC 8785 canonical form of the record. Detects later edits; says nothing about authorship. */
 export declare function digestRecord(record: ActionEvidenceRecord): RecordDigest;
 export declare const RECORD_DOES_NOT_PROVE: string[];
+/**
+ * Guided mode (`--guided`, EXPERIMENTAL) reads every check on the commit, so the "only this one run"
+ * line no longer holds; what guided mode adds to the list instead.
+ */
 export declare const GUIDED_DOES_NOT_PROVE: string[];
 /** A clause longer than this is stored cut, with an ellipsis. Templates still read all of it. */
 export declare const MAX_CLAIM_TEXT = 300;
