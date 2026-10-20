@@ -843,6 +843,56 @@ describe('splitting and normalising claim text', () => {
     expect(claimsExitCode(buildRecord(OBS, text))).toBe(3);
   });
 
+  describe('XC1 re-check 3: the subset, read from the raw characters', () => {
+    const P = 'The check workflow passed (run 39290226738).';
+    const DEP = 'The deploy workflow failed and all tests fail.';
+    const fullwidth = (s: string) => [...s].map((ch) => ({ '<': CH(0xff1c), '!': CH(0xff01), '-': CH(0xff0d), '>': CH(0xff1e) } as Record<string, string>)[ch] ?? ch).join('');
+
+    it.each([
+      ['X1 fullwidth comment delimiters are text', P + '\n' + fullwidth('<!--') + ' note\n' + DEP + '\n' + fullwidth('-->')],
+      ['X2 a ZWSP inside the delimiters', P + '\n<' + CH(0x200b) + '!-- note\n' + DEP + '\n--' + CH(0x200b) + '>'],
+      ['X3 "<!-->" is a complete comment', P + '\n<!-->\n' + DEP + '\n-->'],
+    ])('%s: nothing visible is hidden', (_label, text) => {
+      expect(map1(text).some((e) => /deploy workflow failed/.test(e.sentence))).toBe(true);
+      expect(claimsExitCode(buildRecord(OBS, text))).toBe(3);
+    });
+
+    it.each([
+      ['X4 a list marker then 5 spaces is code', '-     ' + P],
+      ['X4 a list marker then a tab', '-\t' + P],
+      ['X5 a link definition label across two lines', '[a\n]: - "' + P + '"'],
+      ['X6 a link title on the next line', '[a](-\n"' + P + '")'],
+      ['X7 a paragraph that is inline code', '`' + P + '`'],
+      ['X8 "2." continues the paragraph', 'The check workflow passed (run 39290226738)\n2. ' + CH(0x274c)],
+      ['a bidi override reorders what is shown', 'The check workflow ' + CH(0x202e) + 'dessap' + CH(0x202c) + ' (run 39290226738).'],
+    ])('%s: nothing SUPPORTED', (_label, text) => {
+      expect(supported(map1(text))).toEqual([]);
+      expect(claimsExitCode(buildRecord(OBS, text))).toBe(3);
+    });
+
+    it('X7: inline code holding one identifier is still read', () => {
+      expect(only(map1('The `check` workflow passed on `5cd68edc`.'), 'gha.run_succeeded')[0]!.status).toBe('SUPPORTED');
+    });
+
+    it('X8: "1." and a bullet can interrupt a paragraph; "2." and an empty item cannot', () => {
+      expect(splitClaims('Para.\n1. item').paragraph).toEqual([0, 1]);
+      expect(splitClaims('Para.\n- item').paragraph).toEqual([0, 1]);
+      // One paragraph each: the sentence splitter may still break after "2.", but nothing leaves the paragraph.
+      expect(new Set(splitClaims('Para\n2. item').paragraph)).toEqual(new Set([0]));
+      expect(splitClaims('Para\n1.').full).toEqual(['Para 1.']);
+    });
+
+    it('X9: the same run id in another repository keeps its own verdict', () => {
+      const c = map1('The check workflow passed: https://github.com/DealAppSeo/trustshell/actions/runs/39290226738 and https://github.com/evil/other/actions/runs/39290226738');
+      expect(only(c, 'gha.run_id').map((e) => e.status).sort()).toEqual(['CONTRADICTED', 'SUPPORTED']);
+      expect(claimsExitCode(buildRecord(OBS, 'https://github.com/DealAppSeo/trustshell/actions/runs/39290226738 https://github.com/evil/other/actions/runs/39290226738'))).toBe(1);
+    });
+
+    it('a lone carriage return ends a line, as in CommonMark', () => {
+      expect(splitClaims('First.\r\rSecond.').paragraph).toEqual([0, 1]);
+    });
+  });
+
   it('XC1 re-check 2, H-b: a "<!--" fence info string is code, and the line after the fence is listed', () => {
     const text = 'The check workflow passed (run 39290226738).\n' + FENCE + '<!--\nx\n' + FENCE + '\nThe deploy workflow failed and all tests fail.\n-->';
     const c = map1(text);

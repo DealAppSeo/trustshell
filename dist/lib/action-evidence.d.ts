@@ -128,43 +128,49 @@ export declare function normalizeClaimText(s: string): string;
  * labels, code is an example, an unticked box is a to-do. Those are listed, and decide nothing.
  */
 export type LineContext = 'statement' | 'code' | 'heading' | 'todo';
-/** One sentence as a reader sees it, with its context and the paragraph it belongs to. */
+/** One sentence as a reader sees it: its context, its paragraph, and why it decides nothing, if it does not. */
 interface ReadSentence {
     text: string;
     context: LineContext;
     paragraph: number;
+    gate: string | null;
 }
 /**
  * Read free text the way GitHub renders it, within a deliberately small subset. PURE, linear.
  *
- * WHY A SUBSET. Four review rounds (XC1, 2026-10-19) each found Markdown this reader got wrong in a
- * way that hid visible text or certified an example: comments inside code, fences closed outside
- * their list or quote, soft line breaks, link definitions, image alt text, setext headings. A
- * hand-written reader cannot model all of CommonMark, so it models a small part EXACTLY and refuses
- * the rest:
+ * STRUCTURE COMES FROM THE RAW CHARACTERS. GitHub parses what was written, not a normalised form: a
+ * fullwidth "＜！－－" is text, and so is "<", ZWSP, "!--". So blocks, containers, comments and code
+ * spans are found on the raw lines (line endings \n, \r\n or \r), and each paragraph is canonicalised
+ * only afterwards, for the templates (XC1 X1, X2).
+ *
+ * WHY A SUBSET. Review rounds kept finding Markdown a hand-written reader got wrong in a way that hid
+ * visible text or certified an example. So this reader models a small part EXACTLY and refuses the
+ * rest:
  *
  *   modelled   paragraphs (consecutive non-blank lines joined, as soft line breaks render), list
  *              items with continuation lines, task boxes, ATX headings, fences opened at column 0,
  *              and HTML comment blocks that start at column 0 and end a line with `-->`
- *   refused    everything else: blockquotes, any other `<`, images, link definitions and titles,
- *              tables, footnotes, setext underlines and rules, tab indentation, indented code,
- *              fences inside a list, comments that never close or have text after `-->`
+ *   refused    everything else: blockquotes, any other `<`, bidi controls, images, link
+ *              definitions, titles and links that span lines, tables, footnotes, setext underlines
+ *              and rules, tab indentation, indented code (including after a list marker), fences
+ *              inside a list, comments that never close or have text after `-->`
  *
- * If the text uses anything refused, `unsupported` says what and where, every line is listed as
- * written, and nothing in it decides anything. In the modelled subset, nothing a reader can see is
- * dropped: only the inside of a comment block is, because GitHub does not show it.
+ * If the text uses anything refused, `unsupported` says what and where, every line is listed, and
+ * nothing in it decides anything. In the modelled subset nothing a reader can see is dropped: only
+ * the inside of a comment block is, because GitHub does not show it.
  */
 export declare function readClaims(text: string): {
     sentences: ReadSentence[];
     unsupported: string | null;
     dropped: number;
 };
-/** {@link readClaims}, flattened: the sentences, their contexts, and how many past the limit were not read. */
+/** {@link readClaims}, flattened: the sentences, their contexts and paragraphs, and how many past the limit were not read. */
 export declare function splitClaims(text: string): {
     clauses: string[];
     full: string[];
     context: LineContext[];
     paragraph: number[];
+    gate: (string | null)[];
     unsupported: string | null;
     dropped: number;
 };

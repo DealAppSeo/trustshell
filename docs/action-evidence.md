@@ -67,7 +67,10 @@ is a platform record. It is never presented as an independent grade.
 
 ## How a sentence is read
 
-**1. Text is normalised first, then read and shown in that one form.**
+**1. Structure is read from the raw characters; text is normalised only after that.** GitHub parses
+what was written, so a fullwidth `＜！－－` is text, not a comment. Blocks, comments and code spans
+are found on the raw lines (line endings `\n`, `\r\n` or `\r`). Each paragraph is then normalised
+for the templates and shown in that one form:
 - Invisible and reordering characters are removed: zero-width characters, soft hyphen, bidi
   controls, variation selectors and the tag block.
 - NFKC is applied, so fullwidth digits become digits.
@@ -87,18 +90,21 @@ Modelled:
 - HTML comment blocks that start at column 0 and end a line with `-->`. Only their inside is
   dropped, because GitHub does not show it.
 
-Headings, code lines and unticked to-dos are listed, and decide nothing.
+Headings, code lines and unticked to-dos are listed, and decide nothing. So does a paragraph whose
+inline code holds more than a single identifier: it is shown as code, an example. Paragraph
+continuation follows CommonMark: an ordered item not numbered 1, or an empty item, cannot
+interrupt a paragraph, so it continues it.
 
 If the text uses **anything else**, it is refused, and **every line is listed and nothing in the
 text is decided**. The reason names the construct and its line. Refused constructs:
 - blockquotes;
-- any other `<` (HTML, autolinks);
+- any other `<` (HTML, autolinks), and bidirectional control characters;
 - images;
-- link reference definitions, and links with a title;
+- link reference definitions (any `]:`), links with a title, and links that span lines;
 - tables (`|`);
 - footnotes;
 - setext underlines and horizontal rules;
-- tab indentation and indented code;
+- tab indentation and indented code, including a list marker followed by 5+ spaces or a tab;
 - fences inside a list;
 - comments that never close, or have text after `-->`.
 

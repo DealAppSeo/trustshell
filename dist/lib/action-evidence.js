@@ -157,13 +157,24 @@ function normalizeClaimText(s) {
     const cleaned = canonicalText(String(s ?? ''), false).replace(/\s+/g, ' ').trim();
     return cleaned.length > exports.MAX_CLAIM_TEXT ? cleaned.slice(0, exports.MAX_CLAIM_TEXT - 1) + '…' : cleaned;
 }
+/** Bidirectional controls: they make the displayed order differ from the stored one. */
+function hasBidiControl(line) {
+    for (const ch of line) {
+        const cp = ch.codePointAt(0);
+        if (cp === 0x061c || cp === 0x200e || cp === 0x200f || (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069))
+            return true;
+    }
+    return false;
+}
 /**
- * The first construct in the text that falls outside the plain subset this reader models exactly,
- * as a short phrase, or null. Checked per line, on the canonical text; each test is linear.
+ * The first construct in a RAW line that falls outside the plain subset this reader models
+ * exactly, as a short phrase, or null. Every test is linear.
  */
 function unsupportedConstruct(line, inParagraph) {
     if (/^ *\t/.test(line))
         return 'a tab in indentation';
+    if (hasBidiControl(line))
+        return 'a bidirectional control character';
     if (line.includes('<'))
         return 'HTML or an angle-bracket link';
     if (line.includes('|'))
@@ -172,7 +183,8 @@ function unsupportedConstruct(line, inParagraph) {
         return 'an image';
     if (line.includes('[^'))
         return 'a footnote';
-    if (/^ {0,3}\[[^\]]*\]:/.test(line))
+    // A link reference definition is never shown, and its label may span lines (XC1 X5): any "]:" is refused.
+    if (line.includes(']:'))
         return 'a link reference definition';
     if (/^ {0,3}>/.test(line))
         return 'a blockquote';
@@ -180,8 +192,9 @@ function unsupportedConstruct(line, inParagraph) {
         return 'a heading underline or a horizontal rule';
     if (/^ {4}/.test(line) && !inParagraph)
         return 'an indented code block';
-    // A link title is not shown on the page: `[x](url "title")`. Both pointers only move forward, so
-    // a line of many "](" is still one pass.
+    // A link title is not shown on the page: `[x](url "title")`, with the title possibly on the next
+    // line (XC1 X6). A "](" with no ")" later on its line, or with a space or quote before it, is
+    // refused. Both pointers only move forward, so many "](" are still one pass.
     let close = -1;
     let gap = -1;
     const GAP = /[\s"']/g;
@@ -189,7 +202,7 @@ function unsupportedConstruct(line, inParagraph) {
         if (close < at + 2) {
             close = line.indexOf(')', at + 2);
             if (close < 0)
-                break;
+                return 'a link that spans lines';
         }
         if (gap < at + 2) {
             GAP.lastIndex = at + 2;
@@ -202,43 +215,92 @@ function unsupportedConstruct(line, inParagraph) {
     return null;
 }
 /**
+ * The code spans of a paragraph, as [start, end) ranges, per CommonMark: a run of N backticks opens
+ * a span that the next run of exactly N closes; a run with no partner is literal. Linear: every
+ * run's partner is found in one backward pass.
+ */
+function codeSpanRanges(text) {
+    const runs = [];
+    for (let i = 0; i < text.length;) {
+        if (text[i] !== '`') {
+            i += 1;
+            continue;
+        }
+        let j = i;
+        while (j < text.length && text[j] === '`')
+            j += 1;
+        runs.push({ pos: i, len: j - i });
+        i = j;
+    }
+    const partner = new Array(runs.length).fill(-1);
+    const nextOfLen = new Map();
+    for (let k = runs.length - 1; k >= 0; k -= 1) {
+        const run = runs[k];
+        partner[k] = nextOfLen.get(run.len) ?? -1;
+        nextOfLen.set(run.len, k);
+    }
+    const out = [];
+    for (let k = 0; k < runs.length;) {
+        const p = partner[k];
+        if (p < 0) {
+            k += 1;
+            continue;
+        }
+        const open = runs[k];
+        const shut = runs[p];
+        out.push([open.pos + open.len, shut.pos]);
+        k = p + 1;
+    }
+    return out;
+}
+/** Inline code holding more than one identifier-like token is shown as code, an example (XC1 X7). */
+const CODE_TOKEN = /^ ?[\w.#/:-]{1,80} ?$/;
+/**
  * Read free text the way GitHub renders it, within a deliberately small subset. PURE, linear.
  *
- * WHY A SUBSET. Four review rounds (XC1, 2026-10-19) each found Markdown this reader got wrong in a
- * way that hid visible text or certified an example: comments inside code, fences closed outside
- * their list or quote, soft line breaks, link definitions, image alt text, setext headings. A
- * hand-written reader cannot model all of CommonMark, so it models a small part EXACTLY and refuses
- * the rest:
+ * STRUCTURE COMES FROM THE RAW CHARACTERS. GitHub parses what was written, not a normalised form: a
+ * fullwidth "＜！－－" is text, and so is "<", ZWSP, "!--". So blocks, containers, comments and code
+ * spans are found on the raw lines (line endings \n, \r\n or \r), and each paragraph is canonicalised
+ * only afterwards, for the templates (XC1 X1, X2).
+ *
+ * WHY A SUBSET. Review rounds kept finding Markdown a hand-written reader got wrong in a way that hid
+ * visible text or certified an example. So this reader models a small part EXACTLY and refuses the
+ * rest:
  *
  *   modelled   paragraphs (consecutive non-blank lines joined, as soft line breaks render), list
  *              items with continuation lines, task boxes, ATX headings, fences opened at column 0,
  *              and HTML comment blocks that start at column 0 and end a line with `-->`
- *   refused    everything else: blockquotes, any other `<`, images, link definitions and titles,
- *              tables, footnotes, setext underlines and rules, tab indentation, indented code,
- *              fences inside a list, comments that never close or have text after `-->`
+ *   refused    everything else: blockquotes, any other `<`, bidi controls, images, link
+ *              definitions, titles and links that span lines, tables, footnotes, setext underlines
+ *              and rules, tab indentation, indented code (including after a list marker), fences
+ *              inside a list, comments that never close or have text after `-->`
  *
- * If the text uses anything refused, `unsupported` says what and where, every line is listed as
- * written, and nothing in it decides anything. In the modelled subset, nothing a reader can see is
- * dropped: only the inside of a comment block is, because GitHub does not show it.
+ * If the text uses anything refused, `unsupported` says what and where, every line is listed, and
+ * nothing in it decides anything. In the modelled subset nothing a reader can see is dropped: only
+ * the inside of a comment block is, because GitHub does not show it.
  */
 function readClaims(text) {
-    const lines = canonicalText(String(text ?? ''), true).split('\n');
+    const lines = String(text ?? '').split(/\r\n|\r|\n/);
     const out = [];
     let paragraph = 0;
-    const pushText = (body, context, para) => {
-        for (const part of body.split(/(?<=[.!?;])\s+/)) {
+    const pushText = (raw, context, para, gate) => {
+        for (const part of canonicalText(raw, false).split(/(?<=[.!?;])\s+/)) {
             const whole = part.replace(/\s+/g, ' ').trim();
-            // Never drop what says something: a lone "?" or a cross mark is seen, and is a claim's context (XC1 R1-a).
+            // Never drop what says something: a lone "?" or a cross mark is seen (XC1 R1-a).
             if (whole && saysSomething(whole))
-                out.push({ text: whole, context, paragraph: para });
+                out.push({ text: whole, context, paragraph: para, gate });
         }
     };
     let unsupported = null;
     let para = [];
     let paraContext = 'statement';
     const flush = () => {
-        if (para.length)
-            pushText(para.join(' '), paraContext, paragraph++);
+        if (para.length) {
+            const raw = para.join(' ');
+            // Inline code that holds more than a single identifier is an example shown as code.
+            const codeProse = codeSpanRanges(raw).some(([a, b]) => !CODE_TOKEN.test(raw.slice(a, b)));
+            pushText(raw, paraContext, paragraph++, codeProse ? 'This paragraph holds inline code with more than an identifier in it: code is shown as an example, not a statement, so nothing in the paragraph is decided.' : null);
+        }
         para = [];
         paraContext = 'statement';
     };
@@ -265,17 +327,18 @@ function readClaims(text) {
             if (close && close[1][0] === fence.ch && close[1].length >= fence.len)
                 fence = null;
             else
-                pushText(line, 'code', paragraph++);
+                pushText(line, 'code', paragraph++, null);
             continue;
         }
         if (!line.trim()) {
             flush();
             continue;
         }
-        // An HTML comment block: "<!--" at column 0, ending a line with "-->". Its inside is not shown.
+        // An HTML comment block: "<!--" at column 0, ending the first line that holds "-->" — which may
+        // be this one, even "<!-->" (XC1 X3). Its inside is not shown.
         if (line.startsWith('<!--')) {
             flush();
-            const end = line.indexOf('-->', 4);
+            const end = line.indexOf('-->');
             if (end >= 0) {
                 if (line.slice(end + 3).trim())
                     unsupported = 'text after the end of an HTML comment' + where;
@@ -298,14 +361,25 @@ function readClaims(text) {
             unsupported = refused + where;
             break;
         }
-        const item = line.match(/^ {0,3}(?:[-*+]|\d{1,9}[.)])(?: +|$)/);
+        const item = line.match(/^ {0,3}(?:[-*+]|(\d{1,9})[.)])(?=[ \t]|$)([ \t]*)/);
         if (item) {
-            flush();
             let rest = line.slice(item[0].length);
-            if (/^ *(?:`{3,}|~{3,})/.test(rest)) {
+            // An empty item, or an ordered item not starting at 1, cannot interrupt a paragraph: it
+            // continues it (CommonMark; XC1 X8).
+            if (para.length && (!rest.trim() || (item[1] !== undefined && Number(item[1]) !== 1))) {
+                para.push(line);
+                continue;
+            }
+            // Five or more spaces, or a tab, after the marker make the item's first line indented code (XC1 X4).
+            if (rest.trim() && (/\t/.test(item[2]) || item[2].length >= 5)) {
+                unsupported = 'indented code in a list item' + where;
+                break;
+            }
+            if (/^(?:`{3,}|~{3,})/.test(rest)) {
                 unsupported = 'a code fence inside a list' + where;
                 break;
             }
+            flush();
             // "[ ]" with or without a space after it: a reader sees an empty box (XC1 T-a).
             if (/^\[ \]/.test(rest)) {
                 paraContext = 'todo';
@@ -318,7 +392,7 @@ function readClaims(text) {
         }
         if (/^ {0,3}#{1,6}(?: |$)/.test(line)) {
             flush();
-            pushText(line.replace(/^ {0,3}#{1,6} */, ''), 'heading', paragraph++);
+            pushText(line.replace(/^ {0,3}#{1,6} */, ''), 'heading', paragraph++, null);
             continue;
         }
         if (/^ {0,3}(?:`{3,}|~{3,})/.test(line)) {
@@ -336,12 +410,12 @@ function readClaims(text) {
     if (unsupported !== null) {
         // Refused: list every line as written, one paragraph each, and let nothing decide.
         out.length = 0;
-        lines.forEach((l, i) => pushText(l, 'statement', i));
+        lines.forEach((l, i) => pushText(l, 'statement', i, null));
     }
     const kept = out.slice(0, exports.MAX_CLAIMS);
     return { sentences: kept, unsupported, dropped: Math.max(0, out.length - exports.MAX_CLAIMS) };
 }
-/** {@link readClaims}, flattened: the sentences, their contexts, and how many past the limit were not read. */
+/** {@link readClaims}, flattened: the sentences, their contexts and paragraphs, and how many past the limit were not read. */
 function splitClaims(text) {
     const r = readClaims(text);
     return {
@@ -349,6 +423,7 @@ function splitClaims(text) {
         full: r.sentences.map((s) => s.text),
         context: r.sentences.map((s) => s.context),
         paragraph: r.sentences.map((s) => s.paragraph),
+        gate: r.sentences.map((s) => s.gate),
         unsupported: r.unsupported,
         dropped: r.dropped,
     };
@@ -533,14 +608,17 @@ function citationHits(text, o) {
             seenSha.add(sha);
         }
     }
+    // A duplicate is the same run id cited for the same repository. A same id in ANOTHER repository
+    // is not a duplicate: it is a different (bogus) citation and must keep its own verdict (XC1 X9).
     const seenRun = new Set();
     const seenAttempt = new Set();
     for (const m of text.matchAll(RUN_URL)) {
         const runId = Number(m[3]);
         const sameRepo = String(m[1]).toLowerCase() === o.owner.toLowerCase() && String(m[2]).toLowerCase() === o.repo.toLowerCase();
         const at = m.index ?? 0;
-        hits.push({ template: 'gha.run_id', span: m[0].slice(0, m[0].length - (m[4] ?? '').length), at, runId, sameRepo, ...(seenRun.has(runId) ? { dup: true } : {}) });
-        seenRun.add(runId);
+        const key = `${runId}:${sameRepo}`;
+        hits.push({ template: 'gha.run_id', span: m[0].slice(0, m[0].length - (m[4] ?? '').length), at, runId, sameRepo, ...(seenRun.has(key) ? { dup: true } : {}) });
+        seenRun.add(key);
         if (m[5]) {
             hits.push({ template: 'gha.run_attempt', span: String(m[4]), at: at + m[0].length - String(m[4]).length, attempt: Number(m[5]), ...(seenAttempt.has(Number(m[5])) ? { dup: true } : {}) });
             seenAttempt.add(Number(m[5]));
@@ -549,8 +627,10 @@ function citationHits(text, o) {
     const prose = text.replace(/https?:\/\/\S+/g, (u) => ' '.repeat(u.length));
     for (const m of prose.matchAll(RUN_ID)) {
         const runId = Number(m[1]);
-        hits.push({ template: 'gha.run_id', span: m[0], at: m.index ?? 0, runId, sameRepo: null, ...(seenRun.has(runId) ? { dup: true } : {}) });
-        seenRun.add(runId);
+        // Prose names no repository: it repeats a link to this repository's run, or earlier prose.
+        const dup = seenRun.has(`${runId}:true`) || seenRun.has(`${runId}:null`);
+        hits.push({ template: 'gha.run_id', span: m[0], at: m.index ?? 0, runId, sameRepo: null, ...(dup ? { dup: true } : {}) });
+        seenRun.add(`${runId}:null`);
     }
     for (const m of prose.matchAll(ATTEMPT)) {
         const attempt = Number(m[1]);
@@ -843,13 +923,13 @@ function gateOf(s, context) {
  * workflow, or nothing in particular.
  */
 function mapClaims(text, o) {
-    const { clauses, full, context, paragraph, unsupported, dropped } = splitClaims(text);
+    const { clauses, full, context, paragraph, gate: readGate, unsupported, dropped } = splitClaims(text);
     const scanned = clauses.map((c, i) => scanSentence(c, full[i], o));
     // A refused construct anywhere means the reading of every line is in doubt, so nothing decides.
     const textGate = unsupported
         ? `This text uses Markdown this version does not read exactly: ${unsupported}. Every line is listed, and nothing in the text is decided.`
         : null;
-    const own = scanned.map((s, i) => textGate ?? gateOf(s, (context[i] ?? 'statement')));
+    const own = scanned.map((s, i) => textGate ?? readGate[i] ?? gateOf(s, (context[i] ?? 'statement')));
     // A verdict needs its whole PARAGRAPH read end to end, not just its sentence: "… (run N). ❌" or a
     // soft line break into "is false." sits in the same paragraph a reader sees (XC1 R1-a, R1-b).
     const gatedParagraphs = new Set();
