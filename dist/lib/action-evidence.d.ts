@@ -141,7 +141,9 @@ export declare const MAX_LINE = 200;
  *   - it starts with a letter (no list marker, heading, quote, number or indentation);
  *   - no Markdown or HTML character at all (see MARKUP);
  *   - one sentence (no ". ", "! " or "; " followed by more text);
- *   - at most MAX_LINE characters.
+ *   - at most MAX_LINE characters;
+ *   - its own paragraph: GitHub joins consecutive lines into one, so adjacent non-blank lines block
+ *     the text (mapClaims), and only a line of spaces or tabs counts as blank (readClaims).
  *
  * Anything else is listed, as written, and is NOT_CHECKED. A PR description in Markdown is therefore
  * not certified; write the claims as plain lines to have them checked.
@@ -162,6 +164,8 @@ export declare function readClaims(text: string): {
     lines: ReadLine[];
     dropped: number;
 };
+/** The shortest cited SHA that can SUPPORT a commit match: 12 hex characters, 48 bits (XC1 Z2). */
+export declare const MIN_SUPPORTING_SHA = 12;
 /**
  * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
  *

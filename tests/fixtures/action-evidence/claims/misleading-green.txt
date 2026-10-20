@@ -1,3 +1,5 @@
-All tests pass and all checks pass on 5cd68edc.
-Fixed in 5cd68edc.
+All tests pass and all checks pass on 5cd68edc782f.
+
+Fixed in 5cd68edc782f.
+
 It is production ready.

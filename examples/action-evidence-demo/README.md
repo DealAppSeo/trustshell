@@ -5,12 +5,12 @@ This folder is a **demo**, not an official TrustShell result. It shows what
 
 - **The run is real.** It is trustshell's own `check` workflow, run
   [39290226738](https://github.com/DealAppSeo/trustshell/actions/runs/39290226738), on commit
-  `5cd68edc`. It was read live from api.github.com with no account and no token (`fetchedAt` in
+  `5cd68edc782f`. It was read live from api.github.com with no account and no token (`fetchedAt` in
   `record.json`).
 - **The claims are illustrative.** `claims.txt` was written for this demo. It is not a real
   agent's message. It cites attempt 2 on purpose, so that all three statuses appear. It is written
-  as plain lines, one claim per line, because only plain claim lines are read: Markdown is listed
-  and decides nothing (see `docs/action-evidence.md`).
+  as plain lines, one claim per paragraph with a blank line between, because only plain claim lines
+  are read: Markdown is listed and decides nothing (see `docs/action-evidence.md`).
 
 | File | What it is |
 |---|---|
@@ -31,9 +31,9 @@ new hash. The statuses stay the same for as long as GitHub's answer for this run
 
 ## What the card says, claim by claim
 
-- **SUPPORTED:** `The check workflow passed`, `on 5cd68edc` and `run 39290226738`. The run
-  concluded success with its one job. The line names this workflow and cites this run, and every
-  line of the text was read end to end.
+- **SUPPORTED:** `The check workflow passed`, `on 5cd68edc782f` and `run 39290226738`. The run
+  concluded success with its one job. The line cites this run's id and a 12-character prefix of its
+  commit, and every line of the text was read end to end.
 - **CONTRADICTED:** `attempt 2`. GitHub's record for this run is attempt 1.
 - **NOT_CHECKED:**
   - `Done`.

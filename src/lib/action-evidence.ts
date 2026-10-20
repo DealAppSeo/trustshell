@@ -249,7 +249,9 @@ const MARKUP = new Set([...'<>`[]()|*_#~\\$&{}?']);
  *   - it starts with a letter (no list marker, heading, quote, number or indentation);
  *   - no Markdown or HTML character at all (see MARKUP);
  *   - one sentence (no ". ", "! " or "; " followed by more text);
- *   - at most MAX_LINE characters.
+ *   - at most MAX_LINE characters;
+ *   - its own paragraph: GitHub joins consecutive lines into one, so adjacent non-blank lines block
+ *     the text (mapClaims), and only a line of spaces or tabs counts as blank (readClaims).
  *
  * Anything else is listed, as written, and is NOT_CHECKED. A PR description in Markdown is therefore
  * not certified; write the claims as plain lines to have them checked.
@@ -284,7 +286,9 @@ export function readClaims(text: string): { lines: ReadLine[]; dropped: number }
   String(text ?? '')
     .split(/\r\n|\r|\n/)
     .forEach((raw, i) => {
-      if (!raw.trim()) return;
+      // Blank as CommonMark defines it: spaces and tabs only. A line of NBSP is not blank, so GitHub
+      // would join its neighbours into one paragraph; here it is a non-plain line and blocks (XC1 Y1).
+      if (/^[ 	]*$/.test(raw)) return;
       const problem = plainLineProblem(raw);
       all.push({ lineNo: i + 1, text: problem ? normalizeClaimText(raw) || '(invisible characters only)' : raw, problem });
     });
@@ -448,6 +452,8 @@ const EXCLUSIONS: Exclusion[] = [
 ];
 
 const HEX40 = /^[0-9a-f]{40}$/;
+/** The shortest cited SHA that can SUPPORT a commit match: 12 hex characters, 48 bits (XC1 Z2). */
+export const MIN_SUPPORTING_SHA = 12;
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'startup_failure']);
 
 /** First 12 hex characters of a SHA GitHub returned, or a placeholder. Never splices a non-hex string. */
@@ -551,7 +557,15 @@ function citationEntry(h: Hit, sentence: string, o: Observation): ClaimEntry {
     const scope = 'Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.';
     const fields = ['/observation/head_sha'];
     if (!HEX40.test(o.head_sha)) return { ...base, status: 'NOT_CHECKED', evidence_fields: [], scope, reason: 'GitHub returned no recognisable head_sha for this run.' };
-    if (o.head_sha.startsWith(t)) return { ...base, status: 'SUPPORTED', evidence_fields: fields, scope, reason: `The inspected run's head_sha ${shortSha(o.head_sha)} begins with ${t}.` };
+    if (o.head_sha.startsWith(t)) {
+      // A 7-character prefix is 28 bits: someone can grind a commit that shares it (XC1 Z2). A match
+      // that short is not evidence of WHICH commit was meant, so it supports nothing. A mismatch of
+      // any length still contradicts: no prefix of this run's SHA looks like that.
+      if (t.length < MIN_SUPPORTING_SHA) {
+        return { ...base, status: 'NOT_CHECKED', evidence_fields: [], scope, reason: `The cited ${t.length}-character SHA matches the inspected run's head_sha, but fewer than ${MIN_SUPPORTING_SHA} characters do not identify one commit. Cite at least ${MIN_SUPPORTING_SHA}.` };
+      }
+      return { ...base, status: 'SUPPORTED', evidence_fields: fields, scope, reason: `The inspected run's head_sha ${shortSha(o.head_sha)} begins with ${t}.` };
+    }
     return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `The claim cites commit ${t}; the inspected run is on ${shortSha(o.head_sha)}.` };
   }
   if (h.template === 'gha.run_id') {
@@ -622,15 +636,16 @@ function outcomeEntry(h: Hit, sentence: string, o: Observation, anchor: Anchor, 
   if (!anchor.commit) {
     return nc('Not compared: nothing ties this claim to the inspected run.', `This sentence cites neither this run's commit nor its run id, so nothing ties the claim to ${run}.`);
   }
-  // A commit has many workflow runs. Citing the commit identifies the commit, not the workflow:
-  // "the workflow passed on <sha>" could be an always-green labeler next to a red CI (XC1 F7).
-  if (h.template === 'gha.run_succeeded' && !anchor.run && !namesThis) {
+  // Only the run id identifies a workflow run. A commit has many runs ("the workflow passed on <sha>"
+  // could be an always-green labeler next to a red CI, XC1 F7), and a workflow's display name is not
+  // unique in a repository (XC1 Z1), so neither ties "this run succeeded" to this run.
+  if (h.template === 'gha.run_succeeded' && !anchor.run) {
     return nc(
-      'Not compared: the claim does not say which workflow.',
-      `A commit has many workflow runs. This sentence cites the commit but neither names this workflow nor cites run ${o.run_id}, so it is not compared.`,
+      'Not compared: the claim does not cite this run.',
+      `A commit has many workflow runs, and a workflow name can be shared, so only the run id identifies one. This line does not cite run ${o.run_id}, so it is not compared.`,
     );
   }
-  const how = anchor.run ? 'The sentence cites this run.' : h.template === 'gha.run_succeeded' ? 'The sentence names this workflow and cites this commit.' : 'The sentence cites this commit.';
+  const how = anchor.run ? 'The line cites this run.' : 'The line cites this commit.';
 
   if (h.template === 'ci.tests_pass') {
     const scope = 'Not decided by a run record: it says how jobs concluded, not which tests ran or how each one ended.';
@@ -718,7 +733,8 @@ interface SentenceHits {
  * "all checks", XC1 N7) and words like "or", "now" and "we" are NOT here: they change what a
  * sentence says, so they count as unread words.
  */
-const FILLER = new Set('a an and also as at be been by for from has have in is it of on that the this to was were with'.split(' '));
+// "that" is not filler: "That the check workflow passed …" is a clause, not an assertion (XC1 Y3).
+const FILLER = new Set('a an and also as at be been by for from has have in is it of on the this to was were with'.split(' '));
 
 /**
  * The only characters a leftover may hold and still say nothing: whitespace and plain ASCII
@@ -862,6 +878,13 @@ export function mapClaims(text: string, o: Observation): ClaimEntry[] {
     const s = scanned[i];
     const why = l.problem ?? (s ? lineGate(s) : null);
     if (why) blockers.push(`line ${l.lineNo}: ${why}`);
+  });
+  // Two non-blank lines with no blank line between them render as ONE paragraph on GitHub: "Locally"
+  // above a claim, or "locally." below it, changes what the claim says (XC1 Y1). Each claim must be
+  // its own paragraph, so adjacent lines block every verdict.
+  lines.forEach((l, i) => {
+    const prev = lines[i - 1];
+    if (prev && l.lineNo === prev.lineNo + 1) blockers.push(`lines ${prev.lineNo} and ${l.lineNo} are not separated by a blank line, so they render as one paragraph`);
   });
   if (dropped > 0) blockers.push(`${dropped} lines after the first ${MAX_CLAIMS} were not read`);
   const block = blockers.length

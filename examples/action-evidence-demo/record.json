@@ -59,7 +59,7 @@
           }
         ]
       },
-      "fetchedAt": "2026-10-20T01:38:14.722Z",
+      "fetchedAt": "2026-10-20T01:55:03.948Z",
       "freshness": "LIVE"
     },
     "claims": [
@@ -74,7 +74,7 @@
       },
       {
         "claim": "The check workflow passed",
-        "sentence": "The check workflow passed on 5cd68edc, run 39290226738.",
+        "sentence": "The check workflow passed on 5cd68edc782f, run 39290226738.",
         "template": "gha.run_succeeded",
         "status": "SUPPORTED",
         "evidence_fields": [
@@ -84,22 +84,22 @@
           "/observation/jobs"
         ],
         "scope": "Whether workflow run 39290226738 (attempt 1, commit 5cd68edc782f) concluded success with every job read. Not which tests it ran, not any other workflow or check on the commit, and not whether the change works.",
-        "reason": "GitHub reports conclusion \"success\" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. The sentence cites this run."
+        "reason": "GitHub reports conclusion \"success\" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. The line cites this run."
       },
       {
-        "claim": "on 5cd68edc",
-        "sentence": "The check workflow passed on 5cd68edc, run 39290226738.",
+        "claim": "on 5cd68edc782f",
+        "sentence": "The check workflow passed on 5cd68edc782f, run 39290226738.",
         "template": "git.head_sha",
         "status": "SUPPORTED",
         "evidence_fields": [
           "/observation/head_sha"
         ],
         "scope": "Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.",
-        "reason": "The inspected run's head_sha 5cd68edc782f begins with 5cd68edc."
+        "reason": "The inspected run's head_sha 5cd68edc782f begins with 5cd68edc782f."
       },
       {
         "claim": "run 39290226738",
-        "sentence": "The check workflow passed on 5cd68edc, run 39290226738.",
+        "sentence": "The check workflow passed on 5cd68edc782f, run 39290226738.",
         "template": "gha.run_id",
         "status": "SUPPORTED",
         "evidence_fields": [
@@ -178,6 +178,6 @@
   "digest": {
     "algorithm": "sha-256",
     "canonicalization": "RFC 8785",
-    "value": "7bc3043571ab2c96ec2d2b32a2439ffff4cafca61fd60a8b4d5eaf4900470d29"
+    "value": "276b1184bb66f86d2b1f67d883b9c341ebf2ec689671253dd6a428cee70102fe"
   }
 }

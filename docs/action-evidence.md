@@ -75,7 +75,13 @@ lines**. A line is plain when it:
 - holds none of `< > \` [ ] ( ) | * _ # ~ \ $ & { } ?`, that is, no Markdown, HTML, escape, math or
   entity syntax, and no question mark;
 - is one sentence (no `. `, `! ` or `; ` followed by more text);
-- is at most 200 characters.
+- is at most 200 characters;
+- is its own paragraph: a blank line before and after it. GitHub joins consecutive lines into one
+  paragraph, so "Locally" on the line above a claim, or "locally." on the line below, changes what
+  the claim says. Two non-blank lines with no blank line between them block the text.
+
+A line holding only spaces or tabs is blank. A line holding a no-break space, or any other
+invisible character, is not blank: it is a non-ASCII line, and it blocks the text.
 
 Any other line is listed exactly as written (cleaned of control and invisible characters for
 display) as `excluded.markup`, NOT_CHECKED, with its line number and the reason.
@@ -93,8 +99,9 @@ does not render Markdown at all. A PR description written in Markdown comes out 
 whole. To have claims checked, write them as plain lines:
 
 ```
-The check workflow passed on 5cd68edc, run 39290226738, attempt 1.
-All tests pass on 5cd68edc.
+The check workflow passed on 5cd68edc782f, run 39290226738, attempt 1.
+
+All tests pass on 5cd68edc782f.
 ```
 
 **Within a readable text:**
@@ -113,7 +120,7 @@ All tests pass on 5cd68edc.
 
 | Template | Reads | SUPPORTED when | Otherwise |
 |---|---|---|---|
-| `git.head_sha` | "commit abc1234", "on abc1234", "fixed in abc1234", `` `abc1234` ``, a `/commit/` link | `head_sha` begins with the cited SHA | CONTRADICTED |
+| `git.head_sha` | "commit abc1234abcd", "on abc1234abcd", "fixed in abc1234abcd", a `/commit/` link | `head_sha` begins with the cited SHA **and** the citation is at least 12 hex characters | CONTRADICTED when `head_sha` does not begin with it, at any length. NOT_CHECKED when it matches with fewer than 12: a 7-character prefix is 28 bits, and a commit with that prefix can be made on purpose |
 | `gha.run_id` | "run 123456", a run link | same run id and repository | CONTRADICTED |
 | `gha.run_attempt` | "attempt N", `/attempts/N` in a run link | `run_attempt` equals N | CONTRADICTED |
 
@@ -122,7 +129,7 @@ does not match:
 
 | Template | Reads | SUPPORTED | CONTRADICTED | NOT_CHECKED |
 |---|---|---|---|---|
-| `gha.run_succeeded` | "the workflow passed", "the check workflow succeeded", "run 123456 passed" | conclusion `success`, every job read, at least one job ran, all on this commit and attempt; **and** the line cites the run id, or names this workflow (display name or file stem) and cites the commit | the run finished with another conclusion (same identification required) | the run is unfinished, or has no readable conclusion; jobs missing, unreadable, truncated, all skipped, or on another commit (or with no commit); a success run with a failed job; a commit cited without naming the workflow (a commit has many workflow runs); another workflow named |
+| `gha.run_succeeded` | "the workflow passed", "the check workflow succeeded", "run 123456 passed" | conclusion `success`, every job read, at least one job ran, all on this commit and attempt; **and** the line cites the run id (a workflow name, if the line gives one, must be this workflow's) | the run finished with another conclusion (same identification required) | the run is unfinished, or has no readable conclusion; jobs missing, unreadable, truncated, all skipped, or on another commit (or with no commit); a success run with a failed job; a commit cited without the run id, even with the workflow named (a commit has many workflow runs, and two workflow files can share one display name); another workflow named |
 | `ci.all_checks_pass` | "all checks pass", "CI is green", "everything is green" | **never**: one run is not every check | the run concluded `failure`, `timed_out` or `startup_failure`, or one of its jobs did | otherwise, including every green run |
 | `ci.tests_pass` | "all tests pass", "the unit tests are green" | **never**: a run record does not say which tests ran | **never**: a failed run does not say a test failed | always |
 | `ci.build_unscoped` | "the build passes" | never: names no workflow or check | never | always |

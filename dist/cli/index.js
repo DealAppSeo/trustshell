@@ -159,10 +159,11 @@ COMMANDS
                              EXIT 0 COMPLETE, 1 FAILED/INCONSISTENT, 3 INCONCLUSIVE.
   check <runUrl> --claims "<text>"
   check <runUrl> --claims-file <path>
-                             Map what an agent said (a "done" message, a PR description) onto
-                             what that run reports. Each claim is SUPPORTED, CONTRADICTED or
-                             NOT_CHECKED by a fixed template: no model, no backend, api.github.com
-                             only. --claims is always text; only --claims-file reads a file.
+                             Map what an agent said onto what that run reports. Only plain
+                             lines are read, one claim per paragraph; Markdown is listed, not
+                             read, and leaves the text NOT_CHECKED. Each claim is SUPPORTED,
+                             CONTRADICTED or NOT_CHECKED by a fixed template: no model, no
+                             backend, api.github.com only. --claims is always text; only --claims-file reads a file.
                              Prints a Markdown card; --json prints the record
                              (dev.trustshell.action-evidence/0.1-draft) and its RFC 8785 SHA-256.
       [--out <dir>]          Also write record.json, card.md and card.html into <dir>.

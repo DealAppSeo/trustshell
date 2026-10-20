@@ -6,7 +6,7 @@
 - **Workflow** `check` · `.github/workflows/check.yml`
 - **GitHub reports** status `completed` · conclusion `success` · check verdict **COMPLETE**
 - **Jobs** 1 of 1 read (HTTP 200): 1 success
-- **Observed** 2026-10-20T01:38:14.722Z from api.github.com (LIVE at that time)
+- **Observed** 2026-10-20T01:55:03.948Z from api.github.com (LIVE at that time)
 - **Evidence class** PLATFORM_REPORTED: GitHub describing its own run. A platform record, not an independent grade.
 
 ### Claims: 3 supported · 1 contradicted · 5 not checked
@@ -18,19 +18,19 @@
   - **Scope** Attempt identity only: whether the attempt this claim cites is the one GitHub's record describes. Not what that attempt shows.
   - **Fields** `/observation/run_attempt`
 - **SUPPORTED** `The check workflow passed`
-  - **In** `The check workflow passed on 5cd68edc, run 39290226738.`
+  - **In** `The check workflow passed on 5cd68edc782f, run 39290226738.`
   - **Template** `gha.run_succeeded`
-  - **Why** GitHub reports conclusion "success" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. The sentence cites this run.
+  - **Why** GitHub reports conclusion "success" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. The line cites this run.
   - **Scope** Whether workflow run 39290226738 (attempt 1, commit 5cd68edc782f) concluded success with every job read. Not which tests it ran, not any other workflow or check on the commit, and not whether the change works.
   - **Fields** `/observation/status`, `/observation/conclusion`, `/observation/check/verdict`, `/observation/jobs`
-- **SUPPORTED** `on 5cd68edc`
-  - **In** `The check workflow passed on 5cd68edc, run 39290226738.`
+- **SUPPORTED** `on 5cd68edc782f`
+  - **In** `The check workflow passed on 5cd68edc782f, run 39290226738.`
   - **Template** `git.head_sha`
-  - **Why** The inspected run's head_sha 5cd68edc782f begins with 5cd68edc.
+  - **Why** The inspected run's head_sha 5cd68edc782f begins with 5cd68edc782f.
   - **Scope** Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.
   - **Fields** `/observation/head_sha`
 - **SUPPORTED** `run 39290226738`
-  - **In** `The check workflow passed on 5cd68edc, run 39290226738.`
+  - **In** `The check workflow passed on 5cd68edc782f, run 39290226738.`
   - **Template** `gha.run_id`
   - **Why** The cited run is the inspected run, 39290226738.
   - **Scope** Run identity only: whether the run this claim cites is the inspected run. Not what the run shows.
@@ -60,4 +60,4 @@
 
 ---
 
-Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `7bc3043571ab2c96ec2d2b32a2439ffff4cafca61fd60a8b4d5eaf4900470d29` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded
+Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `276b1184bb66f86d2b1f67d883b9c341ebf2ec689671253dd6a428cee70102fe` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded
