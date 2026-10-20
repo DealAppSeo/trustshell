@@ -179,6 +179,12 @@ That is the guided form tested in the CLAIMS-v1 experiment. It changes two thing
 - the change does not edit its own workflows: a file in `.github/workflows` or `.github/actions`, or one renamed out of them;
 - the base branch has no rule this does not read (required workflows, code scanning results, deployments).
 
+**A run claim follows the same rule.** In guided mode, "The check workflow passed." about attempt 2
+or later is NOT_CHECKED when a check on the commit failed on an earlier attempt. A run that passed
+only when re-run is not read as having passed. Without `--guided`, the record holds only the latest
+attempt, and a run claim is judged on that attempt alone. Whether that should change is an open
+decision.
+
 **It is CONTRADICTED when any check failed.** Anything else is NOT_CHECKED, and the reason says which
 condition stopped it. A queued suite with no runs, from an installed app that never acts on the
 repository, is ignored: every commit we measured had eight or more.

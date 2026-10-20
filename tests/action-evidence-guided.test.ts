@@ -118,6 +118,22 @@ describe('guided mode decides "All checks pass." against every check on the comm
     expect(c.reason).toMatch(/failed on an earlier attempt and passed when re-run/);
   });
 
+  it('stage 3: a run that passed only when re-run is not read as passed (PR #560, attempt 2 after a failed attempt 1)', async () => {
+    const c = only((await inspect(PR560(), 'The check workflow passed.')).record, 'gha.run_succeeded')[0]!;
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/is a re-run, and 1 check on this commit failed on an earlier attempt/);
+  });
+
+  it('a re-run with no failed earlier attempt still passes (derived: PR #583 run and jobs set to attempt 2)', async () => {
+    const fx = evidence('guided-pr583-run.json', 'guided-pr583-checks.json', (r) => {
+      for (const [k, v] of Object.entries(r)) {
+        if (/\/actions\/runs\/\d+$/.test(k)) v.body.run_attempt = 2;
+        if (/\/actions\/runs\/\d+\/jobs/.test(k)) for (const j of v.body.jobs) j.run_attempt = 2;
+      }
+    });
+    expect(only((await inspect(fx, 'The check workflow passed.')).record, 'gha.run_succeeded')[0]!.status).toBe('SUPPORTED');
+  });
+
   it('the run claim is still about the one run: "The check workflow passed." is SUPPORTED on green, CONTRADICTED on red', async () => {
     expect(only((await inspect(GREEN(), 'The check workflow passed.')).record, 'gha.run_succeeded')[0]!.status).toBe('SUPPORTED');
     expect(only((await inspect(RED(), 'The check workflow passed.')).record, 'gha.run_succeeded')[0]!.status).toBe('CONTRADICTED');

@@ -715,6 +715,17 @@ function outcomeEntry(h: Hit, sentence: string, o: Observation, anchor: Anchor, 
     if (o.conclusion !== 'success') {
       return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${run} finished with conclusion "${word(o.conclusion)}", not "success".` };
     }
+    // Guided mode reads earlier attempts, so a run that passed only when re-run is visible here, and
+    // is treated as "all checks pass" treats it: not a pass (CLAIMS-v1 stage 3, the item that made
+    // the held-back test NO-GO). Without --guided the record holds only the latest attempt.
+    if (checks && checks.head_sha === o.head_sha && (o.run_attempt ?? 1) > 1 && checks.superseded_failures !== 0) {
+      return nc(
+        scope,
+        checks.superseded_failures === null
+          ? `${run} is a re-run, and earlier attempts of the checks on this commit were not read.`
+          : `${run} is a re-run, and ${plural(checks.superseded_failures, 'check')} on this commit failed on an earlier attempt. A run that passed only when re-run is not read as having passed.`,
+      );
+    }
     if (jobsUnread) return nc(scope, `GitHub reports conclusion "success", but ${jobsUnread}.`);
     if (notSucceeded) return nc(scope, `GitHub reports conclusion "success" for the run, but ${notSucceeded} of ${jobs.length} jobs concluded something else: the record disagrees with itself.`);
     if (ran === 0) return nc(scope, 'Every job was skipped. A run in which no job ran is not a run that succeeded at anything.');
