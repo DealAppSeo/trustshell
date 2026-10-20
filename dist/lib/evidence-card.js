@@ -80,10 +80,9 @@ function jobSummary(r) {
     return line;
 }
 const BASE_HOW = {
-    associated: 'the pull requests GitHub associates with this commit',
-    head: "the pull request found by the run's head branch (a fork)",
-    push: 'the branch this push ran on',
-    unresolved: 'nothing: the pull request could not be found, so required checks are unknown',
+    pr: "the run's own pull request (found by its head branch), plus any GitHub associates with the commit",
+    push: 'the branch this push ran on, plus any pull requests GitHub associates with the commit',
+    unresolved: "nothing certain: the run's own context could not be found, so required checks are unknown",
 };
 /** Guided mode: every check on the commit, as counts. Check names are third-party text and stay out. */
 function commitChecksSummary(r) {

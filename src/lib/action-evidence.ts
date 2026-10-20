@@ -988,6 +988,8 @@ function allChecksEntry(base: Pick<ClaimEntry, 'claim' | 'sentence' | 'template'
   if (c.superseded_failures === null) return nc(`Earlier attempts of the checks on commit ${sha} were not read.`);
   if (c.superseded_failures) return nc(`${plural(c.superseded_failures, 'check')} on commit ${sha} failed on an earlier attempt and passed when re-run.`);
   if (c.workflows_changed) return nc(`The change edits its own workflows (.github/workflows), so these checks ran the claimant's code.`);
+  // Production only, stricter than the evaluated candidate (XC1 R8b): unknown is not "no".
+  if (c.workflows_changed === null) return nc(`The change's files could not all be read, so whether it edits its own workflows is unknown.`);
   return { ...base, status: 'SUPPORTED', evidence_fields: fields, scope, reason: `All ${n} checks GitHub reported on commit ${sha} passed, including every required check. ${how}` };
 }
 
