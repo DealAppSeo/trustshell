@@ -140,6 +140,65 @@ does not match:
 absence of bugs, readiness, whether a fix works, local runs, test counts, coverage, deployment,
 performance, review.
 
+## Guided mode: `--guided` (EXPERIMENTAL)
+
+```
+trustshell check <runUrl> --claims "All checks pass." --guided
+```
+
+Guided mode is for the case where **whoever runs the check names the run** and types the claims.
+That is the guided form tested in the CLAIMS-v1 experiment. It changes two things, and nothing else:
+
+1. **A claim line that cites nothing is read as being about this run.** It is bound to the run, but
+   only when nothing in the text points elsewhere:
+   - every citation in the text is SUPPORTED (no other commit, run or attempt);
+   - no line names something a run cannot show (a local run, a deployment, "production ready");
+   - every line was read.
+
+   Otherwise, nothing is bound.
+2. **Every check on the run's commit is read**, so "All checks pass." / "CI is green." can be
+   decided. That covers:
+   - the latest run of each check run, and every earlier attempt;
+   - commit statuses and check suites;
+   - the base branch's required checks (rulesets);
+   - whether the change edits `.github/workflows`.
+
+   The base branch and the change come from the pull request whose head is that commit. A commit
+   with none, such as a push, uses the default branch and the commit's own files.
+
+**"All checks pass." is SUPPORTED only when every one of these holds:**
+- the whole list was returned;
+- every check run concluded `success` and every status is `success` (skipped, neutral and cancelled checks did not pass);
+- no GitHub Actions suite, and no suite that has runs, is still pending;
+- every required check reported and passed;
+- the inspected run concluded success, with each of its jobs in the list;
+- no check failed on an earlier attempt and was re-run until green;
+- the change does not edit its own workflows.
+
+**It is CONTRADICTED when any check failed.** Anything else is NOT_CHECKED, and the reason says which
+condition stopped it. A queued suite with no runs, from an installed app that never acts on the
+repository, is ignored: every commit we measured had eight or more.
+
+**Known consequence.** In a repository whose required checks run only on pull requests, a push
+commit never has them. So "All checks pass." about a push is NOT_CHECKED (for example `5cd68edc` in
+the tests).
+
+**What it costs.** More requests to api.github.com, and nothing else: about eight for a commit with
+one pull request. Anonymous reads are limited to 60 an hour; `GITHUB_TOKEN`, if set, only raises
+that, exactly as for `check`. `OFFLINE=1` still sends nothing.
+
+**The record.** `observation.commit_checks` holds what was read, with every API path and its HTTP
+status. A record is guided exactly when that member is present, so its claims can be re-derived
+from the record alone. `does_not_prove` drops "only this one workflow run was read", and adds that
+binding is an interpretation of the text and that checks can change after they are read. The card
+shows "Guided mode (experimental)" and counts the checks, but does not print their names.
+
+**How it was tested before it existed here.** The same logic ran in shadow (CLAIMS-v1):
+- **Dev set:** 30 real PRs of this repository. Guided "All checks pass." went from 0/30 decided to
+  21 SUPPORTED, 1 CONTRADICTED (a real failed check) and 8 NOT_CHECKED, each for a named reason.
+- **Adversarial:** 0 false approvals on XC1's 61-input corpus and its 21 stage-2 items.
+- **The pre-registered held-back evaluation** is reported in the PR that adds this flag.
+
 ## Untrusted input
 
 - **Linear time.** Every pattern runs over text a stranger wrote. CodeQL flagged

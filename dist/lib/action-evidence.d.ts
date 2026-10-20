@@ -35,6 +35,7 @@
  *    spliced into generated sentences. Those sentences interpolate only digits and hex.
  */
 import { type CheckJob, type CheckResult, type CheckVerdict } from './check';
+import { type CommitChecks } from './commit-checks';
 export declare const ACTION_EVIDENCE_SCHEMA: "dev.trustshell.action-evidence/0.1-draft";
 export type ClaimStatus = 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
 export type TemplateId = 'gha.run_succeeded' | 'ci.all_checks_pass' | 'ci.tests_pass' | 'ci.build_unscoped' | 'git.head_sha' | 'gha.run_id' | 'gha.run_attempt' | 'excluded.completion' | 'excluded.security' | 'excluded.no_bugs' | 'excluded.readiness' | 'excluded.fix' | 'excluded.local_run' | 'excluded.test_count' | 'excluded.coverage' | 'excluded.deployment' | 'excluded.performance' | 'excluded.review' | 'unmapped' | 'excluded.markup' | 'truncated';
@@ -66,6 +67,11 @@ export interface Observation {
     };
     fetchedAt: string;
     freshness: 'LIVE';
+    /**
+     * Guided mode only (`--guided`, EXPERIMENTAL): every check GitHub reported for `head_sha`. Its
+     * presence is what makes a record guided: claims are then mapped with binding and these checks.
+     */
+    commit_checks?: CommitChecks;
 }
 export interface ClaimEntry {
     /** One atomic claim: the exact span a template matched, normalised (see {@link normalizeClaimText}). */
@@ -101,6 +107,11 @@ export interface RecordDigest {
 /** SHA-256 over the RFC 8785 canonical form of the record. Detects later edits; says nothing about authorship. */
 export declare function digestRecord(record: ActionEvidenceRecord): RecordDigest;
 export declare const RECORD_DOES_NOT_PROVE: string[];
+/**
+ * Guided mode (`--guided`, EXPERIMENTAL) reads every check on the commit, so the "only this one run"
+ * line no longer holds; what guided mode adds to the list instead.
+ */
+export declare const GUIDED_DOES_NOT_PROVE: string[];
 /** A clause longer than this is stored cut, with an ellipsis. Templates still read all of it. */
 export declare const MAX_CLAIM_TEXT = 300;
 /** Sentences after this many are not read one by one; a single NOT_CHECKED entry says how many. */
@@ -167,6 +178,16 @@ export declare function readClaims(text: string): {
 /** The shortest cited SHA that can SUPPORT a commit match: 12 hex characters, 48 bits (XC1 Z2). */
 export declare const MIN_SUPPORTING_SHA = 12;
 /**
+ * Options for {@link mapClaims}. Both are guided mode (`--guided`, EXPERIMENTAL); {@link buildRecord}
+ * sets them from the observation, so a record can always be re-derived from its own contents.
+ */
+export interface MapOptions {
+    /** A line that cites nothing is about the inspected run, when nothing in the text points elsewhere. */
+    bindToRun?: boolean;
+    /** Every check on the run's head commit, for ci.all_checks_pass. */
+    commitChecks?: CommitChecks;
+}
+/**
  * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
  *
  * DENY BY DEFAULT, over the WHOLE input. A verdict is given only when every line is a plain claim
@@ -175,7 +196,7 @@ export declare const MIN_SUPPORTING_SHA = 12;
  * nothing here can tell what that line does to the others. Everything is still listed. Within a
  * readable text, each line's own citations decide which run it is about (see {@link Anchor}).
  */
-export declare function mapClaims(text: string, o: Observation): ClaimEntry[];
+export declare function mapClaims(text: string, o: Observation, opts?: MapOptions): ClaimEntry[];
 /** Build the observation from `check`'s result. PURE. */
 export declare function observationFromCheck(r: CheckResult, fetchedAt: string): Observation;
 /** Assemble the record. PURE. */
@@ -194,6 +215,7 @@ export declare function urlAttempt(url: string): number | null;
 export declare function inspectRunClaims(url: string, claimText: string, opts?: {
     env?: Record<string, string | undefined>;
     now?: () => Date;
+    guided?: boolean;
 }): Promise<{
     record: ActionEvidenceRecord;
     digest: RecordDigest;

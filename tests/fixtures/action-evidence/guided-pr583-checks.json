@@ -1,0 +1,509 @@
+{
+  "_provenance": {
+    "recorded_at": "2026-10-20T05:41:41.077Z",
+    "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
+    "commit": "DealAppSeo/trustshell@55a1e72033f9ad4ff7c0280500c82bacb2e93dcf",
+    "note": "head of PR #583 at its approved commit",
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, statuses, conclusions, refs, file names, rules); no value changed"
+  },
+  "responses": {
+    "/repos/DealAppSeo/trustshell/commits/55a1e72033f9ad4ff7c0280500c82bacb2e93dcf/check-runs?filter=latest&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 12,
+        "check_runs": [
+          {
+            "id": 118423178746,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118421827523,
+            "name": "Strix Security Review",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118421799669,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416937509,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416680455,
+            "name": "CodeQL",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416415705,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416326695,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416326618,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416325926,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416325748,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416325680,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416315053,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/55a1e72033f9ad4ff7c0280500c82bacb2e93dcf/check-runs?filter=all&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 13,
+        "check_runs": [
+          {
+            "id": 118423178746,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118421827523,
+            "name": "Strix Security Review",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118421799669,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416937509,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416680455,
+            "name": "CodeQL",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416415705,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416326695,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416326618,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416325926,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416325748,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416325680,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416322854,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118416315053,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/55a1e72033f9ad4ff7c0280500c82bacb2e93dcf/status?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "state": "success",
+        "total_count": 1,
+        "statuses": [
+          {
+            "context": "Vercel",
+            "state": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/55a1e72033f9ad4ff7c0280500c82bacb2e93dcf/check-suites?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 20,
+        "check_suites": [
+          {
+            "app": {
+              "slug": "vercel"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "cursor"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "cloudflare-workers-and-pages"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "supabase"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "railway-app"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "render"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "claude"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "figma"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "strix-security"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "greptile-apps"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-advanced-security"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/55a1e72033f9ad4ff7c0280500c82bacb2e93dcf/pulls?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "number": 583,
+          "head": {
+            "sha": "55a1e72033f9ad4ff7c0280500c82bacb2e93dcf"
+          },
+          "base": {
+            "ref": "main"
+          }
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/pulls/583/files?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "filename": "CHANGELOG.md"
+        },
+        {
+          "filename": "dist/cli/index.d.ts"
+        },
+        {
+          "filename": "dist/cli/index.js"
+        },
+        {
+          "filename": "dist/lib/action-evidence.d.ts"
+        },
+        {
+          "filename": "dist/lib/action-evidence.js"
+        },
+        {
+          "filename": "dist/lib/check.d.ts"
+        },
+        {
+          "filename": "dist/lib/check.js"
+        },
+        {
+          "filename": "dist/lib/evidence-card.d.ts"
+        },
+        {
+          "filename": "dist/lib/evidence-card.js"
+        },
+        {
+          "filename": "dist/lib/jcs.d.ts"
+        },
+        {
+          "filename": "dist/lib/jcs.js"
+        },
+        {
+          "filename": "docs/action-evidence.md"
+        },
+        {
+          "filename": "examples/action-evidence-demo/README.md"
+        },
+        {
+          "filename": "examples/action-evidence-demo/card.html"
+        },
+        {
+          "filename": "examples/action-evidence-demo/card.md"
+        },
+        {
+          "filename": "examples/action-evidence-demo/claims.txt"
+        },
+        {
+          "filename": "examples/action-evidence-demo/record.json"
+        },
+        {
+          "filename": "scripts/check-egress.cjs"
+        },
+        {
+          "filename": "src/cli/index.ts"
+        },
+        {
+          "filename": "src/lib/action-evidence.ts"
+        },
+        {
+          "filename": "src/lib/check.ts"
+        },
+        {
+          "filename": "src/lib/evidence-card.ts"
+        },
+        {
+          "filename": "src/lib/jcs.ts"
+        },
+        {
+          "filename": "tests/action-evidence.test.ts"
+        },
+        {
+          "filename": "tests/cli-check-claims.test.ts"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/claims/misleading-green.txt"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/claims/narrow-true.txt"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/claims/overclaiming-pr.md"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/claims/wrong-attempt.txt"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/claims/wrong-sha.txt"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/failed-run.json"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/green-run.json"
+        },
+        {
+          "filename": "tests/fixtures/action-evidence/no-jobs.json"
+        },
+        {
+          "filename": "tests/fixtures/jcs/rfc8785-3.2.2-input.json"
+        },
+        {
+          "filename": "tests/fixtures/jcs/rfc8785-3.2.3-canonical.json"
+        },
+        {
+          "filename": "tests/jcs.test.ts"
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/rules/branches/main?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": false,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "Strix Security Review",
+                "integration_id": 2749804
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

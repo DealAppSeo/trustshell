@@ -1,0 +1,240 @@
+{
+  "_provenance": {
+    "recorded_at": "2026-10-20T05:40:58.700Z",
+    "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
+    "commit": "DealAppSeo/trustshell@a00e7f85813b07fba15616f8b1cf24353f97290d",
+    "note": "head of PR #359",
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, statuses, conclusions, refs, file names, rules); no value changed"
+  },
+  "responses": {
+    "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/check-runs?filter=latest&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 3,
+        "check_runs": [
+          {
+            "id": 110614896931,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 110614769273,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 110614768854,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/check-runs?filter=all&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 5,
+        "check_runs": [
+          {
+            "id": 110614896931,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 110614785689,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 110614769273,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 110614768854,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 110614731582,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/status?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "state": "success",
+        "total_count": 1,
+        "statuses": [
+          {
+            "context": "Vercel",
+            "state": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/check-suites?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 12,
+        "check_suites": [
+          {
+            "app": {
+              "slug": "vercel"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "cursor"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "cloudflare-workers-and-pages"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "supabase"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "railway-app"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "render"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "claude"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "figma"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "strix-security"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "greptile-apps"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/pulls?per_page=100&page=1": {
+      "status": 200,
+      "body": []
+    },
+    "/repos/DealAppSeo/trustshell": {
+      "status": 200,
+      "body": {
+        "default_branch": "main"
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d": {
+      "status": 200,
+      "body": {
+        "sha": "a00e7f85813b07fba15616f8b1cf24353f97290d",
+        "files": [
+          {
+            "filename": "src/memory/redact.ts"
+          },
+          {
+            "filename": "tests/outbound-xoxr-silence.test.ts"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/rules/branches/main?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": false,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "Strix Security Review",
+                "integration_id": 2749804
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
