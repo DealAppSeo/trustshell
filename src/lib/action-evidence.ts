@@ -207,6 +207,7 @@ export const GUIDED_DOES_NOT_PROVE: string[] = [
   'Checks that do not report to GitHub (a local run, another CI service) are not seen. "All checks pass" means every check GitHub knows about, not every test that exists.',
   'The required checks are those of the base branch inferred for this commit (see observation.commit_checks.base), read as of now, not as of when the change was made.',
   '"All checks pass" (every observed check, and every required one) and "all required checks pass" (only the required ones) are different claims, and neither means the task is complete.',
+  'The checks and rules are those of the repository whose run was named. A run in a fork is judged by the fork’s own checks and branch rules, not by the upstream repository’s.',
   'Checks are attached to the commit named here (for a pull request, its head). For a pull request, GitHub tests a merge of that head into the base branch as it was then; the commit that later lands on the base branch has checks of its own, which were not read.',
 ];
 
