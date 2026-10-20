@@ -21,7 +21,17 @@ import { githubGet } from './check';
 
 export interface CommitChecks {
   head_sha: string;
+  /** When the first read started; `retrieved_at` is when the last one ended (XC1 F5). */
+  started_at: string;
   retrieved_at: string;
+  /**
+   * How the base branch (whose required checks apply) and the change's files were found (XC1 F1/F2):
+   *   associated  the pull requests GitHub associates with this commit (their bases, their whole diffs)
+   *   head        a pull-request run whose PR GitHub does not associate (a fork), found by its head branch
+   *   push        a push or other non-PR run: the branch it ran on, and this commit's own diff
+   *   unresolved  a pull-request run whose PR could not be found: required checks and files are unknown
+   */
+  base: { how: 'associated' | 'head' | 'push' | 'unresolved'; branches: string[] };
   /** The latest run of each check run, with the id of the app that ran it. */
   check_runs: { total_count: number; items: { name: string; status: string; conclusion: string | null; app_id: number | null }[] };
   statuses: { total_count: number; items: { context: string; state: string }[] };
@@ -50,19 +60,27 @@ const MAX_FILE_PAGES = 30; // GitHub stops listing a PR's files at 3,000.
 
 type Get = (path: string) => Promise<{ ok: boolean; status: number; body: any }>;
 
-/** Every page of a list that reports `total_count`. null if any page fails or the list never completes. */
+/**
+ * Every page of a list that reports `total_count`. null if any page fails. Items are de-duplicated by
+ * `id`, so an item that moves between pages while they are read is counted once, and a list is only
+ * complete when the distinct items reach `total_count` (XC1 F3).
+ */
 async function list(get: Get, path: string, key: string): Promise<{ total_count: number; items: any[] } | null> {
-  const items: any[] = [];
+  const byId = new Map<unknown, any>();
+  const noId: any[] = [];
   let total = 0;
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const r = await get(`${path}${path.includes('?') ? '&' : '?'}per_page=100&page=${page}`);
     const chunk = r.ok && Array.isArray(r.body?.[key]) ? (r.body[key] as any[]) : null;
     if (!chunk || typeof r.body.total_count !== 'number') return null;
     total = r.body.total_count;
-    items.push(...chunk);
-    if (items.length >= total || chunk.length < 100) return { total_count: total, items };
+    for (const x of chunk) {
+      if (typeof x?.id === 'number') byId.set(x.id, x);
+      else noId.push(x);
+    }
+    if (byId.size + noId.length >= total || chunk.length < 100) break;
   }
-  return { total_count: total, items };
+  return { total_count: total, items: [...byId.values(), ...noId] };
 }
 
 /** Every page of a list returned as a bare array. null if any page fails or the cap is reached. */
@@ -88,8 +106,10 @@ export async function fetchCommitChecks(
   sha: string,
   env: Record<string, string | undefined> = process.env,
   now: () => Date = () => new Date(),
+  run: { event: string | null; head_branch: string | null; head_owner: string | null } = { event: null, head_branch: null, head_owner: null },
 ): Promise<CommitChecks> {
   if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('fetchCommitChecks needs a full 40-hex SHA');
+  const started_at = now().toISOString();
   const sources: { path: string; status: number }[] = [];
   const get: Get = async (path) => {
     const r = await githubGet(path, env);
@@ -105,26 +125,51 @@ export async function fetchCommitChecks(
   const history = await array(get, `${commit}/statuses`, MAX_PAGES);
   const suites = await list(get, `${commit}/check-suites`, 'check_suites');
 
-  // The base branch and the change: from the pull requests whose head IS this commit; a commit with
-  // none (a push) is judged against the default branch and its own diff.
+  // The base branch (whose required checks apply) and the change's files (XC1 F1/F2):
+  //   1. every pull request GitHub associates with this commit, whether or not its head has moved on:
+  //      their bases, and their whole diffs (stricter than this commit's own);
+  //   2. a pull-request run GitHub associates with no PR (a fork's head): the PR found by its head
+  //      branch, confirmed by head SHA; if none is found, unresolved, and so NOT_CHECKED;
+  //   3. a push or other non-PR run: the branch it ran on (else the default branch), and this
+  //      commit's own diff. A push of several commits shows only the last one's files.
   let bases: string[] | null = null;
   let files: string[] | null = null;
-  const pulls = await array(get, `${commit}/pulls`, 1);
-  const own = (pulls ?? []).filter((p) => p?.head?.sha === sha && typeof p?.base?.ref === 'string' && typeof p?.number === 'number');
-  if (pulls !== null && own.length > 0) {
-    bases = [...new Set(own.map((p) => p.base.ref as string))];
-    files = [];
-    for (const p of own) {
+  let how: CommitChecks['base']['how'] = 'unresolved';
+  const prFiles = async (prs: any[]): Promise<string[] | null> => {
+    const out: string[] = [];
+    for (const p of prs) {
       const f = await array(get, `${at}/pulls/${p.number}/files`, MAX_FILE_PAGES);
-      if (f === null) {
-        files = null;
-        break;
+      if (f === null) return null;
+      for (const x of f) out.push(String(x?.filename ?? ''), String(x?.previous_filename ?? ''));
+    }
+    return out;
+  };
+  const usable = (p: any) => typeof p?.base?.ref === 'string' && typeof p?.number === 'number';
+  const isPrRun = run.event === 'pull_request' || run.event === 'pull_request_target' || run.event === 'merge_group';
+  const pulls = await array(get, `${commit}/pulls`, 1);
+  const associated = (pulls ?? []).filter(usable);
+  if (pulls !== null && associated.length > 0) {
+    how = 'associated';
+    bases = [...new Set(associated.map((p) => p.base.ref as string))];
+    files = await prFiles(associated);
+  } else if (pulls !== null && isPrRun) {
+    if (run.head_owner && run.head_branch) {
+      const head = encodeURIComponent(`${run.head_owner}:${run.head_branch}`);
+      const found = await array(get, `${at}/pulls?head=${head}&state=all`, 1);
+      const mine = (found ?? []).filter((p) => usable(p) && p?.head?.sha === sha);
+      if (mine.length > 0) {
+        how = 'head';
+        bases = [...new Set(mine.map((p) => p.base.ref as string))];
+        files = await prFiles(mine);
       }
-      for (const x of f) files.push(String(x?.filename ?? ''), String(x?.previous_filename ?? ''));
     }
   } else if (pulls !== null) {
-    const r = await get(at);
-    bases = r.ok && typeof r.body?.default_branch === 'string' ? [r.body.default_branch] : null;
+    how = 'push';
+    if (run.head_branch) bases = [run.head_branch];
+    else {
+      const r = await get(at);
+      bases = r.ok && typeof r.body?.default_branch === 'string' ? [r.body.default_branch] : null;
+    }
     const c = await get(commit);
     files = c.ok && Array.isArray(c.body?.files) && c.body.files.length < 300 ? c.body.files.flatMap((x: any) => [String(x?.filename ?? ''), String(x?.previous_filename ?? '')]) : null;
   }
@@ -150,7 +195,8 @@ export async function fetchCommitChecks(
     const classic = branch.body?.protection?.required_status_checks;
     if (branch.body?.protected === true && classic) {
       const pinned: any[] = Array.isArray(classic.checks) ? classic.checks : [];
-      for (const c of pinned) if (typeof c?.context === 'string') required.push({ context: c.context, app_id: typeof c?.app_id === 'number' ? c.app_id : null });
+      // app_id -1 is classic protection's "any source" (XC1 F4).
+      for (const c of pinned) if (typeof c?.context === 'string') required.push({ context: c.context, app_id: typeof c?.app_id === 'number' && c.app_id > 0 ? c.app_id : null });
       for (const c of Array.isArray(classic.contexts) ? classic.contexts : []) {
         if (typeof c === 'string' && !pinned.some((x) => x?.context === c)) required.push({ context: c, app_id: null });
       }
@@ -169,7 +215,9 @@ export async function fetchCommitChecks(
   const reruns = complete(all) && complete(latest) ? all!.items.filter((c) => !latestIds.has(c?.id) && FAILED.has(c?.conclusion)).length : null;
   return {
     head_sha: sha,
+    started_at,
     retrieved_at: now().toISOString(),
+    base: { how, branches: bases ?? [] },
     check_runs: {
       total_count: latest?.total_count ?? 1, // unread: claims one more run than it lists, so it is never complete
       items: (latest?.items ?? []).map((c) => ({

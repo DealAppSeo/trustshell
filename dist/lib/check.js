@@ -223,6 +223,9 @@ async function runCheck(url, env = process.env) {
             workflow_path: String(run.body.path ?? ''),
             status: String(run.body.status ?? ''),
             conclusion: typeof run.body.conclusion === 'string' ? run.body.conclusion : null,
+            event: typeof run.body.event === 'string' ? run.body.event : null,
+            head_branch: typeof run.body.head_branch === 'string' ? run.body.head_branch : null,
+            head_owner: typeof run.body.head_repository?.owner?.login === 'string' ? run.body.head_repository.owner.login : null,
         },
         jobs: {
             http_status: jobs.status,

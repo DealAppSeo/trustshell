@@ -51,6 +51,10 @@ export interface CheckResult {
     workflow_path: string;
     status: string;
     conclusion: string | null;
+    /** What triggered the run (`push`, `pull_request`, …), and the branch and owner it ran on. */
+    event: string | null;
+    head_branch: string | null;
+    head_owner: string | null;
   };
   /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
   jobs: {
@@ -278,6 +282,9 @@ export async function runCheck(url: string, env: Record<string, string | undefin
       workflow_path: String(run.body.path ?? ''),
       status: String(run.body.status ?? ''),
       conclusion: typeof run.body.conclusion === 'string' ? run.body.conclusion : null,
+      event: typeof run.body.event === 'string' ? run.body.event : null,
+      head_branch: typeof run.body.head_branch === 'string' ? run.body.head_branch : null,
+      head_owner: typeof run.body.head_repository?.owner?.login === 'string' ? run.body.head_repository.owner.login : null,
     },
     jobs: {
       http_status: jobs.status,

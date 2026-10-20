@@ -79,6 +79,12 @@ function jobSummary(r) {
     }
     return line;
 }
+const BASE_HOW = {
+    associated: 'the pull requests GitHub associates with this commit',
+    head: "the pull request found by the run's head branch (a fork)",
+    push: 'the branch this push ran on',
+    unresolved: 'nothing: the pull request could not be found, so required checks are unknown',
+};
 /** Guided mode: every check on the commit, as counts. Check names are third-party text and stay out. */
 function commitChecksSummary(r) {
     const c = r.observation.commit_checks;
@@ -102,9 +108,14 @@ function commitChecksSummary(r) {
         [strong('Guided mode (experimental).'), text(' A claim line that cites nothing was read as being about this run.')],
         [
             strong('Every check on the commit'),
-            text(` read ${c.retrieved_at}: ${c.check_runs.items.length} of ${c.check_runs.total_count} check runs (${tally(c.check_runs.items.map((x) => x.conclusion ?? x.status))})` +
+            text(` read ${c.started_at} to ${c.retrieved_at}: ${c.check_runs.items.length} of ${c.check_runs.total_count} check runs (${tally(c.check_runs.items.map((x) => x.conclusion ?? x.status))})` +
                 ` · ${c.statuses.items.length} of ${c.statuses.total_count} statuses (${tally(c.statuses.items.map((x) => x.state))})` +
                 ` · required checks: ${req} · failed on an earlier attempt: ${rerun} · the change edits its own workflows: ${wf}`),
+        ],
+        [
+            strong('Base branch'),
+            text(` (whose required checks apply), found from ${BASE_HOW[c.base.how]}: `),
+            ...(c.base.branches.length ? c.base.branches.slice(0, 5).flatMap((b, i) => [...(i ? [text(', ')] : []), code(b)]) : [text('none')]),
         ],
     ];
 }

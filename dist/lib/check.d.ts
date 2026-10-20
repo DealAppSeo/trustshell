@@ -52,6 +52,10 @@ export interface CheckResult {
         workflow_path: string;
         status: string;
         conclusion: string | null;
+        /** What triggered the run (`push`, `pull_request`, …), and the branch and owner it ran on. */
+        event: string | null;
+        head_branch: string | null;
+        head_owner: string | null;
     };
     /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
     jobs: {

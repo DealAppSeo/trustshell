@@ -59,11 +59,12 @@ exports.ACTION_EVIDENCE_SCHEMA = 'dev.trustshell.action-evidence/0.1-draft';
 function digestRecord(record) {
     return { algorithm: 'sha-256', canonicalization: 'RFC 8785', value: (0, jcs_1.jcsSha256)(record) };
 }
+const ONLY_THIS_RUN = 'Only this one workflow run was read. Other workflows, check suites and status checks on the same commit were not.';
 exports.RECORD_DOES_NOT_PROVE = [
     ...check_1.DOES_NOT_PROVE,
     'SUPPORTED means the platform record matches the narrow scope written next to the claim. It is not a finding that the claim is true in any broader sense.',
     'A successful workflow run shows that run succeeded. It does not show which tests ran, that all tests or all checks passed, or that a change works.',
-    'Only this one workflow run was read. Other workflows, check suites and status checks on the same commit were not.',
+    ONLY_THIS_RUN,
     'Every observed fact is GitHub reporting on its own run (PLATFORM_REPORTED). Nothing was re-run or independently observed.',
     'Broader security: not checked. A CI conclusion is not a security review.',
     'The record is not signed. Its SHA-256 shows whether the record changed after it was made, not who made it.',
@@ -73,10 +74,11 @@ exports.RECORD_DOES_NOT_PROVE = [
  * line no longer holds; what guided mode adds to the list instead.
  */
 exports.GUIDED_DOES_NOT_PROVE = [
-    ...exports.RECORD_DOES_NOT_PROVE.filter((line) => !line.startsWith('Only this one workflow run was read.')),
+    ...exports.RECORD_DOES_NOT_PROVE.filter((line) => line !== ONLY_THIS_RUN),
     'Guided mode (experimental): a line that cites nothing was read as being about the inspected run, because whoever ran this named that run. That is an interpretation of the text, not something GitHub reports.',
     'Every check on the commit was read as GitHub reported it at the time of reading. A re-run, or a check that reports later, can change the answer.',
     'Checks that do not report to GitHub (a local run, another CI service) are not seen. "All checks pass" means every check GitHub knows about, not every test that exists.',
+    'The required checks are those of the base branch inferred for this commit (see observation.commit_checks.base), read as of now, not as of when the change was made.',
 ];
 // ── normalisation and splitting ─────────────────────────────────────────────────────────────────
 /** A clause longer than this is stored cut, with an ellipsis. Templates still read all of it. */
@@ -760,7 +762,7 @@ function allChecksEntry(base, o, c, how) {
     const sts = c.statuses.items;
     const n = runs.length + sts.length;
     const fields = ['/observation/commit_checks'];
-    const scope = `Every check GitHub reported for commit ${sha} at ${c.retrieved_at}: the latest run of each check run, each commit status, and the base branch's required checks. ` +
+    const scope = `Every check GitHub reported for commit ${sha}, read between ${c.started_at} and ${c.retrieved_at}: the latest run of each check run, each commit status, and the required checks of the base branch inferred for it. ` +
         `Not which tests ran, not checks that do not report to GitHub, and not whether the change works.` +
         (c.workflows_changed === null ? ' Whether the change edited its own workflows was not checked.' : '');
     // A suite that completed with no check run can still have failed: a workflow that never started a
@@ -1025,8 +1027,11 @@ async function inspectRunClaims(url, claimText, opts = {}) {
     const observation = observationFromCheck(result, fetchedAt);
     // Guided mode reads every check on the run's commit. Only a full SHA is asked about: a run whose
     // head_sha is malformed has no commit to read, and stays an ordinary (unguided) record.
-    if (opts.guided && /^[0-9a-f]{40}$/.test(observation.head_sha)) {
-        observation.commit_checks = await (0, commit_checks_1.fetchCommitChecks)(observation.owner, observation.repo, observation.head_sha, env, now);
+    if (opts.guided) {
+        // Refused rather than silently dropped (XC1 F6): guided mode reads a commit, and needs its SHA.
+        if (!/^[0-9a-f]{40}$/.test(observation.head_sha))
+            throw new check_1.CheckError('--guided needs the run\'s full commit SHA, and GitHub returned none; nothing was recorded.');
+        observation.commit_checks = await (0, commit_checks_1.fetchCommitChecks)(observation.owner, observation.repo, observation.head_sha, env, now, result.run);
     }
     const record = buildRecord(observation, claimText);
     return { record, digest: digestRecord(record) };

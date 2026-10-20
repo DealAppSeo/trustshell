@@ -259,6 +259,79 @@ describe('XC1 stage-2 re-check shapes, each derived from the PR #583 fixture (al
   });
 });
 
+describe('XC1 review of #586: base branch, pagination, any-source checks, refusal (derived from PR #583)', () => {
+  type R = Fixture['responses'];
+  const SHA = '55a1e72033f9ad4ff7c0280500c82bacb2e93dcf';
+  const key = (part: string, r: R) => Object.keys(r).find((k) => k.includes(part))!;
+  const run = (alter: (r: R) => void, text = 'All checks pass.') => inspect(evidence('guided-pr583-run.json', 'guided-pr583-checks.json', alter), text);
+  const headQuery = (r: R) => {
+    const runBody = r[key('/actions/runs/39357728240', r)]!.body;
+    const head = encodeURIComponent(`${runBody.head_repository.owner.login}:${runBody.head_branch}`);
+    return `/repos/DealAppSeo/trustshell/pulls?head=${head}&state=all&per_page=100&page=1`;
+  };
+
+  it('F1: a pull-request run GitHub associates with no PR (a fork) is resolved by its head branch', async () => {
+    const { record } = await run((r) => {
+      r[key(`/commits/${SHA}/pulls`, r)]!.body = [];
+      r[headQuery(r)] = { status: 200, body: [{ number: 583, head: { sha: SHA }, base: { ref: 'main' } }] };
+    });
+    expect(record.observation.commit_checks?.base).toEqual({ how: 'head', branches: ['main'] });
+    expect(allChecks(record).status).toBe('SUPPORTED');
+  });
+
+  it('F1: when that PR cannot be found, required checks are unknown and nothing is SUPPORTED', async () => {
+    const { record } = await run((r) => {
+      r[key(`/commits/${SHA}/pulls`, r)]!.body = [];
+      r[headQuery(r)] = { status: 200, body: [] };
+    });
+    expect(record.observation.commit_checks?.base.how).toBe('unresolved');
+    expect(allChecks(record).status).toBe('NOT_CHECKED');
+  });
+
+  it('F2: an associated PR whose head has moved on is still read, with its whole diff', async () => {
+    const { record } = await run((r) => {
+      r[key(`/commits/${SHA}/pulls`, r)]!.body = [{ number: 583, head: { sha: 'f'.repeat(40) }, base: { ref: 'main' } }];
+      r[key('/pulls/583/files', r)]!.body.push({ filename: '.github/workflows/check.yml' });
+    });
+    expect(record.observation.commit_checks?.base.how).toBe('associated');
+    expect(allChecks(record).reason).toMatch(/edits its own workflows/);
+  });
+
+  it('F3: a check run repeated across pages is counted once, so a list that never reached total_count stays incomplete', async () => {
+    const { record } = await run((r) => {
+      for (const part of ['filter=latest', 'filter=all']) {
+        const v = r[key(part, r)]!;
+        const filler = Array.from({ length: 100 - v.body.check_runs.length }, (_, i) => ({ id: 900000 + i, name: `filler-${i}`, status: 'completed', conclusion: 'success', app: { id: 15368, slug: 'github-actions' } }));
+        v.body.check_runs = [...v.body.check_runs, ...filler];
+        v.body.total_count = 100;
+      }
+      const latest = key('filter=latest', r);
+      r[latest]!.body.total_count = 101;
+      r[latest.replace(/&page=1$/, '&page=2')] = { status: 200, body: { total_count: 101, check_runs: [r[latest]!.body.check_runs[0]] } };
+    });
+    const c = allChecks(record);
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/more checks .* than it returned/);
+  });
+
+  it('F4: classic protection’s app_id -1 means any source, so a passing status of that name meets it', async () => {
+    const { record } = await run((r) => {
+      const b = r[Object.keys(r).find((k) => k.endsWith('/branches/main'))!]!.body;
+      b.protected = true;
+      b.protection = { enabled: true, required_status_checks: { enforcement_level: 'everyone', contexts: ['Vercel'], checks: [{ context: 'Vercel', app_id: -1 }] } };
+    });
+    expect(record.observation.commit_checks?.required).toContainEqual({ context: 'Vercel', app_id: null });
+    expect(allChecks(record).status).toBe('SUPPORTED');
+  });
+
+  it('F6: --guided on a run with no full commit SHA is refused, not silently unguided', async () => {
+    const fx = evidence('guided-pr583-run.json', 'guided-pr583-checks.json', (r) => {
+      r[key('/actions/runs/39357728240', r)]!.body.head_sha = 'abc123';
+    });
+    await expect(inspect(fx, 'All checks pass.')).rejects.toThrow(/--guided needs the run's full commit SHA/);
+  });
+});
+
 describe('the record and the card in guided mode', () => {
   it('holds the checks in the observation, swaps the "only this one run" caveat, and re-derives from itself', async () => {
     const { record, digest } = await inspect(PR583(), 'All checks pass.');
