@@ -280,10 +280,10 @@ COMMANDS
       [--out <dir>]          Also write record.json, card.md and card.html into <dir>.
       [--demo]               Mark both cards DEMO.
       [--guided]             EXPERIMENTAL. A claim line that cites nothing is read as about this
-                             run, and every check on the run's commit is read (check runs, re-runs,
-                             statuses, suites, the base branch's required checks, and whether the
-                             change edits its own workflows), so "All checks pass." can be decided.
-                             More requests to api.github.com, and nothing else.
+                             run, and every check on the run's commit is read: check runs and
+                             re-runs, commit statuses, suites, the base branch's required checks,
+                             and whether the change edits its own workflows. So "All checks pass."
+                             can be decided. More requests to api.github.com, and nothing else.
                              EXIT 0 every claim SUPPORTED on a COMPLETE run, 1 a claim CONTRADICTED
                              or the run FAILED/INCONSISTENT, 3 anything NOT_CHECKED.
   check "<sentence>"         Label one sentence pass / veto / not-checked — the same label the
