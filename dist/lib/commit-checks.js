@@ -70,7 +70,11 @@ async function array(get, path, maxPages) {
  * `null` (or an empty, incomplete list), which makes the claim NOT_CHECKED. The network error of an
  * unreachable API does propagate, as it does for `check`.
  */
-async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () => new Date(), run = { event: null, head_branch: null, head_owner: null }) {
+async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () => new Date(), run = {
+    event: null,
+    head_branch: null,
+    head_owner: null,
+}) {
     if (!/^[0-9a-f]{40}$/.test(sha))
         throw new Error('fetchCommitChecks needs a full 40-hex SHA');
     const started_at = now().toISOString();
@@ -113,19 +117,24 @@ async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () =
         resolved = false;
     const associated = (pulls ?? []).filter(usable);
     addPrs(associated);
-    const repoOwner = owner.toLowerCase();
-    const foreignHead = run.head_owner !== null && run.head_owner.toLowerCase() !== repoOwner;
-    const prLike = (run.event ?? '').startsWith('pull_request') || run.event === 'merge_group' || foreignHead;
+    // Same repository or not, from the API's own full names (XC1 N2: a renamed or transferred
+    // repository still reports its run's head as itself). An unknown head repository (a deleted fork)
+    // is never treated as the same repository (XC1 N3).
+    const repoName = (run.repo_full_name ?? `${owner}/${repo}`).toLowerCase();
+    const headName = run.head_full_name ? run.head_full_name.toLowerCase() : null;
+    const sameRepo = headName !== null && headName === repoName;
+    const prLike = (run.event ?? '').startsWith('pull_request') || run.event === 'merge_group' || !sameRepo;
     let how = 'unresolved';
     if (prLike) {
         const found = run.head_owner && run.head_branch ? await array(get, `${at}/pulls?head=${encodeURIComponent(`${run.head_owner}:${run.head_branch}`)}&state=all`, 1) : null;
-        // The run's own PR: its head label matches, and either its head is this commit or GitHub
-        // associates this commit with that same PR (an older commit of it, whose head has moved on).
+        // Every PR from the run's head label counts, whatever its state or head (stricter; XC1 N1). The
+        // context is resolved only when at least one of them is confirmed as this run's: its head is this
+        // commit, or GitHub associates this commit with that same PR (an older commit of it).
         const ids = new Set(associated.map((p) => p.number));
-        const mine = (found ?? []).filter((p) => usable(p) && (p?.head?.sha === sha || ids.has(p.number)));
-        if (mine.length > 0) {
+        const labelled = (found ?? []).filter(usable);
+        if (labelled.some((p) => p?.head?.sha === sha || ids.has(p.number))) {
             how = 'pr';
-            addPrs(mine);
+            addPrs(labelled);
         }
         else
             resolved = false;

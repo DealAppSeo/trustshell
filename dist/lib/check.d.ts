@@ -56,6 +56,9 @@ export interface CheckResult {
         event: string | null;
         head_branch: string | null;
         head_owner: string | null;
+        /** `owner/name` of the run's repository and of its head repository, both as the API reports them now. */
+        repo_full_name: string | null;
+        head_full_name: string | null;
     };
     /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
     jobs: {
