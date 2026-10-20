@@ -362,6 +362,56 @@ describe('XC1 review of #586: base branch, pagination, any-source checks, refusa
   });
 });
 
+describe('"all required checks pass" is a different claim from "all checks pass"', () => {
+  const req = (r: ActionEvidenceRecord) => only(r, 'ci.required_checks_pass')[0]!;
+  const REQ = 'All required checks pass.';
+
+  it('is read as one claim, never also as "all checks pass"', async () => {
+    const { record } = await inspect(PR583(), REQ);
+    expect(record.claims.filter((c) => OUTCOMES.has(c.template) || c.template === 'ci.required_checks_pass').map((c) => c.template)).toEqual(['ci.required_checks_pass']);
+  });
+
+  it('SUPPORTED when every required check passed (PR #583)', async () => {
+    const c = req((await inspect(PR583(), REQ)).record);
+    expect(c.status).toBe('SUPPORTED');
+    expect(c.reason).toMatch(/Other checks on the commit were not judged/);
+    expect(c.scope).toMatch(/not whether the change works or the task is done/);
+  });
+
+  it('on a commit where a non-required check failed, the two claims differ', async () => {
+    const both = (await inspect(RED(), PARA(REQ, 'All checks pass.'))).record;
+    expect(allChecks(both).status).toBe('CONTRADICTED');
+    expect(req(both).status).toBe('SUPPORTED');
+  });
+
+  it('NOT_CHECKED when a required check never reported (PR #359): absence is not failure', async () => {
+    const c = req((await inspect(PR359(), REQ)).record);
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/never reported/);
+  });
+
+  it('CONTRADICTED when a required check failed (derived: the Strix run set to failure)', async () => {
+    const fx = evidence('guided-pr583-run.json', 'guided-pr583-checks.json', (r) => {
+      for (const [k, v] of Object.entries(r)) if (k.includes('/check-runs')) for (const x of v.body.check_runs) if (x.name === 'Strix Security Review') x.conclusion = 'failure';
+    });
+    expect(req((await inspect(fx, REQ)).record).status).toBe('CONTRADICTED');
+  });
+
+  it('NOT_CHECKED when the base branch requires nothing (derived: no rules)', async () => {
+    const fx = evidence('guided-pr583-run.json', 'guided-pr583-checks.json', (r) => {
+      for (const [k, v] of Object.entries(r)) if (k.includes('/rules/')) v.body = [];
+    });
+    expect(req((await inspect(fx, REQ)).record).reason).toMatch(/requires no checks/);
+  });
+
+  it('without --guided it is never decided', async () => {
+    expect(req((await inspect(PR583(), REQ, false)).record).status).toBe('NOT_CHECKED');
+    const cited = req((await inspect(PR583(), 'All required checks pass in run 39357728240.', false)).record);
+    expect(cited.status).toBe('NOT_CHECKED');
+    expect(cited.reason).toMatch(/required checks were not read/);
+  });
+});
+
 describe('the record and the card in guided mode', () => {
   it('holds the checks in the observation, swaps the "only this one run" caveat, and re-derives from itself', async () => {
     const { record, digest } = await inspect(PR583(), 'All checks pass.');

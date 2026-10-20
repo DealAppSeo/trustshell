@@ -615,9 +615,14 @@ describe('template: ci.all_checks_pass (every check: one run can refute, never e
   );
 
   it('"lint checks" or "my checks" are not all checks, so a red run decides nothing', () => {
-    for (const t of ['The lint checks pass on b8a17cfba1d3.', 'My checks pass on b8a17cfba1d3.', 'All required checks pass on b8a17cfba1d3.']) {
+    for (const t of ['The lint checks pass on b8a17cfba1d3.', 'My checks pass on b8a17cfba1d3.']) {
       expect(map1(t, FAILED).filter((e) => e.status !== 'NOT_CHECKED')).toEqual([]);
     }
+  });
+
+  it('"all required checks pass" is its own claim, never decided by one run (only --guided reads the required checks)', () => {
+    const c = map1('All required checks pass on b8a17cfba1d3.', FAILED);
+    expect(c.filter((e) => e.template.startsWith('ci.')).map((e) => `${e.template}:${e.status}`)).toEqual(['ci.required_checks_pass:NOT_CHECKED']);
   });
 });
 
