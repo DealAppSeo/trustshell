@@ -151,7 +151,8 @@ function fakeGithubFetch(url) {
     return { ok: true, status: 200, text: async () => JSON.stringify({ label: 'not-checked', latency_ms: 1 }) };
   }
   const body = u.includes('/jobs')
-    ? { total_count: 1, jobs: [{ name: 'job-0', conclusion: 'success' }] }
+    ? // head_sha matches the run's: `check --claims` will not tie a job without one to the commit.
+      { total_count: 1, jobs: [{ name: 'job-0', conclusion: 'success', head_sha: 'abc123def4567890' }] }
     : {
         conclusion: 'success',
         status: 'completed',
@@ -497,6 +498,27 @@ function main() {
     if (elseRan.status === 0) {
       problems.push(`${cmd} exited 0 when pointed at ${CHECK_URL_ELSEWHERE} — must fail if pointed anywhere else`);
     }
+
+    // `check <url> --claims`: the same row, the same one host. Claim mapping is templates over
+    // text, so it adds no destination; this run is what holds that to be true.
+    if (cmd === 'check') {
+      const claimsLog = join(cwd, 'claims.log');
+      writeFileSync(claimsLog, '');
+      // Cites the run, so the one outcome claim is tied to it and can be SUPPORTED (exit 0).
+      const claimsRan = spawnCli(compiled.cli, [cmd, CHECK_URL_GITHUB, '--claims', `The workflow passed: ${CHECK_URL_GITHUB}`, '--json'], {
+        cwd,
+        allow: ALLOW_HOST,
+        logPath: claimsLog,
+      });
+      const claimsForeign = claimsRan.log.filter((e) => e.host && e.host !== ALLOW_HOST);
+      const claimsBody = parseJson(claimsRan.stdout);
+      if (claimsRan.error) problems.push(`check --claims: spawn failed: ${claimsRan.error.message}`);
+      else if (claimsForeign.length) problems.push(`check --claims reached a host other than ${ALLOW_HOST}: ${claimsForeign.map((e) => e.host).join(', ')}`);
+      else if (!claimsRan.log.some((e) => e.host === ALLOW_HOST)) problems.push(`check --claims produced a record without reaching ${ALLOW_HOST}`);
+      else if (!claimsBody || !claimsBody.record || claimsBody.record.schema !== 'dev.trustshell.action-evidence/0.1-draft') {
+        problems.push(`check --claims produced ${JSON.stringify(claimsRan.stdout.trim().slice(0, 120))} (exit ${claimsRan.status}), expected an action-evidence record`);
+      } else if (claimsRan.status !== 0) problems.push(`check --claims supported its one claim but exited ${claimsRan.status}, expected 0`);
+    }
   }
 
   // `check "<sentence>"`: the published row says the backend's /api/v1/classify and nothing else.
@@ -531,6 +553,7 @@ function main() {
   for (const [what, args] of [
     ['check "<sentence>"', ['check', SENTENCE]],
     ['check <github run url>', ['check', CHECK_URL_GITHUB]],
+    ['check <github run url> --claims', ['check', CHECK_URL_GITHUB, '--claims', 'All tests pass.']],
     ['verify "<claim>"', ['verify', SENTENCE]],
   ]) {
     const cwd = mkdtempSync(join(tmpdir(), 'ts-egress-offline-'));
@@ -553,7 +576,7 @@ function main() {
 
   console.log('VERIFIED');
   console.log(
-    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com; check "<sentence>" reached only /api/v1/classify, once, with a pasted email removed; with OFFLINE=1, check (both forms) and verify made zero network calls and exited 2 NOT_CHECKED`,
+    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com; check <url> --claims reached only ${ALLOW_HOST}; check "<sentence>" reached only /api/v1/classify, once, with a pasted email removed; with OFFLINE=1, check (both forms) and verify made zero network calls and exited 2 NOT_CHECKED, and so did check <url> --claims`,
   );
   process.exit(EXIT_VERIFIED);
 }

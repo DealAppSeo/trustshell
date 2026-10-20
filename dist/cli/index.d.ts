@@ -103,6 +103,14 @@ export interface ParsedArgs {
     id?: string;
     /** quarantine release: `hal` runs the classify check (network); otherwise --source grounds it locally. */
     check?: string;
+    /** check <runUrl>: the claim text to map onto the run. Always text, never a path. */
+    claims?: string;
+    /** check <runUrl>: a file holding the claim text. The only way a file is read. */
+    claimsFile?: string;
+    /** check <runUrl> --claims: also write record.json, card.md and card.html to this directory. */
+    out?: string;
+    /** check <runUrl> --claims: mark the cards DEMO. */
+    demo?: boolean;
     /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
     learnArgv?: string[];
     /** profile: the parsed subcommand (show / add / set / remove / interview). */
@@ -200,6 +208,17 @@ export declare function formatQuarantineList(rows: readonly QuarantineListItem[]
 /** `quarantine explain <id>`: the whole taint record, one field per line. */
 export declare function formatQuarantineRecord(r: QuarantineRecord): string;
 export declare function run(args: ParsedArgs, client: TrustShell, io?: CliIO): Promise<number>;
+/** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
+export declare const MAX_CLAIMS_FILE_BYTES: number;
+/**
+ * `--claims-file <path>`: the only way claim text comes from a file.
+ *
+ * WHY TWO FLAGS. This was `--claims <file|text>`: an existing file was read, anything else was text.
+ * Automation passing untrusted text through it (`--claims "$PR_BODY"`) then let the author name a
+ * path instead (`../../.env`, `~/.npmrc`), and the file's sentences landed on a card meant to be
+ * posted (XC1 S2). A file is now read only when the caller says so; `--claims` is always text.
+ */
+export declare function readClaimsFile(path: string, fs?: Pick<typeof import('node:fs'), 'statSync' | 'readFileSync'>): string;
 /**
  * `trustshell check "<sentence>"` — the sentence form. Calls {@link classifyClaim}, the
  * SAME function the MCP `check_claim` tool calls, so the two cannot drift.
