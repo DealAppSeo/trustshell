@@ -39,6 +39,7 @@ exports.cleanCodePoints = cleanCodePoints;
 exports.wellFormed = wellFormed;
 exports.terminalSafeJson = terminalSafeJson;
 exports.normalizeClaimText = normalizeClaimText;
+exports.readClaims = readClaims;
 exports.splitClaims = splitClaims;
 exports.mapClaims = mapClaims;
 exports.observationFromCheck = observationFromCheck;
@@ -156,206 +157,200 @@ function normalizeClaimText(s) {
     const cleaned = canonicalText(String(s ?? ''), false).replace(/\s+/g, ' ').trim();
     return cleaned.length > exports.MAX_CLAIM_TEXT ? cleaned.slice(0, exports.MAX_CLAIM_TEXT - 1) + '…' : cleaned;
 }
-/** Any letter or digit, in any script. A sentence without one is punctuation, not a claim. */
-const HAS_WORD = /[\p{L}\p{N}]/u;
-/** Columns of leading whitespace, a tab counted as 4. */
-function indentColumns(ws) {
-    let n = 0;
-    for (const ch of ws)
-        n += ch === '\t' ? 4 - (n % 4) : 1;
-    return n;
-}
 /**
- * The code spans of one line, as [start, end) ranges, per CommonMark: a run of N backticks opens a
- * span that the next run of exactly N closes; a run with no such partner is literal. Linear: the
- * partner of every run is found in one backward pass.
+ * The first construct in the text that falls outside the plain subset this reader models exactly,
+ * as a short phrase, or null. Checked per line, on the canonical text; each test is linear.
  */
-function codeSpanRanges(line) {
-    const runs = [];
-    for (let i = 0; i < line.length;) {
-        if (line[i] !== '`') {
-            i += 1;
-            continue;
+function unsupportedConstruct(line, inParagraph) {
+    if (/^ *\t/.test(line))
+        return 'a tab in indentation';
+    if (line.includes('<'))
+        return 'HTML or an angle-bracket link';
+    if (line.includes('|'))
+        return 'a table or a pipe';
+    if (line.includes('!['))
+        return 'an image';
+    if (line.includes('[^'))
+        return 'a footnote';
+    if (/^ {0,3}\[[^\]]*\]:/.test(line))
+        return 'a link reference definition';
+    if (/^ {0,3}>/.test(line))
+        return 'a blockquote';
+    if (/^[ =\-*_]+$/.test(line) && /[=\-*_]/.test(line))
+        return 'a heading underline or a horizontal rule';
+    if (/^ {4}/.test(line) && !inParagraph)
+        return 'an indented code block';
+    // A link title is not shown on the page: `[x](url "title")`. Both pointers only move forward, so
+    // a line of many "](" is still one pass.
+    let close = -1;
+    let gap = -1;
+    const GAP = /[\s"']/g;
+    for (let at = line.indexOf(']('); at >= 0; at = line.indexOf('](', at + 2)) {
+        if (close < at + 2) {
+            close = line.indexOf(')', at + 2);
+            if (close < 0)
+                break;
         }
-        let j = i;
-        while (j < line.length && line[j] === '`')
-            j += 1;
-        runs.push({ pos: i, len: j - i });
-        i = j;
-    }
-    const partner = new Array(runs.length).fill(-1);
-    const nextOfLen = new Map();
-    for (let k = runs.length - 1; k >= 0; k -= 1) {
-        partner[k] = nextOfLen.get(runs[k].len) ?? -1;
-        nextOfLen.set(runs[k].len, k);
-    }
-    const out = [];
-    for (let k = 0; k < runs.length;) {
-        const p = partner[k];
-        if (p < 0) {
-            k += 1;
-            continue;
+        if (gap < at + 2) {
+            GAP.lastIndex = at + 2;
+            const m = GAP.exec(line);
+            gap = m ? m.index : line.length;
         }
-        const close = runs[p];
-        out.push([runs[k].pos, close.pos + close.len]);
-        k = p + 1;
+        if (gap < close)
+            return 'a link with a title';
     }
-    return out;
+    return null;
 }
 /**
- * Remove inline `<!-- … -->` comments that sit outside code spans: GitHub does not show them, so a
- * claim inside one was made by nobody a reader can see (XC1 N9). A `<!--` inside a code span is
- * shown, so it is text (XC1 H2). An opener whose `-->` is on a later line starts a comment that
- * runs to it; one with no `-->` anywhere is text.
- */
-function stripInlineComments(line, closesLater) {
-    const spans = codeSpanRanges(line);
-    let si = 0;
-    const inSpan = (p) => {
-        while (si < spans.length && spans[si][1] <= p)
-            si += 1;
-        return si < spans.length && spans[si][0] <= p;
-    };
-    let out = '';
-    let i = 0;
-    for (;;) {
-        let open = line.indexOf('<!--', i);
-        while (open >= 0 && inSpan(open))
-            open = line.indexOf('<!--', open + 1);
-        if (open < 0)
-            break;
-        const close = line.indexOf('-->', open + 4);
-        if (close < 0) {
-            if (closesLater)
-                return { text: out + line.slice(i, open), opensComment: true };
-            break;
-        }
-        out += line.slice(i, open) + ' ';
-        i = close + 3;
-    }
-    return { text: out + line.slice(i), opensComment: false };
-}
-/**
- * Split free text into claim sentences, each with the context it sits in. PURE, one pass, linear.
+ * Read free text the way GitHub renders it, within a deliberately small subset. PURE, linear.
  *
- * THE RULE: drop only what a reader cannot see; decide only plain statements. HTML comments (block
- * and inline, outside code spans) are the only thing removed, because GitHub does not show them.
- * Everything else a reader sees is listed: headings, fenced and indented code, blockquotes (with
- * lazy continuation lines), and unticked task items are kept with their context, and decide
- * nothing. So a parsing mistake here can only make something NOT_CHECKED; it can never hide visible
- * text or certify a code example (XC1 H1, N4, N6, N8).
+ * WHY A SUBSET. Four review rounds (XC1, 2026-10-19) each found Markdown this reader got wrong in a
+ * way that hid visible text or certified an example: comments inside code, fences closed outside
+ * their list or quote, soft line breaks, link definitions, image alt text, setext headings. A
+ * hand-written reader cannot model all of CommonMark, so it models a small part EXACTLY and refuses
+ * the rest:
  *
- * Fences follow CommonMark, including inside containers (`- ```` opens a fence in a list item,
- * XC1 N4): 3+ backticks or tildes, a backtick fence's info string holds no backtick, and the fence
- * closes on the same character, at least as long, indented no more than 3 columns past the opener.
+ *   modelled   paragraphs (consecutive non-blank lines joined, as soft line breaks render), list
+ *              items with continuation lines, task boxes, ATX headings, fences opened at column 0,
+ *              and HTML comment blocks that start at column 0 and end a line with `-->`
+ *   refused    everything else: blockquotes, any other `<`, images, link definitions and titles,
+ *              tables, footnotes, setext underlines and rules, tab indentation, indented code,
+ *              fences inside a list, comments that never close or have text after `-->`
+ *
+ * If the text uses anything refused, `unsupported` says what and where, every line is listed as
+ * written, and nothing in it decides anything. In the modelled subset, nothing a reader can see is
+ * dropped: only the inside of a comment block is, because GitHub does not show it.
  */
-function splitClaims(text) {
+function readClaims(text) {
     const lines = canonicalText(String(text ?? ''), true).split('\n');
-    // closesFrom[i]: whether line i or any later line holds "-->". One backward pass keeps this linear.
-    const closesFrom = new Array(lines.length + 1).fill(false);
-    for (let i = lines.length - 1; i >= 0; i -= 1)
-        closesFrom[i] = closesFrom[i + 1] || lines[i].includes('-->');
     const out = [];
-    const push = (body, context) => {
+    let paragraph = 0;
+    const pushText = (body, context, para) => {
         for (const part of body.split(/(?<=[.!?;])\s+/)) {
             const whole = part.replace(/\s+/g, ' ').trim();
-            if (HAS_WORD.test(whole))
-                out.push({ text: whole, context });
+            // Never drop what says something: a lone "?" or a cross mark is seen, and is a claim's context (XC1 R1-a).
+            if (whole && saysSomething(whole))
+                out.push({ text: whole, context, paragraph: para });
         }
+    };
+    let unsupported = null;
+    let para = [];
+    let paraContext = 'statement';
+    const flush = () => {
+        if (para.length)
+            pushText(para.join(' '), paraContext, paragraph++);
+        para = [];
+        paraContext = 'statement';
     };
     let fence = null;
     let inComment = false;
-    /** The context of the previous non-blank line, for paragraph and quote continuation. */
-    let prev = 'blank';
-    for (let i = 0; i < lines.length; i += 1) {
-        let line = lines[i];
-        if (fence) {
-            // One character class for the whole prefix: two adjacent `[ \t]*` would be quadratic on a long line of spaces.
-            const close = line.match(/^([ \t>]*)(`{3,}|~{3,})[ \t]*$/);
-            const marks = close ? close[2] : '';
-            if (close && marks[0] === fence.ch && marks.length >= fence.len && indentColumns(close[1]) <= fence.col + 3) {
-                fence = null;
-                prev = 'blank';
-                continue;
-            }
-            push(line, 'code');
-            continue;
-        }
+    // closesFrom[i]: whether line i or a later line holds "-->". One backward pass keeps this linear.
+    const closesFrom = new Array(lines.length + 1).fill(false);
+    for (let i = lines.length - 1; i >= 0; i -= 1)
+        closesFrom[i] = closesFrom[i + 1] || lines[i].includes('-->');
+    for (let i = 0; i < lines.length && unsupported === null; i += 1) {
+        const line = lines[i];
+        const where = ` (line ${i + 1})`;
         if (inComment) {
             const end = line.indexOf('-->');
-            if (end < 0)
-                continue;
-            inComment = false;
-            line = line.slice(end + 3);
-        }
-        else if (/^ {0,3}<!--/.test(line)) {
-            const open = line.indexOf('<!--');
-            const sameLine = line.indexOf('-->', open + 4);
-            if (sameLine >= 0)
-                line = line.slice(sameLine + 3);
-            else if (closesFrom[i + 1]) {
-                inComment = true;
-                continue;
+            if (end >= 0) {
+                inComment = false;
+                if (line.slice(end + 3).trim())
+                    unsupported = 'text after the end of an HTML comment' + where;
             }
+            continue;
         }
-        const stripped = stripInlineComments(line, closesFrom[i + 1] === true);
-        line = stripped.text;
-        if (stripped.opensComment)
-            inComment = true;
+        if (fence) {
+            const close = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+            if (close && close[1][0] === fence.ch && close[1].length >= fence.len)
+                fence = null;
+            else
+                pushText(line, 'code', paragraph++);
+            continue;
+        }
         if (!line.trim()) {
-            prev = 'blank';
+            flush();
             continue;
         }
-        // Containers: indentation, blockquote markers, a list marker, then the line's own content.
-        const m = line.match(/^([ \t]*)((?:>[ \t]?)*)((?:[-*+]|\d{1,9}[.)])(?:[ \t]+|$))?/);
-        const indent = indentColumns(m[1]);
-        const quoteMarks = m[2] !== '';
-        const listMarker = m[3] !== undefined;
-        let rest = line.slice(m[0].length);
-        const fenceCol = indentColumns(m[1] + m[2] + (m[3] ?? ''));
-        // Indented code: 4+ columns with no container, not continuing a paragraph (which it cannot interrupt).
-        if (indent >= 4 && !quoteMarks && !listMarker) {
-            const continues = prev === 'statement' || prev === 'quote' || prev === 'todo';
-            const ctx = continues ? prev : 'code';
-            push(rest, ctx);
-            prev = ctx;
+        // An HTML comment block: "<!--" at column 0, ending a line with "-->". Its inside is not shown.
+        if (line.startsWith('<!--')) {
+            flush();
+            const end = line.indexOf('-->', 4);
+            if (end >= 0) {
+                if (line.slice(end + 3).trim())
+                    unsupported = 'text after the end of an HTML comment' + where;
+            }
+            else if (closesFrom[i + 1])
+                inComment = true;
+            else
+                unsupported = 'an HTML comment that never closes' + where;
             continue;
         }
-        const opener = rest.match(/^(`{3,}|~{3,})(.*)$/);
+        // A fence opened at column 0. A backtick fence's info string may not hold a backtick (then it is prose).
+        const opener = line.match(/^(`{3,}|~{3,})(.*)$/);
         if (opener && !(opener[1][0] === '`' && opener[2].includes('`'))) {
-            fence = { ch: opener[1][0], len: opener[1].length, col: fenceCol };
-            prev = 'code';
+            flush();
+            fence = { ch: opener[1][0], len: opener[1].length };
             continue;
         }
-        let ctx;
-        if (quoteMarks)
-            ctx = 'quote';
-        else if (prev === 'quote' && !listMarker && !/^#{1,6}(?:\s|$)/.test(rest))
-            ctx = 'quote'; // lazy continuation (XC1 N6)
+        const refused = unsupportedConstruct(line, para.length > 0);
+        if (refused) {
+            unsupported = refused + where;
+            break;
+        }
+        const item = line.match(/^ {0,3}(?:[-*+]|\d{1,9}[.)])(?: +|$)/);
+        if (item) {
+            flush();
+            let rest = line.slice(item[0].length);
+            if (/^ *(?:`{3,}|~{3,})/.test(rest)) {
+                unsupported = 'a code fence inside a list' + where;
+                break;
+            }
+            // "[ ]" with or without a space after it: a reader sees an empty box (XC1 T-a).
+            if (/^\[ \]/.test(rest)) {
+                paraContext = 'todo';
+                rest = rest.slice(3);
+            }
+            else
+                rest = rest.replace(/^\[[xX]\] +/, '');
+            para = [rest];
+            continue;
+        }
+        if (/^ {0,3}#{1,6}(?: |$)/.test(line)) {
+            flush();
+            pushText(line.replace(/^ {0,3}#{1,6} */, ''), 'heading', paragraph++);
+            continue;
+        }
+        if (/^ {0,3}(?:`{3,}|~{3,})/.test(line)) {
+            unsupported = 'an indented code fence' + where;
+            break;
+        }
+        para.push(line);
+    }
+    if (unsupported === null) {
+        if (inComment)
+            unsupported = 'an HTML comment that never closes';
         else
-            ctx = 'statement';
-        if (/^#{1,6}(?:\s|$)/.test(rest)) {
-            rest = rest.replace(/^#{1,6}\s*/, '');
-            if (ctx === 'statement')
-                ctx = 'heading';
-        }
-        else if (/^\[ \](?:\s|$)/.test(rest)) {
-            rest = rest.slice(3);
-            if (ctx === 'statement')
-                ctx = 'todo';
-        }
-        else {
-            rest = rest.replace(/^\[[xX]\]\s+/, '');
-        }
-        push(rest, ctx);
-        prev = ctx;
+            flush();
+    }
+    if (unsupported !== null) {
+        // Refused: list every line as written, one paragraph each, and let nothing decide.
+        out.length = 0;
+        lines.forEach((l, i) => pushText(l, 'statement', i));
     }
     const kept = out.slice(0, exports.MAX_CLAIMS);
+    return { sentences: kept, unsupported, dropped: Math.max(0, out.length - exports.MAX_CLAIMS) };
+}
+/** {@link readClaims}, flattened: the sentences, their contexts, and how many past the limit were not read. */
+function splitClaims(text) {
+    const r = readClaims(text);
     return {
-        clauses: kept.map((s) => normalizeClaimText(s.text)),
-        full: kept.map((s) => s.text),
-        context: kept.map((s) => s.context),
-        dropped: Math.max(0, out.length - exports.MAX_CLAIMS),
+        clauses: r.sentences.map((s) => normalizeClaimText(s.text)),
+        full: r.sentences.map((s) => s.text),
+        context: r.sentences.map((s) => s.context),
+        paragraph: r.sentences.map((s) => s.paragraph),
+        unsupported: r.unsupported,
+        dropped: r.dropped,
     };
 }
 // ── templates ───────────────────────────────────────────────────────────────────────────────────
@@ -532,10 +527,10 @@ function citationHits(text, o) {
     for (const { re, needLetter } of SHA_PATTERNS) {
         for (const m of text.matchAll(re)) {
             const sha = String(m[1]).toLowerCase();
-            if ((needLetter && !/[a-f]/.test(sha)) || seenSha.has(sha))
+            if (needLetter && !/[a-f]/.test(sha))
                 continue;
+            hits.push({ template: 'git.head_sha', span: m[0], at: m.index ?? 0, sha, ...(seenSha.has(sha) ? { dup: true } : {}) });
             seenSha.add(sha);
-            hits.push({ template: 'git.head_sha', span: m[0], at: m.index ?? 0, sha });
         }
     }
     const seenRun = new Set();
@@ -544,29 +539,23 @@ function citationHits(text, o) {
         const runId = Number(m[3]);
         const sameRepo = String(m[1]).toLowerCase() === o.owner.toLowerCase() && String(m[2]).toLowerCase() === o.repo.toLowerCase();
         const at = m.index ?? 0;
-        if (!seenRun.has(runId)) {
-            seenRun.add(runId);
-            hits.push({ template: 'gha.run_id', span: m[0].slice(0, m[0].length - (m[4] ?? '').length), at, runId, sameRepo });
-        }
-        if (m[5] && !seenAttempt.has(Number(m[5]))) {
+        hits.push({ template: 'gha.run_id', span: m[0].slice(0, m[0].length - (m[4] ?? '').length), at, runId, sameRepo, ...(seenRun.has(runId) ? { dup: true } : {}) });
+        seenRun.add(runId);
+        if (m[5]) {
+            hits.push({ template: 'gha.run_attempt', span: String(m[4]), at: at + m[0].length - String(m[4]).length, attempt: Number(m[5]), ...(seenAttempt.has(Number(m[5])) ? { dup: true } : {}) });
             seenAttempt.add(Number(m[5]));
-            hits.push({ template: 'gha.run_attempt', span: String(m[4]), at: at + m[0].length - String(m[4]).length, attempt: Number(m[5]) });
         }
     }
     const prose = text.replace(/https?:\/\/\S+/g, (u) => ' '.repeat(u.length));
     for (const m of prose.matchAll(RUN_ID)) {
         const runId = Number(m[1]);
-        if (seenRun.has(runId))
-            continue;
+        hits.push({ template: 'gha.run_id', span: m[0], at: m.index ?? 0, runId, sameRepo: null, ...(seenRun.has(runId) ? { dup: true } : {}) });
         seenRun.add(runId);
-        hits.push({ template: 'gha.run_id', span: m[0], at: m.index ?? 0, runId, sameRepo: null });
     }
     for (const m of prose.matchAll(ATTEMPT)) {
         const attempt = Number(m[1]);
-        if (seenAttempt.has(attempt))
-            continue;
+        hits.push({ template: 'gha.run_attempt', span: m[0], at: m.index ?? 0, attempt, ...(seenAttempt.has(attempt) ? { dup: true } : {}) });
         seenAttempt.add(attempt);
-        hits.push({ template: 'gha.run_attempt', span: m[0], at: m.index ?? 0, attempt });
     }
     return hits;
 }
@@ -718,7 +707,31 @@ const IGNORABLE = new Set([...' \t.,;:()[]\'"`*_!-']);
 /** Question marks NFKC does not fold to "?": interrobang, Arabic question mark, reversed question mark. */
 const QUESTION_MARKS = ['?', String.fromCharCode(0x203d), String.fromCharCode(0x061f), String.fromCharCode(0x2e2e)];
 /** A sentence that opens with an auxiliary verb asks, even without a question mark (XC1 N5: "Has the check workflow passed …."). */
-const INVERTED_QUESTION = /^(?:is|are|was|were|has|have|had|do|does|did|can|could|will|would|should|shall|may|might|must)\s/i;
+const AUXILIARIES = new Set('is are was were has have had do does did can could will would should shall may might must'.split(' '));
+/** Words that may come before an inverted auxiliary without making the sentence a statement: "And has …". */
+const LEADING_CONNECTIVES = new Set('and but or so then also yet plus now well ok okay'.split(' '));
+/**
+ * Whether a sentence opens with an auxiliary verb, so it asks even without a question mark. Leading
+ * emphasis, punctuation and connectives are skipped first: "*Has* the …", "And is CI green …" (XC1
+ * re-check 2). Bounded look-ahead, so linear.
+ */
+function opensWithAuxiliary(s) {
+    let i = 0;
+    for (let words = 0; words < 8; words += 1) {
+        while (i < s.length && IGNORABLE.has(s[i]))
+            i += 1;
+        const m = /^\p{L}+/u.exec(s.slice(i, i + 40));
+        if (!m)
+            return false;
+        const w = m[0].toLowerCase();
+        if (AUXILIARIES.has(w))
+            return true;
+        if (!LEADING_CONNECTIVES.has(w))
+            return false;
+        i += m[0].length;
+    }
+    return false;
+}
 const EDGE = new Set([...' \t.,;:!?()[]\'"`-']);
 /** Trim spaces and punctuation from both ends, for display. A loop, not `/[…]+$/`, which is quadratic on a long run of them. */
 function trimPunctuation(s) {
@@ -779,14 +792,17 @@ function scanSentence(sentence, full, o) {
     }
     const q = full.match(PASS_QUALIFIER);
     const covered = [...cites, ...outcomes, ...exclusions].map((h) => [h.at, h.at + h.span.length]);
-    const rest = covered.length ? remainderOf(full, covered) : { remainder: null, question: QUESTION_MARKS.some((q) => full.includes(q)) };
-    if (INVERTED_QUESTION.test(full))
+    // A sentence no template matched is, all of it, unread: it gates its paragraph like any remainder.
+    const rest = covered.length
+        ? remainderOf(full, covered)
+        : { remainder: saysSomething(full) ? normalizeClaimText(full) : null, question: QUESTION_MARKS.some((q) => full.includes(q)) };
+    if (opensWithAuxiliary(full))
         rest.question = true;
     return {
         sentence,
         full,
-        citations: cites.map((h) => citationEntry(h, sentence, o)),
-        citationAt: cites.map((h) => h.at),
+        citations: cites.filter((h) => !h.dup).map((h) => citationEntry(h, sentence, o)),
+        citationAt: cites.filter((h) => !h.dup).map((h) => h.at),
         outcomes,
         exclusions,
         remainder: rest.remainder,
@@ -805,8 +821,7 @@ function scanSentence(sentence, full, o) {
  * sentence is NOT_CHECKED, and the unread words are listed as their own claim.
  */
 const CONTEXT_GATE = {
-    quote: "This line is quoted, so it is not taken as the author's own claim.",
-    code: 'This line is code (a fenced or indented code block), so it is shown but not taken as a claim.',
+    code: 'This line is in a fenced code block, so it is shown but not taken as a claim.',
     heading: 'This line is a heading, so it is shown but not taken as a claim.',
     todo: 'This is an unticked task-list item: a to-do, not a claim.',
 };
@@ -828,12 +843,28 @@ function gateOf(s, context) {
  * workflow, or nothing in particular.
  */
 function mapClaims(text, o) {
-    const { clauses, full, context, dropped } = splitClaims(text);
+    const { clauses, full, context, paragraph, unsupported, dropped } = splitClaims(text);
+    const scanned = clauses.map((c, i) => scanSentence(c, full[i], o));
+    // A refused construct anywhere means the reading of every line is in doubt, so nothing decides.
+    const textGate = unsupported
+        ? `This text uses Markdown this version does not read exactly: ${unsupported}. Every line is listed, and nothing in the text is decided.`
+        : null;
+    const own = scanned.map((s, i) => textGate ?? gateOf(s, (context[i] ?? 'statement')));
+    // A verdict needs its whole PARAGRAPH read end to end, not just its sentence: "… (run N). ❌" or a
+    // soft line break into "is false." sits in the same paragraph a reader sees (XC1 R1-a, R1-b).
+    const gatedParagraphs = new Set();
+    own.forEach((g, i) => {
+        if (g)
+            gatedParagraphs.add(paragraph[i]);
+    });
     const out = [];
     clauses.forEach((sentence, idx) => {
-        const s = scanSentence(sentence, full[idx], o);
+        const s = scanned[idx];
         const ctx = (context[idx] ?? 'statement');
-        const gate = gateOf(s, ctx);
+        const gate = own[idx] ??
+            (gatedParagraphs.has(paragraph[idx])
+                ? 'Another sentence in this paragraph is not a plain statement the templates read in full (it is listed too), so nothing in the paragraph is decided.'
+                : null);
         const citations = gate
             ? s.citations.map((c) => ({ ...c, status: 'NOT_CHECKED', evidence_fields: [], reason: gate }))
             : s.citations;
@@ -868,7 +899,7 @@ function mapClaims(text, o) {
                 status: 'NOT_CHECKED',
                 evidence_fields: [],
                 scope: 'No deterministic template matches this sentence.',
-                reason: ctx !== 'statement' ? CONTEXT_GATE[ctx] : 'Not compared with anything, so it is neither supported nor contradicted.',
+                reason: textGate ?? (ctx !== 'statement' ? CONTEXT_GATE[ctx] : 'Not compared with anything, so it is neither supported nor contradicted.'),
             });
             return;
         }
@@ -882,9 +913,10 @@ function mapClaims(text, o) {
                 status: 'NOT_CHECKED',
                 evidence_fields: [],
                 scope: 'The part of this sentence no template matched.',
-                reason: ctx !== 'statement'
-                    ? CONTEXT_GATE[ctx]
-                    : 'Not compared with anything, so it is neither supported nor contradicted. Because of it, no other part of this sentence is decided either.',
+                reason: textGate ??
+                    (ctx !== 'statement'
+                        ? CONTEXT_GATE[ctx]
+                        : 'Not compared with anything, so it is neither supported nor contradicted. Because of it, nothing else in this paragraph is decided either.'),
             });
         }
     });

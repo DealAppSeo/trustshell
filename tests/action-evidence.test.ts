@@ -171,9 +171,14 @@ describe('a misleading green workflow supports nothing wider than itself', () =>
     expect(only(record, 'ci.all_checks_pass').map((c) => c.status)).toEqual(['NOT_CHECKED']);
     expect(only(record, 'excluded.fix').map((c) => c.status)).toEqual(['NOT_CHECKED']);
     expect(only(record, 'excluded.readiness').map((c) => c.status)).toEqual(['NOT_CHECKED']);
-    expect(supported(record).map((c) => c.claim)).toEqual(['on 5cd68edc']);
-    expect(only(record, 'ci.tests_pass')[0]!.reason).toMatch(/consistent with this claim but does not establish it/);
-    expect(only(record, 'ci.all_checks_pass')[0]!.reason).toMatch(/other checks on this commit were not read/);
+    // "The fix works" is in the same paragraph and is not read, so nothing in the paragraph is decided.
+    expect(supported(record)).toEqual([]);
+    expect(only(record, 'ci.tests_pass')[0]!.reason).toMatch(/Another sentence in this paragraph/);
+    // On its own, the first sentence's claims are judged and still not SUPPORTED.
+    const alone = map1('All tests pass and all checks pass on 5cd68edc.');
+    expect(only(alone, 'ci.tests_pass')[0]!.reason).toMatch(/consistent with this claim but does not establish it/);
+    expect(only(alone, 'ci.all_checks_pass')[0]!.reason).toMatch(/other checks on this commit were not read/);
+    expect(supported(alone).map((c) => c.claim)).toEqual(['on 5cd68edc']);
     expect(claimsExitCode(record)).toBe(3);
   });
 
@@ -259,7 +264,7 @@ describe('XC1 R1: a sentence decides nothing unless the templates read it end to
   it('a quoted line is not the author\'s claim', () => {
     const c = map1('> The check workflow passed (run 39290226738).');
     expect(supported(c)).toEqual([]);
-    expect(only(c, 'gha.run_succeeded')[0]!.reason).toMatch(/quoted/);
+    expect(only(c, 'gha.run_succeeded')[0]!.reason).toMatch(/a blockquote \(line 1\)/);
   });
 
   it.each([
@@ -778,41 +783,83 @@ describe('splitting and normalising claim text', () => {
   it('a fence lists its body as code, and only a matching fence closes it', () => {
     const text = ['Before.', '~~~~', 'code one', '~~~', 'code two', '~~~~', 'After.', FENCE + 'js', 'code three', FENCE].join('\n');
     const s = splitClaims(text);
-    // The inner "~~~" is shorter than the opener, so it does not close the fence. It has no word, so it is not listed.
-    expect(s.full).toEqual(['Before.', 'code one', 'code two', 'After.', 'code three']);
-    expect(s.context).toEqual(['statement', 'code', 'code', 'statement', 'code']);
+    // The inner "~~~" is shorter than the opener, so it does not close the fence; it is listed as code.
+    expect(s.full).toEqual(['Before.', 'code one', '~~~', 'code two', 'After.', 'code three']);
+    expect(s.context).toEqual(['statement', 'code', 'code', 'code', 'statement', 'code']);
   });
 
-  it('XC1 H2: "<!--" in a code span is text; comment blocks are removed', () => {
-    const text = 'Comments start with `<!--`.\nAll checks fail.\nThey end with `-->`.\n<!-- a template note\nstill the note -->Visible after it.\n<!-- never closed\nStill visible.';
-    expect(splitClaims(text).full).toEqual(['Comments start with `<!--`.', 'All checks fail.', 'They end with `-->`.', 'Visible after it.', '<!-- never closed', 'Still visible.']);
+  it('a comment block at column 0 that ends a line with "-->" is removed; its inside is not shown', () => {
+    const s = splitClaims('Before.\n<!-- a template note\nThe check workflow passed (run 39290226738).\n-->\nAfter.');
+    expect(s.unsupported).toBeNull();
+    expect(s.full).toEqual(['Before.', 'After.']);
   });
 
-  it('XC1 N9: an inline comment outside a code span is removed, because a reader does not see it', () => {
-    const c = map1(CH(0x2014) + ' <!-- The check workflow passed (run 39290226738). --> and `<!-- kept -->` too.');
-    expect(supported(c)).toEqual([]);
-    expect(c.map((e) => e.sentence).join(' ')).not.toMatch(/check workflow/);
-    expect(c.map((e) => e.sentence).join(' ')).toContain('`<!-- kept -->`');
-  });
-
-  it('XC1 N4: a fence opened after a list marker closes on its own indented fence, and the next line is read', () => {
-    const text = 'The check workflow passed (run 39290226738).\n- ' + FENCE + '\n  ' + FENCE + '\nThe deploy workflow failed and nothing works. All tests fail.';
+  it.each([
+    ['XC1 H2: "<!--" in a code span', 'Comments start with `<!--`.\nAll checks fail.\nThey end with `-->`.', /HTML/],
+    ['XC1 N9: an inline comment', CH(0x2014) + ' <!-- The check workflow passed (run 39290226738). --> too.', /HTML/],
+    ['a comment that never closes', '<!-- never closed\nStill visible.', /never closes/],
+    ['text after a comment ends', '<!-- note -->Visible after it.', /after the end of an HTML comment/],
+    ['XC1 N4: a fence after a list marker', 'The check workflow passed (run 39290226738).\n- ' + FENCE + '\n  ' + FENCE + '\nThe deploy workflow failed.', /code fence inside a list/],
+    ['XC1 N8: indented code', '    The check workflow passed (run 39290226738).', /indented code block/],
+    ['XC1 N6: a blockquote', '> The release bot wrote:\nThe check workflow passed (run 39290226738).', /blockquote/],
+  ])('%s: the text is refused, every line is listed, nothing decides', (_label, text, why) => {
     const s = splitClaims(text);
-    expect(s.full).toEqual(['The check workflow passed (run 39290226738).', 'The deploy workflow failed and nothing works.', 'All tests fail.']);
+    expect(s.unsupported).toMatch(why);
+    const c = map1(text);
+    expect(supported(c)).toEqual([]);
+    expect(c.filter((e) => e.status === 'CONTRADICTED')).toEqual([]);
+    for (const line of text.split('\n')) {
+      if (/[A-Za-z]{3}/.test(line)) expect(c.some((e) => e.sentence.includes(line.replace(/^[\s>-]+/, '').slice(0, 12)))).toBe(true);
+    }
+  });
+
+  it('an indented line that continues a paragraph is part of it, as a soft line break', () => {
+    const s = splitClaims('First line\n    continues the paragraph.');
+    expect(s.unsupported).toBeNull();
+    expect(s.full).toEqual(['First line continues the paragraph.']);
+  });
+
+  it.each([
+    ['R1-a ". cross mark"', 'The check workflow passed (run 39290226738). ' + CH(0x274c)],
+    ['R1-a ". ?"', 'The check workflow passed (run 39290226738). ?'],
+    ['R1-a newline cross mark', 'The check workflow passed (run 39290226738)\n' + CH(0x274c)],
+    ['R1-a newline ?', 'The check workflow passed (run 39290226738)\n?'],
+    ['R1-b soft line break', 'The check workflow passed (run 39290226738)\nis false.'],
+    ['H-a <!-- in indented code', 'The check workflow passed (run 39290226738).\n\n    <!-- sample opener\n\nThe deploy workflow failed and all tests fail.\n\n-->'],
+    ['H-c inline <!-- across a blank line', 'The check workflow passed (run 39290226738). Comments open with <!-- this\n\nThe deploy workflow failed and all tests fail.\n\n-->'],
+    ['F-a fence closed outside its list', '- ' + FENCE + '\n' + FENCE + '\nThe check workflow passed (run 39290226738).\n' + FENCE],
+    ['F-b fence closed outside its quote', '> ' + FENCE + '\n> log\n' + FENCE + '\nThe check workflow passed (run 39290226738).\n' + FENCE],
+    ['P-a link reference definition', '[a]: - "The check workflow passed (run 39290226738)."'],
+    ['P-b image alt text', '![The check workflow passed (run 39290226738).]()'],
+    ['link title', '[run](https://github.com/DealAppSeo/trustshell/actions/runs/39290226738 "The check workflow passed")'],
+    ['S-a setext heading', 'The check workflow passed (run 39290226738).\n==='],
+    ['horizontal rule', 'The check workflow passed (run 39290226738).\n\n---'],
+    ['table', '| The check workflow passed (run 39290226738). |'],
+    ['T-a "- [ ]text"', '- [ ]The check workflow passed (run 39290226738).'],
+    ['Q "*Has* the …"', '*Has* the check workflow passed (run 39290226738).'],
+    ['Q "And has the …"', 'And has the check workflow passed (run 39290226738).'],
+  ])('XC1 re-check 2, %s: nothing SUPPORTED, exit 3', (_label, text) => {
+    expect(supported(map1(text))).toEqual([]);
     expect(claimsExitCode(buildRecord(OBS, text))).toBe(3);
   });
 
-  it('XC1 N8: an indented code block is listed as code and decides nothing; an indented paragraph continuation is not code', () => {
-    const code = map1('    The check workflow passed (run 39290226738).');
-    expect(supported(code)).toEqual([]);
-    expect(code[0]!.reason).toMatch(/code/);
-    expect(splitClaims('First line\n    continues the paragraph.').context).toEqual(['statement', 'statement']);
+  it('XC1 re-check 2, H-b: a "<!--" fence info string is code, and the line after the fence is listed', () => {
+    const text = 'The check workflow passed (run 39290226738).\n' + FENCE + '<!--\nx\n' + FENCE + '\nThe deploy workflow failed and all tests fail.\n-->';
+    const c = map1(text);
+    expect(c.some((e) => /deploy workflow failed/.test(e.sentence))).toBe(true);
+    expect(claimsExitCode(buildRecord(OBS, text))).toBe(3);
   });
 
-  it('XC1 N6: a lazy continuation line of a blockquote is still quoted', () => {
-    const s = splitClaims('> The release bot wrote:\nThe check workflow passed (run 39290226738).\n\nMine.');
-    expect(s.context).toEqual(['quote', 'quote', 'statement']);
-    expect(supported(map1('> The release bot wrote:\nThe check workflow passed (run 39290226738).'))).toEqual([]);
+  it('XC1 re-check 2, Q: an inverted question after emphasis or "and" is never CONTRADICTED', () => {
+    for (const t of ['*Has* the check workflow passed on b8a17cfb.', 'And is CI green on b8a17cfb.']) {
+      expect(map1(t, FAILED).filter((e) => e.status === 'CONTRADICTED')).toEqual([]);
+    }
+  });
+
+  it('a link with no title is plain, and its target is a citation', () => {
+    const c = map1('The check workflow passed ([run 39290226738](https://github.com/DealAppSeo/trustshell/actions/runs/39290226738)).');
+    expect(only(c, 'gha.run_id').map((e) => e.status)).toEqual(['SUPPORTED']);
+    expect(only(c, 'gha.run_succeeded')[0]!.status).toBe('SUPPORTED');
   });
 
   it('keeps a sentence in any script', () => {

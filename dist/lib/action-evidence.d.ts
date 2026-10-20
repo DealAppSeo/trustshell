@@ -124,29 +124,48 @@ export declare function terminalSafeJson(value: unknown, space?: number): string
 /** Normalise one claim for storage: {@link canonicalText}, whitespace collapsed, cut at MAX_CLAIM_TEXT. */
 export declare function normalizeClaimText(s: string): string;
 /**
- * Where a line sits in the rendered text. Only a `statement` can decide anything. Every other
- * context is LISTED, so a reader of the card sees it, but decides nothing: a heading labels, code
- * is an example, a quote is someone else's words, an unticked box is a to-do.
+ * Where a sentence sits in the rendered text. Only a `statement` can decide anything; a heading
+ * labels, code is an example, an unticked box is a to-do. Those are listed, and decide nothing.
  */
-export type LineContext = 'statement' | 'quote' | 'code' | 'heading' | 'todo';
+export type LineContext = 'statement' | 'code' | 'heading' | 'todo';
+/** One sentence as a reader sees it, with its context and the paragraph it belongs to. */
+interface ReadSentence {
+    text: string;
+    context: LineContext;
+    paragraph: number;
+}
 /**
- * Split free text into claim sentences, each with the context it sits in. PURE, one pass, linear.
+ * Read free text the way GitHub renders it, within a deliberately small subset. PURE, linear.
  *
- * THE RULE: drop only what a reader cannot see; decide only plain statements. HTML comments (block
- * and inline, outside code spans) are the only thing removed, because GitHub does not show them.
- * Everything else a reader sees is listed: headings, fenced and indented code, blockquotes (with
- * lazy continuation lines), and unticked task items are kept with their context, and decide
- * nothing. So a parsing mistake here can only make something NOT_CHECKED; it can never hide visible
- * text or certify a code example (XC1 H1, N4, N6, N8).
+ * WHY A SUBSET. Four review rounds (XC1, 2026-10-19) each found Markdown this reader got wrong in a
+ * way that hid visible text or certified an example: comments inside code, fences closed outside
+ * their list or quote, soft line breaks, link definitions, image alt text, setext headings. A
+ * hand-written reader cannot model all of CommonMark, so it models a small part EXACTLY and refuses
+ * the rest:
  *
- * Fences follow CommonMark, including inside containers (`- ```` opens a fence in a list item,
- * XC1 N4): 3+ backticks or tildes, a backtick fence's info string holds no backtick, and the fence
- * closes on the same character, at least as long, indented no more than 3 columns past the opener.
+ *   modelled   paragraphs (consecutive non-blank lines joined, as soft line breaks render), list
+ *              items with continuation lines, task boxes, ATX headings, fences opened at column 0,
+ *              and HTML comment blocks that start at column 0 and end a line with `-->`
+ *   refused    everything else: blockquotes, any other `<`, images, link definitions and titles,
+ *              tables, footnotes, setext underlines and rules, tab indentation, indented code,
+ *              fences inside a list, comments that never close or have text after `-->`
+ *
+ * If the text uses anything refused, `unsupported` says what and where, every line is listed as
+ * written, and nothing in it decides anything. In the modelled subset, nothing a reader can see is
+ * dropped: only the inside of a comment block is, because GitHub does not show it.
  */
+export declare function readClaims(text: string): {
+    sentences: ReadSentence[];
+    unsupported: string | null;
+    dropped: number;
+};
+/** {@link readClaims}, flattened: the sentences, their contexts, and how many past the limit were not read. */
 export declare function splitClaims(text: string): {
     clauses: string[];
     full: string[];
     context: LineContext[];
+    paragraph: number[];
+    unsupported: string | null;
     dropped: number;
 };
 /**
@@ -194,3 +213,4 @@ export declare function tallyClaims(claims: ClaimEntry[]): ClaimTally;
  * A text with nothing checkable in it is therefore 3, not 0: "we compared nothing" is not a pass.
  */
 export declare function claimsExitCode(record: ActionEvidenceRecord): number;
+export {};

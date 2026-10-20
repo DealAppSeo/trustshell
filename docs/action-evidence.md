@@ -75,26 +75,43 @@ is a platform record. It is never presented as an independent grade.
 
 A reader can never see a word the checks did not.
 
-**2. Drop only what a reader cannot see; decide only plain statements.**
-- The only thing removed is HTML comments, block and inline, outside code spans. GitHub does not
-  show them, so a claim inside one was made by nobody a reader can see. A `<!--` in a code span,
-  or one that never closes, is text.
-- Everything else a reader sees is **listed, with its context, and decides nothing**:
-  - headings;
-  - fenced code (per CommonMark, including a fence opened inside a list item);
-  - indented code;
-  - blockquotes, including their lazy continuation lines;
-  - unticked task-list items (`- [ ] …`).
+**2. A small part of Markdown is read exactly; anything else is refused.** A hand-written reader
+cannot model all of CommonMark, so this one models a subset exactly.
 
-  So a parsing mistake can only make something NOT_CHECKED. It can never hide visible text, or
-  certify an example as a claim.
+Modelled:
+- paragraphs, with consecutive non-blank lines joined as GitHub renders soft line breaks;
+- list items and their continuation lines;
+- task boxes;
+- ATX headings (`#`);
+- fences opened at column 0;
+- HTML comment blocks that start at column 0 and end a line with `-->`. Only their inside is
+  dropped, because GitHub does not show it.
 
-**3. Every part of a sentence is listed.** Templates match spans. Whatever a sentence says outside
-them becomes its own `unmapped` NOT_CHECKED claim.
+Headings, code lines and unticked to-dos are listed, and decide nothing.
 
-**4. A sentence decides nothing unless it is a plain statement the templates read end to end.**
-Every part of the sentence is NOT_CHECKED, with the reason, when it has unread content, or when it
-is a question.
+If the text uses **anything else**, it is refused, and **every line is listed and nothing in the
+text is decided**. The reason names the construct and its line. Refused constructs:
+- blockquotes;
+- any other `<` (HTML, autolinks);
+- images;
+- link reference definitions, and links with a title;
+- tables (`|`);
+- footnotes;
+- setext underlines and horizontal rules;
+- tab indentation and indented code;
+- fences inside a list;
+- comments that never close, or have text after `-->`.
+
+So a parsing mistake can never hide visible text or certify an example. At worst, it refuses text
+it could have read.
+
+**3. Every part is listed.** Templates match spans. Whatever a sentence says outside them becomes
+its own `unmapped` NOT_CHECKED claim. Nothing a reader can see is dropped, a lone "?" or a cross
+mark included.
+
+**4. A verdict needs its whole paragraph read end to end.** If any sentence in a paragraph has
+unread content, or is a question, nothing in that paragraph is decided. So "… (run N). ❌" and a
+line break into "is false." both block the verdict.
 - **Unread content** is an allow-list. A leftover counts as saying nothing only if it holds no
   more than:
   - whitespace;
@@ -104,11 +121,12 @@ is a question.
     already read around).
 
   Anything else counts: a content word in any script, `~` (strikethrough is a retraction), any
-  symbol or emoji (a cross mark negates), non-ASCII punctuation, and possessives ("my checks"
-  is not "all checks"). Examples: "If the workflow passed (run N), we can merge", "The workflow
-  passed on a branch rebased on <sha>", "The lint checks pass".
-- **A question** has a question mark (including ‽ and ؟) or opens with an auxiliary verb
-  ("Has the check workflow passed …").
+  symbol or emoji, non-ASCII punctuation, and possessives ("my checks" is not "all checks").
+- **A question** has a question mark (including ‽ and ؟), or opens with an auxiliary verb. Leading
+  emphasis and connectives are skipped first: "*Has* the …", "And is CI green …".
+
+Each paragraph is judged on its own. A later paragraph that refers back ("the above is false") is
+listed as NOT_CHECKED, so the exit is 3, but it does not reach back and un-decide an earlier one.
 
 **5. Ties are per sentence.** A sentence's own citations decide which run it is about. A citation in
 one sentence says nothing about the next. An attempt number never ties anything; it can only
