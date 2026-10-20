@@ -150,10 +150,6 @@ export const RECORD_DOES_NOT_PROVE: string[] = [
 ];
 
 /**
- * Guided mode (`--guided`, EXPERIMENTAL) reads every check on the commit, so the "only this one run"
- * line no longer holds; what guided mode adds to the list instead.
- */
-/**
  * "All required checks pass" against the base branch's required checks only. SUPPORTED when the rules
  * were read, require at least one check, and every required check reported from the app it is pinned
  * to and concluded success, on a complete list with no check failed on an earlier attempt. CONTRADICTED
@@ -187,6 +183,10 @@ function requiredChecksEntry(base: Pick<ClaimEntry, 'claim' | 'sentence' | 'temp
   if (c.superseded_failures !== 0) {
     return nc(c.superseded_failures === null ? `Earlier attempts of the checks on commit ${sha} were not read.` : `A check on commit ${sha} failed on an earlier attempt and passed when re-run.`);
   }
+  // As for "all checks pass": a required GitHub Actions check can run the claimant's own workflow (XC1 Q-R1).
+  if (c.workflows_changed !== false) {
+    return nc(c.workflows_changed ? `The change edits its own workflows (.github/workflows), so its required checks ran the claimant's code.` : `The change's files could not all be read, so whether it edits its own workflows is unknown.`);
+  }
   return {
     ...base,
     status: 'SUPPORTED',
@@ -196,6 +196,10 @@ function requiredChecksEntry(base: Pick<ClaimEntry, 'claim' | 'sentence' | 'temp
   };
 }
 
+/**
+ * Guided mode (`--guided`, EXPERIMENTAL) reads every check on the commit, so the "only this one run"
+ * line no longer holds; what guided mode adds to the list instead.
+ */
 export const GUIDED_DOES_NOT_PROVE: string[] = [
   ...RECORD_DOES_NOT_PROVE.filter((line) => line !== ONLY_THIS_RUN),
   'Guided mode (experimental): a line that cites nothing was read as being about the inspected run, because whoever ran this named that run. That is an interpretation of the text, not something GitHub reports.',
@@ -936,8 +940,10 @@ function scanSentence(sentence: string, full: string, o: Observation): SentenceH
         ...hitsFor('gha.run_succeeded', RUN_SUCCEEDED, full),
         // "All required checks pass" also contains "checks pass": the required reading wins, and the
         // all-checks hit inside it is dropped, so one sentence is never read as both claims.
+        // Read only in guided mode (the observation holds the commit's checks), so without --guided
+        // "required" stays an unread word and the record is byte-identical to main (XC1 Q-R2).
         ...((req) => [...req, ...hitsFor('ci.all_checks_pass', ALL_CHECKS, full).filter((h) => !req.some((r) => h.at >= r.at && h.at < r.at + r.span.length))])(
-          hitsFor('ci.required_checks_pass', REQUIRED_CHECKS, full),
+          o.commit_checks ? hitsFor('ci.required_checks_pass', REQUIRED_CHECKS, full) : [],
         ),
         ...hitsFor('ci.tests_pass', TESTS_PASS, full),
         ...hitsFor('ci.build_unscoped', BUILD_PASS, full),
