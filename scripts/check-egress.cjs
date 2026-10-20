@@ -169,8 +169,10 @@ function fakeGithubFetch(url) {
       ? { total_count: 1, check_suites: [{ app: { slug: 'github-actions' }, status: 'completed', conclusion: 'success', latest_check_runs_count: 1 }] }
       : /\/commits\/[0-9a-f]{40}\/status$/.test(path)
         ? { state: 'pending', total_count: 0, statuses: [] }
-        : /\/commits\/[0-9a-f]{40}\/pulls$/.test(path) || u.includes('/rules/branches/')
+        : /\/commits\/[0-9a-f]{40}\/(pulls|statuses)$/.test(path) || u.includes('/rules/branches/')
           ? []
+          : /\/branches\/[^/]+$/.test(path)
+            ? { name: 'main', protected: false }
           : /\/commits\/[0-9a-f]{40}$/.test(path)
             ? { sha, files: [{ filename: 'README.md' }] }
             : /^\/repos\/[^/]+\/[^/]+$/.test(path)

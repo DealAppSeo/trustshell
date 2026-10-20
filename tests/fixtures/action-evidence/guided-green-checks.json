@@ -1,10 +1,10 @@
 {
   "_provenance": {
-    "recorded_at": "2026-10-20T05:40:44.690Z",
+    "recorded_at": "2026-10-20T06:02:05.965Z",
     "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
     "commit": "DealAppSeo/trustshell@5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5",
     "note": "head of green-run.json (push to main, no PR of its own)",
-    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, statuses, conclusions, refs, file names, rules); no value changed"
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, app ids, statuses, conclusions, refs, file names, rules, branch protection); no value changed"
   },
   "responses": {
     "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/check-runs?filter=latest&per_page=100&page=1": {
@@ -16,79 +16,131 @@
             "id": 118416822634,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118413253327,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118412464103,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118407749327,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118400022416,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118393866519,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118387848245,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118376482181,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118348084717,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118189863597,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118188659559,
             "name": "Analyze (javascript-typescript)",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118188659036,
             "name": "gitleaks",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118188659034,
             "name": "check",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           }
         ]
       }
@@ -102,79 +154,131 @@
             "id": 118416822634,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118413253327,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118412464103,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118407749327,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118400022416,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118393866519,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118387848245,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118376482181,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118348084717,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118189863597,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118188659559,
             "name": "Analyze (javascript-typescript)",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118188659036,
             "name": "gitleaks",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 118188659034,
             "name": "check",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           }
         ]
       }
@@ -191,6 +295,19 @@
           }
         ]
       }
+    },
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/statuses?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "context": "Vercel",
+          "state": "success"
+        },
+        {
+          "context": "Vercel",
+          "state": "pending"
+        }
+      ]
     },
     "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/check-suites?per_page=100&page=1": {
       "status": 200,
@@ -570,6 +687,21 @@
           }
         }
       ]
+    },
+    "/repos/DealAppSeo/trustshell/branches/main": {
+      "status": 200,
+      "body": {
+        "name": "main",
+        "protected": true,
+        "protection": {
+          "enabled": false,
+          "required_status_checks": {
+            "enforcement_level": "off",
+            "contexts": [],
+            "checks": []
+          }
+        }
+      }
     }
   }
 }
