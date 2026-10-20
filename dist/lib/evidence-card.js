@@ -79,6 +79,33 @@ function jobSummary(r) {
     }
     return line;
 }
+/** Guided mode: every check on the commit, as counts. Check names are third-party text and stay out. */
+function commitChecksSummary(r) {
+    const c = r.observation.commit_checks;
+    if (!c)
+        return [];
+    const tally = (values) => {
+        const m = new Map();
+        for (const v of values) {
+            const k = /^[a-z_]{1,32}$/.test(v) ? v : 'unrecognised';
+            m.set(k, (m.get(k) ?? 0) + 1);
+        }
+        return [...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, n]) => `${n} ${k}`).join(', ') || 'none';
+    };
+    const reported = new Set([...c.check_runs.items.map((x) => x.name), ...c.statuses.items.map((x) => x.context)]);
+    const req = c.required === null ? 'not read' : `${c.required.filter((n) => reported.has(n)).length} of ${c.required.length} reported`;
+    const rerun = c.superseded_failures === null ? 'not read' : String(c.superseded_failures);
+    const wf = c.workflows_changed === null ? 'not read' : c.workflows_changed ? 'yes' : 'no';
+    return [
+        [strong('Guided mode (experimental).'), text(' A claim line that cites nothing was read as being about this run.')],
+        [
+            strong('Every check on the commit'),
+            text(` read ${c.retrieved_at}: ${c.check_runs.items.length} of ${c.check_runs.total_count} check runs (${tally(c.check_runs.items.map((x) => x.conclusion ?? x.status))})` +
+                ` · ${c.statuses.items.length} of ${c.statuses.total_count} statuses (${tally(c.statuses.items.map((x) => x.state))})` +
+                ` · required checks: ${req} · failed on an earlier attempt: ${rerun} · the change edits its own workflows: ${wf}`),
+        ],
+    ];
+}
 function claimDetails(c) {
     const d = [];
     if (c.sentence !== c.claim)
@@ -108,6 +135,7 @@ function buildModel(r, opts) {
             strong(o.check.verdict),
         ],
         jobSummary(r),
+        ...commitChecksSummary(r),
         [strong('Observed'), text(` ${o.fetchedAt} from ${o.host} (${o.freshness} at that time)`)],
         [
             strong('Evidence class'),

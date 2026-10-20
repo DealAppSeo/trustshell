@@ -75,6 +75,16 @@ export declare function parseRun(url: string): ParsedRun | null;
  */
 export declare const DOES_NOT_PROVE: string[];
 /**
+ * One GitHub GET for other read-only modules (`check --claims --guided` reads every check on a
+ * commit), with the same rule as `check`: the token in `GITHUB_TOKEN` is optional, only raises the
+ * rate limit, and a rejected one falls back to anonymous. `path` starts with `/repos/`.
+ */
+export declare function githubGet(path: string, env?: Record<string, string | undefined>): Promise<{
+    ok: boolean;
+    status: number;
+    body: any;
+}>;
+/**
  * Pluralise a counted noun. The card is the artefact people are shown; "1 jobs"
  * on a tool whose subject is careful claims reads as carelessness about the
  * rest.

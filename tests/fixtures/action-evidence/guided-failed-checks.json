@@ -1,0 +1,635 @@
+{
+  "_provenance": {
+    "recorded_at": "2026-10-20T05:40:49.793Z",
+    "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
+    "commit": "DealAppSeo/trustshell@b8a17cfba1d3196443444b6724274942db671991",
+    "note": "head of failed-run.json (a PR head)",
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, statuses, conclusions, refs, file names, rules); no value changed"
+  },
+  "responses": {
+    "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/check-runs?filter=latest&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 9,
+        "check_runs": [
+          {
+            "id": 117790744220,
+            "name": "CodeQL",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790631169,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790533107,
+            "name": "Strix Security Review",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524418,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 117790524296,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524224,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524193,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524192,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790511968,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/check-runs?filter=all&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 10,
+        "check_runs": [
+          {
+            "id": 117790744220,
+            "name": "CodeQL",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790631169,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790533107,
+            "name": "Strix Security Review",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524418,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 117790524296,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524224,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524193,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790524192,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790522415,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 117790511968,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/status?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "state": "success",
+        "total_count": 1,
+        "statuses": [
+          {
+            "context": "Vercel",
+            "state": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/check-suites?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 17,
+        "check_suites": [
+          {
+            "app": {
+              "slug": "vercel"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "cursor"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "cloudflare-workers-and-pages"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "supabase"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "railway-app"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "render"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "claude"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "figma"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "strix-security"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "greptile-apps"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "failure",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-advanced-security"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/pulls?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "number": 558,
+          "head": {
+            "sha": "8aa68bdec66499241acae3aacb59d50150b82c04"
+          },
+          "base": {
+            "ref": "main"
+          }
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell": {
+      "status": 200,
+      "body": {
+        "default_branch": "main"
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991": {
+      "status": 200,
+      "body": {
+        "sha": "b8a17cfba1d3196443444b6724274942db671991",
+        "files": [
+          {
+            "filename": "CHANGELOG.md"
+          },
+          {
+            "filename": "README.md"
+          },
+          {
+            "filename": "app/agents/page.tsx"
+          },
+          {
+            "filename": "app/check/CheckForm.tsx"
+          },
+          {
+            "filename": "app/check/CompareForm.tsx"
+          },
+          {
+            "filename": "app/layout.tsx"
+          },
+          {
+            "filename": "app/leaderboard/page.tsx"
+          },
+          {
+            "filename": "app/page.tsx"
+          },
+          {
+            "filename": "app/pai/page.tsx"
+          },
+          {
+            "filename": "components/hero-result.tsx"
+          },
+          {
+            "filename": "components/hero.tsx"
+          },
+          {
+            "filename": "components/home-agent.tsx"
+          },
+          {
+            "filename": "components/home-cost.tsx"
+          },
+          {
+            "filename": "components/home-proof.tsx"
+          },
+          {
+            "filename": "components/home-questions.tsx"
+          },
+          {
+            "filename": "components/home-where.tsx"
+          },
+          {
+            "filename": "components/home-your-agent.tsx"
+          },
+          {
+            "filename": "components/journey-steps.tsx"
+          },
+          {
+            "filename": "components/sticky-check.tsx"
+          },
+          {
+            "filename": "components/top-nav.tsx"
+          },
+          {
+            "filename": "components/vision-hero.tsx"
+          },
+          {
+            "filename": "dist/cli/index.d.ts"
+          },
+          {
+            "filename": "dist/cli/index.js"
+          },
+          {
+            "filename": "dist/cli/laya-lane.js"
+          },
+          {
+            "filename": "dist/cli/profile.d.ts"
+          },
+          {
+            "filename": "dist/cli/profile.js"
+          },
+          {
+            "filename": "dist/learn/cli.d.ts"
+          },
+          {
+            "filename": "dist/learn/cli.js"
+          },
+          {
+            "filename": "dist/learn/report.d.ts"
+          },
+          {
+            "filename": "dist/learn/report.js"
+          },
+          {
+            "filename": "dist/learn/store.d.ts"
+          },
+          {
+            "filename": "dist/learn/store.js"
+          },
+          {
+            "filename": "dist/lib/claim.d.ts"
+          },
+          {
+            "filename": "dist/lib/claim.js"
+          },
+          {
+            "filename": "dist/lib/init.js"
+          },
+          {
+            "filename": "dist/lib/local-only.d.ts"
+          },
+          {
+            "filename": "dist/lib/local-only.js"
+          },
+          {
+            "filename": "dist/lib/profile.d.ts"
+          },
+          {
+            "filename": "dist/lib/profile.js"
+          },
+          {
+            "filename": "dist/lib/report.d.ts"
+          },
+          {
+            "filename": "dist/lib/report.js"
+          },
+          {
+            "filename": "dist/lib/trustshell.d.ts"
+          },
+          {
+            "filename": "dist/lib/trustshell.js"
+          },
+          {
+            "filename": "dist/mcp/index.d.ts"
+          },
+          {
+            "filename": "dist/mcp/index.js"
+          },
+          {
+            "filename": "dist/memory/local-store.d.ts"
+          },
+          {
+            "filename": "dist/memory/local-store.js"
+          },
+          {
+            "filename": "docs/api-reference.md"
+          },
+          {
+            "filename": "docs/getting-started.md"
+          },
+          {
+            "filename": "docs/measurements/hero-card-2026-10-16.md"
+          },
+          {
+            "filename": "examples/learn-hook/stop.mjs"
+          },
+          {
+            "filename": "examples/learn-hook/user-prompt-submit.mjs"
+          },
+          {
+            "filename": "lib/home-samples.ts"
+          },
+          {
+            "filename": "lib/stamp-words.ts"
+          },
+          {
+            "filename": "scripts/check-egress.cjs"
+          },
+          {
+            "filename": "skills/trustshell/SKILL.md"
+          },
+          {
+            "filename": "src/cli/index.ts"
+          },
+          {
+            "filename": "src/cli/laya-lane.ts"
+          },
+          {
+            "filename": "src/cli/profile.ts"
+          },
+          {
+            "filename": "src/learn/cli.ts"
+          },
+          {
+            "filename": "src/learn/report.ts"
+          },
+          {
+            "filename": "src/learn/store.ts"
+          },
+          {
+            "filename": "src/lib/claim.ts"
+          },
+          {
+            "filename": "src/lib/init.ts"
+          },
+          {
+            "filename": "src/lib/local-only.ts"
+          },
+          {
+            "filename": "src/lib/profile.ts"
+          },
+          {
+            "filename": "src/lib/report.ts"
+          },
+          {
+            "filename": "src/lib/trustshell.ts"
+          },
+          {
+            "filename": "src/mcp/index.ts"
+          },
+          {
+            "filename": "src/memory/local-store.ts"
+          },
+          {
+            "filename": "tests/agents-journey.test.ts"
+          },
+          {
+            "filename": "tests/check-page-words.test.ts"
+          },
+          {
+            "filename": "tests/check-receipt.test.ts"
+          },
+          {
+            "filename": "tests/e2e-stranger.test.ts"
+          },
+          {
+            "filename": "tests/e2e/check-walk.mjs"
+          },
+          {
+            "filename": "tests/e2e/journey-walk.mjs"
+          },
+          {
+            "filename": "tests/hero-no-pai.test.ts"
+          },
+          {
+            "filename": "tests/home-check.test.ts"
+          },
+          {
+            "filename": "tests/home-default-panel.test.ts"
+          },
+          {
+            "filename": "tests/home-no-nav.test.ts"
+          },
+          {
+            "filename": "tests/home-questions.test.ts"
+          },
+          {
+            "filename": "tests/home-screens.test.ts"
+          },
+          {
+            "filename": "tests/landing-close.test.ts"
+          },
+          {
+            "filename": "tests/landing-headline.test.ts"
+          },
+          {
+            "filename": "tests/landing-public.test.ts"
+          },
+          {
+            "filename": "tests/learn-hook.test.ts"
+          },
+          {
+            "filename": "tests/learn-loop.test.ts"
+          },
+          {
+            "filename": "tests/local-only.test.ts"
+          },
+          {
+            "filename": "tests/mcp.test.ts"
+          },
+          {
+            "filename": "tests/nav-fit.test.ts"
+          },
+          {
+            "filename": "tests/profile-personal.test.ts"
+          },
+          {
+            "filename": "tests/public-copy-ban.test.ts"
+          },
+          {
+            "filename": "tests/public-copy-bans.test.ts"
+          },
+          {
+            "filename": "tests/site-npm-badge.test.ts"
+          },
+          {
+            "filename": "tests/skill-status.test.ts"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/rules/branches/main?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": false,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "Strix Security Review",
+                "integration_id": 2749804
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

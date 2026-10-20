@@ -1,0 +1,362 @@
+{
+  "_provenance": {
+    "recorded_at": "2026-10-20T05:40:54.401Z",
+    "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
+    "commit": "DealAppSeo/trustshell@837d9bc48039f480812fb8f1d0325a4e4c64f4f5",
+    "note": "head of PR #560",
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, statuses, conclusions, refs, file names, rules); no value changed"
+  },
+  "responses": {
+    "/repos/DealAppSeo/trustshell/commits/837d9bc48039f480812fb8f1d0325a4e4c64f4f5/check-runs?filter=latest&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 9,
+        "check_runs": [
+          {
+            "id": 116230478374,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219591139,
+            "name": "CodeQL",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219399435,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219330436,
+            "name": "Strix Security Review",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219322633,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219322244,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219321953,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219321827,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219304825,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/837d9bc48039f480812fb8f1d0325a4e4c64f4f5/check-runs?filter=all&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 11,
+        "check_runs": [
+          {
+            "id": 116230478374,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219591139,
+            "name": "CodeQL",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219399435,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219330436,
+            "name": "Strix Security Review",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219322633,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219322244,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219321953,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219321950,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 116219321827,
+            "name": "verify-paris",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219312213,
+            "name": "Vercel Preview Comments",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 116219304825,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/837d9bc48039f480812fb8f1d0325a4e4c64f4f5/status?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "state": "success",
+        "total_count": 1,
+        "statuses": [
+          {
+            "context": "Vercel",
+            "state": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/837d9bc48039f480812fb8f1d0325a4e4c64f4f5/check-suites?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 17,
+        "check_suites": [
+          {
+            "app": {
+              "slug": "vercel"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "cursor"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "cloudflare-workers-and-pages"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "supabase"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "railway-app"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "render"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "claude"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "figma"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "strix-security"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "greptile-apps"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-advanced-security"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/837d9bc48039f480812fb8f1d0325a4e4c64f4f5/pulls?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "number": 560,
+          "head": {
+            "sha": "837d9bc48039f480812fb8f1d0325a4e4c64f4f5"
+          },
+          "base": {
+            "ref": "main"
+          }
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/pulls/560/files?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "filename": "app/trust-medical/page.tsx"
+        },
+        {
+          "filename": "app/vision/page.tsx"
+        },
+        {
+          "filename": "components/footer.tsx"
+        },
+        {
+          "filename": "lib/site.ts"
+        },
+        {
+          "filename": "tests/trust-medical-page.test.ts"
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/rules/branches/main?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": false,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "Strix Security Review",
+                "integration_id": 2749804
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -19,6 +19,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CheckError = exports.DOES_NOT_PROVE = void 0;
 exports.parseRun = parseRun;
+exports.githubGet = githubGet;
 exports.plural = plural;
 exports.formatCheckCard = formatCheckCard;
 exports.runCheck = runCheck;
@@ -78,6 +79,15 @@ async function gh(path, token) {
             return { ...withToken, usedToken: true };
     }
     return { ...(await call('')), usedToken: false };
+}
+/**
+ * One GitHub GET for other read-only modules (`check --claims --guided` reads every check on a
+ * commit), with the same rule as `check`: the token in `GITHUB_TOKEN` is optional, only raises the
+ * rate limit, and a rejected one falls back to anonymous. `path` starts with `/repos/`.
+ */
+async function githubGet(path, env = process.env) {
+    const { ok, status, body } = await gh(path, (env['GITHUB_TOKEN'] || '').trim());
+    return { ok, status, body };
 }
 /**
  * Pluralise a counted noun. The card is the artefact people are shown; "1 jobs"

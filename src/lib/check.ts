@@ -133,6 +133,16 @@ async function gh(path: string, token: string): Promise<GhResponse & { usedToken
 }
 
 /**
+ * One GitHub GET for other read-only modules (`check --claims --guided` reads every check on a
+ * commit), with the same rule as `check`: the token in `GITHUB_TOKEN` is optional, only raises the
+ * rate limit, and a rejected one falls back to anonymous. `path` starts with `/repos/`.
+ */
+export async function githubGet(path: string, env: Record<string, string | undefined> = process.env): Promise<{ ok: boolean; status: number; body: any }> {
+  const { ok, status, body } = await gh(path, (env['GITHUB_TOKEN'] || '').trim());
+  return { ok, status, body };
+}
+
+/**
  * Pluralise a counted noun. The card is the artefact people are shown; "1 jobs"
  * on a tool whose subject is careful claims reads as carelessness about the
  * rest.
