@@ -8,8 +8,7 @@ This folder is a **demo**, not an official TrustShell result. It shows what
   `5cd68edc`. It was read live from api.github.com with no account and no token on 2026-10-19
   (`fetchedAt` in `record.json`).
 - **The claims are illustrative.** `claims.txt` was written for this demo. It is not a real
-  agent's message. It contains one deliberate error, "attempt 2", so that all three statuses
-  appear on the card.
+  agent's message. It cites attempt 2 on purpose, so that all three statuses appear.
 
 | File | What it is |
 |---|---|
@@ -26,14 +25,16 @@ node dist/cli/index.js check https://github.com/DealAppSeo/trustshell/actions/ru
 ```
 
 It exited 1, because one claim is CONTRADICTED. Running it again gives a new `fetchedAt` and so
-a new hash; the claim statuses stay the same while GitHub's answer for this run stays the same.
+a new hash. The statuses stay the same for as long as GitHub's answer for this run does.
 
-## What the card says
+## What the card says, claim by claim
 
-- **SUPPORTED, narrowly:** the run concluded success with its one job on this commit, and the
-  commit matches `5cd68edc`.
-- **CONTRADICTED:** the message names attempt 2; GitHub's record for this run is attempt 1.
-- **NOT_CHECKED:** "Done", "production ready" and "fully secure", each with its reason, plus
-  cryptographic integrity, because no signed attestation is read.
+- **SUPPORTED:** `The check workflow passed` (the run concluded success, with its one job, and the
+  sentence cites this run), `on 5cd68edc` and `run 39290226738`.
+- **CONTRADICTED:** `attempt 2`. GitHub's record for this run is attempt 1.
+- **NOT_CHECKED:** `Done`; `All tests pass` (that sentence cites attempt 2, so it is not tied to
+  this run, and a run record never establishes which tests passed anyway); `verified on`;
+  `production ready`; `fully secure`. Cryptographic integrity is also NOT_CHECKED, because no
+  signed attestation is read.
 
 The card's "What this does not prove" list is part of the output, not a caption added here.

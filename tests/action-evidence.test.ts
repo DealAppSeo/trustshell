@@ -1,13 +1,16 @@
 /**
  * `trustshell check <run-url> --claims` — claim-to-evidence mapping, against RECORDED GitHub responses.
  *
+ * The standard under test: never claim more than the evidence proves. Each claim is atomic and gets
+ * its own verdict; a green run supports "this workflow run succeeded" and nothing wider.
+ *
  * Fixtures (tests/fixtures/action-evidence/) are real api.github.com answers for trustshell's own
  * `check` workflow, recorded anonymously on 2026-10-19 and replayed here with no network:
  *   green-run.json   run 39290226738, push to main, conclusion success, 1 job      (unmodified)
  *   failed-run.json  run 39166529852, pull_request, conclusion failure, 1 job     (unmodified)
  *   no-jobs.json     green-run with the jobs list emptied                         (DERIVED, says so)
- * Further failure shapes (404 jobs, truncated list, in-progress, cancelled) are derived inline from
- * green-run, each one named where it is made.
+ * Further shapes (404 jobs, truncated list, in-progress, cancelled, a failed job under a green
+ * run) are derived inline from those, each one named where it is made.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,6 +25,7 @@ import {
   mapClaims,
   normalizeClaimText,
   splitClaims,
+  stripHtmlComments,
   tallyClaims,
   urlAttempt,
   type ActionEvidenceRecord,
@@ -62,7 +66,7 @@ function replay(fx: Fixture) {
   return calls;
 }
 
-/** A deep copy of a fixture with one response altered — for the derived failure shapes. */
+/** A deep copy of a fixture with one response altered — for the derived shapes. */
 function derive(name: string, alter: (fx: Fixture, runPath: string, jobsPath: string) => void): Fixture {
   const fx = load(name);
   const [runPath, jobsPath] = Object.keys(fx.responses) as [string, string];
@@ -73,11 +77,14 @@ function derive(name: string, alter: (fx: Fixture, runPath: string, jobsPath: st
 async function inspect(fx: Fixture, claims: string, url = fx.run_url) {
   const calls = replay(fx);
   const out = await inspectRunClaims(url, claims, { env: {}, now: NOW });
+  delete (globalThis as any).fetch;
   return { ...out, calls };
 }
 
-const only = (r: ActionEvidenceRecord, template: string) => r.claims.filter((c) => c.template === template);
-const statuses = (r: ActionEvidenceRecord) => r.claims.map((c) => `${c.template}:${c.status}`);
+const only = (r: { claims: ClaimEntry[] } | ClaimEntry[], template: string) =>
+  (Array.isArray(r) ? r : r.claims).filter((c) => c.template === template);
+const verdicts = (r: { claims: ClaimEntry[] } | ClaimEntry[]) =>
+  (Array.isArray(r) ? r : r.claims).map((c) => `${c.template}:${c.status}`);
 
 afterEach(() => {
   delete (globalThis as any).fetch;
@@ -111,7 +118,6 @@ describe('a valid green run', () => {
       freshness: 'LIVE',
     });
     expect(o.check.verdict).toBe('COMPLETE');
-    expect(o.check.results.length).toBeGreaterThan(0);
     expect(o.jobs).toEqual({
       http_status: 200,
       total: 1,
@@ -124,26 +130,27 @@ describe('a valid green run', () => {
     expect(Object.keys(record).sort()).toEqual(['assurance', 'claims', 'does_not_prove', 'observation', 'schema']);
     expect(record.schema).toBe(ACTION_EVIDENCE_SCHEMA);
     expect(record.schema).toBe('dev.trustshell.action-evidence/0.1-draft');
-  });
-
-  it('calls a GitHub answer PLATFORM_REPORTED and leaves cryptographic integrity NOT_CHECKED', async () => {
-    const { record } = await inspect(load('green-run.json'), claimsFile('narrow-true.txt'));
     expect(record.assurance).toEqual({ cryptographic_integrity: 'NOT_CHECKED', observation: 'PLATFORM_REPORTED' });
   });
 
-  it('supports each narrow true claim and exits 0', async () => {
+  it('supports each narrow claim, one verdict per atomic claim, and exits 0', async () => {
     const { record } = await inspect(load('green-run.json'), claimsFile('narrow-true.txt'));
-    expect(statuses(record)).toEqual(['ci.run_passed:SUPPORTED', 'git.head_sha:SUPPORTED', 'gha.run_id:SUPPORTED']);
+    expect(record.claims.map((c) => [c.claim, c.template, c.status])).toEqual([
+      ['The check workflow passed', 'gha.run_succeeded', 'SUPPORTED'],
+      ['on 5cd68edc', 'git.head_sha', 'SUPPORTED'],
+      ['run 39290226738', 'gha.run_id', 'SUPPORTED'],
+      ['attempt 1', 'gha.run_attempt', 'SUPPORTED'],
+    ]);
     for (const c of record.claims) {
+      expect(c.sentence).toBe('The check workflow passed on 5cd68edc (run 39290226738, attempt 1).');
       expect(c.evidence_fields.length).toBeGreaterThan(0);
       for (const f of c.evidence_fields) expect(f).toMatch(/^\/observation\//);
-      expect(c.scope).not.toBe('');
     }
     expect(claimsExitCode(record)).toBe(0);
   });
 
   it('dials api.github.com and nothing else: the two requests `check` makes', async () => {
-    const { calls } = await inspect(load('green-run.json'), 'All tests pass.');
+    const { calls } = await inspect(load('green-run.json'), 'The workflow passed on 5cd68edc.');
     expect(calls).toEqual([
       'https://api.github.com/repos/DealAppSeo/trustshell/actions/runs/39290226738',
       'https://api.github.com/repos/DealAppSeo/trustshell/actions/runs/39290226738/jobs?per_page=100',
@@ -151,41 +158,87 @@ describe('a valid green run', () => {
   });
 });
 
+describe('a misleading green workflow supports nothing wider than itself', () => {
+  it('"all tests pass", "all checks pass" and "the fix works" stay NOT_CHECKED on a green run', async () => {
+    const { record } = await inspect(load('green-run.json'), claimsFile('misleading-green.txt'));
+    expect(only(record, 'ci.tests_pass').map((c) => c.status)).toEqual(['NOT_CHECKED']);
+    expect(only(record, 'ci.all_checks_pass').map((c) => c.status)).toEqual(['NOT_CHECKED']);
+    expect(only(record, 'excluded.fix').map((c) => c.status)).toEqual(['NOT_CHECKED']);
+    expect(only(record, 'excluded.readiness').map((c) => c.status)).toEqual(['NOT_CHECKED']);
+    // The one thing it does support is the commit it cites.
+    expect(record.claims.filter((c) => c.status === 'SUPPORTED').map((c) => c.claim)).toEqual(['on 5cd68edc']);
+    expect(only(record, 'ci.tests_pass')[0]!.reason).toMatch(/consistent with this claim but does not establish it/);
+    expect(only(record, 'ci.all_checks_pass')[0]!.reason).toMatch(/other checks on this commit were not read/);
+    expect(claimsExitCode(record)).toBe(3);
+  });
+
+  it('an outcome claim the text never ties to this run is not compared', async () => {
+    const { record } = await inspect(load('green-run.json'), 'The workflow passed.');
+    expect(verdicts(record)).toEqual(['gha.run_succeeded:NOT_CHECKED']);
+    expect(record.claims[0]!.reason).toMatch(/cites no commit or run/);
+  });
+
+  it('a green run is not evidence for a sentence about another commit', async () => {
+    const { record } = await inspect(load('green-run.json'), 'The workflow passed on deadbeef1.');
+    expect(verdicts(record)).toEqual(['gha.run_succeeded:NOT_CHECKED', 'git.head_sha:CONTRADICTED']);
+  });
+
+  it('nor for an uncited sentence when the text cites another commit elsewhere', async () => {
+    const { record } = await inspect(load('green-run.json'), 'Pushed commit deadbeef1. The workflow passed.');
+    expect(only(record, 'gha.run_succeeded')[0]!.status).toBe('NOT_CHECKED');
+    expect(only(record, 'gha.run_succeeded')[0]!.reason).toMatch(/cites a commit, run or attempt that is not, or could not be matched to, the inspected run/);
+  });
+
+  it('a sentence that cites this run is still judged on its own when another sentence is wrong', async () => {
+    const { record } = await inspect(load('green-run.json'), 'The workflow passed on 5cd68edc. Also fixed in deadbeef1.');
+    expect(only(record, 'gha.run_succeeded')[0]!.status).toBe('SUPPORTED');
+    expect(only(record, 'git.head_sha').map((c) => c.status)).toEqual(['SUPPORTED', 'CONTRADICTED']);
+    expect(claimsExitCode(record)).toBe(1);
+  });
+
+  it('the same run id in another repository is a different run', async () => {
+    const { record } = await inspect(load('green-run.json'), 'The workflow passed: https://github.com/someone/else/actions/runs/39290226738');
+    expect(only(record, 'gha.run_id')[0]!.status).toBe('CONTRADICTED');
+    expect(only(record, 'gha.run_succeeded')[0]!.status).toBe('NOT_CHECKED');
+  });
+});
+
 describe('a claim naming the wrong SHA', () => {
-  it('is CONTRADICTED, names both values, and exits 1', async () => {
+  it('is CONTRADICTED, names both values, leaves the rest uncompared, and exits 1', async () => {
     const { record } = await inspect(load('green-run.json'), claimsFile('wrong-sha.txt'));
     const [sha] = only(record, 'git.head_sha');
     expect(sha!.status).toBe('CONTRADICTED');
+    expect(sha!.claim).toBe('in a1b2c3d4');
     expect(sha!.reason).toContain('a1b2c3d4');
     expect(sha!.reason).toContain('5cd68edc782f');
-    // The other sentence is still judged on its own: CI really was green.
-    expect(only(record, 'ci.run_passed')[0]!.status).toBe('SUPPORTED');
-    // "Fixed" is not something a run shows.
     expect(only(record, 'excluded.fix')[0]!.status).toBe('NOT_CHECKED');
+    // "CI is green" is not vouched for by a run on a different commit from the one the text cites.
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('NOT_CHECKED');
     expect(claimsExitCode(record)).toBe(1);
   });
 });
 
 describe('a claim naming the wrong run attempt', () => {
-  it('is CONTRADICTED and exits 1', async () => {
+  it('splits run and attempt into separate verdicts, and exits 1', async () => {
     const { record } = await inspect(load('green-run.json'), claimsFile('wrong-attempt.txt'));
-    const [run] = only(record, 'gha.run_id');
-    expect(run!.status).toBe('CONTRADICTED');
-    expect(run!.reason).toMatch(/attempt 2.*attempt 1/);
+    expect(only(record, 'gha.run_id')[0]!.status).toBe('SUPPORTED');
+    const [attempt] = only(record, 'gha.run_attempt');
+    expect(attempt!.status).toBe('CONTRADICTED');
+    expect(attempt!.reason).toMatch(/attempt 2.*attempt 1/);
+    // "CI passed" on attempt 2 says nothing this record can check: attempt 2 is not what it describes.
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('NOT_CHECKED');
     expect(claimsExitCode(record)).toBe(1);
   });
 
   it('a URL naming an attempt GitHub did not answer for records nothing', async () => {
-    // The run endpoint answers for the LATEST attempt. A record built from it would describe
-    // attempt 1 while the URL asked about attempt 2.
     const fx = load('green-run.json');
     replay(fx);
-    await expect(inspectRunClaims(fx.run_url + '/attempts/2', 'All tests pass.', { env: {}, now: NOW })).rejects.toBeInstanceOf(CheckError);
+    await expect(inspectRunClaims(fx.run_url + '/attempts/2', 'x', { env: {}, now: NOW })).rejects.toBeInstanceOf(CheckError);
   });
 
   it('a URL naming the attempt GitHub did answer for is accepted', async () => {
     const fx = load('green-run.json');
-    const { record } = await inspect(fx, 'All tests pass.', fx.run_url + '/attempts/1');
+    const { record } = await inspect(fx, 'x', fx.run_url + '/attempts/1');
     expect(record.observation.run_attempt).toBe(1);
   });
 
@@ -196,15 +249,15 @@ describe('a claim naming the wrong run attempt', () => {
   });
 });
 
-describe('missing check runs are NOT_CHECKED, never success', () => {
-  const PASS = 'All tests pass.';
+describe('missing evidence decides nothing', () => {
+  const CLAIM = 'The workflow passed on 5cd68edc.';
+  const runSucceeded = (r: ActionEvidenceRecord) => only(r, 'gha.run_succeeded')[0]!;
 
   it('no jobs at all (derived fixture)', async () => {
-    const { record } = await inspect(load('no-jobs.json'), PASS);
+    const { record } = await inspect(load('no-jobs.json'), CLAIM);
     expect(record.observation.check.verdict).toBe('INCONCLUSIVE');
-    const [c] = only(record, 'ci.run_passed');
-    expect(c!.status).toBe('NOT_CHECKED');
-    expect(c!.reason).toMatch(/no jobs/);
+    expect(runSucceeded(record).status).toBe('NOT_CHECKED');
+    expect(runSucceeded(record).reason).toMatch(/no jobs/);
     expect(claimsExitCode(record)).toBe(3);
   });
 
@@ -212,21 +265,18 @@ describe('missing check runs are NOT_CHECKED, never success', () => {
     const fx = derive('green-run.json', (f, _r, j) => {
       f.responses[j] = { status: 404, body: { message: 'Not Found' } };
     });
-    const { record } = await inspect(fx, PASS);
-    const [c] = only(record, 'ci.run_passed');
-    expect(c!.status).toBe('NOT_CHECKED');
-    expect(c!.reason).toMatch(/HTTP 404/);
-    expect(claimsExitCode(record)).toBe(3);
+    const { record } = await inspect(fx, CLAIM);
+    expect(runSucceeded(record).status).toBe('NOT_CHECKED');
+    expect(runSucceeded(record).reason).toMatch(/HTTP 404/);
   });
 
   it('GitHub reports more jobs than it returned (derived: total_count raised)', async () => {
     const fx = derive('green-run.json', (f, _r, j) => {
       f.responses[j]!.body.total_count = 45;
     });
-    const { record } = await inspect(fx, PASS);
-    const [c] = only(record, 'ci.run_passed');
-    expect(c!.status).toBe('NOT_CHECKED');
-    expect(c!.reason).toMatch(/45 jobs and returned 1/);
+    const { record } = await inspect(fx, CLAIM);
+    expect(runSucceeded(record).status).toBe('NOT_CHECKED');
+    expect(runSucceeded(record).reason).toMatch(/45 jobs and returned 1/);
   });
 
   it('the run has not finished (derived: status in_progress, conclusion null)', async () => {
@@ -234,8 +284,9 @@ describe('missing check runs are NOT_CHECKED, never success', () => {
       f.responses[r]!.body.status = 'in_progress';
       f.responses[r]!.body.conclusion = null;
     });
-    const { record } = await inspect(fx, PASS);
-    expect(only(record, 'ci.run_passed')[0]!.status).toBe('NOT_CHECKED');
+    const { record } = await inspect(fx, CLAIM + ' All checks pass on 5cd68edc.');
+    expect(runSucceeded(record).status).toBe('NOT_CHECKED');
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('NOT_CHECKED');
     expect(claimsExitCode(record)).toBe(3);
   });
 
@@ -243,43 +294,74 @@ describe('missing check runs are NOT_CHECKED, never success', () => {
     const fx = derive('green-run.json', (f, _r, j) => {
       f.responses[j]!.body.jobs[0].conclusion = 'skipped';
     });
-    const { record } = await inspect(fx, PASS);
-    const [c] = only(record, 'ci.run_passed');
-    expect(c!.status).toBe('NOT_CHECKED');
-    expect(c!.reason).toMatch(/skipped/);
+    const { record } = await inspect(fx, CLAIM);
+    expect(runSucceeded(record).status).toBe('NOT_CHECKED');
+    expect(runSucceeded(record).reason).toMatch(/skipped/);
   });
 
   it('a job that reports a different commit (derived: job head_sha changed)', async () => {
     const fx = derive('green-run.json', (f, _r, j) => {
       f.responses[j]!.body.jobs[0].head_sha = 'f'.repeat(40);
     });
-    const { record } = await inspect(fx, PASS);
-    expect(only(record, 'ci.run_passed')[0]!.status).toBe('NOT_CHECKED');
+    const { record } = await inspect(fx, CLAIM);
+    expect(runSucceeded(record).status).toBe('NOT_CHECKED');
+  });
+
+  it('a green run with a failed job: the record disagrees with itself (derived: job conclusion failure)', async () => {
+    const fx = derive('green-run.json', (f, _r, j) => {
+      f.responses[j]!.body.jobs[0].conclusion = 'failure';
+    });
+    const { record } = await inspect(fx, CLAIM + ' All checks pass on 5cd68edc.');
+    expect(record.observation.check.verdict).toBe('INCONSISTENT');
+    expect(runSucceeded(record).status).toBe('NOT_CHECKED');
+    // A failed job is a failed check run: that does refute "all checks pass".
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('CONTRADICTED');
   });
 });
 
-describe('a failed run', () => {
-  it('contradicts "tests pass" (recorded failure)', async () => {
-    const { record } = await inspect(load('failed-run.json'), 'All tests pass and CI is green.');
+describe('a failed run (recorded)', () => {
+  it('contradicts "the workflow passed" and "all checks pass", never "all tests pass"', async () => {
+    const { record } = await inspect(load('failed-run.json'), 'The workflow passed on b8a17cfb. All checks pass on b8a17cfb. All tests pass on b8a17cfb.');
     expect(record.observation.conclusion).toBe('failure');
-    const [c] = only(record, 'ci.run_passed');
-    expect(c!.status).toBe('CONTRADICTED');
-    expect(c!.reason).toContain('"failure"');
+    expect(only(record, 'gha.run_succeeded')[0]!.status).toBe('CONTRADICTED');
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('CONTRADICTED');
+    // A failed workflow does not show that a test failed: it may have been lint, or a typecheck.
+    expect(only(record, 'ci.tests_pass')[0]!.status).toBe('NOT_CHECKED');
+    expect(only(record, 'ci.tests_pass')[0]!.reason).toMatch(/does not establish that a test failed/);
     expect(claimsExitCode(record)).toBe(1);
   });
 
-  it('a cancelled run is NOT_CHECKED, not CONTRADICTED (derived: conclusion cancelled)', async () => {
-    // A cancelled run never showed the tests failing. It showed them not finishing.
+  it('a cancelled run contradicts "the workflow passed" but not "all checks pass" (derived: run and job cancelled)', async () => {
+    const fx = derive('failed-run.json', (f, r, j) => {
+      f.responses[r]!.body.conclusion = 'cancelled';
+      f.responses[j]!.body.jobs[0].conclusion = 'cancelled';
+    });
+    const { record } = await inspect(fx, 'The workflow passed on b8a17cfb. All checks pass on b8a17cfb.');
+    expect(only(record, 'gha.run_succeeded')[0]!.status).toBe('CONTRADICTED');
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('NOT_CHECKED');
+  });
+
+  it('a cancelled run whose job FAILED does contradict "all checks pass" (derived: run cancelled, job left failed)', async () => {
     const fx = derive('failed-run.json', (f, r) => {
       f.responses[r]!.body.conclusion = 'cancelled';
     });
-    const { record } = await inspect(fx, 'Tests pass.');
-    expect(only(record, 'ci.run_passed')[0]!.status).toBe('NOT_CHECKED');
+    const { record } = await inspect(fx, 'All checks pass on b8a17cfb.');
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('CONTRADICTED');
   });
 
-  it('the run failing makes the exit 1 even when no claim is about tests', async () => {
+  it('a finished run with no conclusion decides nothing (derived: conclusion null, status completed)', async () => {
+    const fx = derive('failed-run.json', (f, r, j) => {
+      f.responses[r]!.body.conclusion = null;
+      f.responses[j]!.body.jobs[0].conclusion = null;
+    });
+    const { record } = await inspect(fx, 'The workflow passed on b8a17cfb. All checks pass on b8a17cfb.');
+    expect(only(record, 'gha.run_succeeded')[0]!.status).toBe('NOT_CHECKED');
+    expect(only(record, 'ci.all_checks_pass')[0]!.status).toBe('NOT_CHECKED');
+  });
+
+  it('the run failing makes the exit 1 even when no claim is about the outcome', async () => {
     const { record } = await inspect(load('failed-run.json'), 'See run 39166529852.');
-    expect(statuses(record)).toEqual(['gha.run_id:SUPPORTED']);
+    expect(verdicts(record)).toEqual(['gha.run_id:SUPPORTED', 'unmapped:NOT_CHECKED']);
     expect(claimsExitCode(record)).toBe(1);
   });
 });
@@ -289,21 +371,20 @@ describe('an overclaiming PR description', () => {
   beforeAll(async () => {
     record = (await inspect(load('green-run.json'), claimsFile('overclaiming-pr.md'))).record;
   });
-  afterAll(() => {
-    delete (globalThis as any).fetch;
-  });
 
-  it('is SUPPORTED only for the narrow claims', () => {
-    const supported = record.claims.filter((c) => c.status === 'SUPPORTED').map((c) => c.template).sort();
-    expect(supported).toEqual(['ci.run_passed', 'gha.run_id', 'git.head_sha']);
+  it('is SUPPORTED only for the two citations', () => {
+    expect(record.claims.filter((c) => c.status === 'SUPPORTED').map((c) => [c.template, c.claim])).toEqual([
+      ['git.head_sha', 'commit 5cd68edc782f'],
+      ['gha.run_id', 'https://github.com/DealAppSeo/trustshell/actions/runs/39290226738'],
+    ]);
   });
 
   it('marks every broad claim NOT_CHECKED with an explicit reason', () => {
-    const nc = record.claims.filter((c) => c.status === 'NOT_CHECKED');
-    expect(nc.map((c) => c.template).sort()).toEqual(
-      ['excluded.completion', 'excluded.coverage', 'excluded.fix', 'excluded.no_bugs', 'excluded.readiness', 'excluded.security'].sort(),
-    );
-    for (const c of nc) expect(c.reason.length).toBeGreaterThan(10);
+    const nc = new Set(record.claims.filter((c) => c.status === 'NOT_CHECKED').map((c) => c.template));
+    for (const t of ['ci.tests_pass', 'ci.all_checks_pass', 'excluded.fix', 'excluded.no_bugs', 'excluded.readiness', 'excluded.security', 'excluded.coverage', 'excluded.completion']) {
+      expect(nc).toContain(t);
+    }
+    for (const c of record.claims) expect(c.reason.length).toBeGreaterThan(10);
   });
 
   it('contradicts nothing, because nothing it says conflicts with the run', () => {
@@ -311,7 +392,7 @@ describe('an overclaiming PR description', () => {
   });
 
   it('skips what is not a claim: the comment, the heading, fenced code, an unticked box', () => {
-    const texts = record.claims.map((c) => c.text).join('\n');
+    const texts = record.claims.map((c) => c.sentence).join('\n');
     expect(texts).not.toMatch(/Describe your change/);
     expect(texts).not.toMatch(/^Summary$/m);
     expect(texts).not.toMatch(/npm test/);
@@ -326,58 +407,108 @@ describe('an overclaiming PR description', () => {
 // ── the templates, directly ──────────────────────────────────────────────────────────────────────
 
 let OBS: Observation;
+let FAILED: Observation;
 beforeAll(async () => {
-  const fx = load('green-run.json');
-  replay(fx);
-  OBS = (await inspectRunClaims(fx.run_url, '', { env: {}, now: NOW })).record.observation;
-  delete (globalThis as any).fetch;
+  OBS = (await inspect(load('green-run.json'), '')).record.observation;
+  FAILED = (await inspect(load('failed-run.json'), '')).record.observation;
 });
 
-const map1 = (text: string): ClaimEntry[] => mapClaims(text, OBS);
-const has = (text: string, template: string, status: string) =>
-  expect(map1(text).map((c) => `${c.template}:${c.status}`)).toContain(`${template}:${status}`);
+const map1 = (text: string, o: Observation = OBS): ClaimEntry[] => mapClaims(text, o);
+const has = (text: string, template: string, status: string, o: Observation = OBS) =>
+  expect(verdicts(map1(text, o))).toContain(`${template}:${status}`);
 
-describe('template: ci.run_passed', () => {
-  it.each(['tests pass', 'All tests passed.', 'Tests are passing', 'CI green', 'CI is green', 'all checks pass', 'Checks are green.', 'The build passes', 'It passes all tests', 'green CI'])(
-    '%p maps to the run result',
-    (t) => has(t, 'ci.run_passed', 'SUPPORTED'),
-  );
+describe('template: gha.run_succeeded (this workflow run, explicitly)', () => {
+  it.each([
+    'The workflow passed on 5cd68edc.',
+    'The `check` workflow succeeded on 5cd68edc.',
+    'Workflow run 39290226738 passed.',
+    'Run 39290226738 succeeded.',
+    'The pipeline is green on 5cd68edc.',
+    'The check workflow run 39290226738 passed.',
+  ])('%p is SUPPORTED on the green run', (t) => has(t, 'gha.run_succeeded', 'SUPPORTED'));
 
-  it.each(['most tests pass', 'tests pass except the flaky one', 'some checks are green', 'CI passes but lint fails'])(
-    '%p is NOT_CHECKED — a partial or qualified pass claim is never read as a pass',
+  it.each(['The deploy workflow passed on 5cd68edc.', 'The `release` workflow succeeded on 5cd68edc.', 'The CI workflow passed on 5cd68edc.'])(
+    '%p names another workflow, so the check workflow is not evidence for it',
     (t) => {
-      const c = map1(t).filter((x) => x.template === 'ci.run_passed');
-      expect(c).toHaveLength(1);
-      expect(c[0]!.status).toBe('NOT_CHECKED');
-      expect(c[0]!.reason).toMatch(/changes what a pass claim means/);
+      const [c] = only(map1(t), 'gha.run_succeeded');
+      expect(c!.status).toBe('NOT_CHECKED');
+      expect(c!.reason).toMatch(/names a workflow other than the inspected one/);
+      // The claimant's workflow name is never spliced into the generated sentence.
+      expect(c!.reason).not.toMatch(/deploy|release|\bCI\b/);
     },
   );
 
-  it.each(["tests don't pass", 'tests do not pass yet'])('%p is not read as a pass claim at all', (t) => {
-    // The pass phrasing never matches, so the sentence is unmapped: NOT_CHECKED, never SUPPORTED.
-    const c = map1(t);
-    expect(c.some((x) => x.status === 'SUPPORTED')).toBe(false);
-    expect(c.map((x) => x.status)).toEqual(['NOT_CHECKED']);
+  it('"the job passed" is about one job, not the run, so it is not read as this run succeeding', () => {
+    const c = map1('The job passed on 5cd68edc.');
+    expect(only(c, 'gha.run_succeeded')).toEqual([]);
+    expect(only(c, 'unmapped')[0]!.status).toBe('NOT_CHECKED');
   });
 
-  it('"tests pass locally" is about a run this record cannot see', () => {
-    const c = map1('All tests pass locally.');
-    expect(c.find((x) => x.template === 'ci.run_passed')).toBeUndefined();
-    expect(c.find((x) => x.template === 'excluded.local_run')!.status).toBe('NOT_CHECKED');
-  });
+  it('is CONTRADICTED by the failed run', () => has('The workflow passed on b8a17cfb.', 'gha.run_succeeded', 'CONTRADICTED', FAILED));
 
-  it('a test COUNT is not checked even when the pass is', () => {
-    has('All 214 tests pass.', 'ci.run_passed', 'SUPPORTED');
-    has('All 214 tests pass.', 'excluded.test_count', 'NOT_CHECKED');
+  it('"the tests run passed" is not read as this workflow run', () => {
+    expect(only(map1('The tests run passed on 5cd68edc.'), 'gha.run_succeeded')).toEqual([]);
   });
 });
 
-describe('template: git.head_sha', () => {
+describe('template: ci.all_checks_pass (every check: one run can refute, never establish)', () => {
+  it.each(['All checks pass on 5cd68edc.', 'CI is green on 5cd68edc.', 'CI passed on 5cd68edc.', 'Everything is green on 5cd68edc.', 'Checks are green on 5cd68edc.', 'It passes all checks on 5cd68edc.'])(
+    '%p is NOT_CHECKED on a green run, CONTRADICTED on a failed one',
+    (t) => {
+      has(t, 'ci.all_checks_pass', 'NOT_CHECKED');
+      has(t.replace('5cd68edc', 'b8a17cfb'), 'ci.all_checks_pass', 'CONTRADICTED', FAILED);
+    },
+  );
+});
+
+describe('template: ci.tests_pass (never decided by a run record)', () => {
+  it.each(['All tests pass on 5cd68edc.', 'The unit tests are green on 5cd68edc.', 'It passes all tests on 5cd68edc.', 'Tests passed on 5cd68edc.'])(
+    '%p is NOT_CHECKED on a green run and on a failed one',
+    (t) => {
+      has(t, 'ci.tests_pass', 'NOT_CHECKED');
+      has(t.replace('5cd68edc', 'b8a17cfb'), 'ci.tests_pass', 'NOT_CHECKED', FAILED);
+    },
+  );
+});
+
+describe('qualified, negated, local and unscoped pass claims', () => {
+  it.each(['Most tests pass on 5cd68edc.', 'The workflow passed on 5cd68edc but lint fails.', 'Some checks are green on 5cd68edc.'])(
+    '%p is NOT_CHECKED with the qualifier named',
+    (t) => {
+      const outcome = map1(t).filter((c) => c.template.startsWith('ci.') || c.template === 'gha.run_succeeded');
+      expect(outcome.length).toBeGreaterThan(0);
+      for (const c of outcome) {
+        expect(c.status).toBe('NOT_CHECKED');
+        expect(c.reason).toMatch(/changes what the claim means/);
+      }
+    },
+  );
+
+  it('a negated claim the templates do not read is still listed, as NOT_CHECKED', () => {
+    expect(map1('CI is not green on 5cd68edc.').map((c) => [c.template, c.status, c.claim])).toEqual([
+      ['git.head_sha', 'SUPPORTED', 'on 5cd68edc'],
+      ['unmapped', 'NOT_CHECKED', 'CI is not green'],
+    ]);
+  });
+
+  it('"tests pass locally" is about a run this record cannot see', () => {
+    const c = map1('All tests pass locally on 5cd68edc.');
+    expect(only(c, 'ci.tests_pass')).toEqual([]);
+    expect(only(c, 'excluded.local_run')[0]!.status).toBe('NOT_CHECKED');
+  });
+
+  it('"the build passes" names no workflow, so it is compared with nothing', () => {
+    has('The build is green on b8a17cfb.', 'ci.build_unscoped', 'NOT_CHECKED', FAILED);
+  });
+});
+
+describe('templates: citations (git.head_sha, gha.run_id, gha.run_attempt)', () => {
   it.each([
     'on commit 5cd68edc',
     'Fixed in 5cd68edc782f',
     'at 5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5',
     'commit 5CD68EDC',
+    'commit: 5cd68edc',
     'see `5cd68edc78`',
     'https://github.com/DealAppSeo/trustshell/commit/5cd68edc782f',
   ])('%p matches head_sha', (t) => has(t, 'git.head_sha', 'SUPPORTED'));
@@ -385,61 +516,89 @@ describe('template: git.head_sha', () => {
   it.each(['fixed in deadbeef', 'commit 1234567', 'on commit 5cd68edd'])('%p is CONTRADICTED', (t) => has(t, 'git.head_sha', 'CONTRADICTED'));
 
   it('a run id or a count is not read as a SHA', () => {
-    expect(map1('CI passed on 39290226738').find((c) => c.template === 'git.head_sha')).toBeUndefined();
-    expect(map1('Done in 1234567 steps').find((c) => c.template === 'git.head_sha')).toBeUndefined();
+    expect(only(map1('see run on 39290226738'), 'git.head_sha')).toEqual([]);
+    expect(only(map1('Done in 1234567 steps'), 'git.head_sha')).toEqual([]);
   });
-});
 
-describe('templates: gha.run_id and gha.run_attempt', () => {
-  it.each(['run 39290226738', 'Run #39290226738', 'run id 39290226738 attempt 1', 'https://github.com/DealAppSeo/trustshell/actions/runs/39290226738/attempts/1'])(
-    '%p is SUPPORTED',
-    (t) => has(t, 'gha.run_id', 'SUPPORTED'),
+  it.each(['run 39290226738', 'Run #39290226738', 'run id 39290226738', 'https://github.com/DealAppSeo/trustshell/actions/runs/39290226738'])('%p cites the run', (t) =>
+    has(t, 'gha.run_id', 'SUPPORTED'),
   );
 
   it('another run id is CONTRADICTED', () => has('run 39166529852', 'gha.run_id', 'CONTRADICTED'));
 
-  it('the same run id in another repository is CONTRADICTED', () =>
-    has('https://github.com/someone/else/actions/runs/39290226738', 'gha.run_id', 'CONTRADICTED'));
-
-  it('an attempt alone is compared too', () => {
+  it('run and attempt get separate verdicts, also from a link', () => {
+    expect(verdicts(map1('https://github.com/DealAppSeo/trustshell/actions/runs/39290226738/attempts/2'))).toEqual(['gha.run_id:SUPPORTED', 'gha.run_attempt:CONTRADICTED']);
     has('passed on attempt 1', 'gha.run_attempt', 'SUPPORTED');
-    has('passed on attempt 3', 'gha.run_attempt', 'CONTRADICTED');
   });
 
-  it('a run named by link and in prose is one entry', () => {
-    const c = map1('run 39290226738: https://github.com/DealAppSeo/trustshell/actions/runs/39290226738').filter((x) => x.template === 'gha.run_id');
-    expect(c).toHaveLength(1);
+  it('a run named by link and in prose is one citation', () => {
+    expect(only(map1('run 39290226738: https://github.com/DealAppSeo/trustshell/actions/runs/39290226738'), 'gha.run_id')).toHaveLength(1);
   });
 });
 
 describe('exclusions: named, NOT_CHECKED, never SUPPORTED', () => {
   it.each([
-    ['It is fully secure.', 'excluded.security'],
-    ['No vulnerabilities remain.', 'excluded.security'],
-    ['All bugs fixed.', 'excluded.no_bugs'],
-    ['The code is bug-free.', 'excluded.no_bugs'],
-    ['Production ready.', 'excluded.readiness'],
-    ['Safe to merge.', 'excluded.readiness'],
-    ['Resolves the race.', 'excluded.fix'],
-    ['Coverage is 98%.', 'excluded.coverage'],
-    ['Deployed to staging.', 'excluded.deployment'],
-    ['Latency is lower.', 'excluded.performance'],
-    ['Reviewed and approved.', 'excluded.review'],
-    ['Done.', 'excluded.completion'],
-  ])('%p → %s', (t, template) => {
+    ['It is fully secure.', 'excluded.security', 'fully secure'],
+    ['No vulnerabilities remain.', 'excluded.security', 'vulnerabilities'],
+    ['All bugs fixed.', 'excluded.no_bugs', 'All bugs'],
+    ['The code is bug-free.', 'excluded.no_bugs', 'bug-free'],
+    ['Production ready.', 'excluded.readiness', 'Production ready'],
+    ['Safe to merge.', 'excluded.readiness', 'Safe to merge'],
+    ['Resolves the race.', 'excluded.fix', 'Resolves'],
+    ['Coverage is 98%.', 'excluded.coverage', 'Coverage is 98%'],
+    ['Deployed to staging.', 'excluded.deployment', 'Deployed'],
+    ['Latency is lower.', 'excluded.performance', 'Latency'],
+    ['Reviewed and approved.', 'excluded.review', 'Reviewed'],
+    ['Done.', 'excluded.completion', 'Done'],
+  ])('%p → %s on %p', (t, template, span) => {
     const c = map1(t);
-    expect(c.find((x) => x.template === template)!.status).toBe('NOT_CHECKED');
-    expect(c.some((x) => x.status === 'SUPPORTED')).toBe(false);
+    const x = only(c, template)[0]!;
+    expect(x.status).toBe('NOT_CHECKED');
+    expect(x.claim).toBe(span);
+    expect(c.some((e) => e.status === 'SUPPORTED')).toBe(false);
   });
 
   it('a sentence nothing reads is one unmapped NOT_CHECKED entry', () => {
-    expect(map1('I refactored the parser.').map((c) => `${c.template}:${c.status}`)).toEqual(['unmapped:NOT_CHECKED']);
+    expect(map1('I refactored the parser.').map((c) => [c.template, c.status, c.claim])).toEqual([['unmapped', 'NOT_CHECKED', 'I refactored the parser.']]);
   });
 
-  it('empty text yields no claims and exits 3, not 0', async () => {
+  it('the part of a sentence no template matched is its own NOT_CHECKED claim', () => {
+    const c = map1('The workflow passed on 5cd68edc after I rewrote the auth module.');
+    expect(only(c, 'gha.run_succeeded')[0]!.status).toBe('SUPPORTED');
+    expect(only(c, 'unmapped').map((e) => e.claim)).toEqual(['after I rewrote the auth module']);
+  });
+
+  it('empty text yields no claims and exits 3, not 0', () => {
     const r = buildRecord(OBS, '   ');
     expect(r.claims).toEqual([]);
     expect(claimsExitCode(r)).toBe(3);
+  });
+});
+
+describe('invariants: what can ever be SUPPORTED', () => {
+  const CORPUS = [
+    claimsFile('overclaiming-pr.md'),
+    claimsFile('misleading-green.txt'),
+    claimsFile('wrong-sha.txt'),
+    claimsFile('wrong-attempt.txt'),
+    claimsFile('narrow-true.txt'),
+    'All tests pass, all checks pass, CI is green and everything is green on 5cd68edc (run 39290226738).',
+    'The build passes. The tests pass. Production ready. The fix works on 5cd68edc.',
+    'Tests passed in run 39290226738 attempt 1 and coverage is 100%.',
+  ];
+
+  it.each(CORPUS.map((t, i) => [i, t]))('corpus %i: only citations and "this run succeeded" are ever SUPPORTED', (_i, t) => {
+    for (const o of [OBS, FAILED]) {
+      for (const c of map1(t as string, o)) {
+        if (c.status !== 'SUPPORTED') continue;
+        expect(['gha.run_succeeded', 'git.head_sha', 'gha.run_id', 'gha.run_attempt']).toContain(c.template);
+        if (c.template === 'gha.run_succeeded') {
+          expect(o.conclusion).toBe('success');
+          expect(o.check.verdict).toBe('COMPLETE');
+        }
+      }
+      expect(map1(t as string, o).filter((c) => c.template === 'ci.tests_pass' || c.template === 'ci.all_checks_pass').some((c) => c.status === 'SUPPORTED')).toBe(false);
+    }
   });
 });
 
@@ -456,17 +615,15 @@ describe('splitting and normalising claim text', () => {
   });
 
   it('caps a very long sentence, but templates still read all of it', () => {
-    const long = 'x'.repeat(400) + ' tests pass';
+    const long = 'x'.repeat(400) + ' tests pass on 5cd68edc';
     const c = map1(long);
-    expect(c[0]!.text.length).toBe(MAX_CLAIM_TEXT);
-    expect(c[0]!.text.endsWith(String.fromCharCode(0x2026))).toBe(true);
-    expect(c[0]!.template).toBe('ci.run_passed');
+    expect(only(c, 'ci.tests_pass')).toHaveLength(1);
+    for (const e of c) expect(e.sentence.length).toBe(MAX_CLAIM_TEXT);
   });
 
   it('says how many sentences past the limit were not read', () => {
     const many = Array.from({ length: MAX_CLAIMS + 5 }, (_, i) => `Sentence ${i}.`).join(' ');
-    const c = map1(many);
-    const last = c[c.length - 1]!;
+    const last = map1(many).slice(-1)[0]!;
     expect(last.template).toBe('truncated');
     expect(last.status).toBe('NOT_CHECKED');
     expect(last.reason).toContain('5 sentences');
@@ -478,19 +635,53 @@ describe('splitting and normalising claim text', () => {
   });
 });
 
+// ── ReDoS: CodeQL js/polynomial-redos, and its siblings ────────────────────────────────────────────
+
+describe('linear time on hostile claim text', () => {
+  // Before the fix, "commit" + 20,000 spaces took 4.4 s and doubling it took ten times longer;
+  // "<!--" x 16,000 took 1.7 s. Each input below is 50,000+ characters; quadratic code takes tens of
+  // seconds on the smallest of them, so a generous per-input bound still separates the two.
+  const KEYWORDS = ['commit', 'sha', 'run', 'run id', 'run #', 'attempt', 'attempt #', 'workflow', 'the', 'CI', 'all', 'checks', 'tests', 'in', 'on', 'build', 'coverage', 'fully', 'https://github.com/a/b/actions/runs/1', 'github.com/', '<!--', '`', '1', '.', '-', '('];
+  const N = 50000;
+
+  it.each(KEYWORDS)('%p followed by, or repeated over, 50,000 characters', (kw) => {
+    for (const s of [kw + ' '.repeat(N), kw + '\t'.repeat(N), (kw + ' ').repeat(Math.ceil(N / (kw.length + 1))), kw.repeat(Math.ceil(N / kw.length))]) {
+      const t = Date.now();
+      mapClaims(s, OBS);
+      expect(Date.now() - t).toBeLessThan(2000);
+    }
+  });
+
+  it('stripHtmlComments handles 256 KiB of unclosed "<!--" at once', () => {
+    const t = Date.now();
+    stripHtmlComments('<!--'.repeat(65536));
+    expect(Date.now() - t).toBeLessThan(500);
+  });
+
+  it('stripHtmlComments gives exactly what the flagged regex gave', () => {
+    const OLD = /<!--[\s\S]*?-->/g;
+    const parts = ['<!--', '-->', '<!-->', 'a', ' ', '\n', '-', '!', '<'];
+    let seed = 7;
+    const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let n = 0; n < 2000; n += 1) {
+      const s = Array.from({ length: Math.floor(rand() * 12) }, () => parts[Math.floor(rand() * parts.length)]).join('');
+      expect(stripHtmlComments(s)).toBe(s.replace(OLD, ' '));
+    }
+  });
+});
+
 // ── the hash ──────────────────────────────────────────────────────────────────────────────────────
 
 describe('record digest (RFC 8785 + SHA-256)', () => {
   it('is the JCS SHA-256 of the record', async () => {
     const { record, digest } = await inspect(load('green-run.json'), claimsFile('narrow-true.txt'));
     expect(digest).toEqual({ algorithm: 'sha-256', canonicalization: 'RFC 8785', value: jcsSha256(record) });
-    expect(digest.value).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('is pinned for the green fixture: any change to the record format changes it, on purpose', async () => {
     // Recomputed outside this code: Python 3 json.dumps(record, sort_keys=True, separators=(',',':'),
-    // ensure_ascii=False) | sha256sum gives the same value (every key here is ASCII, where Python's
-    // code-point sort and RFC 8785's UTF-16 sort agree). If this moves, the schema moved: bump it.
+    // ensure_ascii=False) | sha256 gives the same value (every key here is ASCII, where Python's
+    // code-point sort and RFC 8785's UTF-16 sort agree). If this moves, the schema moved.
     const { digest } = await inspect(load('green-run.json'), claimsFile('narrow-true.txt'));
     expect(digest.value).toBe(GOLDEN_GREEN_NARROW);
   });
@@ -504,7 +695,7 @@ describe('record digest (RFC 8785 + SHA-256)', () => {
   });
 });
 
-const GOLDEN_GREEN_NARROW = '0b4ec9032784e3499636d9b806deff716023f6ea665f05e865b65c44fef7b787';
+const GOLDEN_GREEN_NARROW = '5a2ccfb482348c06a2bf132a76cb8ec8443096a335a08ef7274c75913c79dfb9';
 
 // ── the card ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -513,14 +704,13 @@ describe('the card', () => {
   beforeAll(async () => {
     record = (await inspect(load('green-run.json'), claimsFile('overclaiming-pr.md'))).record;
   });
-  afterAll(() => {
-    delete (globalThis as any).fetch;
-  });
 
-  it('shows every NOT_CHECKED item, in Markdown and HTML', () => {
+  it('shows every NOT_CHECKED claim, in Markdown and HTML', () => {
     const md = renderCardMarkdown(record);
     const html = renderCardHtml(record);
     for (const label of [
+      'Tests passing: not checked.',
+      'All checks on the commit passing: not checked.',
       'Broader security: not checked.',
       'Absence of bugs: not checked.',
       'Production readiness: not checked.',
@@ -536,6 +726,13 @@ describe('the card', () => {
     expect((md.match(/: not checked\.\*\*/g) ?? []).length).toBe(nc + 1);
   });
 
+  it('shows each atomic claim with the sentence it came from', () => {
+    const md = renderCardMarkdown(record);
+    const tests = only(record, 'ci.tests_pass')[0]!;
+    expect(md).toContain(`${mdCode(tests.claim)} ${tests.reason.slice(0, 20)}`);
+    expect(md).toContain(`In: ${mdCode(tests.sentence)}`);
+  });
+
   it('carries the record digest and the evidence class', () => {
     const md = renderCardMarkdown(record);
     expect(md).toContain(digestRecord(record).value);
@@ -548,8 +745,8 @@ describe('the card', () => {
     const copy = JSON.parse(JSON.stringify(record)) as ActionEvidenceRecord;
     expect(renderCardMarkdown(copy)).toBe(renderCardMarkdown(record));
     expect(renderCardHtml(copy)).toBe(renderCardHtml(record));
-    copy.claims[0]!.text = 'a sentence that only the record holds';
-    expect(renderCardMarkdown(copy)).toContain('a sentence that only the record holds');
+    copy.claims[0]!.claim = 'a claim that only the record holds';
+    expect(renderCardMarkdown(copy)).toContain('a claim that only the record holds');
   });
 
   it('labels a demo only when asked', () => {
@@ -559,7 +756,7 @@ describe('the card', () => {
   });
 
   it('keeps hostile claim text inert in both formats', async () => {
-    const hostile = 'CI is green <script>alert(1)</script> [click](https://evil.example) ![x](https://evil.example/x.png) ``tick``';
+    const hostile = 'I fixed it <script>alert(1)</script> [click](https://evil.example) ![x](https://evil.example/x.png) ``tick``';
     const { record: r } = await inspect(load('green-run.json'), hostile);
     const html = renderCardHtml(r);
     expect(html).not.toMatch(/<script/i);
@@ -567,21 +764,19 @@ describe('the card', () => {
     expect(html).not.toContain('href=');
     expect(html).toContain(`content="default-src 'none'; style-src 'unsafe-inline'"`);
     const md = renderCardMarkdown(r);
-    // Every occurrence of the claim sits inside a code span long enough to hold its backticks.
-    const span = mdCode(r.claims[0]!.text);
-    expect(span.startsWith('```')).toBe(true);
-    const outside = md.split(span).join('');
+    // Every piece of claim text sits inside a code span long enough to hold its backticks.
+    let outside = md;
+    for (const c of r.claims) for (const s of [c.claim, c.sentence]) outside = outside.split(mdCode(s)).join('');
     expect(outside).not.toContain('evil.example');
     expect(outside).not.toContain('<script');
   });
 
-  it('a workflow or job name from someone else\'s repo is inert too', () => {
+  it("a workflow or job name from someone else's repo is inert too", () => {
     const copy = JSON.parse(JSON.stringify(record)) as ActionEvidenceRecord;
     copy.observation.workflow.name = '[pwn](https://evil.example)';
     copy.observation.jobs.items[0]!.conclusion = 'failure';
     copy.observation.jobs.items[0]!.name = '<img src=x onerror=alert(1)>';
-    const html = renderCardHtml(copy);
-    expect(html).not.toContain('<img');
+    expect(renderCardHtml(copy)).not.toContain('<img');
     const md = renderCardMarkdown(copy);
     expect(md).toContain(mdCode('[pwn](https://evil.example)'));
     expect(md).toContain(mdCode('<img src=x onerror=alert(1)>'));

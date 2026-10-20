@@ -15,9 +15,14 @@
  * equality over observation fields. The only egress is `runCheck`'s, which is api.github.com.
  *
  * THE RULES THIS FILE EXISTS TO KEEP, each enforced below and pinned in tests/action-evidence.test.ts:
+ *  - Never claim more than the evidence proves. Each claim is atomic, with its own verdict.
  *  - A claim no template can check is NOT_CHECKED with the reason written next to it. Never SUPPORTED.
  *  - A claim that conflicts with a field is CONTRADICTED, and the reason names both values.
- *  - A run that has not finished, or whose jobs were not all read, makes "tests pass" NOT_CHECKED.
+ *  - A successful run supports "this workflow run succeeded" and nothing wider: not "all tests
+ *    pass", not "all checks pass", not "the fix works". Those stay NOT_CHECKED.
+ *  - An outcome is compared only when the text ties it to the inspected run by citing its commit or
+ *    run id, and cites nothing that does not match.
+ *  - A run that has not finished, or whose jobs were not all read, decides no outcome.
  *  - SUPPORTED is narrow. Its `scope` says exactly what matched and what that match does not cover.
  *  - The observation is GitHub reporting on its own run. It is labelled PLATFORM_REPORTED and is
  *    never presented as an independent grade.
@@ -29,7 +34,7 @@
 import { type CheckJob, type CheckResult, type CheckVerdict } from './check';
 export declare const ACTION_EVIDENCE_SCHEMA: "dev.trustshell.action-evidence/0.1-draft";
 export type ClaimStatus = 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
-export type TemplateId = 'ci.run_passed' | 'git.head_sha' | 'gha.run_id' | 'gha.run_attempt' | 'excluded.completion' | 'excluded.security' | 'excluded.no_bugs' | 'excluded.readiness' | 'excluded.fix' | 'excluded.local_run' | 'excluded.test_count' | 'excluded.coverage' | 'excluded.deployment' | 'excluded.performance' | 'excluded.review' | 'unmapped' | 'truncated';
+export type TemplateId = 'gha.run_succeeded' | 'ci.all_checks_pass' | 'ci.tests_pass' | 'ci.build_unscoped' | 'git.head_sha' | 'gha.run_id' | 'gha.run_attempt' | 'excluded.completion' | 'excluded.security' | 'excluded.no_bugs' | 'excluded.readiness' | 'excluded.fix' | 'excluded.local_run' | 'excluded.test_count' | 'excluded.coverage' | 'excluded.deployment' | 'excluded.performance' | 'excluded.review' | 'unmapped' | 'truncated';
 export interface Observation {
     platform: 'github-actions';
     host: 'api.github.com';
@@ -60,8 +65,10 @@ export interface Observation {
     freshness: 'LIVE';
 }
 export interface ClaimEntry {
-    /** The claim sentence, after normalisation (see {@link normalizeClaimText}). */
-    text: string;
+    /** One atomic claim: the exact span a template matched, normalised (see {@link normalizeClaimText}). */
+    claim: string;
+    /** The sentence the claim came from, normalised. Equal to `claim` for an unmapped sentence. */
+    sentence: string;
     template: TemplateId;
     status: ClaimStatus;
     /** JSON Pointers (RFC 6901) into this record: the observation fields the status rests on. */
@@ -102,6 +109,14 @@ export declare const MAX_CLAIMS = 200;
  */
 export declare function normalizeClaimText(s: string): string;
 /**
+ * Remove `<!-- … -->` comments in one left-to-right pass. This replaced the lazy regex
+ * `/<!--[\s\S]*?-->/g`, which CodeQL flagged as js/polynomial-redos: on text made of repeated
+ * `<!--` with no closing `-->` it rescanned to the end from every opener (64,000 characters took
+ * 1.7 s, and each doubling took four times as long). Same result as that regex: an opener with no
+ * closer is left as text, so nothing is silently dropped.
+ */
+export declare function stripHtmlComments(text: string): string;
+/**
  * Split free text (an agent's "done" message, a PR description) into claim sentences. PURE.
  *
  * Skipped, because they are not claims: HTML comments (PR templates are full of them), fenced
@@ -113,7 +128,14 @@ export declare function splitClaims(text: string): {
     full: string[];
     dropped: number;
 };
-/** Map free claim text onto an observation. PURE: same text and observation, same entries, same order. */
+/**
+ * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
+ *
+ * Outcome claims are tied to the inspected run per sentence: by the sentence's own citations when
+ * it has any (all must match), otherwise by the text's (there must be at least one, and all must
+ * match). Untied, they are NOT_CHECKED, because the alternative is vouching for a sentence about
+ * one commit with a green run on another.
+ */
 export declare function mapClaims(text: string, o: Observation): ClaimEntry[];
 /** Build the observation from `check`'s result. PURE. */
 export declare function observationFromCheck(r: CheckResult, fetchedAt: string): Observation;

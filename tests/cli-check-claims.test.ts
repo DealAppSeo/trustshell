@@ -104,7 +104,7 @@ describe('run()', () => {
     const { io, out } = captureIO();
     const code = await run(parseArgs(['check', URL_GREEN, '--claims', join(FX, 'claims', 'narrow-true.txt')]), NO_CLIENT, io);
     expect(code).toBe(0);
-    expect(out.join('\n')).toContain('3 supported · 0 contradicted · 0 not checked');
+    expect(out.join('\n')).toContain('4 supported · 0 contradicted · 0 not checked');
     expect(out.join('\n')).toContain('Cryptographic integrity: not checked.');
   });
 

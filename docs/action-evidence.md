@@ -4,6 +4,10 @@
 api.github.com, then compares what an agent *said* (a "done" message, a PR description) with what
 the run *reports*. The output is one record plus a card drawn from it.
 
+**The rule it is built to keep: never claim more than the evidence proves.** Each claim is split
+into atomic parts, and each part gets its own verdict. One successful workflow run supports "this
+workflow run succeeded", and nothing wider.
+
 **Status: draft.** The schema id ends in `-draft` and may change. Nothing here is signed.
 
 ## Command
@@ -35,7 +39,7 @@ Exactly five top-level members:
 |---|---|
 | `schema` | `dev.trustshell.action-evidence/0.1-draft` |
 | `observation` | What `check` read: `owner`, `repo`, `run_id`, `run_attempt`, `workflow {name, path}`, `head_sha`, `status`, `conclusion`, `check {verdict, results}` (check's own verdict and rows), `jobs {http_status, total, items}`, `fetchedAt`, `freshness: "LIVE"`, plus `platform`, `host` and the canonical run `url`. |
-| `claims[]` | One entry per claim a template read: `text`, `template`, `status`, `evidence_fields` (RFC 6901 pointers into the observation), `scope`, `reason`. |
+| `claims[]` | One entry per atomic claim: `claim` (the exact span a template matched), `sentence` (where it came from), `template`, `status`, `evidence_fields` (RFC 6901 pointers into the observation), `scope`, `reason`. |
 | `assurance` | `cryptographic_integrity: "NOT_CHECKED"` (no attestation is read; the type allows nothing else) and `observation: "PLATFORM_REPORTED"`. |
 | `does_not_prove[]` | The sentences a reader must not lose. |
 
@@ -50,32 +54,60 @@ is a platform record. It is never presented as an independent grade.
 
 | Status | Meaning |
 |---|---|
-| `SUPPORTED` | The run's record matches the claim **within the `scope` written next to it**. Nothing broader. |
-| `CONTRADICTED` | The claim names a value that differs from the record (another SHA, run or attempt), or says tests pass when the run failed. The `reason` names both values. |
-| `NOT_CHECKED` | No template could compare it, or the evidence was missing. Never a pass. |
+| `SUPPORTED` | The run's record establishes this atomic claim **within the `scope` written next to it**. Nothing broader. |
+| `CONTRADICTED` | The record conflicts with the claim: it cites another commit, run or attempt, or says this run (or a check) succeeded when it did not. The `reason` names both values. |
+| `NOT_CHECKED` | The record cannot decide it, the evidence was missing, or nothing ties the claim to this run. Never a pass. |
 
-## Templates
+## Atomic claims and templates
 
-Deterministic regular expressions over the claim text, and equality over observation fields.
+A sentence is split into the parts templates recognise, and each part gets its own verdict.
+"All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2)" is five claims:
+`All tests pass`, `CI is green`, `on 5cd68edc`, `run 39290226738`, `attempt 2`. Whatever is left of
+a sentence once the recognised parts are taken out is one more claim, `unmapped` and NOT_CHECKED,
+if it has a word that says something. So "CI is not green on b8a17cfb" lists the commit citation
+**and** "CI is not green", rather than one green verdict and nothing else.
+
+**Citations** say which run a claim is about:
 
 | Template | Reads | SUPPORTED when | Otherwise |
 |---|---|---|---|
-| `ci.run_passed` | "tests pass", "CI is green", "all checks pass", "the build passes" | check's verdict is COMPLETE, at least one job concluded success, and every job is on this `head_sha` and attempt | CONTRADICTED on conclusion `failure`, `timed_out` or `startup_failure`, or on a failed job. NOT_CHECKED if the run is unfinished, cancelled or skipped, or its jobs were missing, unreadable, truncated or all skipped. A negated or partial claim ("most tests pass", "… but lint fails") is NOT_CHECKED. |
-| `git.head_sha` | "commit abc1234", "fixed in abc1234", `` `abc1234` ``, a `/commit/` link | `head_sha` begins with the named SHA | CONTRADICTED |
-| `gha.run_id` | "run 123456", a run link (with `/attempts/N`) | run id, repository and any attempt match | CONTRADICTED |
-| `gha.run_attempt` | "attempt N" without a run id | `run_attempt` equals N | CONTRADICTED |
-| `excluded.*` | completion ("done"), security, absence of bugs, readiness, whether a fix works, local runs, test counts, coverage, deployment, performance, review | never | always NOT_CHECKED, with the reason |
-| `unmapped` | a sentence no template reads | never | NOT_CHECKED |
+| `git.head_sha` | "commit abc1234", "on abc1234", "fixed in abc1234", `` `abc1234` ``, a `/commit/` link | `head_sha` begins with the cited SHA | CONTRADICTED |
+| `gha.run_id` | "run 123456", a run link | same run id and repository | CONTRADICTED |
+| `gha.run_attempt` | "attempt N", `/attempts/N` in a run link | `run_attempt` equals N | CONTRADICTED |
+
+**Outcomes** are compared only when the text ties them to the inspected run: the sentence cites
+this run's commit or run id and nothing that does not match, or, for a sentence that cites
+nothing, the text as a whole does. Untied, an outcome is NOT_CHECKED with the reason. A green run
+is never evidence for a sentence about another commit.
+
+| Template | Reads | SUPPORTED | CONTRADICTED | NOT_CHECKED |
+|---|---|---|---|---|
+| `gha.run_succeeded` | "the workflow passed", "the `check` workflow succeeded", "run 123456 passed" | conclusion `success`, every job read, at least one job ran, all on this commit and attempt | the run finished with any other conclusion | the run is unfinished; jobs missing, unreadable, truncated, all skipped or on another commit; a success run with a failed job (the record disagrees with itself) |
+| `ci.all_checks_pass` | "all checks pass", "CI is green", "everything is green" | **never**: one run is not every check | the run concluded `failure`, `timed_out` or `startup_failure`, or one of its jobs did: a failing check is a counterexample | otherwise, including every green run |
+| `ci.tests_pass` | "all tests pass", "the unit tests are green" | **never**: a run record does not say which tests ran | **never**: a failed run does not say a test failed (it may have been lint) | always |
+| `ci.build_unscoped` | "the build passes" | never: names no workflow or check | never | always |
+
+A negated, failing or partial phrasing anywhere in the sentence ("most tests pass", "… but lint
+fails") leaves its outcome claims NOT_CHECKED. A local run ("tests pass locally") is not this run.
+
+**Exclusions** are named and always NOT_CHECKED, with the reason: completion ("done"), security,
+absence of bugs, readiness, whether a fix works, local runs, test counts, coverage, deployment,
+performance, review.
 
 What is not read as a claim: HTML comments, headings, fenced code and unticked task-list items
 (`- [ ] …`). A ticked item (`- [x] …`) is read. After 200 sentences the rest are not read, and
 one NOT_CHECKED entry says how many.
 
-Claim text is normalised before it is stored: control characters, bidirectional overrides and
-zero-width characters are removed, whitespace is collapsed, and a sentence is cut at 300
-characters. Text from outside (claims, and workflow or job names from someone else's repository)
-is never spliced into generated sentences; on the card it appears only in code spans (Markdown)
-or entity-escaped (HTML).
+## Untrusted input
 
-A run URL that names an attempt (`…/attempts/N`) is refused when GitHub's run endpoint answers
-for a different, later attempt: the record would otherwise describe an attempt nobody asked about.
+- **Linear time.** Every pattern runs over text a stranger wrote. CodeQL flagged
+  `js/polynomial-redos` on an earlier HTML-comment pattern. It, and three more patterns of the same
+  shape found by timing them, were replaced. `tests/action-evidence.test.ts` times every template
+  against 50,000-character hostile input.
+- **Normalised text.** Control characters, bidirectional overrides and zero-width characters are
+  removed, whitespace is collapsed, and a stored sentence is cut at 300 characters.
+- **Inert on the card.** Text from outside (claims, and workflow or job names from someone else's
+  repository) is never spliced into generated sentences. On the card it appears only in code spans
+  (Markdown) or entity-escaped (HTML, which also has a CSP of `default-src 'none'`).
+- **No re-pointing.** A run URL that names an attempt (`…/attempts/N`) is refused when GitHub's
+  run endpoint answers for a different, later attempt.

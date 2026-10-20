@@ -503,7 +503,8 @@ function main() {
     if (cmd === 'check') {
       const claimsLog = join(cwd, 'claims.log');
       writeFileSync(claimsLog, '');
-      const claimsRan = spawnCli(compiled.cli, [cmd, CHECK_URL_GITHUB, '--claims', 'All tests pass.', '--json'], {
+      // Cites the run, so the one outcome claim is tied to it and can be SUPPORTED (exit 0).
+      const claimsRan = spawnCli(compiled.cli, [cmd, CHECK_URL_GITHUB, '--claims', `The workflow passed: ${CHECK_URL_GITHUB}`, '--json'], {
         cwd,
         allow: ALLOW_HOST,
         logPath: claimsLog,

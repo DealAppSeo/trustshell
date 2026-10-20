@@ -59,21 +59,23 @@
           }
         ]
       },
-      "fetchedAt": "2026-10-19T22:32:01.512Z",
+      "fetchedAt": "2026-10-19T23:55:16.156Z",
       "freshness": "LIVE"
     },
     "claims": [
       {
-        "text": "Done.",
+        "claim": "Done",
+        "sentence": "Done.",
         "template": "excluded.completion",
         "status": "NOT_CHECKED",
         "evidence_fields": [],
         "scope": "Outside what a workflow run record can show.",
-        "reason": "\"Done\" is not a fact a workflow run records. Only the narrower claims mapped from the same text are checked."
+        "reason": "\"Done\" is not a fact a workflow run records. Only the narrower claims mapped from the same text are compared."
       },
       {
-        "text": "All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2).",
-        "template": "ci.run_passed",
+        "claim": "The check workflow passed",
+        "sentence": "The check workflow passed on 5cd68edc (run 39290226738).",
+        "template": "gha.run_succeeded",
         "status": "SUPPORTED",
         "evidence_fields": [
           "/observation/status",
@@ -81,47 +83,79 @@
           "/observation/check/verdict",
           "/observation/jobs"
         ],
-        "scope": "This one workflow run (run 39290226738, attempt 1, commit 5cd68edc782f): the run conclusion and the conclusions of its jobs. Not which tests exist or ran, and not any other workflow on this commit.",
-        "reason": "GitHub reports conclusion \"success\"; 1 of 1 job concluded success, all on this commit and attempt."
+        "scope": "Whether workflow run 39290226738 (attempt 1, commit 5cd68edc782f) concluded success with every job read. Not which tests it ran, not any other workflow or check on the commit, and not whether the change works.",
+        "reason": "GitHub reports conclusion \"success\" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. This sentence ties it to this run by citing it."
       },
       {
-        "text": "All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2).",
+        "claim": "on 5cd68edc",
+        "sentence": "The check workflow passed on 5cd68edc (run 39290226738).",
         "template": "git.head_sha",
         "status": "SUPPORTED",
         "evidence_fields": [
           "/observation/head_sha"
         ],
-        "scope": "Commit identity only: which commit this run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.",
-        "reason": "The run's head_sha 5cd68edc782f begins with 5cd68edc."
+        "scope": "Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.",
+        "reason": "The inspected run's head_sha 5cd68edc782f begins with 5cd68edc."
       },
       {
-        "text": "All tests pass and CI is green on 5cd68edc (run 39290226738, attempt 2).",
+        "claim": "run 39290226738",
+        "sentence": "The check workflow passed on 5cd68edc (run 39290226738).",
         "template": "gha.run_id",
-        "status": "CONTRADICTED",
+        "status": "SUPPORTED",
         "evidence_fields": [
           "/observation/owner",
           "/observation/repo",
-          "/observation/run_id",
-          "/observation/run_attempt"
+          "/observation/run_id"
         ],
-        "scope": "Run identity only: which run and which attempt this record describes. Not what the run proves.",
-        "reason": "The claim names attempt 2; GitHub's record for run 39290226738 is attempt 1, its latest."
+        "scope": "Run identity only: whether the run this claim cites is the inspected run. Not what the run shows.",
+        "reason": "The cited run is the inspected run, 39290226738."
       },
       {
-        "text": "The 1.7.0 release is production ready and fully secure.",
-        "template": "excluded.security",
+        "claim": "All tests pass",
+        "sentence": "All tests pass, verified on attempt 2.",
+        "template": "ci.tests_pass",
         "status": "NOT_CHECKED",
         "evidence_fields": [],
-        "scope": "Outside what a workflow run record can show.",
-        "reason": "A CI run conclusion is not a security review, and no security result is mapped."
+        "scope": "Not compared: nothing ties this claim to the inspected run.",
+        "reason": "This sentence cites a commit, run or attempt that is not, or could not be matched to, the inspected run, so its outcome claims are not compared with this run."
       },
       {
-        "text": "The 1.7.0 release is production ready and fully secure.",
+        "claim": "attempt 2",
+        "sentence": "All tests pass, verified on attempt 2.",
+        "template": "gha.run_attempt",
+        "status": "CONTRADICTED",
+        "evidence_fields": [
+          "/observation/run_attempt"
+        ],
+        "scope": "Attempt identity only: whether the attempt this claim cites is the one GitHub's record describes. Not what that attempt shows.",
+        "reason": "The claim cites attempt 2; GitHub's record for run 39290226738 is attempt 1, its latest."
+      },
+      {
+        "claim": "verified on",
+        "sentence": "All tests pass, verified on attempt 2.",
+        "template": "unmapped",
+        "status": "NOT_CHECKED",
+        "evidence_fields": [],
+        "scope": "The part of this sentence no template matched.",
+        "reason": "Not compared with anything, so it is neither supported nor contradicted. A verdict on another part of the sentence says nothing about this part."
+      },
+      {
+        "claim": "production ready",
+        "sentence": "It is production ready and fully secure.",
         "template": "excluded.readiness",
         "status": "NOT_CHECKED",
         "evidence_fields": [],
         "scope": "Outside what a workflow run record can show.",
         "reason": "Readiness is a judgement, not something a workflow run reports."
+      },
+      {
+        "claim": "fully secure",
+        "sentence": "It is production ready and fully secure.",
+        "template": "excluded.security",
+        "status": "NOT_CHECKED",
+        "evidence_fields": [],
+        "scope": "Outside what a workflow run record can show.",
+        "reason": "A CI run conclusion is not a security review, and no security result is mapped."
       }
     ],
     "assurance": {
@@ -134,6 +168,7 @@
       "A passing test suite proves the tests that exist passed — not that the right tests exist.",
       "It does not establish who or what authored the change.",
       "SUPPORTED means the platform record matches the narrow scope written next to the claim. It is not a finding that the claim is true in any broader sense.",
+      "A successful workflow run shows that run succeeded. It does not show which tests ran, that all tests or all checks passed, or that a change works.",
       "Only this one workflow run was read. Other workflows, check suites and status checks on the same commit were not.",
       "Every observed fact is GitHub reporting on its own run (PLATFORM_REPORTED). Nothing was re-run or independently observed.",
       "Broader security: not checked. A CI conclusion is not a security review.",
@@ -143,6 +178,6 @@
   "digest": {
     "algorithm": "sha-256",
     "canonicalization": "RFC 8785",
-    "value": "f016d2c22e534fcc0ede452be09e41202014329e50a1564f41f195489493d4be"
+    "value": "6a57284f63ea14e0b75550a15f100c9edaa0631549850c2766ad4965420ba21a"
   }
 }

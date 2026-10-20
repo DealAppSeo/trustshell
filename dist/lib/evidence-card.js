@@ -26,10 +26,13 @@ const code = (v) => ({ t: 'code', v });
 const strong = (v) => ({ t: 'strong', v });
 /** What a template is ABOUT, for the "<topic>: not checked" line. Keyed by template id, never by claim text. */
 const TOPIC = {
-    'ci.run_passed': 'Tests / CI passing',
-    'git.head_sha': 'Commit',
-    'gha.run_id': 'Run identity',
-    'gha.run_attempt': 'Run attempt',
+    'gha.run_succeeded': 'This workflow run succeeding',
+    'ci.all_checks_pass': 'All checks on the commit passing',
+    'ci.tests_pass': 'Tests passing',
+    'ci.build_unscoped': 'An unnamed build passing',
+    'git.head_sha': 'Cited commit',
+    'gha.run_id': 'Cited run',
+    'gha.run_attempt': 'Cited attempt',
     'excluded.completion': 'Task completion',
     'excluded.security': 'Broader security',
     'excluded.no_bugs': 'Absence of bugs',
@@ -71,11 +74,10 @@ function jobSummary(r) {
     return line;
 }
 function claimDetails(c) {
-    const d = [
-        [strong('Template'), text(' '), code(c.template)],
-        [strong('Why'), text(' ' + c.reason)],
-        [strong('Scope'), text(' ' + c.scope)],
-    ];
+    const d = [];
+    if (c.sentence !== c.claim)
+        d.push([strong('In'), text(' '), code(c.sentence)]);
+    d.push([strong('Template'), text(' '), code(c.template)], [strong('Why'), text(' ' + c.reason)], [strong('Scope'), text(' ' + c.scope)]);
     if (c.evidence_fields.length) {
         const l = [strong('Fields')];
         c.evidence_fields.forEach((f, i) => l.push(text(i ? ', ' : ' '), code(f)));
@@ -109,10 +111,16 @@ function buildModel(r, opts) {
     const checked = r.claims
         .filter((c) => c.status !== 'NOT_CHECKED')
         .sort((a, b) => (a.status === b.status ? 0 : a.status === 'CONTRADICTED' ? -1 : 1))
-        .map((c) => ({ status: c.status, head: [strong(c.status), text(' '), code(c.text)], details: claimDetails(c) }));
+        .map((c) => ({ status: c.status, head: [strong(c.status), text(' '), code(c.claim)], details: claimDetails(c) }));
+    // Each atomic claim is listed on its own, with the sentence it came from when that is wider.
     const notChecked = r.claims
         .filter((c) => c.status === 'NOT_CHECKED')
-        .map((c) => [strong(`${TOPIC[c.template] ?? c.template}: not checked.`), text(' '), code(c.text), text(' ' + c.reason)]);
+        .map((c) => {
+        const l = [strong(`${TOPIC[c.template] ?? c.template}: not checked.`), text(' '), code(c.claim), text(' ' + c.reason)];
+        if (c.sentence !== c.claim)
+            l.push(text(' In: '), code(c.sentence));
+        return l;
+    });
     if (r.assurance.cryptographic_integrity === 'NOT_CHECKED') {
         notChecked.push([
             strong('Cryptographic integrity: not checked.'),
