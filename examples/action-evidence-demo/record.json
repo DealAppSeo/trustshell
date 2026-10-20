@@ -59,7 +59,7 @@
           }
         ]
       },
-      "fetchedAt": "2026-10-20T00:33:07.336Z",
+      "fetchedAt": "2026-10-20T00:52:20.903Z",
       "freshness": "LIVE"
     },
     "claims": [
@@ -178,6 +178,6 @@
   "digest": {
     "algorithm": "sha-256",
     "canonicalization": "RFC 8785",
-    "value": "3c26063c2bec22814d31b3248d8f425b467c2c6ae526a79e26e363eeb8bad441"
+    "value": "b63eee19798554d0b7a40508fd3e3dd507542bc579495c55e943207d74be9275"
   }
 }

@@ -262,6 +262,29 @@ describe('XC1 R1: a sentence decides nothing unless the templates read it end to
     expect(only(c, 'gha.run_succeeded')[0]!.reason).toMatch(/quoted/);
   });
 
+  it.each([
+    ['N1 strikethrough', '~~The check workflow passed (run 39290226738).~~'],
+    ['N1 single tilde', '~The check workflow passed (run 39290226738).~'],
+    ['N2 cross mark', 'The check workflow passed (run 39290226738) ' + CH(0x274c)],
+    ['N2 ballot x', 'The check workflow passed (run 39290226738) ' + CH(0x2717)],
+    ['N2 no entry', 'The check workflow passed (run 39290226738) ' + CH(0x1f6ab)],
+    ['N3 interrobang', 'The check workflow passed (run 39290226738)' + CH(0x203d)],
+    ['N3 Arabic question mark', 'The check workflow passed (run 39290226738)' + CH(0x061f)],
+    ['N3 reversed question mark', 'The check workflow passed (run 39290226738)' + CH(0x2e2e)],
+    ['N5 inverted question', 'Has the check workflow passed (run 39290226738).'],
+    ['N5 inverted, copula', 'Is the check workflow green (run 39290226738).'],
+  ])('XC1 %s: nothing SUPPORTED', (_label, text) => {
+    expect(supported(map1(text))).toEqual([]);
+  });
+
+  it('XC1 N5/N7: a question or a possessive scope is never CONTRADICTED by a red run', () => {
+    for (const t of ['Has the check workflow passed on b8a17cfb.', 'Is CI green on b8a17cfb.', 'My checks pass on b8a17cfb.', 'Our checks pass on b8a17cfb.']) {
+      const c = map1(t, FAILED);
+      expect(c.filter((e) => e.status === 'CONTRADICTED')).toEqual([]);
+      expect(c.filter((e) => e.status === 'SUPPORTED')).toEqual([]);
+    }
+  });
+
   it('XC1 G1/G2: "lint checks" or "required checks" are not "all checks", so a red run does not contradict them', () => {
     for (const t of ['The lint checks pass on b8a17cfb.', 'All required checks pass on b8a17cfb.']) {
       expect(map1(t, FAILED).filter((e) => e.status === 'CONTRADICTED')).toEqual([]);
@@ -489,12 +512,21 @@ describe('an overclaiming PR description', () => {
     expect(tallyClaims(record.claims).CONTRADICTED).toBe(0);
   });
 
-  it('skips what is not a claim: the comment block, the heading, fenced code, an unticked box', () => {
+  it('drops only what a reader cannot see (the comment block); lists the heading, code and to-do, deciding nothing', () => {
     const texts = record.claims.map((c) => c.sentence).join('\n');
     expect(texts).not.toMatch(/Describe your change/);
-    expect(texts).not.toMatch(/^Summary$/m);
-    expect(texts).not.toMatch(/npm test/);
-    expect(texts).not.toMatch(/Docs updated/);
+    for (const [shown, why] of [
+      [/^Summary$/, /heading/],
+      [/npm test/, /code/],
+      [/^Docs updated$/, /unticked task-list item/],
+    ] as const) {
+      const entries = record.claims.filter((c) => shown.test(c.sentence));
+      expect(entries.length).toBeGreaterThan(0);
+      for (const e of entries) {
+        expect(e.status).toBe('NOT_CHECKED');
+        if (e.template === 'unmapped') expect(e.reason).toMatch(why);
+      }
+    }
   });
 
   it('exits 3: anything NOT_CHECKED is never a pass', () => {
@@ -715,8 +747,10 @@ describe('invariants: what can ever be SUPPORTED', () => {
 });
 
 describe('splitting and normalising claim text', () => {
-  it('splits sentences and list items, keeps ticked boxes, drops unticked ones', () => {
-    expect(splitClaims('- [x] Tests pass.\n- [ ] Docs updated\n* CI is green; done!').clauses).toEqual(['Tests pass.', 'CI is green;', 'done!']);
+  it('splits sentences and list items; a ticked box is a statement, an unticked one a to-do', () => {
+    const s = splitClaims('- [x] Tests pass.\n- [ ] Docs updated\n* CI is green; done!');
+    expect(s.clauses).toEqual(['Tests pass.', 'Docs updated', 'CI is green;', 'done!']);
+    expect(s.context).toEqual(['statement', 'todo', 'statement', 'statement']);
   });
 
   it('strips control and invisible characters so text cannot act on the reader', () => {
@@ -741,14 +775,44 @@ describe('splitting and normalising claim text', () => {
     expect(full[2]).toBe('All tests fail.');
   });
 
-  it('a real fence hides its body, and only a matching fence closes it', () => {
-    const text = ['Before.', '~~~~', 'hidden one', '~~~', 'hidden two', '~~~~', 'After.', FENCE + 'js', 'hidden three', FENCE].join('\n');
-    expect(splitClaims(text).full).toEqual(['Before.', 'After.']);
+  it('a fence lists its body as code, and only a matching fence closes it', () => {
+    const text = ['Before.', '~~~~', 'code one', '~~~', 'code two', '~~~~', 'After.', FENCE + 'js', 'code three', FENCE].join('\n');
+    const s = splitClaims(text);
+    // The inner "~~~" is shorter than the opener, so it does not close the fence. It has no word, so it is not listed.
+    expect(s.full).toEqual(['Before.', 'code one', 'code two', 'After.', 'code three']);
+    expect(s.context).toEqual(['statement', 'code', 'code', 'statement', 'code']);
   });
 
-  it('XC1 H2: "<!--" mid-line or in a code span is text; only a comment BLOCK is removed', () => {
+  it('XC1 H2: "<!--" in a code span is text; comment blocks are removed', () => {
     const text = 'Comments start with `<!--`.\nAll checks fail.\nThey end with `-->`.\n<!-- a template note\nstill the note -->Visible after it.\n<!-- never closed\nStill visible.';
     expect(splitClaims(text).full).toEqual(['Comments start with `<!--`.', 'All checks fail.', 'They end with `-->`.', 'Visible after it.', '<!-- never closed', 'Still visible.']);
+  });
+
+  it('XC1 N9: an inline comment outside a code span is removed, because a reader does not see it', () => {
+    const c = map1(CH(0x2014) + ' <!-- The check workflow passed (run 39290226738). --> and `<!-- kept -->` too.');
+    expect(supported(c)).toEqual([]);
+    expect(c.map((e) => e.sentence).join(' ')).not.toMatch(/check workflow/);
+    expect(c.map((e) => e.sentence).join(' ')).toContain('`<!-- kept -->`');
+  });
+
+  it('XC1 N4: a fence opened after a list marker closes on its own indented fence, and the next line is read', () => {
+    const text = 'The check workflow passed (run 39290226738).\n- ' + FENCE + '\n  ' + FENCE + '\nThe deploy workflow failed and nothing works. All tests fail.';
+    const s = splitClaims(text);
+    expect(s.full).toEqual(['The check workflow passed (run 39290226738).', 'The deploy workflow failed and nothing works.', 'All tests fail.']);
+    expect(claimsExitCode(buildRecord(OBS, text))).toBe(3);
+  });
+
+  it('XC1 N8: an indented code block is listed as code and decides nothing; an indented paragraph continuation is not code', () => {
+    const code = map1('    The check workflow passed (run 39290226738).');
+    expect(supported(code)).toEqual([]);
+    expect(code[0]!.reason).toMatch(/code/);
+    expect(splitClaims('First line\n    continues the paragraph.').context).toEqual(['statement', 'statement']);
+  });
+
+  it('XC1 N6: a lazy continuation line of a blockquote is still quoted', () => {
+    const s = splitClaims('> The release bot wrote:\nThe check workflow passed (run 39290226738).\n\nMine.');
+    expect(s.context).toEqual(['quote', 'quote', 'statement']);
+    expect(supported(map1('> The release bot wrote:\nThe check workflow passed (run 39290226738).'))).toEqual([]);
   });
 
   it('keeps a sentence in any script', () => {
@@ -782,7 +846,7 @@ describe('linear time on hostile claim text', () => {
   // Measured before the fixes: "commit" + 20,000 spaces took 4.4 s, "<!--" x 16,000 took 1.7 s, and
   // "1," x 25,000 took 0.9 s (XC1 S3); each doubling took 4x or more. Each input below is 50,000+
   // characters, where quadratic code takes seconds to minutes, so a generous bound separates them.
-  const UNITS = ['commit', 'sha', 'run', 'run id', 'run #', 'attempt', 'attempt #', 'workflow', 'the', 'CI', 'all', 'checks', 'tests', 'in', 'on', 'build', 'coverage', 'fully', 'https://github.com/a/b/actions/runs/1', 'github.com/', '<!--', '-->', '`', FENCE, '~~~', '>', '1', '1,', '1,111,', '1.', '.', '-', '(', '?', 'a1'];
+  const UNITS = ['commit', 'sha', 'run', 'run id', 'run #', 'attempt', 'attempt #', 'workflow', 'the', 'CI', 'all', 'checks', 'tests', 'in', 'on', 'build', 'coverage', 'fully', 'https://github.com/a/b/actions/runs/1', 'github.com/', '<!--', '-->', '`', FENCE, '~~~', '>', '1', '1,', '1,111,', '1.', '.', '-', '(', '?', 'a1', '    ', '- ' + FENCE, '> ', '~', '#', '[ ]', '<!-- x'];
   const N = 50000;
 
   it.each(UNITS)('%p followed by, or repeated over, 50,000 characters', (kw) => {

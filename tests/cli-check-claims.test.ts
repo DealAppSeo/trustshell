@@ -107,6 +107,24 @@ describe('XC1 S2: --claims is text, even when the text is the path of a real fil
     expect(printed).not.toContain('db.internal');
   });
 
+  it('XC1 N10: --json escapes C1 controls, bidi and invisible characters from a workflow name, and the digest still matches', async () => {
+    const fx = JSON.parse(JSON.stringify(GREEN));
+    const runPath = Object.keys(fx.responses)[0] as string;
+    const C = (...c: number[]) => String.fromCodePoint(...c);
+    fx.responses[runPath].body.name = 'check' + C(0x9b) + '2J' + C(0x9d) + '52;x' + C(0x9c) + C(0x202e) + 'evil' + C(0x200b);
+    replay(fx);
+    const { io, out } = captureIO();
+    await run(parseArgs(['check', URL_GREEN, '--claims', 'x', '--json']), NO_CLIENT, io);
+    const printed = out.join(' ');
+    for (const ch of printed) {
+      const cp = ch.codePointAt(0) as number;
+      expect((cp >= 0x7f && cp <= 0x9f) || cp === 0x202e || cp === 0x200b).toBe(false);
+    }
+    const doc = JSON.parse(printed) as { record: ActionEvidenceRecord; digest: { value: string } };
+    expect(doc.record.observation.workflow.name).toContain(C(0x202e));
+    expect(doc.digest.value).toBe(digestRecord(doc.record).value);
+  });
+
   it('an empty --claims is a usage error, and GitHub is not asked', async () => {
     const calls = replay(GREEN);
     const { io } = captureIO();

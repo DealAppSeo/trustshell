@@ -114,28 +114,39 @@ export declare function cleanCodePoints(s: string, keepNewlines?: boolean): stri
  * RFC 8785 digest throw, so any repository could make every --claims check of its runs fail (XC1 L1).
  */
 export declare function wellFormed(s: string): string;
+/**
+ * JSON for a terminal, or for a file a terminal may print. JSON.stringify escapes only
+ * U+0000-U+001F, so a C1 control (U+009B is CSI), a bidi override or an invisible character from a
+ * workflow name reached stdout raw (XC1 N10). Those are written as \uXXXX escapes instead. The
+ * parsed value is identical, so the record's digest does not change.
+ */
+export declare function terminalSafeJson(value: unknown, space?: number): string;
 /** Normalise one claim for storage: {@link canonicalText}, whitespace collapsed, cut at MAX_CLAIM_TEXT. */
 export declare function normalizeClaimText(s: string): string;
 /**
- * Split free text into claim sentences. PURE, and one pass over the lines.
+ * Where a line sits in the rendered text. Only a `statement` can decide anything. Every other
+ * context is LISTED, so a reader of the card sees it, but decides nothing: a heading labels, code
+ * is an example, a quote is someone else's words, an unticked box is a to-do.
+ */
+export type LineContext = 'statement' | 'quote' | 'code' | 'heading' | 'todo';
+/**
+ * Split free text into claim sentences, each with the context it sits in. PURE, one pass, linear.
  *
- * Skipped, because a reader of the rendered text does not see them as claims: fenced code, HTML
- * comment BLOCKS, headings, and unticked task-list items (`- [ ] tests pass` is a to-do). Kept but
- * marked: blockquoted lines, which are someone else's words.
+ * THE RULE: drop only what a reader cannot see; decide only plain statements. HTML comments (block
+ * and inline, outside code spans) are the only thing removed, because GitHub does not show them.
+ * Everything else a reader sees is listed: headings, fenced and indented code, blockquotes (with
+ * lazy continuation lines), and unticked task items are kept with their context, and decide
+ * nothing. So a parsing mistake here can only make something NOT_CHECKED; it can never hide visible
+ * text or certify a code example (XC1 H1, N4, N6, N8).
  *
- * The rules follow CommonMark, because the failure to avoid is hiding text a reader can see (XC1
- * H1, H2):
- *  - A fence opens on a line of 3+ backticks or tildes, indented at most 3 spaces. A backtick
- *    fence's info string may not contain a backtick, so "```x``` more text" is prose, not a fence.
- *    It closes on the same character, at least as long, with nothing else on the line.
- *  - A comment is removed only as an HTML block: a line that starts with `<!--`, through the line
- *    holding `-->`. Text after the `-->` is kept. A `<!--` anywhere else (in a code span,
- *    mid-sentence) is text, and so is an opener with no `-->` anywhere after it.
+ * Fences follow CommonMark, including inside containers (`- ```` opens a fence in a list item,
+ * XC1 N4): 3+ backticks or tildes, a backtick fence's info string holds no backtick, and the fence
+ * closes on the same character, at least as long, indented no more than 3 columns past the opener.
  */
 export declare function splitClaims(text: string): {
     clauses: string[];
     full: string[];
-    quoted: boolean[];
+    context: LineContext[];
     dropped: number;
 };
 /**

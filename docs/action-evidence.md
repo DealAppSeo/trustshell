@@ -75,23 +75,40 @@ is a platform record. It is never presented as an independent grade.
 
 A reader can never see a word the checks did not.
 
-**2. Not read as claims:**
-- **Fenced code.** Per CommonMark: 3+ backticks or tildes at the start of a line, and a backtick
-  fence's info string may not contain a backtick.
-- **HTML comment blocks.** A line starting with `<!--`, through the line holding `-->`. A `<!--`
-  anywhere else, or one that never closes, is text.
-- **Headings.**
-- **Unticked task-list items** (`- [ ] …`).
+**2. Drop only what a reader cannot see; decide only plain statements.**
+- The only thing removed is HTML comments, block and inline, outside code spans. GitHub does not
+  show them, so a claim inside one was made by nobody a reader can see. A `<!--` in a code span,
+  or one that never closes, is text.
+- Everything else a reader sees is **listed, with its context, and decides nothing**:
+  - headings;
+  - fenced code (per CommonMark, including a fence opened inside a list item);
+  - indented code;
+  - blockquotes, including their lazy continuation lines;
+  - unticked task-list items (`- [ ] …`).
+
+  So a parsing mistake can only make something NOT_CHECKED. It can never hide visible text, or
+  certify an example as a claim.
 
 **3. Every part of a sentence is listed.** Templates match spans. Whatever a sentence says outside
 them becomes its own `unmapped` NOT_CHECKED claim.
 
-**4. A sentence decides nothing unless it is a plain statement the templates read end to end.** If
-any of the following hold, every part of the sentence is NOT_CHECKED, with the reason:
-- it has words no template read ("If the workflow passed (run N), we can merge", "The workflow
-  passed on a branch rebased on <sha>", "The lint checks pass");
-- it is a question;
-- it is a blockquote.
+**4. A sentence decides nothing unless it is a plain statement the templates read end to end.**
+Every part of the sentence is NOT_CHECKED, with the reason, when it has unread content, or when it
+is a question.
+- **Unread content** is an allow-list. A leftover counts as saying nothing only if it holds no
+  more than:
+  - whitespace;
+  - plain ASCII punctuation (`. , ; : ( ) [ ] ' " ! -`);
+  - emphasis and code marks (`* _` and the backtick);
+  - a short list of filler words (articles, plain prepositions, and the copulas the templates
+    already read around).
+
+  Anything else counts: a content word in any script, `~` (strikethrough is a retraction), any
+  symbol or emoji (a cross mark negates), non-ASCII punctuation, and possessives ("my checks"
+  is not "all checks"). Examples: "If the workflow passed (run N), we can merge", "The workflow
+  passed on a branch rebased on <sha>", "The lint checks pass".
+- **A question** has a question mark (including ‽ and ؟) or opens with an auxiliary verb
+  ("Has the check workflow passed …").
 
 **5. Ties are per sentence.** A sentence's own citations decide which run it is about. A citation in
 one sentence says nothing about the next. An attempt number never ties anything; it can only
@@ -127,10 +144,11 @@ performance, review.
   `js/polynomial-redos` on an earlier HTML-comment pattern. That pattern, and four more of the
   quadratic kind found by timing (three citation patterns and a test-count pattern), were replaced.
   `tests/action-evidence.test.ts` times every template against hostile input of 50,000+ characters.
-- **Inert on the card.** Every string the card shows passes through the same control and
+- **Inert on the card and in `--json`.** Every string the card shows passes through the same control and
   invisible-character filter, so a workflow name holding a terminal escape reaches neither card.
   Text from outside (claims, workflow and job names) appears only in code spans in Markdown, or
   entity-escaped in HTML, which also has a CSP of `default-src 'none'`. Generated sentences never
-  splice that text in.
+  splice that text in. `--json` and `record.json` write C1 controls, bidi and invisible characters
+  as JSON unicode escapes: the same JSON value, so the same digest.
 - **No re-pointing.** A run URL that names an attempt (`…/attempts/N`) is refused when GitHub's
   run endpoint answers for a different, later attempt.

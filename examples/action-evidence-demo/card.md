@@ -6,7 +6,7 @@
 - **Workflow** `check` · `.github/workflows/check.yml`
 - **GitHub reports** status `completed` · conclusion `success` · check verdict **COMPLETE**
 - **Jobs** 1 of 1 read (HTTP 200): 1 success
-- **Observed** 2026-10-20T00:33:07.336Z from api.github.com (LIVE at that time)
+- **Observed** 2026-10-20T00:52:20.903Z from api.github.com (LIVE at that time)
 - **Evidence class** PLATFORM_REPORTED: GitHub describing its own run. A platform record, not an independent grade.
 
 ### Claims: 3 supported · 1 contradicted · 5 not checked
@@ -60,4 +60,4 @@
 
 ---
 
-Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `3c26063c2bec22814d31b3248d8f425b467c2c6ae526a79e26e363eeb8bad441` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded
+Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `b63eee19798554d0b7a40508fd3e3dd507542bc579495c55e943207d74be9275` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded

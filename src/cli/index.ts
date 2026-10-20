@@ -30,7 +30,7 @@ import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
-import { claimsExitCode, inspectRunClaims } from '../lib/action-evidence';
+import { claimsExitCode, inspectRunClaims, terminalSafeJson } from '../lib/action-evidence';
 import { renderCardHtml, renderCardMarkdown } from '../lib/evidence-card';
 import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE, pathLine, OFFLINE_REASON } from '../lib/claim';
 import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
@@ -1429,12 +1429,12 @@ async function runClaimsAgainstRun(args: ParsedArgs, io: CliIO): Promise<number>
     if (args.out) {
       const fs = require('node:fs') as typeof import('node:fs');
       fs.mkdirSync(args.out, { recursive: true });
-      fs.writeFileSync(join(args.out, 'record.json'), JSON.stringify({ record, digest }, null, 2) + '\n');
+      fs.writeFileSync(join(args.out, 'record.json'), terminalSafeJson({ record, digest }) + '\n');
       fs.writeFileSync(join(args.out, 'card.md'), card);
       fs.writeFileSync(join(args.out, 'card.html'), renderCardHtml(record, { demo: args.demo }));
       io.err(`wrote record.json, card.md and card.html to ${args.out}`);
     }
-    io.out(args.json ? JSON.stringify({ record, digest }, null, 2) : card);
+    io.out(args.json ? terminalSafeJson({ record, digest }) : card);
     return claimsExitCode(record);
   } catch (e: any) {
     if (e instanceof CheckError) {

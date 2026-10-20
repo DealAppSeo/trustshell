@@ -1363,12 +1363,12 @@ async function runClaimsAgainstRun(args, io) {
         if (args.out) {
             const fs = require('node:fs');
             fs.mkdirSync(args.out, { recursive: true });
-            fs.writeFileSync((0, node_path_1.join)(args.out, 'record.json'), JSON.stringify({ record, digest }, null, 2) + '\n');
+            fs.writeFileSync((0, node_path_1.join)(args.out, 'record.json'), (0, action_evidence_1.terminalSafeJson)({ record, digest }) + '\n');
             fs.writeFileSync((0, node_path_1.join)(args.out, 'card.md'), card);
             fs.writeFileSync((0, node_path_1.join)(args.out, 'card.html'), (0, evidence_card_1.renderCardHtml)(record, { demo: args.demo }));
             io.err(`wrote record.json, card.md and card.html to ${args.out}`);
         }
-        io.out(args.json ? JSON.stringify({ record, digest }, null, 2) : card);
+        io.out(args.json ? (0, action_evidence_1.terminalSafeJson)({ record, digest }) : card);
         return (0, action_evidence_1.claimsExitCode)(record);
     }
     catch (e) {
