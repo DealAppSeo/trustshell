@@ -1,6 +1,19 @@
 export interface CommitChecks {
     head_sha: string;
+    /** When the first read started; `retrieved_at` is when the last one ended (XC1 F5). */
+    started_at: string;
     retrieved_at: string;
+    /**
+     * How the base branch (whose required checks apply) and the change's files were found (XC1 F1/F2):
+     *   associated  the pull requests GitHub associates with this commit (their bases, their whole diffs)
+     *   head        a pull-request run whose PR GitHub does not associate (a fork), found by its head branch
+     *   push        a push or other non-PR run: the branch it ran on, and this commit's own diff
+     *   unresolved  a pull-request run whose PR could not be found: required checks and files are unknown
+     */
+    base: {
+        how: 'associated' | 'head' | 'push' | 'unresolved';
+        branches: string[];
+    };
     /** The latest run of each check run, with the id of the app that ran it. */
     check_runs: {
         total_count: number;
@@ -53,4 +66,8 @@ export interface CommitChecks {
  * `null` (or an empty, incomplete list), which makes the claim NOT_CHECKED. The network error of an
  * unreachable API does propagate, as it does for `check`.
  */
-export declare function fetchCommitChecks(owner: string, repo: string, sha: string, env?: Record<string, string | undefined>, now?: () => Date): Promise<CommitChecks>;
+export declare function fetchCommitChecks(owner: string, repo: string, sha: string, env?: Record<string, string | undefined>, now?: () => Date, run?: {
+    event: string | null;
+    head_branch: string | null;
+    head_owner: string | null;
+}): Promise<CommitChecks>;

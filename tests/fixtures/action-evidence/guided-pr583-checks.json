@@ -1,6 +1,6 @@
 {
   "_provenance": {
-    "recorded_at": "2026-10-20T06:01:59.534Z",
+    "recorded_at": "2026-10-20T06:26:38.126Z",
     "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
     "commit": "DealAppSeo/trustshell@55a1e72033f9ad4ff7c0280500c82bacb2e93dcf",
     "note": "head of PR #583 at its approved commit",

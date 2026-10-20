@@ -163,8 +163,16 @@ That is the guided form tested in the CLAIMS-v1 experiment. It changes two thing
    - the base branch's required checks (rulesets);
    - whether the change edits `.github/workflows`.
 
-   The base branch and the change come from the pull request whose head is that commit. A commit
-   with none, such as a push, uses the default branch and the commit's own files.
+   **Which base branch, and which files:**
+   - **Pull requests GitHub associates with the commit:** their base branches and their whole diffs,
+     even when the PR's head has moved on.
+   - **A pull-request run GitHub associates with no PR** (a fork, or a closed PR whose branch is gone):
+     the PR found by the run's head branch, confirmed by head SHA. If it cannot be found, the required
+     checks are unknown, and nothing is SUPPORTED.
+   - **A push or other non-PR run:** the branch it ran on, and the commit's own files. A push of
+     several commits shows only the last one's files.
+
+   The record says which of these was used (`observation.commit_checks.base`).
 
 **"All checks pass." is SUPPORTED only when every one of these holds:**
 - the whole list was returned;
@@ -203,14 +211,21 @@ from the record alone. `does_not_prove` drops "only this one workflow run was re
 binding is an interpretation of the text and that checks can change after they are read. The card
 shows "Guided mode (experimental)" and counts the checks, but does not print their names.
 
-**Stricter than what was evaluated.** Four conditions were added here after the evaluated candidate
-was frozen. Each can only turn a SUPPORTED into NOT_CHECKED, never the reverse:
-- the status history;
-- classic branch protection;
-- rules this does not read;
-- `.github/actions` and renamed workflow files.
-
+**What differs from what was evaluated.** These were added after the evaluated candidate was frozen.
 They need reads the sealed evaluation data does not hold.
+- **Five conditions that can only turn a SUPPORTED into NOT_CHECKED:**
+  - the status history;
+  - classic branch protection (`app_id` -1 meaning any source);
+  - rules this does not read;
+  - `.github/actions` and renamed workflow files;
+  - the re-run rule for run claims.
+- **The live choice of base branch.** The evaluation took the base from each PR record. The live
+  reader infers it as above, and an unresolved pull-request run is NOT_CHECKED rather than falling back
+  to the default branch. XC1's review of this PR found that the first version of the fallback could
+  be **less** strict (a fork PR into a non-default base), and that is what was fixed.
+- **Pages are de-duplicated by id,** and a list is complete only when its distinct items reach
+  GitHub's count.
+- **The record keeps when the reads started and ended.**
 
 **How it was tested before it existed here.** The same logic ran in shadow (CLAIMS-v1):
 - **Dev set:** 30 real PRs of this repository. Guided "All checks pass." went from 0/30 decided to
