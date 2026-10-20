@@ -1,13 +1,14 @@
 export interface CommitChecks {
     head_sha: string;
     retrieved_at: string;
-    /** The latest run of each check run. */
+    /** The latest run of each check run, with the id of the app that ran it. */
     check_runs: {
         total_count: number;
         items: {
             name: string;
             status: string;
             conclusion: string | null;
+            app_id: number | null;
         }[];
     };
     statuses: {
@@ -23,13 +24,22 @@ export interface CommitChecks {
         items: {
             app: string;
             status: string;
+            conclusion: string | null;
             runs: number;
         }[];
     } | null;
-    /** Failed check runs that a later attempt replaced: filter=all minus filter=latest. */
+    /** Failed check runs a later attempt replaced, plus statuses that failed and later passed. */
     superseded_failures: number | null;
-    /** Check names the base branch's rulesets require. */
-    required: string[] | null;
+    /**
+     * Checks the base branch requires, from its rulesets and its classic branch protection. `app_id`
+     * pins a check to one app: only that app's check run meets it, never a status.
+     */
+    required: {
+        context: string;
+        app_id: number | null;
+    }[] | null;
+    /** Rules on the base branch that gate merging on something this does not read (required workflows, code scanning, deployments). */
+    unsupported_rules: string[] | null;
     /** Whether the change edits .github/workflows. */
     workflows_changed: boolean | null;
     /** Every API path read, with its HTTP status, in order. */

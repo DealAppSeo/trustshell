@@ -1,10 +1,10 @@
 {
   "_provenance": {
-    "recorded_at": "2026-10-20T05:40:49.793Z",
+    "recorded_at": "2026-10-20T06:02:11.727Z",
     "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
     "commit": "DealAppSeo/trustshell@b8a17cfba1d3196443444b6724274942db671991",
     "note": "head of failed-run.json (a PR head)",
-    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, statuses, conclusions, refs, file names, rules); no value changed"
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, app ids, statuses, conclusions, refs, file names, rules, branch protection); no value changed"
   },
   "responses": {
     "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/check-runs?filter=latest&per_page=100&page=1": {
@@ -16,55 +16,91 @@
             "id": 117790744220,
             "name": "CodeQL",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 57789,
+              "slug": "github-advanced-security"
+            }
           },
           {
             "id": 117790631169,
             "name": "Vercel Preview Comments",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 8329,
+              "slug": "vercel"
+            }
           },
           {
             "id": 117790533107,
             "name": "Strix Security Review",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 2749804,
+              "slug": "strix-security"
+            }
           },
           {
             "id": 117790524418,
             "name": "check",
             "status": "completed",
-            "conclusion": "failure"
+            "conclusion": "failure",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524296,
             "name": "gitleaks",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524224,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524193,
             "name": "verify-paris",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524192,
             "name": "Analyze (javascript-typescript)",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790511968,
             "name": "gitleaks",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           }
         ]
       }
@@ -78,61 +114,101 @@
             "id": 117790744220,
             "name": "CodeQL",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 57789,
+              "slug": "github-advanced-security"
+            }
           },
           {
             "id": 117790631169,
             "name": "Vercel Preview Comments",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 8329,
+              "slug": "vercel"
+            }
           },
           {
             "id": 117790533107,
             "name": "Strix Security Review",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 2749804,
+              "slug": "strix-security"
+            }
           },
           {
             "id": 117790524418,
             "name": "check",
             "status": "completed",
-            "conclusion": "failure"
+            "conclusion": "failure",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524296,
             "name": "gitleaks",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524224,
             "name": "receipt",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524193,
             "name": "verify-paris",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790524192,
             "name": "Analyze (javascript-typescript)",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 117790522415,
             "name": "Vercel Preview Comments",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 8329,
+              "slug": "vercel"
+            }
           },
           {
             "id": 117790511968,
             "name": "gitleaks",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           }
         ]
       }
@@ -149,6 +225,19 @@
           }
         ]
       }
+    },
+    "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/statuses?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "context": "Vercel",
+          "state": "success"
+        },
+        {
+          "context": "Vercel",
+          "state": "pending"
+        }
+      ]
     },
     "/repos/DealAppSeo/trustshell/commits/b8a17cfba1d3196443444b6724274942db671991/check-suites?per_page=100&page=1": {
       "status": 200,
@@ -630,6 +719,21 @@
           }
         }
       ]
+    },
+    "/repos/DealAppSeo/trustshell/branches/main": {
+      "status": 200,
+      "body": {
+        "name": "main",
+        "protected": true,
+        "protection": {
+          "enabled": false,
+          "required_status_checks": {
+            "enforcement_level": "off",
+            "contexts": [],
+            "checks": []
+          }
+        }
+      }
     }
   }
 }

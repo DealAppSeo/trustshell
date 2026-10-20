@@ -170,10 +170,14 @@ That is the guided form tested in the CLAIMS-v1 experiment. It changes two thing
 - the whole list was returned;
 - every check run concluded `success` and every status is `success` (skipped, neutral and cancelled checks did not pass);
 - no GitHub Actions suite, and no suite that has runs, is still pending;
-- every required check reported and passed;
+- every required check reported and passed. A required check pinned to an app (the ruleset's
+  `integration_id`, or classic protection's `app_id`) is met only by that app's check run, never by a
+  commit status or another app's run of the same name;
+- no check suite failed without running a check, and no GitHub Actions suite was cancelled before running one;
 - the inspected run concluded success, with each of its jobs in the list;
-- no check failed on an earlier attempt and was re-run until green;
-- the change does not edit its own workflows.
+- no check failed on an earlier attempt and was re-run until green, and no status failed and was later set to success;
+- the change does not edit its own workflows: a file in `.github/workflows` or `.github/actions`, or one renamed out of them;
+- the base branch has no rule this does not read (required workflows, code scanning results, deployments).
 
 **It is CONTRADICTED when any check failed.** Anything else is NOT_CHECKED, and the reason says which
 condition stopped it. A queued suite with no runs, from an installed app that never acts on the
@@ -193,10 +197,21 @@ from the record alone. `does_not_prove` drops "only this one workflow run was re
 binding is an interpretation of the text and that checks can change after they are read. The card
 shows "Guided mode (experimental)" and counts the checks, but does not print their names.
 
+**Stricter than what was evaluated.** Four conditions were added here after the evaluated candidate
+was frozen. Each can only turn a SUPPORTED into NOT_CHECKED, never the reverse:
+- the status history;
+- classic branch protection;
+- rules this does not read;
+- `.github/actions` and renamed workflow files.
+
+They need reads the sealed evaluation data does not hold.
+
 **How it was tested before it existed here.** The same logic ran in shadow (CLAIMS-v1):
 - **Dev set:** 30 real PRs of this repository. Guided "All checks pass." went from 0/30 decided to
   21 SUPPORTED, 1 CONTRADICTED (a real failed check) and 8 NOT_CHECKED, each for a named reason.
-- **Adversarial:** 0 false approvals on XC1's 61-input corpus and its 21 stage-2 items.
+- **Adversarial:** 0 false approvals on XC1's 61-input corpus and its 21 stage-2 items. XC1's
+  re-check then found two more shapes that its fixes close: a status standing in for a required
+  check, and a suite that never ran.
 - **The pre-registered held-back evaluation** is reported in the PR that adds this flag.
 
 ## Untrusted input

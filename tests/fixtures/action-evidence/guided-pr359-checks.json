@@ -1,10 +1,10 @@
 {
   "_provenance": {
-    "recorded_at": "2026-10-20T05:40:58.700Z",
+    "recorded_at": "2026-10-20T06:02:21.994Z",
     "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
     "commit": "DealAppSeo/trustshell@a00e7f85813b07fba15616f8b1cf24353f97290d",
     "note": "head of PR #359",
-    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, statuses, conclusions, refs, file names, rules); no value changed"
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, app ids, statuses, conclusions, refs, file names, rules, branch protection); no value changed"
   },
   "responses": {
     "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/check-runs?filter=latest&per_page=100&page=1": {
@@ -16,19 +16,31 @@
             "id": 110614896931,
             "name": "Vercel Preview Comments",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 8329,
+              "slug": "vercel"
+            }
           },
           {
             "id": 110614769273,
             "name": "check",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 110614768854,
             "name": "verify-paris",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           }
         ]
       }
@@ -42,31 +54,51 @@
             "id": 110614896931,
             "name": "Vercel Preview Comments",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 8329,
+              "slug": "vercel"
+            }
           },
           {
             "id": 110614785689,
             "name": "Vercel Preview Comments",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 8329,
+              "slug": "vercel"
+            }
           },
           {
             "id": 110614769273,
             "name": "check",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 110614768854,
             "name": "verify-paris",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
           },
           {
             "id": 110614731582,
             "name": "Vercel Preview Comments",
             "status": "completed",
-            "conclusion": "success"
+            "conclusion": "success",
+            "app": {
+              "id": 8329,
+              "slug": "vercel"
+            }
           }
         ]
       }
@@ -83,6 +115,19 @@
           }
         ]
       }
+    },
+    "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/statuses?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "context": "Vercel",
+          "state": "success"
+        },
+        {
+          "context": "Vercel",
+          "state": "pending"
+        }
+      ]
     },
     "/repos/DealAppSeo/trustshell/commits/a00e7f85813b07fba15616f8b1cf24353f97290d/check-suites?per_page=100&page=1": {
       "status": 200,
@@ -235,6 +280,21 @@
           }
         }
       ]
+    },
+    "/repos/DealAppSeo/trustshell/branches/main": {
+      "status": 200,
+      "body": {
+        "name": "main",
+        "protected": true,
+        "protection": {
+          "enabled": false,
+          "required_status_checks": {
+            "enforcement_level": "off",
+            "contexts": [],
+            "checks": []
+          }
+        }
+      }
     }
   }
 }

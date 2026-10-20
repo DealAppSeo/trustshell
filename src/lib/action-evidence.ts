@@ -911,7 +911,8 @@ export interface MapOptions {
  *   no GitHub Actions suite, and no suite that has runs, is still pending; every required check
  *   reported and passed; the inspected run itself concluded success and each of its jobs is in the
  *   list with that conclusion (XC1 C7); no check failed on an earlier attempt; and the PR does not
- *   edit its own workflows. CONTRADICTED when any latest check run or status failed. Otherwise
+ *   edit its own workflows; and (production only, stricter than the evaluated candidate) the base branch has no
+ *   rule this does not read. CONTRADICTED when any latest check run or status failed. Otherwise
  *   NOT_CHECKED. Check names are third-party text, so only counts reach the reason.
  */
 function allChecksEntry(base: Pick<ClaimEntry, 'claim' | 'sentence' | 'template'>, o: Observation, c: CommitChecks, how: string): ClaimEntry {
@@ -924,7 +925,13 @@ function allChecksEntry(base: Pick<ClaimEntry, 'claim' | 'sentence' | 'template'
     `Every check GitHub reported for commit ${sha} at ${c.retrieved_at}: the latest run of each check run, each commit status, and the base branch's required checks. ` +
     `Not which tests ran, not checks that do not report to GitHub, and not whether the change works.` +
     (c.workflows_changed === null ? ' Whether the change edited its own workflows was not checked.' : '');
-  const failed = runs.filter((r) => r.conclusion !== null && FAILED_CONCLUSIONS.has(r.conclusion)).length + sts.filter((x) => x.state === 'failure' || x.state === 'error').length;
+  // A suite that completed with no check run can still have failed: a workflow that never started a
+  // job (XC1 P1). Its runs, if any, are judged one by one below.
+  const emptySuites = (c.suites?.items ?? []).filter((x) => x.status === 'completed' && x.runs === 0);
+  const failed =
+    runs.filter((r) => r.conclusion !== null && FAILED_CONCLUSIONS.has(r.conclusion)).length +
+    sts.filter((x) => x.state === 'failure' || x.state === 'error').length +
+    emptySuites.filter((x) => x.conclusion !== null && FAILED_CONCLUSIONS.has(x.conclusion)).length;
   if (failed) {
     return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${failed} of ${n} checks on commit ${sha} failed. ${how}` };
   }
@@ -936,13 +943,26 @@ function allChecksEntry(base: Pick<ClaimEntry, 'claim' | 'sentence' | 'template'
   if (c.suites === null || c.suites.items.length < c.suites.total_count) return nc(`The check suites on commit ${sha} were not all read, so a workflow that had not started could be missing.`);
   const pending = c.suites.items.filter((x) => x.status !== 'completed' && (x.runs > 0 || x.app === 'github-actions')).length;
   if (pending) return nc(`${pending} check suites on commit ${sha} had not completed, so not every check has reported.`);
+  const unran = emptySuites.filter((x) => x.app === 'github-actions' && x.conclusion !== 'success' && x.conclusion !== 'neutral' && x.conclusion !== 'skipped').length;
+  if (unran) return nc(`${unran} GitHub Actions check suites on commit ${sha} completed without running a check (for example cancelled), so they did not pass.`);
   const notPassed = runs.filter((r) => r.conclusion !== 'success').length + sts.filter((x) => x.state !== 'success').length;
   if (notPassed) return nc(`${notPassed} of ${n} checks on commit ${sha} were skipped, neutral or cancelled. A check that did not run did not pass.`);
   if (c.required === null) return nc(`The base branch's required checks could not be read.`);
-  const reported = new Set([...runs.map((r) => r.name), ...sts.map((x) => x.context)]);
-  const missing = c.required.filter((name) => !reported.has(name)).length;
-  if (missing) return nc(`${missing} of ${c.required.length} checks the base branch requires never reported on commit ${sha}, so not all checks have passed.`);
+  if (c.unsupported_rules === null) return nc(`The base branch's rules could not be read.`);
+  if (c.unsupported_rules.length) return nc(`The base branch also gates merging on rules this does not read (${c.unsupported_rules.filter((t) => /^[a-z_]{1,32}$/.test(t)).join(', ')}), so not every check is known.`);
+  // A required check pinned to an app is met only by a passing check run from that app: a commit
+  // status, or another app's run with the same name, could be posted by anyone with push access.
+  const met = (q: { context: string; app_id: number | null }) =>
+    q.app_id !== null
+      ? runs.some((r) => r.name === q.context && r.app_id === q.app_id && r.conclusion === 'success')
+      : runs.some((r) => r.name === q.context && r.conclusion === 'success') || sts.some((x) => x.context === q.context && x.state === 'success');
+  const missing = c.required.filter((q) => !met(q)).length;
+  if (missing) return nc(`${missing} of ${c.required.length} checks the base branch requires never reported on commit ${sha} from the app it requires, so not all checks have passed.`);
   const jobs = o.jobs.items;
+  // C7 compares the run's jobs with the list; with the jobs unread it would compare nothing (XC1 C7a).
+  if (o.jobs.http_status < 200 || o.jobs.http_status >= 300 || o.jobs.total > jobs.length || jobs.length === 0) {
+    return nc(`The inspected run's jobs were not all read, so it cannot be matched against the checks on commit ${sha}.`);
+  }
   const absent = jobs.filter((j) => !runs.some((r) => r.name === j.name && r.conclusion === j.conclusion)).length;
   if (o.conclusion !== 'success' || absent) return nc(`The inspected run (${runRef(o)}) does not agree with the recorded checks, so the evidence is inconsistent.`);
   if (c.superseded_failures === null) return nc(`Earlier attempts of the checks on commit ${sha} were not read.`);

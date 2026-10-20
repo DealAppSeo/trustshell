@@ -105,7 +105,10 @@ function commitChecksSummary(r: ActionEvidenceRecord): Line[] {
     return [...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, n]) => `${n} ${k}`).join(', ') || 'none';
   };
   const reported = new Set([...c.check_runs.items.map((x) => x.name), ...c.statuses.items.map((x) => x.context)]);
-  const req = c.required === null ? 'not read' : `${c.required.filter((n) => reported.has(n)).length} of ${c.required.length} reported`;
+  // A required check pinned to an app counts only when that app's run reported it.
+  const met = (q: { context: string; app_id: number | null }) =>
+    q.app_id !== null ? c.check_runs.items.some((x) => x.name === q.context && x.app_id === q.app_id) : reported.has(q.context);
+  const req = c.required === null ? 'not read' : `${c.required.filter(met).length} of ${c.required.length} reported`;
   const rerun = c.superseded_failures === null ? 'not read' : String(c.superseded_failures);
   const wf = c.workflows_changed === null ? 'not read' : c.workflows_changed ? 'yes' : 'no';
   return [

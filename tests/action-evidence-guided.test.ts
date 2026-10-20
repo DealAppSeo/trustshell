@@ -153,6 +153,96 @@ describe('guided mode decides "All checks pass." against every check on the comm
   });
 });
 
+describe('XC1 stage-2 re-check shapes, each derived from the PR #583 fixture (all green as recorded)', () => {
+  type R = Fixture['responses'];
+  const each = (r: R, part: string, fn: (v: { status: number; body: any }) => void) => {
+    for (const [k, v] of Object.entries(r)) if (k.includes(part)) fn(v);
+  };
+  const STRIX = 2749804;
+  const dropStrix = (r: R) => each(r, '/check-runs', (v) => {
+    v.body.check_runs = v.body.check_runs.filter((c: any) => c.name !== 'Strix Security Review');
+    v.body.total_count = v.body.check_runs.length;
+  });
+  const addStatus = (r: R, context: string, states: string[]) => {
+    each(r, '/status?', (v) => {
+      v.body.statuses.push({ context, state: states[states.length - 1] });
+      v.body.total_count += 1;
+    });
+    // The history is newest first.
+    each(r, '/statuses?', (v) => {
+      v.body = [...states.slice().reverse().map((state) => ({ context, state })), ...v.body];
+    });
+  };
+  const status = async (alter: (r: R) => void) => allChecks((await inspect(evidence('guided-pr583-run.json', 'guided-pr583-checks.json', alter), 'All checks pass.')).record);
+
+  it('the recorded required check is pinned to the Strix app', () => {
+    const rules = Object.entries(load('guided-pr583-checks.json').responses).find(([k]) => k.includes('/rules/'))![1].body;
+    expect(rules.find((x: any) => x.type === 'required_status_checks').parameters.required_status_checks).toEqual([{ context: 'Strix Security Review', integration_id: STRIX }]);
+  });
+
+  it('Q1: a commit status cannot stand in for a required check pinned to an app', async () => {
+    const c = await status((r) => {
+      dropStrix(r);
+      addStatus(r, 'Strix Security Review', ['success']);
+    });
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/from the app it requires/);
+  });
+
+  it('Q2: another app’s run with the required name does not meet it', async () => {
+    const c = await status((r) => each(r, '/check-runs', (v) => {
+      for (const x of v.body.check_runs) if (x.name === 'Strix Security Review') x.app = { id: 15368, slug: 'github-actions' };
+    }));
+    expect(c.status).toBe('NOT_CHECKED');
+  });
+
+  it('P1: a suite that failed to start contradicts; an Actions suite cancelled before running is NOT_CHECKED', async () => {
+    const suite = (conclusion: string) => (r: R) => each(r, '/check-suites', (v) => {
+      v.body.check_suites.push({ app: { slug: 'github-actions' }, status: 'completed', conclusion, latest_check_runs_count: 0 });
+      v.body.total_count += 1;
+    });
+    expect((await status(suite('startup_failure'))).status).toBe('CONTRADICTED');
+    expect((await status(suite('cancelled'))).status).toBe('NOT_CHECKED');
+  });
+
+  it('C7a: with the inspected run’s jobs unread, nothing is SUPPORTED', async () => {
+    const c = await status((r) => each(r, '/jobs?', (v) => {
+      v.status = 500;
+      v.body = { message: 'x' };
+    }));
+    expect(c.status).toBe('NOT_CHECKED');
+  });
+
+  it('S2: a status that failed and was later set to success is NOT_CHECKED, like a re-run', async () => {
+    const c = await status((r) => addStatus(r, 'ci/external', ['failure', 'success']));
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/failed on an earlier attempt/);
+  });
+
+  it('a ruleset rule this does not read (required workflows) makes the claim NOT_CHECKED', async () => {
+    const c = await status((r) => each(r, '/rules/', (v) => v.body.push({ type: 'workflows', parameters: { workflows: [] } })));
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/rules this does not read \(workflows\)/);
+  });
+
+  it('classic branch protection adds its required checks', async () => {
+    const c = await status((r) => each(r, '/branches/', (v) => {
+      v.body.protected = true;
+      v.body.protection = { enabled: true, required_status_checks: { enforcement_level: 'everyone', contexts: ['ci/legacy'], checks: [{ context: 'ci/legacy', app_id: null }] } };
+    }));
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/requires never reported/);
+  });
+
+  it('W1: renaming a file out of .github/workflows, or editing .github/actions, counts as editing the workflows', async () => {
+    for (const file of [{ filename: 'scripts/old.yml', previous_filename: '.github/workflows/old.yml' }, { filename: '.github/actions/setup/action.yml' }]) {
+      const c = await status((r) => each(r, '/files?', (v) => v.body.push(file)));
+      expect(c.status).toBe('NOT_CHECKED');
+      expect(c.reason).toMatch(/edits its own workflows/);
+    }
+  });
+});
+
 describe('the record and the card in guided mode', () => {
   it('holds the checks in the observation, swaps the "only this one run" caveat, and re-derives from itself', async () => {
     const { record, digest } = await inspect(PR583(), 'All checks pass.');
