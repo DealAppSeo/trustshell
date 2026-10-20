@@ -87,62 +87,83 @@ async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () =
     const status = await list(get, `${commit}/status`, 'statuses');
     const history = await array(get, `${commit}/statuses`, MAX_PAGES);
     const suites = await list(get, `${commit}/check-suites`, 'check_suites');
-    // The base branch (whose required checks apply) and the change's files (XC1 F1/F2):
-    //   1. every pull request GitHub associates with this commit, whether or not its head has moved on:
-    //      their bases, and their whole diffs (stricter than this commit's own);
-    //   2. a pull-request run GitHub associates with no PR (a fork's head): the PR found by its head
-    //      branch, confirmed by head SHA; if none is found, unresolved, and so NOT_CHECKED;
-    //   3. a push or other non-PR run: the branch it ran on (else the default branch), and this
-    //      commit's own diff. A push of several commits shows only the last one's files.
-    let bases = null;
-    let files = null;
-    let how = 'unresolved';
-    const prFiles = async (prs) => {
-        const out = [];
-        for (const p of prs) {
-            const f = await array(get, `${at}/pulls/${p.number}/files`, MAX_FILE_PAGES);
-            if (f === null)
-                return null;
-            for (const x of f)
-                out.push(String(x?.filename ?? ''), String(x?.previous_filename ?? ''));
-        }
-        return out;
-    };
+    // The base branches (whose required checks apply) and the change's files: the UNION of
+    //   - every pull request GitHub associates with this commit, whether or not its head has moved on
+    //     (their bases and their whole diffs), and
+    //   - the run's own context, never replaced by the associated PRs (XC1 R3):
+    //       a pull-request-like run (any pull_request* event, merge_group, or a head owned by another
+    //       account: XC1 R4) -> its own PR, found by head label and confirmed by head SHA; not found ->
+    //       unresolved;
+    //       a same-owner push or other run -> the branch it ran on (else the default branch) and this
+    //       commit's own diff. A push of several commits shows only the last one's files.
+    //   An unresolved context leaves the required checks unknown, so NOT_CHECKED.
     const usable = (p) => typeof p?.base?.ref === 'string' && typeof p?.number === 'number';
-    const isPrRun = run.event === 'pull_request' || run.event === 'pull_request_target' || run.event === 'merge_group';
-    const pulls = await array(get, `${commit}/pulls`, 1);
-    const associated = (pulls ?? []).filter(usable);
-    if (pulls !== null && associated.length > 0) {
-        how = 'associated';
-        bases = [...new Set(associated.map((p) => p.base.ref))];
-        files = await prFiles(associated);
-    }
-    else if (pulls !== null && isPrRun) {
-        if (run.head_owner && run.head_branch) {
-            const head = encodeURIComponent(`${run.head_owner}:${run.head_branch}`);
-            const found = await array(get, `${at}/pulls?head=${head}&state=all`, 1);
-            const mine = (found ?? []).filter((p) => usable(p) && p?.head?.sha === sha);
-            if (mine.length > 0) {
-                how = 'head';
-                bases = [...new Set(mine.map((p) => p.base.ref))];
-                files = await prFiles(mine);
-            }
+    const prs = new Map();
+    const bases = new Set();
+    let files = [];
+    let resolved = true;
+    const addPrs = (list) => {
+        for (const p of list) {
+            prs.set(p.number, p);
+            bases.add(p.base.ref);
         }
+    };
+    const pulls = await array(get, `${commit}/pulls`, 1);
+    if (pulls === null)
+        resolved = false;
+    const associated = (pulls ?? []).filter(usable);
+    addPrs(associated);
+    const repoOwner = owner.toLowerCase();
+    const foreignHead = run.head_owner !== null && run.head_owner.toLowerCase() !== repoOwner;
+    const prLike = (run.event ?? '').startsWith('pull_request') || run.event === 'merge_group' || foreignHead;
+    let how = 'unresolved';
+    if (prLike) {
+        const found = run.head_owner && run.head_branch ? await array(get, `${at}/pulls?head=${encodeURIComponent(`${run.head_owner}:${run.head_branch}`)}&state=all`, 1) : null;
+        // The run's own PR: its head label matches, and either its head is this commit or GitHub
+        // associates this commit with that same PR (an older commit of it, whose head has moved on).
+        const ids = new Set(associated.map((p) => p.number));
+        const mine = (found ?? []).filter((p) => usable(p) && (p?.head?.sha === sha || ids.has(p.number)));
+        if (mine.length > 0) {
+            how = 'pr';
+            addPrs(mine);
+        }
+        else
+            resolved = false;
     }
-    else if (pulls !== null) {
+    else {
         how = 'push';
         if (run.head_branch)
-            bases = [run.head_branch];
+            bases.add(run.head_branch);
         else {
             const r = await get(at);
-            bases = r.ok && typeof r.body?.default_branch === 'string' ? [r.body.default_branch] : null;
+            if (r.ok && typeof r.body?.default_branch === 'string')
+                bases.add(r.body.default_branch);
+            else
+                resolved = false;
         }
         const c = await get(commit);
-        files = c.ok && Array.isArray(c.body?.files) && c.body.files.length < 300 ? c.body.files.flatMap((x) => [String(x?.filename ?? ''), String(x?.previous_filename ?? '')]) : null;
+        if (c.ok && Array.isArray(c.body?.files) && c.body.files.length < 300) {
+            for (const x of c.body.files)
+                files.push(String(x?.filename ?? ''), String(x?.previous_filename ?? ''));
+        }
+        else
+            files = null;
     }
-    let required = bases === null ? null : [];
-    let unsupported = bases === null ? null : [];
-    for (const b of bases ?? []) {
+    for (const p of prs.values()) {
+        if (files === null)
+            break;
+        const f = await array(get, `${at}/pulls/${p.number}/files`, MAX_FILE_PAGES);
+        if (f === null)
+            files = null;
+        else
+            for (const x of f)
+                files.push(String(x?.filename ?? ''), String(x?.previous_filename ?? ''));
+    }
+    if (!resolved)
+        how = 'unresolved';
+    let required = resolved ? [] : null;
+    let unsupported = resolved ? [] : null;
+    for (const b of resolved ? bases : []) {
         const rules = await array(get, `${at}/rules/branches/${encodeURIComponent(b)}`, 3);
         // Classic branch protection, alongside rulesets. Its summary is public on the branch itself.
         const branch = await get(`${at}/branches/${encodeURIComponent(b)}`);
@@ -187,7 +208,7 @@ async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () =
         head_sha: sha,
         started_at,
         retrieved_at: now().toISOString(),
-        base: { how, branches: bases ?? [] },
+        base: { how, branches: [...bases], associated: associated.length },
         check_runs: {
             total_count: latest?.total_count ?? 1, // unread: claims one more run than it lists, so it is never complete
             items: (latest?.items ?? []).map((c) => ({

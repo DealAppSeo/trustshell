@@ -4,15 +4,18 @@ export interface CommitChecks {
     started_at: string;
     retrieved_at: string;
     /**
-     * How the base branch (whose required checks apply) and the change's files were found (XC1 F1/F2):
-     *   associated  the pull requests GitHub associates with this commit (their bases, their whole diffs)
-     *   head        a pull-request run whose PR GitHub does not associate (a fork), found by its head branch
-     *   push        a push or other non-PR run: the branch it ran on, and this commit's own diff
-     *   unresolved  a pull-request run whose PR could not be found: required checks and files are unknown
+     * How the base branches (whose required checks apply) and the change's files were found. Always the
+     * UNION of the pull requests GitHub associates with the commit and the run's own context, never one
+     * instead of the other (XC1 F1/F2, R3/R4):
+     *   pr          a pull-request-like run: its own PR, found by its head label and head SHA
+     *   push        a same-repository push or other run: the branch it ran on, and this commit's diff
+     *   unresolved  the run's own context could not be found: required checks are unknown
+     * `associated` counts the associated PRs added to it.
      */
     base: {
-        how: 'associated' | 'head' | 'push' | 'unresolved';
+        how: 'pr' | 'push' | 'unresolved';
         branches: string[];
+        associated: number;
     };
     /** The latest run of each check run, with the id of the app that ran it. */
     check_runs: {

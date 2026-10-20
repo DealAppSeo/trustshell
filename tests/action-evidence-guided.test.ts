@@ -150,13 +150,13 @@ describe('guided mode decides "All checks pass." against every check on the comm
     expect(allChecks(record).status).toBe('NOT_CHECKED');
     expect(claimsExitCode(record)).toBe(3);
   });
-  it('PR files that cannot be read leave the claim SUPPORTED, with the workflow edit named as not checked (derived)', async () => {
+  it('PR files that cannot be read leave the claim NOT_CHECKED: unknown is not "no" (derived; XC1 R8b)', async () => {
     const fx = evidence('guided-pr583-run.json', 'guided-pr583-checks.json', (r) => {
       for (const k of Object.keys(r)) if (k.includes('/files?')) r[k] = { status: 500, body: { message: 'x' } };
     });
     const c = allChecks((await inspect(fx, 'All checks pass.')).record);
-    expect(c.status).toBe('SUPPORTED');
-    expect(c.scope).toMatch(/Whether the change edited its own workflows was not checked/);
+    expect(c.status).toBe('NOT_CHECKED');
+    expect(c.reason).toMatch(/whether it edits its own workflows is unknown/);
   });
 
   it('a change that edits its own workflows is NOT_CHECKED (derived: a workflow file added to the PR files)', async () => {
@@ -275,7 +275,7 @@ describe('XC1 review of #586: base branch, pagination, any-source checks, refusa
       r[key(`/commits/${SHA}/pulls`, r)]!.body = [];
       r[headQuery(r)] = { status: 200, body: [{ number: 583, head: { sha: SHA }, base: { ref: 'main' } }] };
     });
-    expect(record.observation.commit_checks?.base).toEqual({ how: 'head', branches: ['main'] });
+    expect(record.observation.commit_checks?.base).toEqual({ how: 'pr', branches: ['main'], associated: 0 });
     expect(allChecks(record).status).toBe('SUPPORTED');
   });
 
@@ -293,8 +293,38 @@ describe('XC1 review of #586: base branch, pagination, any-source checks, refusa
       r[key(`/commits/${SHA}/pulls`, r)]!.body = [{ number: 583, head: { sha: 'f'.repeat(40) }, base: { ref: 'main' } }];
       r[key('/pulls/583/files', r)]!.body.push({ filename: '.github/workflows/check.yml' });
     });
-    expect(record.observation.commit_checks?.base.how).toBe('associated');
+    expect(record.observation.commit_checks?.base.how).toBe('pr');
     expect(allChecks(record).reason).toMatch(/edits its own workflows/);
+  });
+
+  it('R3: an associated PR into another base adds to the run’s own PR, never replaces it', async () => {
+    const { record } = await run((r) => {
+      // The commit is also in a same-repository PR into `sandbox` (no rules); the run's own PR goes into `release`, which requires a check that never reported.
+      r[key(`/commits/${SHA}/pulls`, r)]!.body = [{ number: 999, head: { sha: 'e'.repeat(40) }, base: { ref: 'sandbox' } }];
+      r[headQuery(r)]!.body = [{ number: 583, head: { sha: SHA }, base: { ref: 'release' } }];
+      r['/repos/DealAppSeo/trustshell/pulls/999/files?per_page=100&page=1'] = { status: 200, body: [{ filename: 'README.md' }] };
+      for (const b of ['sandbox', 'release']) {
+        r[`/repos/DealAppSeo/trustshell/rules/branches/${b}?per_page=100&page=1`] = {
+          status: 200,
+          body: b === 'release' ? [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'release-gate', integration_id: 15368 }] } }] : [],
+        };
+        r[`/repos/DealAppSeo/trustshell/branches/${b}`] = { status: 200, body: { name: b, protected: false } };
+      }
+    });
+    expect(record.observation.commit_checks?.base).toEqual({ how: 'pr', branches: ['sandbox', 'release'], associated: 1 });
+    expect(allChecks(record).reason).toMatch(/requires never reported/);
+  });
+
+  it('R4: a run whose head belongs to another account is pull-request-like whatever its event, and unresolved if its PR is not found', async () => {
+    const { record } = await run((r) => {
+      const body = r[key('/actions/runs/39357728240', r)]!.body;
+      body.event = 'push';
+      body.head_repository = { ...body.head_repository, owner: { login: 'some-fork' } };
+      r[key(`/commits/${SHA}/pulls`, r)]!.body = [];
+      r[`/repos/DealAppSeo/trustshell/pulls?head=${encodeURIComponent(`some-fork:${body.head_branch}`)}&state=all&per_page=100&page=1`] = { status: 200, body: [] };
+    });
+    expect(record.observation.commit_checks?.base.how).toBe('unresolved');
+    expect(allChecks(record).status).toBe('NOT_CHECKED');
   });
 
   it('F3: a check run repeated across pages is counted once, so a list that never reached total_count stays incomplete', async () => {
