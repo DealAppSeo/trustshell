@@ -163,16 +163,20 @@ That is the guided form tested in the CLAIMS-v1 experiment. It changes two thing
    - the base branch's required checks (rulesets);
    - whether the change edits `.github/workflows`.
 
-   **Which base branch, and which files:**
+   **Which base branches, and which files.** Always the **union** of two sources, never one in place of
+   the other:
    - **Pull requests GitHub associates with the commit:** their base branches and their whole diffs,
-     even when the PR's head has moved on.
-   - **A pull-request run GitHub associates with no PR** (a fork, or a closed PR whose branch is gone):
-     the PR found by the run's head branch, confirmed by head SHA. If it cannot be found, the required
-     checks are unknown, and nothing is SUPPORTED.
-   - **A push or other non-PR run:** the branch it ran on, and the commit's own files. A push of
-     several commits shows only the last one's files.
+     even when a PR's head has moved on.
+   - **The run's own context.**
+     - **A pull-request-like run** (any `pull_request*` event, `merge_group`, or a head owned by another
+       account) contributes its own PR. That PR is found by the run's head label, and is either headed
+       at this commit or associated with it by GitHub. This covers forks, and closed PRs whose branch
+       is gone. If it cannot be found, the required checks are unknown, and nothing is SUPPORTED.
+     - **A same-owner push** contributes the branch it ran on, and the commit's own files. A push of
+       several commits shows only the last one's files.
 
-   The record says which of these was used (`observation.commit_checks.base`).
+   If the change's files cannot all be read, whether it edits its own workflows is unknown, and the
+   claim is NOT_CHECKED. The record says what was used (`observation.commit_checks.base`).
 
 **"All checks pass." is SUPPORTED only when every one of these holds:**
 - the whole list was returned;
@@ -220,9 +224,13 @@ They need reads the sealed evaluation data does not hold.
   - `.github/actions` and renamed workflow files;
   - the re-run rule for run claims.
 - **The live choice of base branch.** The evaluation took the base from each PR record. The live
-  reader infers it as above, and an unresolved pull-request run is NOT_CHECKED rather than falling back
-  to the default branch. XC1's review of this PR found that the first version of the fallback could
-  be **less** strict (a fork PR into a non-default base), and that is what was fixed.
+  reader infers it as above, and an unresolved run is NOT_CHECKED rather than falling back to the
+  default branch. XC1's two reviews of this PR found that earlier versions could be **less** strict:
+  - a fork PR into a non-default base;
+  - an associated PR replacing the run's own;
+  - a fork's run under another event name.
+
+  Each of those was fixed. Unknown workflow edits are now NOT_CHECKED too.
 - **Pages are de-duplicated by id,** and a list is complete only when its distinct items reach
   GitHub's count.
 - **The record keeps when the reads started and ended.**
