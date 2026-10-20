@@ -93,6 +93,20 @@ describe('readClaimsFile', () => {
     writeFileSync(big, 'x'.repeat(300 * 1024));
     expect(() => readClaimsFile(big)).toThrow(/limit/);
   });
+
+  it('drops one leading byte-order mark, as Windows PowerShell 5.1 writes one, and only that one (XC1 re-check 5)', async () => {
+    const BOM = String.fromCharCode(0xfeff);
+    const f = join(tmp, 'bom.txt');
+    writeFileSync(f, BOM + 'The check workflow passed in run 39290226738.');
+    expect(readClaimsFile(f)).toBe('The check workflow passed in run 39290226738.');
+    writeFileSync(f, BOM + BOM + 'x');
+    expect(readClaimsFile(f)).toBe(BOM + 'x');
+    // End to end: a BOM-prefixed file decides like the same file without one.
+    writeFileSync(f, BOM + readFileSync(join(FX, 'claims', 'narrow-true.txt'), 'utf8'));
+    replay(GREEN);
+    const { io } = captureIO();
+    expect(await run(parseArgs(['check', URL_GREEN, '--claims-file', f]), NO_CLIENT, io)).toBe(0);
+  });
 });
 
 describe('XC1 S2: --claims is text, even when the text is the path of a real file', () => {

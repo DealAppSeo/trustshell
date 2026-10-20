@@ -292,14 +292,19 @@ const BUILD_PASS = [
  */
 const PASS_QUALIFIER = /\b(?:not|no|never|cannot|without|fail\w*|broken|flak\w*|except|but|although|though|unless|some|most|several|few|half|partially|mostly)\b|n't\b/i;
 const LOCAL_RUN = /\b(?:locally|on\s+my\s+(?:machine|laptop|box|computer)|in\s+my\s+(?:env|environment|setup))\b/i;
+/**
+ * A GitHub URL starts at a boundary: `github.com` inside `agithub.com` or `evil.github.com`, or after
+ * a path, is another host (XC1 W2). `www.` is still allowed, as GitHub autolinks it.
+ */
+const GH_HOST = String.raw `(?<![\w.\/@-])(?:https?:\/\/)?(?:www\.)?github\.com\/`;
 /** Commit citations. `needLetter` is for the weak contexts, so a run id or a count is not read as a SHA. */
 const SHA_PATTERNS = [
     { re: /\b(?:commit|sha|rev(?:ision)?)\s*(?:[:#]\s*)?[`'"(\[]?([0-9a-f]{7,40})(?![0-9a-z])/gi, needLetter: false },
-    { re: /(?:https?:\/\/)?(?:www\.)?github\.com\/[\w.-]+\/[\w.-]+\/commit\/([0-9a-f]{7,40})(?![0-9a-z])/gi, needLetter: false },
+    { re: new RegExp(GH_HOST + String.raw `[\w.-]+\/[\w.-]+\/commit\/([0-9a-f]{7,40})(?![0-9a-z])`, 'gi'), needLetter: false },
     { re: /\b(?:in|on|at|of)\s+[`'"(\[]?([0-9a-f]{7,40})(?![0-9a-z])/gi, needLetter: true },
     { re: /`([0-9a-f]{7,40})`/gi, needLetter: true },
 ];
-const RUN_URL = /(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)\/actions\/runs\/(\d+)(\/attempts\/(\d+))?/gi;
+const RUN_URL = new RegExp(GH_HOST + String.raw `([\w.-]+)\/([\w.-]+)\/actions\/runs\/(\d+)(\/attempts\/(\d+))?`, 'gi');
 const RUN_ID = /\brun\s*(?:id\s*)?(?:(?:#|no\.?)\s*)?(\d{6,})\b/gi;
 const ATTEMPT = /\battempt\s*(?:#\s*)?(\d{1,3})\b/gi;
 /** Claims this tool will name and refuse to grade. Each yields its own NOT_CHECKED entry. */

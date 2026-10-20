@@ -307,6 +307,10 @@ describe('XC1 regression corpus: every input from four rounds; never exit 0, nev
     ['Y1 NBSP-only line between', 'Locally\n' + CH(0xa0) + '\nthe check workflow passed in run 39290226738.'],
     ['Z2 7-hex prefix', 'The check workflow passed on 5cd68ed.'],
     ['Y3 that-clause', 'That the check workflow passed in run 39290226738'],
+    // round 6 (f70b33c1)
+    ['W2 run URL on agithub.com', 'The check workflow passed in agithub.com/DealAppSeo/trustshell/actions/runs/39290226738'],
+    ['W2 run URL on a github.com subdomain', 'The check workflow passed in https://evil.github.com/DealAppSeo/trustshell/actions/runs/39290226738'],
+    ['W2 commit URL on thegithub.com', 'The check workflow passed in run 39290226738, fixed in https://thegithub.com/DealAppSeo/trustshell/commit/5cd68edc782f'],
   ];
 
   it.each(CORPUS)('%s', (_label, text) => {
@@ -344,6 +348,17 @@ describe('XC1 regression corpus: every input from four rounds; never exit 0, nev
       expect(c!.status).toBe('NOT_CHECKED');
       expect(c!.reason).toMatch(/only the run id identifies one/);
       expect(claimsExitCode(buildRecord(o, 'The check workflow passed on 5cd68edc782f.'))).toBe(3);
+    }
+  });
+
+  it('W2: a GitHub URL starts at a host boundary; github.com inside another host name is not GitHub', () => {
+    for (const host of ['agithub.com', 'thegithub.com', 'https://evil.github.com', 'https://x.com/github.com']) {
+      expect(only(map1(`See ${host}/DealAppSeo/trustshell/actions/runs/39290226738`), 'gha.run_id')).toEqual([]);
+      expect(only(map1(`See ${host}/DealAppSeo/trustshell/commit/5cd68edc782f`), 'git.head_sha')).toEqual([]);
+    }
+    for (const host of ['github.com', 'www.github.com', 'https://github.com', 'https://www.github.com']) {
+      has(`${host}/DealAppSeo/trustshell/actions/runs/39290226738`, 'gha.run_id', 'SUPPORTED');
+      has(`${host}/DealAppSeo/trustshell/commit/5cd68edc782f`, 'git.head_sha', 'SUPPORTED');
     }
   });
 

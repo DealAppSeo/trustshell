@@ -1404,7 +1404,11 @@ export function readClaimsFile(
   }
   if (!st?.isFile()) throw new Error(`--claims-file: no such file: ${path}`);
   if (st.size > MAX_CLAIMS_FILE_BYTES) throw new Error(`--claims-file is ${st.size} bytes; the limit is ${MAX_CLAIMS_FILE_BYTES}`);
-  return String(fs.readFileSync(path, 'utf8'));
+  const text = String(fs.readFileSync(path, 'utf8'));
+  // One leading byte-order mark is a file-encoding marker, not text: Windows PowerShell 5.1 writes it
+  // for `Out-File` and `Set-Content -Encoding utf8`, and kept it would make line 1 non-ASCII and
+  // block every verdict (XC1 re-check 5). Only that one character is dropped; any other stays.
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
 /**

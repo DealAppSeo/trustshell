@@ -81,7 +81,9 @@ lines**. A line is plain when it:
   the claim says. Two non-blank lines with no blank line between them block the text.
 
 A line holding only spaces or tabs is blank. A line holding a no-break space, or any other
-invisible character, is not blank: it is a non-ASCII line, and it blocks the text.
+invisible character, is not blank: it is a non-ASCII line, and it blocks the text. The one
+exception is a single byte-order mark at the very start of a `--claims-file`, which is dropped:
+Windows PowerShell 5.1 writes one for `Out-File` and `Set-Content -Encoding utf8`.
 
 Any other line is listed exactly as written (cleaned of control and invisible characters for
 display) as `excluded.markup`, NOT_CHECKED, with its line number and the reason.
@@ -120,8 +122,8 @@ All tests pass on 5cd68edc782f.
 
 | Template | Reads | SUPPORTED when | Otherwise |
 |---|---|---|---|
-| `git.head_sha` | "commit abc1234abcd", "on abc1234abcd", "fixed in abc1234abcd", a `/commit/` link | `head_sha` begins with the cited SHA **and** the citation is at least 12 hex characters | CONTRADICTED when `head_sha` does not begin with it, at any length. NOT_CHECKED when it matches with fewer than 12: a 7-character prefix is 28 bits, and a commit with that prefix can be made on purpose |
-| `gha.run_id` | "run 123456", a run link | same run id and repository | CONTRADICTED |
+| `git.head_sha` | "commit abc1234abcd", "on abc1234abcd", "fixed in abc1234abcd", a `/commit/` link on `github.com` | `head_sha` begins with the cited SHA **and** the citation is at least 12 hex characters | CONTRADICTED when `head_sha` does not begin with it, at any length. NOT_CHECKED when it matches with fewer than 12: a 7-character prefix is 28 bits, and a commit with that prefix can be made on purpose |
+| `gha.run_id` | "run 123456", a run link on `github.com` or `www.github.com` (not `agithub.com`, not a subdomain) | same run id and repository | CONTRADICTED |
 | `gha.run_attempt` | "attempt N", `/attempts/N` in a run link | `run_attempt` equals N | CONTRADICTED |
 
 **Outcomes** are compared only when the line cites this run's commit or run id and nothing that
