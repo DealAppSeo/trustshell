@@ -49,6 +49,7 @@ const TOPIC = {
     'excluded.deployment': 'Deployment',
     'excluded.performance': 'Performance',
     'excluded.review': 'Review and approval',
+    'excluded.markup': 'Markup or non-ASCII text',
     unmapped: 'Unmapped claim',
     truncated: 'Sentences not read',
 };

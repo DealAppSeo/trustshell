@@ -16,11 +16,14 @@
  *
  * THE RULES THIS FILE EXISTS TO KEEP, each enforced below and pinned in tests/action-evidence.test.ts:
  *  - Never claim more than the evidence proves. Each claim is atomic, with its own verdict.
+ *  - Deny by default. Only plain claim lines (printable ASCII, starting with a letter, no Markdown or
+ *    HTML, one sentence) are read; nothing is rendered or normalised before a decision. Any line that
+ *    is not plain, or not read end to end, blocks every verdict in the text. See plainLineProblem.
  *  - A claim no template can check is NOT_CHECKED with the reason written next to it. Never SUPPORTED.
  *  - A claim that conflicts with a field is CONTRADICTED, and the reason names both values.
  *  - A successful run supports "this workflow run succeeded" and nothing wider: not "all tests
  *    pass", not "all checks pass", not "the fix works". Those stay NOT_CHECKED.
- *  - An outcome is compared only when the text ties it to the inspected run by citing its commit or
+ *  - An outcome is compared only when its own line ties it to the inspected run by citing its commit or
  *    run id, and cites nothing that does not match.
  *  - A run that has not finished, or whose jobs were not all read, decides no outcome.
  *  - SUPPORTED is narrow. Its `scope` says exactly what matched and what that match does not cover.
@@ -34,7 +37,7 @@
 import { type CheckJob, type CheckResult, type CheckVerdict } from './check';
 export declare const ACTION_EVIDENCE_SCHEMA: "dev.trustshell.action-evidence/0.1-draft";
 export type ClaimStatus = 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
-export type TemplateId = 'gha.run_succeeded' | 'ci.all_checks_pass' | 'ci.tests_pass' | 'ci.build_unscoped' | 'git.head_sha' | 'gha.run_id' | 'gha.run_attempt' | 'excluded.completion' | 'excluded.security' | 'excluded.no_bugs' | 'excluded.readiness' | 'excluded.fix' | 'excluded.local_run' | 'excluded.test_count' | 'excluded.coverage' | 'excluded.deployment' | 'excluded.performance' | 'excluded.review' | 'unmapped' | 'truncated';
+export type TemplateId = 'gha.run_succeeded' | 'ci.all_checks_pass' | 'ci.tests_pass' | 'ci.build_unscoped' | 'git.head_sha' | 'gha.run_id' | 'gha.run_attempt' | 'excluded.completion' | 'excluded.security' | 'excluded.no_bugs' | 'excluded.readiness' | 'excluded.fix' | 'excluded.local_run' | 'excluded.test_count' | 'excluded.coverage' | 'excluded.deployment' | 'excluded.performance' | 'excluded.review' | 'unmapped' | 'excluded.markup' | 'truncated';
 export interface Observation {
     platform: 'github-actions';
     host: 'api.github.com';
@@ -123,64 +126,50 @@ export declare function wellFormed(s: string): string;
 export declare function terminalSafeJson(value: unknown, space?: number): string;
 /** Normalise one claim for storage: {@link canonicalText}, whitespace collapsed, cut at MAX_CLAIM_TEXT. */
 export declare function normalizeClaimText(s: string): string;
+/** A line longer than this is not certifiable: one claim fits in one sentence. */
+export declare const MAX_LINE = 200;
 /**
- * Where a sentence sits in the rendered text. Only a `statement` can decide anything; a heading
- * labels, code is an example, an unticked box is a to-do. Those are listed, and decide nothing.
+ * Why a line cannot be certified, or null if it is a plain claim line. PURE, linear.
+ *
+ * DENY BY DEFAULT. Four review rounds (XC1, 2026-10-19) kept finding Markdown that a hand-written
+ * reader got wrong: comments, code, link definitions, soft line breaks, normalisation order. The
+ * bypass count did not converge, because re-implementing what a reader of rendered Markdown sees
+ * has no end of edge cases. So nothing is rendered or normalised here. A line is certifiable only if
+ * it is ALREADY plain text:
+ *
+ *   - printable ASCII only (no control, no tab, nothing that would need normalising);
+ *   - it starts with a letter (no list marker, heading, quote, number or indentation);
+ *   - no Markdown or HTML character at all (see MARKUP);
+ *   - one sentence (no ". ", "! " or "; " followed by more text);
+ *   - at most MAX_LINE characters.
+ *
+ * Anything else is listed, as written, and is NOT_CHECKED. A PR description in Markdown is therefore
+ * not certified; write the claims as plain lines to have them checked.
  */
-export type LineContext = 'statement' | 'code' | 'heading' | 'todo';
-/** One sentence as a reader sees it: its context, its paragraph, and why it decides nothing, if it does not. */
-interface ReadSentence {
+export declare function plainLineProblem(line: string): string | null;
+/** One non-blank input line: its 1-based number, the text shown, and why it is not certifiable, if it is not. */
+interface ReadLine {
+    lineNo: number;
     text: string;
-    context: LineContext;
-    paragraph: number;
-    gate: string | null;
+    problem: string | null;
 }
 /**
- * Read free text the way GitHub renders it, within a deliberately small subset. PURE, linear.
- *
- * STRUCTURE COMES FROM THE RAW CHARACTERS. GitHub parses what was written, not a normalised form: a
- * fullwidth "＜！－－" is text, and so is "<", ZWSP, "!--". So blocks, containers, comments and code
- * spans are found on the raw lines (line endings \n, \r\n or \r), and each paragraph is canonicalised
- * only afterwards, for the templates (XC1 X1, X2).
- *
- * WHY A SUBSET. Review rounds kept finding Markdown a hand-written reader got wrong in a way that hid
- * visible text or certified an example. So this reader models a small part EXACTLY and refuses the
- * rest:
- *
- *   modelled   paragraphs (consecutive non-blank lines joined, as soft line breaks render), list
- *              items with continuation lines, task boxes, ATX headings, fences opened at column 0,
- *              and HTML comment blocks that start at column 0 and end a line with `-->`
- *   refused    everything else: blockquotes, any other `<`, bidi controls, images, link
- *              definitions, titles and links that span lines, tables, footnotes, setext underlines
- *              and rules, tab indentation, indented code (including after a list marker), fences
- *              inside a list, comments that never close or have text after `-->`
- *
- * If the text uses anything refused, `unsupported` says what and where, every line is listed, and
- * nothing in it decides anything. In the modelled subset nothing a reader can see is dropped: only
- * the inside of a comment block is, because GitHub does not show it.
+ * Split input into its non-blank lines (line endings \n, \r\n or \r) and judge each against the
+ * plain-line grammar. PURE, linear. A plain line is kept exactly as written; any other line is shown
+ * with control and invisible characters removed, which is display only and decides nothing.
  */
 export declare function readClaims(text: string): {
-    sentences: ReadSentence[];
-    unsupported: string | null;
-    dropped: number;
-};
-/** {@link readClaims}, flattened: the sentences, their contexts and paragraphs, and how many past the limit were not read. */
-export declare function splitClaims(text: string): {
-    clauses: string[];
-    full: string[];
-    context: LineContext[];
-    paragraph: number[];
-    gate: (string | null)[];
-    unsupported: string | null;
+    lines: ReadLine[];
     dropped: number;
 };
 /**
  * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
  *
- * Each sentence is judged on its own: its citations decide which run it is about (see
- * {@link Anchor}), and a sentence the templates did not read end to end decides nothing (see
- * {@link gateOf}). A green run is never evidence for a sentence about another commit, another
- * workflow, or nothing in particular.
+ * DENY BY DEFAULT, over the WHOLE input. A verdict is given only when every line is a plain claim
+ * line (see {@link plainLineProblem}) that the templates read end to end. One line that is not (a
+ * Markdown line, a cross mark, "is false.", a question) blocks every verdict in the text, because
+ * nothing here can tell what that line does to the others. Everything is still listed. Within a
+ * readable text, each line's own citations decide which run it is about (see {@link Anchor}).
  */
 export declare function mapClaims(text: string, o: Observation): ClaimEntry[];
 /** Build the observation from `check`'s result. PURE. */

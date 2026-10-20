@@ -8,7 +8,9 @@ This folder is a **demo**, not an official TrustShell result. It shows what
   `5cd68edc`. It was read live from api.github.com with no account and no token (`fetchedAt` in
   `record.json`).
 - **The claims are illustrative.** `claims.txt` was written for this demo. It is not a real
-  agent's message. It cites attempt 2 on purpose, so that all three statuses appear.
+  agent's message. It cites attempt 2 on purpose, so that all three statuses appear. It is written
+  as plain lines, one claim per line, because only plain claim lines are read: Markdown is listed
+  and decides nothing (see `docs/action-evidence.md`).
 
 | File | What it is |
 |---|---|
@@ -30,12 +32,12 @@ new hash. The statuses stay the same for as long as GitHub's answer for this run
 ## What the card says, claim by claim
 
 - **SUPPORTED:** `The check workflow passed`, `on 5cd68edc` and `run 39290226738`. The run
-  concluded success with its one job. The sentence names this workflow and cites this run, and
-  every word of it was read.
+  concluded success with its one job. The line names this workflow and cites this run, and every
+  line of the text was read end to end.
 - **CONTRADICTED:** `attempt 2`. GitHub's record for this run is attempt 1.
 - **NOT_CHECKED:**
   - `Done`.
-  - `CI passed`. Its sentence cites attempt 2, which is not this run's, and one run never
+  - `CI passed`. Its line cites attempt 2, which is not this run's, and one run never
     establishes that all checks pass anyway.
   - `All tests pass`. It cites no run, and a run record never establishes which tests passed.
   - `production ready`.

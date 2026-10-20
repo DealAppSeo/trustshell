@@ -7,7 +7,8 @@ description) with what the run *reports*. The output is one record plus a card d
 **The rule it is built to keep: never claim more than the evidence proves.**
 - Each claim is split into atomic parts, and each part gets its own verdict.
 - One successful workflow run supports "this workflow run succeeded", and nothing wider.
-- A sentence decides nothing unless the templates read every word of it.
+- Deny by default: a verdict is given only when every line is a plain claim line the templates
+  read end to end. Markdown is not rendered, so a Markdown PR description is NOT_CHECKED as a whole.
 
 **Status: draft.** The schema id ends in `-draft` and may change. Nothing here is signed.
 
@@ -65,78 +66,46 @@ is a platform record. It is never presented as an independent grade.
 | `CONTRADICTED` | The record conflicts with the claim: it cites another commit, run or attempt, or says this workflow run, or a check on this commit, succeeded when it did not. The `reason` names both values. |
 | `NOT_CHECKED` | The record cannot decide it, the evidence was missing, nothing ties the claim to this run, or its sentence was not read end to end. Never a pass. |
 
-## How a sentence is read
+## How the claim text is read: deny by default
 
-**1. Structure is read from the raw characters; text is normalised only after that.** GitHub parses
-what was written, so a fullwidth `＜！－－` is text, not a comment. Blocks, comments and code spans
-are found on the raw lines (line endings `\n`, `\r\n` or `\r`). Each paragraph is then normalised
-for the templates and shown in that one form:
-- Invisible and reordering characters are removed: zero-width characters, soft hyphen, bidi
-  controls, variation selectors and the tag block.
-- NFKC is applied, so fullwidth digits become digits.
-- Controls become spaces. An unpaired surrogate becomes U+FFFD.
+Nothing is rendered or normalised before a decision. A verdict is given only for **plain claim
+lines**. A line is plain when it:
+- is printable ASCII only: no control character, no tab, nothing that would need normalising;
+- starts with a letter, so it is not a list marker, heading, quote, number or indented line;
+- holds none of `< > \` [ ] ( ) | * _ # ~ \ $ & { } ?`, that is, no Markdown, HTML, escape, math or
+  entity syntax, and no question mark;
+- is one sentence (no `. `, `! ` or `; ` followed by more text);
+- is at most 200 characters.
 
-A reader can never see a word the checks did not.
+Any other line is listed exactly as written (cleaned of control and invisible characters for
+display) as `excluded.markup`, NOT_CHECKED, with its line number and the reason.
 
-**2. A small part of Markdown is read exactly; anything else is refused.** A hand-written reader
-cannot model all of CommonMark, so this one models a subset exactly.
+**One line that is not a plain claim the templates read end to end blocks every verdict in the
+text.** That covers a Markdown line, a line with words no template reads ("That is false.", a
+cross mark), and a line that opens with an auxiliary verb ("Has the check workflow passed …").
+Nothing here can tell what such a line does to the others, so nothing is SUPPORTED or
+CONTRADICTED. Everything is still listed, and the reason names the first blocking line.
 
-Modelled:
-- paragraphs, with consecutive non-blank lines joined as GitHub renders soft line breaks;
-- list items and their continuation lines;
-- task boxes;
-- ATX headings (`#`);
-- fences opened at column 0;
-- HTML comment blocks that start at column 0 and end a line with `-->`. Only their inside is
-  dropped, because GitHub does not show it.
+**Why.** Four adversarial review rounds found Markdown that an earlier hand-written renderer got
+wrong, in ways that hid visible text or certified an example: comments, code, link definitions,
+soft line breaks, normalisation order. The count of bypasses did not converge. So this version
+does not render Markdown at all. A PR description written in Markdown comes out NOT_CHECKED as a
+whole. To have claims checked, write them as plain lines:
 
-Headings, code lines and unticked to-dos are listed, and decide nothing. So does a paragraph whose
-inline code holds more than a single identifier: it is shown as code, an example. Paragraph
-continuation follows CommonMark: an ordered item not numbered 1, or an empty item, cannot
-interrupt a paragraph, so it continues it.
+```
+The check workflow passed on 5cd68edc, run 39290226738, attempt 1.
+All tests pass on 5cd68edc.
+```
 
-If the text uses **anything else**, it is refused, and **every line is listed and nothing in the
-text is decided**. The reason names the construct and its line. Refused constructs:
-- blockquotes;
-- any other `<` (HTML, autolinks), and bidirectional control characters;
-- images;
-- link reference definitions (any `]:`), links with a title, and links that span lines;
-- tables (`|`);
-- footnotes;
-- setext underlines and horizontal rules;
-- tab indentation and indented code, including a list marker followed by 5+ spaces or a tab;
-- fences inside a list;
-- comments that never close, or have text after `-->`.
-
-So a parsing mistake can never hide visible text or certify an example. At worst, it refuses text
-it could have read.
-
-**3. Every part is listed.** Templates match spans. Whatever a sentence says outside them becomes
-its own `unmapped` NOT_CHECKED claim. Nothing a reader can see is dropped, a lone "?" or a cross
-mark included.
-
-**4. A verdict needs its whole paragraph read end to end.** If any sentence in a paragraph has
-unread content, or is a question, nothing in that paragraph is decided. So "… (run N). ❌" and a
-line break into "is false." both block the verdict.
-- **Unread content** is an allow-list. A leftover counts as saying nothing only if it holds no
-  more than:
-  - whitespace;
-  - plain ASCII punctuation (`. , ; : ( ) [ ] ' " ! -`);
-  - emphasis and code marks (`* _` and the backtick);
-  - a short list of filler words (articles, plain prepositions, and the copulas the templates
-    already read around).
-
-  Anything else counts: a content word in any script, `~` (strikethrough is a retraction), any
-  symbol or emoji, non-ASCII punctuation, and possessives ("my checks" is not "all checks").
-- **A question** has a question mark (including ‽ and ؟), or opens with an auxiliary verb. Leading
-  emphasis and connectives are skipped first: "*Has* the …", "And is CI green …".
-
-Each paragraph is judged on its own. A later paragraph that refers back ("the above is false") is
-listed as NOT_CHECKED, so the exit is 3, but it does not reach back and un-decide an earlier one.
-
-**5. Ties are per sentence.** A sentence's own citations decide which run it is about. A citation in
-one sentence says nothing about the next. An attempt number never ties anything; it can only
-break a tie, when it does not match.
+**Within a readable text:**
+- **Every part of a line is listed.** Templates match spans, and whatever a line says outside them
+  becomes its own `unmapped` NOT_CHECKED claim, which blocks the text.
+- **Unread content is judged by an allow-list.** A leftover says nothing only if it holds no more
+  than spaces, `. , ; : ' " ! -`, and a short list of filler words (articles, plain prepositions,
+  and the copulas the templates already read around). Possessives ("my checks") count as unread.
+- **Ties are per line.** A line's own citations decide which run it is about. A citation on one line
+  says nothing about the next. An attempt number never ties anything; it can only break a tie, when
+  it does not match.
 
 ## Templates
 
@@ -148,12 +117,12 @@ break a tie, when it does not match.
 | `gha.run_id` | "run 123456", a run link | same run id and repository | CONTRADICTED |
 | `gha.run_attempt` | "attempt N", `/attempts/N` in a run link | `run_attempt` equals N | CONTRADICTED |
 
-**Outcomes** are compared only when the sentence cites this run's commit or run id and nothing that
+**Outcomes** are compared only when the line cites this run's commit or run id and nothing that
 does not match:
 
 | Template | Reads | SUPPORTED | CONTRADICTED | NOT_CHECKED |
 |---|---|---|---|---|
-| `gha.run_succeeded` | "the workflow passed", "the `check` workflow succeeded", "run 123456 passed" | conclusion `success`, every job read, at least one job ran, all on this commit and attempt; **and** the sentence cites the run id, or names this workflow (display name or file stem) and cites the commit | the run finished with another conclusion (same identification required) | the run is unfinished, or has no readable conclusion; jobs missing, unreadable, truncated, all skipped, or on another commit (or with no commit); a success run with a failed job; a commit cited without naming the workflow (a commit has many workflow runs); another workflow named |
+| `gha.run_succeeded` | "the workflow passed", "the check workflow succeeded", "run 123456 passed" | conclusion `success`, every job read, at least one job ran, all on this commit and attempt; **and** the line cites the run id, or names this workflow (display name or file stem) and cites the commit | the run finished with another conclusion (same identification required) | the run is unfinished, or has no readable conclusion; jobs missing, unreadable, truncated, all skipped, or on another commit (or with no commit); a success run with a failed job; a commit cited without naming the workflow (a commit has many workflow runs); another workflow named |
 | `ci.all_checks_pass` | "all checks pass", "CI is green", "everything is green" | **never**: one run is not every check | the run concluded `failure`, `timed_out` or `startup_failure`, or one of its jobs did | otherwise, including every green run |
 | `ci.tests_pass` | "all tests pass", "the unit tests are green" | **never**: a run record does not say which tests ran | **never**: a failed run does not say a test failed | always |
 | `ci.build_unscoped` | "the build passes" | never: names no workflow or check | never | always |

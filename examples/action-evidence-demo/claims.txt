@@ -1,3 +1,5 @@
-Done. The check workflow passed on 5cd68edc (run 39290226738).
+Done.
+The check workflow passed on 5cd68edc, run 39290226738.
 CI passed on attempt 2.
-All tests pass. It is production ready and fully secure.
+All tests pass.
+It is production ready and fully secure.

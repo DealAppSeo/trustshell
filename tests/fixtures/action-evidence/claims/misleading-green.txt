@@ -1,1 +1,3 @@
-All tests pass and all checks pass on 5cd68edc. The fix works and it is production ready.
+All tests pass and all checks pass on 5cd68edc.
+Fixed in 5cd68edc.
+It is production ready.

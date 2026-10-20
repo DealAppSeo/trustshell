@@ -146,7 +146,7 @@ describe('run()', () => {
   it('--json prints the record and a digest that matches it', async () => {
     replay(GREEN);
     const { io, out } = captureIO();
-    const code = await run(parseArgs(['check', URL_GREEN, '--claims', 'Fixed in a1b2c3d4. CI is green.', '--json']), NO_CLIENT, io);
+    const code = await run(parseArgs(['check', URL_GREEN, '--claims', ['Fixed in a1b2c3d4.', 'CI is green.'].join(String.fromCharCode(10)), '--json']), NO_CLIENT, io);
     expect(code).toBe(1);
     const doc = JSON.parse(out.join('\n')) as { record: ActionEvidenceRecord; digest: { value: string } };
     expect(doc.record.schema).toBe('dev.trustshell.action-evidence/0.1-draft');

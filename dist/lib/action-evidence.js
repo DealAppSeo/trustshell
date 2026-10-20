@@ -17,11 +17,14 @@
  *
  * THE RULES THIS FILE EXISTS TO KEEP, each enforced below and pinned in tests/action-evidence.test.ts:
  *  - Never claim more than the evidence proves. Each claim is atomic, with its own verdict.
+ *  - Deny by default. Only plain claim lines (printable ASCII, starting with a letter, no Markdown or
+ *    HTML, one sentence) are read; nothing is rendered or normalised before a decision. Any line that
+ *    is not plain, or not read end to end, blocks every verdict in the text. See plainLineProblem.
  *  - A claim no template can check is NOT_CHECKED with the reason written next to it. Never SUPPORTED.
  *  - A claim that conflicts with a field is CONTRADICTED, and the reason names both values.
  *  - A successful run supports "this workflow run succeeded" and nothing wider: not "all tests
  *    pass", not "all checks pass", not "the fix works". Those stay NOT_CHECKED.
- *  - An outcome is compared only when the text ties it to the inspected run by citing its commit or
+ *  - An outcome is compared only when its own line ties it to the inspected run by citing its commit or
  *    run id, and cites nothing that does not match.
  *  - A run that has not finished, or whose jobs were not all read, decides no outcome.
  *  - SUPPORTED is narrow. Its `scope` says exactly what matched and what that match does not cover.
@@ -33,14 +36,14 @@
  *    spliced into generated sentences. Those sentences interpolate only digits and hex.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_CLAIMS = exports.MAX_CLAIM_TEXT = exports.RECORD_DOES_NOT_PROVE = exports.ACTION_EVIDENCE_SCHEMA = void 0;
+exports.MAX_LINE = exports.MAX_CLAIMS = exports.MAX_CLAIM_TEXT = exports.RECORD_DOES_NOT_PROVE = exports.ACTION_EVIDENCE_SCHEMA = void 0;
 exports.digestRecord = digestRecord;
 exports.cleanCodePoints = cleanCodePoints;
 exports.wellFormed = wellFormed;
 exports.terminalSafeJson = terminalSafeJson;
 exports.normalizeClaimText = normalizeClaimText;
+exports.plainLineProblem = plainLineProblem;
 exports.readClaims = readClaims;
-exports.splitClaims = splitClaims;
 exports.mapClaims = mapClaims;
 exports.observationFromCheck = observationFromCheck;
 exports.buildRecord = buildRecord;
@@ -157,276 +160,66 @@ function normalizeClaimText(s) {
     const cleaned = canonicalText(String(s ?? ''), false).replace(/\s+/g, ' ').trim();
     return cleaned.length > exports.MAX_CLAIM_TEXT ? cleaned.slice(0, exports.MAX_CLAIM_TEXT - 1) + '…' : cleaned;
 }
-/** Bidirectional controls: they make the displayed order differ from the stored one. */
-function hasBidiControl(line) {
+/** A line longer than this is not certifiable: one claim fits in one sentence. */
+exports.MAX_LINE = 200;
+/**
+ * Characters a certifiable line may not hold. Markdown and HTML syntax (`< > \` [ ] ( ) | * _ # ~`),
+ * the escape, math and entity marks (`\ $ &`), braces, and "?" (a question is not a claim).
+ */
+const MARKUP = new Set([...'<>`[]()|*_#~\\$&{}?']);
+/**
+ * Why a line cannot be certified, or null if it is a plain claim line. PURE, linear.
+ *
+ * DENY BY DEFAULT. Four review rounds (XC1, 2026-10-19) kept finding Markdown that a hand-written
+ * reader got wrong: comments, code, link definitions, soft line breaks, normalisation order. The
+ * bypass count did not converge, because re-implementing what a reader of rendered Markdown sees
+ * has no end of edge cases. So nothing is rendered or normalised here. A line is certifiable only if
+ * it is ALREADY plain text:
+ *
+ *   - printable ASCII only (no control, no tab, nothing that would need normalising);
+ *   - it starts with a letter (no list marker, heading, quote, number or indentation);
+ *   - no Markdown or HTML character at all (see MARKUP);
+ *   - one sentence (no ". ", "! " or "; " followed by more text);
+ *   - at most MAX_LINE characters.
+ *
+ * Anything else is listed, as written, and is NOT_CHECKED. A PR description in Markdown is therefore
+ * not certified; write the claims as plain lines to have them checked.
+ */
+function plainLineProblem(line) {
+    if (line.length > exports.MAX_LINE)
+        return `it is longer than ${exports.MAX_LINE} characters`;
     for (const ch of line) {
         const cp = ch.codePointAt(0);
-        if (cp === 0x061c || cp === 0x200e || cp === 0x200f || (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069))
-            return true;
+        if (cp < 0x20 || cp > 0x7e)
+            return 'it holds a non-ASCII or control character';
+        if (ch === '?')
+            return 'it holds a question mark';
+        if (MARKUP.has(ch))
+            return 'it holds Markdown or HTML syntax';
     }
-    return false;
-}
-/**
- * The first construct in a RAW line that falls outside the plain subset this reader models
- * exactly, as a short phrase, or null. Every test is linear.
- */
-function unsupportedConstruct(line, inParagraph) {
-    if (/^ *\t/.test(line))
-        return 'a tab in indentation';
-    if (hasBidiControl(line))
-        return 'a bidirectional control character';
-    if (line.includes('<'))
-        return 'HTML or an angle-bracket link';
-    if (line.includes('|'))
-        return 'a table or a pipe';
-    if (line.includes('!['))
-        return 'an image';
-    if (line.includes('[^'))
-        return 'a footnote';
-    // A link reference definition is never shown, and its label may span lines (XC1 X5): any "]:" is refused.
-    if (line.includes(']:'))
-        return 'a link reference definition';
-    if (/^ {0,3}>/.test(line))
-        return 'a blockquote';
-    if (/^[ =\-*_]+$/.test(line) && /[=\-*_]/.test(line))
-        return 'a heading underline or a horizontal rule';
-    if (/^ {4}/.test(line) && !inParagraph)
-        return 'an indented code block';
-    // A link title is not shown on the page: `[x](url "title")`, with the title possibly on the next
-    // line (XC1 X6). A "](" with no ")" later on its line, or with a space or quote before it, is
-    // refused. Both pointers only move forward, so many "](" are still one pass.
-    let close = -1;
-    let gap = -1;
-    const GAP = /[\s"']/g;
-    for (let at = line.indexOf(']('); at >= 0; at = line.indexOf('](', at + 2)) {
-        if (close < at + 2) {
-            close = line.indexOf(')', at + 2);
-            if (close < 0)
-                return 'a link that spans lines';
-        }
-        if (gap < at + 2) {
-            GAP.lastIndex = at + 2;
-            const m = GAP.exec(line);
-            gap = m ? m.index : line.length;
-        }
-        if (gap < close)
-            return 'a link with a title';
-    }
+    if (!/^[A-Za-z]/.test(line))
+        return 'it does not start with a letter';
+    if (/[.!;]\s+\S/.test(line))
+        return 'it holds more than one sentence';
     return null;
 }
 /**
- * The code spans of a paragraph, as [start, end) ranges, per CommonMark: a run of N backticks opens
- * a span that the next run of exactly N closes; a run with no partner is literal. Linear: every
- * run's partner is found in one backward pass.
- */
-function codeSpanRanges(text) {
-    const runs = [];
-    for (let i = 0; i < text.length;) {
-        if (text[i] !== '`') {
-            i += 1;
-            continue;
-        }
-        let j = i;
-        while (j < text.length && text[j] === '`')
-            j += 1;
-        runs.push({ pos: i, len: j - i });
-        i = j;
-    }
-    const partner = new Array(runs.length).fill(-1);
-    const nextOfLen = new Map();
-    for (let k = runs.length - 1; k >= 0; k -= 1) {
-        const run = runs[k];
-        partner[k] = nextOfLen.get(run.len) ?? -1;
-        nextOfLen.set(run.len, k);
-    }
-    const out = [];
-    for (let k = 0; k < runs.length;) {
-        const p = partner[k];
-        if (p < 0) {
-            k += 1;
-            continue;
-        }
-        const open = runs[k];
-        const shut = runs[p];
-        out.push([open.pos + open.len, shut.pos]);
-        k = p + 1;
-    }
-    return out;
-}
-/** Inline code holding more than one identifier-like token is shown as code, an example (XC1 X7). */
-const CODE_TOKEN = /^ ?[\w.#/:-]{1,80} ?$/;
-/**
- * Read free text the way GitHub renders it, within a deliberately small subset. PURE, linear.
- *
- * STRUCTURE COMES FROM THE RAW CHARACTERS. GitHub parses what was written, not a normalised form: a
- * fullwidth "＜！－－" is text, and so is "<", ZWSP, "!--". So blocks, containers, comments and code
- * spans are found on the raw lines (line endings \n, \r\n or \r), and each paragraph is canonicalised
- * only afterwards, for the templates (XC1 X1, X2).
- *
- * WHY A SUBSET. Review rounds kept finding Markdown a hand-written reader got wrong in a way that hid
- * visible text or certified an example. So this reader models a small part EXACTLY and refuses the
- * rest:
- *
- *   modelled   paragraphs (consecutive non-blank lines joined, as soft line breaks render), list
- *              items with continuation lines, task boxes, ATX headings, fences opened at column 0,
- *              and HTML comment blocks that start at column 0 and end a line with `-->`
- *   refused    everything else: blockquotes, any other `<`, bidi controls, images, link
- *              definitions, titles and links that span lines, tables, footnotes, setext underlines
- *              and rules, tab indentation, indented code (including after a list marker), fences
- *              inside a list, comments that never close or have text after `-->`
- *
- * If the text uses anything refused, `unsupported` says what and where, every line is listed, and
- * nothing in it decides anything. In the modelled subset nothing a reader can see is dropped: only
- * the inside of a comment block is, because GitHub does not show it.
+ * Split input into its non-blank lines (line endings \n, \r\n or \r) and judge each against the
+ * plain-line grammar. PURE, linear. A plain line is kept exactly as written; any other line is shown
+ * with control and invisible characters removed, which is display only and decides nothing.
  */
 function readClaims(text) {
-    const lines = String(text ?? '').split(/\r\n|\r|\n/);
-    const out = [];
-    let paragraph = 0;
-    const pushText = (raw, context, para, gate) => {
-        for (const part of canonicalText(raw, false).split(/(?<=[.!?;])\s+/)) {
-            const whole = part.replace(/\s+/g, ' ').trim();
-            // Never drop what says something: a lone "?" or a cross mark is seen (XC1 R1-a).
-            if (whole && saysSomething(whole))
-                out.push({ text: whole, context, paragraph: para, gate });
-        }
-    };
-    let unsupported = null;
-    let para = [];
-    let paraContext = 'statement';
-    const flush = () => {
-        if (para.length) {
-            const raw = para.join(' ');
-            // Inline code that holds more than a single identifier is an example shown as code.
-            const codeProse = codeSpanRanges(raw).some(([a, b]) => !CODE_TOKEN.test(raw.slice(a, b)));
-            pushText(raw, paraContext, paragraph++, codeProse ? 'This paragraph holds inline code with more than an identifier in it: code is shown as an example, not a statement, so nothing in the paragraph is decided.' : null);
-        }
-        para = [];
-        paraContext = 'statement';
-    };
-    let fence = null;
-    let inComment = false;
-    // closesFrom[i]: whether line i or a later line holds "-->". One backward pass keeps this linear.
-    const closesFrom = new Array(lines.length + 1).fill(false);
-    for (let i = lines.length - 1; i >= 0; i -= 1)
-        closesFrom[i] = closesFrom[i + 1] || lines[i].includes('-->');
-    for (let i = 0; i < lines.length && unsupported === null; i += 1) {
-        const line = lines[i];
-        const where = ` (line ${i + 1})`;
-        if (inComment) {
-            const end = line.indexOf('-->');
-            if (end >= 0) {
-                inComment = false;
-                if (line.slice(end + 3).trim())
-                    unsupported = 'text after the end of an HTML comment' + where;
-            }
-            continue;
-        }
-        if (fence) {
-            const close = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
-            if (close && close[1][0] === fence.ch && close[1].length >= fence.len)
-                fence = null;
-            else
-                pushText(line, 'code', paragraph++, null);
-            continue;
-        }
-        if (!line.trim()) {
-            flush();
-            continue;
-        }
-        // An HTML comment block: "<!--" at column 0, ending the first line that holds "-->" — which may
-        // be this one, even "<!-->" (XC1 X3). Its inside is not shown.
-        if (line.startsWith('<!--')) {
-            flush();
-            const end = line.indexOf('-->');
-            if (end >= 0) {
-                if (line.slice(end + 3).trim())
-                    unsupported = 'text after the end of an HTML comment' + where;
-            }
-            else if (closesFrom[i + 1])
-                inComment = true;
-            else
-                unsupported = 'an HTML comment that never closes' + where;
-            continue;
-        }
-        // A fence opened at column 0. A backtick fence's info string may not hold a backtick (then it is prose).
-        const opener = line.match(/^(`{3,}|~{3,})(.*)$/);
-        if (opener && !(opener[1][0] === '`' && opener[2].includes('`'))) {
-            flush();
-            fence = { ch: opener[1][0], len: opener[1].length };
-            continue;
-        }
-        const refused = unsupportedConstruct(line, para.length > 0);
-        if (refused) {
-            unsupported = refused + where;
-            break;
-        }
-        const item = line.match(/^ {0,3}(?:[-*+]|(\d{1,9})[.)])(?=[ \t]|$)([ \t]*)/);
-        if (item) {
-            let rest = line.slice(item[0].length);
-            // An empty item, or an ordered item not starting at 1, cannot interrupt a paragraph: it
-            // continues it (CommonMark; XC1 X8).
-            if (para.length && (!rest.trim() || (item[1] !== undefined && Number(item[1]) !== 1))) {
-                para.push(line);
-                continue;
-            }
-            // Five or more spaces, or a tab, after the marker make the item's first line indented code (XC1 X4).
-            if (rest.trim() && (/\t/.test(item[2]) || item[2].length >= 5)) {
-                unsupported = 'indented code in a list item' + where;
-                break;
-            }
-            if (/^(?:`{3,}|~{3,})/.test(rest)) {
-                unsupported = 'a code fence inside a list' + where;
-                break;
-            }
-            flush();
-            // "[ ]" with or without a space after it: a reader sees an empty box (XC1 T-a).
-            if (/^\[ \]/.test(rest)) {
-                paraContext = 'todo';
-                rest = rest.slice(3);
-            }
-            else
-                rest = rest.replace(/^\[[xX]\] +/, '');
-            para = [rest];
-            continue;
-        }
-        if (/^ {0,3}#{1,6}(?: |$)/.test(line)) {
-            flush();
-            pushText(line.replace(/^ {0,3}#{1,6} */, ''), 'heading', paragraph++, null);
-            continue;
-        }
-        if (/^ {0,3}(?:`{3,}|~{3,})/.test(line)) {
-            unsupported = 'an indented code fence' + where;
-            break;
-        }
-        para.push(line);
-    }
-    if (unsupported === null) {
-        if (inComment)
-            unsupported = 'an HTML comment that never closes';
-        else
-            flush();
-    }
-    if (unsupported !== null) {
-        // Refused: list every line as written, one paragraph each, and let nothing decide.
-        out.length = 0;
-        lines.forEach((l, i) => pushText(l, 'statement', i, null));
-    }
-    const kept = out.slice(0, exports.MAX_CLAIMS);
-    return { sentences: kept, unsupported, dropped: Math.max(0, out.length - exports.MAX_CLAIMS) };
-}
-/** {@link readClaims}, flattened: the sentences, their contexts and paragraphs, and how many past the limit were not read. */
-function splitClaims(text) {
-    const r = readClaims(text);
-    return {
-        clauses: r.sentences.map((s) => normalizeClaimText(s.text)),
-        full: r.sentences.map((s) => s.text),
-        context: r.sentences.map((s) => s.context),
-        paragraph: r.sentences.map((s) => s.paragraph),
-        gate: r.sentences.map((s) => s.gate),
-        unsupported: r.unsupported,
-        dropped: r.dropped,
-    };
+    const all = [];
+    String(text ?? '')
+        .split(/\r\n|\r|\n/)
+        .forEach((raw, i) => {
+        if (!raw.trim())
+            return;
+        const problem = plainLineProblem(raw);
+        all.push({ lineNo: i + 1, text: problem ? normalizeClaimText(raw) || '(invisible characters only)' : raw, problem });
+    });
+    const kept = all.slice(0, exports.MAX_CLAIMS);
+    return { lines: kept, dropped: Math.max(0, all.length - exports.MAX_CLAIMS) };
 }
 // ── templates ───────────────────────────────────────────────────────────────────────────────────
 //
@@ -891,60 +684,59 @@ function scanSentence(sentence, full, o) {
     };
 }
 /**
- * Why a sentence decides nothing, or null when it is a plain statement the templates read in full.
- *
- * This is the rule that closes most of what XC1 found (R1): a verdict, SUPPORTED or CONTRADICTED,
- * is given only for a sentence the templates understood END TO END. "If the workflow passed (run N),
- * we can merge", "Unclear whether …", "The workflow passed on a branch rebased on <sha>", "The dry
- * run passed", "The lint checks pass": each has words no template read, and those words change what
- * the sentence says. A question asks; a blockquote is someone else's words. Everything in such a
- * sentence is NOT_CHECKED, and the unread words are listed as their own claim.
+ * Why a plain line is not read end to end, or null. A verdict, SUPPORTED or CONTRADICTED, is given
+ * only for lines the templates understood END TO END: "If the workflow passed on 5cd68edc, merge",
+ * "The lint checks pass", "The workflow passed on a branch rebased on 5cd68edc" each have words no
+ * template read, and those words change what the line says. A line that opens with an auxiliary
+ * verb asks.
  */
-const CONTEXT_GATE = {
-    code: 'This line is in a fenced code block, so it is shown but not taken as a claim.',
-    heading: 'This line is a heading, so it is shown but not taken as a claim.',
-    todo: 'This is an unticked task-list item: a to-do, not a claim.',
-};
-function gateOf(s, context) {
-    if (context !== 'statement')
-        return CONTEXT_GATE[context];
+function lineGate(s) {
     if (s.question)
-        return 'This sentence asks rather than states, so none of its parts is taken as a claim.';
+        return 'it asks rather than states';
     if (s.remainder)
-        return 'This sentence says more than the templates read (see its unmapped part), so none of its parts is decided on its own.';
+        return 'it has words no template reads (listed as their own claim)';
     return null;
 }
 /**
  * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
  *
- * Each sentence is judged on its own: its citations decide which run it is about (see
- * {@link Anchor}), and a sentence the templates did not read end to end decides nothing (see
- * {@link gateOf}). A green run is never evidence for a sentence about another commit, another
- * workflow, or nothing in particular.
+ * DENY BY DEFAULT, over the WHOLE input. A verdict is given only when every line is a plain claim
+ * line (see {@link plainLineProblem}) that the templates read end to end. One line that is not (a
+ * Markdown line, a cross mark, "is false.", a question) blocks every verdict in the text, because
+ * nothing here can tell what that line does to the others. Everything is still listed. Within a
+ * readable text, each line's own citations decide which run it is about (see {@link Anchor}).
  */
 function mapClaims(text, o) {
-    const { clauses, full, context, paragraph, gate: readGate, unsupported, dropped } = splitClaims(text);
-    const scanned = clauses.map((c, i) => scanSentence(c, full[i], o));
-    // A refused construct anywhere means the reading of every line is in doubt, so nothing decides.
-    const textGate = unsupported
-        ? `This text uses Markdown this version does not read exactly: ${unsupported}. Every line is listed, and nothing in the text is decided.`
-        : null;
-    const own = scanned.map((s, i) => textGate ?? readGate[i] ?? gateOf(s, (context[i] ?? 'statement')));
-    // A verdict needs its whole PARAGRAPH read end to end, not just its sentence: "… (run N). ❌" or a
-    // soft line break into "is false." sits in the same paragraph a reader sees (XC1 R1-a, R1-b).
-    const gatedParagraphs = new Set();
-    own.forEach((g, i) => {
-        if (g)
-            gatedParagraphs.add(paragraph[i]);
+    const { lines, dropped } = readClaims(text);
+    const scanned = lines.map((l) => (l.problem ? null : scanSentence(l.text, l.text, o)));
+    const blockers = [];
+    lines.forEach((l, i) => {
+        const s = scanned[i];
+        const why = l.problem ?? (s ? lineGate(s) : null);
+        if (why)
+            blockers.push(`line ${l.lineNo}: ${why}`);
     });
+    if (dropped > 0)
+        blockers.push(`${dropped} lines after the first ${exports.MAX_CLAIMS} were not read`);
+    const block = blockers.length
+        ? `Not every line of this text is a plain claim the templates read in full (${blockers[0]}${blockers.length > 1 ? `, and ${blockers.length - 1} more` : ''}), so nothing in the text is decided.`
+        : null;
     const out = [];
-    clauses.forEach((sentence, idx) => {
+    lines.forEach((l, idx) => {
+        if (l.problem) {
+            out.push({
+                claim: l.text,
+                sentence: l.text,
+                template: 'excluded.markup',
+                status: 'NOT_CHECKED',
+                evidence_fields: [],
+                scope: 'Only plain-text claim lines are read: printable ASCII, starting with a letter, one sentence, no Markdown or HTML.',
+                reason: `Line ${l.lineNo} is not certifiable: ${l.problem}. Markup and non-ASCII text are listed, never read.`,
+            });
+            return;
+        }
         const s = scanned[idx];
-        const ctx = (context[idx] ?? 'statement');
-        const gate = own[idx] ??
-            (gatedParagraphs.has(paragraph[idx])
-                ? 'Another sentence in this paragraph is not a plain statement the templates read in full (it is listed too), so nothing in the paragraph is decided.'
-                : null);
+        const gate = block;
         const citations = gate
             ? s.citations.map((c) => ({ ...c, status: 'NOT_CHECKED', evidence_fields: [], reason: gate }))
             : s.citations;
@@ -978,8 +770,8 @@ function mapClaims(text, o) {
                 template: 'unmapped',
                 status: 'NOT_CHECKED',
                 evidence_fields: [],
-                scope: 'No deterministic template matches this sentence.',
-                reason: textGate ?? (ctx !== 'statement' ? CONTEXT_GATE[ctx] : 'Not compared with anything, so it is neither supported nor contradicted.'),
+                scope: 'No deterministic template matches this line.',
+                reason: 'Not compared with anything, so it is neither supported nor contradicted. Because of it, nothing in the text is decided.',
             });
             return;
         }
@@ -992,24 +784,21 @@ function mapClaims(text, o) {
                 template: 'unmapped',
                 status: 'NOT_CHECKED',
                 evidence_fields: [],
-                scope: 'The part of this sentence no template matched.',
-                reason: textGate ??
-                    (ctx !== 'statement'
-                        ? CONTEXT_GATE[ctx]
-                        : 'Not compared with anything, so it is neither supported nor contradicted. Because of it, nothing else in this paragraph is decided either.'),
+                scope: 'The part of this line no template matched.',
+                reason: 'Not compared with anything, so it is neither supported nor contradicted. Because of it, nothing in the text is decided.',
             });
         }
     });
     if (dropped > 0) {
-        const note = `(${dropped} further sentences)`;
+        const note = `(${dropped} further lines)`;
         out.push({
             claim: note,
             sentence: note,
             template: 'truncated',
             status: 'NOT_CHECKED',
             evidence_fields: [],
-            scope: `Only the first ${exports.MAX_CLAIMS} sentences are read.`,
-            reason: `${dropped} sentences after the first ${exports.MAX_CLAIMS} were not read at all.`,
+            scope: `Only the first ${exports.MAX_CLAIMS} lines are read.`,
+            reason: `${dropped} lines after the first ${exports.MAX_CLAIMS} were not read at all, so nothing in the text is decided.`,
         });
     }
     return out;

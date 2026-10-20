@@ -59,7 +59,7 @@
           }
         ]
       },
-      "fetchedAt": "2026-10-20T01:25:43.424Z",
+      "fetchedAt": "2026-10-20T01:38:14.722Z",
       "freshness": "LIVE"
     },
     "claims": [
@@ -74,7 +74,7 @@
       },
       {
         "claim": "The check workflow passed",
-        "sentence": "The check workflow passed on 5cd68edc (run 39290226738).",
+        "sentence": "The check workflow passed on 5cd68edc, run 39290226738.",
         "template": "gha.run_succeeded",
         "status": "SUPPORTED",
         "evidence_fields": [
@@ -88,7 +88,7 @@
       },
       {
         "claim": "on 5cd68edc",
-        "sentence": "The check workflow passed on 5cd68edc (run 39290226738).",
+        "sentence": "The check workflow passed on 5cd68edc, run 39290226738.",
         "template": "git.head_sha",
         "status": "SUPPORTED",
         "evidence_fields": [
@@ -99,7 +99,7 @@
       },
       {
         "claim": "run 39290226738",
-        "sentence": "The check workflow passed on 5cd68edc (run 39290226738).",
+        "sentence": "The check workflow passed on 5cd68edc, run 39290226738.",
         "template": "gha.run_id",
         "status": "SUPPORTED",
         "evidence_fields": [
@@ -178,6 +178,6 @@
   "digest": {
     "algorithm": "sha-256",
     "canonicalization": "RFC 8785",
-    "value": "2d1429706cffaa79c5e16215540f39895f8aaa779a2aba889e43b9f5c86938e7"
+    "value": "7bc3043571ab2c96ec2d2b32a2439ffff4cafca61fd60a8b4d5eaf4900470d29"
   }
 }

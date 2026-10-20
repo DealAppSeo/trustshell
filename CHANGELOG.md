@@ -6,9 +6,9 @@ All notable changes to the `@hyperdag/trustshell` package.
 
 - **`trustshell check <runUrl> --claims "<text>"` / `--claims-file <path>` (draft): what an agent
   said, against what the run reports.** Claims are split into atomic parts, each SUPPORTED,
-  CONTRADICTED or NOT_CHECKED by a fixed template, and a sentence decides nothing unless every word
-  of its paragraph was read, in a strict Markdown subset (anything else is listed and decides
-  nothing). A green run supports only "this workflow run succeeded", and only for a sentence
+  CONTRADICTED or NOT_CHECKED by a fixed template. Deny by default: only plain claim lines
+  (printable ASCII, no Markdown or HTML, one sentence) are read, and any line that is not plain or
+  not read end to end blocks every verdict in the text; Markdown is not rendered. A green run supports only "this workflow run succeeded", and only for a sentence
   that cites that run, or names its workflow and cites its commit; "all tests pass" and "all checks
   pass" are never SUPPORTED by one run. Commit, run and attempt citations are compared; security,
   readiness, "done" and the like are named and NOT_CHECKED. Output is a `dev.trustshell.action-evidence/0.1-draft` record with an RFC 8785 SHA-256,
