@@ -12,6 +12,8 @@ All notable changes to the `@hyperdag/trustshell` package.
     base branch's required checks, and whether the change edits its own workflows.
   - SUPPORTED only when all of them passed. CONTRADICTED when any failed. Otherwise NOT_CHECKED,
     with the reason.
+  - "All required checks pass." is a separate template (`ci.required_checks_pass`): only the base
+    branch's required checks, pinned to their apps. It is never decided without `--guided`.
   - Off by default. Without the flag, output is byte-identical.
   - Still only api.github.com, with more requests; `OFFLINE=1` sends nothing.
   - Files: `src/lib/commit-checks.ts`, guided mode in `src/lib/action-evidence.ts`, tests in

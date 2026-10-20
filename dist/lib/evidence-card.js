@@ -33,6 +33,7 @@ const strong = (v) => ({ t: 'strong', v: (0, action_evidence_1.cleanCodePoints)(
 const TOPIC = {
     'gha.run_succeeded': 'This workflow run succeeding',
     'ci.all_checks_pass': 'All checks on the commit passing',
+    'ci.required_checks_pass': 'Required checks passing',
     'ci.tests_pass': 'Tests passing',
     'ci.build_unscoped': 'An unnamed build passing',
     'git.head_sha': 'Cited commit',
