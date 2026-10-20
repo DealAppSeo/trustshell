@@ -55,6 +55,9 @@ export interface CheckResult {
     event: string | null;
     head_branch: string | null;
     head_owner: string | null;
+    /** `owner/name` of the run's repository and of its head repository, both as the API reports them now. */
+    repo_full_name: string | null;
+    head_full_name: string | null;
   };
   /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
   jobs: {
@@ -285,6 +288,8 @@ export async function runCheck(url: string, env: Record<string, string | undefin
       event: typeof run.body.event === 'string' ? run.body.event : null,
       head_branch: typeof run.body.head_branch === 'string' ? run.body.head_branch : null,
       head_owner: typeof run.body.head_repository?.owner?.login === 'string' ? run.body.head_repository.owner.login : null,
+      repo_full_name: typeof run.body.repository?.full_name === 'string' ? run.body.repository.full_name : null,
+      head_full_name: typeof run.body.head_repository?.full_name === 'string' ? run.body.head_repository.full_name : null,
     },
     jobs: {
       http_status: jobs.status,

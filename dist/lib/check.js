@@ -226,6 +226,8 @@ async function runCheck(url, env = process.env) {
             event: typeof run.body.event === 'string' ? run.body.event : null,
             head_branch: typeof run.body.head_branch === 'string' ? run.body.head_branch : null,
             head_owner: typeof run.body.head_repository?.owner?.login === 'string' ? run.body.head_repository.owner.login : null,
+            repo_full_name: typeof run.body.repository?.full_name === 'string' ? run.body.repository.full_name : null,
+            head_full_name: typeof run.body.head_repository?.full_name === 'string' ? run.body.head_repository.full_name : null,
         },
         jobs: {
             http_status: jobs.status,

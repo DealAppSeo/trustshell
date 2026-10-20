@@ -1,6 +1,6 @@
 {
   "_provenance": {
-    "recorded_at": "2026-10-20T06:38:51.980Z",
+    "recorded_at": "2026-10-20T07:09:21.819Z",
     "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
     "commit": "DealAppSeo/trustshell@5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5",
     "note": "head of green-run.json (a push to main; the squash of PR #558)",

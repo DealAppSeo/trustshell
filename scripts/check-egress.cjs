@@ -187,6 +187,10 @@ function fakeGithubFetch(url) {
                     head_branch: 'main',
                     name: 'check',
                     display_title: 'egress-allowlist',
+                    // The same repository as the run URL, so the guided run takes the push path.
+                    event: 'push',
+                    repository: { full_name: 'DealAppSeo/trustshell' },
+                    head_repository: { full_name: 'DealAppSeo/trustshell', owner: { login: 'DealAppSeo' } },
                   };
   return {
     ok: true,

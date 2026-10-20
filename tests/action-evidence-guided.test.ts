@@ -319,9 +319,42 @@ describe('XC1 review of #586: base branch, pagination, any-source checks, refusa
     const { record } = await run((r) => {
       const body = r[key('/actions/runs/39357728240', r)]!.body;
       body.event = 'push';
-      body.head_repository = { ...body.head_repository, owner: { login: 'some-fork' } };
+      body.head_repository = { ...body.head_repository, full_name: 'some-fork/trustshell', owner: { login: 'some-fork' } };
       r[key(`/commits/${SHA}/pulls`, r)]!.body = [];
       r[`/repos/DealAppSeo/trustshell/pulls?head=${encodeURIComponent(`some-fork:${body.head_branch}`)}&state=all&per_page=100&page=1`] = { status: 200, body: [] };
+    });
+    expect(record.observation.commit_checks?.base.how).toBe('unresolved');
+    expect(allChecks(record).status).toBe('NOT_CHECKED');
+  });
+
+  it('N1: every PR from the run’s head label counts, so a closed sibling PR cannot stand in for the real one', async () => {
+    const { record } = await run((r) => {
+      // The run's own PR #583 (into `release`, requiring a check that never reported) has moved on and is not associated;
+      // a closed PR #584 from the same head label (into `sandbox`, no rules) still has this commit as its head.
+      r[key(`/commits/${SHA}/pulls`, r)]!.body = [];
+      r[headQuery(r)]!.body = [
+        { number: 583, head: { sha: 'f'.repeat(40) }, base: { ref: 'release' } },
+        { number: 584, head: { sha: SHA }, base: { ref: 'sandbox' } },
+      ];
+      r['/repos/DealAppSeo/trustshell/pulls/584/files?per_page=100&page=1'] = { status: 200, body: [{ filename: 'README.md' }] };
+      for (const b of ['sandbox', 'release']) {
+        r[`/repos/DealAppSeo/trustshell/rules/branches/${b}?per_page=100&page=1`] = {
+          status: 200,
+          body: b === 'release' ? [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'release-gate', integration_id: 15368 }] } }] : [],
+        };
+        r[`/repos/DealAppSeo/trustshell/branches/${b}`] = { status: 200, body: { name: b, protected: false } };
+      }
+    });
+    expect(record.observation.commit_checks?.base.branches.sort()).toEqual(['release', 'sandbox']);
+    expect(allChecks(record).status).toBe('NOT_CHECKED');
+  });
+
+  it('N3: a head repository that is unknown (a deleted fork) never takes the push path', async () => {
+    const { record } = await run((r) => {
+      const body = r[key('/actions/runs/39357728240', r)]!.body;
+      body.event = 'workflow_dispatch';
+      body.head_repository = null;
+      r[key(`/commits/${SHA}/pulls`, r)]!.body = [];
     });
     expect(record.observation.commit_checks?.base.how).toBe('unresolved');
     expect(allChecks(record).status).toBe('NOT_CHECKED');

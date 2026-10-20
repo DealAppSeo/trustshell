@@ -73,4 +73,6 @@ export declare function fetchCommitChecks(owner: string, repo: string, sha: stri
     event: string | null;
     head_branch: string | null;
     head_owner: string | null;
+    repo_full_name?: string | null;
+    head_full_name?: string | null;
 }): Promise<CommitChecks>;
