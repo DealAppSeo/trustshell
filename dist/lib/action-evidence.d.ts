@@ -103,38 +103,48 @@ export declare const MAX_CLAIM_TEXT = 300;
 /** Sentences after this many are not read one by one; a single NOT_CHECKED entry says how many. */
 export declare const MAX_CLAIMS = 200;
 /**
- * Remove what would let claim text act on the reader rather than be read: C0/C1 controls (a
- * terminal escape sequence is a control character), bidirectional overrides (text that displays
- * in a different order from the bytes) and zero-width characters. Then collapse whitespace.
+ * One pass over the code points: an unpaired surrogate becomes U+FFFD (it has no UTF-8 form, and
+ * RFC 8785 refuses it), an invisible or reordering character is removed, and a C0/C1 control (a
+ * terminal escape starts with one) becomes a space. Newlines survive only when asked for.
  */
+export declare function cleanCodePoints(s: string, keepNewlines?: boolean): string;
+/**
+ * Replace unpaired surrogates with U+FFFD and change nothing else. Applied to every string GitHub
+ * returns before it enters the record: one unpaired surrogate in a workflow name otherwise made the
+ * RFC 8785 digest throw, so any repository could make every --claims check of its runs fail (XC1 L1).
+ */
+export declare function wellFormed(s: string): string;
+/** Normalise one claim for storage: {@link canonicalText}, whitespace collapsed, cut at MAX_CLAIM_TEXT. */
 export declare function normalizeClaimText(s: string): string;
 /**
- * Remove `<!-- … -->` comments in one left-to-right pass. This replaced the lazy regex
- * `/<!--[\s\S]*?-->/g`, which CodeQL flagged as js/polynomial-redos: on text made of repeated
- * `<!--` with no closing `-->` it rescanned to the end from every opener (64,000 characters took
- * 1.7 s, and each doubling took four times as long). Same result as that regex: an opener with no
- * closer is left as text, so nothing is silently dropped.
- */
-export declare function stripHtmlComments(text: string): string;
-/**
- * Split free text (an agent's "done" message, a PR description) into claim sentences. PURE.
+ * Split free text into claim sentences. PURE, and one pass over the lines.
  *
- * Skipped, because they are not claims: HTML comments (PR templates are full of them), fenced
- * code, headings, and UNCHECKED task-list items. `- [ ] tests pass` is a to-do, not a statement;
- * `- [x] tests pass` is a claim and is kept.
+ * Skipped, because a reader of the rendered text does not see them as claims: fenced code, HTML
+ * comment BLOCKS, headings, and unticked task-list items (`- [ ] tests pass` is a to-do). Kept but
+ * marked: blockquoted lines, which are someone else's words.
+ *
+ * The rules follow CommonMark, because the failure to avoid is hiding text a reader can see (XC1
+ * H1, H2):
+ *  - A fence opens on a line of 3+ backticks or tildes, indented at most 3 spaces. A backtick
+ *    fence's info string may not contain a backtick, so "```x``` more text" is prose, not a fence.
+ *    It closes on the same character, at least as long, with nothing else on the line.
+ *  - A comment is removed only as an HTML block: a line that starts with `<!--`, through the line
+ *    holding `-->`. Text after the `-->` is kept. A `<!--` anywhere else (in a code span,
+ *    mid-sentence) is text, and so is an opener with no `-->` anywhere after it.
  */
 export declare function splitClaims(text: string): {
     clauses: string[];
     full: string[];
+    quoted: boolean[];
     dropped: number;
 };
 /**
  * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
  *
- * Outcome claims are tied to the inspected run per sentence: by the sentence's own citations when
- * it has any (all must match), otherwise by the text's (there must be at least one, and all must
- * match). Untied, they are NOT_CHECKED, because the alternative is vouching for a sentence about
- * one commit with a green run on another.
+ * Each sentence is judged on its own: its citations decide which run it is about (see
+ * {@link Anchor}), and a sentence the templates did not read end to end decides nothing (see
+ * {@link gateOf}). A green run is never evidence for a sentence about another commit, another
+ * workflow, or nothing in particular.
  */
 export declare function mapClaims(text: string, o: Observation): ClaimEntry[];
 /** Build the observation from `check`'s result. PURE. */

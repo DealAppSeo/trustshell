@@ -151,7 +151,8 @@ function fakeGithubFetch(url) {
     return { ok: true, status: 200, text: async () => JSON.stringify({ label: 'not-checked', latency_ms: 1 }) };
   }
   const body = u.includes('/jobs')
-    ? { total_count: 1, jobs: [{ name: 'job-0', conclusion: 'success' }] }
+    ? // head_sha matches the run's: `check --claims` will not tie a job without one to the commit.
+      { total_count: 1, jobs: [{ name: 'job-0', conclusion: 'success', head_sha: 'abc123def4567890' }] }
     : {
         conclusion: 'success',
         status: 'completed',

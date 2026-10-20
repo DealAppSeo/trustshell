@@ -20,10 +20,15 @@ exports.DEMO_BANNER = void 0;
 exports.mdCode = mdCode;
 exports.renderCardMarkdown = renderCardMarkdown;
 exports.renderCardHtml = renderCardHtml;
+const check_1 = require("./check");
 const action_evidence_1 = require("./action-evidence");
-const text = (v) => ({ t: 'text', v });
-const code = (v) => ({ t: 'code', v });
-const strong = (v) => ({ t: 'strong', v });
+// EVERY string on the card passes through cleanCodePoints here, in the only three constructors
+// there are. A workflow or job name is someone else's text; with an ESC in it, the default stdout
+// card carried an OSC 52 clipboard write and a clear-screen to the terminal (XC1 S1). The record
+// keeps the raw value, where JSON escaping makes it inert.
+const text = (v) => ({ t: 'text', v: (0, action_evidence_1.cleanCodePoints)(v) });
+const code = (v) => ({ t: 'code', v: (0, action_evidence_1.cleanCodePoints)(v) });
+const strong = (v) => ({ t: 'strong', v: (0, action_evidence_1.cleanCodePoints)(v) });
 /** What a template is ABOUT, for the "<topic>: not checked" line. Keyed by template id, never by claim text. */
 const TOPIC = {
     'gha.run_succeeded': 'This workflow run succeeding',
@@ -132,9 +137,12 @@ function buildModel(r, opts) {
         title: 'TrustShell · claims checked against a GitHub Actions run',
         facts,
         tallyLine: `${t.SUPPORTED} supported · ${t.CONTRADICTED} contradicted · ${t.NOT_CHECKED} not checked`,
+        // The list below also carries the fixed cryptographic-integrity line, so the heading counts it
+        // separately rather than letting the tally and the list disagree by one (XC1 L2).
+        notCheckedTitle: `Not checked: ${(0, check_1.plural)(t.NOT_CHECKED, 'claim')}${r.assurance.cryptographic_integrity === 'NOT_CHECKED' ? ', and cryptographic integrity' : ''} (none of these is a pass)`,
         checked,
         notChecked,
-        doesNotProve: r.does_not_prove,
+        doesNotProve: r.does_not_prove.map((x) => (0, action_evidence_1.cleanCodePoints)(x)),
         footer: [
             text('Record '),
             code(r.schema),
@@ -184,7 +192,7 @@ function renderCardMarkdown(record, opts = {}) {
     }
     if (m.checked.length)
         out.push('');
-    out.push('### Not checked (none of these is a pass)', '');
+    out.push(`### ${mdText(m.notCheckedTitle)}`, '');
     if (m.notChecked.length === 0)
         out.push('- (nothing)');
     for (const n of m.notChecked)
@@ -240,7 +248,7 @@ function renderCardHtml(record, opts = {}) {
         }
         out.push('</ul>');
     }
-    out.push('<h2>Not checked (none of these is a pass)</h2>', '<ul>');
+    out.push(`<h2>${esc(m.notCheckedTitle)}</h2>`, '<ul>');
     if (m.notChecked.length === 0)
         out.push('<li>(nothing)</li>');
     for (const n of m.notChecked)

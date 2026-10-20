@@ -6,13 +6,13 @@
 - **Workflow** `check` · `.github/workflows/check.yml`
 - **GitHub reports** status `completed` · conclusion `success` · check verdict **COMPLETE**
 - **Jobs** 1 of 1 read (HTTP 200): 1 success
-- **Observed** 2026-10-19T23:55:16.156Z from api.github.com (LIVE at that time)
+- **Observed** 2026-10-20T00:33:07.336Z from api.github.com (LIVE at that time)
 - **Evidence class** PLATFORM_REPORTED: GitHub describing its own run. A platform record, not an independent grade.
 
 ### Claims: 3 supported · 1 contradicted · 5 not checked
 
 - **CONTRADICTED** `attempt 2`
-  - **In** `All tests pass, verified on attempt 2.`
+  - **In** `CI passed on attempt 2.`
   - **Template** `gha.run_attempt`
   - **Why** The claim cites attempt 2; GitHub's record for run 39290226738 is attempt 1, its latest.
   - **Scope** Attempt identity only: whether the attempt this claim cites is the one GitHub's record describes. Not what that attempt shows.
@@ -20,7 +20,7 @@
 - **SUPPORTED** `The check workflow passed`
   - **In** `The check workflow passed on 5cd68edc (run 39290226738).`
   - **Template** `gha.run_succeeded`
-  - **Why** GitHub reports conclusion "success" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. This sentence ties it to this run by citing it.
+  - **Why** GitHub reports conclusion "success" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. The sentence cites this run.
   - **Scope** Whether workflow run 39290226738 (attempt 1, commit 5cd68edc782f) concluded success with every job read. Not which tests it ran, not any other workflow or check on the commit, and not whether the change works.
   - **Fields** `/observation/status`, `/observation/conclusion`, `/observation/check/verdict`, `/observation/jobs`
 - **SUPPORTED** `on 5cd68edc`
@@ -36,11 +36,11 @@
   - **Scope** Run identity only: whether the run this claim cites is the inspected run. Not what the run shows.
   - **Fields** `/observation/owner`, `/observation/repo`, `/observation/run_id`
 
-### Not checked (none of these is a pass)
+### Not checked: 5 claims, and cryptographic integrity (none of these is a pass)
 
 - **Task completion: not checked.** `Done` "Done" is not a fact a workflow run records. Only the narrower claims mapped from the same text are compared. In: `Done.`
-- **Tests passing: not checked.** `All tests pass` This sentence cites a commit, run or attempt that is not, or could not be matched to, the inspected run, so its outcome claims are not compared with this run. In: `All tests pass, verified on attempt 2.`
-- **Unmapped claim: not checked.** `verified on` Not compared with anything, so it is neither supported nor contradicted. A verdict on another part of the sentence says nothing about this part. In: `All tests pass, verified on attempt 2.`
+- **All checks on the commit passing: not checked.** `CI passed` This sentence cites a commit, run or attempt that is not, or could not be matched to, the inspected run, so its outcome claims are not compared with this run. In: `CI passed on attempt 2.`
+- **Tests passing: not checked.** `All tests pass` This sentence cites neither this run's commit nor its run id, so nothing ties the claim to run 39290226738 (attempt 1, commit 5cd68edc782f). In: `All tests pass.`
 - **Production readiness: not checked.** `production ready` Readiness is a judgement, not something a workflow run reports. In: `It is production ready and fully secure.`
 - **Broader security: not checked.** `fully secure` A CI run conclusion is not a security review, and no security result is mapped. In: `It is production ready and fully secure.`
 - **Cryptographic integrity: not checked.** No signed attestation was present or verified. This version does not read attestations.
@@ -60,4 +60,4 @@
 
 ---
 
-Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `6a57284f63ea14e0b75550a15f100c9edaa0631549850c2766ad4965420ba21a` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded
+Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `3c26063c2bec22814d31b3248d8f425b467c2c6ae526a79e26e363eeb8bad441` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded

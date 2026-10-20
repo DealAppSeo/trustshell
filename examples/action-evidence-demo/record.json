@@ -59,7 +59,7 @@
           }
         ]
       },
-      "fetchedAt": "2026-10-19T23:55:16.156Z",
+      "fetchedAt": "2026-10-20T00:33:07.336Z",
       "freshness": "LIVE"
     },
     "claims": [
@@ -84,7 +84,7 @@
           "/observation/jobs"
         ],
         "scope": "Whether workflow run 39290226738 (attempt 1, commit 5cd68edc782f) concluded success with every job read. Not which tests it ran, not any other workflow or check on the commit, and not whether the change works.",
-        "reason": "GitHub reports conclusion \"success\" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. This sentence ties it to this run by citing it."
+        "reason": "GitHub reports conclusion \"success\" for run 39290226738 (attempt 1, commit 5cd68edc782f); 1 of 1 job concluded success. The sentence cites this run."
       },
       {
         "claim": "on 5cd68edc",
@@ -111,9 +111,9 @@
         "reason": "The cited run is the inspected run, 39290226738."
       },
       {
-        "claim": "All tests pass",
-        "sentence": "All tests pass, verified on attempt 2.",
-        "template": "ci.tests_pass",
+        "claim": "CI passed",
+        "sentence": "CI passed on attempt 2.",
+        "template": "ci.all_checks_pass",
         "status": "NOT_CHECKED",
         "evidence_fields": [],
         "scope": "Not compared: nothing ties this claim to the inspected run.",
@@ -121,7 +121,7 @@
       },
       {
         "claim": "attempt 2",
-        "sentence": "All tests pass, verified on attempt 2.",
+        "sentence": "CI passed on attempt 2.",
         "template": "gha.run_attempt",
         "status": "CONTRADICTED",
         "evidence_fields": [
@@ -131,13 +131,13 @@
         "reason": "The claim cites attempt 2; GitHub's record for run 39290226738 is attempt 1, its latest."
       },
       {
-        "claim": "verified on",
-        "sentence": "All tests pass, verified on attempt 2.",
-        "template": "unmapped",
+        "claim": "All tests pass",
+        "sentence": "All tests pass.",
+        "template": "ci.tests_pass",
         "status": "NOT_CHECKED",
         "evidence_fields": [],
-        "scope": "The part of this sentence no template matched.",
-        "reason": "Not compared with anything, so it is neither supported nor contradicted. A verdict on another part of the sentence says nothing about this part."
+        "scope": "Not compared: nothing ties this claim to the inspected run.",
+        "reason": "This sentence cites neither this run's commit nor its run id, so nothing ties the claim to run 39290226738 (attempt 1, commit 5cd68edc782f)."
       },
       {
         "claim": "production ready",
@@ -178,6 +178,6 @@
   "digest": {
     "algorithm": "sha-256",
     "canonicalization": "RFC 8785",
-    "value": "6a57284f63ea14e0b75550a15f100c9edaa0631549850c2766ad4965420ba21a"
+    "value": "3c26063c2bec22814d31b3248d8f425b467c2c6ae526a79e26e363eeb8bad441"
   }
 }

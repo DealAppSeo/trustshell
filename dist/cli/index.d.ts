@@ -103,8 +103,10 @@ export interface ParsedArgs {
     id?: string;
     /** quarantine release: `hal` runs the classify check (network); otherwise --source grounds it locally. */
     check?: string;
-    /** check <runUrl>: the claims to map onto the run — a file path, or the text itself. */
+    /** check <runUrl>: the claim text to map onto the run. Always text, never a path. */
     claims?: string;
+    /** check <runUrl>: a file holding the claim text. The only way a file is read. */
+    claimsFile?: string;
     /** check <runUrl> --claims: also write record.json, card.md and card.html to this directory. */
     out?: string;
     /** check <runUrl> --claims: mark the cards DEMO. */
@@ -209,16 +211,14 @@ export declare function run(args: ParsedArgs, client: TrustShell, io?: CliIO): P
 /** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
 export declare const MAX_CLAIMS_FILE_BYTES: number;
 /**
- * `--claims <file|text>`: an existing file is read; any other value is the claim text itself.
+ * `--claims-file <path>`: the only way claim text comes from a file.
  *
- * One guard against the silent case: a value shaped like a file name (`pr-body.md`) that does not
- * exist is a usage error, not one unmapped claim reading "pr-body.md". A typo in a path must not
- * produce a card that looks like it checked something.
+ * WHY TWO FLAGS. This was `--claims <file|text>`: an existing file was read, anything else was text.
+ * Automation passing untrusted text through it (`--claims "$PR_BODY"`) then let the author name a
+ * path instead (`../../.env`, `~/.npmrc`), and the file's sentences landed on a card meant to be
+ * posted (XC1 S2). A file is now read only when the caller says so; `--claims` is always text.
  */
-export declare function readClaimsInput(value: string, fs?: Pick<typeof import('node:fs'), 'statSync' | 'readFileSync'>): {
-    text: string;
-    from: 'file' | 'text';
-};
+export declare function readClaimsFile(path: string, fs?: Pick<typeof import('node:fs'), 'statSync' | 'readFileSync'>): string;
 /**
  * `trustshell check "<sentence>"` — the sentence form. Calls {@link classifyClaim}, the
  * SAME function the MCP `check_claim` tool calls, so the two cannot drift.

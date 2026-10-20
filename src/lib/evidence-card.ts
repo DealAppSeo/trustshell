@@ -15,14 +15,19 @@
  * model, so they cannot disagree about what is on the card.
  */
 
-import { digestRecord, tallyClaims, type ActionEvidenceRecord, type ClaimEntry, type ClaimStatus } from './action-evidence';
+import { plural } from './check';
+import { cleanCodePoints, digestRecord, tallyClaims, type ActionEvidenceRecord, type ClaimEntry, type ClaimStatus } from './action-evidence';
 
 type Span = { t: 'text' | 'code' | 'strong'; v: string };
 type Line = Span[];
 
-const text = (v: string): Span => ({ t: 'text', v });
-const code = (v: string): Span => ({ t: 'code', v });
-const strong = (v: string): Span => ({ t: 'strong', v });
+// EVERY string on the card passes through cleanCodePoints here, in the only three constructors
+// there are. A workflow or job name is someone else's text; with an ESC in it, the default stdout
+// card carried an OSC 52 clipboard write and a clear-screen to the terminal (XC1 S1). The record
+// keeps the raw value, where JSON escaping makes it inert.
+const text = (v: string): Span => ({ t: 'text', v: cleanCodePoints(v) });
+const code = (v: string): Span => ({ t: 'code', v: cleanCodePoints(v) });
+const strong = (v: string): Span => ({ t: 'strong', v: cleanCodePoints(v) });
 
 /** What a template is ABOUT, for the "<topic>: not checked" line. Keyed by template id, never by claim text. */
 const TOPIC: Record<string, string> = {
@@ -56,6 +61,7 @@ interface CardModel {
   title: string;
   facts: Line[];
   tallyLine: string;
+  notCheckedTitle: string;
   checked: { status: ClaimStatus; head: Line; details: Line[] }[];
   notChecked: Line[];
   doesNotProve: string[];
@@ -147,9 +153,12 @@ function buildModel(r: ActionEvidenceRecord, opts: { demo?: boolean }): CardMode
     title: 'TrustShell · claims checked against a GitHub Actions run',
     facts,
     tallyLine: `${t.SUPPORTED} supported · ${t.CONTRADICTED} contradicted · ${t.NOT_CHECKED} not checked`,
+    // The list below also carries the fixed cryptographic-integrity line, so the heading counts it
+    // separately rather than letting the tally and the list disagree by one (XC1 L2).
+    notCheckedTitle: `Not checked: ${plural(t.NOT_CHECKED, 'claim')}${r.assurance.cryptographic_integrity === 'NOT_CHECKED' ? ', and cryptographic integrity' : ''} (none of these is a pass)`,
     checked,
     notChecked,
-    doesNotProve: r.does_not_prove,
+    doesNotProve: r.does_not_prove.map((x) => cleanCodePoints(x)),
     footer: [
       text('Record '),
       code(r.schema),
@@ -198,7 +207,7 @@ export function renderCardMarkdown(record: ActionEvidenceRecord, opts: { demo?: 
     for (const d of c.details) out.push(`  - ${mdLine(d)}`);
   }
   if (m.checked.length) out.push('');
-  out.push('### Not checked (none of these is a pass)', '');
+  out.push(`### ${mdText(m.notCheckedTitle)}`, '');
   if (m.notChecked.length === 0) out.push('- (nothing)');
   for (const n of m.notChecked) out.push(`- ${mdLine(n)}`);
   out.push('', '### What this does not prove', '');
@@ -254,7 +263,7 @@ export function renderCardHtml(record: ActionEvidenceRecord, opts: { demo?: bool
     }
     out.push('</ul>');
   }
-  out.push('<h2>Not checked (none of these is a pass)</h2>', '<ul>');
+  out.push(`<h2>${esc(m.notCheckedTitle)}</h2>`, '<ul>');
   if (m.notChecked.length === 0) out.push('<li>(nothing)</li>');
   for (const n of m.notChecked) out.push(`<li class="nc">${htmlLine(n)}</li>`);
   out.push('</ul>', '<h2>What this does not prove</h2>', '<ul>', ...m.doesNotProve.map((s) => `<li>${esc(s)}</li>`), '</ul>');

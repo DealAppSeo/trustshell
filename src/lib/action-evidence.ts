@@ -138,69 +138,153 @@ export const MAX_CLAIM_TEXT = 300;
 export const MAX_CLAIMS = 200;
 
 /**
- * Remove what would let claim text act on the reader rather than be read: C0/C1 controls (a
- * terminal escape sequence is a control character), bidirectional overrides (text that displays
- * in a different order from the bytes) and zero-width characters. Then collapse whitespace.
+ * Code points that display as nothing, or reorder what is displayed: soft hyphen, combining
+ * grapheme joiner, the bidi marks, overrides and isolates, zero-width characters, Hangul fillers,
+ * variation selectors, the byte-order mark, musical-symbol format controls and the Unicode tag
+ * block. Listed as numbers, not regex escapes, so no invisible character has to appear in this
+ * file. XC1 (2026-10-19) hid "Not" from the qualifier check with U+200B, U+00AD and U+E0020.
  */
+const INVISIBLE_RANGES: [number, number][] = [
+  [0x00ad, 0x00ad], [0x034f, 0x034f], [0x061c, 0x061c], [0x115f, 0x1160], [0x17b4, 0x17b5],
+  [0x180b, 0x180f], [0x200b, 0x200f], [0x202a, 0x202e], [0x2060, 0x206f], [0x3164, 0x3164],
+  [0xfe00, 0xfe0f], [0xfeff, 0xfeff], [0xffa0, 0xffa0], [0x1bca0, 0x1bca3], [0x1d173, 0x1d17a],
+  [0xe0000, 0xe0fff],
+];
+
+function isInvisible(cp: number): boolean {
+  for (const [a, b] of INVISIBLE_RANGES) if (cp >= a && cp <= b) return true;
+  return false;
+}
+
+const REPLACEMENT = String.fromCharCode(0xfffd);
+
+/**
+ * One pass over the code points: an unpaired surrogate becomes U+FFFD (it has no UTF-8 form, and
+ * RFC 8785 refuses it), an invisible or reordering character is removed, and a C0/C1 control (a
+ * terminal escape starts with one) becomes a space. Newlines survive only when asked for.
+ */
+export function cleanCodePoints(s: string, keepNewlines = false): string {
+  let out = '';
+  for (const ch of String(s ?? '')) {
+    const cp = ch.codePointAt(0) as number;
+    if (cp >= 0xd800 && cp <= 0xdfff) out += REPLACEMENT;
+    else if (isInvisible(cp)) continue;
+    else if (cp === 0x0a && keepNewlines) out += ch;
+    else if (cp < 0x20 || (cp >= 0x7f && cp <= 0x9f)) out += ' ';
+    else out += ch;
+  }
+  return out;
+}
+
+/**
+ * Replace unpaired surrogates with U+FFFD and change nothing else. Applied to every string GitHub
+ * returns before it enters the record: one unpaired surrogate in a workflow name otherwise made the
+ * RFC 8785 digest throw, so any repository could make every --claims check of its runs fail (XC1 L1).
+ */
+export function wellFormed(s: string): string {
+  let out = '';
+  for (const ch of String(s ?? '')) {
+    const cp = ch.codePointAt(0) as number;
+    out += cp >= 0xd800 && cp <= 0xdfff ? REPLACEMENT : ch;
+  }
+  return out;
+}
+
+/**
+ * The one form of the text that every template reads and every card displays: invisible characters
+ * removed, NFKC applied (fullwidth digits become digits, compatibility forms their plain letters),
+ * controls made spaces. Templates and display read the SAME string, so a reader can never see a
+ * word the checks did not.
+ */
+function canonicalText(s: string, keepNewlines: boolean): string {
+  return cleanCodePoints(cleanCodePoints(s, keepNewlines).normalize('NFKC'), keepNewlines);
+}
+
+/** Normalise one claim for storage: {@link canonicalText}, whitespace collapsed, cut at MAX_CLAIM_TEXT. */
 export function normalizeClaimText(s: string): string {
-  const cleaned = String(s ?? '')
-    .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
-    .replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const cleaned = canonicalText(String(s ?? ''), false).replace(/\s+/g, ' ').trim();
   return cleaned.length > MAX_CLAIM_TEXT ? cleaned.slice(0, MAX_CLAIM_TEXT - 1) + '…' : cleaned;
 }
 
-/**
- * Remove `<!-- … -->` comments in one left-to-right pass. This replaced the lazy regex
- * `/<!--[\s\S]*?-->/g`, which CodeQL flagged as js/polynomial-redos: on text made of repeated
- * `<!--` with no closing `-->` it rescanned to the end from every opener (64,000 characters took
- * 1.7 s, and each doubling took four times as long). Same result as that regex: an opener with no
- * closer is left as text, so nothing is silently dropped.
- */
-export function stripHtmlComments(text: string): string {
-  let out = '';
-  let i = 0;
-  for (;;) {
-    const open = text.indexOf('<!--', i);
-    if (open < 0) break;
-    const close = text.indexOf('-->', open + 4);
-    // No closer after this opener means none after any later opener either: stop.
-    if (close < 0) break;
-    out += text.slice(i, open) + ' ';
-    i = close + 3;
-  }
-  return out + text.slice(i);
-}
+/** Any letter or digit, in any script. A sentence without one is punctuation, not a claim. */
+const HAS_WORD = /[\p{L}\p{N}]/u;
 
 /**
- * Split free text (an agent's "done" message, a PR description) into claim sentences. PURE.
+ * Split free text into claim sentences. PURE, and one pass over the lines.
  *
- * Skipped, because they are not claims: HTML comments (PR templates are full of them), fenced
- * code, headings, and UNCHECKED task-list items. `- [ ] tests pass` is a to-do, not a statement;
- * `- [x] tests pass` is a claim and is kept.
+ * Skipped, because a reader of the rendered text does not see them as claims: fenced code, HTML
+ * comment BLOCKS, headings, and unticked task-list items (`- [ ] tests pass` is a to-do). Kept but
+ * marked: blockquoted lines, which are someone else's words.
+ *
+ * The rules follow CommonMark, because the failure to avoid is hiding text a reader can see (XC1
+ * H1, H2):
+ *  - A fence opens on a line of 3+ backticks or tildes, indented at most 3 spaces. A backtick
+ *    fence's info string may not contain a backtick, so "```x``` more text" is prose, not a fence.
+ *    It closes on the same character, at least as long, with nothing else on the line.
+ *  - A comment is removed only as an HTML block: a line that starts with `<!--`, through the line
+ *    holding `-->`. Text after the `-->` is kept. A `<!--` anywhere else (in a code span,
+ *    mid-sentence) is text, and so is an opener with no `-->` anywhere after it.
  */
-export function splitClaims(text: string): { clauses: string[]; full: string[]; dropped: number } {
-  const lines = stripHtmlComments(String(text ?? '')).split(/\r?\n/);
-  const full: string[] = [];
-  let inFence = false;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (/^(?:```|~~~)/.test(line)) {
-      inFence = !inFence;
+export function splitClaims(text: string): { clauses: string[]; full: string[]; quoted: boolean[]; dropped: number } {
+  const lines = canonicalText(String(text ?? ''), true).split('\n');
+  // closesFrom[i]: whether line i or any later line holds "-->". One backward pass, so this stays linear.
+  const closesFrom: boolean[] = new Array(lines.length + 1).fill(false);
+  for (let i = lines.length - 1; i >= 0; i -= 1) closesFrom[i] = closesFrom[i + 1] || (lines[i] as string).includes('-->');
+
+  const out: { text: string; quoted: boolean }[] = [];
+  let fence: { ch: string; len: number } | null = null;
+  let inComment = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    let line = lines[i] as string;
+    if (fence) {
+      const close = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (close && (close[1] as string)[0] === fence.ch && (close[1] as string).length >= fence.len) fence = null;
       continue;
     }
-    if (inFence || !line || /^#{1,6}(?:\s|$)/.test(line)) continue;
-    let body = line.replace(/^(?:>\s*)+/, '').replace(/^(?:[-*+]|\d+[.)])\s+/, '');
+    if (inComment) {
+      const end = line.indexOf('-->');
+      if (end < 0) continue;
+      inComment = false;
+      line = line.slice(end + 3);
+    } else {
+      const open = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if (open && !((open[1] as string)[0] === '`' && (open[2] as string).includes('`'))) {
+        fence = { ch: (open[1] as string)[0] as string, len: (open[1] as string).length };
+        continue;
+      }
+      const opener = line.match(/^ {0,3}<!--/);
+      if (opener) {
+        const sameLine = line.indexOf('-->', opener[0].length);
+        if (sameLine >= 0) line = line.slice(sameLine + 3);
+        else if (closesFrom[i + 1]) {
+          inComment = true;
+          continue;
+        }
+        // No "-->" anywhere after it: not a comment anyone can see the end of, so it stays text.
+      }
+    }
+    let body = line.trim();
+    if (!body || /^#{1,6}(?:\s|$)/.test(body)) continue;
+    let quoted = false;
+    if (body.startsWith('>')) {
+      quoted = true;
+      body = body.replace(/^(?:>\s*)+/, '');
+    }
+    body = body.replace(/^(?:[-*+]|\d+[.)])\s+/, '');
     if (/^\[ \]\s/.test(body)) continue;
     body = body.replace(/^\[[xX]\]\s+/, '');
     for (const part of body.split(/(?<=[.!?;])\s+/)) {
-      const whole = String(part).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim();
-      if (/[A-Za-z0-9]/.test(whole)) full.push(whole);
+      const whole = part.replace(/\s+/g, ' ').trim();
+      if (HAS_WORD.test(whole)) out.push({ text: whole, quoted });
     }
   }
-  const kept = full.slice(0, MAX_CLAIMS);
-  return { clauses: kept.map(normalizeClaimText), full: kept, dropped: Math.max(0, full.length - MAX_CLAIMS) };
+  const kept = out.slice(0, MAX_CLAIMS);
+  return {
+    clauses: kept.map((s) => normalizeClaimText(s.text)),
+    full: kept.map((s) => s.text),
+    quoted: kept.map((s) => s.quoted),
+    dropped: Math.max(0, out.length - MAX_CLAIMS),
+  };
 }
 
 // ── templates ───────────────────────────────────────────────────────────────────────────────────
@@ -228,10 +312,12 @@ const RUN_SUCCEEDED: RegExp[] = [
   // "The `check` workflow passed": an optional determiner and workflow NAME, each bounded. The name
   // is captured (group 1) because "the deploy workflow passed" is not evidenced by the check
   // workflow; see namesThisWorkflow.
-  /\b(?:(?:the|this|that|our|its)\s+)?(?:(`[^`\n]{1,64}`|[\w.-]{1,40})\s+)?(?:workflow|pipeline)(?:\s+run)?(?:\s+#?\d{6,})?\s+(?:has\s+|have\s+)?(?:now\s+)?(?:pass(?:es|ed)?|succeed(?:s|ed)?|is\s+green|was\s+green|went\s+green|completed\s+successfully)\b/gi,
-  // "The run passed", "run 123456 succeeded". Not "the tests run passed", and not "the job passed":
-  // a job is one part of a run, not the run.
-  /\b(?:(?:the|this|that|our|its)\s+)?(?<!\btests?\s)run(?:\s+#?\d{6,})?\s+(?:has\s+|have\s+)?(?:now\s+)?(?:pass(?:es|ed)?|succeed(?:s|ed)?|is\s+green|was\s+green|went\s+green|completed\s+successfully)\b/gi,
+  // A determiner is never taken as the name ("that the workflow" is not a workflow named "the").
+  /\b(?:(?:the|this|that|our|its)\s+)?(?:(?!(?:the|this|that|our|its|a|an)\s)(`[^`\n]{1,64}`|[\w.-]{1,40})\s+)?(?:workflow|pipeline)(?:\s+run)?(?:\s+#?\d{6,})?\s+(?:has\s+|have\s+)?(?:now\s+)?(?:pass(?:es|ed)?|succeed(?:s|ed)?|is\s+green|was\s+green|went\s+green|completed\s+successfully)\b/gi,
+  // "The run passed", "run 123456 succeeded": a determiner or a run id directly beside "run", so "the
+  // dry run passed" and "the e2e test-run passed" are not this workflow run (XC1 D). Not "the job
+  // passed" either: a job is one part of a run, not the run.
+  /\b(?:(?:the|this|that|our|its)\s+run|run\s+#?\d{6,})\s+(?:has\s+|have\s+)?(?:now\s+)?(?:pass(?:es|ed)?|succeed(?:s|ed)?|is\s+green|was\s+green|went\s+green|completed\s+successfully)\b/gi,
 ];
 
 /** Whether a workflow name a claim uses is the inspected run's, by display name or file stem. */
@@ -329,7 +415,9 @@ const EXCLUSIONS: Exclusion[] = [
   },
   {
     id: 'excluded.test_count',
-    pattern: /\b\d[\d,]*\s+(?:\w+\s+)?(?:tests?|specs?|cases?|suites?)\b/i,
+    // Bounded: `\d[\d,]*` re-scanned a run like "1,1,1,…" from every digit, ~2 minutes at the
+    // 256 KiB file limit (XC1 S3).
+    pattern: /\b\d{1,9}(?:,\d{3}){0,4}\s+(?:\w+\s+)?(?:tests?|specs?|cases?|suites?)\b/i,
     reason: 'The Actions API reports jobs, not individual tests or how many there are.',
   },
   {
@@ -472,10 +560,27 @@ function citationEntry(h: Hit, sentence: string, o: Observation): ClaimEntry {
   return { ...base, status: 'SUPPORTED', evidence_fields: fields, scope, reason: `The cited attempt is ${o.run_attempt}, the one GitHub's record describes.` };
 }
 
-/** Whether a sentence's outcome claims are about the inspected run, and if not, why. */
-type Tie = { tied: true; how: string } | { tied: false; why: string };
+/**
+ * What one sentence establishes about which run it is about, from its OWN citations only. There is
+ * no text-level fallback: a citation in one sentence says nothing about the next (XC1 D1, F2-F5).
+ *
+ *   gate      set when the sentence decides nothing at all (a question, a quote, or words no
+ *             template read), with the reason
+ *   mismatch  it cites a commit, run or attempt that is not, or could not be matched to, this run
+ *   commit    it cites this run's commit or run id (a run id fixes the commit too)
+ *   run       it cites this run's id or URL
+ *
+ * An attempt number never anchors anything: "attempt 1" matches most runs on GitHub (XC1 F1). It
+ * can only break an anchor, when it does not match.
+ */
+interface Anchor {
+  gate: string | null;
+  mismatch: boolean;
+  commit: boolean;
+  run: boolean;
+}
 
-function outcomeEntry(h: Hit, sentence: string, o: Observation, tie: Tie, qualifier: string | null): ClaimEntry {
+function outcomeEntry(h: Hit, sentence: string, o: Observation, anchor: Anchor, qualifier: string | null): ClaimEntry {
   const base = { claim: normalizeClaimText(h.span), sentence, template: h.template };
   const nc = (scope: string, reason: string): ClaimEntry => ({ ...base, status: 'NOT_CHECKED', evidence_fields: [], scope, reason });
   const run = runRef(o);
@@ -485,17 +590,36 @@ function outcomeEntry(h: Hit, sentence: string, o: Observation, tie: Tie, qualif
   if (h.template === 'ci.build_unscoped') {
     return nc('Not compared: "the build" names no workflow and no check.', `"The build" could be any workflow or check, so it is not compared with ${run}.`);
   }
+  if (anchor.gate) return nc('Not compared: this sentence is not read as a plain statement.', anchor.gate);
   if (qualifier) {
     return nc('Not compared: a negated, failing or partial claim is not read automatically.', `The sentence contains "${qualifier}", which changes what the claim means, so it was not compared with the run.`);
   }
-  if (h.template === 'gha.run_succeeded' && h.name !== undefined && !namesThisWorkflow(h.name, o)) {
+  const namesThis = h.name !== undefined && namesThisWorkflow(h.name, o);
+  if (h.template === 'gha.run_succeeded' && h.name !== undefined && !namesThis) {
     // The name is the claimant's text, so it is never spliced into this sentence.
     return nc(
       'Not compared: the claim names a different workflow.',
       `The claim names a workflow other than the inspected one (see /observation/workflow), so ${run} is not evidence for it.`,
     );
   }
-  if (!tie.tied) return nc('Not compared: nothing ties this claim to the inspected run.', tie.why);
+  if (anchor.mismatch) {
+    return nc(
+      'Not compared: nothing ties this claim to the inspected run.',
+      'This sentence cites a commit, run or attempt that is not, or could not be matched to, the inspected run, so its outcome claims are not compared with this run.',
+    );
+  }
+  if (!anchor.commit) {
+    return nc('Not compared: nothing ties this claim to the inspected run.', `This sentence cites neither this run's commit nor its run id, so nothing ties the claim to ${run}.`);
+  }
+  // A commit has many workflow runs. Citing the commit identifies the commit, not the workflow:
+  // "the workflow passed on <sha>" could be an always-green labeler next to a red CI (XC1 F7).
+  if (h.template === 'gha.run_succeeded' && !anchor.run && !namesThis) {
+    return nc(
+      'Not compared: the claim does not say which workflow.',
+      `A commit has many workflow runs. This sentence cites the commit but neither names this workflow nor cites run ${o.run_id}, so it is not compared.`,
+    );
+  }
+  const how = anchor.run ? 'The sentence cites this run.' : h.template === 'gha.run_succeeded' ? 'The sentence names this workflow and cites this commit.' : 'The sentence cites this commit.';
 
   if (h.template === 'ci.tests_pass') {
     const scope = 'Not decided by a run record: it says how jobs concluded, not which tests ran or how each one ended.';
@@ -507,7 +631,8 @@ function outcomeEntry(h: Hit, sentence: string, o: Observation, tie: Tie, qualif
   }
 
   // A job that names another commit or attempt cannot be counted as part of this run's evidence.
-  const offSha = jobs.filter((j) => j.head_sha && j.head_sha !== o.head_sha).length;
+  // Strict: a job with no head_sha cannot be tied to this commit either (XC1 L4).
+  const offSha = jobs.filter((j) => j.head_sha !== o.head_sha).length;
   const offAttempt = jobs.filter((j) => j.run_attempt !== null && o.run_attempt !== null && j.run_attempt !== o.run_attempt).length;
   const jobsUnread =
     o.jobs.http_status < 200 || o.jobs.http_status >= 300
@@ -543,7 +668,7 @@ function outcomeEntry(h: Hit, sentence: string, o: Observation, tie: Tie, qualif
       status: 'SUPPORTED',
       evidence_fields: fields,
       scope,
-      reason: `GitHub reports conclusion "success" for ${run}; ${ran} of ${plural(jobs.length, 'job')} concluded success${skipped ? ` and ${skipped} skipped` : ''}. ${tie.how}`,
+      reason: `GitHub reports conclusion "success" for ${run}; ${ran} of ${plural(jobs.length, 'job')} concluded success${skipped ? ` and ${skipped} skipped` : ''}. ${how}`,
     };
   }
 
@@ -552,10 +677,10 @@ function outcomeEntry(h: Hit, sentence: string, o: Observation, tie: Tie, qualif
   const scope = 'A claim about every check on the commit. One workflow run can contradict it (a failing check is a counterexample) but cannot establish it: the other checks were not read.';
   if (!finished) return nc(scope, `${run} has not finished (status: ${word(o.status)}).`);
   if (o.conclusion !== null && FAILED_CONCLUSIONS.has(o.conclusion)) {
-    return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${run}, a check on this commit, concluded "${word(o.conclusion)}". ${tie.how}` };
+    return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${run}, a check on this commit, concluded "${word(o.conclusion)}". ${how}` };
   }
   if (!jobsUnread && failedJobs) {
-    return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${failedJobs} of ${jobs.length} jobs in ${run}, each a check run on this commit, concluded failure. ${tie.how}` };
+    return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${failedJobs} of ${jobs.length} jobs in ${run}, each a check run on this commit, concluded failure. ${how}` };
   }
   if (o.conclusion === 'success') return nc(scope, `${run} concluded "success", but it is one workflow; the other checks on this commit were not read.`);
   return nc(scope, `${run} concluded "${word(o.conclusion)}", which is not a failure, and the other checks on this commit were not read.`);
@@ -572,6 +697,8 @@ interface SentenceHits {
   qualifier: string | null;
   /** What no template matched, if any of it says something. */
   remainder: string | null;
+  /** A "?" outside every matched span: the sentence asks rather than states. */
+  question: boolean;
 }
 
 /** Words that carry no claim on their own, so a leftover made only of them is not listed. */
@@ -590,12 +717,15 @@ function trimPunctuation(s: string): string {
   return s.slice(a, b);
 }
 
+/** A word in any script: a remainder in Chinese or Cyrillic says something too. */
+const WORD = /[\p{L}\p{N}][\p{L}\p{N}\p{M}'._-]*/gu;
+
 /**
  * The parts of a sentence no template matched, joined with an ellipsis, or null if they say
- * nothing. Without this, "CI is not green on b8a17cfb" would show one SUPPORTED commit citation
- * and nothing else: the rest of the sentence would be invisible next to a green verdict.
+ * nothing; and whether a "?" sits outside every match. Without the remainder, "CI is not green on
+ * b8a17cfb" would show one SUPPORTED commit citation and nothing else.
  */
-function remainderOf(full: string, covered: [number, number][]): string | null {
+function remainderOf(full: string, covered: [number, number][]): { remainder: string | null; question: boolean } {
   const sorted = [...covered].sort((a, b) => a[0] - b[0]);
   const parts: string[] = [];
   let i = 0;
@@ -604,10 +734,9 @@ function remainderOf(full: string, covered: [number, number][]): string | null {
     i = Math.max(i, end);
   }
   parts.push(full.slice(i));
-  const kept = parts
-    .map(trimPunctuation)
-    .filter((p) => (p.match(/[A-Za-z0-9][\w'.-]*/g) ?? []).some((w) => !FILLER.has(w.toLowerCase())));
-  return kept.length ? normalizeClaimText(kept.join(' … ')) : null;
+  const question = parts.some((p) => p.includes('?'));
+  const kept = parts.map(trimPunctuation).filter((p) => (p.match(WORD) ?? []).some((w) => !FILLER.has(w.toLowerCase())));
+  return { remainder: kept.length ? normalizeClaimText(kept.join(' … ')) : null, question };
 }
 
 function scanSentence(sentence: string, full: string, o: Observation): SentenceHits {
@@ -629,6 +758,7 @@ function scanSentence(sentence: string, full: string, o: Observation): SentenceH
   }
   const q = full.match(PASS_QUALIFIER);
   const covered = [...cites, ...outcomes, ...exclusions].map((h): [number, number] => [h.at, h.at + h.span.length]);
+  const rest = covered.length ? remainderOf(full, covered) : { remainder: null, question: full.includes('?') };
   return {
     sentence,
     full,
@@ -636,41 +766,57 @@ function scanSentence(sentence: string, full: string, o: Observation): SentenceH
     citationAt: cites.map((h) => h.at),
     outcomes,
     exclusions,
-    remainder: covered.length ? remainderOf(full, covered) : null,
+    remainder: rest.remainder,
+    question: rest.question,
     qualifier: q ? q[0].toLowerCase().replace(/[^a-z']/g, '') : null,
   };
 }
 
 /**
+ * Why a sentence decides nothing, or null when it is a plain statement the templates read in full.
+ *
+ * This is the rule that closes most of what XC1 found (R1): a verdict, SUPPORTED or CONTRADICTED,
+ * is given only for a sentence the templates understood END TO END. "If the workflow passed (run N),
+ * we can merge", "Unclear whether …", "The workflow passed on a branch rebased on <sha>", "The dry
+ * run passed", "The lint checks pass": each has words no template read, and those words change what
+ * the sentence says. A question asks; a blockquote is someone else's words. Everything in such a
+ * sentence is NOT_CHECKED, and the unread words are listed as their own claim.
+ */
+function gateOf(s: SentenceHits, quoted: boolean): string | null {
+  if (s.question) return 'This sentence asks rather than states, so none of its parts is taken as a claim.';
+  if (quoted) return "This line is quoted, so it is not taken as the author's own claim.";
+  if (s.remainder) return 'This sentence says more than the templates read (see its unmapped part), so none of its parts is decided on its own.';
+  return null;
+}
+
+/**
  * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
  *
- * Outcome claims are tied to the inspected run per sentence: by the sentence's own citations when
- * it has any (all must match), otherwise by the text's (there must be at least one, and all must
- * match). Untied, they are NOT_CHECKED, because the alternative is vouching for a sentence about
- * one commit with a green run on another.
+ * Each sentence is judged on its own: its citations decide which run it is about (see
+ * {@link Anchor}), and a sentence the templates did not read end to end decides nothing (see
+ * {@link gateOf}). A green run is never evidence for a sentence about another commit, another
+ * workflow, or nothing in particular.
  */
 export function mapClaims(text: string, o: Observation): ClaimEntry[] {
-  const { clauses, full, dropped } = splitClaims(text);
-  const scanned = clauses.map((c, i) => scanSentence(c, full[i] as string, o));
-  const allCites = scanned.flatMap((s) => s.citations);
-  const textTie: Tie =
-    allCites.length === 0
-      ? { tied: false, why: `The text cites no commit or run, so nothing ties this claim to ${runRef(o)}.` }
-      : allCites.every((c) => c.status === 'SUPPORTED')
-        ? { tied: true, how: 'The text ties it to this run by citing it, and cites nothing else.' }
-        : { tied: false, why: 'The text cites a commit, run or attempt that is not, or could not be matched to, the inspected run, so a sentence that cites nothing itself cannot be tied to this run.' };
-
+  const { clauses, full, quoted, dropped } = splitClaims(text);
   const out: ClaimEntry[] = [];
-  for (const s of scanned) {
-    const tie: Tie =
-      s.citations.length === 0
-        ? textTie
-        : s.citations.every((c) => c.status === 'SUPPORTED')
-          ? { tied: true, how: 'This sentence ties it to this run by citing it.' }
-          : { tied: false, why: 'This sentence cites a commit, run or attempt that is not, or could not be matched to, the inspected run, so its outcome claims are not compared with this run.' };
+  clauses.forEach((sentence, idx) => {
+    const s = scanSentence(sentence, full[idx] as string, o);
+    const gate = gateOf(s, quoted[idx] === true);
+    const citations = gate
+      ? s.citations.map((c): ClaimEntry => ({ ...c, status: 'NOT_CHECKED', evidence_fields: [], reason: gate }))
+      : s.citations;
+    const mismatch = citations.some((c) => c.status !== 'SUPPORTED');
+    const anchor: Anchor = {
+      gate,
+      mismatch,
+      commit: !mismatch && citations.some((c) => c.status === 'SUPPORTED' && (c.template === 'git.head_sha' || c.template === 'gha.run_id')),
+      run: !mismatch && citations.some((c) => c.status === 'SUPPORTED' && c.template === 'gha.run_id'),
+    };
+
     const entries: { at: number; order: number; e: ClaimEntry }[] = [];
-    s.citations.forEach((e, i) => entries.push({ at: s.citationAt[i] as number, order: 0, e }));
-    s.outcomes.forEach((h) => entries.push({ at: h.at, order: 1, e: outcomeEntry(h, s.sentence, o, tie, s.qualifier) }));
+    citations.forEach((e, i) => entries.push({ at: s.citationAt[i] as number, order: 0, e }));
+    s.outcomes.forEach((h) => entries.push({ at: h.at, order: 1, e: outcomeEntry(h, s.sentence, o, anchor, s.qualifier) }));
     s.exclusions.forEach((h, i) =>
       entries.push({
         at: h.at,
@@ -694,9 +840,9 @@ export function mapClaims(text: string, o: Observation): ClaimEntry[] {
         status: 'NOT_CHECKED',
         evidence_fields: [],
         scope: 'No deterministic template matches this sentence.',
-        reason: 'Not compared with anything, so it is neither supported nor contradicted.',
+        reason: quoted[idx] ? "Quoted, so not the author's own claim, and not compared with anything." : 'Not compared with anything, so it is neither supported nor contradicted.',
       });
-      continue;
+      return;
     }
     entries.sort((a, b) => a.at - b.at || a.order - b.order);
     out.push(...entries.map((x) => x.e));
@@ -708,10 +854,10 @@ export function mapClaims(text: string, o: Observation): ClaimEntry[] {
         status: 'NOT_CHECKED',
         evidence_fields: [],
         scope: 'The part of this sentence no template matched.',
-        reason: 'Not compared with anything, so it is neither supported nor contradicted. A verdict on another part of the sentence says nothing about this part.',
+        reason: 'Not compared with anything, so it is neither supported nor contradicted. Because of it, no other part of this sentence is decided either.',
       });
     }
-  }
+  });
   if (dropped > 0) {
     const note = `(${dropped} further sentences)`;
     out.push({
@@ -737,6 +883,11 @@ export function observationFromCheck(r: CheckResult, fetchedAt: string): Observa
   // The record is about the run that was asked for. GitHub answering for another id is not a
   // detail to note on the card; it means the record would describe the wrong thing.
   if (r.run.id !== null && r.run.id !== runId) throw new CheckError(`GitHub answered for run ${r.run.id}, but run ${runId} was asked for`);
+  // Every string GitHub sent is kept as sent, except that an unpaired surrogate becomes U+FFFD
+  // (see wellFormed). Control characters stay in the record, where JSON escapes them; the card
+  // strips them before display.
+  const wf = wellFormed;
+  const orNull = (s: string | null) => (s === null ? null : wf(s));
   return {
     platform: 'github-actions',
     host: 'api.github.com',
@@ -745,12 +896,16 @@ export function observationFromCheck(r: CheckResult, fetchedAt: string): Observa
     repo: parsed.repo,
     run_id: runId,
     run_attempt: r.run.attempt,
-    workflow: { name: r.run.workflow, path: r.run.workflow_path },
-    head_sha: r.sha,
-    status: r.run.status,
-    conclusion: r.run.conclusion,
-    check: { verdict: r.verdict, results: r.checks },
-    jobs: r.jobs,
+    workflow: { name: wf(r.run.workflow), path: wf(r.run.workflow_path) },
+    head_sha: wf(r.sha),
+    status: wf(r.run.status),
+    conclusion: orNull(r.run.conclusion),
+    check: { verdict: r.verdict, results: r.checks.map((c) => ({ ok: c.ok, label: wf(c.label), detail: wf(c.detail) })) },
+    jobs: {
+      http_status: r.jobs.http_status,
+      total: r.jobs.total,
+      items: r.jobs.items.map((j) => ({ name: wf(j.name), status: wf(j.status), conclusion: orNull(j.conclusion), head_sha: wf(j.head_sha), run_attempt: j.run_attempt })),
+    },
     fetchedAt,
     freshness: 'LIVE',
   };

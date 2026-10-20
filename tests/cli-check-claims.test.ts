@@ -6,7 +6,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs, run, readClaimsInput, EXIT, type CliIO } from '../src/cli/index';
+import { parseArgs, run, readClaimsFile, EXIT, type CliIO } from '../src/cli/index';
 import { digestRecord, type ActionEvidenceRecord } from '../src/lib/action-evidence';
 import type { TrustShell } from '../src/lib/trustshell';
 
@@ -57,9 +57,14 @@ describe('parseArgs', () => {
     expect(parseArgs(['check', 'the sky is green', '--claims', 'x']).error).toMatch(/run URL/);
   });
 
-  it('refuses --out or --demo without --claims', () => {
+  it('refuses --out or --demo without --claims or --claims-file', () => {
     expect(parseArgs(['check', URL_GREEN, '--out', 'd']).error).toMatch(/only with --claims/);
     expect(parseArgs(['check', URL_GREEN, '--demo']).error).toMatch(/only with --claims/);
+  });
+
+  it('routes --claims-file, and refuses both flags at once', () => {
+    expect(parseArgs(['check', URL_GREEN, '--claims-file', 'pr.md'])).toMatchObject({ command: 'check', claimsFile: 'pr.md' });
+    expect(parseArgs(['check', URL_GREEN, '--claims', 'x', '--claims-file', 'pr.md']).error).toMatch(/not both/);
   });
 
   it('leaves the plain URL form exactly as it was', () => {
@@ -70,31 +75,43 @@ describe('parseArgs', () => {
   it('documents the flag in --help', async () => {
     const { io, out } = captureIO();
     await run(parseArgs(['--help']), NO_CLIENT, io);
-    expect(out.join(' ')).toContain('check <runUrl> --claims <file|text>');
+    expect(out.join(' ')).toContain('check <runUrl> --claims "<text>"');
+    expect(out.join(' ')).toContain('check <runUrl> --claims-file <path>');
   });
 });
 
-describe('readClaimsInput', () => {
+describe('readClaimsFile', () => {
   it('reads an existing file', () => {
     const f = join(tmp, 'pr.md');
     writeFileSync(f, 'All tests pass.');
-    expect(readClaimsInput(f)).toEqual({ text: 'All tests pass.', from: 'file' });
+    expect(readClaimsFile(f)).toBe('All tests pass.');
   });
 
-  it('treats anything else as the text itself', () => {
-    expect(readClaimsInput('All tests pass on 5cd68edc.')).toEqual({ text: 'All tests pass on 5cd68edc.', from: 'text' });
-  });
-
-  it('refuses a file name that does not exist, instead of mapping the name as a claim', () => {
-    expect(() => readClaimsInput(join(tmp, 'pr-descripton.md'))).toThrow(/does not exist/);
-    expect(() => readClaimsInput('notes.txt')).toThrow(/does not exist/);
-  });
-
-  it('refuses an empty value and an oversized file', () => {
-    expect(() => readClaimsInput('  ')).toThrow(/empty/);
+  it('refuses a missing file (spaces in the name included) and an oversized one', () => {
+    expect(() => readClaimsFile(join(tmp, 'pr body.md'))).toThrow(/no such file/);
     const big = join(tmp, 'big.md');
     writeFileSync(big, 'x'.repeat(300 * 1024));
-    expect(() => readClaimsInput(big)).toThrow(/limit/);
+    expect(() => readClaimsFile(big)).toThrow(/limit/);
+  });
+});
+
+describe('XC1 S2: --claims is text, even when the text is the path of a real file', () => {
+  it('does not read the file a path names', async () => {
+    const secret = join(tmp, '.env');
+    writeFileSync(secret, 'DATABASE_URL=postgres://u:hunter2@db.internal/prod');
+    replay(GREEN);
+    const { io, out } = captureIO();
+    await run(parseArgs(['check', URL_GREEN, '--claims', secret, '--json']), NO_CLIENT, io);
+    const printed = out.join(' ');
+    expect(printed).not.toContain('hunter2');
+    expect(printed).not.toContain('db.internal');
+  });
+
+  it('an empty --claims is a usage error, and GitHub is not asked', async () => {
+    const calls = replay(GREEN);
+    const { io } = captureIO();
+    expect(await run(parseArgs(['check', URL_GREEN, '--claims', '  ']), NO_CLIENT, io)).toBe(EXIT.USAGE);
+    expect(calls).toEqual([]);
   });
 });
 
@@ -102,7 +119,7 @@ describe('run()', () => {
   it('prints the Markdown card and exits 0 when every claim is supported', async () => {
     replay(GREEN);
     const { io, out } = captureIO();
-    const code = await run(parseArgs(['check', URL_GREEN, '--claims', join(FX, 'claims', 'narrow-true.txt')]), NO_CLIENT, io);
+    const code = await run(parseArgs(['check', URL_GREEN, '--claims-file', join(FX, 'claims', 'narrow-true.txt')]), NO_CLIENT, io);
     expect(code).toBe(0);
     expect(out.join('\n')).toContain('4 supported · 0 contradicted · 0 not checked');
     expect(out.join('\n')).toContain('Cryptographic integrity: not checked.');
@@ -121,7 +138,7 @@ describe('run()', () => {
   it('exits 3 when anything is NOT_CHECKED', async () => {
     replay(GREEN);
     const { io } = captureIO();
-    expect(await run(parseArgs(['check', URL_GREEN, '--claims', join(FX, 'claims', 'overclaiming-pr.md')]), NO_CLIENT, io)).toBe(3);
+    expect(await run(parseArgs(['check', URL_GREEN, '--claims-file', join(FX, 'claims', 'overclaiming-pr.md')]), NO_CLIENT, io)).toBe(3);
   });
 
   it('--out writes record.json, card.md and card.html, all from the same record', async () => {
@@ -142,8 +159,8 @@ describe('run()', () => {
   it('a missing claims file is a usage error, and GitHub is not asked', async () => {
     const calls = replay(GREEN);
     const { io, err } = captureIO();
-    expect(await run(parseArgs(['check', URL_GREEN, '--claims', join(tmp, 'nope.md')]), NO_CLIENT, io)).toBe(EXIT.USAGE);
-    expect(err.join('\n')).toMatch(/does not exist/);
+    expect(await run(parseArgs(['check', URL_GREEN, '--claims-file', join(tmp, 'nope.md')]), NO_CLIENT, io)).toBe(EXIT.USAGE);
+    expect(err.join('\n')).toMatch(/no such file/);
     expect(calls).toEqual([]);
   });
 
