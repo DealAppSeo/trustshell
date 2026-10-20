@@ -59,7 +59,7 @@
           }
         ]
       },
-      "fetchedAt": "2026-10-20T01:55:03.948Z",
+      "fetchedAt": "2026-10-20T01:59:44.971Z",
       "freshness": "LIVE"
     },
     "claims": [
@@ -94,7 +94,7 @@
         "evidence_fields": [
           "/observation/head_sha"
         ],
-        "scope": "Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.",
+        "scope": "Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A SHA is matched as a prefix, and a match supports only at 12 or more hex characters. Not what the commit changes or fixes.",
         "reason": "The inspected run's head_sha 5cd68edc782f begins with 5cd68edc782f."
       },
       {
@@ -178,6 +178,6 @@
   "digest": {
     "algorithm": "sha-256",
     "canonicalization": "RFC 8785",
-    "value": "276b1184bb66f86d2b1f67d883b9c341ebf2ec689671253dd6a428cee70102fe"
+    "value": "9f3f779dedbfa2a2f9aca2f2ce8794b6ca8b24b8e243f7a884079bad49eded03"
   }
 }

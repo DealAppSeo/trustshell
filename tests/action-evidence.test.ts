@@ -913,7 +913,7 @@ describe('record digest (RFC 8785 + SHA-256)', () => {
   });
 });
 
-const GOLDEN_GREEN_NARROW = '24118114b9e3710e95461ed49b6bc55928784e907a9d669a31689277d1dadf06';
+const GOLDEN_GREEN_NARROW = 'cb114733d44e731213d02d78349bad4afcb1d23236f563b31ff42a18ea5c6455';
 
 // ── the card ──────────────────────────────────────────────────────────────────────────────────────
 

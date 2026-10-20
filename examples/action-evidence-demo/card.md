@@ -6,7 +6,7 @@
 - **Workflow** `check` · `.github/workflows/check.yml`
 - **GitHub reports** status `completed` · conclusion `success` · check verdict **COMPLETE**
 - **Jobs** 1 of 1 read (HTTP 200): 1 success
-- **Observed** 2026-10-20T01:55:03.948Z from api.github.com (LIVE at that time)
+- **Observed** 2026-10-20T01:59:44.971Z from api.github.com (LIVE at that time)
 - **Evidence class** PLATFORM_REPORTED: GitHub describing its own run. A platform record, not an independent grade.
 
 ### Claims: 3 supported · 1 contradicted · 5 not checked
@@ -27,7 +27,7 @@
   - **In** `The check workflow passed on 5cd68edc782f, run 39290226738.`
   - **Template** `git.head_sha`
   - **Why** The inspected run's head_sha 5cd68edc782f begins with 5cd68edc782f.
-  - **Scope** Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.
+  - **Scope** Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A SHA is matched as a prefix, and a match supports only at 12 or more hex characters. Not what the commit changes or fixes.
   - **Fields** `/observation/head_sha`
 - **SUPPORTED** `run 39290226738`
   - **In** `The check workflow passed on 5cd68edc782f, run 39290226738.`
@@ -60,4 +60,4 @@
 
 ---
 
-Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `276b1184bb66f86d2b1f67d883b9c341ebf2ec689671253dd6a428cee70102fe` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded
+Record `dev.trustshell.action-evidence/0.1-draft` · sha-256 `9f3f779dedbfa2a2f9aca2f2ce8794b6ca8b24b8e243f7a884079bad49eded03` over RFC 8785 canonical JSON · built by trustshell check --claims from api.github.com only; nothing uploaded

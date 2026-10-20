@@ -554,7 +554,7 @@ function citationEntry(h: Hit, sentence: string, o: Observation): ClaimEntry {
   const base = { claim: normalizeClaimText(h.span), sentence, template: h.template };
   if (h.template === 'git.head_sha') {
     const t = h.sha as string;
-    const scope = 'Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A short SHA is matched as a prefix. Not what the commit changes or fixes.';
+    const scope = `Commit identity only: whether the commit this claim cites is the one the inspected run ran on. A SHA is matched as a prefix, and a match supports only at ${MIN_SUPPORTING_SHA} or more hex characters. Not what the commit changes or fixes.`;
     const fields = ['/observation/head_sha'];
     if (!HEX40.test(o.head_sha)) return { ...base, status: 'NOT_CHECKED', evidence_fields: [], scope, reason: 'GitHub returned no recognisable head_sha for this run.' };
     if (o.head_sha.startsWith(t)) {
