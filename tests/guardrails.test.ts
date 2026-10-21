@@ -237,7 +237,9 @@ describe('the gate and the guard verbs', () => {
     expect(calls).toEqual([]);
     expect(err.join('\n')).toContain('the owner policy does not list tool:verify');
     const recs = readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as GuardRecord);
-    expect(recs.map((r) => [r.requested.tool, r.authorized.decision])).toEqual([['remember', 'ALLOWED'], ['verify', 'DENIED']]);
+    // guard init itself leaves a policy-change record first; then one decision per command.
+    expect(recs.map((r) => r.kind)).toEqual(['policy-change', 'decision', 'decision']);
+    expect(recs.filter((r) => r.kind === 'decision').map((r) => [r.requested.tool, r.authorized.decision])).toEqual([['remember', 'ALLOWED'], ['verify', 'DENIED']]);
     expect(JSON.stringify(recs)).not.toContain('Paris'); // the action, never its text
   });
 

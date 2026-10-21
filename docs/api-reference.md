@@ -468,6 +468,12 @@ when it is not). A policy that does not parse denies everything. `help`, `versio
 `guard check --tool <name> [--class read|other|post|spend] [--amount <n>]` asks the policy about any action:
 `0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow).
 
+What it covers: the trustshell CLI and `trustshell run`. The MCP server (`trustshell-mcp`) does not read the
+policy yet. It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the
+policy, and every change (including an import that enforces a carried policy) leaves a `policy-change` record
+with the policy hash before and after. A `TRUSTSHELL_HOME` with no policy, while `~/.trustshell/policy.json`
+exists, prints a warning on every command, because it switches the guard off for that command.
+
 Every decision is a `trustshell.guard-record/1` line in `guard-receipts.jsonl`, hash-chained (RFC 8785 + sha256):
 what was requested, what was authorized under which policy hash and nonce, what was executed, and the record's
 assurance scope (what was mediated, what was not). A missing record never proves that no action happened.
