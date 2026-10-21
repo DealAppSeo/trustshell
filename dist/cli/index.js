@@ -1301,7 +1301,7 @@ async function run(args, client, io = realIO) {
                     : (0, profile_1.defaultProfile)();
                 const r = (0, report_1.buildReport)({ session, evidence, profile });
                 if (args.json)
-                    io.out(JSON.stringify(r, null, 2));
+                    io.out((0, action_evidence_1.terminalSafeJson)(r));
                 else
                     io.out((0, report_1.formatReportCard)(r));
                 return (0, report_1.reportExitCode)(r.verdict);
