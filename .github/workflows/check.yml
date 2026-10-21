@@ -49,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false # the job never pushes; keep the token off disk
 
       - uses: actions/setup-node@v7
         with:
@@ -60,7 +62,7 @@ jobs:
       # in this fleet had drifted for months precisely because nothing ever ran
       # the strict form.
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts # PR code must not run dependency install scripts; nothing here needs one
 
       # Typecheck before tests. `next build` compiles only what is reachable from
       # a route, so tsc catches whole files a build structurally never visits.

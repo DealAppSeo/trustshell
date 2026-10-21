@@ -251,7 +251,7 @@ export function AgentPortability() {
             </p>
             <button
               onClick={() => handleAddRecovered(recovering.found)}
-              className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded"
+              className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded"
             >
               {recovering.alreadyHere ? 'Update it here' : 'Add to this browser'}
             </button>

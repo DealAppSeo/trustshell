@@ -52,7 +52,7 @@ export function RulesPanel({ rules, onSave }: { rules: string | undefined; onSav
             <span className="text-xs text-[#64748b]">{draft.length} / {MAX_RULES_CHARS}</span>
             <span className="flex gap-2">
               <button type="button" onClick={() => setEditing(false)} className="px-3 py-1.5 text-sm text-[#94a3b8] hover:text-white">Cancel</button>
-              <button type="button" onClick={save} className="px-4 py-1.5 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-white rounded">Save rules</button>
+              <button type="button" onClick={save} className="px-4 py-1.5 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-black rounded">Save rules</button>
             </span>
           </div>
           {error && <p role="alert" className="text-sm text-[#ff6b6b]">{error}</p>}
@@ -108,7 +108,7 @@ export function TeachIt({ rules, onSave }: { rules: string | undefined; onSave: 
         />
       </label>
       <div className="flex gap-2">
-        <button type="button" onClick={save} className="px-4 py-1.5 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-white rounded">Add to its rules</button>
+        <button type="button" onClick={save} className="px-4 py-1.5 text-sm font-bold bg-amber-600 hover:bg-amber-500 text-black rounded">Add to its rules</button>
         <button type="button" onClick={() => setOpen(false)} className="px-3 py-1.5 text-sm text-[#94a3b8] hover:text-white">Cancel</button>
       </div>
       {error && <p role="alert" className="text-sm text-[#ff6b6b]">{error}</p>}

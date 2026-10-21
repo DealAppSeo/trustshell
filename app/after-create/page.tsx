@@ -77,7 +77,7 @@ export default async function AfterCreatePage() {
                 {row.href ? (
                   <Link
                     href={row.href}
-                    className="inline-block rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-500"
+                    className="inline-block rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-black hover:bg-amber-500"
                   >
                     {row.action}
                   </Link>

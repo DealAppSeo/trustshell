@@ -17,13 +17,13 @@ export function WhyArticle({ slug, children }: { slug: WhyQuestion['slug']; chil
         <div className="flex flex-wrap gap-3 pt-4" data-testid="why-cta">
           <a
             href="/check"
-            className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-5 py-3 text-sm font-bold text-white hover:bg-amber-500 transition-colors"
+            className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-5 py-3 text-sm font-bold text-black hover:bg-amber-500 transition-colors"
           >
             Check a sentence
           </a>
           <a
             href="/#add-agent"
-            className="inline-flex items-center justify-center rounded-lg border border-amber-600 px-5 py-3 text-sm font-bold text-amber-400 hover:bg-amber-600 hover:text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-lg border border-amber-600 px-5 py-3 text-sm font-bold text-amber-400 hover:bg-amber-600 hover:text-black transition-colors"
           >
             Add it to the agent you already use
           </a>

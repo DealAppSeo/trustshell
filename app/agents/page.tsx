@@ -126,7 +126,7 @@ export default function AgentsPage() {
                 <textarea maxLength={1000} placeholder="e.g. Never give financial advice. Always cite a source. Refuse harmful requests." value={consti} onChange={e=>setConsti(e.target.value)} className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 h-24 text-white" />
                 <p className="text-xs text-[#64748b] mt-1">Plain-English rules for your agent. They are sent with every question you ask it on its page, where you can edit them and teach it corrections.</p>
               </div>
-              <button type="submit" disabled={loading} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold p-3 rounded disabled:opacity-60">
+              <button type="submit" disabled={loading} className="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold p-3 rounded disabled:opacity-60">
                 {loading ? 'Registering…' : 'Create Agent'}
               </button>
               {/* role="alert" so the failure reaches a screen reader too — the whole

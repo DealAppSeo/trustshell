@@ -136,7 +136,7 @@ export default function EarnedTrustPage() {
             href="https://github.com/DealAppSeo/trust-commons/discussions"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-colors"
+            className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-lg transition-colors"
           >
             Join the discussion →
           </a>

@@ -86,7 +86,7 @@ export default function StartPage() {
             <h2 id="plan-h" className="text-xl font-bold text-white">What to do</h2>
             <ol className="space-y-4">
               {plan.map((step, i) => {
-                const cls = `inline-block rounded-lg px-4 py-2 text-sm font-bold ${i === 0 ? 'bg-amber-600 text-white hover:bg-amber-500' : 'border border-slate-600 text-white hover:bg-slate-800'}`;
+                const cls = `inline-block rounded-lg px-4 py-2 text-sm font-bold ${i === 0 ? 'bg-amber-600 text-black hover:bg-amber-500' : 'border border-slate-600 text-white hover:bg-slate-800'}`;
                 return (
                   <li key={i} className="space-y-2 rounded-xl border border-slate-800 bg-slate-900 p-4 min-w-0">
                     <p className="text-sm text-slate-200 break-words">

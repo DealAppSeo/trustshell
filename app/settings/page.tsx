@@ -78,7 +78,7 @@ export default function SettingsPage() {
             <input type="file" accept=".json" onChange={handleImport} className="hidden" />
           </label>
 
-          <button onClick={() => router.push('/connect')} className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded">
+          <button onClick={() => router.push('/connect')} className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded">
             Update keys
           </button>
         </div>
