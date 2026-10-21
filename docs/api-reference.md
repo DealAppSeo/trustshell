@@ -161,7 +161,7 @@ file; `init` writes `.trustshell/profile.md`, which only `report` reads.
 | `2` | HAL did not decide (`NOT_CHECKED`) — never a pass. Also usage / bad arguments |
 | `3` | runtime error (network / backend / timeout) |
 | `4` | `ASK` — only when `TRUSTSHELL_LAYA` is set: a person has to answer. HAL was not called |
-| `5` | `REFUSED` — only when `~/.trustshell/guardrails.json` exists: the command is not in `tools.allow` or would dial a host not in `egress.allow`. Nothing ran; a receipt was written |
+| `5` | `DENIED` — by the owner policy (`~/.trustshell/policy.json`): `trustshell run` did not start the command, or the command is not listed as `tool:<command>`. Nothing ran; a record was written |
 
 Other commands keep their own codes, listed under each one below.
 
@@ -452,47 +452,56 @@ The learning loop v1, local. Nothing leaves the machine. `trustshell learn` alon
 - Example hooks for Claude Code: `examples/learn-hook/user-prompt-submit.mjs` (`UserPromptSubmit`: runs `inject`; env `TRUSTSHELL_LEARN_JOB`, optional `TRUSTSHELL_LEARN_CHECK` (freezes that check on the turn and scopes the lessons shown), `TRUSTSHELL_LEARN_MODEL`, `TRUSTSHELL_LEARN_FAMILY`) and `examples/learn-hook/stop.mjs` (`Stop`: fills in that turn's model, family and tokens from the transcript; it never opens a new episode and never writes an outcome).
 - The first `learn` command on a memory file made before `learn` existed rebuilds its table once, in one transaction. It first copies the file to `<file>.bak-<UTC time>` (0600) next to it and prints that path. If the copy fails, nothing is rebuilt.
 
+### `trustshell guard init | show | check | allow | deny | limit | expire | kill | sign`
+
+GUARD. The owner's policy, `~/.trustshell/policy.json` (or `TRUSTSHELL_HOME`), holds `{ policy, signature }`: the
+body shape of the engine kernel's signed owner policy, with a SUBSET of its fields and the same meanings:
+`subject`; `actions` (`spend`, `post`, `tool` or `tool:<name>`; anything unlisted is denied); `per_tx_raw`,
+`daily_raw`, `total_raw` (smallest units; a limit left out is `0`, never unlimited; the smallest binds);
+`expires_at` (unix seconds); `nonce` (a change is a new policy with a higher nonce, which is how the kernel
+revokes). Not in the subset, because the local guard neither pays nor binds code: `owner`, `payees`,
+`authorized_impl_hashes`. `guard init` writes local commands only, every limit `0`, expiring in 30 days. `guard
+kill` allows nothing. `guard sign` signs the policy with this install's key, the owner signature a bundle carries.
+
+While a policy exists, every other command must be listed as `tool:<command>` before it runs (exit `5`
+when it is not). A policy that does not parse denies everything. `help`, `version`, `guard` and `run` always run.
+`guard check --tool <name> [--class read|other|post|spend] [--amount <n>]` asks the policy about any action:
+`0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow).
+
+Every decision is a `trustshell.guard-record/1` line in `guard-receipts.jsonl`, hash-chained (RFC 8785 + sha256):
+what was requested, what was authorized under which policy hash and nonce, what was executed, and the record's
+assurance scope (what was mediated, what was not). A missing record never proves that no action happened.
+
+### `trustshell run --tool <name> [--class <c>] [--amount <n>] -- <command> [args...]`
+
+The enforced path. The decision is recorded BEFORE the command starts; a denied command never starts (exit `5`); an
+allowed one is started by trustshell, and its exit code is recorded and passed through. The card separates what was
+requested, authorized, executed, independently observed (nothing) and unknown. The command is recorded by its
+sha256, never by its text. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
+(files, network, child processes) is not observed, and commands run without `trustshell run` are not mediated.
+
 ### `trustshell bundle export <file> | verify <file> | import <file> | context <file>`
 
-Your second brain as ONE signed file: `.trustshell/profile.md` byte for byte, `~/.trustshell/guardrails.json`,
-every note with its taint record (provenance, source, quarantine state, who released it) and every
-`remember KEY VALUE` value. Ed25519 over the RFC 8785 form, with this install's key
-(`~/.trustshell/bundle-signing-key.pem`, created on first export, never in a bundle).
+CARRY. One Ed25519-signed file (this install's key, `~/.trustshell/bundle-signing-key.pem`, never in the file):
+`.trustshell/profile.md` byte for byte, the owner policy BY HASH (with its document, so an owner signature can be
+checked), only the notes you select (`--note <id>`, `--notes released`; none by default), and evidence pointers
+(kind, name, sha256: `--evidence <file>` and the guard ledger head). A signature proves integrity only as far as the
+key is trusted; it encrypts nothing. Never in the file: credentials (a profile or selected note holding one refuses
+the export), keys, spending authority, encrypted notes.
 
-Never in the file, counted instead: credential-shaped text (a profile holding one refuses the whole export),
-injection-looking notes, encrypted notes (a bundle is plain JSON, so it never decrypts what you encrypted),
-`do_not_send` rows, learn-loop rows. Environment settings (`TRUSTSHELL_LOCAL_ONLY` and the like) do not travel.
-
-`import` (and `verify`, `context`) checks the signature AND the signer: it must be this install's key, or the
-fingerprint you pass with `--signer` (export prints it). A valid signature from any other key is NOT_CHECKED,
-never imported. A profile, guardrails file or key that differs here is a conflict: nothing is written without
-`--force`. Importing twice adds nothing. `context` prints the person as text for a model (released notes only,
-never a quarantined one).
+Authority never travels. `import` checks the version, every field, the signature and the author (this install's
+key, or the `--signer` fingerprint export printed). Carried notes are stored UNTRUSTED and quarantined, whatever
+they were on the sending machine; injection-looking text is held for good. The carried policy is ENFORCED only when
+its owner signature verifies with a key you trust AND its nonce is higher than the policy in force; otherwise it is
+saved as `policy.suggested.json` and NOT enforced (an unsigned policy, a key nobody named, or an older nonce: a
+downgrade or a replay). `context` prints the profile, the policy as information and the selected notes for a model.
 
 | Outcome | Exit |
 |---|---|
 | exported / verified / imported | `0` |
-| altered or malformed bundle, or one holding a credential shape — **REFUSED** | `1` |
-| signer not trusted, a conflict, or a file already there — **NOT_CHECKED**, nothing written | `2` |
+| altered, partial, malformed or another-version bundle, or one holding a credential shape — **REFUSED** | `1` |
+| author not trusted, a conflict, a note that cannot be selected, or a file already there — **NOT_CHECKED**, nothing written | `2` |
 | could not run | `3` |
-
-### `trustshell guard init | show | check | allow | deny | limit`
-
-One file you tune, `~/.trustshell/guardrails.json` (or `TRUSTSHELL_HOME`): `egress.allow` (hostnames),
-`tools.allow` (command names), `limits.spend_per_action` / `limits.spend_total` (smallest units). `guard init`
-writes it default-deny: no network host, local commands only, spend 0. With no file, nothing is enforced.
-
-While the file exists, every other command is weighed first: one not in `tools.allow`, or dialing a host not in
-`egress.allow`, is refused (exit `5`) before it runs, and the process `fetch` refuses any other host while it
-runs. Every decision is appended to `guard-receipts.jsonl`, hash-chained (RFC 8785 + sha256). A file that does
-not parse refuses everything. `help`, `version` and `guard` always run.
-
-`guard check --tool <name> [--host <h>]... [--spend <n>]` asks the rules about any action from any agent
-harness: `0` ALLOWED, `5` REFUSED, `2` NOT_CHECKED (no file — never an allow).
-
-What it is not: a sandbox. Anything running as you can edit the file or reach the network without trustshell.
-The chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. `init --pai`
-is refused while the file exists (its child process is outside the guard).
 
 ### `trustshell redact <key>`
 
@@ -594,8 +603,9 @@ a run or a session that happened — run these against your own and read the rea
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
-| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/guardrails.json` and the local memory file; writes one bundle file (export) or those same files (import). In this tree, not in the published 1.7.0 | none |
-| `guard` | **none** — reads and writes `~/.trustshell/guardrails.json` and appends to `guard-receipts.jsonl` beside it. In this tree, not in the published 1.7.0 | none |
+| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, not in the published 1.7.0 | none |
+| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, not in the published 1.7.0 | none |
+| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, not in the published 1.7.0 | none |
 
 `init` and `profile` are the only commands that write to your working directory, and they write exactly
 one file: `.trustshell/profile.md`.

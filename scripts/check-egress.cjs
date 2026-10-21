@@ -88,7 +88,9 @@ const NONE_RUNS = {
   // empty temp cwd, never ~/.trustshell. It reads the memory file and writes one bundle file.
   bundle: { args: ['bundle', 'export', 'egress-check-bundle.json'], env: { TRUSTSHELL_HOME: 'home' }, stdout: 'exported egress-check-bundle.json', exit: 0 },
   // guard init writes the guardrails file, the same way: relative home, inside the temp cwd.
-  guard: { args: ['guard', 'init'], env: { TRUSTSHELL_HOME: 'home' }, stdout: 'no network host, local commands only', exit: 0 },
+  guard: { args: ['guard', 'init'], env: { TRUSTSHELL_HOME: 'home' }, stdout: 'local commands only, every limit 0', exit: 0 },
+  // run with no policy authorizes nothing: it starts no command, prints its refusal on stderr and exits 2.
+  run: { args: ['run', '--tool', 'egress-check', '--', 'node', '-e', '0'], env: { TRUSTSHELL_HOME: 'home' }, stdout: '', exit: 2 },
 };
 
 /** The sentence form of `check`: it must reach the backend's classify path and nothing else. */

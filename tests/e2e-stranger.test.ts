@@ -342,6 +342,10 @@ describe('stranger e2e on current main', () => {
       const verified = await go(['bundle', 'verify', join(dir, 'b.json')]);
       expect(verified.code).toBe(0);
       expect(verified.out).toContain('trusted as this install');
+      // run with no policy authorizes nothing: it starts nothing and says so (exit 2, NOT_CHECKED).
+      const ran = await go(['run', '--tool', 'git', '--', 'node', '-e', '0']);
+      expect(ran.code).toBe(2);
+      expect(ran.err).toMatch(/^NOT_CHECKED no policy/);
     } finally {
       process.chdir(prevCwd);
       if (prevHome === undefined) delete process.env.TRUSTSHELL_HOME;
