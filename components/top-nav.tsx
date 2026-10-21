@@ -16,6 +16,7 @@ import { linksForLanding } from '@/lib/landing-nav';
  */
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: '/check', label: 'Check' },
+  { href: '/inspect', label: 'Try Inspect' },
   { href: '/#add-agent', label: 'Add to your AI' },
   { href: '/pai', label: 'Your agent' },
   { href: '/docs', label: 'Docs' },

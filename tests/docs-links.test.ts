@@ -8,7 +8,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { renderMarkdown, resolveDocHref, headingSlug } from '../lib/markdown';
 
-const DOCS = ['getting-started.md', 'api-reference.md'];
+const DOCS = ['getting-started.md', 'api-reference.md', 'challenge.md'];
 const SITE_PAGES = new Set(['/docs/getting-started', '/docs/api-reference']);
 const GITHUB = 'https://github.com/DealAppSeo/trustshell/blob/main/';
 
