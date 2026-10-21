@@ -263,7 +263,8 @@ export function readLedger(text: string, from?: LedgerReading): LedgerReading {
  * The bytes of the ledger already verified, by length and sha256. A CACHE, not a source: it holds no total,
  * so it cannot lie about one. A decision re-hashes those bytes (one sha256, fast) and fully verifies only the
  * lines after them; any change to the old bytes misses the cache and the whole ledger is verified again.
- * Measured 2026-10-21 (lane B report): full verification cost 579 ms per decision at 10,000 receipts.
+ * Measured 2026-10-21 (lane B report, same process A/B, 3 runs): at 10,000 receipts a full verification
+ * cost 541-593 ms per decision, a checkpointed decision 236-284 ms.
  */
 export const GUARD_CHECKPOINT_FILE = 'guard-receipts.checkpoint.json';
 
@@ -357,9 +358,11 @@ export function loadGuardrails(dir: string, fs: GuardFs = nodeGuardFs()): Loaded
  * an ALLOWED decision, so an action that then crashes is still on the ledger.
  * Only the lines after the checkpoint are re-verified (see GUARD_CHECKPOINT_FILE); a BROKEN ledger is never
  * checkpointed, so it stays BROKEN.
- * ponytail: still reads and hashes the whole file per decision (far cheaper than re-verifying every line),
- * and takes no lock: two concurrent writers fork the chain, which then reads BROKEN and refuses spends (fail
- * closed). Rotate the ledger, or read only its tail by offset, if ledgers of 100k+ lines appear.
+ * ponytail: still reads, parses and hashes the whole file per decision. Measured 2026-10-21 at 10,000
+ * receipts: ~260 ms per decision against ~560 ms for re-verifying every line; equal at 1,000. O(1) needs the
+ * checkpoint to carry the totals and a tail read by offset, which moves casual-edit detection from every
+ * decision to `guard show` only. No lock either: two concurrent writers fork the chain, which then reads
+ * BROKEN and refuses spends (fail closed).
  */
 export function guardAction(
   dir: string,
