@@ -104,18 +104,19 @@ export { rememberUntrusted, listQuarantined, explainQuarantine, releaseByGround,
 export type { QuarantineRecord, QuarantineListItem, ReleaseOutcome, Provenance } from '../memory/quarantine';
 export { releaseByHal } from '../memory/quarantine-hal';
 /**
- * Guardrails: one user-tuned file (`~/.trustshell/guardrails.json`, or TRUSTSHELL_HOME) that bounds what
- * an agent may do: egress hosts, tools, spend per action and in total. Default-deny once written; no file
- * decides nothing (`guardAction` returns null, never an allow). Every decision is appended to a hash-chained
- * receipt ledger BEFORE the caller acts. Call `guardAction(trustshellHome(), { tool, hosts, spend })` before
- * each tool call in your own harness. Not a sandbox: see GUARD_DOES_NOT_COVER.
+ * GUARD: the owner's local policy (`~/.trustshell/policy.json`, or TRUSTSHELL_HOME), a SUBSET of the engine
+ * kernel's owner-policy fields with the same meanings (actions spend | post | tool | tool:<name>, per_tx_raw,
+ * daily_raw, total_raw, expires_at, nonce). `guardDecide(trustshellHome(), { tool, class, amount_raw })` decides
+ * one request and records the decision (with its assurance scope) BEFORE the caller acts; no policy file returns
+ * null, never an allow. Not a sandbox: see GUARD_DOES_NOT_COVER.
  */
-export { guardAction, decide, loadGuardrails, parseGuardrails, readLedger, defaultGuardrails, trustshellHome, GUARD_DOES_NOT_COVER, } from './guardrails';
-export type { Guardrails, GuardAction, GuardDecision, GuardReceipt, LedgerReading } from './guardrails';
+export { guardDecide, decide, loadPolicy, parsePolicy, parsePolicyDocument, policySha256, readLedger, defaultPolicy, trustshellHome, GUARD_DOES_NOT_COVER, } from './guardrails';
+export type { LocalPolicy, PolicyDocument, GuardRequest, GuardDecision, GuardRecord, AssuranceScope, LedgerReading } from './guardrails';
 /**
- * Bundle: the second brain as one Ed25519-signed file (profile, guardrails, memory with its taint labels).
- * `verifyBundle` refuses an altered file and any signer you did not name; `brainContext` is the text any
- * model is handed, so swapping the model changes nothing else. No network.
+ * CARRY: the owner's context as one Ed25519-signed file (profile, policy by hash, selected memories, evidence
+ * pointers). Authority never travels: `policyImportDecision` enforces a carried policy only when its owner
+ * signature verifies with a trusted key and its nonce supersedes the one in force. `brainContext` is the text
+ * any model is handed. No network.
  */
-export { verifyBundle, brainContext, bundleProblems, BundleError, BUNDLE_SCHEMA } from './bundle';
+export { verifyBundle, brainContext, bundleProblems, policyImportDecision, BundleError, BUNDLE_SCHEMA } from './bundle';
 export type { Bundle, BundlePayload, VerifiedBundle } from './bundle';

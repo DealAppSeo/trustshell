@@ -95,7 +95,7 @@ exports.EXIT = {
     RUNTIME: 3,
     /** Laya ask. A person has to answer. HAL was not called. */
     ASK: 4,
-    /** The guardrails file (~/.trustshell/guardrails.json) refused the command. Nothing ran. */
+    /** The owner policy (~/.trustshell/policy.json) denied the action. Nothing ran. */
     REFUSED: guard_1.EXIT_REFUSED,
 };
 /**
@@ -249,35 +249,42 @@ COMMANDS
   quarantine release <id> --trusted
                              You vouch for it (not a check): stored trusted, released_by says so.
                              release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
-  bundle export <file>       Write your second brain as ONE signed file: .trustshell/profile.md,
-                             ~/.trustshell/guardrails.json, every note with its taint labels and
-                             every remember KEY VALUE. Ed25519 over its RFC 8785 form, with this
-                             install's key (created on first use, never in the file). Left out and
-                             counted: credential shapes, encrypted notes, do_not_send, learn rows.
+  bundle export <file>       CARRY: one Ed25519-signed file (this install's key, never in the file):
+                             .trustshell/profile.md, the owner policy BY HASH (with the document, so
+                             an owner-signed one can be checked), the notes you select, and evidence
+                             pointers (sha256 only). Never: credentials, keys, spending authority.
+      [--note <id>]...       A note to carry (quarantine explain <id> shows one). None by default.
+      [--notes released]     Every released (not quarantined) note.
+      [--evidence <file>]... Point at a record (a check --claims record.json, a ledger): its sha256.
       [--force]              Replace an existing <file>.
   bundle verify <file> [--signer <fingerprint>]
                              Check the signature and the signer without writing anything.
   bundle context <file> [--signer <fingerprint>]
-                             Verify, then print the person as text for a model: profile, trust
-                             settings, guardrails, released notes and saved values (never a
-                             quarantined note). Hand it to any model; the bundle is the same person.
+                             Verify, then print the person as text for a model: profile, the policy
+                             as information, the selected notes. Enforcement stays in the harness.
   bundle import <file> [--signer <fingerprint>] [--force]
-                             Verify, then write it here. The signer must be this install's key or
-                             the --signer fingerprint export printed; anything else is NOT_CHECKED.
-                             An altered file is refused (exit 1). A profile, guardrails file or key
-                             that differs here is a conflict: nothing is written without --force.
-                             A note already here is skipped, so importing twice adds nothing.
-  guard init                 Write ~/.trustshell/guardrails.json, default-deny: no network host,
-                             local commands only, spend limit 0. With no file nothing is enforced.
-  guard show                 Print the rules, the spend so far and the receipt chain.
-  guard check --tool <name> [--host <h>]... [--spend <n>]
-                             Ask the rules about any action, from any agent harness. Receipted.
-                             EXIT 0 ALLOWED, 5 REFUSED, 2 NOT_CHECKED (no file).
-  guard allow|deny host|tool <value>   ·   guard limit per-action|total <n>
-                             While the file exists, every other command is weighed first: a command
-                             not in tools.allow, or dialing a host not in egress.allow, is refused
-                             (exit 5) with a receipt in guard-receipts.jsonl. help, version and
-                             guard always run.
+                             Verify, then write it here. Authority never travels: imported notes are
+                             stored UNTRUSTED and quarantined; the policy is enforced only when its
+                             owner signature verifies with a key you trust AND its nonce is higher
+                             than the one in force, else it is saved as policy.suggested.json, not
+                             enforced. An altered, partial or other-version file is refused (exit 1).
+  guard init [--days N]      GUARD: write ~/.trustshell/policy.json, the engine kernel's owner-policy
+                             fields (subject, actions, per_tx_raw, daily_raw, total_raw, expires_at,
+                             nonce): local commands only, every limit 0, expires in N days (30).
+  guard show                 Print the policy, what was allowed so far and the record chain.
+  guard allow|deny <action>  spend, post, tool or tool:<name>. Anything unlisted is denied.
+  guard limit per-tx|daily|total <n>  ·  guard expire <days>  ·  guard kill (allow nothing)
+                             Every change is a new policy with a higher nonce (the kernel's revocation).
+  guard sign                 Sign the policy with this install's key (the owner signature a bundle carries).
+  guard check --tool <name> [--class read|other|post|spend] [--amount <n>]
+                             Ask the policy about any action from any harness. Recorded.
+                             EXIT 0 ALLOWED, 5 DENIED, 2 NOT_CHECKED (no policy).
+  run --tool <name> [--class <c>] [--amount <n>] -- <command> [args...]
+                             The enforced path: decide and record BEFORE the command starts; a denied
+                             command never starts (exit 5); an allowed one runs and its exit code is
+                             recorded. The card says what was requested, authorized, executed,
+                             independently observed (nothing) and unknown. No policy: nothing runs (2).
+                             While a policy exists, every other command must be listed as tool:<name>.
   learn <verb>               The learning loop, local: jobs you create, checks you register, your
                              corrections as lessons you accept, injected verbatim (max 5 / 400
                              tokens), unaided probes, spaced review, rulers. trustshell learn for
@@ -317,7 +324,7 @@ EXIT CODES
                                                       · check "<sentence>": not-checked
   3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
   4  ASK — only when TRUSTSHELL_LAYA is set; HAL was not called
-  5  REFUSED by ~/.trustshell/guardrails.json — nothing ran (only when that file exists)
+  5  DENIED by the owner policy (~/.trustshell/policy.json) — nothing ran
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
@@ -333,6 +340,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
                                    only. A TRUSTSHELL_API_URL pointing elsewhere is not asked.
   profile                          NOTHING. Reads and writes .trustshell/profile.md.
   bundle · guard                   NOTHING. Local files only.
+  run                              NOTHING itself. It starts YOUR command, whose own network it does not see.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -367,6 +375,8 @@ function parseArgs(argv) {
         return { command: 'bundle', bundleArgv: argv.slice(1), json: false, verify: false };
     if (argv[0] === 'guard')
         return { command: 'guard', guardArgv: argv.slice(1), json: false, verify: false };
+    if (argv[0] === 'run')
+        return { command: 'run', runArgv: argv.slice(1), json: false, verify: false };
     const flags = new Set();
     const positionals = [];
     // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -926,6 +936,9 @@ async function run(args, client, io = realIO) {
         case 'guard':
             // Local files only. Opens no socket.
             return (0, guard_1.runGuard)(args.guardArgv ?? [], io);
+        case 'run':
+            // Starts the caller's command only after the policy allows it.
+            return (0, guard_1.runRun)(args.runArgv ?? [], io);
         case 'recall': {
             try {
                 io.out(args.key ? (0, recall_1.recallKey)(args.key) : (0, recall_1.recallNotes)(process.env, { includeQuarantined: args.includeQuarantined }));
@@ -1468,7 +1481,7 @@ async function runClaimCheck(sentence, json, io) {
 /** Entry point: parse argv, run, exit with the returned code. */
 async function main(argv = process.argv.slice(2)) {
     const args = parseArgs(argv);
-    // The guardrails file, if the person wrote one, decides before the command runs (src/cli/guard.ts).
+    // The owner policy, if the person wrote one, decides before the command runs (src/cli/guard.ts).
     const code = await (0, guard_1.runGuarded)(args, () => run(args, makeClient()), realIO);
     process.exit(code);
 }

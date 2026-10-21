@@ -2,11 +2,14 @@ type IO = {
     out: (s: string) => void;
     err: (s: string) => void;
 };
-export declare const BUNDLE_USAGE = "trustshell bundle export <file> [--force]\ntrustshell bundle verify <file> [--signer <fingerprint>] [--json]\ntrustshell bundle context <file> [--signer <fingerprint>]\ntrustshell bundle import <file> [--signer <fingerprint>] [--force] [--json]";
+export declare const BUNDLE_USAGE = "trustshell bundle export <file> [--note <id>]... [--notes released] [--evidence <file>]... [--force]\ntrustshell bundle verify <file> [--signer <fingerprint>] [--json]\ntrustshell bundle context <file> [--signer <fingerprint>]\ntrustshell bundle import <file> [--signer <fingerprint>] [--force] [--json]";
 export interface BundleArgs {
     verb: 'export' | 'verify' | 'import' | 'context';
     file: string;
     signer?: string;
+    notes: number[];
+    allReleased: boolean;
+    evidence: string[];
     force: boolean;
     json: boolean;
 }

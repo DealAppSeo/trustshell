@@ -1,17 +1,21 @@
 /**
- * `trustshell bundle export <file> | verify <file> | import <file>` — the CLI over src/lib/bundle.ts.
+ * `trustshell bundle export | verify | import | context` — the CLI over src/lib/bundle.ts.
  * EGRESS: none. Reads and writes local files only.
  */
-import { join } from 'node:path';
-import { brainContext, buildBundle, BundleError, ownFingerprint, signingKey, verifyBundle, widenings, type Bundle } from '../lib/bundle';
-import { GUARDRAILS_FILE, loadGuardrails, renderGuardrails, trustshellHome } from '../lib/guardrails';
+import { createHash } from 'node:crypto';
+import { basename, join } from 'node:path';
+import { brainContext, buildBundle, BundleError, policyImportDecision, verifyBundle, type Bundle, type BundlePayload, type EvidencePointer } from '../lib/bundle';
+import { GUARD_RECEIPTS_FILE, POLICY_FILE, SUGGESTED_POLICY_FILE, loadPolicy, policySignedBy, readLedger, renderPolicyDocument, trustshellHome } from '../lib/guardrails';
 import { TRUSTSHELL_DIR } from '../lib/init';
-import { exportRows, importRows, memoryDbPath } from '../memory/local-store';
+import { ownFingerprint, signingKey } from '../lib/install-key';
+import { resolvePackageVersion } from '../lib/version';
+import { listNotes, memoryDbPath, selectableNotes, INJECTION_PREFIX } from '../memory/local-store';
+import { rememberUntrusted } from '../memory/quarantine';
 import { PROFILE_PATH } from './profile';
 
 type IO = { out: (s: string) => void; err: (s: string) => void };
 
-export const BUNDLE_USAGE = `trustshell bundle export <file> [--force]
+export const BUNDLE_USAGE = `trustshell bundle export <file> [--note <id>]... [--notes released] [--evidence <file>]... [--force]
 trustshell bundle verify <file> [--signer <fingerprint>] [--json]
 trustshell bundle context <file> [--signer <fingerprint>]
 trustshell bundle import <file> [--signer <fingerprint>] [--force] [--json]`;
@@ -20,6 +24,9 @@ export interface BundleArgs {
   verb: 'export' | 'verify' | 'import' | 'context';
   file: string;
   signer?: string;
+  notes: number[];
+  allReleased: boolean;
+  evidence: string[];
   force: boolean;
   json: boolean;
 }
@@ -30,48 +37,46 @@ export function parseBundleArgs(argv: string[]): BundleArgs | { error: string } 
   if (verb !== 'export' && verb !== 'verify' && verb !== 'import' && verb !== 'context') {
     return { error: `bundle takes export, verify, import or context\n${BUNDLE_USAGE}` };
   }
+  const a: BundleArgs = { verb, file: '', notes: [], allReleased: false, evidence: [], force: false, json: false };
   const pos: string[] = [];
-  let signer: string | undefined;
-  let force = false;
-  let json = false;
   for (let i = 0; i < rest.length; i += 1) {
-    const a = rest[i] as string;
-    if (a === '--force' && (verb === 'export' || verb === 'import')) force = true;
-    else if (a === '--json' && verb !== 'context') json = true;
-    else if (a === '--signer' && verb !== 'export') {
-      const v = rest[i + 1];
+    const w = rest[i] as string;
+    const v = rest[i + 1];
+    if (w === '--force' && (verb === 'export' || verb === 'import')) a.force = true;
+    else if (w === '--json' && verb !== 'context') a.json = true;
+    else if (w === '--signer' && verb !== 'export') {
       if (!v || !/^[0-9a-fA-F]{64}$/.test(v)) return { error: '--signer takes the 64-hex fingerprint that export printed' };
-      signer = v;
+      a.signer = v;
       i += 1;
-    } else if (a.startsWith('-')) return { error: `bundle ${verb}: unknown option ${a}` };
-    else pos.push(a);
+    } else if (w === '--note' && verb === 'export') {
+      if (!v || !/^[1-9][0-9]*$/.test(v)) return { error: '--note takes a note id (a whole number)' };
+      a.notes.push(Number(v));
+      i += 1;
+    } else if (w === '--notes' && verb === 'export') {
+      if (v !== 'released') return { error: '--notes takes released (every note that is not quarantined)' };
+      a.allReleased = true;
+      i += 1;
+    } else if (w === '--evidence' && verb === 'export') {
+      if (!v || v.startsWith('-')) return { error: '--evidence takes a file' };
+      a.evidence.push(v);
+      i += 1;
+    } else if (w.startsWith('-')) return { error: `bundle ${verb}: unknown option ${w}` };
+    else pos.push(w);
   }
   if (pos.length !== 1) return { error: `bundle ${verb} takes one <file>\n${BUNDLE_USAGE}` };
-  return { verb, file: pos[0] as string, signer, force, json };
-}
-
-function summary(b: Bundle): Record<string, unknown> {
-  const p = b.payload;
-  return {
-    signer: b.signer.fingerprint,
-    created_at: b.created_at,
-    profile: p.profile !== null,
-    guardrails: p.guardrails !== null,
-    notes: p.memory.notes.length,
-    values: p.memory.values.length,
-    left_out: p.withheld,
-  };
+  a.file = pos[0] as string;
+  return a;
 }
 
 function summaryLines(b: Bundle): string[] {
   const p = b.payload;
-  const w = p.withheld;
+  const pol = p.policy;
   return [
-    `signer      ${b.signer.fingerprint}`,
+    `author      ${b.author.fingerprint}`,
     `profile     ${p.profile !== null ? 'yes' : 'none'}`,
-    `guardrails  ${p.guardrails !== null ? 'yes' : 'none'}`,
-    `memory      ${p.memory.notes.length} notes, ${p.memory.values.length} keyed values`,
-    `left out    ${w.secret_shaped} credential-shaped, ${w.injection_held} injection-held, ${w.encrypted} encrypted, ${w.do_not_send} do_not_send, ${w.learn} learn-loop rows (counts only; their text is not in the file)`,
+    `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${pol.document.signature ? `owner-signed by ${pol.document.signature.fingerprint.slice(0, 16)}…` : 'UNSIGNED (imports as suggested, never enforced)'}` : 'none'}`,
+    `memories    ${p.memories.length} note(s) you selected (they import as untrusted, quarantined)`,
+    `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${e.name} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
   ];
 }
 
@@ -89,83 +94,112 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
         io.err(`bundle export: ${a.file} exists; nothing was written (--force replaces it)`);
         return 2;
       }
-      const g = loadGuardrails(home);
-      if (g.state === 'invalid') {
-        io.err(`bundle export: ${g.path} does not parse (${g.problems.join('; ')}); fix it first (trustshell guard show). Nothing was written.`);
+      const loaded = loadPolicy(home);
+      if (loaded.state === 'invalid') {
+        io.err(`bundle export: ${loaded.path} does not parse (${loaded.problems.join('; ')}); fix it first (trustshell guard show). Nothing was written.`);
         return 1;
       }
-      const rows = exportRows(memoryDbPath(env));
+      // Memories only when the owner selects them; the memory file is not even opened otherwise.
+      let memories: BundlePayload['memories'] = [];
+      if (a.notes.length || a.allReleased) {
+        const sel = selectableNotes(memoryDbPath(env));
+        for (const id of a.notes) {
+          if (sel.notes.some((n) => n.id === id)) continue;
+          const why = sel.quarantined.includes(id) ? 'is quarantined: release it first' : sel.encrypted.includes(id) ? 'is encrypted: encrypted notes do not ship in a plain bundle' : 'is not a note in this memory file';
+          io.err(`bundle export: note ${id} ${why}. Nothing was written.`);
+          return 2;
+        }
+        memories = sel.notes.filter((n) => a.allReleased || a.notes.includes(n.id)).map((n) => ({ text: n.body, created_at: n.created_at }));
+      }
+      const evidence: EvidencePointer[] = [];
+      for (const e of a.evidence) evidence.push({ kind: 'file', name: basename(e), sha256: createHash('sha256').update(fs.readFileSync(e)).digest('hex') });
+      const ledgerPath = join(home, GUARD_RECEIPTS_FILE);
+      if (fs.existsSync(ledgerPath)) {
+        const l = readLedger(fs.readFileSync(ledgerPath, 'utf8'));
+        if (l.verdict === 'INTACT' && l.last) evidence.push({ kind: 'guard-ledger-head', name: GUARD_RECEIPTS_FILE, sha256: l.last.hash });
+      }
       const key = signingKey(home);
       if (key.created) io.err(`created this install's signing key: ${key.path} (private; it never goes in a bundle)`);
-      const bundle = buildBundle({
-        profile: fs.existsSync(PROFILE_PATH) ? fs.readFileSync(PROFILE_PATH, 'utf8') : null,
-        guardrails: g.state === 'ok' ? g.guardrails : null,
-        notes: rows.notes,
-        values: rows.values,
-        withheld: rows.withheld,
-      }, key.key);
-      fs.writeFileSync(a.file, JSON.stringify(bundle, null, 2) + '\n', { mode: 0o600, flag: a.force ? 'w' : 'wx' });
-      if (a.json) io.out(JSON.stringify({ file: a.file, ...summary(bundle) }, null, 2));
-      else {
-        io.out([`exported ${a.file}`, ...summaryLines(bundle), '', `On the other machine: trustshell bundle import ${a.file} --signer ${bundle.signer.fingerprint}`].join('\n'));
-      }
-      io.err('This file holds your profile and memory in plain text. Keep it out of git and shared folders.');
+      const bundle = buildBundle(
+        {
+          profile: fs.existsSync(PROFILE_PATH) ? fs.readFileSync(PROFILE_PATH, 'utf8') : null,
+          policy: loaded.state === 'ok' ? { sha256: loaded.sha256, nonce: loaded.doc.policy.nonce, document: loaded.doc } : null,
+          memories,
+          evidence,
+        },
+        key.key,
+        key.signer,
+        resolvePackageVersion(__dirname),
+      );
+      // Written whole or not at all: a crash leaves the .partial file, never a half bundle under the real name.
+      const tmp = `${a.file}.partial-${process.pid}`;
+      fs.writeFileSync(tmp, JSON.stringify(bundle, null, 2) + '\n', { mode: 0o600 });
+      fs.renameSync(tmp, a.file);
+      if (a.json) io.out(JSON.stringify({ file: a.file, author: bundle.author.fingerprint, memories: memories.length, evidence, policy: bundle.payload.policy && { sha256: bundle.payload.policy.sha256, signed: !!bundle.payload.policy.document.signature } }, null, 2));
+      else io.out([`exported ${a.file}`, ...summaryLines(bundle), '', `On the other machine: trustshell bundle import ${a.file} --signer ${bundle.author.fingerprint}`].join('\n'));
+      io.err('A bundle is signed, NOT encrypted: anyone with the file can read it. Keep it out of git and shared folders.');
       return 0;
     }
 
-    const text = fs.readFileSync(a.file, 'utf8');
-    const v = verifyBundle(text, { ownFingerprint: ownFingerprint(home), signer: a.signer });
+    const own = ownFingerprint(home);
+    const v = verifyBundle(fs.readFileSync(a.file, 'utf8'), { ownFingerprint: own, signer: a.signer });
+    const p = v.bundle.payload;
     if (a.verb === 'context') {
-      io.out(brainContext(v.bundle.payload));
+      io.out(brainContext(p));
       return 0;
     }
+    const trustedOwners = [own, a.signer?.toLowerCase()].filter((x): x is string => !!x);
+    const inForce = loadPolicy(home);
+    const pol = policyImportDecision(p.policy, trustedOwners, inForce.state === 'ok' ? { nonce: inForce.doc.policy.nonce } : null, policySignedBy);
     if (a.verb === 'verify') {
-      io.out(a.json ? JSON.stringify({ verified: true, trusted_as: v.trusted_as, ...summary(v.bundle) }, null, 2) : [`VERIFIED signature good, signer trusted as ${v.trusted_as}`, ...summaryLines(v.bundle)].join('\n'));
+      const lines = [`VERIFIED signature good, author trusted as ${v.trusted_as}`, ...summaryLines(v.bundle)];
+      if (pol) lines.push(`policy here ${pol.enforce ? 'WOULD BE ENFORCED' : 'would be suggested, NOT enforced'}: ${pol.why}`);
+      io.out(a.json ? JSON.stringify({ verified: true, trusted_as: v.trusted_as, policy_on_import: pol }, null, 2) : lines.join('\n'));
       return 0;
     }
 
     // import: every conflict is found before anything is written.
-    const p = v.bundle.payload;
-    const conflicts: string[] = [];
     const profileHere = fs.existsSync(PROFILE_PATH) ? fs.readFileSync(PROFILE_PATH, 'utf8') : null;
     const writeProfile = p.profile !== null && profileHere !== p.profile;
-    if (writeProfile && profileHere !== null && !a.force) conflicts.push(`${PROFILE_PATH} differs from the bundle's`);
-    const gHere = loadGuardrails(home);
-    const nextG = p.guardrails ? renderGuardrails(p.guardrails) : null;
-    const writeGuardrails = nextG !== null && !(gHere.state === 'ok' && renderGuardrails(gHere.guardrails) === nextG);
-    if (writeGuardrails && gHere.state !== 'absent' && !a.force) conflicts.push(`${gHere.path} differs from the bundle's`);
-    if (conflicts.length) {
-      io.err(`NOT_CHECKED nothing was imported: ${conflicts.join('; ')}. --force replaces them.`);
+    if (writeProfile && profileHere !== null && !a.force) {
+      io.err(`NOT_CHECKED nothing was imported: ${PROFILE_PATH} differs from the bundle's. --force replaces it.`);
       return 2;
     }
-    const mem = importRows(memoryDbPath(env), p.memory, { replace: a.force, env });
-    if (!mem.applied) {
-      io.err(`NOT_CHECKED nothing was imported: these keys hold a different value here: ${mem.conflicts.join(', ')}. --force replaces them.`);
-      return 2;
+    // Imported memories are UNTRUSTED input, whatever they were on the machine that sent them.
+    const source = `bundle:${v.bundle.author.fingerprint.slice(0, 16)}`;
+    const present = new Set(listNotes(memoryDbPath(env), env, { includeQuarantined: true }).filter((n) => n.source === source).map((n) => n.body));
+    let added = 0;
+    let held = 0;
+    for (const m of p.memories) {
+      if (present.has(m.text)) continue;
+      const rec = rememberUntrusted(m.text, { source }, env);
+      added += 1;
+      if (String(rec.reason).startsWith(INJECTION_PREFIX)) held += 1;
     }
-    // ponytail: memory commits first, then the two files; a crash between them leaves memory imported
-    // and the files not. Re-running the import is safe (duplicates are skipped).
     if (writeProfile) {
       fs.mkdirSync(TRUSTSHELL_DIR, { recursive: true });
       fs.writeFileSync(PROFILE_PATH, p.profile as string, 'utf8');
     }
-    if (writeGuardrails && p.guardrails) {
-      for (const w of widenings(gHere.state === 'ok' ? gHere.guardrails : null, p.guardrails)) io.err(`guardrails WIDEN: ${w}`);
+    let policyResult = 'none in bundle';
+    if (p.policy && pol) {
       fs.mkdirSync(home, { recursive: true, mode: 0o700 });
-      fs.writeFileSync(join(home, GUARDRAILS_FILE), nextG as string, { mode: 0o600 });
+      const target = join(home, pol.enforce ? POLICY_FILE : SUGGESTED_POLICY_FILE);
+      fs.writeFileSync(target, renderPolicyDocument(p.policy.document), { mode: 0o600 });
+      policyResult = pol.enforce ? `ENFORCED (${pol.why})` : `suggested, NOT enforced: saved as ${SUGGESTED_POLICY_FILE} because ${pol.why}`;
+      if (!pol.enforce) io.err(`policy NOT enforced: ${pol.why}. The policy in force here is unchanged.`);
     }
     const result = {
       imported: true,
       trusted_as: v.trusted_as,
       profile: writeProfile ? 'written' : p.profile === null ? 'none in bundle' : 'unchanged',
-      guardrails: writeGuardrails ? 'written' : p.guardrails === null ? 'none in bundle' : 'unchanged',
-      notes_added: mem.added_notes,
-      notes_already_here: mem.duplicate_notes,
-      values_added: mem.added_values,
-      values_replaced: mem.replaced_values,
-      values_already_here: mem.same_values,
+      policy: policyResult,
+      memories_quarantined: added,
+      memories_held_as_injection: held,
+      memories_already_here: p.memories.length - added,
+      evidence_pointers: p.evidence.length,
     };
-    io.out(a.json ? JSON.stringify(result, null, 2) : Object.entries(result).map(([k, x]) => `${k.padEnd(20)}${String(x)}`).join('\n'));
+    io.out(a.json ? JSON.stringify(result, null, 2) : Object.entries(result).map(([k, x]) => `${k.padEnd(28)}${String(x)}`).join('\n'));
+    if (added) io.err(`${added} note(s) are quarantined as untrusted: trustshell quarantine list, then release what you recognise.`);
     return 0;
   } catch (e) {
     if (e instanceof BundleError) {

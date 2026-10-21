@@ -635,138 +635,22 @@ export function injectable(row: MemoryRow): boolean {
   return row.kind === 'learn';
 }
 
-/** A note as a bundle carries it: the text and its whole taint record. No id: ids belong to one file. */
-export type PortableNote = {
-  kind: 'note' | 'pref';
-  body: string;
-  created_at: string;
-  provenance: Provenance;
-  source: string;
-  quarantined: boolean;
-  quarantine_reason: string | null;
-  released_by: string | null;
-  released_at: string | null;
-  source_sha256: string | null;
-};
-
-/** One `remember KEY VALUE` row. */
-export type PortableValue = { key: string; body: string; created_at: string };
-
-/** What `exportRows` left out, by count. Never their text. */
-export type WithheldCounts = { encrypted: number; do_not_send: number; learn: number };
-
 /**
- * Every note and keyed value, for `trustshell bundle export`. LEFT OUT, and counted: encrypted bodies
- * (a bundle is plain JSON, so it never decrypts what you chose to encrypt), do_not_send rows (the
- * same rule as recall), and the learn loop's lesson/learn rows (their learn_* tables do not travel).
- * The caller screens what is left for credential shapes.
+ * The notes an owner may select for `trustshell bundle export`, by id: kind note, not keyed, RELEASED (not
+ * quarantined) and not encrypted. A sealed body is never opened for a bundle (a bundle is plain JSON), so an
+ * encrypted note is listed in `encrypted` and never in `notes`. Quarantined ids are listed too, so the
+ * caller can say why a selected id was refused.
  */
-export function exportRows(path: string): { notes: PortableNote[]; values: PortableValue[]; withheld: WithheldCounts } {
+export function selectableNotes(path: string): { notes: { id: number; body: string; created_at: string }[]; quarantined: number[]; encrypted: number[] } {
   const db = openDb(path);
   try {
-    const withheld: WithheldCounts = { encrypted: 0, do_not_send: 0, learn: 0 };
-    const notes: PortableNote[] = [];
-    const values: PortableValue[] = [];
-    for (const raw of db.prepare(`SELECT key, ${FULL_COLS} FROM memory ORDER BY id ASC`).all()) {
+    const out = { notes: [] as { id: number; body: string; created_at: string }[], quarantined: [] as number[], encrypted: [] as number[] };
+    for (const raw of db.prepare(`SELECT ${FULL_COLS} FROM memory WHERE kind = 'note' AND key IS NULL ORDER BY id ASC`).all()) {
       const row = asRow(raw);
-      if (row.kind === 'do_not_send') withheld.do_not_send += 1;
-      else if (row.kind === 'lesson' || row.kind === 'learn') withheld.learn += 1;
-      else if (isSealed(row.body)) withheld.encrypted += 1;
-      else if (raw.key !== null && raw.key !== undefined) values.push({ key: String(raw.key), body: row.body, created_at: row.created_at });
-      else {
-        notes.push({
-          kind: row.kind as 'note' | 'pref',
-          body: row.body,
-          created_at: row.created_at,
-          provenance: row.provenance ?? 'untrusted',
-          source: row.source ?? 'legacy',
-          quarantined: row.quarantined !== false,
-          quarantine_reason: row.quarantine_reason ?? null,
-          released_by: row.released_by ?? null,
-          released_at: row.released_at ?? null,
-          source_sha256: row.source_sha256 ?? null,
-        });
-      }
+      if (row.quarantined !== false) out.quarantined.push(row.id);
+      else if (isSealed(row.body)) out.encrypted.push(row.id);
+      else out.notes.push({ id: row.id, body: row.body, created_at: row.created_at });
     }
-    return { notes, values, withheld };
-  } finally {
-    db.close();
-  }
-}
-
-export type ImportOutcome = {
-  applied: boolean;
-  added_notes: number;
-  duplicate_notes: number;
-  added_values: number;
-  same_values: number;
-  replaced_values: number;
-  /** Keys whose stored value differs from the bundle's. Nothing is written while any is listed, unless `replace`. */
-  conflicts: string[];
-};
-
-/**
- * Write a bundle's rows into this file, all or nothing, in ONE transaction. A note already here (same
- * kind, time and text) is skipped, so importing twice adds nothing. A key holding a different value is
- * a conflict: nothing at all is written unless `replace`. Labels are written as the bundle carries
- * them; encryption follows THIS file's setting, so an encrypted target seals what it receives.
- */
-export function importRows(
-  path: string,
-  rows: { notes: readonly PortableNote[]; values: readonly PortableValue[] },
-  opts: { replace?: boolean; env?: NodeJS.ProcessEnv } = {},
-): ImportOutcome {
-  const env = opts.env ?? process.env;
-  const db = openDb(path);
-  try {
-    const open = opener(db, env);
-    const seen = new Set(
-      db
-        .prepare('SELECT kind, body, created_at FROM memory WHERE key IS NULL')
-        .all()
-        .map((r) => JSON.stringify([String(r.kind), String(r.created_at), open(String(r.body)).body])),
-    );
-    const fresh = rows.notes.filter((n) => !seen.has(JSON.stringify([n.kind, n.created_at, n.body])));
-    const out: ImportOutcome = {
-      applied: false,
-      added_notes: 0,
-      duplicate_notes: rows.notes.length - fresh.length,
-      added_values: 0,
-      same_values: 0,
-      replaced_values: 0,
-      conflicts: [],
-    };
-    const plan: { v: PortableValue; replace: boolean }[] = [];
-    for (const v of rows.values) {
-      const have = db.prepare('SELECT body FROM memory WHERE key = ?').get(v.key);
-      if (!have) plan.push({ v, replace: false });
-      else if (open(String(have.body)).body === v.body) out.same_values += 1;
-      else if (opts.replace) plan.push({ v, replace: true });
-      else out.conflicts.push(v.key);
-    }
-    if (out.conflicts.length) return out;
-    const seal = sealer(db, env);
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      const insert = db.prepare(
-        'INSERT INTO memory (kind, body, created_at, provenance, source, quarantined, quarantine_reason, released_by, released_at, source_sha256) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      );
-      for (const n of fresh) {
-        insert.run(n.kind, seal(n.body), n.created_at, n.provenance, n.source, n.quarantined ? 1 : 0, n.quarantine_reason, n.released_by, n.released_at, n.source_sha256);
-      }
-      for (const { v, replace } of plan) {
-        if (replace) db.prepare('DELETE FROM memory WHERE key = ?').run(v.key);
-        db.prepare('INSERT INTO memory (kind, body, created_at, key) VALUES (?, ?, ?, ?)').run('pref', seal(v.body), v.created_at, v.key);
-      }
-      db.exec('COMMIT');
-    } catch (err) {
-      db.exec('ROLLBACK');
-      throw err;
-    }
-    out.applied = true;
-    out.added_notes = fresh.length;
-    out.replaced_values = plan.filter((p) => p.replace).length;
-    out.added_values = plan.length - out.replaced_values;
     return out;
   } finally {
     db.close();

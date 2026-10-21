@@ -1,238 +1,304 @@
 /**
- * `~/.trustshell/guardrails.json` — the one file a person tunes to bound what trustshell may do.
- * ----------------------------------------------------------------------------------------------
- * THREE RULES, ALL DEFAULT-DENY. `trustshell guard init` writes a file that allows no network host,
- * only the commands that touch local files, and a spend limit of zero:
- *   egress.allow   hostnames a command may dial. Exact match, lowercase. Empty = nothing dials out.
- *   tools.allow    command (tool) names that may run at all.
- *   limits         spend_per_action and spend_total, smallest units of `unit`. "0" = no spend.
+ * GUARD: the owner's local policy, enforced in code before an action starts, with a record of every decision.
+ * ---------------------------------------------------------------------------------------------------------
+ * ONE POLICY LANGUAGE. `~/.trustshell/policy.json` (or TRUSTSHELL_HOME) holds `{ policy, signature }`, the
+ * body shape of the engine kernel's signed owner policy (repid-engine src/kernel/policy.ts), and `policy` is a
+ * SUBSET of the kernel's OwnerPolicy with the same names and the same meanings:
+ *   subject                 the agent the policy is for
+ *   actions                 spend | post | tool | tool:<name>. Anything unlisted is DENIED. `tool` allows every
+ *                           read/other tool; `tool:<name>` allows one.
+ *   per_tx_raw, daily_raw,  smallest units, canonical decimal strings. A limit the owner leaves out is "0",
+ *   total_raw               never unlimited. The one that binds is the smallest.
+ *   expires_at              unix seconds. At or after it, everything is denied.
+ *   nonce                   supersession: revoking is writing a policy with a higher nonce (the kernel has no
+ *                           revocation list either). `guard kill` writes one that allows nothing.
+ * Not in the subset, because the local guard neither pays nor binds code: `owner` (a wallet), `payees`,
+ * `authorized_impl_hashes`. The local hash is sha256 of the RFC 8785 form, not the kernel's EIP-712 digest.
  *
- * NO FILE = NOTHING ENFORCED, and `guard show` says so. Default-deny is what the file starts as once
- * a person opts in; turning it on for everyone who never asked would break every existing install.
+ * NO FILE = NOTHING AUTHORIZED for `trustshell run` (it refuses), and nothing changes for the other commands.
+ * A FILE THAT DOES NOT PARSE DENIES EVERYTHING. A person who wrote a policy and broke it meant to be guarded.
  *
- * A FILE THAT DOES NOT PARSE REFUSES EVERYTHING. A person who wrote a guardrails file and broke it
- * meant to be guarded; failing open on a typo would undo that silently. Unknown keys are a problem
- * too: a misspelt `egres` must not read as "no egress rule".
+ * EVERY DECISION IS A RECORD (`trustshell.guard-record/1`), appended to `guard-receipts.jsonl` before the action
+ * runs, hash-chained (RFC 8785 + sha256), with what was REQUESTED, what was AUTHORIZED (and under which policy
+ * hash and nonce), what was EXECUTED, and the ASSURANCE SCOPE: what the guard mediated and what it did not. A
+ * missing record never proves that no action happened: the guard sees only what goes through it.
  *
- * EVERY DECISION IS RECEIPTED. `guard-receipts.jsonl` next to the file, one JSON line per decision,
- * each hashed over its RFC 8785 form and chained to the one before (like inspect's session log).
- * The receipt names the tool, the hosts and the spend, never the text a command was given.
- *
- * WHAT THIS IS NOT. It bounds what trustshell itself does. It is not a sandbox: anything that runs as
- * you can edit this file, delete the receipts, or dial a host without trustshell. The chain is
- * unkeyed, so it detects an edit that left later hashes alone, not a ledger rewritten wholesale.
+ * WHAT THIS IS NOT. Not a sandbox: anything running as you can edit these files or act without trustshell.
+ * The chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch.
  */
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { canonicalize, jcsSha256 } from './jcs';
+import { verifyValue, type Signer } from './install-key';
 
-export const GUARDRAILS_VERSION = 1;
-export const GUARDRAILS_FILE = 'guardrails.json';
+export const POLICY_FILE = 'policy.json';
+/** An imported policy that could not be enforced (unsigned, or signed by a key nobody named) lands here. */
+export const SUGGESTED_POLICY_FILE = 'policy.suggested.json';
 export const GUARD_RECEIPTS_FILE = 'guard-receipts.jsonl';
-export const GUARD_RECEIPT_SCHEMA = 'trustshell.guard-receipt/1';
+export const GUARD_RECORD_SCHEMA = 'trustshell.guard-record/1';
 
-export interface Guardrails {
-  trustshell_guardrails: number;
-  egress: { allow: string[] };
-  tools: { allow: string[] };
-  limits: { unit: string; spend_per_action: string; spend_total: string };
+export type ToolClass = 'read' | 'spend' | 'post' | 'other';
+export const TOOL_CLASSES: readonly ToolClass[] = ['read', 'spend', 'post', 'other'];
+
+/** The local owner policy: a subset of the kernel's OwnerPolicy. */
+export interface LocalPolicy {
+  subject: string;
+  actions: string[];
+  per_tx_raw: string;
+  daily_raw: string;
+  total_raw: string;
+  expires_at: number;
+  nonce: string;
 }
 
-/** The commands that only read or write local files. The default file allows these and nothing else. */
-export const LOCAL_TOOLS = [
-  'bundle',
-  'ground',
-  'init',
-  'inspect',
-  'learn',
-  'profile',
-  'quarantine',
-  'recall',
-  'redact',
-  'remember',
-  'report',
-  'traps',
-] as const;
+export interface PolicySignature extends Signer {
+  /** Ed25519 over the RFC 8785 form of `policy`, base64. */
+  signature: string;
+}
 
-export const DEFAULT_UNIT = 'USDC smallest unit (6 decimals)';
+/** `{ policy, signature }`, as the kernel takes it. `signature` is null for a policy nobody signed. */
+export interface PolicyDocument {
+  policy: LocalPolicy;
+  signature: PolicySignature | null;
+}
 
-export function defaultGuardrails(): Guardrails {
+/** The commands that only read or write local files: what `guard init` allows. */
+export const LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'] as const;
+
+const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
+const CANONICAL_UINT = /^(?:0|[1-9][0-9]{0,77})$/;
+const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce'];
+const UINT256_MAX = BigInt('0x' + 'f'.repeat(64));
+
+/** The policy `guard init` writes: local commands only, every limit 0, expires in `days` days. */
+export function defaultPolicy(nowS: number = Math.floor(Date.now() / 1000), days = 30): LocalPolicy {
   return {
-    trustshell_guardrails: GUARDRAILS_VERSION,
-    egress: { allow: [] },
-    tools: { allow: [...LOCAL_TOOLS] },
-    limits: { unit: DEFAULT_UNIT, spend_per_action: '0', spend_total: '0' },
+    subject: 'local',
+    actions: LOCAL_TOOLS.map((t) => `tool:${t}`),
+    per_tx_raw: '0',
+    daily_raw: '0',
+    total_raw: '0',
+    expires_at: nowS + days * 86400,
+    nonce: '1',
   };
 }
 
-/** The folder that holds guardrails, their receipts and the bundle signing key. */
 export function trustshellHome(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
   const o = env.TRUSTSHELL_HOME?.trim();
   return o ? o : join(home, '.trustshell');
 }
 
-/** A hostname as the rules hold it: lowercase letters, digits, dots and dashes; no scheme, port or path. */
-const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
-const TOOL = /^[a-z][a-z0-9-]{0,39}$/;
-const AMOUNT = /^(?:0|[1-9][0-9]{0,77})$/;
-
-export function renderGuardrails(g: Guardrails): string {
-  return JSON.stringify(g, null, 2) + '\n';
-}
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /**
- * PURE. Parse the file. Any problem resolves to `guardrails: null`, which refuses every action:
- * never a partial rule set, because a half-read file is not what the person wrote.
+ * PURE. Parse a policy the way the kernel's parsePolicy does: unknown keys are errors, a MISSING limit is "0"
+ * (and listed in `defaulted`), a PRESENT malformed one is an error, never quietly zeroed.
  */
-export function parseGuardrails(text: string): { guardrails: Guardrails | null; problems: string[] } {
-  const problems: string[] = [];
+export function parsePolicy(input: unknown): { ok: true; policy: LocalPolicy; defaulted: string[] } | { ok: false; errors: string[] } {
+  if (!isObject(input)) return { ok: false, errors: ['policy must be an object'] };
+  const errors: string[] = [];
+  for (const k of Object.keys(input)) if (!POLICY_KEYS.includes(k)) errors.push(`unknown field "${k.slice(0, 40)}"`);
+  const subject = input.subject;
+  if (typeof subject !== 'string' || subject.length === 0 || subject.length > 128) errors.push('subject must be the agent id (1-128 characters)');
+  const actions: string[] = [];
+  if (!Array.isArray(input.actions) || input.actions.length > 64) errors.push('actions must be a list of spend, post, tool or tool:<name>');
+  else {
+    for (const a of input.actions) {
+      if (typeof a !== 'string' || !ACTION.test(a)) errors.push('actions holds an entry that is not spend, post, tool or tool:<name>');
+      else if (actions.includes(a)) errors.push(`actions lists "${a.slice(0, 40)}" twice`);
+      else actions.push(a);
+    }
+  }
+  const defaulted: string[] = [];
+  const limit = (k: 'per_tx_raw' | 'daily_raw' | 'total_raw'): string => {
+    const v = input[k];
+    if (v === undefined || v === null) {
+      defaulted.push(k);
+      return '0';
+    }
+    const s = typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? String(v) : v;
+    if (typeof s !== 'string' || !CANONICAL_UINT.test(s) || BigInt(s) > UINT256_MAX) {
+      errors.push(`${k}: not a canonical non-negative decimal integer`);
+      return '0';
+    }
+    return s;
+  };
+  const per = limit('per_tx_raw');
+  const daily = limit('daily_raw');
+  const total = limit('total_raw');
+  const exp = input.expires_at;
+  if (typeof exp !== 'number' || !Number.isSafeInteger(exp) || exp <= 0) errors.push('expires_at must be unix seconds');
+  const nonce = typeof input.nonce === 'number' && Number.isSafeInteger(input.nonce) && input.nonce >= 0 ? String(input.nonce) : input.nonce;
+  if (typeof nonce !== 'string' || !CANONICAL_UINT.test(nonce)) errors.push('nonce must be a non-negative decimal integer');
+  if (errors.length) return { ok: false, errors };
+  return {
+    ok: true,
+    defaulted,
+    policy: { subject: subject as string, actions, per_tx_raw: per, daily_raw: daily, total_raw: total, expires_at: exp as number, nonce: nonce as string },
+  };
+}
+
+/** PURE. Parse `{ policy, signature }` text. A signature that is present must be well formed (verified separately). */
+export function parsePolicyDocument(text: string): { ok: true; doc: PolicyDocument; defaulted: string[] } | { ok: false; errors: string[] } {
   let raw: unknown;
   try {
     raw = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
   } catch (e) {
-    return { guardrails: null, problems: [`not JSON: ${(e as Error).message}`] };
+    return { ok: false, errors: [`not JSON: ${(e as Error).message}`] };
   }
-  const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-  const exactKeys = (v: Record<string, unknown>, keys: string[], at: string) => {
-    for (const k of Object.keys(v)) if (!keys.includes(k)) problems.push(`${at}${k}: unknown key`);
-    for (const k of keys) if (!(k in v)) problems.push(`${at}${k}: missing`);
-  };
-  if (!obj(raw)) return { guardrails: null, problems: ['the file must hold one JSON object'] };
-  exactKeys(raw, ['trustshell_guardrails', 'egress', 'tools', 'limits'], '');
-  if (raw.trustshell_guardrails !== GUARDRAILS_VERSION) {
-    problems.push(`trustshell_guardrails: expected ${GUARDRAILS_VERSION}, got ${JSON.stringify(raw.trustshell_guardrails)}`);
-  }
-  const list = (section: unknown, name: string, shape: RegExp, what: string): string[] => {
-    if (!obj(section)) {
-      problems.push(`${name}: must be an object with "allow"`);
-      return [];
-    }
-    exactKeys(section, ['allow'], `${name}.`);
-    const allow = section.allow;
-    if (!Array.isArray(allow)) {
-      problems.push(`${name}.allow: must be a list`);
-      return [];
-    }
-    for (const a of allow) if (typeof a !== 'string' || !shape.test(a)) problems.push(`${name}.allow: ${JSON.stringify(a)} is not ${what}`);
-    return allow.filter((a): a is string => typeof a === 'string');
-  };
-  const egress = list(raw.egress, 'egress', HOSTNAME, 'a lowercase hostname (no scheme, port, path or wildcard)');
-  const tools = list(raw.tools, 'tools', TOOL, 'a command name');
-  const limits = raw.limits;
-  if (!obj(limits)) problems.push('limits: must be an object');
-  else {
-    exactKeys(limits, ['unit', 'spend_per_action', 'spend_total'], 'limits.');
-    if (typeof limits.unit !== 'string' || !limits.unit.trim()) problems.push('limits.unit: must name the unit');
-    for (const k of ['spend_per_action', 'spend_total'] as const) {
-      if (typeof limits[k] !== 'string' || !AMOUNT.test(limits[k] as string)) {
-        problems.push(`limits.${k}: must be a whole number of smallest units, as a string ("0" = no spend)`);
-      }
-    }
-  }
-  if (problems.length) return { guardrails: null, problems };
-  const l = limits as Record<string, string>;
-  return {
-    guardrails: {
-      trustshell_guardrails: GUARDRAILS_VERSION,
-      egress: { allow: egress },
-      tools: { allow: tools },
-      limits: { unit: l.unit as string, spend_per_action: l.spend_per_action as string, spend_total: l.spend_total as string },
-    },
-    problems,
-  };
+  if (!isObject(raw)) return { ok: false, errors: ['the file must be { policy, signature }'] };
+  const extra = Object.keys(raw).filter((k) => k !== 'policy' && k !== 'signature');
+  if (extra.length) return { ok: false, errors: extra.map((k) => `unknown field "${k.slice(0, 40)}"`) };
+  const p = parsePolicy(raw.policy);
+  if (!p.ok) return p;
+  const s = raw.signature;
+  if (s === null || s === undefined) return { ok: true, doc: { policy: p.policy, signature: null }, defaulted: p.defaulted };
+  const sigOk =
+    isObject(s) &&
+    Object.keys(s).every((k) => ['alg', 'public_key', 'fingerprint', 'signature'].includes(k)) &&
+    s.alg === 'ed25519' &&
+    typeof s.public_key === 'string' &&
+    typeof s.fingerprint === 'string' &&
+    typeof s.signature === 'string';
+  if (!sigOk) return { ok: false, errors: ['signature must be null or { alg: ed25519, public_key, fingerprint, signature }'] };
+  return { ok: true, doc: { policy: p.policy, signature: s as unknown as PolicySignature }, defaulted: p.defaulted };
 }
 
-/** What one action asks for. `spend` is a whole number of smallest units, as a string. */
-export interface GuardAction {
+export function renderPolicyDocument(doc: PolicyDocument): string {
+  return JSON.stringify(doc, null, 2) + '\n';
+}
+
+/** sha256 of the RFC 8785 form of the policy: what records and bundles name it by. */
+export function policySha256(p: LocalPolicy): string {
+  return jcsSha256(p);
+}
+
+/** Does the signature verify over the policy, by a key whose fingerprint is one of `trusted`? */
+export function policySignedBy(doc: PolicyDocument, trusted: readonly string[]): boolean {
+  const s = doc.signature;
+  return !!s && trusted.includes(s.fingerprint) && verifyValue(doc.policy, s, s.signature);
+}
+
+/** What one action asks for. `amount_raw` is smallest units, a canonical decimal string. */
+export interface GuardRequest {
   tool: string;
-  hosts: string[];
-  spend?: string;
+  class: ToolClass;
+  amount_raw?: string;
+  /** sha256 of the command a `trustshell run` would start; the command itself is never recorded. */
+  command_sha256?: string;
 }
 
-export type GuardVerdict = 'ALLOWED' | 'REFUSED';
+/** The action string the policy must list for this request (the kernel's actionPermitted). */
+export function actionFor(req: GuardRequest): string {
+  return req.class === 'spend' ? 'spend' : req.class === 'post' ? 'post' : `tool:${req.tool}`;
+}
+
+function permitted(actions: readonly string[], req: GuardRequest): boolean {
+  if (req.class === 'spend') return actions.includes('spend');
+  if (req.class === 'post') return actions.includes('post');
+  return actions.includes('tool') || actions.includes(`tool:${req.tool}`);
+}
 
 export interface GuardDecision {
-  decision: GuardVerdict;
-  /** Every rule the action broke, not just the first. Empty when allowed. */
+  decision: 'ALLOWED' | 'DENIED';
+  /** Every rule the request broke, not just the first. Empty when allowed. */
   reasons: string[];
 }
 
 /**
- * PURE. Weigh one action against the rules. `g === null` is a file that did not parse: refused.
- * `spentSoFar` is the sum of spends this ledger already allowed; `null` means the ledger could not be
- * trusted (a broken chain), and then any spend is refused.
+ * PURE. Weigh one request against the policy. `policy === null` is a file that did not parse: denied.
+ * `spent` is what this ledger already ALLOWED today and in total; null means the ledger could not be
+ * trusted (a broken chain), and then any amount is denied.
  */
-export function decide(g: Guardrails | null, action: GuardAction, spentSoFar: bigint | null, problems: string[] = []): GuardDecision {
-  if (!g) return { decision: 'REFUSED', reasons: [`the guardrails file does not parse, so everything is refused: ${problems.join('; ') || 'invalid'}`] };
+export function decide(
+  policy: LocalPolicy | null,
+  req: GuardRequest,
+  spent: { today: bigint; total: bigint } | null,
+  nowS: number,
+  problems: string[] = [],
+): GuardDecision {
+  if (!policy) return { decision: 'DENIED', reasons: [`the policy file does not parse, so everything is denied: ${problems.join('; ') || 'invalid'}`] };
   const reasons: string[] = [];
-  if (!g.tools.allow.includes(action.tool)) reasons.push(`tool "${action.tool}" is not in tools.allow`);
-  for (const h of action.hosts) {
-    if (!g.egress.allow.includes(h.toLowerCase())) reasons.push(`egress to ${h} is not in egress.allow`);
-  }
-  if (action.spend !== undefined) {
-    if (!/^[1-9][0-9]{0,77}$/.test(action.spend)) reasons.push('spend must be a whole number of smallest units, more than 0');
+  if (nowS >= policy.expires_at) reasons.push(`the policy expired at ${new Date(policy.expires_at * 1000).toISOString()}`);
+  if (!permitted(policy.actions, req)) reasons.push(`the owner policy does not list ${actionFor(req)}`);
+  if (req.amount_raw !== undefined) {
+    if (!/^[1-9][0-9]{0,77}$/.test(req.amount_raw)) reasons.push('the amount must be a whole number of smallest units, more than 0');
+    else if (spent === null) reasons.push('the receipt ledger is BROKEN, so what was already spent is unknown and no amount is allowed');
     else {
-      const amount = BigInt(action.spend);
-      const per = BigInt(g.limits.spend_per_action);
-      const total = BigInt(g.limits.spend_total);
-      if (amount > per) reasons.push(`spend ${action.spend} is over spend_per_action ${g.limits.spend_per_action} (${g.limits.unit})`);
-      if (spentSoFar === null) reasons.push('the receipt ledger is BROKEN, so the running total is unknown and no spend is allowed');
-      else if (spentSoFar + amount > total) {
-        reasons.push(`spend ${action.spend} would take the total to ${spentSoFar + amount}, over spend_total ${g.limits.spend_total} (${g.limits.unit})`);
-      }
+      const amount = BigInt(req.amount_raw);
+      const per = BigInt(policy.per_tx_raw);
+      const dailyLeft = BigInt(policy.daily_raw) > spent.today ? BigInt(policy.daily_raw) - spent.today : BigInt(0);
+      const totalLeft = BigInt(policy.total_raw) > spent.total ? BigInt(policy.total_raw) - spent.total : BigInt(0);
+      if (amount > per) reasons.push(`${req.amount_raw} is over per_tx_raw ${policy.per_tx_raw}`);
+      if (amount > dailyLeft) reasons.push(`${req.amount_raw} is over what daily_raw ${policy.daily_raw} leaves today (${dailyLeft})`);
+      if (amount > totalLeft) reasons.push(`${req.amount_raw} is over what total_raw ${policy.total_raw} leaves (${totalLeft})`);
     }
   }
-  return { decision: reasons.length ? 'REFUSED' : 'ALLOWED', reasons };
+  return { decision: reasons.length ? 'DENIED' : 'ALLOWED', reasons };
 }
 
-export interface GuardReceipt {
-  schema: typeof GUARD_RECEIPT_SCHEMA;
+/** What the guard did and did not see, stated inside every record. */
+export interface AssuranceScope {
+  mediated: string[];
+  not_mediated: string[];
+}
+
+export interface GuardRecord {
+  schema: typeof GUARD_RECORD_SCHEMA;
   seq: number;
   ts: string;
   origin: string;
-  action: GuardAction;
-  decision: GuardVerdict;
-  reasons: string[];
-  /** sha256 of the rules in force (RFC 8785 form); null when the file did not parse. */
-  guardrails_sha256: string | null;
+  /** decision: written BEFORE the action. outcome: written after `trustshell run` saw the command end. */
+  kind: 'decision' | 'outcome';
+  requested: GuardRequest & { action: string };
+  authorized: GuardDecision & { policy_sha256: string | null; policy_nonce: string | null; policy_signed_by: string | null };
+  /** outcome only: what the started process reported. Never what it did. */
+  executed: { exit_code: number | null; signal: string | null; duration_ms: number } | 'not run' | null;
+  assurance_scope: AssuranceScope;
   prev: string | null;
   hash: string;
 }
 
-/** The hash a receipt must carry: sha256 of the RFC 8785 form of every field but `hash`. */
-export function receiptHash(r: Omit<GuardReceipt, 'hash'>): string {
+export function recordHash(r: Omit<GuardRecord, 'hash'>): string {
   return jcsSha256(r);
 }
 
 export interface LedgerReading {
   verdict: 'INTACT' | 'BROKEN' | 'EMPTY';
   count: number;
-  /** Sum of the spends this ledger ALLOWED. null when BROKEN: a total read off an altered ledger is not a total. */
-  spent: bigint | null;
+  /** Amounts this ledger ALLOWED: in total, and on `day` (UTC, YYYY-MM-DD). null when BROKEN. */
+  spent: { today: bigint; total: bigint } | null;
   last: { seq: number; hash: string } | null;
   breaks: string[];
 }
 
-const allowedSpend = (r: GuardReceipt): bigint =>
-  r.decision === 'ALLOWED' && typeof r.action?.spend === 'string' && /^[1-9][0-9]{0,77}$/.test(r.action.spend) ? BigInt(r.action.spend) : BigInt(0);
+const utcDay = (nowS: number) => new Date(nowS * 1000).toISOString().slice(0, 10);
+
+function tally(r: GuardRecord, day: string, s: { today: bigint; total: bigint }): { today: bigint; total: bigint } {
+  const a = r.kind === 'decision' && r.authorized?.decision === 'ALLOWED' ? r.requested?.amount_raw : undefined;
+  if (typeof a !== 'string' || !/^[1-9][0-9]{0,77}$/.test(a)) return s;
+  const amount = BigInt(a);
+  return { today: s.today + (String(r.ts).slice(0, 10) === day ? amount : BigInt(0)), total: s.total + amount };
+}
 
 /**
- * PURE. Read the receipt ledger: check every hash and every link, and total the allowed spends. `from` is
- * the reading of the lines BEFORE `text` (an already-verified prefix): the chain continues from its last hash.
+ * PURE. Check every hash and every link, and total the allowed amounts. `from` is the reading of an
+ * already-verified prefix: the chain continues from its last hash.
  */
-export function readLedger(text: string, from?: LedgerReading): LedgerReading {
+export function readLedger(text: string, nowS: number = Math.floor(Date.now() / 1000), from?: LedgerReading): LedgerReading {
+  const day = utcDay(nowS);
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const breaks: string[] = [];
   const offset = from?.count ?? 0;
   let prev: string | null = from?.last?.hash ?? null;
-  let spent = from?.spent ?? BigInt(0);
+  let spent = from?.spent ?? { today: BigInt(0), total: BigInt(0) };
   let last: LedgerReading['last'] = from?.last ?? null;
   lines.forEach((line, i) => {
     const n = offset + i + 1;
-    let r: GuardReceipt;
+    let r: GuardRecord;
     try {
-      r = JSON.parse(line) as GuardReceipt;
+      r = JSON.parse(line) as GuardRecord;
     } catch {
       breaks.push(`line ${n}: not JSON`);
       return;
@@ -240,20 +306,20 @@ export function readLedger(text: string, from?: LedgerReading): LedgerReading {
     const { hash, ...body } = r;
     let want: string | null = null;
     try {
-      want = receiptHash(body);
+      want = recordHash(body);
     } catch {
-      /* not canonicalizable: counted as a break below */
+      /* not canonicalizable: a break below */
     }
-    if (r.schema !== GUARD_RECEIPT_SCHEMA) breaks.push(`line ${n}: schema is not ${GUARD_RECEIPT_SCHEMA}`);
-    if (want === null || hash !== want) breaks.push(`line ${n}: hash does not match the receipt`);
+    if (r.schema !== GUARD_RECORD_SCHEMA) breaks.push(`line ${n}: schema is not ${GUARD_RECORD_SCHEMA}`);
+    if (want === null || hash !== want) breaks.push(`line ${n}: hash does not match the record`);
     if (r.prev !== prev) breaks.push(`line ${n}: prev does not match the line before`);
     if (r.seq !== n) breaks.push(`line ${n}: seq is ${r.seq}`);
-    spent += allowedSpend(r);
+    spent = tally(r, day, spent);
     prev = typeof hash === 'string' ? hash : null;
     last = { seq: n, hash: String(hash) };
   });
   const count = offset + lines.length;
-  if (count === 0) return { verdict: 'EMPTY', count: 0, spent: BigInt(0), last: null, breaks };
+  if (count === 0) return { verdict: 'EMPTY', count: 0, spent: { today: BigInt(0), total: BigInt(0) }, last: null, breaks };
   return breaks.length || from?.verdict === 'BROKEN'
     ? { verdict: 'BROKEN', count, spent: null, last, breaks }
     : { verdict: 'INTACT', count, spent, last, breaks };
@@ -261,60 +327,33 @@ export function readLedger(text: string, from?: LedgerReading): LedgerReading {
 
 /**
  * The bytes of the ledger already verified, by length and sha256. A CACHE, not a source: it holds no total,
- * so it cannot lie about one. A decision re-hashes those bytes (one sha256, fast) and fully verifies only the
- * lines after them; any change to the old bytes misses the cache and the whole ledger is verified again.
- * Measured 2026-10-21 (lane B report, same process A/B, 3 runs): at 10,000 receipts a full verification
- * cost 541-593 ms per decision, a checkpointed decision 236-284 ms.
+ * so it cannot lie about one. A decision re-hashes those bytes and fully verifies only the lines after them;
+ * any change to the old bytes misses the cache and the whole ledger is verified again. Measured 2026-10-21
+ * (lane B report, same-process A/B, 3 runs): at 10,000 records a full verification cost 541-593 ms per
+ * decision, a checkpointed decision 236-284 ms; equal at 1,000. `guard show` always verifies every line.
  */
 export const GUARD_CHECKPOINT_FILE = 'guard-receipts.checkpoint.json';
 
 const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
-/** The ledger reading, using the checkpoint when its bytes still match. Falls back to a full read on any doubt. */
-export function readLedgerCheckpointed(text: string, checkpointText: string | null): LedgerReading {
+export function readLedgerCheckpointed(text: string, checkpointText: string | null, nowS: number = Math.floor(Date.now() / 1000)): LedgerReading {
   try {
     const c = JSON.parse(checkpointText ?? 'null') as { bytes?: unknown; sha256?: unknown } | null;
     const buf = Buffer.from(text, 'utf8');
     if (c && Number.isSafeInteger(c.bytes) && (c.bytes as number) <= buf.length && sha256(buf.subarray(0, c.bytes as number)) === c.sha256) {
-      // These bytes were verified line by line when the checkpoint was written: tally them, do not re-hash them.
-      let prefix: LedgerReading = { verdict: 'EMPTY', count: 0, spent: BigInt(0), last: null, breaks: [] };
+      const day = utcDay(nowS);
+      let prefix: LedgerReading = { verdict: 'EMPTY', count: 0, spent: { today: BigInt(0), total: BigInt(0) }, last: null, breaks: [] };
       for (const line of buf.subarray(0, c.bytes as number).toString('utf8').split(/\r?\n/)) {
         if (!line.trim()) continue;
-        const r = JSON.parse(line) as GuardReceipt;
-        prefix = { verdict: 'INTACT', count: prefix.count + 1, spent: (prefix.spent as bigint) + allowedSpend(r), last: { seq: r.seq, hash: r.hash }, breaks: [] };
+        const r = JSON.parse(line) as GuardRecord;
+        prefix = { verdict: 'INTACT', count: prefix.count + 1, spent: tally(r, day, prefix.spent as { today: bigint; total: bigint }), last: { seq: r.seq, hash: r.hash }, breaks: [] };
       }
-      return readLedger(buf.subarray(c.bytes as number).toString('utf8'), prefix);
+      return readLedger(buf.subarray(c.bytes as number).toString('utf8'), nowS, prefix);
     }
   } catch {
     /* no checkpoint, or one that does not parse: verify everything */
   }
-  return readLedger(text);
-}
-
-/** PURE. The next receipt line after `ledger`. */
-export function nextReceipt(
-  ledger: LedgerReading,
-  fields: { action: GuardAction; decision: GuardDecision; guardrails_sha256: string | null; origin?: string; ts?: string },
-): GuardReceipt {
-  const action: GuardAction = { tool: fields.action.tool, hosts: [...fields.action.hosts] };
-  if (fields.action.spend !== undefined) action.spend = fields.action.spend;
-  const body: Omit<GuardReceipt, 'hash'> = {
-    schema: GUARD_RECEIPT_SCHEMA,
-    seq: (ledger.last?.seq ?? 0) + 1,
-    ts: fields.ts ?? new Date().toISOString(),
-    origin: fields.origin ?? 'Cli',
-    action,
-    decision: fields.decision.decision,
-    reasons: [...fields.decision.reasons],
-    guardrails_sha256: fields.guardrails_sha256,
-    prev: ledger.last?.hash ?? null,
-  };
-  return { ...body, hash: receiptHash(body) };
-}
-
-/** sha256 of the rules (RFC 8785 form), the value a receipt binds to. */
-export function guardrailsSha256(g: Guardrails): string {
-  return jcsSha256(g);
+  return readLedger(text, nowS);
 }
 
 /** The filesystem calls the guard needs. Injectable so the logic is testable without a disk. */
@@ -331,7 +370,6 @@ export const nodeGuardFs = (): GuardFs => {
   return {
     exists: (p) => fs.existsSync(p),
     read: (p) => fs.readFileSync(p, 'utf8'),
-    // Owner-only, like the memory file: the ledger says what you did and what you spent.
     append: (p, d) => fs.appendFileSync(p, d, { mode: 0o600 }),
     write: (p, d) => fs.writeFileSync(p, d, { mode: 0o600 }),
     mkdirp: (p) => {
@@ -340,68 +378,111 @@ export const nodeGuardFs = (): GuardFs => {
   };
 };
 
-export type LoadedGuardrails =
+export type LoadedPolicy =
   | { state: 'absent'; path: string }
   | { state: 'invalid'; path: string; problems: string[] }
-  | { state: 'ok'; path: string; guardrails: Guardrails; sha256: string };
+  | { state: 'ok'; path: string; doc: PolicyDocument; sha256: string; defaulted: string[] };
 
-export function loadGuardrails(dir: string, fs: GuardFs = nodeGuardFs()): LoadedGuardrails {
-  const path = join(dir, GUARDRAILS_FILE);
+export function loadPolicy(dir: string, fs: GuardFs = nodeGuardFs()): LoadedPolicy {
+  const path = join(dir, POLICY_FILE);
   if (!fs.exists(path)) return { state: 'absent', path };
-  const { guardrails, problems } = parseGuardrails(fs.read(path));
-  return guardrails ? { state: 'ok', path, guardrails, sha256: guardrailsSha256(guardrails) } : { state: 'invalid', path, problems };
+  const r = parsePolicyDocument(fs.read(path));
+  return r.ok ? { state: 'ok', path, doc: r.doc, sha256: policySha256(r.doc.policy), defaulted: r.defaulted } : { state: 'invalid', path, problems: r.errors };
 }
 
-/**
- * Decide AND receipt one action against the file in `dir`, in that order, and return both. No file:
- * `null` (nothing is enforced, nothing is written). The receipt is appended before the caller acts on
- * an ALLOWED decision, so an action that then crashes is still on the ledger.
- * Only the lines after the checkpoint are re-verified (see GUARD_CHECKPOINT_FILE); a BROKEN ledger is never
- * checkpointed, so it stays BROKEN.
- * ponytail: still reads, parses and hashes the whole file per decision. Measured 2026-10-21 at 10,000
- * receipts: ~260 ms per decision against ~560 ms for re-verifying every line; equal at 1,000. O(1) needs the
- * checkpoint to carry the totals and a tail read by offset, which moves casual-edit detection from every
- * decision to `guard show` only. No lock either: two concurrent writers fork the chain, which then reads
- * BROKEN and refuses spends (fail closed).
- */
-export function guardAction(
+export interface GuardContext {
+  fs?: GuardFs;
+  origin?: string;
+  nowS?: number;
+  ts?: string;
+  /** A reason the caller knows and the policy cannot express (init --pai's child process): denied too. */
+  extraReasons?: string[];
+}
+
+/** Append one record to the ledger in `dir`, chained to the last one, and move the checkpoint. */
+export function appendRecord(
   dir: string,
-  action: GuardAction,
-  opts: { fs?: GuardFs; origin?: string; ts?: string; extraReasons?: string[] } = {},
-): { decision: GuardDecision; receipt: GuardReceipt; loaded: Exclude<LoadedGuardrails, { state: 'absent' }> } | null {
-  const fs = opts.fs ?? nodeGuardFs();
-  const loaded = loadGuardrails(dir, fs);
-  if (loaded.state === 'absent') return null;
+  fields: Omit<GuardRecord, 'schema' | 'seq' | 'ts' | 'origin' | 'prev' | 'hash'>,
+  ctx: GuardContext = {},
+): GuardRecord {
+  const fs = ctx.fs ?? nodeGuardFs();
+  const nowS = ctx.nowS ?? Math.floor(Date.now() / 1000);
   const ledgerPath = join(dir, GUARD_RECEIPTS_FILE);
   const checkpointPath = join(dir, GUARD_CHECKPOINT_FILE);
   const text = fs.exists(ledgerPath) ? fs.read(ledgerPath) : '';
-  const ledger = readLedgerCheckpointed(text, fs.exists(checkpointPath) ? fs.read(checkpointPath) : null);
-  const base =
-    loaded.state === 'ok' ? decide(loaded.guardrails, action, ledger.spent) : decide(null, action, null, loaded.problems);
-  // A reason the caller knows and the file cannot express (init --pai's child process) refuses too.
-  const reasons = [...base.reasons, ...(opts.extraReasons ?? [])];
-  const decision: GuardDecision = { decision: reasons.length ? 'REFUSED' : 'ALLOWED', reasons };
-  const receipt = nextReceipt(ledger, {
-    action,
-    decision,
-    guardrails_sha256: loaded.state === 'ok' ? loaded.sha256 : null,
-    origin: opts.origin,
-    ts: opts.ts,
-  });
+  const ledger = readLedgerCheckpointed(text, fs.exists(checkpointPath) ? fs.read(checkpointPath) : null, nowS);
+  const body: Omit<GuardRecord, 'hash'> = {
+    schema: GUARD_RECORD_SCHEMA,
+    seq: (ledger.last?.seq ?? 0) + 1,
+    ts: ctx.ts ?? new Date(nowS * 1000).toISOString(),
+    origin: ctx.origin ?? 'Cli',
+    ...fields,
+    prev: ledger.last?.hash ?? null,
+  };
+  const record: GuardRecord = { ...body, hash: recordHash(body) };
+  const line = canonicalize(record) + '\n';
   fs.mkdirp(dir);
-  const line = canonicalize(receipt) + '\n';
   fs.append(ledgerPath, line);
   if (ledger.verdict !== 'BROKEN') {
     const bytes = Buffer.from(text + line, 'utf8');
     fs.write(checkpointPath, JSON.stringify({ bytes: bytes.length, sha256: sha256(bytes) }) + '\n');
   }
-  return { decision, receipt, loaded };
+  return record;
+}
+
+/**
+ * Decide ONE request against the policy in `dir` and record the decision BEFORE the caller acts. No policy file:
+ * null (nothing decided, nothing written). The caller then runs the action only on ALLOWED.
+ * ponytail: reads and hashes the whole ledger file per decision (see GUARD_CHECKPOINT_FILE for the measured
+ * cost) and takes no lock: two concurrent writers fork the chain, which then reads BROKEN and refuses amounts.
+ */
+export function guardDecide(
+  dir: string,
+  req: GuardRequest,
+  scope: AssuranceScope,
+  ctx: GuardContext = {},
+): { decision: GuardDecision; record: GuardRecord; loaded: Exclude<LoadedPolicy, { state: 'absent' }> } | null {
+  const fs = ctx.fs ?? nodeGuardFs();
+  const nowS = ctx.nowS ?? Math.floor(Date.now() / 1000);
+  const loaded = loadPolicy(dir, fs);
+  if (loaded.state === 'absent') return null;
+  const ledgerPath = join(dir, GUARD_RECEIPTS_FILE);
+  const checkpointPath = join(dir, GUARD_CHECKPOINT_FILE);
+  const ledger = readLedgerCheckpointed(
+    fs.exists(ledgerPath) ? fs.read(ledgerPath) : '',
+    fs.exists(checkpointPath) ? fs.read(checkpointPath) : null,
+    nowS,
+  );
+  const base = loaded.state === 'ok' ? decide(loaded.doc.policy, req, ledger.spent, nowS) : decide(null, req, null, nowS, loaded.problems);
+  const reasons = [...base.reasons, ...(ctx.extraReasons ?? [])];
+  const decision: GuardDecision = { decision: reasons.length ? 'DENIED' : 'ALLOWED', reasons };
+  const requested: GuardRecord['requested'] = { action: actionFor(req), tool: req.tool, class: req.class };
+  if (req.amount_raw !== undefined) requested.amount_raw = req.amount_raw;
+  if (req.command_sha256 !== undefined) requested.command_sha256 = req.command_sha256;
+  const record = appendRecord(
+    dir,
+    {
+      kind: 'decision',
+      requested,
+      authorized: {
+        ...decision,
+        policy_sha256: loaded.state === 'ok' ? loaded.sha256 : null,
+        policy_nonce: loaded.state === 'ok' ? loaded.doc.policy.nonce : null,
+        policy_signed_by: loaded.state === 'ok' ? (loaded.doc.signature?.fingerprint ?? null) : null,
+      },
+      executed: decision.decision === 'DENIED' ? 'not run' : null,
+      assurance_scope: scope,
+    },
+    { ...ctx, fs, nowS },
+  );
+  return { decision, record, loaded };
 }
 
 /** The sentences `guard show` will not let a reader forget. */
 export const GUARD_DOES_NOT_COVER = [
-  'It bounds what trustshell does. It is not a sandbox: anything running as you can edit this file, delete the receipts, or reach the network without trustshell.',
-  'Egress is enforced on trustshell\'s own fetch calls. A child process (init --pai, a learn check command you registered) is not inside it: init --pai is refused while this file is in force; learn runs under tools.allow only.',
-  'The receipt chain is unkeyed: it detects an edit or a deleted line that left the later hashes alone, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.',
-  'Spend limits count the spends THIS ledger allowed (guard check --spend). A spend made without asking the guard is not counted.',
+  'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
+  'It decides before an action starts. What a started command does (files, network, child processes) is not observed.',
+  'A missing record never proves no action happened: the guard sees only what goes through it.',
+  'The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.',
+  'Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted.',
 ] as const;

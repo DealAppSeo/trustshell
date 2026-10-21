@@ -155,62 +155,18 @@ export declare function readRows(path: string, ids: readonly number[], env?: Nod
  * Both: readable (not a sealed placeholder) and not injection-looking now (the formatRecall screen).
  */
 export declare function injectable(row: MemoryRow): boolean;
-/** A note as a bundle carries it: the text and its whole taint record. No id: ids belong to one file. */
-export type PortableNote = {
-    kind: 'note' | 'pref';
-    body: string;
-    created_at: string;
-    provenance: Provenance;
-    source: string;
-    quarantined: boolean;
-    quarantine_reason: string | null;
-    released_by: string | null;
-    released_at: string | null;
-    source_sha256: string | null;
-};
-/** One `remember KEY VALUE` row. */
-export type PortableValue = {
-    key: string;
-    body: string;
-    created_at: string;
-};
-/** What `exportRows` left out, by count. Never their text. */
-export type WithheldCounts = {
-    encrypted: number;
-    do_not_send: number;
-    learn: number;
-};
 /**
- * Every note and keyed value, for `trustshell bundle export`. LEFT OUT, and counted: encrypted bodies
- * (a bundle is plain JSON, so it never decrypts what you chose to encrypt), do_not_send rows (the
- * same rule as recall), and the learn loop's lesson/learn rows (their learn_* tables do not travel).
- * The caller screens what is left for credential shapes.
+ * The notes an owner may select for `trustshell bundle export`, by id: kind note, not keyed, RELEASED (not
+ * quarantined) and not encrypted. A sealed body is never opened for a bundle (a bundle is plain JSON), so an
+ * encrypted note is listed in `encrypted` and never in `notes`. Quarantined ids are listed too, so the
+ * caller can say why a selected id was refused.
  */
-export declare function exportRows(path: string): {
-    notes: PortableNote[];
-    values: PortableValue[];
-    withheld: WithheldCounts;
+export declare function selectableNotes(path: string): {
+    notes: {
+        id: number;
+        body: string;
+        created_at: string;
+    }[];
+    quarantined: number[];
+    encrypted: number[];
 };
-export type ImportOutcome = {
-    applied: boolean;
-    added_notes: number;
-    duplicate_notes: number;
-    added_values: number;
-    same_values: number;
-    replaced_values: number;
-    /** Keys whose stored value differs from the bundle's. Nothing is written while any is listed, unless `replace`. */
-    conflicts: string[];
-};
-/**
- * Write a bundle's rows into this file, all or nothing, in ONE transaction. A note already here (same
- * kind, time and text) is skipped, so importing twice adds nothing. A key holding a different value is
- * a conflict: nothing at all is written unless `replace`. Labels are written as the bundle carries
- * them; encryption follows THIS file's setting, so an encrypted target seals what it receives.
- */
-export declare function importRows(path: string, rows: {
-    notes: readonly PortableNote[];
-    values: readonly PortableValue[];
-}, opts?: {
-    replace?: boolean;
-    env?: NodeJS.ProcessEnv;
-}): ImportOutcome;
