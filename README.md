@@ -1,4 +1,48 @@
-# Paste something an AI told you and see if it checks out.
+# Your AI says the job is done. TrustShell checks the evidence.
+
+TrustShell reads a **public GitHub Actions run** from GitHub and sets what your AI agent *said* beside what the run *reports*. Once installed, the only network call is to `api.github.com`: no account, no API key, no TrustShell server, and nothing of yours is uploaded. `GITHUB_TOKEN` is optional and only raises GitHub's rate limit. Public runs only, for now.
+
+## Check your own CI run
+
+Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `@next` is the release candidate that has `--claims`; plain `npx @hyperdag/trustshell` runs the stable release (see Status below), which does not have it yet.
+
+```bash
+RUN=https://github.com/OWNER/REPO/actions/runs/1234567890
+printf 'The workflow run succeeded, run %s.\n' "${RUN##*/}" > claims.txt
+npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt
+```
+
+Windows PowerShell:
+
+```powershell
+$run = "https://github.com/OWNER/REPO/actions/runs/1234567890"
+"The workflow run succeeded, run $($run.Split('/')[-1])." | Set-Content claims.txt
+npx @hyperdag/trustshell@next check $run --claims-file claims.txt
+```
+
+`claims.txt` is what your agent said. The line above writes one claim for you so the first run works; **replace it with your agent's own words** to test them. You get a card that marks each claim **SUPPORTED**, **CONTRADICTED** or **NOT_CHECKED**, and ends with what it does not prove. An excerpt, recorded 2026-10-21 on 1.8.0-rc.0 against a finished public run (`vitejs/vite`, run 39524643058), exit 0:
+
+```
+- **Run** `vitejs/vite` · run 39524643058 · attempt 1 · commit `daa260240c0863604b8ab565e3c35d81df6e85f2`
+- **GitHub reports** status `completed` · conclusion `success` · check verdict **COMPLETE**
+- **Evidence class** PLATFORM_REPORTED: GitHub describing its own run. A platform record, not an independent grade.
+
+### Claims: 2 supported · 0 contradicted · 0 not checked
+- **SUPPORTED** `The workflow run succeeded`
+- **SUPPORTED** `run 39524643058`
+```
+
+Four things to know before you try your own words:
+- **Write plain sentences, one per paragraph** (a blank line between them). One line the checker cannot read in full, such as Markdown, a question, or words it has no template for, blocks every verdict: the whole text comes back NOT_CHECKED, exit 3. That is deliberate; a PR description in Markdown is not read at all.
+- **Cite the run id** (`run 123456789`) in any sentence about the outcome. A commit alone does not tie a sentence to one of its many runs, so that sentence is not compared.
+- **SUPPORTED is narrow.** A green run supports "this workflow run succeeded", and nothing wider. "All tests pass" and "CI is green" are never SUPPORTED by one run.
+- **Exit codes:** `0` every claim SUPPORTED on a finished, passing run; `1` a claim CONTRADICTED, or the run failed; `3` something was NOT_CHECKED. NOT_CHECKED never exits `0`.
+
+If the card says **SUPPORTED** and it should not have, that is the worst bug this tool can have: [open an issue](https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml) with the run URL and your claim file. The rules are in [docs/action-evidence.md](docs/action-evidence.md); to help, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Also: check one sentence an AI told you
+
+Paste something an AI told you and see if it checks out. This is a different command with a different promise: it sends the sentence (after scrubbing secrets on your device) to the hosted checkers, so it leaves your machine.
 
 ```powershell
 npx @hyperdag/trustshell check "If you drive 60 miles at 30 mph and drive back at 60 mph, your average speed for the trip is 45 mph."
@@ -14,12 +58,6 @@ That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run
 
 ![How a check works: your sentence is scrubbed on your device; an equation such as 2 + 2 = 5 is worked out with no model; anything else goes to two checkers from different model families; both TRUE is Checks out, both FALSE is Caught, anything else is Not checked.](public/how-a-check-works.svg)
 
-<!--
-  Embed slot. The player stays out of the README until the file is in the repo.
-  When E:\TrustDisk\video\trustshell-demo-20s.mp4 exists, copy it to public/trustshell-demo-20s.mp4.
--->
-
-Placeholder path: `public/trustshell-demo-20s.mp4`. Source file, when it exists: `E:\TrustDisk\video\trustshell-demo-20s.mp4`. The player is hidden until that file is there.
 
 <div align="center">
 
@@ -424,8 +462,10 @@ The verdict is four-valued on purpose, and `INCONCLUSIVE` is not a pass:
 | `FAILED` | the run's own conclusion was not success | `1` |
 | `INCONCLUSIVE` | the run has not finished, or the jobs could not be fully read — **NOT CHECKED**, not "fine" | `3` |
 
-*(No example output is printed here on purpose: a card in a README is a claim about a run that
-may not exist. Run it against a real run and read your own.)*
+*(No example output is printed in this section on purpose: a card in a README is a claim about a run
+that may not exist. The one at the top is a recorded run that still exists; run yours against a real
+run and read your own.)* To compare what an agent said with the run, add `--claims-file`: see
+[Check your own CI run](#check-your-own-ci-run).
 
 ### `check "<sentence>"` — the same label the Chrome extension shows
 

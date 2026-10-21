@@ -1,18 +1,23 @@
 /**
- * The README and /start open on the same sentence and the same check.
- * Each output is one real run of the published package, not a written example.
+ * The README opens on the credential-free inspector (`check <runUrl> --claims-file`); the hosted
+ * sentence check follows it and says it leaves the machine. /start opens on the hosted check.
  *
- * README (2026-10-07): npx @hyperdag/trustshell check "<SPEED_TRAP>" ran 1.6.0 (npm latest) and
- * printed these three lines, exit 1. 1.6.0 added the third line, which names who decided.
- * /start: the 1.5.0 run, two lines, exit 1. The README change that moved the sample to 1.6.0 was
- * README + tests only, so /start still shows the older run. That is a known gap, pinned here so
- * whoever updates app/start/page.tsx has to choose a recording too, not drift into a mix.
+ * README (2026-10-21): the front door is the V1 inspector, because its tester needs no account and
+ * sends nothing to a TrustShell server. The recipe is run for real: the claim line it writes is
+ * replayed here against a recorded green run and must come back SUPPORTED with exit 0, so the first
+ * example a stranger copies cannot rot into a NOT_CHECKED.
+ *
+ * Hosted sample: npx @hyperdag/trustshell check "<SPEED_TRAP>" ran 1.6.0 (npm latest) on 2026-10-07 and
+ * printed these three lines, exit 1. /start: the 1.5.0 run, two lines, exit 1. /start still opens on the
+ * hosted check, a known gap, pinned here so whoever changes app/start/page.tsx has to choose on purpose.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SPEED_TRAP } from '../lib/home-samples';
+import { claimsExitCode, inspectRunClaims } from '../src/lib/action-evidence';
 
 const ROOT = join(__dirname, '..');
+const README_TITLE = 'Your AI says the job is done. TrustShell checks the evidence.';
 const SENTENCE = 'Paste something an AI told you and see if it checks out.';
 const COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;
 const OUTPUT = [
@@ -31,19 +36,73 @@ function text(rel: string): string {
 
 describe('README first screen', () => {
   const readme = text('README.md');
-  const DIAGRAM = '![How a check works';
-  const fold = readme.indexOf(DIAGRAM);
-  const first = fold === -1 ? readme : readme.slice(0, fold);
+  const ALSO = '## Also: check one sentence an AI told you';
+  const alsoAt = readme.indexOf(ALSO);
+  const first = alsoAt === -1 ? readme : readme.slice(0, alsoAt);
+  const FENCE = '`'.repeat(3);
+  const bash = first.split(FENCE + 'bash\n')[1]?.split(FENCE)[0] ?? '';
+  const powershell = first.split(FENCE + 'powershell\n')[1]?.split(FENCE)[0] ?? '';
 
-  it('opens with one sentence, the measured check, and a PowerShell line', () => {
-    expect(readme.startsWith(`# ${SENTENCE}\n`)).toBe(true);
-    expect(first).toContain('```powershell\n' + COMMAND + '\n```');
-    expect(first).toContain(OUTPUT);
-    expect(first).not.toMatch(/&&/);
-    expect(first).not.toMatch(/Get a receipt/);
-    expect(first).not.toMatch(/\b(Paris|Rome|Eiffel|Berlin)\b/);
-    expect(fold).toBeGreaterThan(first.indexOf(OUTPUT));
-    expect(readme.slice(fold, fold + 400)).toMatch(/\]\(public\/how-a-check-works\.svg\)/);
+  it('opens with the inspector, one recipe in bash and one in PowerShell, and no account or key', () => {
+    expect(readme.startsWith(`# ${README_TITLE}\n`)).toBe(true);
+    expect(alsoAt).toBeGreaterThan(0);
+    expect(first).toMatch(/## Check your own CI run/);
+    expect(bash).toContain('npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt');
+    expect(powershell).toContain('npx @hyperdag/trustshell@next check $run --claims-file claims.txt');
+    expect(first).toMatch(/no account, no API key, no TrustShell server/);
+    expect(bash).not.toMatch(/&&/);
+    expect(powershell).not.toMatch(/&&/);
+    expect(first).not.toContain(COMMAND);
+    expect(first).not.toContain(OUTPUT);
+    expect(first).not.toMatch(/E:\\TrustDisk/);
+  });
+
+  it('says what the exit codes are, that NOT_CHECKED never exits 0, and where a wrong SUPPORTED goes', () => {
+    expect(first).toMatch(/`3` something was NOT_CHECKED\. NOT_CHECKED never exits `0`/);
+    expect(first).toMatch(/Write plain sentences, one per paragraph/);
+    expect(first).toContain('issues/new?template=wrong-verdict.yml');
+    expect(first).toContain('CONTRIBUTING.md');
+  });
+
+  it('labels its sample card as an excerpt of one recorded run, with the date and version', () => {
+    expect(first).toMatch(/An excerpt, recorded 2026-10-21 on 1\.8\.0-rc\.0 against a finished public run/);
+    expect(first).toContain('PLATFORM_REPORTED');
+  });
+
+  it('the claim line the recipe writes is SUPPORTED, exit 0, on a recorded green run', async () => {
+    const fx = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/action-evidence/green-run.json'), 'utf8')) as {
+      run_url: string;
+      responses: Record<string, { status: number; body: unknown }>;
+    };
+    const runId = fx.run_url.split('/').pop() as string;
+    const fmt = /printf '(.*)\\n' /.exec(bash)?.[1] ?? '';
+    expect(fmt).toContain('%s');
+    expect(powershell).toContain(fmt.replace('%s', '$($run.Split(\'/\')[-1])'));
+    (globalThis as { fetch?: unknown }).fetch = async (url: string) => {
+      const u = new URL(url);
+      const r = fx.responses[u.pathname + u.search];
+      if (u.host !== 'api.github.com' || !r) throw new Error(`unrecorded request: ${url}`);
+      return { ok: r.status < 300, status: r.status, text: async () => JSON.stringify(r.body) };
+    };
+    try {
+      const { record } = await inspectRunClaims(fx.run_url, fmt.replace('%s', runId) + '\n', { env: {} });
+      expect(record.claims.map((c) => `${c.template}:${c.status}`)).toEqual(['gha.run_succeeded:SUPPORTED', 'gha.run_id:SUPPORTED']);
+      expect(claimsExitCode(record)).toBe(0);
+    } finally {
+      delete (globalThis as { fetch?: unknown }).fetch;
+    }
+  });
+
+  it('the hosted sentence check follows, says it leaves the machine, and keeps its measured sample', () => {
+    const rest = readme.slice(alsoAt);
+    const fold = rest.indexOf('![How a check works');
+    expect(rest).toMatch(/so it leaves your machine/);
+    expect(rest).toContain('```powershell\n' + COMMAND + '\n```');
+    expect(rest).toContain(OUTPUT);
+    expect(rest).not.toMatch(/&&/);
+    expect(rest.slice(0, fold)).not.toMatch(/\b(Paris|Rome|Eiffel|Berlin)\b/);
+    expect(fold).toBeGreaterThan(rest.indexOf(OUTPUT));
+    expect(rest.slice(fold, fold + 400)).toMatch(/\]\(public\/how-a-check-works\.svg\)/);
   });
 });
 
@@ -68,7 +127,7 @@ describe('the animated diagram under the first screen', () => {
   });
 });
 
-describe('/start aligned with that screen', () => {
+describe('/start still opens on the hosted check', () => {
   const page = text('app/start/page.tsx');
 
   it('shows the same sentence, the same command, and its own recorded run', () => {
