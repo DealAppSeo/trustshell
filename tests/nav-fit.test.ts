@@ -34,7 +34,9 @@ const SOURCE = readFileSync(join(__dirname, '..', 'components', 'top-nav.tsx'), 
 // document scrollWidth 768, i.e. no overflow (tests/e2e/journey-walk.mjs checks it on every run).
 // 2026-10-16: four links by job (Check, Add to your AI, Your agent, Docs), fewer than the five
 // measured above, so md still clears the row. Re-measured at 768px on the preview build.
-const MEASURED_LINK_COUNT = 4;
+// 2026-10-21: Try Inspect added as a fifth link (sprint revision 2: one call to action for developers).
+// Five links cleared md at 768px on 2026-10-07; re-measured at 768px on this change's preview build.
+const MEASURED_LINK_COUNT = 5;
 const BREAKPOINT = 'md';
 
 describe('top nav fits the viewport it appears in', () => {

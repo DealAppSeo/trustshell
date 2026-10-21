@@ -19,6 +19,7 @@ const form = readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8');
 
 const STRANGER = [
   ['/check', 'Check'],
+  ['/inspect', 'Try Inspect'],
   ['/#add-agent', 'Add to your AI'],
   ['/pai', 'Your agent'],
   ['/docs', 'Docs'],
@@ -27,7 +28,7 @@ const STRANGER = [
 const OFF_NAV = ['Market', 'Leaderboard', 'Claim', 'Preview', 'RepID', 'History', 'Settings', 'PAI', 'Mission', 'Agents', 'Connect', 'Run', 'Stake', 'Start'];
 
 describe('stranger nav', () => {
-  it('lists Check, Add to your AI, Your agent, Docs, in that order', () => {
+  it('lists Check, Try Inspect, Add to your AI, Your agent, Docs, in that order', () => {
     const found = [...nav.matchAll(/\{\s*href:\s*'([^']+)',\s*label:\s*'([^']+)'\s*\}/g)].map((m) => [m[1], m[2]]);
     expect(found).toEqual(STRANGER.map((pair) => [...pair]));
     expect(nav).not.toMatch(/pathname\s*===\s*'\/'\s*\)\s*return null/);
