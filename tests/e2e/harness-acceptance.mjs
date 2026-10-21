@@ -874,9 +874,13 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
         // The registration of every agent a NewFeedback in this tx names, from the IdentityRegistry.
         const agentIds = [...new Set((r.logs ?? []).filter((l) => l.topics?.[0] === oc.NEW_FEEDBACK && l.topics.length === 4).map((l) => BigInt(l.topics[1]).toString()))];
         const registrations = Object.fromEntries(await Promise.all(agentIds.map(async (id) => [id, await tokenURIOf(id, AbiCoder)])));
+        // For registrations that carry an agent id rather than a name: the id each named party's
+        // passport gives. An unreadable passport leaves that party matchable by name only.
+        const expectAgentIds = Object.fromEntries(await Promise.all(expectAgents.filter(Boolean).map(async (a) =>
+          [a, (await getEngineJson(`/api/v1/passport/${encodeURIComponent(a)}`).catch(() => null))?.agent?.agent_id ?? null])));
         perf.onchain_write_ms = since(tw);
         const c = oc.checkReputationWrite({
-          receipt: r, minedAtMs: minedAt, nowMs: Date.now(), expectAgents, registrations, expectValue, abi: AbiCoder.defaultAbiCoder(),
+          receipt: r, minedAtMs: minedAt, nowMs: Date.now(), expectAgents, registrations, expectAgentIds, expectValue, abi: AbiCoder.defaultAbiCoder(),
         });
         const evidence = {
           tx, source, block: parseInt(r.blockNumber, 16), mined_at: new Date(minedAt).toISOString(), age_h: Number(c.ageH.toFixed(1)),
@@ -885,7 +889,10 @@ let dealReceipt = null; // the public receipt JSON, reused by leg 2 as its point
         if (c.wrong.length) record('onchain.erc8004_reputation_write', 'FAILED', c.wrong.join('; '), evidence);
         else record('onchain.erc8004_reputation_write', 'MEASURED',
           `tx ${short(tx)} (from ${source}) status 0x1 to the pinned ReputationRegistry: one NewFeedback tagged ${oc.REPID_FEEDBACK_TAG} for ERC-8004 ` +
-          `agent ${c.feedback.agentId}, registered on chain as "${c.feedback.registeredAs}" (a name match to ${expectAgents.join(' / ')}), ` +
+          `agent ${c.feedback.agentId}, registered on chain as "${c.feedback.registeredAs}" (` +
+          (c.feedback.boundBy === 'name'
+            ? `a name match to ${expectAgents.join(' / ')}), `
+            : `the agent id ${c.feedback.boundTo}'s passport gives: an id match through the engine, weaker than a name on chain), `) +
           `value ${c.feedback.value}${expectValue === null ? ' (no value stated by the engine to compare)' : ', as the engine states'}, ` +
           `block ${evidence.block}, mined ${c.ageH.toFixed(1)}h ago`, evidence);
       }

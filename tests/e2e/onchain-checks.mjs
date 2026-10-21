@@ -112,7 +112,12 @@ export function agentNameFromTokenURI(uri) {
       return typeof json?.name === 'string' && json.name.trim() !== '' ? json.name.trim() : null;
     }
     if (/^https?:\/\//.test(s)) {
-      const seg = new URL(s).pathname.split('/').filter(Boolean).pop();
+      // The agent is the segment after `agents`, not the last one: repid.dev registrations are
+      // /agents/<agent id>/metadata, and reading the last segment named trinity-shofet's token 5863
+      // an agent called "metadata" (e2e-honesty red 2026-10-21, trustshell #589).
+      const segs = new URL(s).pathname.split('/').filter(Boolean);
+      const i = segs.indexOf('agents');
+      const seg = i >= 0 && segs[i + 1] ? segs[i + 1] : segs.pop();
       return seg ? decodeURIComponent(seg) : null;
     }
   } catch { /* an unreadable registration names nobody */ }
@@ -138,8 +143,13 @@ export const bindsToAgent = (registeredName, agentName) => {
  * (the deal's two named parties, or the sample agent): the engine supplies the names, the chain the
  * binding. When the engine states the value (`expectValue`, the deal receipt's onchain_repid) it must
  * equal the written value at 0 decimals. A null receipt is FAILED here, not left to the caller.
+ *
+ * Some registrations carry an agent id, not a name (repid.dev /agents/<id>/metadata). Such a
+ * registration binds only through `expectAgentIds` ({ name: the id the engine's passport gives that
+ * name }): the chain fixes token -> id, the engine id -> name. `feedback.boundBy` says which
+ * ('name' or 'engine-id') so the leg's line can say the id match is the weaker of the two.
  */
-export function checkReputationWrite({ receipt, minedAtMs, nowMs, expectAgents, registrations = {}, expectValue = null, abi }) {
+export function checkReputationWrite({ receipt, minedAtMs, nowMs, expectAgents, registrations = {}, expectAgentIds = {}, expectValue = null, abi }) {
   if (!receipt) return { wrong: ['the chain has no receipt for the reputation write'], feedback: null, ageH: null };
   const wrong = [];
   if (receipt.status !== '0x1') wrong.push(`the write reverted (status ${receipt.status})`);
@@ -156,11 +166,14 @@ export function checkReputationWrite({ receipt, minedAtMs, nowMs, expectAgents, 
   else {
     const e = events[0];
     const registeredAs = agentNameFromTokenURI(registrations[e.agentId]);
-    feedback = { ...e, registeredAs };
     const wanted = (expectAgents ?? []).filter(Boolean);
+    const byName = registeredAs === null ? undefined : wanted.find((a) => bindsToAgent(registeredAs, a));
+    const byId = registeredAs === null || byName ? undefined
+      : wanted.find((a) => typeof expectAgentIds[a] === 'string' && expectAgentIds[a] !== '' && lower(expectAgentIds[a]) === lower(registeredAs));
+    feedback = { ...e, registeredAs, boundTo: byName ?? byId ?? null, boundBy: byName ? 'name' : byId ? 'engine-id' : null };
     if (wanted.length === 0) wrong.push('the engine names no agent to compare the write against');
     else if (registeredAs === null) wrong.push(`the IdentityRegistry names no agent for ERC-8004 id ${e.agentId}`);
-    else if (!wanted.some((a) => bindsToAgent(registeredAs, a))) {
+    else if (!byName && !byId) {
       wrong.push(`the NewFeedback is for ERC-8004 agent ${e.agentId}, registered on chain as "${registeredAs}", not ${wanted.join(' or ')}`);
     }
     if (expectValue !== null && !(e.decimals === 0 && e.value === String(expectValue))) {
