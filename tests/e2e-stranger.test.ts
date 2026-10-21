@@ -327,6 +327,29 @@ describe('stranger e2e on current main', () => {
     }
   });
 
+  it('bundle and guard run locally: no guardrails file decides nothing, and a bundle verifies as this install', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-bundle-stranger-'));
+    const prevCwd = process.cwd();
+    const prevHome = process.env.TRUSTSHELL_HOME;
+    try {
+      process.chdir(dir);
+      process.env.TRUSTSHELL_HOME = join(dir, 'home');
+      process.env.TRUSTSHELL_MEMORY = join(dir, 'home', 'memory.sqlite');
+      const check = await go(['guard', 'check', '--tool', 'verify']);
+      expect(check.code).toBe(2);
+      expect(check.out).toMatch(/^NOT_CHECKED .*This is not an allow\./);
+      expect((await go(['bundle', 'export', join(dir, 'b.json')])).code).toBe(0);
+      const verified = await go(['bundle', 'verify', join(dir, 'b.json')]);
+      expect(verified.code).toBe(0);
+      expect(verified.out).toContain('trusted as this install');
+    } finally {
+      process.chdir(prevCwd);
+      if (prevHome === undefined) delete process.env.TRUSTSHELL_HOME;
+      else process.env.TRUSTSHELL_HOME = prevHome;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('landing keeps the 1.7.0 install line and does not put status on npm', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');

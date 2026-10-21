@@ -68,6 +68,8 @@ import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/ke
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { join } from 'node:path';
 import { runLearn } from '../learn/cli';
+import { runBundle } from './bundle';
+import { EXIT_REFUSED, runGuard, runGuarded } from './guard';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -87,6 +89,8 @@ export const EXIT = {
   RUNTIME: 3,
   /** Laya ask. A person has to answer. HAL was not called. */
   ASK: 4,
+  /** The guardrails file (~/.trustshell/guardrails.json) refused the command. Nothing ran. */
+  REFUSED: EXIT_REFUSED,
 } as const;
 
 export type Command =
@@ -110,6 +114,8 @@ export type Command =
   | 'traps'
   | 'ground'
   | 'learn'
+  | 'bundle'
+  | 'guard'
   | 'help'
   | 'version';
 
@@ -176,6 +182,9 @@ export interface ParsedArgs {
   demo?: boolean;
   /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
   learnArgv?: string[];
+  /** bundle / guard: everything after the command, parsed by src/cli/bundle.ts and src/cli/guard.ts. */
+  bundleArgv?: string[];
+  guardArgv?: string[];
   /** profile: the parsed subcommand (show / add / set / remove / interview). */
   profileOp?: ProfileOp;
   /** A usage error message; when set the caller should print help + exit USAGE. */
@@ -342,6 +351,35 @@ COMMANDS
   quarantine release <id> --trusted
                              You vouch for it (not a check): stored trusted, released_by says so.
                              release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
+  bundle export <file>       Write your second brain as ONE signed file: .trustshell/profile.md,
+                             ~/.trustshell/guardrails.json, every note with its taint labels and
+                             every remember KEY VALUE. Ed25519 over its RFC 8785 form, with this
+                             install's key (created on first use, never in the file). Left out and
+                             counted: credential shapes, encrypted notes, do_not_send, learn rows.
+      [--force]              Replace an existing <file>.
+  bundle verify <file> [--signer <fingerprint>]
+                             Check the signature and the signer without writing anything.
+  bundle context <file> [--signer <fingerprint>]
+                             Verify, then print the person as text for a model: profile, trust
+                             settings, guardrails, released notes and saved values (never a
+                             quarantined note). Hand it to any model; the bundle is the same person.
+  bundle import <file> [--signer <fingerprint>] [--force]
+                             Verify, then write it here. The signer must be this install's key or
+                             the --signer fingerprint export printed; anything else is NOT_CHECKED.
+                             An altered file is refused (exit 1). A profile, guardrails file or key
+                             that differs here is a conflict: nothing is written without --force.
+                             A note already here is skipped, so importing twice adds nothing.
+  guard init                 Write ~/.trustshell/guardrails.json, default-deny: no network host,
+                             local commands only, spend limit 0. With no file nothing is enforced.
+  guard show                 Print the rules, the spend so far and the receipt chain.
+  guard check --tool <name> [--host <h>]... [--spend <n>]
+                             Ask the rules about any action, from any agent harness. Receipted.
+                             EXIT 0 ALLOWED, 5 REFUSED, 2 NOT_CHECKED (no file).
+  guard allow|deny host|tool <value>   ·   guard limit per-action|total <n>
+                             While the file exists, every other command is weighed first: a command
+                             not in tools.allow, or dialing a host not in egress.allow, is refused
+                             (exit 5) with a receipt in guard-receipts.jsonl. help, version and
+                             guard always run.
   learn <verb>               The learning loop, local: jobs you create, checks you register, your
                              corrections as lessons you accept, injected verbatim (max 5 / 400
                              tokens), unaided probes, spaced review, rulers. trustshell learn for
@@ -381,6 +419,7 @@ EXIT CODES
                                                       · check "<sentence>": not-checked
   3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
   4  ASK — only when TRUSTSHELL_LAYA is set; HAL was not called
+  5  REFUSED by ~/.trustshell/guardrails.json — nothing ran (only when that file exists)
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
@@ -395,6 +434,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   quarantine                       NOTHING, except release --check hal: the DEFAULT backend's /api/v1/classify
                                    only. A TRUSTSHELL_API_URL pointing elsewhere is not asked.
   profile                          NOTHING. Reads and writes .trustshell/profile.md.
+  bundle · guard                   NOTHING. Local files only.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -426,6 +466,8 @@ function looksLikeOption(a: string): boolean {
 export function parseArgs(argv: string[]): ParsedArgs {
   // `learn` has its own verbs and options (src/learn/cli.ts); they never reach the flag loop below.
   if (argv[0] === 'learn') return { command: 'learn', learnArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'bundle') return { command: 'bundle', bundleArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'guard') return { command: 'guard', guardArgv: argv.slice(1), json: false, verify: false };
   const flags = new Set<string>();
   const positionals: string[] = [];
   // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -967,6 +1009,14 @@ export async function run(
     case 'learn':
       return runLearn(args.learnArgv ?? [], io);
 
+    case 'bundle':
+      // Local files only. Opens no socket.
+      return runBundle(args.bundleArgv ?? [], io);
+
+    case 'guard':
+      // Local files only. Opens no socket.
+      return runGuard(args.guardArgv ?? [], io);
+
     case 'recall': {
       try {
         io.out(args.key ? recallKey(args.key) : recallNotes(process.env, { includeQuarantined: args.includeQuarantined }));
@@ -1488,7 +1538,8 @@ export async function runClaimCheck(
 /** Entry point: parse argv, run, exit with the returned code. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
-  const code = await run(args, makeClient());
+  // The guardrails file, if the person wrote one, decides before the command runs (src/cli/guard.ts).
+  const code = await runGuarded(args, () => run(args, makeClient()), realIO);
   process.exit(code);
 }
 

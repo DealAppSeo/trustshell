@@ -138,3 +138,30 @@ export {
 } from '../memory/quarantine';
 export type { QuarantineRecord, QuarantineListItem, ReleaseOutcome, Provenance } from '../memory/quarantine';
 export { releaseByHal } from '../memory/quarantine-hal';
+
+/**
+ * Guardrails: one user-tuned file (`~/.trustshell/guardrails.json`, or TRUSTSHELL_HOME) that bounds what
+ * an agent may do: egress hosts, tools, spend per action and in total. Default-deny once written; no file
+ * decides nothing (`guardAction` returns null, never an allow). Every decision is appended to a hash-chained
+ * receipt ledger BEFORE the caller acts. Call `guardAction(trustshellHome(), { tool, hosts, spend })` before
+ * each tool call in your own harness. Not a sandbox: see GUARD_DOES_NOT_COVER.
+ */
+export {
+  guardAction,
+  decide,
+  loadGuardrails,
+  parseGuardrails,
+  readLedger,
+  defaultGuardrails,
+  trustshellHome,
+  GUARD_DOES_NOT_COVER,
+} from './guardrails';
+export type { Guardrails, GuardAction, GuardDecision, GuardReceipt, LedgerReading } from './guardrails';
+
+/**
+ * Bundle: the second brain as one Ed25519-signed file (profile, guardrails, memory with its taint labels).
+ * `verifyBundle` refuses an altered file and any signer you did not name; `brainContext` is the text any
+ * model is handed, so swapping the model changes nothing else. No network.
+ */
+export { verifyBundle, brainContext, bundleProblems, BundleError, BUNDLE_SCHEMA } from './bundle';
+export type { Bundle, BundlePayload, VerifiedBundle } from './bundle';

@@ -36,7 +36,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.releaseByHal = exports.UNCHECKED_REASON = exports.sourceDigest = exports.releaseExitCode = exports.releaseByGround = exports.explainQuarantine = exports.listQuarantined = exports.rememberUntrusted = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
+exports.BUNDLE_SCHEMA = exports.BundleError = exports.bundleProblems = exports.brainContext = exports.verifyBundle = exports.GUARD_DOES_NOT_COVER = exports.trustshellHome = exports.defaultGuardrails = exports.readLedger = exports.parseGuardrails = exports.loadGuardrails = exports.decide = exports.guardAction = exports.releaseByHal = exports.UNCHECKED_REASON = exports.sourceDigest = exports.releaseExitCode = exports.releaseByGround = exports.explainQuarantine = exports.listQuarantined = exports.rememberUntrusted = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
 var trustshell_1 = require("./trustshell");
@@ -162,3 +162,30 @@ Object.defineProperty(exports, "sourceDigest", { enumerable: true, get: function
 Object.defineProperty(exports, "UNCHECKED_REASON", { enumerable: true, get: function () { return quarantine_1.UNCHECKED_REASON; } });
 var quarantine_hal_1 = require("../memory/quarantine-hal");
 Object.defineProperty(exports, "releaseByHal", { enumerable: true, get: function () { return quarantine_hal_1.releaseByHal; } });
+/**
+ * Guardrails: one user-tuned file (`~/.trustshell/guardrails.json`, or TRUSTSHELL_HOME) that bounds what
+ * an agent may do: egress hosts, tools, spend per action and in total. Default-deny once written; no file
+ * decides nothing (`guardAction` returns null, never an allow). Every decision is appended to a hash-chained
+ * receipt ledger BEFORE the caller acts. Call `guardAction(trustshellHome(), { tool, hosts, spend })` before
+ * each tool call in your own harness. Not a sandbox: see GUARD_DOES_NOT_COVER.
+ */
+var guardrails_1 = require("./guardrails");
+Object.defineProperty(exports, "guardAction", { enumerable: true, get: function () { return guardrails_1.guardAction; } });
+Object.defineProperty(exports, "decide", { enumerable: true, get: function () { return guardrails_1.decide; } });
+Object.defineProperty(exports, "loadGuardrails", { enumerable: true, get: function () { return guardrails_1.loadGuardrails; } });
+Object.defineProperty(exports, "parseGuardrails", { enumerable: true, get: function () { return guardrails_1.parseGuardrails; } });
+Object.defineProperty(exports, "readLedger", { enumerable: true, get: function () { return guardrails_1.readLedger; } });
+Object.defineProperty(exports, "defaultGuardrails", { enumerable: true, get: function () { return guardrails_1.defaultGuardrails; } });
+Object.defineProperty(exports, "trustshellHome", { enumerable: true, get: function () { return guardrails_1.trustshellHome; } });
+Object.defineProperty(exports, "GUARD_DOES_NOT_COVER", { enumerable: true, get: function () { return guardrails_1.GUARD_DOES_NOT_COVER; } });
+/**
+ * Bundle: the second brain as one Ed25519-signed file (profile, guardrails, memory with its taint labels).
+ * `verifyBundle` refuses an altered file and any signer you did not name; `brainContext` is the text any
+ * model is handed, so swapping the model changes nothing else. No network.
+ */
+var bundle_1 = require("./bundle");
+Object.defineProperty(exports, "verifyBundle", { enumerable: true, get: function () { return bundle_1.verifyBundle; } });
+Object.defineProperty(exports, "brainContext", { enumerable: true, get: function () { return bundle_1.brainContext; } });
+Object.defineProperty(exports, "bundleProblems", { enumerable: true, get: function () { return bundle_1.bundleProblems; } });
+Object.defineProperty(exports, "BundleError", { enumerable: true, get: function () { return bundle_1.BundleError; } });
+Object.defineProperty(exports, "BUNDLE_SCHEMA", { enumerable: true, get: function () { return bundle_1.BUNDLE_SCHEMA; } });

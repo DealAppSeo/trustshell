@@ -48,8 +48,10 @@ export declare const EXIT: {
     readonly RUNTIME: 3;
     /** Laya ask. A person has to answer. HAL was not called. */
     readonly ASK: 4;
+    /** The guardrails file (~/.trustshell/guardrails.json) refused the command. Nothing ran. */
+    readonly REFUSED: 5;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'learn' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'learn' | 'bundle' | 'guard' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -113,6 +115,9 @@ export interface ParsedArgs {
     demo?: boolean;
     /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
     learnArgv?: string[];
+    /** bundle / guard: everything after the command, parsed by src/cli/bundle.ts and src/cli/guard.ts. */
+    bundleArgv?: string[];
+    guardArgv?: string[];
     /** profile: the parsed subcommand (show / add / set / remove / interview). */
     profileOp?: ProfileOp;
     /** A usage error message; when set the caller should print help + exit USAGE. */
