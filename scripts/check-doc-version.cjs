@@ -65,7 +65,23 @@ function loadPackageVersion(root = ROOT) {
   if (!/^\d+\.\d+\.\d+/.test(version)) {
     return { ok: false, reason: 'package.json has no x.y.z version', version: null };
   }
-  return { ok: true, reason: null, version: version.split('-')[0] };
+  return { ok: true, reason: null, version: version.split('-')[0], alsoOk: prereleaseAlsoOk(root, version) };
+}
+
+/**
+ * A prerelease (1.8.0-rc.0) is published under the `next` tag and `latest` does not move, so the docs
+ * still, correctly, tell people to install what `latest` serves. lib/npm-latest.ts names that version
+ * ("bump it when `npm view` changes"); a prerelease package accepts it besides its own x.y.z. A plain
+ * release accepts only itself, and every other version is still a contradiction.
+ */
+function prereleaseAlsoOk(root, version) {
+  if (!version.includes('-')) return [];
+  try {
+    const m = /NPM_LATEST\s*=\s*'(\d+\.\d+\.\d+)'/.exec(readFileSync(join(root, 'lib', 'npm-latest.ts'), 'utf8'));
+    return m ? [m[1]] : [];
+  } catch {
+    return [];
+  }
 }
 
 function walkMarkdown(root = ROOT) {
@@ -157,7 +173,7 @@ function isCurrentClaim(line, version, matchIndex) {
   return false;
 }
 
-function scanFile(text, fileRel, pkgVersion) {
+function scanFile(text, fileRel, pkgVersion, alsoOk = []) {
   const hits = [];
   const lines = text.split(/\n/);
   for (let i = 0; i < lines.length; i += 1) {
@@ -166,7 +182,7 @@ function scanFile(text, fileRel, pkgVersion) {
     for (const m of line.matchAll(SEMVER)) {
       const version = m[1];
       const idx = m.index;
-      if (version === pkgVersion) continue;
+      if (version === pkgVersion || alsoOk.includes(version)) continue;
       if (isFloor(line, idx)) {
         // A floor is only a claim about THIS package when the package is named.
         // `>=18.0.0` is Node; comparing it to package.json 1.4.0 is nonsense.
@@ -217,7 +233,7 @@ function scanRepo(root = ROOT) {
       continue;
     }
     if (isHistoricalPlan(text) || isHistoricalRecord(text)) continue;
-    hits.push(...scanFile(text, relPosix(root, f), pkg.version));
+    hits.push(...scanFile(text, relPosix(root, f), pkg.version, pkg.alsoOk));
   }
   const stats = { md: files.length, version: pkg.version, hits: hits.length };
   if (hits.length > 0) return { status: 'FAILED', reason: null, hits, stats };
