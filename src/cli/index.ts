@@ -1316,7 +1316,7 @@ export async function run(
         if (!fs.existsSync(path)) {
           // A missing log is NOT CHECKED, never "clean". Exit 3.
           const r = noLog(path);
-          if (args.json) io.out(JSON.stringify(r, null, 2));
+          if (args.json) io.out(terminalSafeJson(r));
           else io.out(formatInspectCard(r));
           return inspectExitCode(r.verdict);
         }
@@ -1327,7 +1327,7 @@ export async function run(
           return EXIT.USAGE;
         }
         const r = from === 'claude-code' ? readClaudeCode(text, path) : verifyChain(text, path);
-        if (args.json) io.out(JSON.stringify(r, null, 2));
+        if (args.json) io.out(terminalSafeJson(r));
         else io.out(formatInspectCard(r));
         return inspectExitCode(r.verdict);
       } catch (e: any) {
