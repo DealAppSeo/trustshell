@@ -186,7 +186,8 @@ export function renderMarkdown(src: string): string {
       const seen = slugCount.get(base) ?? 0;
       slugCount.set(base, seen + 1);
       const id = seen ? `${base}-${seen}` : base;
-      out.push(`<h${level} id="${id}" class="${sizeClass}">${inner}</h${level}>`);
+      // scroll-mt: an anchored heading must land below the sticky site header, not under it.
+      out.push(`<h${level} id="${id}" class="scroll-mt-20 ${sizeClass}">${inner}</h${level}>`);
       i++;
       continue;
     }
