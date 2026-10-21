@@ -457,7 +457,7 @@ function decideLocked(dir, req, scope, ctx, loaded) {
 }
 /** The sentences `guard show` will not let a reader forget. */
 exports.GUARD_DOES_NOT_COVER = [
-    'It covers the trustshell CLI and `trustshell run`. The MCP server (trustshell-mcp) does not read this policy yet.',
+    'It covers the trustshell CLI and `trustshell run`. The MCP server (trustshell-mcp) does not read this policy yet, and neither do SDK calls (code that imports @hyperdag/trustshell): such code must call guardDecide itself.',
     'It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).',
     'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
     'It decides before an action starts. What a started command does (files, network, child processes) is not observed.',

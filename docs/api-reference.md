@@ -469,7 +469,7 @@ when it is not). A policy that does not parse denies everything. `help`, `versio
 `0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow).
 
 What it covers: the trustshell CLI and `trustshell run`. The MCP server (`trustshell-mcp`) does not read the
-policy yet. It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the
+policy yet, and neither do SDK calls: code that imports the package must call `guardDecide` itself. It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the
 policy, and every change (including an import that enforces a carried policy) leaves a `policy-change` record
 with the policy hash before and after. A `TRUSTSHELL_HOME` with no policy, while `~/.trustshell/policy.json`
 exists, prints a warning on every command, because it switches the guard off for that command.
