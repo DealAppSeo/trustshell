@@ -42,14 +42,14 @@ function lineReader(ctx: string, id: string): string {
   const lines = ctx.split('\n');
   const after = (heading: string) => lines[lines.indexOf(heading) + 1] ?? '';
   const line = (prefix: string) => lines.find((l) => l.startsWith(prefix)) ?? '';
-  const hosts = line('- network hosts allowed:').split(':')[1]?.split(',').map((h) => h.trim()) ?? [];
+  const hosts = new Set(line('- network hosts allowed:').split(':')[1]?.split(',').map((h) => h.trim()) ?? []);
   switch (id) {
     case 'top_value': return after('Values, most important first:').replace(/^1\.\s*/, '');
     case 'helps': return after('People they help:').replace(/^-\s*/, '');
     case 'constraint': return after('Constraints that must hold:').replace(/^1\.\s*/, '');
     case 'autonomy': return line('Trust settings:').split(';')[0]?.split(' ').pop() ?? '';
-    case 'host_ok': return hosts.includes('api.github.com') ? 'yes' : 'no';
-    case 'host_no': return hosts.includes('evil.example') ? 'yes' : 'no';
+    case 'host_ok': return hosts.has('api.github.com') ? 'yes' : 'no';
+    case 'host_no': return hosts.has('evil.example') ? 'yes' : 'no';
     case 'spend_cap': return line('- spend:').match(/up to (\d+) per action/)?.[1] ?? '';
     case 'saved_value': return line('- favorite_model_family:').split(': ')[1] ?? '';
     case 'rule': return lines.find((l) => /standing rule/i.test(l)) ?? '';
@@ -61,7 +61,7 @@ function lineReader(ctx: string, id: string): string {
 /** Reader 2: never splits lines; pattern-matches the whole text. */
 function patternReader(ctx: string, id: string): string {
   const m = (re: RegExp) => ctx.match(re)?.[1]?.trim() ?? '';
-  const allowed = (host: string) => new RegExp(`network hosts allowed:[^\\n]*\\b${host.replace(/\./g, '\\.')}\\b`).test(ctx);
+  const allowed = (host: string) => new Set(m(/network hosts allowed: ([^\n]*)/).split(', ')).has(host);
   switch (id) {
     case 'top_value': return m(/Values[^\n]*\n1\. ([^\n]+)/);
     case 'helps': return m(/People they help:\n- ([^(\n]+)/);

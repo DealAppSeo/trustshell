@@ -154,7 +154,9 @@ function parseFrontmatter(text) {
     if (!m || !m[1])
         return out;
     for (const line of m[1].split(/\r?\n/)) {
-        const kv = line.match(/^([A-Za-z0-9_]+)\s*:\s*(.*)$/);
+        // No `\s*` after the colon: the value is trimmed below, and `\s*(.*)` is quadratic on a run of spaces
+        // (CodeQL js/polynomial-redos, reachable since a bundle's profile is parsed: src/lib/bundle.ts).
+        const kv = line.match(/^([A-Za-z0-9_]+)\s*:(.*)$/);
         if (kv && kv[1] !== undefined && kv[2] !== undefined)
             out[kv[1]] = kv[2].trim();
     }
@@ -175,17 +177,34 @@ function sectionBody(text, heading) {
     let collecting = false;
     const body = [];
     for (const line of lines) {
-        const h = line.match(/^#\s+(.*?)\s*$/);
-        if (h) {
+        // `# ` then the heading, trimmed: what `^#\s+(.*?)\s*$` captured, without its quadratic backtracking.
+        const h = /^#\s/.test(line) ? line.slice(1).trim() : null;
+        if (h !== null) {
             if (collecting)
                 break;
-            collecting = (h[1] ?? '').toLowerCase() === want;
+            collecting = h.toLowerCase() === want;
             continue;
         }
         if (collecting)
             body.push(line);
     }
-    return body.join('\n').replace(/<!--[\s\S]*?-->/g, '').trim();
+    return stripComments(body.join('\n')).trim();
+}
+/**
+ * Remove every `<!-- ... -->` exactly as `/<!--[\s\S]*?-->/g` did, by a linear scan: that regex was
+ * quadratic on many `<!--` with no `-->` (CodeQL js/polynomial-redos). An unclosed `<!--` stays, as before.
+ */
+function stripComments(text) {
+    let out = '';
+    let from = 0;
+    for (;;) {
+        const open = text.indexOf('<!--', from);
+        const close = open === -1 ? -1 : text.indexOf('-->', open + 4);
+        if (close === -1)
+            return out + text.slice(from);
+        out += text.slice(from, open);
+        from = close + 3;
+    }
 }
 function parseBool(raw, field, problems) {
     if (raw === undefined)
