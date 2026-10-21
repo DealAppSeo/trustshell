@@ -2,6 +2,8 @@
 
 TrustShell reads a **public GitHub Actions run** from GitHub and sets what your AI agent *said* beside what the run *reports*. Once installed, the only network call is to `api.github.com`: no account, no API key, no TrustShell server, and nothing of yours is uploaded. `GITHUB_TOKEN` is optional and only raises GitHub's rate limit. Public runs only, for now.
 
+**Try Inspect:** [the five-minute challenge](https://trustshell.dev/inspect). One true claim and one false one about a pinned run, the evidence that decides each, and an invitation to break it.
+
 ## Check your own CI run
 
 Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `@next` is the release candidate that has `--claims`; plain `npx @hyperdag/trustshell` runs the stable release (see Status below), which does not have it yet.
