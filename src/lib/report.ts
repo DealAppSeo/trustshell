@@ -12,6 +12,7 @@
  */
 
 import type { InspectResult } from './inspect';
+import { cleanCodePoints } from './action-evidence';
 import { personalSectionsSet, type Profile } from './profile';
 
 /**
@@ -86,11 +87,11 @@ export function decide(session: InspectResult | null, evidence: EvidenceDoc | nu
       ? {
           verdict: 'INCONSISTENT',
           reason:
-            'The external run completed, but the local log\'s hash chain does not verify — the record of how it happened was altered after it was written.',
+            'The evidence file says the external run completed, but the local log\'s hash chain does not verify — the record of how it happened was altered after it was written.',
         }
       : {
           verdict: 'INCONSISTENT',
-          reason: 'The local log\'s hash chain does not verify, and the external run did not report success either.',
+          reason: 'The local log\'s hash chain does not verify, and the evidence file does not report success either.',
         };
   }
 
@@ -108,7 +109,8 @@ export function decide(session: InspectResult | null, evidence: EvidenceDoc | nu
   if (ev === 'COMPLETE') {
     return {
       verdict: 'CONFIRMED',
-      reason: 'The local log verifies intact and the external run completed successfully. Both records agree.',
+      // "the evidence file says": nothing here shows the file came from `check` (Lane D, 2026-10-21).
+      reason: 'The local log verifies intact and the evidence file says the external run completed successfully. The two records agree.',
     };
   }
   if (ev === 'FAILED' || ev === 'INCONSISTENT') {
@@ -128,6 +130,8 @@ export function reportLimits(v: ReportVerdict): string[] {
   const always = [
     'This compares two records. It cannot tell you whether either record describes work that was actually useful.',
     'The external evidence is a file you supplied. This command does not fetch, so it cannot tell you the file is current.',
+    // A hand-written {"verdict":"COMPLETE"} file was read exactly like real `check --json` output (Lane D, 2026-10-21).
+    'This command does not verify that the evidence file was produced by `check` or is unmodified: a hand-written file is read the same way. Re-run `trustshell check <run-url>` to see what GitHub says now.',
   ];
   if (v === 'CONFIRMED') {
     return [
@@ -207,22 +211,27 @@ export function reportExitCode(v: ReportVerdict): number {
 }
 
 export function formatReportCard(r: ReportResult): string {
-  const lines = [`trustshell report  —  ${r.verdict}`, '', `  ${r.reason}`, ''];
+  // Everything that came from the evidence file, the log or the profile is shown through the scrub `check`
+  // uses: a C0/C1 control becomes a space, a bidi override or invisible character is dropped. The evidence
+  // file's owner, repo, sha and verdict reached the terminal raw (ESC[2J, colour, U+202E; Lane D, 2026-10-21).
+  // Plain ASCII passes unchanged.
+  const show = (v: unknown) => cleanCodePoints(String(v));
+  const lines = [`trustshell report  —  ${r.verdict}`, '', `  ${show(r.reason)}`, ''];
   lines.push('  inside evidence (your log)');
   lines.push(
     r.session.present
-      ? `    ${r.session.verdict}  ·  ${r.session.entries} entries  ·  ${r.session.path}`
+      ? `    ${r.session.verdict}  ·  ${r.session.entries} entries  ·  ${show(r.session.path)}`
       : '    none supplied',
   );
   lines.push('', '  outside evidence (what you saved from `check`)');
   lines.push(
     r.evidence.present
-      ? `    ${r.evidence.verdict ?? 'unknown'}${r.evidence.repo ? `  ·  ${r.evidence.repo}` : ''}${r.evidence.sha ? `  ·  ${r.evidence.sha.slice(0, 7)}` : ''}`
+      ? `    ${show(r.evidence.verdict ?? 'unknown')}${r.evidence.repo ? `  ·  ${show(r.evidence.repo)}` : ''}${r.evidence.sha ? `  ·  ${show(String(r.evidence.sha).slice(0, 7))}` : ''}`
       : '    none supplied',
   );
-  if (r.identity) lines.push('', `  identity  ${r.identity}`);
-  if (r.context) lines.push('', `  context   ${r.context}`);
-  if (r.personal) lines.push('', '  personal (share_personal: true)', ...Object.entries(r.personal).map(([k, v]) => `    ${k.padEnd(12)}${JSON.stringify(v)}`));
+  if (r.identity) lines.push('', `  identity  ${show(r.identity)}`);
+  if (r.context) lines.push('', `  context   ${show(r.context)}`);
+  if (r.personal) lines.push('', '  personal (share_personal: true)', ...Object.entries(r.personal).map(([k, v]) => `    ${k.padEnd(12)}${show(JSON.stringify(v))}`));
   if (r.withheld.length) {
     lines.push('', '  Withheld by your profile:');
     for (const w of r.withheld) lines.push(`    - ${w}`);

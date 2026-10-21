@@ -1366,7 +1366,7 @@ export async function run(
           : defaultProfile();
 
         const r = buildReport({ session, evidence, profile });
-        if (args.json) io.out(JSON.stringify(r, null, 2));
+        if (args.json) io.out(terminalSafeJson(r));
         else io.out(formatReportCard(r));
         return reportExitCode(r.verdict);
       } catch (e: any) {
