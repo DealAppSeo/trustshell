@@ -78,7 +78,7 @@ describe('README first screen', () => {
     const fmt = /printf '(.*)\\n' /.exec(bash)?.[1] ?? '';
     expect(fmt).toContain('%s');
     expect(powershell).toContain(fmt.replace('%s', '$($run.Split(\'/\')[-1])'));
-    (globalThis as any).fetch = async (url: string) => {
+    (globalThis as { fetch?: unknown }).fetch = async (url: string) => {
       const u = new URL(url);
       const r = fx.responses[u.pathname + u.search];
       if (u.host !== 'api.github.com' || !r) throw new Error(`unrecorded request: ${url}`);
@@ -89,7 +89,7 @@ describe('README first screen', () => {
       expect(record.claims.map((c) => `${c.template}:${c.status}`)).toEqual(['gha.run_succeeded:SUPPORTED', 'gha.run_id:SUPPORTED']);
       expect(claimsExitCode(record)).toBe(0);
     } finally {
-      delete (globalThis as any).fetch;
+      delete (globalThis as { fetch?: unknown }).fetch;
     }
   });
 
