@@ -495,6 +495,8 @@ exports.GUARD_DOES_NOT_COVER = [
     'It covers the trustshell CLI and `trustshell run`. The MCP server (trustshell-mcp) does not read this policy yet, and neither do SDK calls (code that imports @hyperdag/trustshell): such code must call guardDecide itself.',
     'It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).',
     'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
+    '`run` bounds WHICH executable starts, not what it does: allowing an interpreter (node, python, sh, powershell) allows any script it is given.',
+    'TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command. A warning says so; it does not stop the command.',
     'It decides before an action starts. What a started command does (files, network, child processes) is not observed.',
     'A missing record never proves no action happened: the guard sees only what goes through it.',
     'The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.',

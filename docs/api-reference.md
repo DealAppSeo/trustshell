@@ -475,7 +475,8 @@ What it covers: the trustshell CLI and `trustshell run`. The MCP server (`trusts
 policy yet, and neither do SDK calls: code that imports the package must call `guardDecide` itself. It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the
 policy, and every change (including an import that enforces a carried policy) leaves a `policy-change` record
 with the policy hash before and after. A `TRUSTSHELL_HOME` with no policy, while `~/.trustshell/policy.json`
-exists, prints a warning on every command, because it switches the guard off for that command.
+exists, prints a warning on every command, because it switches the guard off for that command. The warning does not
+stop the command.
 
 Every decision is a `trustshell.guard-record/1` line in `guard-receipts.jsonl`, hash-chained (RFC 8785 + sha256):
 what was requested, what was authorized under which policy hash and nonce, what was executed, and the record's
@@ -487,7 +488,8 @@ The enforced path. The decision is recorded BEFORE the command starts; a denied 
 allowed one is started by trustshell, and its exit code is recorded and passed through. The card separates what was
 requested, authorized, executed, independently observed (nothing) and unknown. The command is recorded by its
 sha256, never by its text. `--tool` must be the name of the executable that starts (`run --tool git -- git status`):
-the guard bounds which executable starts, not what it then does. `--class` is the caller's label. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
+the guard bounds which executable starts, not what it then does, so allowing an interpreter (`node`, `python`, `sh`)
+allows any script it is given. `--class` is the caller's label. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
 (files, network, child processes) is not observed, and commands run without `trustshell run` are not mediated.
 
 ### `trustshell bundle export <file> | verify <file> | import <file> | context <file>`
@@ -501,7 +503,8 @@ the export), keys, spending authority, encrypted notes.
 
 Authority never travels. `import` checks the version, every field, the signature and the author (this install's
 key, or the `--signer` fingerprint export printed). Carried notes are stored UNTRUSTED and quarantined, whatever
-they were on the sending machine; injection-looking text is held for good. The carried policy is ENFORCED only when
+they were on the sending machine; injection-looking text is held for good. That screen is a fixed pattern set:
+it catches the textbook override forms, not paraphrased standing orders or claimed pre-approval. The carried policy is ENFORCED only when
 its owner signature verifies with a key you trust AND its nonce is higher than the policy in force; otherwise it is
 saved as `policy.suggested.json` and NOT enforced (an unsigned policy, a key nobody named, or an older nonce: a
 downgrade or a replay). `context` prints the profile, the policy as information and the selected notes for a model.
