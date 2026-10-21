@@ -2,7 +2,16 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## Unreleased (main)
+## 1.8.0-rc.0 — 2026-10-21 (release candidate, npm dist-tag `next`)
+
+A release candidate for outside testers. **`latest` stays 1.7.0**: nobody gets this from a plain
+`npm install`; ask for it with `npm i -g @hyperdag/trustshell@next`.
+
+**What this candidate is for: the credential-free GitHub Actions inspector.** `trustshell check <runUrl>`
+and the new `--claims` / `--claims-file` evidence card talk to api.github.com and nothing else: no
+account, no key, no TrustShell backend, and `GITHUB_TOKEN` is optional (it only raises the rate limit).
+The first bullet below is that. The rest rode along from main since 1.7.0 was cut (it was re-cut on
+`51897d4c`, #575) and are not what this candidate asks testers to try.
 
 - **`trustshell check <runUrl> --claims "<text>"` / `--claims-file <path>` (draft): what an agent
   said, against what the run reports.** Claims are split into atomic parts, each SUPPORTED,
@@ -37,6 +46,15 @@ All notable changes to the `@hyperdag/trustshell` package.
   records who prompted a correction; `--derived-from-untrusted <label>` (formerly `--source`, which
   still works and warns) marks text that is not yours. `inject` records `--model` / `--family`, and
   `examples/learn-hook/stop.mjs` fills in each turn's model, family and tokens.
+
+- **Also in this build, not part of what testers are asked to try: the local-only switch (#576, SEC F2),
+  default unchanged.** `localOnly: true` or `TRUSTSHELL_LOCAL_ONLY=1` makes every send of your text
+  answer NOT_CHECKED before any fetch, and a HAL result carries `seenBy`. `src/lib/local-only.ts`;
+  `tests/local-only.test.ts`.
+- **Also in this build: `trustshell profile` gains optional personal sections (#579).** Values, people
+  helped, style, constraints and model priorities, all empty and unrendered until you write one;
+  `share_personal` defaults to false, so `report` leaves them out. `src/cli/profile.ts`,
+  `src/lib/profile.ts`; `tests/profile-personal.test.ts`.
 
 ## 1.7.0 — 2026-10-16
 

@@ -21,6 +21,7 @@ const scan = require('../scripts/check-doc-version.cjs') as {
     text: string,
     fileRel: string,
     pkgVersion: string,
+    alsoOk?: string[],
   ) => { file: string; line: number; version: string; kind: string }[];
   scanRepo: (root?: string) => { status: string; reason: string | null; hits: unknown[]; stats: { md: number } | null };
   isFloor: (line: string, idx: number) => boolean;
@@ -114,6 +115,31 @@ describe('a dated record is marked, not rewritten', () => {
     const r = scan.scanRepo(dir) as { status: string; hits: { file: string }[] };
     expect(r.status).toBe('FAILED');
     expect(r.hits.map((h) => h.file)).toEqual(['docs/GUIDE.md']);
+  });
+});
+
+describe('a prerelease package (published under `next`, `latest` does not move)', () => {
+  const install = 'npm i -g @hyperdag/trustshell@';
+  const repo = (pkgVersion: string) => {
+    const dir = mkdtempSync(join(tmpdir(), 'doc-ver-'));
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: pkgVersion }));
+    mkdirSync(join(dir, 'lib'));
+    writeFileSync(join(dir, 'lib', 'npm-latest.ts'), "export const NPM_LATEST = '1.7.0';\n");
+    mkdirSync(join(dir, 'docs'));
+    writeFileSync(join(dir, 'docs', 'LATEST.md'), `${install}1.7.0\n`);
+    writeFileSync(join(dir, 'docs', 'OLD.md'), `${install}1.6.0\n`);
+    return dir;
+  };
+
+  it('accepts what latest serves and still rejects any other version', () => {
+    const r = scan.scanRepo(repo('1.8.0-rc.0')) as { status: string; hits: { file: string }[] };
+    expect(r.status).toBe('FAILED');
+    expect(r.hits.map((h) => h.file)).toEqual(['docs/OLD.md']);
+  });
+
+  it('a plain release does not borrow latest: the same docs fail twice', () => {
+    const r = scan.scanRepo(repo('1.8.0')) as { status: string; hits: { file: string }[] };
+    expect(r.hits.map((h) => h.file).sort()).toEqual(['docs/LATEST.md', 'docs/OLD.md']);
   });
 });
 
