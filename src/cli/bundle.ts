@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { brainContext, buildBundle, BundleError, policyImportDecision, verifyBundle, type Bundle, type BundlePayload, type EvidencePointer } from '../lib/bundle';
-import { GUARD_RECEIPTS_FILE, POLICY_FILE, SUGGESTED_POLICY_FILE, loadPolicy, policySignedBy, readLedger, renderPolicyDocument, trustshellHome } from '../lib/guardrails';
+import { GUARD_RECEIPTS_FILE, POLICY_FILE, SUGGESTED_POLICY_FILE, loadPolicy, nonceHighWater, policySignedBy, readLedger, renderPolicyDocument, trustshellHome } from '../lib/guardrails';
 import { TRUSTSHELL_DIR } from '../lib/init';
 import { ownFingerprint, signingKey } from '../lib/install-key';
 import { resolvePackageVersion } from '../lib/version';
@@ -151,7 +151,10 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
     }
     const trustedOwners = [own, a.signer?.toLowerCase()].filter((x): x is string => !!x);
     const inForce = loadPolicy(home);
-    const pol = policyImportDecision(p.policy, trustedOwners, inForce.state === 'ok' ? { nonce: inForce.doc.policy.nonce } : null, policySignedBy);
+    // Supersession is checked against the HIGHEST nonce this host has had (file or ledger), so deleting
+    // policy.json or re-running guard init cannot reopen an old, looser signed policy.
+    const hw = nonceHighWater(home);
+    const pol = policyImportDecision(p.policy, trustedOwners, hw === null ? null : { nonce: hw }, policySignedBy);
     if (a.verb === 'verify') {
       const lines = [`VERIFIED signature good, author trusted as ${v.trusted_as}`, ...summaryLines(v.bundle)];
       if (pol) lines.push(`policy here ${pol.enforce ? 'WOULD BE ENFORCED' : 'would be suggested, NOT enforced'}: ${pol.why}`);

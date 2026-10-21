@@ -164,7 +164,7 @@ describe('trustshell run: decided and recorded before the command starts', () =>
 
   it('ONE DENIED action: the command NEVER starts (exit 5), and the denial is recorded', () => {
     policyFile(policy({ actions: ['tool:git'] }));
-    expect(runIt('--tool', 'shell', '--', 'rm', '-rf', '/')).toBe(EXIT_REFUSED);
+    expect(runIt('--tool', 'shell', '--', 'shell', '-rf', '/')).toBe(EXIT_REFUSED);
     expect(started).toEqual([]);
     expect(records()).toHaveLength(1);
     expect(records()[0]).toMatchObject({ kind: 'decision', authorized: { decision: 'DENIED', reasons: ['the owner policy does not list tool:shell'] }, executed: 'not run' });

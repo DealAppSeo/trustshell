@@ -9,10 +9,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
 import { brainContext, type Bundle } from '../src/lib/bundle';
-import { GUARD_DOES_NOT_COVER, GUARD_RECEIPTS_FILE, POLICY_FILE, defaultPolicy, homeShadowWarning, readLedger, renderPolicyDocument, type GuardRecord } from '../src/lib/guardrails';
+import { GUARD_DOES_NOT_COVER, GUARD_RECEIPTS_FILE, POLICY_FILE, defaultPolicy, guardDecide, homeShadowWarning, readLedger, renderPolicyDocument, type GuardRecord } from '../src/lib/guardrails';
+import { runRun } from '../src/cli/guard';
 import { signValue, signingKey } from '../src/lib/install-key';
 
 const ROOT = join(__dirname, '..');
+const SCOPE_X = { mediated: ['test'], not_mediated: ['test'] };
 const c = (...cps: number[]) => String.fromCodePoint(...cps);
 const CONTROL = new RegExp(`[${c(0x00)}-${c(0x09)}${c(0x0b)}-${c(0x1f)}${c(0x7f)}-${c(0x9f)}${c(0x200b)}-${c(0x200f)}${c(0x202a)}-${c(0x202e)}${c(0x2066)}-${c(0x2069)}]`, 'u');
 
@@ -110,6 +112,81 @@ describe('Lane D findings on #593, fixed', () => {
     const ctx = brainContext({ profile: null, policy: null, memories: [{ text: `ship it${c(0x1b)}[2J${c(0x1b)}[31mALL CLEAR${c(0x202e)}`, created_at: 'x' }], evidence: [] });
     expect(ctx).not.toMatch(CONTROL);
     expect(ctx).toContain('ALL CLEAR');
+  });
+
+  // ── round 2 (Lane D on 5f64604e, RC_GUARD_CARRY2_pr593v2-5f64604e.md) ──
+
+  const policyHere = (over: Record<string, unknown>) => {
+    mkdirSync(home(), { recursive: true });
+    writeFileSync(join(home(), POLICY_FILE), renderPolicyDocument({ policy: { ...defaultPolicy(), ...over } as never, signature: null }));
+  };
+  const cliPath = join(ROOT, 'dist', 'cli', 'index.js');
+  const spawnCli = (args: string[]) =>
+    new Promise<number>((resolve) => {
+      const p = spawn(process.execPath, [cliPath, ...args], { env: { ...process.env, NODE_NO_WARNINGS: '1', TRUSTSHELL_HOME: home() }, stdio: 'ignore' });
+      p.on('exit', (code) => resolve(code ?? -1));
+    });
+
+  it('R2#1 a spend with NO amount is denied, as the kernel does; it no longer skips every limit', () => {
+    policyHere({ actions: ['spend'] });
+    const r = guardDecide(home(), { tool: 'pay', class: 'spend' }, { mediated: [], not_mediated: [] });
+    expect(r?.decision.decision).toBe('DENIED');
+    expect(r?.decision.reasons).toContain('a spend must state its amount (--amount): an amount left out is not zero');
+  });
+
+  it('R2#2 six simultaneous runs of 100 against a total of 250: exactly two start (the lock serializes read, decide, append)', async () => {
+    policyHere({ actions: ['spend'], per_tx_raw: '100', daily_raw: '1000', total_raw: '250' });
+    const codes = await Promise.all(Array.from({ length: 6 }, () => spawnCli(['run', '--tool', 'node', '--class', 'spend', '--amount', '100', '--', 'node', '-e', '0'])));
+    expect(codes.filter((c) => c === 0)).toHaveLength(2);
+    expect(codes.filter((c) => c === 5)).toHaveLength(4);
+    const l = readLedger(readFileSync(join(home(), GUARD_RECEIPTS_FILE), 'utf8'));
+    expect(l.verdict).toBe('INTACT');
+    expect(records().filter((r) => r.kind === 'outcome')).toHaveLength(2);
+  }, 90000);
+
+  it('R2#3 daily_raw is a ROLLING 24 h (the kernel), and total_raw counts only under the policy in force', () => {
+    const NOW = Math.floor(Date.now() / 1000);
+    policyHere({ actions: ['spend'], per_tx_raw: '100', daily_raw: '100', total_raw: '1000' });
+    const ctx = (dt: number) => ({ nowS: NOW + dt });
+    expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '100' }, SCOPE_X, ctx(-60))?.decision.decision).toBe('ALLOWED');
+    // Two minutes later, across any calendar midnight: still inside the 24 h window, so denied.
+    expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '100' }, SCOPE_X, ctx(60))?.decision.reasons[0]).toMatch(/daily_raw 100 leaves/);
+    // A day later the window has moved on.
+    expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '100' }, SCOPE_X, ctx(86400))?.decision.decision).toBe('ALLOWED');
+  });
+
+  it('R2#4 guard init --force after kill keeps the nonce above everything recorded, so an old looser signed policy cannot come back', async () => {
+    await cli('guard', 'init');
+    await cli('guard', 'allow', 'spend');
+    await cli('guard', 'sign');
+    await cli('bundle', 'export', join(root, 'old.json')); // nonce 2: looser, owner-signed
+    await cli('guard', 'kill');
+    await cli('guard', 'init', '--force');
+    const nonce = BigInt((JSON.parse(readFileSync(join(home(), POLICY_FILE), 'utf8')) as { policy: { nonce: string } }).policy.nonce);
+    expect(nonce > BigInt(3)).toBe(true);
+    await cli('guard', 'allow', 'tool:bundle');
+    expect(await cli('bundle', 'import', join(root, 'old.json'), '--force')).toBe(0);
+    expect(err.join('\n')).toMatch(/does not supersede/);
+    expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '1' }, SCOPE_X)?.decision.decision).toBe('DENIED');
+  });
+
+  it('R2#7 run allows an executable only by its own name: a tool:inspect label cannot start node', () => {
+    policyHere({ actions: ['tool:inspect'] });
+    let started = false;
+    const code = runRun(['--tool', 'inspect', '--', 'node', 'anything.js'], io, process.env, () => ((started = true), { status: 0, signal: null }));
+    expect(code).toBe(5);
+    expect(started).toBe(false);
+    expect(err.join('\n')).toContain('the command starts node, not inspect');
+    expect(records().pop()?.requested.executable).toBe('node');
+  });
+
+  it('INFO a guard check is a question: its amount is never counted as spent', async () => {
+    policyHere({ actions: ['spend'], per_tx_raw: '100', daily_raw: '1000', total_raw: '250' });
+    expect(await cli('guard', 'check', '--tool', 'pay', '--class', 'spend', '--amount', '100')).toBe(0);
+    expect(await cli('guard', 'check', '--tool', 'pay', '--class', 'spend', '--amount', '100')).toBe(0);
+    expect(records().map((r) => r.kind)).toEqual(['check', 'check']);
+    expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '200' }, SCOPE_X)?.decision.decision).toBe('DENIED'); // per_tx 100
+    expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '100' }, SCOPE_X)?.decision.decision).toBe('ALLOWED');
   });
 
   it('#1 #2 the guard states what it does not cover: the MCP server, and an agent that can run the CLI', async () => {

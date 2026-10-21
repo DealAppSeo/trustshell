@@ -457,16 +457,19 @@ The learning loop v1, local. Nothing leaves the machine. `trustshell learn` alon
 GUARD. The owner's policy, `~/.trustshell/policy.json` (or `TRUSTSHELL_HOME`), holds `{ policy, signature }`: the
 body shape of the engine kernel's signed owner policy, with a SUBSET of its fields and the same meanings:
 `subject`; `actions` (`spend`, `post`, `tool` or `tool:<name>`; anything unlisted is denied); `per_tx_raw`,
-`daily_raw`, `total_raw` (smallest units; a limit left out is `0`, never unlimited; the smallest binds);
+`daily_raw`, `total_raw` (smallest units; a limit left out is `0`, never unlimited; the smallest binds; as in the
+kernel, `daily_raw` is a rolling 24 hours and `total_raw` counts only under the policy in force; a spend must state
+its amount);
 `expires_at` (unix seconds); `nonce` (a change is a new policy with a higher nonce, which is how the kernel
-revokes). Not in the subset, because the local guard neither pays nor binds code: `owner`, `payees`,
+revokes; `guard init` continues from the highest nonce this host has recorded). Not in the subset, because the local guard neither pays nor binds code: `owner`, `payees`,
 `authorized_impl_hashes`. `guard init` writes local commands only, every limit `0`, expiring in 30 days. `guard
 kill` allows nothing. `guard sign` signs the policy with this install's key, the owner signature a bundle carries.
 
 While a policy exists, every other command must be listed as `tool:<command>` before it runs (exit `5`
 when it is not). A policy that does not parse denies everything. `help`, `version`, `guard` and `run` always run.
 `guard check --tool <name> [--class read|other|post|spend] [--amount <n>]` asks the policy about any action:
-`0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow).
+`0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow). A check is recorded as a question: its
+amount is never counted as spent.
 
 What it covers: the trustshell CLI and `trustshell run`. The MCP server (`trustshell-mcp`) does not read the
 policy yet, and neither do SDK calls: code that imports the package must call `guardDecide` itself. It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the
@@ -483,7 +486,8 @@ assurance scope (what was mediated, what was not). A missing record never proves
 The enforced path. The decision is recorded BEFORE the command starts; a denied command never starts (exit `5`); an
 allowed one is started by trustshell, and its exit code is recorded and passed through. The card separates what was
 requested, authorized, executed, independently observed (nothing) and unknown. The command is recorded by its
-sha256, never by its text. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
+sha256, never by its text. `--tool` must be the name of the executable that starts (`run --tool git -- git status`):
+the guard bounds which executable starts, not what it then does. `--class` is the caller's label. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
 (files, network, child processes) is not observed, and commands run without `trustshell run` are not mediated.
 
 ### `trustshell bundle export <file> | verify <file> | import <file> | context <file>`

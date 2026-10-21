@@ -14,7 +14,7 @@
  */
 import type { ParsedArgs } from './index';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   GUARD_DOES_NOT_COVER,
   GUARD_RECEIPTS_FILE,
@@ -24,6 +24,7 @@ import {
   defaultPolicy,
   guardDecide,
   homeShadowWarning,
+  nonceHighWater,
   loadPolicy,
   parsePolicy,
   policySha256,
@@ -119,7 +120,7 @@ export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null
     ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
   return [
     `trustshell run  —  ${d.authorized.decision}`,
-    `  requested             ${d.requested.action}${d.requested.amount_raw ? ` amount ${d.requested.amount_raw}` : ''}`,
+    `  requested             ${d.requested.action}${d.requested.executable ? ` (starts ${d.requested.executable})` : ''}${d.requested.amount_raw ? ` amount ${d.requested.amount_raw}` : ''}; --class is the caller's label`,
     `  authorized            ${d.authorized.decision}${d.authorized.reasons.length ? `: ${d.authorized.reasons.join('; ')}` : ''} (policy ${String(d.authorized.policy_sha256).slice(0, 12)}…, nonce ${d.authorized.policy_nonce}${d.authorized.policy_signed_by ? ', owner-signed' : ', unsigned'})`,
     `  executed              ${executed}`,
     '  independently observed  nothing: no outside party watched this command',
@@ -167,8 +168,13 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
   const dir = trustshellHome(env);
   const shadow = homeShadowWarning(env);
   if (shadow) io.err(shadow);
-  const req: GuardRequest = { tool, class: cls, command_sha256: sha256(JSON.stringify(command)), ...(amount !== undefined ? { amount_raw: amount } : {}) };
-  const g = guardDecide(dir, req, RUN_SCOPE);
+  // The tool label must BE the executable that would start: with only tool:inspect allowed,
+  // `run --tool inspect -- node anything.js` used to run node (Lane D, 2026-10-21). The guard bounds which
+  // executable starts, not what that executable then does (a script, its arguments).
+  const executable = basename(String(command[0])).replace(/\.(exe|cmd|bat|com)$/i, '').toLowerCase();
+  const mismatch = executable !== tool.toLowerCase() ? [`the command starts ${executable}, not ${tool}: run allows an executable only by its own name`] : [];
+  const req: GuardRequest = { tool, class: cls, executable, command_sha256: sha256(JSON.stringify(command)), ...(amount !== undefined ? { amount_raw: amount } : {}) };
+  const g = guardDecide(dir, req, RUN_SCOPE, { extraReasons: mismatch });
   if (!g) {
     io.err(`NOT_CHECKED no policy at ${join(dir, POLICY_FILE)}: nothing is authorized, so nothing was run. trustshell guard init writes one.`);
     return 2;
@@ -203,8 +209,8 @@ trustshell guard limit per-tx|daily|total <n> · guard expire <days> · guard ki
 
 function showLines(doc: PolicyDocument, path: string, ledgerText: string, defaulted: string[]): string[] {
   const p = doc.policy;
-  const l = readLedger(ledgerText);
-  const spent = l.spent === null ? 'UNKNOWN (ledger BROKEN)' : `${l.spent.today} today, ${l.spent.total} in total`;
+  const l = readLedger(ledgerText, undefined, undefined, policySha256(p));
+  const spent = l.spent === null ? 'UNKNOWN (ledger BROKEN)' : `${l.spent.today} in the last 24 h, ${l.spent.total} under this policy`;
   return [
     `policy      ${path}  (sha256 ${policySha256(p).slice(0, 16)}…, nonce ${p.nonce}, ${doc.signature ? `signed by ${doc.signature.fingerprint.slice(0, 16)}…` : 'unsigned'})`,
     `subject     ${p.subject}`,
@@ -248,7 +254,10 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
         return 2;
       }
       const before = loadPolicy(dir);
-      const doc: PolicyDocument = { policy: defaultPolicy(undefined, days), signature: null };
+      // The nonce continues from the highest this host has had (file or ledger): init --force after kill used to
+      // restart at 1, letting an old, looser owner-signed policy import as enforced (Lane D, 2026-10-21).
+      const hw = nonceHighWater(dir);
+      const doc: PolicyDocument = { policy: { ...defaultPolicy(undefined, days), nonce: hw === null ? '1' : (BigInt(hw) + BigInt(1)).toString() }, signature: null };
       write(doc);
       recordPolicyChange(dir, `guard init${words.includes('--force') ? ' --force' : ''}`, before.state === 'ok' ? before.sha256 : null, doc);
       io.out(`wrote ${path}: local commands only, every limit 0, expires in ${days} days. trustshell guard show prints it.`);
@@ -267,7 +276,7 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
         io.out(json ? JSON.stringify(loaded, null, 2) : [`${path} does not parse, so EVERYTHING is denied:`, ...loaded.problems.map((p) => `  - ${p}`)].join('\n'));
         return 1;
       }
-      const l = readLedger(ledgerText());
+      const l = readLedger(ledgerText(), undefined, undefined, loaded.sha256);
       if (json) {
         io.out(JSON.stringify({ state: 'ok', path, ...loaded.doc, sha256: loaded.sha256, defaulted: loaded.defaulted, records: { count: l.count, chain: l.verdict, spent: l.spent && { today: String(l.spent.today), total: String(l.spent.total) }, breaks: l.breaks } }, null, 2));
       } else io.out(showLines(loaded.doc, path, ledgerText(), loaded.defaulted).join('\n'));
@@ -289,7 +298,8 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
         i += 1;
       }
       if (!tool) return bad('guard check requires --tool <name>');
-      const g = guardDecide(dir, { tool, class: cls, ...(amount !== undefined ? { amount_raw: amount } : {}) }, CHECK_SCOPE);
+      // A check is a question, recorded as kind "check": its amount is never counted as spent.
+      const g = guardDecide(dir, { tool, class: cls, ...(amount !== undefined ? { amount_raw: amount } : {}) }, CHECK_SCOPE, { kind: 'check' });
       if (!g) {
         io.out(json ? JSON.stringify({ decision: 'NOT_CHECKED', reason: `no policy at ${path}` }, null, 2) : `NOT_CHECKED no policy at ${path}; nothing was decided. This is not an allow.`);
         return 2;

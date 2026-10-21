@@ -63,6 +63,8 @@ export interface GuardRequest {
     amount_raw?: string;
     /** sha256 of the command a `trustshell run` would start; the command itself is never recorded. */
     command_sha256?: string;
+    /** The executable a `trustshell run` would start (its file name only). `run` requires it to BE the tool. */
+    executable?: string;
 }
 /** The action string the policy must list for this request (the kernel's actionPermitted). */
 export declare function actionFor(req: GuardRequest): string;
@@ -95,7 +97,7 @@ export interface GuardRecord {
      * policy-change: the policy in force changed (guard init/allow/deny/limit/expire/kill/sign, or an import
      * that enforced a carried policy), with the hash before and after. A rule change is never silent.
      */
-    kind: 'decision' | 'outcome' | 'policy-change';
+    kind: 'decision' | 'check' | 'outcome' | 'policy-change';
     requested: GuardRequest & {
         action: string;
     };
@@ -124,11 +126,17 @@ export declare function recordHash(r: Omit<GuardRecord, 'hash'>): string;
 export interface LedgerReading {
     verdict: 'INTACT' | 'BROKEN' | 'EMPTY';
     count: number;
-    /** Amounts this ledger ALLOWED: in total, and on `day` (UTC, YYYY-MM-DD). null when BROKEN. */
+    /**
+     * Amounts this ledger ALLOWED, the kernel's way (repid-engine src/kernel/gate.ts + store.ts spentTotals):
+     * `today` is a ROLLING 24 hours before now, under any policy; `total` is under the CURRENT policy hash only,
+     * so a new policy starts a new total. null when BROKEN.
+     */
     spent: {
         today: bigint;
         total: bigint;
     } | null;
+    /** The highest policy nonce any record names: the high-water mark a new or imported policy must exceed. */
+    max_nonce: string | null;
     last: {
         seq: number;
         hash: string;
@@ -137,9 +145,10 @@ export interface LedgerReading {
 }
 /**
  * PURE. Check every hash and every link, and total the allowed amounts. `from` is the reading of an
- * already-verified prefix: the chain continues from its last hash.
+ * already-verified prefix: the chain continues from its last hash. `policySha` is the policy in force (null:
+ * count every policy's total, as `guard show` does when the policy does not parse).
  */
-export declare function readLedger(text: string, nowS?: number, from?: LedgerReading): LedgerReading;
+export declare function readLedger(text: string, nowS?: number, from?: LedgerReading, policySha?: string | null): LedgerReading;
 /**
  * The bytes of the ledger already verified, by length and sha256. A CACHE, not a source: it holds no total,
  * so it cannot lie about one. A decision re-hashes those bytes and fully verifies only the lines after them;
@@ -148,7 +157,13 @@ export declare function readLedger(text: string, nowS?: number, from?: LedgerRea
  * decision, a checkpointed decision 236-284 ms; equal at 1,000. `guard show` always verifies every line.
  */
 export declare const GUARD_CHECKPOINT_FILE = "guard-receipts.checkpoint.json";
-export declare function readLedgerCheckpointed(text: string, checkpointText: string | null, nowS?: number): LedgerReading;
+export declare function readLedgerCheckpointed(text: string, checkpointText: string | null, nowS?: number, policySha?: string | null): LedgerReading;
+/**
+ * The nonce a NEW policy must exceed: the highest of the policy file (if it parses) and every nonce the ledger
+ * ever recorded. `guard init --force` after `guard kill` used to restart at 1, which let an old, looser
+ * owner-signed policy import as ENFORCED (Lane D, 2026-10-21); deleting policy.json no longer resets it either.
+ */
+export declare function nonceHighWater(dir: string, fs?: GuardFs): string | null;
 /** The filesystem calls the guard needs. Injectable so the logic is testable without a disk. */
 export interface GuardFs {
     exists(p: string): boolean;
@@ -183,6 +198,8 @@ export interface GuardContext {
     ts?: string;
     /** A reason the caller knows and the policy cannot express (init --pai's child process): denied too. */
     extraReasons?: string[];
+    /** 'check' for `guard check`: a question, not an authorization, so its amount is never counted as spent. */
+    kind?: 'decision' | 'check';
 }
 /** Append one record to the ledger in `dir`, chained to the last one, and move the checkpoint. Takes the lock. */
 export declare function appendRecord(dir: string, fields: Omit<GuardRecord, 'schema' | 'seq' | 'ts' | 'origin' | 'prev' | 'hash'>, ctx?: GuardContext): GuardRecord;

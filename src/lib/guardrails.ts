@@ -187,6 +187,8 @@ export interface GuardRequest {
   amount_raw?: string;
   /** sha256 of the command a `trustshell run` would start; the command itself is never recorded. */
   command_sha256?: string;
+  /** The executable a `trustshell run` would start (its file name only). `run` requires it to BE the tool. */
+  executable?: string;
 }
 
 /** The action string the policy must list for this request (the kernel's actionPermitted). */
@@ -222,6 +224,8 @@ export function decide(
   const reasons: string[] = [];
   if (nowS >= policy.expires_at) reasons.push(`the policy expired at ${new Date(policy.expires_at * 1000).toISOString()}`);
   if (!permitted(policy.actions, req)) reasons.push(`the owner policy does not list ${actionFor(req)}`);
+  // The kernel's rule: a spend states its amount. Left out, it skipped every limit (Lane D, 2026-10-21).
+  if (req.class === 'spend' && req.amount_raw === undefined) reasons.push('a spend must state its amount (--amount): an amount left out is not zero');
   if (req.amount_raw !== undefined) {
     if (!/^[1-9][0-9]{0,77}$/.test(req.amount_raw)) reasons.push('the amount must be a whole number of smallest units, more than 0');
     else if (spent === null) reasons.push('the receipt ledger is BROKEN, so what was already spent is unknown and no amount is allowed');
@@ -254,7 +258,7 @@ export interface GuardRecord {
    * policy-change: the policy in force changed (guard init/allow/deny/limit/expire/kill/sign, or an import
    * that enforced a carried policy), with the hash before and after. A rule change is never silent.
    */
-  kind: 'decision' | 'outcome' | 'policy-change';
+  kind: 'decision' | 'check' | 'outcome' | 'policy-change';
   requested: GuardRequest & { action: string };
   authorized: GuardDecision & { policy_sha256: string | null; policy_nonce: string | null; policy_signed_by: string | null };
   /** outcome only: what the started process reported. Never what it did. */
@@ -273,32 +277,48 @@ export function recordHash(r: Omit<GuardRecord, 'hash'>): string {
 export interface LedgerReading {
   verdict: 'INTACT' | 'BROKEN' | 'EMPTY';
   count: number;
-  /** Amounts this ledger ALLOWED: in total, and on `day` (UTC, YYYY-MM-DD). null when BROKEN. */
+  /**
+   * Amounts this ledger ALLOWED, the kernel's way (repid-engine src/kernel/gate.ts + store.ts spentTotals):
+   * `today` is a ROLLING 24 hours before now, under any policy; `total` is under the CURRENT policy hash only,
+   * so a new policy starts a new total. null when BROKEN.
+   */
   spent: { today: bigint; total: bigint } | null;
+  /** The highest policy nonce any record names: the high-water mark a new or imported policy must exceed. */
+  max_nonce: string | null;
   last: { seq: number; hash: string } | null;
   breaks: string[];
 }
 
-const utcDay = (nowS: number) => new Date(nowS * 1000).toISOString().slice(0, 10);
+const DAY_S = 86400;
 
-function tally(r: GuardRecord, day: string, s: { today: bigint; total: bigint }): { today: bigint; total: bigint } {
+function tally(r: GuardRecord, nowS: number, policySha: string | null, s: { today: bigint; total: bigint }): { today: bigint; total: bigint } {
+  // Only a real authorization counts: a `guard check` writes kind "check", which spends nothing.
   const a = r.kind === 'decision' && r.authorized?.decision === 'ALLOWED' ? r.requested?.amount_raw : undefined;
   if (typeof a !== 'string' || !/^[1-9][0-9]{0,77}$/.test(a)) return s;
   const amount = BigInt(a);
-  return { today: s.today + (String(r.ts).slice(0, 10) === day ? amount : BigInt(0)), total: s.total + amount };
+  const at = Date.parse(String(r.ts)) / 1000;
+  const inDay = Number.isFinite(at) && at > nowS - DAY_S;
+  const inPolicy = policySha === null || r.authorized?.policy_sha256 === policySha;
+  return { today: s.today + (inDay ? amount : BigInt(0)), total: s.total + (inPolicy ? amount : BigInt(0)) };
+}
+
+function higher(a: string | null, b: unknown): string | null {
+  if (typeof b !== 'string' || !/^(?:0|[1-9][0-9]{0,77})$/.test(b)) return a;
+  return a === null || BigInt(b) > BigInt(a) ? b : a;
 }
 
 /**
  * PURE. Check every hash and every link, and total the allowed amounts. `from` is the reading of an
- * already-verified prefix: the chain continues from its last hash.
+ * already-verified prefix: the chain continues from its last hash. `policySha` is the policy in force (null:
+ * count every policy's total, as `guard show` does when the policy does not parse).
  */
-export function readLedger(text: string, nowS: number = Math.floor(Date.now() / 1000), from?: LedgerReading): LedgerReading {
-  const day = utcDay(nowS);
+export function readLedger(text: string, nowS: number = Math.floor(Date.now() / 1000), from?: LedgerReading, policySha: string | null = null): LedgerReading {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const breaks: string[] = [];
   const offset = from?.count ?? 0;
   let prev: string | null = from?.last?.hash ?? null;
   let spent = from?.spent ?? { today: BigInt(0), total: BigInt(0) };
+  let maxNonce: string | null = from?.max_nonce ?? null;
   let last: LedgerReading['last'] = from?.last ?? null;
   lines.forEach((line, i) => {
     const n = offset + i + 1;
@@ -320,15 +340,16 @@ export function readLedger(text: string, nowS: number = Math.floor(Date.now() / 
     if (want === null || hash !== want) breaks.push(`line ${n}: hash does not match the record`);
     if (r.prev !== prev) breaks.push(`line ${n}: prev does not match the line before`);
     if (r.seq !== n) breaks.push(`line ${n}: seq is ${r.seq}`);
-    spent = tally(r, day, spent);
+    spent = tally(r, nowS, policySha, spent);
+    maxNonce = higher(maxNonce, r.authorized?.policy_nonce);
     prev = typeof hash === 'string' ? hash : null;
     last = { seq: n, hash: String(hash) };
   });
   const count = offset + lines.length;
-  if (count === 0) return { verdict: 'EMPTY', count: 0, spent: { today: BigInt(0), total: BigInt(0) }, last: null, breaks };
+  if (count === 0) return { verdict: 'EMPTY', count: 0, spent: { today: BigInt(0), total: BigInt(0) }, max_nonce: null, last: null, breaks };
   return breaks.length || from?.verdict === 'BROKEN'
-    ? { verdict: 'BROKEN', count, spent: null, last, breaks }
-    : { verdict: 'INTACT', count, spent, last, breaks };
+    ? { verdict: 'BROKEN', count, spent: null, max_nonce: maxNonce, last, breaks }
+    : { verdict: 'INTACT', count, spent, max_nonce: maxNonce, last, breaks };
 }
 
 /**
@@ -342,24 +363,47 @@ export const GUARD_CHECKPOINT_FILE = 'guard-receipts.checkpoint.json';
 
 const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
 
-export function readLedgerCheckpointed(text: string, checkpointText: string | null, nowS: number = Math.floor(Date.now() / 1000)): LedgerReading {
+export function readLedgerCheckpointed(
+  text: string,
+  checkpointText: string | null,
+  nowS: number = Math.floor(Date.now() / 1000),
+  policySha: string | null = null,
+): LedgerReading {
   try {
     const c = JSON.parse(checkpointText ?? 'null') as { bytes?: unknown; sha256?: unknown } | null;
     const buf = Buffer.from(text, 'utf8');
     if (c && Number.isSafeInteger(c.bytes) && (c.bytes as number) <= buf.length && sha256(buf.subarray(0, c.bytes as number)) === c.sha256) {
-      const day = utcDay(nowS);
-      let prefix: LedgerReading = { verdict: 'EMPTY', count: 0, spent: { today: BigInt(0), total: BigInt(0) }, last: null, breaks: [] };
+      let prefix: LedgerReading = { verdict: 'EMPTY', count: 0, spent: { today: BigInt(0), total: BigInt(0) }, max_nonce: null, last: null, breaks: [] };
       for (const line of buf.subarray(0, c.bytes as number).toString('utf8').split(/\r?\n/)) {
         if (!line.trim()) continue;
         const r = JSON.parse(line) as GuardRecord;
-        prefix = { verdict: 'INTACT', count: prefix.count + 1, spent: tally(r, day, prefix.spent as { today: bigint; total: bigint }), last: { seq: r.seq, hash: r.hash }, breaks: [] };
+        prefix = {
+          verdict: 'INTACT',
+          count: prefix.count + 1,
+          spent: tally(r, nowS, policySha, prefix.spent as { today: bigint; total: bigint }),
+          max_nonce: higher(prefix.max_nonce, r.authorized?.policy_nonce),
+          last: { seq: r.seq, hash: r.hash },
+          breaks: [],
+        };
       }
-      return readLedger(buf.subarray(c.bytes as number).toString('utf8'), nowS, prefix);
+      return readLedger(buf.subarray(c.bytes as number).toString('utf8'), nowS, prefix, policySha);
     }
   } catch {
     /* no checkpoint, or one that does not parse: verify everything */
   }
-  return readLedger(text, nowS);
+  return readLedger(text, nowS, undefined, policySha);
+}
+
+/**
+ * The nonce a NEW policy must exceed: the highest of the policy file (if it parses) and every nonce the ledger
+ * ever recorded. `guard init --force` after `guard kill` used to restart at 1, which let an old, looser
+ * owner-signed policy import as ENFORCED (Lane D, 2026-10-21); deleting policy.json no longer resets it either.
+ */
+export function nonceHighWater(dir: string, fs: GuardFs = nodeGuardFs()): string | null {
+  const loaded = loadPolicy(dir, fs);
+  const ledgerPath = join(dir, GUARD_RECEIPTS_FILE);
+  const l = fs.exists(ledgerPath) ? readLedger(fs.read(ledgerPath)) : null;
+  return higher(l?.max_nonce ?? null, loaded.state === 'ok' ? loaded.doc.policy.nonce : undefined);
 }
 
 /** The filesystem calls the guard needs. Injectable so the logic is testable without a disk. */
@@ -438,6 +482,8 @@ export interface GuardContext {
   ts?: string;
   /** A reason the caller knows and the policy cannot express (init --pai's child process): denied too. */
   extraReasons?: string[];
+  /** 'check' for `guard check`: a question, not an authorization, so its amount is never counted as spent. */
+  kind?: 'decision' | 'check';
 }
 
 /** Append one record to the ledger in `dir`, chained to the last one, and move the checkpoint. Takes the lock. */
@@ -524,6 +570,7 @@ function decideLocked(
     fs.exists(ledgerPath) ? fs.read(ledgerPath) : '',
     fs.exists(checkpointPath) ? fs.read(checkpointPath) : null,
     nowS,
+    loaded.state === 'ok' ? loaded.sha256 : null,
   );
   const base = loaded.state === 'ok' ? decide(loaded.doc.policy, req, ledger.spent, nowS) : decide(null, req, null, nowS, loaded.problems);
   const reasons = [...base.reasons, ...(ctx.extraReasons ?? [])];
@@ -531,10 +578,12 @@ function decideLocked(
   const requested: GuardRecord['requested'] = { action: actionFor(req), tool: req.tool, class: req.class };
   if (req.amount_raw !== undefined) requested.amount_raw = req.amount_raw;
   if (req.command_sha256 !== undefined) requested.command_sha256 = req.command_sha256;
+  if (req.executable !== undefined) requested.executable = req.executable;
+  const kind = ctx.kind ?? 'decision';
   const record = appendUnlocked(
     dir,
     {
-      kind: 'decision',
+      kind,
       requested,
       authorized: {
         ...decision,
@@ -542,7 +591,7 @@ function decideLocked(
         policy_nonce: loaded.state === 'ok' ? loaded.doc.policy.nonce : null,
         policy_signed_by: loaded.state === 'ok' ? (loaded.doc.signature?.fingerprint ?? null) : null,
       },
-      executed: decision.decision === 'DENIED' ? 'not run' : null,
+      executed: decision.decision === 'DENIED' || kind === 'check' ? 'not run' : null,
       assurance_scope: scope,
     },
     ctx,

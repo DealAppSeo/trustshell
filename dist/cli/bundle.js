@@ -152,7 +152,10 @@ function runBundle(argv, io, env = process.env) {
         }
         const trustedOwners = [own, a.signer?.toLowerCase()].filter((x) => !!x);
         const inForce = (0, guardrails_1.loadPolicy)(home);
-        const pol = (0, bundle_1.policyImportDecision)(p.policy, trustedOwners, inForce.state === 'ok' ? { nonce: inForce.doc.policy.nonce } : null, guardrails_1.policySignedBy);
+        // Supersession is checked against the HIGHEST nonce this host has had (file or ledger), so deleting
+        // policy.json or re-running guard init cannot reopen an old, looser signed policy.
+        const hw = (0, guardrails_1.nonceHighWater)(home);
+        const pol = (0, bundle_1.policyImportDecision)(p.policy, trustedOwners, hw === null ? null : { nonce: hw }, guardrails_1.policySignedBy);
         if (a.verb === 'verify') {
             const lines = [`VERIFIED signature good, author trusted as ${v.trusted_as}`, ...summaryLines(v.bundle)];
             if (pol)

@@ -347,6 +347,9 @@ NETWORK EGRESS (what each command dials, and nothing else)
 ENV
   REPID_API_KEY        optional API key (verify/repid/proof are keyless; receipt needs it)
   TRUSTSHELL_API_URL   override backend origin (default: live HyperDAG backend)
+  TRUSTSHELL_HOME      where policy.json, its records and the signing key live (default ~/.trustshell).
+                       Pointing it at a folder with no policy switches the owner policy off for that
+                       command; a WARNING says so when ~/.trustshell/policy.json exists.
 
 CI GATE EXAMPLE
   # fail the build if HAL vetoes a claim in your changelog

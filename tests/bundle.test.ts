@@ -77,7 +77,7 @@ describe('trustshell bundle (CARRY)', () => {
   function runOn(m: Machine, tool: string): { code: number; started: boolean } {
     as(m);
     let started = false;
-    const code = runRun(['--tool', tool, '--', 'node', '-e', '0'], io, process.env, () => ((started = true), { status: 0, signal: null }));
+    const code = runRun(['--tool', tool, '--', tool, 'x'], io, process.env, () => ((started = true), { status: 0, signal: null }));
     return { code, started };
   }
 
