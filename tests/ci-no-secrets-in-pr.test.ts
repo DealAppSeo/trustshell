@@ -85,6 +85,28 @@ describe('Mission 1 #6 — a PR must not run with secrets in CI', () => {
     expect(offenders).toEqual([]);
   });
 
+  // (4) A PR can change package-lock.json, and `npm ci` runs every dependency's install scripts.
+  // With no secrets that code still gets the job's token and network, so PR installs skip them
+  // (repid-engine #1458 applied the same rule). Nothing these jobs run needs an install script.
+  it('(4) every npm install in a pull_request-triggered workflow passes --ignore-scripts', () => {
+    const offenders = wfs
+      .filter((w) => triggersOn(w.body, 'pull_request'))
+      .flatMap((w) => [...w.body.matchAll(/\bnpm (?:ci|install|i)\b[^\n]*/g)]
+        .map((m) => m[0])
+        .filter((cmd) => !/--ignore-scripts\b/.test(cmd))
+        .map((cmd) => `${w.name}: ${cmd.trim()}`));
+    expect(offenders).toEqual([]);
+  });
+
+  it('(5) no checkout in a pull_request-triggered workflow leaves the token in .git/config', () => {
+    const offenders = wfs
+      .filter((w) => triggersOn(w.body, 'pull_request'))
+      .flatMap((w) => w.body.split(/\n(?=\s*- )/)
+        .filter((step) => /uses:\s*actions\/checkout@/.test(step) && !/persist-credentials:\s*false/.test(step))
+        .map(() => w.name));
+    expect(offenders).toEqual([]);
+  });
+
   it('the PR gate (check.yml) exists, triggers on pull_request, and pins a read-only token', () => {
     const check = wfs.find((w) => w.name === 'check.yml');
     expect(check).toBeDefined();
