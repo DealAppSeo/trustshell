@@ -1249,7 +1249,7 @@ async function run(args, client, io = realIO) {
                     // A missing log is NOT CHECKED, never "clean". Exit 3.
                     const r = (0, inspect_1.noLog)(path);
                     if (args.json)
-                        io.out(JSON.stringify(r, null, 2));
+                        io.out((0, action_evidence_1.terminalSafeJson)(r));
                     else
                         io.out((0, inspect_1.formatInspectCard)(r));
                     return (0, inspect_1.inspectExitCode)(r.verdict);
@@ -1262,7 +1262,7 @@ async function run(args, client, io = realIO) {
                 }
                 const r = from === 'claude-code' ? (0, inspect_1.readClaudeCode)(text, path) : (0, inspect_1.verifyChain)(text, path);
                 if (args.json)
-                    io.out(JSON.stringify(r, null, 2));
+                    io.out((0, action_evidence_1.terminalSafeJson)(r));
                 else
                     io.out((0, inspect_1.formatInspectCard)(r));
                 return (0, inspect_1.inspectExitCode)(r.verdict);
