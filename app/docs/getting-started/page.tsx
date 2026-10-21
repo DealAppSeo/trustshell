@@ -30,7 +30,7 @@ export default async function GettingStartedPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
-      <nav className="text-xs text-muted/60 mb-6">
+      <nav className="text-xs text-muted mb-6">
         <Link href="/docs" className="hover:text-accent transition-colors">
           ← All docs
         </Link>
@@ -54,12 +54,12 @@ export default async function GettingStartedPage() {
         </div>
       ) : (
         <article
-          className="max-w-none"
+          className="max-w-none break-words"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       )}
 
-      <footer className="mt-12 pt-6 border-t border-border text-xs text-muted/60">
+      <footer className="mt-12 pt-6 border-t border-border text-xs text-muted">
         Source:{" "}
         <a
           href="https://github.com/DealAppSeo/trustshell/blob/main/docs/getting-started.md"

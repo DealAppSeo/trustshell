@@ -130,7 +130,7 @@ export default function SpendPage() {
         ) : wallet.address ? (
           <p className="text-sm text-[#94a3b8] break-all">Connected: <span className="font-mono text-white">{wallet.address}</span></p>
         ) : (
-          <button type="button" onClick={wallet.connect} disabled={wallet.connecting} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded disabled:opacity-60">
+          <button type="button" onClick={wallet.connect} disabled={wallet.connecting} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded disabled:opacity-60">
             {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
           </button>
         )}
@@ -174,7 +174,7 @@ export default function SpendPage() {
                 <span className="text-white font-medium">Cap (USDC)</span>
                 <input value={capInput} onChange={(e) => setCapInput(e.target.value)} inputMode="decimal" className="mt-1 block w-32 bg-[#0a0f1a] border border-[#334155] rounded p-2 text-white" />
               </label>
-              <button type="button" onClick={() => applyCap(capInput)} disabled={!!busy} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded disabled:opacity-60">
+              <button type="button" onClick={() => applyCap(capInput)} disabled={!!busy} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded disabled:opacity-60">
                 {busy === 'cap' ? 'Waiting for your wallet…' : 'Set cap'}
               </button>
               <button type="button" onClick={() => applyCap('0')} disabled={!!busy} className="px-4 py-2 border border-red-900/60 text-red-400 rounded hover:bg-red-950/40 disabled:opacity-60">
@@ -204,7 +204,7 @@ export default function SpendPage() {
           <button type="button" onClick={() => pay(true)} disabled={!!busy || !wallet.address || !agent} className="px-4 py-2 border border-[#334155] text-white rounded hover:bg-[#1e293b] disabled:opacity-60">
             {busy === 'check' ? 'Checking…' : 'Check first'}
           </button>
-          <button type="button" onClick={() => pay(false)} disabled={!!busy || !wallet.address || !agent} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded disabled:opacity-60">
+          <button type="button" onClick={() => pay(false)} disabled={!!busy || !wallet.address || !agent} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded disabled:opacity-60">
             {busy === 'pay' ? 'Paying…' : 'Pay'}
           </button>
         </div>

@@ -476,7 +476,7 @@ export default function PaiPage() {
           rows={3}
           className="w-full resize-none rounded-xl border border-[#334155] bg-[#0a0f1a] p-4 text-white"
         />
-        {q && <p className="text-xs text-[#64748b]">{q.hint}</p>}
+        {q && <p className="text-xs text-[#94a3b8]">{q.hint}</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
@@ -496,14 +496,14 @@ export default function PaiPage() {
           <button
             type="submit"
             disabled={busy || phase === 'registering'}
-            className="rounded-xl bg-amber-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-50"
+            className="rounded-xl bg-amber-600 px-6 py-2.5 text-sm font-bold text-black hover:bg-amber-500 disabled:opacity-50"
           >
             {phase === 'registering' ? 'Registering…' : busy ? 'Running…' : 'Send'}
           </button>
         </div>
       </form>
 
-      <p className="text-xs text-[#64748b]">
+      <p className="text-xs text-[#94a3b8]">
         Runs on the free shared pool{runsLeft !== null ? ` · ${runsLeft} left today` : ''}.
       </p>
 

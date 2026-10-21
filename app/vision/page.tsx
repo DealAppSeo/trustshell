@@ -248,7 +248,7 @@ export default function VisionPage() {
 
       {/* Go deeper */}
       <section className="space-y-3 border-t border-border pt-10">
-        <p className="text-xs uppercase tracking-widest text-muted/70 font-semibold">Go deeper</p>
+        <p className="text-xs uppercase tracking-widest text-muted font-semibold">Go deeper</p>
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <Link href="/check" className="text-accent hover:underline">Run a check</Link>
           <Link href="/how-verification" className="text-accent hover:underline">How verification works</Link>

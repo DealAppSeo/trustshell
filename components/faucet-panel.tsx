@@ -148,7 +148,7 @@ export function FaucetPanel() {
             type="submit"
             data-testid="faucet-read"
             disabled={busy || !address.trim()}
-            className="rounded bg-amber-600 px-5 py-2.5 font-bold text-white hover:bg-amber-500 disabled:opacity-60"
+            className="rounded bg-amber-600 px-5 py-2.5 font-bold text-black hover:bg-amber-500 disabled:opacity-60"
           >
             {busy ? 'Reading…' : 'Read my balance'}
           </button>
@@ -184,7 +184,7 @@ export function FaucetPanel() {
           3. Then
         </h2>
         <p className="flex flex-wrap gap-3">
-          <Link href="/stake" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-500">
+          <Link href="/stake" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-black hover:bg-amber-500">
             Practice stake
           </Link>
           <Link href="/spend" className="rounded-lg border border-[#334155] px-4 py-2 text-sm font-medium text-[#cbd5e1] hover:text-white">

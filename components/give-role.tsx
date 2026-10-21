@@ -149,7 +149,7 @@ export function GiveRole({ agents }: { agents: Agent[] }) {
         </select>
       </label>
 
-      <button type="button" onClick={give} disabled={busy || !to} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold p-3 rounded disabled:opacity-60">
+      <button type="button" onClick={give} disabled={busy || !to} className="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold p-3 rounded disabled:opacity-60">
         {busy ? 'Giving…' : `Give ${to?.name ?? 'it'} the ${belt.title} role`}
       </button>
       {error && <p role="alert" className="text-sm text-[#ff6b6b]">{error}</p>}
