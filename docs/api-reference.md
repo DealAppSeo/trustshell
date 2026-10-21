@@ -19,7 +19,7 @@ All times below are illustrative — live counts increment continuously. Re-curl
   - [`getRepID(agentId)`](#getrepidagentid--promiserepidresult)
   - [`presentProof(agentId, opts?)`](#presentproofagentid-opts--promiseproofpresentation)
   - [`getLeaderboard(board)`](#getleaderboardboard--promiseleaderboard)
-  - [`subscribe(event, handler)`](#subscribeevent-handler---void)
+  - [`subscribe(event, handler)`](#subscribeevent-handler----void)
   - [Other methods](#other-methods)
 - [CLI](#cli)
 - [Public REST API](#public-rest-api)

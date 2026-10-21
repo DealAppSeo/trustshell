@@ -92,7 +92,7 @@ export function GateModal({ onVerified, onClose, reason = 'runs' }: { onVerified
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold p-3 rounded"
+                className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-black font-bold p-3 rounded"
               >
                 {busy ? 'Sending code…' : 'Email me a 6-digit code'}
               </button>
@@ -123,7 +123,7 @@ export function GateModal({ onVerified, onClose, reason = 'runs' }: { onVerified
               <button
                 type="submit"
                 disabled={busy || code.length !== 6}
-                className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold p-3 rounded"
+                className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-black font-bold p-3 rounded"
               >
                 {busy ? 'Checking…' : 'Verify and continue'}
               </button>

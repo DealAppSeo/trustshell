@@ -247,7 +247,7 @@ export default function MissionPage() {
             href="https://github.com/DealAppSeo/trust-commons"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-colors"
+            className="inline-block px-6 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-lg transition-colors"
           >
             Join the conversation →
           </a>

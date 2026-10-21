@@ -178,7 +178,7 @@ export default function WalletHelperPage() {
             approve. MetaMask is the common one. Install it, make a wallet, then come back to this page.
           </p>
           <a href="https://metamask.io/download/" target="_blank" rel="noreferrer"
-             className="inline-block px-5 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded">
+             className="inline-block px-5 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded">
             Get MetaMask →
           </a>
         </Card>
@@ -190,7 +190,7 @@ export default function WalletHelperPage() {
             so we can point you at the right one. It cannot move anything.
           </p>
           <button onClick={connect} disabled={connecting}
-                  className="px-5 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold rounded">
+                  className="px-5 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-black font-bold rounded">
             {connecting ? 'Connecting…' : 'Connect wallet'}
           </button>
         </Card>
@@ -218,7 +218,7 @@ export default function WalletHelperPage() {
                   You&apos;re on {chainName(chainId)}. You need <span className="text-white">Base Sepolia</span> (the testnet).
                 </p>
                 <button onClick={switchNetwork} disabled={switching}
-                        className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold rounded text-sm">
+                        className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-black font-bold rounded text-sm">
                   {switching ? 'Switching…' : 'Switch to Base Sepolia'}
                 </button>
               </div>
@@ -260,7 +260,7 @@ export default function WalletHelperPage() {
           {/* Next action */}
           <div className="pt-2 flex flex-wrap gap-3">
             <a href="/bind"
-               className={`px-5 py-3 font-bold rounded ${onBaseSepolia ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-[#1e293b] text-[#64748b] pointer-events-none'}`}>
+               className={`px-5 py-3 font-bold rounded ${onBaseSepolia ? 'bg-amber-600 hover:bg-amber-500 text-black' : 'bg-[#1e293b] text-[#64748b] pointer-events-none'}`}>
               Next: bind your agent →
             </a>
             <a href="/start" className="px-5 py-3 font-medium rounded border border-[#334155] text-[#94a3b8] hover:text-white">

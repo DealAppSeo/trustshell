@@ -355,7 +355,7 @@ export default function StakePage() {
             </div>
             <button
               onClick={() => setShowGate(true)}
-              className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded"
+              className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded"
             >
               Verify email
             </button>
@@ -546,7 +546,7 @@ export default function StakePage() {
               <button
                 type="submit"
                 disabled={submitting || !bound || (realMode && !sessionReady)}
-                className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white font-bold rounded"
+                className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-black font-bold rounded"
               >
                 {submitting
                   ? 'Staking…'

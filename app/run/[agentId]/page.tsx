@@ -395,7 +395,7 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
             <option value="tier0_only">Free only (No vault needed)</option>
             <option value="tier1_only">Paid only (Requires unlocked vault)</option>
           </select>
-          <button type="submit" disabled={loading} className="px-8 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded">
+          <button type="submit" disabled={loading} className="px-8 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded">
             {loading ? 'Running…' : 'Run prompt'}
           </button>
         </div>

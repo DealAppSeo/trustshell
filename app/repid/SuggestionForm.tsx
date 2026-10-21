@@ -79,7 +79,7 @@ export default function SuggestionForm() {
         <button
           type="submit"
           disabled={pending}
-          className="px-6 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
+          className="px-6 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-[#334155] disabled:cursor-not-allowed text-black font-bold rounded-lg transition-colors"
         >
           {pending ? 'Submitting...' : 'Submit'}
         </button>
