@@ -23,6 +23,7 @@ import {
   appendRecord,
   defaultPolicy,
   guardDecide,
+  homeShadowWarning,
   loadPolicy,
   parsePolicy,
   policySha256,
@@ -59,6 +60,24 @@ export const RUN_SCOPE: AssuranceScope = {
   not_mediated: ['what the command did after it started: files, network, child processes', 'commands run without `trustshell run`'],
 };
 
+export const POLICY_SCOPE: AssuranceScope = {
+  mediated: ['that the policy in force was changed through trustshell (guard or bundle import), and its hash before and after'],
+  not_mediated: ['an edit made to policy.json by hand or by another program: the guard reads the file, it does not know who wrote it'],
+};
+
+/** Record that the policy in force changed. A rule change is never silent (Lane D, 2026-10-21). */
+export function recordPolicyChange(dir: string, via: string, before: string | null, after: PolicyDocument): GuardRecord {
+  const sha = policySha256(after.policy);
+  return appendRecord(dir, {
+    kind: 'policy-change',
+    requested: { action: 'policy-change', tool: 'guard', class: 'other' },
+    authorized: { decision: 'ALLOWED', reasons: [], policy_sha256: sha, policy_nonce: after.policy.nonce, policy_signed_by: after.signature?.fingerprint ?? null },
+    executed: null,
+    assurance_scope: POLICY_SCOPE,
+    change: { via, before_sha256: before, after_sha256: sha },
+  });
+}
+
 export const CHECK_SCOPE: AssuranceScope = {
   mediated: ['a decision only: `guard check` runs nothing'],
   not_mediated: ['whether the caller obeyed the decision', 'what the caller did afterwards'],
@@ -76,6 +95,8 @@ export function plannedAction(args: ParsedArgs): { req: GuardRequest; refuse?: s
 /** Run `inner` under the policy, if there is one. No policy file: `inner` runs exactly as before. */
 export async function runGuarded(args: ParsedArgs, inner: () => Promise<number>, io: IO, env: NodeJS.ProcessEnv = process.env): Promise<number> {
   if (args.error || NEVER_GUARDED.has(args.command)) return inner();
+  const shadow = homeShadowWarning(env);
+  if (shadow) io.err(shadow);
   const { req, refuse } = plannedAction(args);
   const g = guardDecide(trustshellHome(env), req, CLI_SCOPE, { extraReasons: refuse ? [refuse] : [] });
   if (!g) return inner();
@@ -144,6 +165,8 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
   if (!command.length || !command[0]) return usage(io, 'run needs the command after --');
 
   const dir = trustshellHome(env);
+  const shadow = homeShadowWarning(env);
+  if (shadow) io.err(shadow);
   const req: GuardRequest = { tool, class: cls, command_sha256: sha256(JSON.stringify(command)), ...(amount !== undefined ? { amount_raw: amount } : {}) };
   const g = guardDecide(dir, req, RUN_SCOPE);
   if (!g) {
@@ -224,12 +247,17 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
         io.err(`guard init: ${path} exists; nothing was written (--force replaces it)`);
         return 2;
       }
-      write({ policy: defaultPolicy(undefined, days), signature: null });
+      const before = loadPolicy(dir);
+      const doc: PolicyDocument = { policy: defaultPolicy(undefined, days), signature: null };
+      write(doc);
+      recordPolicyChange(dir, `guard init${words.includes('--force') ? ' --force' : ''}`, before.state === 'ok' ? before.sha256 : null, doc);
       io.out(`wrote ${path}: local commands only, every limit 0, expires in ${days} days. trustshell guard show prints it.`);
       return 0;
     }
     case 'show': {
       if (words.length) return bad(`guard show: unexpected ${words[0]}`);
+      const shadow = homeShadowWarning(env);
+      if (shadow) io.err(shadow);
       const loaded = loadPolicy(dir);
       if (loaded.state === 'absent') {
         io.out(json ? JSON.stringify({ state: 'absent', path }, null, 2) : `no policy at ${path}: trustshell run authorizes nothing, and nothing else is gated. trustshell guard init writes one.`);
@@ -285,7 +313,9 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
       if (verb === 'sign') {
         if (words.length) return bad('guard sign takes nothing');
         const k = signingKey(dir);
-        write({ policy: p, signature: { ...k.signer, signature: signValue(p, k.key) } });
+        const signed: PolicyDocument = { policy: p, signature: { ...k.signer, signature: signValue(p, k.key) } };
+        write(signed);
+        recordPolicyChange(dir, 'guard sign', loaded.sha256, signed);
         io.out(`signed ${path} with this install's key ${k.signer.fingerprint}. A bundle can now carry it as owner-signed.`);
         return 0;
       }
@@ -312,7 +342,9 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
         io.err(`not written: ${checked.errors.join('; ')}`);
         return 2;
       }
-      write({ policy: checked.policy, signature: null });
+      const next: PolicyDocument = { policy: checked.policy, signature: null };
+      write(next);
+      recordPolicyChange(dir, `guard ${verb}${words.length ? ' ' + words.join(' ') : ''}`, loaded.sha256, next);
       if (loaded.doc.signature) io.err('the owner signature covered the old policy, so it was removed: trustshell guard sign signs this one');
       io.out(showLines({ policy: checked.policy, signature: null }, path, ledgerText(), checked.defaulted).slice(0, 5).join('\n'));
       return 0;

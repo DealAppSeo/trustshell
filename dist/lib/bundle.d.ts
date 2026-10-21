@@ -96,7 +96,9 @@ export declare function policyImportDecision(carried: BundlePayload['policy'], t
 } | null;
 /**
  * PURE. The person, as text for a model. Built only from the bundle; the policy is shown as INFORMATION
- * (enforcement stays in the harness, whatever a model does with this text). A memory that looks like an
- * injection is left out, so a poisoned note never reaches a model through this path.
+ * (enforcement stays in the harness, whatever a model does with this text). Any profile entry or memory that
+ * looks like an injection is left out, so a poisoned line never reaches a model through this path, and control
+ * and bidi characters are scrubbed (they reached the terminal through `bundle context`: Lane D, 2026-10-21).
+ * The screen is a fixed pattern set (src/lib/ingest.ts): it misses paraphrased orders, so it narrows, not closes.
  */
 export declare function brainContext(p: BundlePayload): string;

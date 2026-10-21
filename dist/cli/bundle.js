@@ -17,6 +17,7 @@ const version_1 = require("../lib/version");
 const local_store_1 = require("../memory/local-store");
 const quarantine_1 = require("../memory/quarantine");
 const profile_1 = require("./profile");
+const guard_1 = require("./guard");
 exports.BUNDLE_USAGE = `trustshell bundle export <file> [--note <id>]... [--notes released] [--evidence <file>]... [--force]
 trustshell bundle verify <file> [--signer <fingerprint>] [--json]
 trustshell bundle context <file> [--signer <fingerprint>]
@@ -188,6 +189,8 @@ function runBundle(argv, io, env = process.env) {
             fs.mkdirSync(home, { recursive: true, mode: 0o700 });
             const target = (0, node_path_1.join)(home, pol.enforce ? guardrails_1.POLICY_FILE : guardrails_1.SUGGESTED_POLICY_FILE);
             fs.writeFileSync(target, (0, guardrails_1.renderPolicyDocument)(p.policy.document), { mode: 0o600 });
+            if (pol.enforce)
+                (0, guard_1.recordPolicyChange)(home, `bundle import (owner-signed by ${p.policy.document.signature?.fingerprint.slice(0, 16)}…)`, inForce.state === 'ok' ? inForce.sha256 : null, p.policy.document);
             policyResult = pol.enforce ? `ENFORCED (${pol.why})` : `suggested, NOT enforced: saved as ${guardrails_1.SUGGESTED_POLICY_FILE} because ${pol.why}`;
             if (!pol.enforce)
                 io.err(`policy NOT enforced: ${pol.why}. The policy in force here is unchanged.`);

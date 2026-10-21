@@ -90,8 +90,12 @@ export interface GuardRecord {
     seq: number;
     ts: string;
     origin: string;
-    /** decision: written BEFORE the action. outcome: written after `trustshell run` saw the command end. */
-    kind: 'decision' | 'outcome';
+    /**
+     * decision: written BEFORE the action. outcome: written after `trustshell run` saw the command end.
+     * policy-change: the policy in force changed (guard init/allow/deny/limit/expire/kill/sign, or an import
+     * that enforced a carried policy), with the hash before and after. A rule change is never silent.
+     */
+    kind: 'decision' | 'outcome' | 'policy-change';
     requested: GuardRequest & {
         action: string;
     };
@@ -107,6 +111,12 @@ export interface GuardRecord {
         duration_ms: number;
     } | 'not run' | null;
     assurance_scope: AssuranceScope;
+    /** policy-change only: what changed it, and the policy hash before (null: there was none) and after. */
+    change?: {
+        via: string;
+        before_sha256: string | null;
+        after_sha256: string;
+    };
     prev: string | null;
     hash: string;
 }
@@ -146,7 +156,10 @@ export interface GuardFs {
     append(p: string, data: string): void;
     write(p: string, data: string): void;
     mkdirp(p: string): void;
+    /** Take the ledger lock in `dir`; returns the release. Throws NOT_CHECKED if it cannot be had. */
+    lock(dir: string): () => void;
 }
+export declare const GUARD_LOCK_FILE = "guard-receipts.lock";
 export declare const nodeGuardFs: () => GuardFs;
 export type LoadedPolicy = {
     state: 'absent';
@@ -171,13 +184,14 @@ export interface GuardContext {
     /** A reason the caller knows and the policy cannot express (init --pai's child process): denied too. */
     extraReasons?: string[];
 }
-/** Append one record to the ledger in `dir`, chained to the last one, and move the checkpoint. */
+/** Append one record to the ledger in `dir`, chained to the last one, and move the checkpoint. Takes the lock. */
 export declare function appendRecord(dir: string, fields: Omit<GuardRecord, 'schema' | 'seq' | 'ts' | 'origin' | 'prev' | 'hash'>, ctx?: GuardContext): GuardRecord;
 /**
  * Decide ONE request against the policy in `dir` and record the decision BEFORE the caller acts. No policy file:
  * null (nothing decided, nothing written). The caller then runs the action only on ALLOWED.
- * ponytail: reads and hashes the whole ledger file per decision (see GUARD_CHECKPOINT_FILE for the measured
- * cost) and takes no lock: two concurrent writers fork the chain, which then reads BROKEN and refuses amounts.
+ * Reading the ledger, deciding and appending happen under ONE lock, so a concurrent writer can neither fork the
+ * chain nor spend the same allowance twice.
+ * ponytail: reads and hashes the whole ledger file per decision (see GUARD_CHECKPOINT_FILE for the measured cost).
  */
 export declare function guardDecide(dir: string, req: GuardRequest, scope: AssuranceScope, ctx?: GuardContext): {
     decision: GuardDecision;
@@ -187,4 +201,10 @@ export declare function guardDecide(dir: string, req: GuardRequest, scope: Assur
     }>;
 } | null;
 /** The sentences `guard show` will not let a reader forget. */
-export declare const GUARD_DOES_NOT_COVER: readonly ["It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.", "It decides before an action starts. What a started command does (files, network, child processes) is not observed.", "A missing record never proves no action happened: the guard sees only what goes through it.", "The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.", "Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted."];
+export declare const GUARD_DOES_NOT_COVER: readonly ["It covers the trustshell CLI and `trustshell run`. The MCP server (trustshell-mcp) does not read this policy yet.", "It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).", "It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.", "It decides before an action starts. What a started command does (files, network, child processes) is not observed.", "A missing record never proves no action happened: the guard sees only what goes through it.", "The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.", "Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted."];
+/**
+ * The loud line for a TRUSTSHELL_HOME that hides a policy: set to a folder with no policy while the default
+ * `~/.trustshell/policy.json` exists, it switches the guard off for that command (Lane D, 2026-10-21). null when
+ * nothing is hidden.
+ */
+export declare function homeShadowWarning(env?: NodeJS.ProcessEnv, home?: string): string | null;

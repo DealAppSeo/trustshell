@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GUARD_USAGE = exports.RUN_USAGE = exports.CHECK_SCOPE = exports.RUN_SCOPE = exports.CLI_SCOPE = exports.NEVER_GUARDED = exports.EXIT_REFUSED = void 0;
+exports.GUARD_USAGE = exports.RUN_USAGE = exports.CHECK_SCOPE = exports.POLICY_SCOPE = exports.RUN_SCOPE = exports.CLI_SCOPE = exports.NEVER_GUARDED = exports.EXIT_REFUSED = void 0;
+exports.recordPolicyChange = recordPolicyChange;
 exports.plannedAction = plannedAction;
 exports.runGuarded = runGuarded;
 exports.formatRunCard = formatRunCard;
@@ -25,6 +26,22 @@ exports.RUN_SCOPE = {
     mediated: ['the decision to start this command through `trustshell run`, checked against the owner policy before it started', 'the exit code of the process `trustshell run` started'],
     not_mediated: ['what the command did after it started: files, network, child processes', 'commands run without `trustshell run`'],
 };
+exports.POLICY_SCOPE = {
+    mediated: ['that the policy in force was changed through trustshell (guard or bundle import), and its hash before and after'],
+    not_mediated: ['an edit made to policy.json by hand or by another program: the guard reads the file, it does not know who wrote it'],
+};
+/** Record that the policy in force changed. A rule change is never silent (Lane D, 2026-10-21). */
+function recordPolicyChange(dir, via, before, after) {
+    const sha = (0, guardrails_1.policySha256)(after.policy);
+    return (0, guardrails_1.appendRecord)(dir, {
+        kind: 'policy-change',
+        requested: { action: 'policy-change', tool: 'guard', class: 'other' },
+        authorized: { decision: 'ALLOWED', reasons: [], policy_sha256: sha, policy_nonce: after.policy.nonce, policy_signed_by: after.signature?.fingerprint ?? null },
+        executed: null,
+        assurance_scope: exports.POLICY_SCOPE,
+        change: { via, before_sha256: before, after_sha256: sha },
+    });
+}
 exports.CHECK_SCOPE = {
     mediated: ['a decision only: `guard check` runs nothing'],
     not_mediated: ['whether the caller obeyed the decision', 'what the caller did afterwards'],
@@ -41,6 +58,9 @@ function plannedAction(args) {
 async function runGuarded(args, inner, io, env = process.env) {
     if (args.error || exports.NEVER_GUARDED.has(args.command))
         return inner();
+    const shadow = (0, guardrails_1.homeShadowWarning)(env);
+    if (shadow)
+        io.err(shadow);
     const { req, refuse } = plannedAction(args);
     const g = (0, guardrails_1.guardDecide)((0, guardrails_1.trustshellHome)(env), req, exports.CLI_SCOPE, { extraReasons: refuse ? [refuse] : [] });
     if (!g)
@@ -109,6 +129,9 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner) {
     if (!command.length || !command[0])
         return usage(io, 'run needs the command after --');
     const dir = (0, guardrails_1.trustshellHome)(env);
+    const shadow = (0, guardrails_1.homeShadowWarning)(env);
+    if (shadow)
+        io.err(shadow);
     const req = { tool, class: cls, command_sha256: sha256(JSON.stringify(command)), ...(amount !== undefined ? { amount_raw: amount } : {}) };
     const g = (0, guardrails_1.guardDecide)(dir, req, exports.RUN_SCOPE);
     if (!g) {
@@ -187,13 +210,19 @@ function runGuard(argv, io, env = process.env) {
                 io.err(`guard init: ${path} exists; nothing was written (--force replaces it)`);
                 return 2;
             }
-            write({ policy: (0, guardrails_1.defaultPolicy)(undefined, days), signature: null });
+            const before = (0, guardrails_1.loadPolicy)(dir);
+            const doc = { policy: (0, guardrails_1.defaultPolicy)(undefined, days), signature: null };
+            write(doc);
+            recordPolicyChange(dir, `guard init${words.includes('--force') ? ' --force' : ''}`, before.state === 'ok' ? before.sha256 : null, doc);
             io.out(`wrote ${path}: local commands only, every limit 0, expires in ${days} days. trustshell guard show prints it.`);
             return 0;
         }
         case 'show': {
             if (words.length)
                 return bad(`guard show: unexpected ${words[0]}`);
+            const shadow = (0, guardrails_1.homeShadowWarning)(env);
+            if (shadow)
+                io.err(shadow);
             const loaded = (0, guardrails_1.loadPolicy)(dir);
             if (loaded.state === 'absent') {
                 io.out(json ? JSON.stringify({ state: 'absent', path }, null, 2) : `no policy at ${path}: trustshell run authorizes nothing, and nothing else is gated. trustshell guard init writes one.`);
@@ -261,7 +290,9 @@ function runGuard(argv, io, env = process.env) {
                 if (words.length)
                     return bad('guard sign takes nothing');
                 const k = (0, install_key_1.signingKey)(dir);
-                write({ policy: p, signature: { ...k.signer, signature: (0, install_key_1.signValue)(p, k.key) } });
+                const signed = { policy: p, signature: { ...k.signer, signature: (0, install_key_1.signValue)(p, k.key) } };
+                write(signed);
+                recordPolicyChange(dir, 'guard sign', loaded.sha256, signed);
                 io.out(`signed ${path} with this install's key ${k.signer.fingerprint}. A bundle can now carry it as owner-signed.`);
                 return 0;
             }
@@ -295,7 +326,9 @@ function runGuard(argv, io, env = process.env) {
                 io.err(`not written: ${checked.errors.join('; ')}`);
                 return 2;
             }
-            write({ policy: checked.policy, signature: null });
+            const next = { policy: checked.policy, signature: null };
+            write(next);
+            recordPolicyChange(dir, `guard ${verb}${words.length ? ' ' + words.join(' ') : ''}`, loaded.sha256, next);
             if (loaded.doc.signature)
                 io.err('the owner signature covered the old policy, so it was removed: trustshell guard sign signs this one');
             io.out(showLines({ policy: checked.policy, signature: null }, path, ledgerText(), checked.defaulted).slice(0, 5).join('\n'));

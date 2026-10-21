@@ -249,13 +249,19 @@ export interface GuardRecord {
   seq: number;
   ts: string;
   origin: string;
-  /** decision: written BEFORE the action. outcome: written after `trustshell run` saw the command end. */
-  kind: 'decision' | 'outcome';
+  /**
+   * decision: written BEFORE the action. outcome: written after `trustshell run` saw the command end.
+   * policy-change: the policy in force changed (guard init/allow/deny/limit/expire/kill/sign, or an import
+   * that enforced a carried policy), with the hash before and after. A rule change is never silent.
+   */
+  kind: 'decision' | 'outcome' | 'policy-change';
   requested: GuardRequest & { action: string };
   authorized: GuardDecision & { policy_sha256: string | null; policy_nonce: string | null; policy_signed_by: string | null };
   /** outcome only: what the started process reported. Never what it did. */
   executed: { exit_code: number | null; signal: string | null; duration_ms: number } | 'not run' | null;
   assurance_scope: AssuranceScope;
+  /** policy-change only: what changed it, and the policy hash before (null: there was none) and after. */
+  change?: { via: string; before_sha256: string | null; after_sha256: string };
   prev: string | null;
   hash: string;
 }
@@ -363,7 +369,11 @@ export interface GuardFs {
   append(p: string, data: string): void;
   write(p: string, data: string): void;
   mkdirp(p: string): void;
+  /** Take the ledger lock in `dir`; returns the release. Throws NOT_CHECKED if it cannot be had. */
+  lock(dir: string): () => void;
 }
+
+export const GUARD_LOCK_FILE = 'guard-receipts.lock';
 
 export const nodeGuardFs = (): GuardFs => {
   const fs = require('node:fs') as typeof import('node:fs');
@@ -374,6 +384,37 @@ export const nodeGuardFs = (): GuardFs => {
     write: (p, d) => fs.writeFileSync(p, d, { mode: 0o600 }),
     mkdirp: (p) => {
       fs.mkdirSync(p, { recursive: true, mode: 0o700 });
+    },
+    // One writer at a time. Eight simultaneous `guard check` calls forked the chain (Lane D, 2026-10-21), and a
+    // forked chain reads BROKEN, which refuses every amount. Create-exclusive lock file; a lock older than 30 s
+    // is a crashed writer and is taken over.
+    // ponytail: a sync spin of 15 ms steps, up to 10 s; a real queue if contention ever matters.
+    lock: (dir) => {
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+      const path = join(dir, GUARD_LOCK_FILE);
+      const deadline = Date.now() + 10_000;
+      const pause = new Int32Array(new SharedArrayBuffer(4));
+      for (;;) {
+        try {
+          fs.closeSync(fs.openSync(path, 'wx'));
+          return () => {
+            try {
+              fs.unlinkSync(path);
+            } catch {
+              /* already gone */
+            }
+          };
+        } catch (e) {
+          if ((e as { code?: string }).code !== 'EEXIST') throw e;
+          try {
+            if (Date.now() - fs.statSync(path).mtimeMs > 30_000) fs.unlinkSync(path);
+          } catch {
+            /* released meanwhile: try again */
+          }
+          if (Date.now() > deadline) throw new Error(`NOT_CHECKED the guard ledger is locked by another writer (${path}); nothing was decided`);
+          Atomics.wait(pause, 0, 0, 15);
+        }
+      }
     },
   };
 };
@@ -399,13 +440,27 @@ export interface GuardContext {
   extraReasons?: string[];
 }
 
-/** Append one record to the ledger in `dir`, chained to the last one, and move the checkpoint. */
+/** Append one record to the ledger in `dir`, chained to the last one, and move the checkpoint. Takes the lock. */
 export function appendRecord(
   dir: string,
   fields: Omit<GuardRecord, 'schema' | 'seq' | 'ts' | 'origin' | 'prev' | 'hash'>,
   ctx: GuardContext = {},
 ): GuardRecord {
   const fs = ctx.fs ?? nodeGuardFs();
+  const release = fs.lock(dir);
+  try {
+    return appendUnlocked(dir, fields, { ...ctx, fs });
+  } finally {
+    release();
+  }
+}
+
+function appendUnlocked(
+  dir: string,
+  fields: Omit<GuardRecord, 'schema' | 'seq' | 'ts' | 'origin' | 'prev' | 'hash'>,
+  ctx: GuardContext & { fs: GuardFs },
+): GuardRecord {
+  const fs = ctx.fs;
   const nowS = ctx.nowS ?? Math.floor(Date.now() / 1000);
   const ledgerPath = join(dir, GUARD_RECEIPTS_FILE);
   const checkpointPath = join(dir, GUARD_CHECKPOINT_FILE);
@@ -433,8 +488,9 @@ export function appendRecord(
 /**
  * Decide ONE request against the policy in `dir` and record the decision BEFORE the caller acts. No policy file:
  * null (nothing decided, nothing written). The caller then runs the action only on ALLOWED.
- * ponytail: reads and hashes the whole ledger file per decision (see GUARD_CHECKPOINT_FILE for the measured
- * cost) and takes no lock: two concurrent writers fork the chain, which then reads BROKEN and refuses amounts.
+ * Reading the ledger, deciding and appending happen under ONE lock, so a concurrent writer can neither fork the
+ * chain nor spend the same allowance twice.
+ * ponytail: reads and hashes the whole ledger file per decision (see GUARD_CHECKPOINT_FILE for the measured cost).
  */
 export function guardDecide(
   dir: string,
@@ -446,6 +502,22 @@ export function guardDecide(
   const nowS = ctx.nowS ?? Math.floor(Date.now() / 1000);
   const loaded = loadPolicy(dir, fs);
   if (loaded.state === 'absent') return null;
+  const release = fs.lock(dir);
+  try {
+    return decideLocked(dir, req, scope, { ...ctx, fs, nowS }, loaded);
+  } finally {
+    release();
+  }
+}
+
+function decideLocked(
+  dir: string,
+  req: GuardRequest,
+  scope: AssuranceScope,
+  ctx: GuardContext & { fs: GuardFs; nowS: number },
+  loaded: Exclude<LoadedPolicy, { state: 'absent' }>,
+): { decision: GuardDecision; record: GuardRecord; loaded: Exclude<LoadedPolicy, { state: 'absent' }> } {
+  const { fs, nowS } = ctx;
   const ledgerPath = join(dir, GUARD_RECEIPTS_FILE);
   const checkpointPath = join(dir, GUARD_CHECKPOINT_FILE);
   const ledger = readLedgerCheckpointed(
@@ -459,7 +531,7 @@ export function guardDecide(
   const requested: GuardRecord['requested'] = { action: actionFor(req), tool: req.tool, class: req.class };
   if (req.amount_raw !== undefined) requested.amount_raw = req.amount_raw;
   if (req.command_sha256 !== undefined) requested.command_sha256 = req.command_sha256;
-  const record = appendRecord(
+  const record = appendUnlocked(
     dir,
     {
       kind: 'decision',
@@ -473,16 +545,33 @@ export function guardDecide(
       executed: decision.decision === 'DENIED' ? 'not run' : null,
       assurance_scope: scope,
     },
-    { ...ctx, fs, nowS },
+    ctx,
   );
   return { decision, record, loaded };
 }
 
 /** The sentences `guard show` will not let a reader forget. */
 export const GUARD_DOES_NOT_COVER = [
+  'It covers the trustshell CLI and `trustshell run`. The MCP server (trustshell-mcp) does not read this policy yet.',
+  'It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).',
   'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
   'It decides before an action starts. What a started command does (files, network, child processes) is not observed.',
   'A missing record never proves no action happened: the guard sees only what goes through it.',
   'The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.',
   'Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted.',
 ] as const;
+
+/**
+ * The loud line for a TRUSTSHELL_HOME that hides a policy: set to a folder with no policy while the default
+ * `~/.trustshell/policy.json` exists, it switches the guard off for that command (Lane D, 2026-10-21). null when
+ * nothing is hidden.
+ */
+export function homeShadowWarning(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string | null {
+  const set = env.TRUSTSHELL_HOME?.trim();
+  if (!set) return null;
+  const { existsSync } = require('node:fs') as typeof import('node:fs');
+  const { resolve } = require('node:path') as typeof import('node:path');
+  const def = join(home, '.trustshell');
+  if (resolve(set) === resolve(def) || existsSync(join(set, POLICY_FILE)) || !existsSync(join(def, POLICY_FILE))) return null;
+  return `WARNING: TRUSTSHELL_HOME=${set} has no policy, so the owner policy at ${join(def, POLICY_FILE)} is NOT in force for this command`;
+}

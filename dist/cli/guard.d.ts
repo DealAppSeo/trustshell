@@ -13,7 +13,7 @@
  * change the rules, and `run` makes its own decision.
  */
 import type { ParsedArgs } from './index';
-import { type AssuranceScope, type GuardRecord, type GuardRequest } from '../lib/guardrails';
+import { type AssuranceScope, type GuardRecord, type GuardRequest, type PolicyDocument } from '../lib/guardrails';
 type IO = {
     out: (s: string) => void;
     err: (s: string) => void;
@@ -24,6 +24,9 @@ export declare const NEVER_GUARDED: Set<string>;
 /** The scope a CLI-gate record states. */
 export declare const CLI_SCOPE: AssuranceScope;
 export declare const RUN_SCOPE: AssuranceScope;
+export declare const POLICY_SCOPE: AssuranceScope;
+/** Record that the policy in force changed. A rule change is never silent (Lane D, 2026-10-21). */
+export declare function recordPolicyChange(dir: string, via: string, before: string | null, after: PolicyDocument): GuardRecord;
 export declare const CHECK_SCOPE: AssuranceScope;
 /** PURE. What a parsed command is, as the gate weighs it, and any reason it must be denied whatever the policy says. */
 export declare function plannedAction(args: ParsedArgs): {

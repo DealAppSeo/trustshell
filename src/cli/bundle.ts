@@ -12,6 +12,7 @@ import { resolvePackageVersion } from '../lib/version';
 import { listNotes, memoryDbPath, selectableNotes, INJECTION_PREFIX } from '../memory/local-store';
 import { rememberUntrusted } from '../memory/quarantine';
 import { PROFILE_PATH } from './profile';
+import { recordPolicyChange } from './guard';
 
 type IO = { out: (s: string) => void; err: (s: string) => void };
 
@@ -185,6 +186,7 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
       fs.mkdirSync(home, { recursive: true, mode: 0o700 });
       const target = join(home, pol.enforce ? POLICY_FILE : SUGGESTED_POLICY_FILE);
       fs.writeFileSync(target, renderPolicyDocument(p.policy.document), { mode: 0o600 });
+      if (pol.enforce) recordPolicyChange(home, `bundle import (owner-signed by ${p.policy.document.signature?.fingerprint.slice(0, 16)}…)`, inForce.state === 'ok' ? inForce.sha256 : null, p.policy.document);
       policyResult = pol.enforce ? `ENFORCED (${pol.why})` : `suggested, NOT enforced: saved as ${SUGGESTED_POLICY_FILE} because ${pol.why}`;
       if (!pol.enforce) io.err(`policy NOT enforced: ${pol.why}. The policy in force here is unchanged.`);
     }

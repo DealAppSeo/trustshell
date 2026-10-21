@@ -12,6 +12,7 @@ const install_key_1 = require("./install-key");
 const profile_1 = require("./profile");
 const remember_1 = require("../cli/remember");
 const ingest_1 = require("./ingest");
+const action_evidence_1 = require("./action-evidence");
 exports.BUNDLE_SCHEMA = 'trustshell.bundle/2';
 /** A bundle larger than this is refused before it is parsed. */
 exports.MAX_BUNDLE_BYTES = 16 * 1024 * 1024;
@@ -37,6 +38,10 @@ function unsafeText(s) {
 function buildBundle(payload, key, author, version, now = new Date().toISOString()) {
     if (payload.profile !== null && (0, remember_1.refusedValue)(payload.profile)) {
         throw new BundleError('profile.md holds something shaped like a credential, so nothing was exported. Remove it and run export again.', 1);
+    }
+    // The profile is handed to models on the other host: an instruction hidden in it travels like a poisoned note.
+    if (payload.profile !== null && (0, ingest_1.ingest)(payload.profile).ingest !== 'clean') {
+        throw new BundleError('profile.md holds injection-looking text (an instruction to an agent), so nothing was exported. Remove it and run export again.', 1);
     }
     for (const m of payload.memories) {
         const why = unsafeText(m.text);
@@ -167,26 +172,32 @@ function policyImportDecision(carried, trustedOwners, inForce, signedBy) {
 }
 /**
  * PURE. The person, as text for a model. Built only from the bundle; the policy is shown as INFORMATION
- * (enforcement stays in the harness, whatever a model does with this text). A memory that looks like an
- * injection is left out, so a poisoned note never reaches a model through this path.
+ * (enforcement stays in the harness, whatever a model does with this text). Any profile entry or memory that
+ * looks like an injection is left out, so a poisoned line never reaches a model through this path, and control
+ * and bidi characters are scrubbed (they reached the terminal through `bundle context`: Lane D, 2026-10-21).
+ * The screen is a fixed pattern set (src/lib/ingest.ts): it misses paraphrased orders, so it narrows, not closes.
  */
 function brainContext(p) {
+    const safe = (t) => unsafeText(t) === null;
     const lines = ['# The person this agent works for (from their signed TrustShell bundle)'];
     if (p.profile !== null) {
         const pr = (0, profile_1.parseProfile)(p.profile).profile;
-        if (pr.identity)
+        const values = pr.values.filter(safe);
+        const people = pr.people.filter((x) => safe(x.who) && safe(x.why));
+        const style = Object.entries(pr.style).filter(([, v]) => safe(String(v)));
+        const constraints = pr.constraints.filter(safe);
+        if (pr.identity && safe(pr.identity))
             lines.push('', 'Identity:', pr.identity);
-        if (pr.context)
+        if (pr.context && safe(pr.context))
             lines.push('', 'Standing context:', pr.context);
-        if (pr.values.length)
-            lines.push('', 'Values, most important first:', ...pr.values.map((v, i) => `${i + 1}. ${v}`));
-        if (pr.people.length)
-            lines.push('', 'People they help:', ...pr.people.map((x) => `- ${x.who}${x.why ? ` (why: ${x.why})` : ''}`));
-        const style = Object.entries(pr.style);
+        if (values.length)
+            lines.push('', 'Values, most important first:', ...values.map((v, i) => `${i + 1}. ${v}`));
+        if (people.length)
+            lines.push('', 'People they help:', ...people.map((x) => `- ${x.who}${x.why ? ` (why: ${x.why})` : ''}`));
         if (style.length)
             lines.push('', `Style: ${style.map(([k, v]) => `${k}: ${v}`).join('; ')}`);
-        if (pr.constraints.length)
-            lines.push('', 'Constraints that must hold:', ...pr.constraints.map((c, i) => `${i + 1}. ${c}`));
+        if (constraints.length)
+            lines.push('', 'Constraints that must hold:', ...constraints.map((c, i) => `${i + 1}. ${c}`));
         if (pr.priorities)
             lines.push('', `Model priorities: ${'preset' in pr.priorities ? pr.priorities.preset : pr.priorities.order.join(' > ')}`);
         lines.push('', `Trust settings: autonomy ${pr.trust.autonomy}; confidence gate ${pr.trust.confidence_gate}; human-in-the-loop gate ${pr.trust.hitl_gate}`);
@@ -195,8 +206,8 @@ function brainContext(p) {
         const q = p.policy.document.policy;
         lines.push('', 'Owner policy (enforced by the harness, not by you; anything not listed is denied):', `- allowed actions: ${q.actions.length ? q.actions.join(', ') : 'none'}`, `- limits: per action ${q.per_tx_raw}, per day ${q.daily_raw}, in total ${q.total_raw} (smallest units)`, `- expires: ${new Date(q.expires_at * 1000).toISOString()}`);
     }
-    const notes = p.memories.filter((m) => unsafeText(m.text) === null);
+    const notes = p.memories.filter((m) => safe(m.text));
     if (notes.length)
         lines.push('', 'Notes they chose to carry:', ...notes.map((m) => `- ${m.text}`));
-    return lines.join('\n') + '\n';
+    return (0, action_evidence_1.cleanCodePoints)(lines.join('\n'), true) + '\n';
 }
