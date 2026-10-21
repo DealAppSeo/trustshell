@@ -28,6 +28,7 @@ exports.personalSectionsSet = personalSectionsSet;
 exports.renderPersonalSection = renderPersonalSection;
 exports.renderProfile = renderProfile;
 exports.parseProfile = parseProfile;
+exports.splitPerson = splitPerson;
 exports.splitOrder = splitOrder;
 exports.checkOrder = checkOrder;
 exports.checkPreset = checkPreset;
@@ -292,16 +293,40 @@ function listItems(body) {
         .map((l) => l.trim().replace(/^(?:[-*+]|\d+[.)])\s+/, '').trim())
         .filter(Boolean);
 }
+/**
+ * `who — why: reason`: split at the FIRST `why:` (any case) that has whitespace, one or more of — – -, and
+ * optional whitespace before it, exactly as `^(.*?)\s+[—–-]+\s*why:\s*(.*)$/i` did. A linear scan: that regex
+ * was quadratic (CodeQL js/polynomial-redos). Each backward walk stops at the previous `why:`, so the walks
+ * never overlap. No separator: the whole item is who.
+ */
+function splitPerson(item) {
+    const ws = (c) => c !== undefined && /\s/.test(c);
+    for (let at = 0; at + 4 <= item.length; at += 1) {
+        if (item[at + 3] !== ':' || item.slice(at, at + 3).toLowerCase() !== 'why')
+            continue;
+        let dashEnd = at;
+        while (ws(item[dashEnd - 1]))
+            dashEnd -= 1;
+        let dashStart = dashEnd;
+        while (dashStart > 0 && '—–-'.includes(item[dashStart - 1]))
+            dashStart -= 1;
+        let who = dashStart;
+        while (ws(item[who - 1]))
+            who -= 1;
+        if (dashStart === dashEnd || who === dashStart)
+            continue;
+        return { who: item.slice(0, who).trim(), why: item.slice(at + 4).trim() };
+    }
+    return { who: item, why: '' };
+}
 /** An unparseable line drops only that line and is reported; nothing is guessed. */
 function parsePersonal(text, problems) {
     const body = (s) => sectionBody(text, exports.PERSONAL_SECTIONS[s]);
-    const people = listItems(body('people')).map((item) => {
-        const m = item.match(/^(.*?)\s+[—–-]+\s*why:\s*(.*)$/i);
-        return m ? { who: (m[1] ?? '').trim(), why: (m[2] ?? '').trim() } : { who: item, why: '' };
-    });
+    const people = listItems(body('people')).map(splitPerson);
     const style = {};
     for (const line of listItems(body('style'))) {
-        const kv = line.match(/^([A-Za-z_]+)\s*:\s*(.+)$/);
+        // The value is trimmed below; `\s*(.+)` after the colon was quadratic (CodeQL js/polynomial-redos).
+        const kv = line.match(/^([A-Za-z_]+)\s*:(.+)$/);
         const key = kv?.[1]?.toLowerCase();
         if (kv && exports.STYLE_KEYS.includes(key ?? ''))
             style[key] = (kv[2] ?? '').trim();
@@ -313,7 +338,8 @@ function parsePersonal(text, problems) {
     const found = [];
     let unclear = false;
     for (const line of listItems(body('priorities'))) {
-        const kv = line.match(/^(preset|order)\s*:\s*(.*)$/i);
+        // Every reader of `raw` trims or splits on whitespace, so no `\s*` after the colon (polynomial-redos).
+        const kv = line.match(/^(preset|order)\s*:(.*)$/i);
         const isPreset = kv?.[1]?.toLowerCase() === 'preset';
         const raw = kv?.[2] ?? '';
         const err = !kv ? 'it is neither preset: nor order:' : isPreset ? checkPreset(raw) : checkOrder(splitOrder(raw));

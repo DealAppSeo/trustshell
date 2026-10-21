@@ -3,6 +3,7 @@
  * BEFORE it runs, and the refusal is receipted on a hash chain. No file: nothing changes at all.
  * Every test uses a temp TRUSTSHELL_HOME; the real home is never read or written.
  */
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,11 +12,13 @@ import { EXIT_REFUSED, plannedAction, runGuarded } from '../src/cli/guard';
 import {
   decide,
   defaultGuardrails,
+  GUARD_CHECKPOINT_FILE,
   GUARD_RECEIPTS_FILE,
   GUARDRAILS_FILE,
   guardAction,
   parseGuardrails,
   readLedger,
+  readLedgerCheckpointed,
   renderGuardrails,
   type GuardReceipt,
   type Guardrails,
@@ -116,6 +119,29 @@ describe('the receipt ledger', () => {
     // Delete the middle line instead.
     writeFileSync(join(home, GUARD_RECEIPTS_FILE), [original[0], original[2]].join('\n') + '\n');
     expect(readLedger(readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8')).verdict).toBe('BROKEN');
+  });
+
+  it('the checkpoint gives exactly the full verification, and an edit to an old line still breaks the chain', () => {
+    for (let i = 0; i < 5; i++) guardAction(home, { tool: 'pay', hosts: [], spend: '10' });
+    const text = readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8');
+    const cp = readFileSync(join(home, GUARD_CHECKPOINT_FILE), 'utf8');
+    expect(readLedgerCheckpointed(text, cp)).toEqual(readLedger(text));
+    // Lower an OLD spend (inside the checkpointed bytes): the bytes no longer match, so everything is re-verified.
+    writeFileSync(join(home, GUARD_RECEIPTS_FILE), text.replace('"spend":"10"', '"spend":"1"'));
+    expect(guardAction(home, { tool: 'pay', hosts: [], spend: '1' })?.decision.reasons).toContain(
+      'the receipt ledger is BROKEN, so the running total is unknown and no spend is allowed',
+    );
+  });
+
+  it('a forged checkpoint hides an edit from a decision, never from guard show (which re-verifies every line)', () => {
+    guardAction(home, { tool: 'pay', hosts: [], spend: '100' });
+    const edited = readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').replace('"spend":"100"', '"spend":"1"');
+    writeFileSync(join(home, GUARD_RECEIPTS_FILE), edited);
+    const bytes = Buffer.from(edited, 'utf8');
+    writeFileSync(join(home, GUARD_CHECKPOINT_FILE), JSON.stringify({ bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') }));
+    // The limit this documents (GUARD_DOES_NOT_COVER): the ledger and its checkpoint are unkeyed files.
+    expect(readLedgerCheckpointed(edited, readFileSync(join(home, GUARD_CHECKPOINT_FILE), 'utf8')).verdict).toBe('INTACT');
+    expect(readLedger(edited).verdict).toBe('BROKEN');
   });
 
   it('each line is its own RFC 8785 form', () => {

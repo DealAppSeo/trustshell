@@ -22,6 +22,7 @@
  * you can edit this file, delete the receipts, or dial a host without trustshell. The chain is
  * unkeyed, so it detects an edit that left later hashes alone, not a ledger rewritten wholesale.
  */
+import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { canonicalize, jcsSha256 } from './jcs';
@@ -213,19 +214,27 @@ export interface LedgerReading {
   breaks: string[];
 }
 
-/** PURE. Read the receipt ledger: check every hash and every link, and total the allowed spends. */
-export function readLedger(text: string): LedgerReading {
+const allowedSpend = (r: GuardReceipt): bigint =>
+  r.decision === 'ALLOWED' && typeof r.action?.spend === 'string' && /^[1-9][0-9]{0,77}$/.test(r.action.spend) ? BigInt(r.action.spend) : BigInt(0);
+
+/**
+ * PURE. Read the receipt ledger: check every hash and every link, and total the allowed spends. `from` is
+ * the reading of the lines BEFORE `text` (an already-verified prefix): the chain continues from its last hash.
+ */
+export function readLedger(text: string, from?: LedgerReading): LedgerReading {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const breaks: string[] = [];
-  let prev: string | null = null;
-  let spent = BigInt(0);
-  let last: LedgerReading['last'] = null;
+  const offset = from?.count ?? 0;
+  let prev: string | null = from?.last?.hash ?? null;
+  let spent = from?.spent ?? BigInt(0);
+  let last: LedgerReading['last'] = from?.last ?? null;
   lines.forEach((line, i) => {
+    const n = offset + i + 1;
     let r: GuardReceipt;
     try {
       r = JSON.parse(line) as GuardReceipt;
     } catch {
-      breaks.push(`line ${i + 1}: not JSON`);
+      breaks.push(`line ${n}: not JSON`);
       return;
     }
     const { hash, ...body } = r;
@@ -235,20 +244,50 @@ export function readLedger(text: string): LedgerReading {
     } catch {
       /* not canonicalizable: counted as a break below */
     }
-    if (r.schema !== GUARD_RECEIPT_SCHEMA) breaks.push(`line ${i + 1}: schema is not ${GUARD_RECEIPT_SCHEMA}`);
-    if (want === null || hash !== want) breaks.push(`line ${i + 1}: hash does not match the receipt`);
-    if (r.prev !== prev) breaks.push(`line ${i + 1}: prev does not match the line before`);
-    if (r.seq !== i + 1) breaks.push(`line ${i + 1}: seq is ${r.seq}`);
-    if (r.decision === 'ALLOWED' && typeof r.action?.spend === 'string' && /^[1-9][0-9]{0,77}$/.test(r.action.spend)) {
-      spent += BigInt(r.action.spend);
-    }
+    if (r.schema !== GUARD_RECEIPT_SCHEMA) breaks.push(`line ${n}: schema is not ${GUARD_RECEIPT_SCHEMA}`);
+    if (want === null || hash !== want) breaks.push(`line ${n}: hash does not match the receipt`);
+    if (r.prev !== prev) breaks.push(`line ${n}: prev does not match the line before`);
+    if (r.seq !== n) breaks.push(`line ${n}: seq is ${r.seq}`);
+    spent += allowedSpend(r);
     prev = typeof hash === 'string' ? hash : null;
-    last = { seq: i + 1, hash: String(hash) };
+    last = { seq: n, hash: String(hash) };
   });
-  if (lines.length === 0) return { verdict: 'EMPTY', count: 0, spent: BigInt(0), last: null, breaks };
-  return breaks.length
-    ? { verdict: 'BROKEN', count: lines.length, spent: null, last, breaks }
-    : { verdict: 'INTACT', count: lines.length, spent, last, breaks };
+  const count = offset + lines.length;
+  if (count === 0) return { verdict: 'EMPTY', count: 0, spent: BigInt(0), last: null, breaks };
+  return breaks.length || from?.verdict === 'BROKEN'
+    ? { verdict: 'BROKEN', count, spent: null, last, breaks }
+    : { verdict: 'INTACT', count, spent, last, breaks };
+}
+
+/**
+ * The bytes of the ledger already verified, by length and sha256. A CACHE, not a source: it holds no total,
+ * so it cannot lie about one. A decision re-hashes those bytes (one sha256, fast) and fully verifies only the
+ * lines after them; any change to the old bytes misses the cache and the whole ledger is verified again.
+ * Measured 2026-10-21 (lane B report): full verification cost 579 ms per decision at 10,000 receipts.
+ */
+export const GUARD_CHECKPOINT_FILE = 'guard-receipts.checkpoint.json';
+
+const sha256 = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
+
+/** The ledger reading, using the checkpoint when its bytes still match. Falls back to a full read on any doubt. */
+export function readLedgerCheckpointed(text: string, checkpointText: string | null): LedgerReading {
+  try {
+    const c = JSON.parse(checkpointText ?? 'null') as { bytes?: unknown; sha256?: unknown } | null;
+    const buf = Buffer.from(text, 'utf8');
+    if (c && Number.isSafeInteger(c.bytes) && (c.bytes as number) <= buf.length && sha256(buf.subarray(0, c.bytes as number)) === c.sha256) {
+      // These bytes were verified line by line when the checkpoint was written: tally them, do not re-hash them.
+      let prefix: LedgerReading = { verdict: 'EMPTY', count: 0, spent: BigInt(0), last: null, breaks: [] };
+      for (const line of buf.subarray(0, c.bytes as number).toString('utf8').split(/\r?\n/)) {
+        if (!line.trim()) continue;
+        const r = JSON.parse(line) as GuardReceipt;
+        prefix = { verdict: 'INTACT', count: prefix.count + 1, spent: (prefix.spent as bigint) + allowedSpend(r), last: { seq: r.seq, hash: r.hash }, breaks: [] };
+      }
+      return readLedger(buf.subarray(c.bytes as number).toString('utf8'), prefix);
+    }
+  } catch {
+    /* no checkpoint, or one that does not parse: verify everything */
+  }
+  return readLedger(text);
 }
 
 /** PURE. The next receipt line after `ledger`. */
@@ -316,8 +355,11 @@ export function loadGuardrails(dir: string, fs: GuardFs = nodeGuardFs()): Loaded
  * Decide AND receipt one action against the file in `dir`, in that order, and return both. No file:
  * `null` (nothing is enforced, nothing is written). The receipt is appended before the caller acts on
  * an ALLOWED decision, so an action that then crashes is still on the ledger.
- * ponytail: reads the whole ledger per decision and takes no lock; two concurrent writers fork the
- * chain, which then reads BROKEN and refuses spends (fail closed). Tail-read + a lock file if either bites.
+ * Only the lines after the checkpoint are re-verified (see GUARD_CHECKPOINT_FILE); a BROKEN ledger is never
+ * checkpointed, so it stays BROKEN.
+ * ponytail: still reads and hashes the whole file per decision (far cheaper than re-verifying every line),
+ * and takes no lock: two concurrent writers fork the chain, which then reads BROKEN and refuses spends (fail
+ * closed). Rotate the ledger, or read only its tail by offset, if ledgers of 100k+ lines appear.
  */
 export function guardAction(
   dir: string,
@@ -328,7 +370,9 @@ export function guardAction(
   const loaded = loadGuardrails(dir, fs);
   if (loaded.state === 'absent') return null;
   const ledgerPath = join(dir, GUARD_RECEIPTS_FILE);
-  const ledger = readLedger(fs.exists(ledgerPath) ? fs.read(ledgerPath) : '');
+  const checkpointPath = join(dir, GUARD_CHECKPOINT_FILE);
+  const text = fs.exists(ledgerPath) ? fs.read(ledgerPath) : '';
+  const ledger = readLedgerCheckpointed(text, fs.exists(checkpointPath) ? fs.read(checkpointPath) : null);
   const base =
     loaded.state === 'ok' ? decide(loaded.guardrails, action, ledger.spent) : decide(null, action, null, loaded.problems);
   // A reason the caller knows and the file cannot express (init --pai's child process) refuses too.
@@ -342,7 +386,12 @@ export function guardAction(
     ts: opts.ts,
   });
   fs.mkdirp(dir);
-  fs.append(ledgerPath, canonicalize(receipt) + '\n');
+  const line = canonicalize(receipt) + '\n';
+  fs.append(ledgerPath, line);
+  if (ledger.verdict !== 'BROKEN') {
+    const bytes = Buffer.from(text + line, 'utf8');
+    fs.write(checkpointPath, JSON.stringify({ bytes: bytes.length, sha256: sha256(bytes) }) + '\n');
+  }
   return { decision, receipt, loaded };
 }
 
@@ -350,6 +399,6 @@ export function guardAction(
 export const GUARD_DOES_NOT_COVER = [
   'It bounds what trustshell does. It is not a sandbox: anything running as you can edit this file, delete the receipts, or reach the network without trustshell.',
   'Egress is enforced on trustshell\'s own fetch calls. A child process (init --pai, a learn check command you registered) is not inside it: init --pai is refused while this file is in force; learn runs under tools.allow only.',
-  'The receipt chain is unkeyed: it detects an edit or a deleted line that left the later hashes alone, not a ledger rewritten from scratch.',
+  'The receipt chain is unkeyed: it detects an edit or a deleted line that left the later hashes alone, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.',
   'Spend limits count the spends THIS ledger allowed (guard check --spend). A spend made without asking the guard is not counted.',
 ] as const;

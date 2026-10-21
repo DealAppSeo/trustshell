@@ -75,8 +75,20 @@ export interface LedgerReading {
     } | null;
     breaks: string[];
 }
-/** PURE. Read the receipt ledger: check every hash and every link, and total the allowed spends. */
-export declare function readLedger(text: string): LedgerReading;
+/**
+ * PURE. Read the receipt ledger: check every hash and every link, and total the allowed spends. `from` is
+ * the reading of the lines BEFORE `text` (an already-verified prefix): the chain continues from its last hash.
+ */
+export declare function readLedger(text: string, from?: LedgerReading): LedgerReading;
+/**
+ * The bytes of the ledger already verified, by length and sha256. A CACHE, not a source: it holds no total,
+ * so it cannot lie about one. A decision re-hashes those bytes (one sha256, fast) and fully verifies only the
+ * lines after them; any change to the old bytes misses the cache and the whole ledger is verified again.
+ * Measured 2026-10-21 (lane B report): full verification cost 579 ms per decision at 10,000 receipts.
+ */
+export declare const GUARD_CHECKPOINT_FILE = "guard-receipts.checkpoint.json";
+/** The ledger reading, using the checkpoint when its bytes still match. Falls back to a full read on any doubt. */
+export declare function readLedgerCheckpointed(text: string, checkpointText: string | null): LedgerReading;
 /** PURE. The next receipt line after `ledger`. */
 export declare function nextReceipt(ledger: LedgerReading, fields: {
     action: GuardAction;
@@ -114,8 +126,11 @@ export declare function loadGuardrails(dir: string, fs?: GuardFs): LoadedGuardra
  * Decide AND receipt one action against the file in `dir`, in that order, and return both. No file:
  * `null` (nothing is enforced, nothing is written). The receipt is appended before the caller acts on
  * an ALLOWED decision, so an action that then crashes is still on the ledger.
- * ponytail: reads the whole ledger per decision and takes no lock; two concurrent writers fork the
- * chain, which then reads BROKEN and refuses spends (fail closed). Tail-read + a lock file if either bites.
+ * Only the lines after the checkpoint are re-verified (see GUARD_CHECKPOINT_FILE); a BROKEN ledger is never
+ * checkpointed, so it stays BROKEN.
+ * ponytail: still reads and hashes the whole file per decision (far cheaper than re-verifying every line),
+ * and takes no lock: two concurrent writers fork the chain, which then reads BROKEN and refuses spends (fail
+ * closed). Rotate the ledger, or read only its tail by offset, if ledgers of 100k+ lines appear.
  */
 export declare function guardAction(dir: string, action: GuardAction, opts?: {
     fs?: GuardFs;
@@ -130,4 +145,4 @@ export declare function guardAction(dir: string, action: GuardAction, opts?: {
     }>;
 } | null;
 /** The sentences `guard show` will not let a reader forget. */
-export declare const GUARD_DOES_NOT_COVER: readonly ["It bounds what trustshell does. It is not a sandbox: anything running as you can edit this file, delete the receipts, or reach the network without trustshell.", "Egress is enforced on trustshell's own fetch calls. A child process (init --pai, a learn check command you registered) is not inside it: init --pai is refused while this file is in force; learn runs under tools.allow only.", "The receipt chain is unkeyed: it detects an edit or a deleted line that left the later hashes alone, not a ledger rewritten from scratch.", "Spend limits count the spends THIS ledger allowed (guard check --spend). A spend made without asking the guard is not counted."];
+export declare const GUARD_DOES_NOT_COVER: readonly ["It bounds what trustshell does. It is not a sandbox: anything running as you can edit this file, delete the receipts, or reach the network without trustshell.", "Egress is enforced on trustshell's own fetch calls. A child process (init --pai, a learn check command you registered) is not inside it: init --pai is refused while this file is in force; learn runs under tools.allow only.", "The receipt chain is unkeyed: it detects an edit or a deleted line that left the later hashes alone, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.", "Spend limits count the spends THIS ledger allowed (guard check --spend). A spend made without asking the guard is not counted."];
