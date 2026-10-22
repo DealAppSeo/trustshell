@@ -64,30 +64,40 @@ function Status({ state, children }: { state: 'MEASURED' | 'NOT_CHECKED'; childr
 /** A transcript or data block: real output only, so mono is the material, not a costume. Output
  * always wraps so the deciding line is never cut off on a phone; a script keeps its code lines
  * (wrap=false) and scrolls instead. */
-function Session({ label, lines, caption, wrap = true, copy }: { label: string; lines: [Tone, string][]; caption?: ReactNode; wrap?: boolean; copy?: { text: string; label: string } }) {
+function Session({ label, lines, caption, wrap = true, copy }: { label: string; lines: [Tone, string][]; caption?: ReactNode; wrap?: boolean; copy?: { text: string; label: string; title: string } }) {
+  const body = (
+    <pre
+      tabIndex={0}
+      role="region"
+      aria-label={label}
+      className={`overflow-x-auto px-4 py-4 font-mono text-[13px] leading-6 [font-variant-ligatures:none] ${
+        copy ? 'rounded-b-lg bg-[#0b1220]' : 'rounded-lg border border-slate-800 bg-[#0b1220] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]'
+      }`}
+    >
+      {lines.map(([tone, text], i) => {
+        const keep = !wrap && tone === 'out';
+        const flow = keep ? 'whitespace-pre' : tone === 'cmd' ? 'whitespace-pre-wrap [overflow-wrap:normal]' : 'whitespace-pre-wrap break-words';
+        return (
+          <span key={i} className={`block ${flow} ${TONE[tone]}`}>
+            {tone === 'cmd' ? <Cmd text={text} /> : text || ' '}
+          </span>
+        );
+      })}
+    </pre>
+  );
   return (
     <figure className="min-w-0">
-      {copy && (
-        <div className="mb-2 flex justify-end">
-          <CopyButton text={copy.text} label={copy.label} />
+      {copy ? (
+        <div className="min-w-0 rounded-lg border border-slate-800 bg-[#0b1220] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-2 py-1">
+            <span className="px-3 text-sm font-semibold text-slate-300">{copy.title}</span>
+            <CopyButton text={copy.text} label={copy.label} />
+          </div>
+          {body}
         </div>
+      ) : (
+        body
       )}
-      <pre
-        tabIndex={0}
-        role="region"
-        aria-label={label}
-        className="overflow-x-auto rounded-lg border border-slate-800 bg-[#0b1220] px-4 py-4 font-mono text-[13px] leading-6 [font-variant-ligatures:none] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]"
-      >
-        {lines.map(([tone, text], i) => {
-          const keep = !wrap && tone === 'out';
-          const flow = keep ? 'whitespace-pre' : tone === 'cmd' ? 'whitespace-pre-wrap [overflow-wrap:normal]' : 'whitespace-pre-wrap break-words';
-          return (
-            <span key={i} className={`block ${flow} ${TONE[tone]}`}>
-              {tone === 'cmd' ? <Cmd text={text} /> : text || ' '}
-            </span>
-          );
-        })}
-      </pre>
       {caption && <figcaption className="mt-3 text-sm leading-relaxed text-slate-400">{caption}</figcaption>}
     </figure>
   );
@@ -190,6 +200,34 @@ const REPORT: [Tone, string][] = [
   ['out', 'wrote record.json, card.md and card.html to card'],
 ];
 
+// Status words exactly as Lane D wrote them after running each recipe (docs/recipes/README.md).
+const RECIPES = [
+  {
+    tool: 'LangChain / LangGraph',
+    path: 'langgraph/recipe.py',
+    status: 'Verified:',
+    detail: '20 TrustShell tools load over MCP, and ground_quote returns VERIFIED for a real quote and VETO for a misquote. A LangGraph agent on top is not verified (it needs a model).',
+  },
+  {
+    tool: 'Hugging Face smolagents',
+    path: 'smolagents/recipe.py',
+    status: 'Verified, with one real gotcha:',
+    detail: 'it needs "mcp[ws]>=1.30,<2". The newest mcp 2.x breaks mcpadapt, and mcp 1.x needs the websockets extra. A CodeAgent on top is not verified.',
+  },
+  {
+    tool: 'GitHub Actions',
+    path: 'github-actions/inspect-claim.yml',
+    status: 'Command verified, workflow not yet run in Actions.',
+    detail: 'The step was run locally against a finished public run: exit 0 when the claim names the workflow exactly, exit 3 (not checked) when it does not. Run it once on a fork and tell us what happens.',
+  },
+  {
+    tool: 'Claude Code, Claude Desktop, Cursor',
+    path: 'mcp-clients/README.md',
+    status: 'Launch verified, apps not.',
+    detail: 'The same launch was exercised by the two recipes above; the three apps were not opened.',
+  },
+];
+
 const SPEND_SCRIPT = SPEND.filter(([tone]) => tone === 'out').map(([, line]) => line).join('\n');
 
 const sectionClass = 'scroll-mt-20 border-t border-slate-800 pt-14 mt-16 grid gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start';
@@ -205,19 +243,14 @@ export default function BuildPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 sm:px-6 py-16 text-slate-300">
       <div className="mx-auto max-w-6xl">
-        <section className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-          <div className="space-y-6">
+        <section className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+          <div className="space-y-6 lg:col-start-1 lg:row-start-1">
             <h1 className="text-4xl sm:text-5xl font-semibold leading-[1.1] text-white">
               Your AI says the job is done. TrustShell checks the evidence.
             </h1>
             <p className="max-w-prose text-lg leading-relaxed text-white">
               Your agent says a GitHub Actions run succeeded and cites it. Inspect reads that run and checks the
               sentence.
-            </p>
-            <p className="max-w-prose text-lg leading-relaxed">
-              For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Each result below comes
-              with a command you can run or a source you can open; two facts come from our own database and say so.
-              Each section also says what is not built yet.
             </p>
             <div className="flex flex-wrap gap-3">
               <a
@@ -233,12 +266,21 @@ export default function BuildPage() {
                 Read the source
               </a>
             </div>
+          </div>
+          <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+            <Explainer />
+          </div>
+          <div className="space-y-4 lg:col-start-1 lg:row-start-2">
+            <p className="max-w-prose text-lg leading-relaxed">
+              For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Each result below comes
+              with a command you can run or a source you can open; two facts come from our own database and say so.
+              Each section also says what is not built yet.
+            </p>
             <p className="max-w-prose text-sm leading-relaxed text-slate-400">
               Developer preview on npm: <Code>{PKG}</Code> ({PKG_VERSION}). No account and no key
               unless a section says so. Help us test it.
             </p>
           </div>
-          <Explainer />
         </section>
 
         <nav aria-label="On this page" className="mt-12 flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -246,6 +288,7 @@ export default function BuildPage() {
           <a href="#erc-8004" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">ERC-8004</a>
           <a href="#x402" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">x402</a>
           <a href="#openclaw" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">OpenClaw</a>
+          <a href="#recipes" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">Recipes</a>
           <a href="#break-it" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">Break it</a>
           <a href="#status" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">What is built</a>
         </nav>
@@ -347,12 +390,13 @@ export default function BuildPage() {
             </div>
             <ul className="space-y-3">
               <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 21 October 2026.</Status>
-              <Status state="NOT_CHECKED">Paying only for work that checked out: not available through TrustShell yet. This is the part we want to build with you. See {statusLink}.</Status>
+              <Status state="NOT_CHECKED">Paying only for work that checked out: not available through TrustShell yet. This is the part we want to build with you:{' '}
+                <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#10-x402-a-payment-that-waits-for-a-supported-card-a-spec-and-a-harness">starter task 10</Ext>. See {statusLink}.</Status>
             </ul>
           </div>
           <Session
             label="The spend guard refusing two payments before signing"
-            copy={{ text: SPEND_SCRIPT, label: 'Copy spend.mjs' }}
+            copy={{ text: SPEND_SCRIPT, label: 'Copy spend.mjs', title: 'spend.mjs' }}
             lines={SPEND}
             wrap={false}
             caption="Output from the npm developer preview, 1.8.0-rc.0. Signing an allowed payment also needs the ethers package, which the error tells you to install."
@@ -399,6 +443,40 @@ export default function BuildPage() {
           />
         </section>
 
+        <section id="recipes" className="scroll-mt-20 border-t border-slate-800 pt-14 mt-16 space-y-6" aria-labelledby="recipes-h">
+          <h2 id="recipes-h" className={h2Class}>
+            Use it from the tools you already have
+          </h2>
+          <p className="max-w-prose text-base sm:text-lg leading-relaxed">
+            None of these needs an account, an API key or a model, and each says what was run and what was not. We
+            ran them on 22 October 2026, on Windows 11, with {PKG_VERSION}.
+          </p>
+          <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
+            {RECIPES.map((r) => (
+              <div key={r.tool} className="grid gap-1.5 py-4 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:gap-6">
+                <dt className="font-semibold text-white">
+                  <Ext href={`https://github.com/DealAppSeo/trustshell/blob/main/docs/recipes/${r.path}`}>{r.tool}</Ext>
+                </dt>
+                <dd className="leading-relaxed text-slate-300">
+                  <span className="font-semibold text-white">{r.status}</span> {r.detail}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <ul className="max-w-prose list-disc space-y-2 pl-5 text-base leading-relaxed">
+            <li>
+              Inspect, the check of a claim against a GitHub Actions run, is a command-line command, not an MCP tool.
+              The MCP server&apos;s <Code>check_claim</Code> is a different check: model-based and hosted. Putting
+              Inspect on MCP is{' '}
+              <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#9-inspect-over-mcp-an-inspect_run-tool">starter task 9</Ext>.
+            </li>
+            <li>
+              An MCP server runs code on your machine. Ours is outside the owner policy (Guard, a prototype in review),
+              so do not treat it as a sandbox.
+            </li>
+          </ul>
+        </section>
+
         <section id="break-it" className={sectionClass} aria-labelledby="break-it-h">
           <div className="space-y-6">
             <h2 id="break-it-h" className={h2Class}>Bring your own agent. Show us where we&apos;re wrong.</h2>
@@ -426,7 +504,7 @@ export default function BuildPage() {
           </div>
           <Session
             label="The command that makes a report to attach"
-            copy={{ text: `npx ${PKG} check "$RUN" --claims-file claims.txt --out card`, label: 'Copy the report command' }}
+            copy={{ text: `npx ${PKG} check "$RUN" --claims-file claims.txt --out card`, label: 'Copy the report command', title: 'Bash' }}
             lines={REPORT}
             caption={
               <>

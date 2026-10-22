@@ -96,7 +96,9 @@ export function Explainer() {
         {steps.map((s, i) => (
           <li key={s.title} className="anim-load-in" style={{ ['--d' as string]: `${i * 220}ms` }}>
             {i > 0 && (
-              <span aria-hidden="true" className="mb-3 ml-6 block h-5 w-px bg-slate-600 anim-load-grow-y" style={{ ['--d' as string]: `${i * 220 - 120}ms` }} />
+              <svg aria-hidden="true" width="16" height="20" viewBox="0 0 16 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="mb-3 ml-5 block text-slate-400 anim-load-grow-y" style={{ ['--d' as string]: `${i * 220 - 120}ms` }}>
+                <path d="M8 1v15M3 11l5 6 5-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             )}
             <div
               className={`rounded-lg border px-4 py-3 ${
@@ -119,8 +121,8 @@ export function Explainer() {
         </span>
         <span className="block">
           Full receipt: <Ext href={`${SAMPLE_DIR}/card.html`}>the card</Ext> and its{' '}
-          <Ext href={`${SAMPLE_DIR}/record.json`}>record.json</Ext>, recorded {RECORDED_LABEL}. record.json sha-256{' '}
-          <code className="break-all font-mono text-xs text-slate-300">{ledger.sample_check.record_sha256_of_file}</code>
+          <Ext href={`${SAMPLE_DIR}/record.json`}>record.json</Ext>, recorded {RECORDED_LABEL}. record.json sha-256:
+          <code className="block break-all font-mono text-xs text-slate-300">{ledger.sample_check.record_sha256_of_file}</code>
         </span>
       </figcaption>
     </figure>
@@ -130,8 +132,8 @@ export function Explainer() {
 /** Chart 2: one check, five verdicts, each with the scope the card gives it. */
 export function VerdictBreakdown() {
   const n = ledger.sample_check.verdict_counts;
-  const order: Verdict[] = ['CONTRADICTED', 'SUPPORTED', 'NOT_CHECKED'];
-  const rows = order.flatMap((v) => claims.filter((c) => c.status === v));
+  const sentences = [...new Set(claims.map((c) => c.sentence))];
+  const rows = sentences.flatMap((t) => claims.filter((c) => c.sentence === t));
   return (
     <Reveal>
       <figure className="min-w-0">
@@ -143,17 +145,28 @@ export function VerdictBreakdown() {
             <span key={i} className={`h-full flex-1 rounded-sm anim-grow-x ${VERDICT[c.status].fill}`} style={{ ['--d' as string]: `${i * 120}ms` }} />
           ))}
         </div>
-        <ul className="mt-4 space-y-3">
-          {rows.map((c, i) => (
-            <li key={i} className="anim-in text-sm leading-relaxed text-slate-300" style={{ ['--d' as string]: `${300 + i * 120}ms` }}>
-              <span className="flex flex-wrap items-center gap-2">
-                <VerdictChip verdict={c.status} />
-                <code className="font-mono text-[0.95em] text-white">{c.claim}</code>
-              </span>
-              <span className="mt-1 block text-slate-400">{c.scope}</span>
+        <ol className="mt-4 space-y-5">
+          {sentences.map((t, k) => (
+            <li key={t} className="anim-in" style={{ ['--d' as string]: `${300 + k * 200}ms` }}>
+              <p className="text-sm text-slate-400">
+                Sentence {k + 1}: <q className="text-white">{t}</q>
+              </p>
+              <ul className="mt-2 space-y-2.5 border-l border-slate-800 pl-4">
+                {claims
+                  .filter((c) => c.sentence === t)
+                  .map((c, i) => (
+                    <li key={i} className="text-sm leading-relaxed text-slate-300">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <VerdictChip verdict={c.status} />
+                        <code className="font-mono text-[0.95em] text-white">{c.claim}</code>
+                      </span>
+                      <span className="mt-1 block text-slate-400">{c.scope}</span>
+                    </li>
+                  ))}
+              </ul>
             </li>
           ))}
-        </ul>
+        </ol>
         <figcaption className="mt-3 text-sm text-slate-400">
           Each verdict covers only the scope written under it. From the <Ext href={`${SAMPLE_DIR}/card.html`}>sample receipt</Ext>.
         </figcaption>
@@ -277,9 +290,9 @@ export function FeedbackGap() {
           </li>
           <li className="relative py-1 pl-6">
             <span aria-hidden="true" className="absolute left-6 top-0 h-full border-l-2 border-dashed border-amber-500 anim-grow-y" style={{ ['--d' as string]: '350ms' }} />
-            <p className="ml-6 py-3 text-sm leading-relaxed text-amber-300 anim-in" style={{ ['--d' as string]: '600ms' }}>
-              Missing: signed evidence of the work this feedback rates. Nothing binds the two yet (
-              <Ext href={ledger.issue_589.url}>issue #589</Ext>).
+            <p className="ml-6 py-3 text-sm leading-relaxed text-slate-300 anim-in" style={{ ['--d' as string]: '600ms' }}>
+              <span className="font-semibold text-amber-400">Missing:</span> signed evidence of the work this feedback
+              rates. Nothing binds the two yet (<Ext href={ledger.issue_589.url}>issue #589</Ext>).
             </p>
           </li>
           <li className="rounded-lg border border-dashed border-slate-600 px-4 py-3 anim-in" style={{ ['--d' as string]: '800ms' }}>

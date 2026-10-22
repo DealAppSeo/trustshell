@@ -70,7 +70,7 @@ describe('/build chart ledger and sample receipt', () => {
   test('the chain block names the full transaction, and the gap is drawn as missing', () => {
     expect(charts).toContain('ledger.erc8004_feedback');
     expect(ledger.erc8004_feedback.tx).toMatch(/^0x[0-9a-f]{64}$/);
-    expect(charts).toContain('Missing: signed evidence');
+    expect(charts).toContain('>Missing:</span> signed evidence of the work');
     expect(ledger.issue_589.state).toBe('open');
   });
 });

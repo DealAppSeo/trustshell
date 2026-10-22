@@ -1,6 +1,6 @@
 # Good first issues: drafts
 
-Eight small, scoped tasks for someone new to the repo. **These are drafts, not filed issues.** A maintainer copies each one into a GitHub issue with the label `good first issue` and then deletes it from this file. All but 7 stay inside the credential-free inspector (`trustshell check <runUrl> --claims-file`); 7 is a specification with a test harness. None needs a model, a backend or an account.
+Ten small, scoped tasks for someone new to the repo. **These are drafts, not filed issues.** A maintainer copies each one into a GitHub issue with the label `good first issue` and then deletes it from this file. Most stay inside the credential-free inspector (`trustshell check <runUrl> --claims-file`); 7 and 10 are specifications with a test harness. None needs a model, a backend or an account.
 
 Setup for all of them is in [CONTRIBUTING.md](../CONTRIBUTING.md). The reference for the record, the templates and the exit codes is [action-evidence.md](action-evidence.md).
 
@@ -85,3 +85,23 @@ The record already holds every job of the run (`/observation/jobs/items`: name, 
 **Do:** add `gha.job_succeeded`. It reads a sentence that names a job and cites the inspected run. Find the named job and support the claim only if every job with that name concluded `success` on the run's commit and attempt. Write the scope the way the existing templates do ("Whether the job named X in run N concluded success. Not which steps it ran, not any other job."). Add a refusal case: if no job has that name, the claim is NOT_CHECKED with a reason saying so, never CONTRADICTED and never SUPPORTED.
 
 **Done when:** tests on the recorded fixtures show a supported case, a contradicted case (the job failed in `failed-run.json`), the no-such-job refusal, and a sentence that names a job but no run, which stays NOT_CHECKED. `docs/action-evidence.md` lists the template with its scope, and the existing templates' results are unchanged.
+
+## 9. Inspect over MCP: an `inspect_run` tool
+
+**Labels:** `good first issue`, `enhancement` · **Size:** medium · **Touches:** `src/mcp/index.ts`, one new test, `docs/recipes/README.md`, the README's MCP tool list
+
+Inspect, the check of a claim against a GitHub Actions run, is a CLI command only. The MCP server's `check_claim` is a different check: model-based and hosted. So LangGraph, smolagents, Cursor and Claude users ([recipes](recipes/README.md)) cannot reach the headline feature from their agent.
+
+**Do:** register an MCP tool `inspect_run` that takes a run URL and the claims as **text** and returns the same record `check <runUrl> --claims` builds, plus a status that maps the CLI exit codes (all supported, contradicted, not checked). Never read a file path from tool input: the caller is a model, and `--claims` is text-only for the same reason (see the comment above `readClaimsFile`). It talks to api.github.com only and needs no key; `GITHUB_TOKEN`, when set, only raises the rate limit.
+
+**Done when:** a test with the pinned run (`39619591025`, recorded responses as in task 6) gets the same digest from the tool as from the CLI, and the status is "contradicted" for the challenge's two claims; a tool-input test proves a path is treated as claim text, not opened. The recipes README lists the tool, and `docs/recipes/langgraph/recipe.py` can call it (say in the pull request whether you ran it).
+
+## 10. x402: a payment that waits for a SUPPORTED card, a spec and a harness
+
+**Labels:** `good first issue`, `design` · **Size:** medium, a spec and one test file, no wallet or key · **Touches:** new `docs/pay-on-evidence.md`, new `tests/pay-on-evidence-spec.test.ts`
+
+`guardedX402Payment` refuses before signing when the call has no policy, no cap, an origin that may not pay, or an amount over the cap. It does not wait for evidence that the paid-for work happened: paying only for work that checked out is not available through TrustShell yet.
+
+**Do:** write the spec for a gate that signs only after an evidence record for the delivery comes back with every claim SUPPORTED, and refuses before signing on CONTRADICTED or NOT_CHECKED, on a record whose digest does not match its contents, or on a record about a different run than the one the payment names. Say what the gate does not prove (SUPPORTED is scoped to the platform record, not to the work being good). Then write a harness with a stub signer and the recorded fixtures (`green-run.json`, `failed-run.json`).
+
+**Done when:** the harness shows the stub signer is called once for an all-SUPPORTED record and never for the other cases, each refusal names its reason, and the spec describes nothing as built.
