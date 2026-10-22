@@ -15,6 +15,7 @@
 import type { ParsedArgs } from './index';
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
+import { learnExecutes } from '../learn/cli';
 import {
   GUARD_DOES_NOT_COVER,
   GUARD_RECEIPTS_FILE,
@@ -89,6 +90,10 @@ export function plannedAction(args: ParsedArgs): { req: GuardRequest; refuse?: s
   const req: GuardRequest = { tool: args.command, class: 'other' };
   if (args.command === 'init' && args.pai && !args.dryRun) {
     return { req, refuse: 'init --pai spawns scripts/init-pai.mjs, whose effects the guard cannot see, so it is denied while a policy is in force' };
+  }
+  const executes = args.command === 'learn' ? learnExecutes(args.learnArgv ?? []) : null;
+  if (executes) {
+    return { req, refuse: `${executes} runs a stored command through a shell, whose effects the guard cannot see, so it is denied while a policy is in force` };
   }
   return { req };
 }
@@ -215,6 +220,7 @@ function showLines(doc: PolicyDocument, path: string, ledgerText: string, defaul
     `policy      ${path}  (sha256 ${policySha256(p).slice(0, 16)}…, nonce ${p.nonce}, ${doc.signature ? `signed by ${doc.signature.fingerprint.slice(0, 16)}…` : 'unsigned'})`,
     `subject     ${p.subject}`,
     `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
+    'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
     `limits      per_tx ${p.per_tx_raw} · daily ${p.daily_raw} · total ${p.total_raw} (smallest units)${defaulted.length ? `; left out, so 0: ${defaulted.join(', ')}` : ''}; allowed so far: ${spent}`,
     `expires     ${new Date(p.expires_at * 1000).toISOString()}`,
     `records     ${l.count} in ${GUARD_RECEIPTS_FILE}, chain ${l.verdict}${l.breaks.length ? ': ' + l.breaks.slice(0, 3).join('; ') : ''}`,

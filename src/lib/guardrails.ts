@@ -63,7 +63,7 @@ export interface PolicyDocument {
   signature: PolicySignature | null;
 }
 
-/** The commands that only read or write local files: what `guard init` allows. */
+/** The commands that only read or write local files: what `guard init` allows. `learn` is listed, but its `check run` and `probe run` run a stored shell command and the CLI denies them while a policy is in force. */
 export const LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'] as const;
 
 const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;

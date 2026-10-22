@@ -376,6 +376,8 @@ COMMANDS
   guard init [--days N]      GUARD: write ~/.trustshell/policy.json, the engine kernel's owner-policy
                              fields (subject, actions, per_tx_raw, daily_raw, total_raw, expires_at,
                              nonce): local commands only, every limit 0, expires in N days (30).
+                             While a policy exists, learn check run and learn probe run are denied:
+                             they run a stored shell command.
   guard show                 Print the policy, what was allowed so far and the record chain.
   guard allow|deny <action>  spend, post, tool or tool:<name>. Anything unlisted is denied.
   guard limit per-tx|daily|total <n>  ·  guard expire <days>  ·  guard kill (allow nothing)

@@ -9,6 +9,7 @@ exports.runRun = runRun;
 exports.runGuard = runGuard;
 const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
+const cli_1 = require("../learn/cli");
 const guardrails_1 = require("../lib/guardrails");
 const install_key_1 = require("../lib/install-key");
 /** Exit code for an action the policy denied. Never 0, and distinct from a VETO (1). */
@@ -51,6 +52,10 @@ function plannedAction(args) {
     const req = { tool: args.command, class: 'other' };
     if (args.command === 'init' && args.pai && !args.dryRun) {
         return { req, refuse: 'init --pai spawns scripts/init-pai.mjs, whose effects the guard cannot see, so it is denied while a policy is in force' };
+    }
+    const executes = args.command === 'learn' ? (0, cli_1.learnExecutes)(args.learnArgv ?? []) : null;
+    if (executes) {
+        return { req, refuse: `${executes} runs a stored command through a shell, whose effects the guard cannot see, so it is denied while a policy is in force` };
     }
     return { req };
 }
@@ -176,6 +181,7 @@ function showLines(doc, path, ledgerText, defaulted) {
         `policy      ${path}  (sha256 ${(0, guardrails_1.policySha256)(p).slice(0, 16)}…, nonce ${p.nonce}, ${doc.signature ? `signed by ${doc.signature.fingerprint.slice(0, 16)}…` : 'unsigned'})`,
         `subject     ${p.subject}`,
         `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
+        'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
         `limits      per_tx ${p.per_tx_raw} · daily ${p.daily_raw} · total ${p.total_raw} (smallest units)${defaulted.length ? `; left out, so 0: ${defaulted.join(', ')}` : ''}; allowed so far: ${spent}`,
         `expires     ${new Date(p.expires_at * 1000).toISOString()}`,
         `records     ${l.count} in ${guardrails_1.GUARD_RECEIPTS_FILE}, chain ${l.verdict}${l.breaks.length ? ': ' + l.breaks.slice(0, 3).join('; ') : ''}`,

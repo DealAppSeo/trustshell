@@ -4,7 +4,7 @@
  * Every test uses a temp TRUSTSHELL_HOME; the real home is never read or written.
  */
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
@@ -269,5 +269,28 @@ describe('the gate and the guard verbs', () => {
     await cli('guard', 'init', '--force');
     expect(await cli('init', '--pai', '--name', 'x')).toBe(EXIT_REFUSED);
     expect(err.join('\n')).toContain('init --pai spawns scripts/init-pai.mjs');
+  });
+
+  // Strix HIGH on #593: the default policy lists tool:learn, and `learn check run` runs a stored shell command.
+  it('learn check run and learn probe run are denied while a policy exists; the rest of learn still runs', async () => {
+    const marker = join(home, 'marker.txt');
+    const slashed = marker.split(String.fromCharCode(92)).join('/'); // the child gets the real environment, not jest's process.env, so the path is in the command
+    expect(await cli('learn', 'job', 'add', 'j1', '--mode', 'learn', 'When I test, I want a marker, so I can see it ran')).toBe(0);
+    expect(await cli('learn', 'check', 'add', '--job', 'j1', '--id', 'c1', '--cmd', `node -e "require('fs').writeFileSync('${slashed}','ran')"`)).toBe(0);
+    expect(await cli('learn', 'check', 'run', 'c1')).toBe(0); // control: with no policy the command runs
+    expect(existsSync(marker)).toBe(true);
+    rmSync(marker);
+
+    await cli('guard', 'init');
+    expect(doc().policy.actions).toContain('tool:learn');
+    expect(await cli('learn', 'job', 'add', 'j2', '--mode', 'learn', 'When I test, I want it listed, so I can see it')).toBe(0);
+    expect(await cli('learn', 'check', 'run', 'c1')).toBe(EXIT_REFUSED);
+    expect(err.join('\n')).toContain('learn check run runs a stored command through a shell');
+    expect(existsSync(marker)).toBe(false);
+    expect(await cli('learn', '--job', 'j1', 'probe', 'run', '1')).toBe(EXIT_REFUSED);
+    const last = readFileSync(join(home, GUARD_RECEIPTS_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l) as GuardRecord).pop();
+    expect(last?.authorized.decision).toBe('DENIED');
+    await cli('guard', 'show');
+    expect(out.join('\n')).toContain('learn check run, learn probe run');
   });
 });

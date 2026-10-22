@@ -467,6 +467,9 @@ kill` allows nothing. `guard sign` signs the policy with this install's key, the
 
 While a policy exists, every other command must be listed as `tool:<command>` before it runs (exit `5`
 when it is not). A policy that does not parse denies everything. `help`, `version`, `guard` and `run` always run.
+Two commands are denied whatever the policy lists, because they start a process the guard cannot see:
+`init --pai` (it spawns the register script) and `learn check run` / `learn probe run` (they run a stored
+shell command).
 `guard check --tool <name> [--class read|other|post|spend] [--amount <n>]` asks the policy about any action:
 `0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow). A check is recorded as a question: its
 amount is never counted as spent.
