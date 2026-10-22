@@ -83,8 +83,9 @@ function Session({ label, lines, caption, wrap = true }: { label: string; lines:
     <figure className="min-w-0">
       <pre
         tabIndex={0}
+        role="region"
         aria-label={label}
-        className="overflow-x-auto rounded-lg border border-slate-800 bg-[#0b1220] px-4 py-4 font-mono text-[13px] leading-6 shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]"
+        className="overflow-x-auto rounded-lg border border-slate-800 bg-[#0b1220] px-4 py-4 font-mono text-[13px] leading-6 [font-variant-ligatures:none] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]"
       >
         {lines.map(([tone, text], i) => {
           const keep = !wrap && tone === 'out';
@@ -169,7 +170,8 @@ const SPEND: [Tone, string][] = [
   ['out', "  ['over the cap', { origin: 'Cli', amount: 150000n, cap: 100000n,"],
   ['out', '                    policy: { allow: true } }],'],
   ['out', ']) {'],
-  ['out', "  try { await guardedX402Payment({ ...base, ...p }); console.log('ALLOWED', label); }"],
+  ['out', '  try { await guardedX402Payment({ ...base, ...p });'],
+  ['out', "        console.log('ALLOWED', label); }"],
   ['out', "  catch (e) { console.log('REFUSED', label, '-', e.message); }"],
   ['out', '}'],
   ['dim', ''],
