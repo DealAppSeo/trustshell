@@ -256,8 +256,8 @@ export default function BuildPage() {
               Run the same check yourself
             </h2>
             <p className="max-w-prose text-base leading-relaxed">
-              Three commands in an empty folder, with Node 22.13 or newer. No account and no key: the only request
-              goes to api.github.com.
+              Three commands in an empty folder, with Node 22.13 or newer. No account and no key. npx fetches the
+              package from npm; after that, the check&apos;s only request goes to api.github.com.
             </p>
             <ShellSwitch shells={SHELLS} label="Your shell" />
             <Session
