@@ -54,7 +54,7 @@ body:
     id: versions
     attributes:
       label: trustshell --version, and node -v
-      description: Which one you ran, for example 1.8.0-rc.0 from npx @hyperdag/trustshell@next, or a clone at a commit.
+      description: Which one you ran, for example 1.8.0 from npx @hyperdag/trustshell, or a clone at a commit.
     validations:
       required: true
   - type: checkboxes

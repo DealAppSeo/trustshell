@@ -1,5 +1,5 @@
 /**
- * /earn-trust tags each harness part LIVE vs DIRECTION by what @hyperdag/trustshell 1.7.0 does.
+ * /earn-trust tags each harness part LIVE vs DIRECTION by what @hyperdag/trustshell 1.8.0 does.
  * Quarantine v0 is live for local memory only; sandboxed execution and adaptive learning are a
  * direction. A part must not read as live without the copy naming what runs.
  */

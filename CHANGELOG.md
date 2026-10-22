@@ -2,6 +2,29 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.8.0 — 2026-10-22
+
+1.8.0 is 1.8.0-rc.0 (the section below) promoted to npm `latest`, plus one fix, #596. A plain
+`npm install` now gives what that section lists. Between the candidate and this release the only
+change to package code (`src/`, `dist/`, `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`
+and `lib/interview.js`) is `src/cli/classify.ts` and its build, `dist/cli/classify.js`.
+
+- **Fix: the local Laya lane no longer takes quadratic time on a long run of trailing `.` or `!`
+  (#596).** `trustshell verify` with `TRUSTSHELL_LAYA=local` classifies the claim locally first, and
+  that classifier dropped trailing `.` and `!` with `/[.!]+$/`. CodeQL flagged it
+  (js/polynomial-redos): 20,000 `!` then a letter took 2.2 s, and 40,000 took 9 s. It now drops them
+  with a backwards scan and returns the same lane as before. (`classify` in `src/cli/classify.ts`;
+  tests/laya-classify.test.ts "drops trailing . and ! exactly as before, in linear time (CodeQL
+  polynomial-redos)", which pins `OK!!!`, `thank you.`, `yes.!.!`, `ok!x` and `!!!`, and runs
+  40,000 `!` and 40,000 `.` in under 500 ms.)
+- **In 1.8.0-rc.0 too, and not in its notes: `package.json` declares `engines` `node >=22.13.0`.**
+  The memory commands load `node:sqlite`. 1.7.0 declared no engines.
+- **Package size.** 123 files, the same count as 1.8.0-rc.0 (`dist.fileCount` from `npm view`;
+  `npm pack --dry-run` on this release). That is 1.7.0's 107 plus `dist/cli/profile`,
+  `dist/learn/cli`, `dist/learn/report`, `dist/learn/store`, `dist/lib/action-evidence`,
+  `dist/lib/evidence-card`, `dist/lib/jcs` and `dist/lib/local-only` (`.js` and `.d.ts` each).
+  Runtime dependencies are unchanged.
+
 ## 1.8.0-rc.0 — 2026-10-21 (release candidate, npm dist-tag `next`)
 
 A release candidate for outside testers. **`latest` stays 1.7.0**: nobody gets this from a plain
