@@ -321,14 +321,14 @@ hold(
 hold(
   'mediated paths only',
   /does not list tool:remember/.test(viaCli.err) && /does not list tool:deleter/.test(denial(dB)),
-  'the guard decides for `trustshell run` (the deleter, exit 5) and for trustshell commands at the CLI gate (`remember`, exit 5, once the owner denied tool:remember). Nothing else.',
+  "the guard decides for `trustshell run` (the deleter, exit 5) and for TrustShell's own commands at the CLI gate (`remember`, exit 5, once the owner denied tool:remember). Nothing else.",
 );
 hold(
   'not mediated',
   viaMcp === null ? null : viaMcp.ok && bypassed,
   viaMcp === null
     ? `the MCP server could not be asked (${MCP}), so this is not checked`
-    : `an MCP \`remember\` call wrote note ${viaMcp.id} on Host A while the policy denied tool:remember (stored untrusted, in quarantine), and the deleter started without trustshell deleted precious.txt on Host B. The guard sees only what goes through it.`,
+    : `an MCP \`remember\` call wrote note ${viaMcp.id} on Host A while the policy denied tool:remember (stored untrusted, in quarantine), and the deleter, started directly instead of through TrustShell, deleted precious.txt on Host B. The guard sees only what goes through it.`,
 );
 hold('signed, not encrypted', plainOk, 'the carried note reads as plain text in bundle.json; the note the owner did not select is not in it. Anyone with the file can read it.');
 hold(
@@ -342,7 +342,7 @@ hold(
   "on Host B `guard allow tool:deleter` needed no key and no password: the owner signature was dropped and the next delete ran. On Host A the same edit plus `guard sign` re-signed it with the install key, and a third host trusting that key enforced it and ran the delete. The signature says which key signed, not that the owner meant it. Each change was recorded with the policy hash before and after; none was prevented.",
 );
 const attempts = fs.existsSync(NET_LOG) ? fs.readFileSync(NET_LOG, 'utf8').split('\n').filter(Boolean).length : 0;
-hold('no network', attempts === 0, `every trustshell process ran with TCP connects and host lookups refused and logged: ${attempts} attempt(s).`);
+hold('no network', attempts === 0, `every TrustShell process ran with TCP connects and host lookups refused and logged: ${attempts} attempt(s).`);
 const notHeld = held.filter((h) => h.ok === false).length;
 const notChecked = held.filter((h) => h.ok === null).length;
 say();
