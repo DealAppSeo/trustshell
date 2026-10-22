@@ -36,7 +36,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.releaseByHal = exports.UNCHECKED_REASON = exports.sourceDigest = exports.releaseExitCode = exports.releaseByGround = exports.explainQuarantine = exports.listQuarantined = exports.rememberUntrusted = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
+exports.BUNDLE_SCHEMA = exports.BundleError = exports.policyImportDecision = exports.bundleProblems = exports.brainContext = exports.verifyBundle = exports.GUARD_DOES_NOT_COVER = exports.trustshellHome = exports.defaultPolicy = exports.readLedger = exports.policySha256 = exports.parsePolicyDocument = exports.parsePolicy = exports.loadPolicy = exports.decide = exports.guardDecide = exports.releaseByHal = exports.UNCHECKED_REASON = exports.sourceDigest = exports.releaseExitCode = exports.releaseByGround = exports.explainQuarantine = exports.listQuarantined = exports.rememberUntrusted = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
 var trustshell_1 = require("./trustshell");
@@ -162,3 +162,34 @@ Object.defineProperty(exports, "sourceDigest", { enumerable: true, get: function
 Object.defineProperty(exports, "UNCHECKED_REASON", { enumerable: true, get: function () { return quarantine_1.UNCHECKED_REASON; } });
 var quarantine_hal_1 = require("../memory/quarantine-hal");
 Object.defineProperty(exports, "releaseByHal", { enumerable: true, get: function () { return quarantine_hal_1.releaseByHal; } });
+/**
+ * GUARD: the owner's local policy (`~/.trustshell/policy.json`, or TRUSTSHELL_HOME), a SUBSET of the engine
+ * kernel's owner-policy fields with the same meanings (actions spend | post | tool | tool:<name>, per_tx_raw,
+ * daily_raw, total_raw, expires_at, nonce). `guardDecide(trustshellHome(), { tool, class, amount_raw })` decides
+ * one request and records the decision (with its assurance scope) BEFORE the caller acts; no policy file returns
+ * null, never an allow. Not a sandbox: see GUARD_DOES_NOT_COVER.
+ */
+var guardrails_1 = require("./guardrails");
+Object.defineProperty(exports, "guardDecide", { enumerable: true, get: function () { return guardrails_1.guardDecide; } });
+Object.defineProperty(exports, "decide", { enumerable: true, get: function () { return guardrails_1.decide; } });
+Object.defineProperty(exports, "loadPolicy", { enumerable: true, get: function () { return guardrails_1.loadPolicy; } });
+Object.defineProperty(exports, "parsePolicy", { enumerable: true, get: function () { return guardrails_1.parsePolicy; } });
+Object.defineProperty(exports, "parsePolicyDocument", { enumerable: true, get: function () { return guardrails_1.parsePolicyDocument; } });
+Object.defineProperty(exports, "policySha256", { enumerable: true, get: function () { return guardrails_1.policySha256; } });
+Object.defineProperty(exports, "readLedger", { enumerable: true, get: function () { return guardrails_1.readLedger; } });
+Object.defineProperty(exports, "defaultPolicy", { enumerable: true, get: function () { return guardrails_1.defaultPolicy; } });
+Object.defineProperty(exports, "trustshellHome", { enumerable: true, get: function () { return guardrails_1.trustshellHome; } });
+Object.defineProperty(exports, "GUARD_DOES_NOT_COVER", { enumerable: true, get: function () { return guardrails_1.GUARD_DOES_NOT_COVER; } });
+/**
+ * CARRY: the owner's context as one Ed25519-signed file (profile, policy by hash, selected memories, evidence
+ * pointers). Authority never travels: `policyImportDecision` enforces a carried policy only when its owner
+ * signature verifies with a trusted key and its nonce supersedes the one in force. `brainContext` is the text
+ * any model is handed. No network.
+ */
+var bundle_1 = require("./bundle");
+Object.defineProperty(exports, "verifyBundle", { enumerable: true, get: function () { return bundle_1.verifyBundle; } });
+Object.defineProperty(exports, "brainContext", { enumerable: true, get: function () { return bundle_1.brainContext; } });
+Object.defineProperty(exports, "bundleProblems", { enumerable: true, get: function () { return bundle_1.bundleProblems; } });
+Object.defineProperty(exports, "policyImportDecision", { enumerable: true, get: function () { return bundle_1.policyImportDecision; } });
+Object.defineProperty(exports, "BundleError", { enumerable: true, get: function () { return bundle_1.BundleError; } });
+Object.defineProperty(exports, "BUNDLE_SCHEMA", { enumerable: true, get: function () { return bundle_1.BUNDLE_SCHEMA; } });

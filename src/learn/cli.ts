@@ -100,6 +100,20 @@ function parse(argv: string[]): { pos: string[]; opt: Record<string, string> } {
   return { pos, opt };
 }
 
+/**
+ * PURE. The verb when `argv` would execute a registered command (`check run`, `probe run`), else null.
+ * Arguments that do not parse return null: `learn` refuses them before anything runs.
+ */
+export function learnExecutes(argv: string[]): string | null {
+  let pos: string[];
+  try {
+    pos = parse(argv).pos;
+  } catch {
+    return null;
+  }
+  return (pos[0] === 'check' || pos[0] === 'probe') && pos[1] === 'run' ? `learn ${pos[0]} run` : null;
+}
+
 function whole(what: string, v: string | undefined): number | undefined {
   if (v === undefined) return undefined;
   if (!/^\d+$/.test(v)) throw new LearnError(`${what} must be a whole number`);

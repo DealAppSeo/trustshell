@@ -155,3 +155,18 @@ export declare function readRows(path: string, ids: readonly number[], env?: Nod
  * Both: readable (not a sealed placeholder) and not injection-looking now (the formatRecall screen).
  */
 export declare function injectable(row: MemoryRow): boolean;
+/**
+ * The notes an owner may select for `trustshell bundle export`, by id: kind note, not keyed, RELEASED (not
+ * quarantined) and not encrypted. A sealed body is never opened for a bundle (a bundle is plain JSON), so an
+ * encrypted note is listed in `encrypted` and never in `notes`. Quarantined ids are listed too, so the
+ * caller can say why a selected id was refused.
+ */
+export declare function selectableNotes(path: string): {
+    notes: {
+        id: number;
+        body: string;
+        created_at: string;
+    }[];
+    quarantined: number[];
+    encrypted: number[];
+};

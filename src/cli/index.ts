@@ -68,6 +68,8 @@ import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/ke
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { join } from 'node:path';
 import { runLearn } from '../learn/cli';
+import { runBundle } from './bundle';
+import { EXIT_REFUSED, runGuard, runGuarded, runRun } from './guard';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -87,6 +89,8 @@ export const EXIT = {
   RUNTIME: 3,
   /** Laya ask. A person has to answer. HAL was not called. */
   ASK: 4,
+  /** The owner policy (~/.trustshell/policy.json) denied the action. Nothing ran. */
+  REFUSED: EXIT_REFUSED,
 } as const;
 
 export type Command =
@@ -110,6 +114,9 @@ export type Command =
   | 'traps'
   | 'ground'
   | 'learn'
+  | 'bundle'
+  | 'guard'
+  | 'run'
   | 'help'
   | 'version';
 
@@ -176,6 +183,11 @@ export interface ParsedArgs {
   demo?: boolean;
   /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
   learnArgv?: string[];
+  /** bundle / guard: everything after the command, parsed by src/cli/bundle.ts and src/cli/guard.ts. */
+  bundleArgv?: string[];
+  guardArgv?: string[];
+  /** run: everything after `run`, parsed by src/cli/guard.ts (its options, then `--`, then the command). */
+  runArgv?: string[];
   /** profile: the parsed subcommand (show / add / set / remove / interview). */
   profileOp?: ProfileOp;
   /** A usage error message; when set the caller should print help + exit USAGE. */
@@ -342,6 +354,44 @@ COMMANDS
   quarantine release <id> --trusted
                              You vouch for it (not a check): stored trusted, released_by says so.
                              release EXIT 0 released, 1 held (check failed), 2 not checked / no such note.
+  bundle export <file>       CARRY: one Ed25519-signed file (this install's key, never in the file):
+                             .trustshell/profile.md, the owner policy BY HASH (with the document, so
+                             an owner-signed one can be checked), the notes you select, and evidence
+                             pointers (sha256 only). Never: credentials, keys, spending authority.
+      [--note <id>]...       A note to carry (quarantine explain <id> shows one). None by default.
+      [--notes released]     Every released (not quarantined) note.
+      [--evidence <file>]... Point at a record (a check --claims record.json, a ledger): its sha256.
+      [--force]              Replace an existing <file>.
+  bundle verify <file> [--signer <fingerprint>]
+                             Check the signature and the signer without writing anything.
+  bundle context <file> [--signer <fingerprint>]
+                             Verify, then print the person as text for a model: profile, the policy
+                             as information, the selected notes. Enforcement stays in the harness.
+  bundle import <file> [--signer <fingerprint>] [--force]
+                             Verify, then write it here. Authority never travels: imported notes are
+                             stored UNTRUSTED and quarantined; the policy is enforced only when its
+                             owner signature verifies with a key you trust AND its nonce is higher
+                             than the one in force, else it is saved as policy.suggested.json, not
+                             enforced. An altered, partial or other-version file is refused (exit 1).
+  guard init [--days N]      GUARD: write ~/.trustshell/policy.json, the engine kernel's owner-policy
+                             fields (subject, actions, per_tx_raw, daily_raw, total_raw, expires_at,
+                             nonce): local commands only, every limit 0, expires in N days (30).
+                             While a policy exists, learn check run and learn probe run are denied:
+                             they run a stored shell command.
+  guard show                 Print the policy, what was allowed so far and the record chain.
+  guard allow|deny <action>  spend, post, tool or tool:<name>. Anything unlisted is denied.
+  guard limit per-tx|daily|total <n>  ·  guard expire <days>  ·  guard kill (allow nothing)
+                             Every change is a new policy with a higher nonce (the kernel's revocation).
+  guard sign                 Sign the policy with this install's key (the owner signature a bundle carries).
+  guard check --tool <name> [--class read|other|post|spend] [--amount <n>]
+                             Ask the policy about any action from any harness. Recorded.
+                             EXIT 0 ALLOWED, 5 DENIED, 2 NOT_CHECKED (no policy).
+  run --tool <name> [--class <c>] [--amount <n>] -- <command> [args...]
+                             The enforced path: decide and record BEFORE the command starts; a denied
+                             command never starts (exit 5); an allowed one runs and its exit code is
+                             recorded. The card says what was requested, authorized, executed,
+                             independently observed (nothing) and unknown. No policy: nothing runs (2).
+                             While a policy exists, every other command must be listed as tool:<name>.
   learn <verb>               The learning loop, local: jobs you create, checks you register, your
                              corrections as lessons you accept, injected verbatim (max 5 / 400
                              tokens), unaided probes, spaced review, rulers. trustshell learn for
@@ -381,6 +431,7 @@ EXIT CODES
                                                       · check "<sentence>": not-checked
   3  runtime error (network / backend / timeout)      · check: INCONCLUSIVE (NOT CHECKED)
   4  ASK — only when TRUSTSHELL_LAYA is set; HAL was not called
+  5  DENIED by the owner policy (~/.trustshell/policy.json) — nothing ran
 
 NETWORK EGRESS (what each command dials, and nothing else)
   verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_API_URL)
@@ -395,12 +446,17 @@ NETWORK EGRESS (what each command dials, and nothing else)
   quarantine                       NOTHING, except release --check hal: the DEFAULT backend's /api/v1/classify
                                    only. A TRUSTSHELL_API_URL pointing elsewhere is not asked.
   profile                          NOTHING. Reads and writes .trustshell/profile.md.
+  bundle · guard                   NOTHING. Local files only.
+  run                              NOTHING itself. It starts YOUR command, whose own network it does not see.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
 ENV
   REPID_API_KEY        optional API key (verify/repid/proof are keyless; receipt needs it)
   TRUSTSHELL_API_URL   override backend origin (default: live HyperDAG backend)
+  TRUSTSHELL_HOME      where policy.json, its records and the signing key live (default ~/.trustshell).
+                       Pointing it at a folder with no policy switches the owner policy off for that
+                       command; a WARNING says so when ~/.trustshell/policy.json exists.
 
 CI GATE EXAMPLE
   # fail the build if HAL vetoes a claim in your changelog
@@ -426,6 +482,9 @@ function looksLikeOption(a: string): boolean {
 export function parseArgs(argv: string[]): ParsedArgs {
   // `learn` has its own verbs and options (src/learn/cli.ts); they never reach the flag loop below.
   if (argv[0] === 'learn') return { command: 'learn', learnArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'bundle') return { command: 'bundle', bundleArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'guard') return { command: 'guard', guardArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'run') return { command: 'run', runArgv: argv.slice(1), json: false, verify: false };
   const flags = new Set<string>();
   const positionals: string[] = [];
   // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -967,6 +1026,18 @@ export async function run(
     case 'learn':
       return runLearn(args.learnArgv ?? [], io);
 
+    case 'bundle':
+      // Local files only. Opens no socket.
+      return runBundle(args.bundleArgv ?? [], io);
+
+    case 'guard':
+      // Local files only. Opens no socket.
+      return runGuard(args.guardArgv ?? [], io);
+
+    case 'run':
+      // Starts the caller's command only after the policy allows it.
+      return runRun(args.runArgv ?? [], io);
+
     case 'recall': {
       try {
         io.out(args.key ? recallKey(args.key) : recallNotes(process.env, { includeQuarantined: args.includeQuarantined }));
@@ -1488,7 +1559,8 @@ export async function runClaimCheck(
 /** Entry point: parse argv, run, exit with the returned code. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgs(argv);
-  const code = await run(args, makeClient());
+  // The owner policy, if the person wrote one, decides before the command runs (src/cli/guard.ts).
+  const code = await runGuarded(args, () => run(args, makeClient()), realIO);
   process.exit(code);
 }
 

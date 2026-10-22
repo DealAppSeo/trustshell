@@ -666,6 +666,9 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
+| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, not in the published 1.7.0 | none |
+| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, not in the published 1.7.0 | none |
+| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, not in the published 1.7.0 | none |
 
 No command uploads your input anywhere other than the host named above.
 

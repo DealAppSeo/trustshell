@@ -26,6 +26,7 @@ import {
 } from '../lib/profile';
 import { TRUSTSHELL_DIR, PROFILE_FILE } from '../lib/init';
 import { refusedValue } from './remember';
+import { ingest } from '../lib/ingest';
 
 export const PROFILE_PATH = `${TRUSTSHELL_DIR}/${PROFILE_FILE}`;
 
@@ -61,9 +62,17 @@ export function learnJobHint(job: string): string {
   return `Jobs are not kept in your profile. Add it with: trustshell learn job add "${job.replace(/["\\]/g, '\\$&')}"`;
 }
 
-/** One entry's text: one line, no comment markers, no credential shapes. */
+/**
+ * One entry's text: one line, no comment markers, no credential shapes, and nothing that reads as an
+ * instruction to an agent (the profile is handed to models, so a hidden order would act like a poisoned note:
+ * Lane D, 2026-10-21). The screen is the fixed pattern set in src/lib/ingest.ts.
+ */
 function entryError(raw: string, what: string): string | null {
-  return checkText(raw, what) ?? (refusedValue(raw) ? `${what} looks like a credential; it is not stored` : null);
+  const shape = checkText(raw, what);
+  if (shape) return shape;
+  if (refusedValue(raw)) return `${what} looks like a credential; it is not stored`;
+  if (ingest(raw).ingest !== 'clean') return `${what} reads like an instruction to an agent (injection screen); it is not stored`;
+  return null;
 }
 
 /**

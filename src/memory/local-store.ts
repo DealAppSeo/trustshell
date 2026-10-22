@@ -254,10 +254,12 @@ function openDb(path: string): SqliteDb {
     return db;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('NOT_CHECKED ')) throw err;
-    // `node:sqlite` is a built-in from Node 22.5. On older Node the require itself throws, and a bare
+    // `node:sqlite` arrived in Node 22.5 behind --experimental-sqlite and was unflagged in 22.13 (the
+    // floor the V1 candidate's `engines` sets; Lane A, 2026-10-21, reasoned from the Node changelog, not
+    // run on 22.5-22.12). Before that the require itself throws, and a bare
     // "NOT_CHECKED <path>" gives a stranger no way to tell that from a bad path or a locked file.
     if ((err as { code?: string } | null)?.code === 'ERR_UNKNOWN_BUILTIN_MODULE') {
-      throw new Error(`NOT_CHECKED ${path} (node:sqlite is not in this Node; local memory needs Node 22.5 or newer)`);
+      throw new Error(`NOT_CHECKED ${path} (node:sqlite is not in this Node; local memory needs Node 22.13 or newer)`);
     }
     throw new Error(`NOT_CHECKED ${path}`);
   }
@@ -631,4 +633,26 @@ export function injectable(row: MemoryRow): boolean {
   if (row.body === SEALED_NO_KEY || row.body === SEALED_WRONG_KEY || heldAsInjection(row)) return false;
   if (row.kind === 'lesson') return row.released_by === LESSON_ACCEPTED;
   return row.kind === 'learn';
+}
+
+/**
+ * The notes an owner may select for `trustshell bundle export`, by id: kind note, not keyed, RELEASED (not
+ * quarantined) and not encrypted. A sealed body is never opened for a bundle (a bundle is plain JSON), so an
+ * encrypted note is listed in `encrypted` and never in `notes`. Quarantined ids are listed too, so the
+ * caller can say why a selected id was refused.
+ */
+export function selectableNotes(path: string): { notes: { id: number; body: string; created_at: string }[]; quarantined: number[]; encrypted: number[] } {
+  const db = openDb(path);
+  try {
+    const out = { notes: [] as { id: number; body: string; created_at: string }[], quarantined: [] as number[], encrypted: [] as number[] };
+    for (const raw of db.prepare(`SELECT ${FULL_COLS} FROM memory WHERE kind = 'note' AND key IS NULL ORDER BY id ASC`).all()) {
+      const row = asRow(raw);
+      if (row.quarantined !== false) out.quarantined.push(row.id);
+      else if (isSealed(row.body)) out.encrypted.push(row.id);
+      else out.notes.push({ id: row.id, body: row.body, created_at: row.created_at });
+    }
+    return out;
+  } finally {
+    db.close();
+  }
 }
