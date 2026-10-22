@@ -1,8 +1,8 @@
 # Good first issues: drafts
 
-Five small, scoped tasks for someone new to the repo. **These are drafts, not filed issues.** A maintainer copies each one into a GitHub issue with the label `good first issue` and then deletes it from this file. Each stays inside the credential-free inspector (`trustshell check <runUrl> --claims-file`), and none needs a model, a backend or an account.
+Eight small, scoped tasks for someone new to the repo. **These are drafts, not filed issues.** A maintainer copies each one into a GitHub issue with the label `good first issue` and then deletes it from this file. All but 7 stay inside the credential-free inspector (`trustshell check <runUrl> --claims-file`); 7 is a specification with a test harness. None needs a model, a backend or an account.
 
-Setup for all five is in [CONTRIBUTING.md](../CONTRIBUTING.md). The reference for the record, the templates and the exit codes is [action-evidence.md](action-evidence.md).
+Setup for all of them is in [CONTRIBUTING.md](../CONTRIBUTING.md). The reference for the record, the templates and the exit codes is [action-evidence.md](action-evidence.md).
 
 ---
 
@@ -55,3 +55,33 @@ On a Windows clone with `core.autocrlf=true`, `npm run verify` fails six suites 
 **Do:** normalise line endings where those tests read files (`.replace(/\r\n/g, '\n')`, as `tests/readme-truth.test.ts` already does), join the paths with `path`, and make the spawn tolerate a path with a space. Change the tests, not the files they check.
 
 **Done when:** `npm run verify` is green on a Windows clone with `core.autocrlf=true` and still green on Linux. Say which suites you could run on which OS in the pull request.
+
+## 6. Prove the Bash and PowerShell forms of the challenge give the same card
+
+**Labels:** `good first issue`, `testing` · **Size:** small · **Touches:** `tests/fixtures/action-evidence/`, one new test
+
+The challenge ([challenge.md](challenge.md)) and trustshell.dev/build give two ways to write `claims.txt`: `printf` in Bash, and `Set-Content` in Windows PowerShell 5.1, which ends each line with a carriage return and a line feed (CRLF). Both are measured by hand to give the same result. Nothing stops a change to the claims reader from making them differ.
+
+**Do:** record the pinned run's two GitHub responses (run `39619591025` and its jobs) into a new fixture in the same shape as `green-run.json`. Write the two claims files byte for byte as each shell writes them (LF with a blank line between the claims; CRLF with an empty middle line). Run both through `run()` with the recorded `fetch`, as `tests/cli-check-claims.test.ts` does.
+
+**Done when:** both files produce the same record digest, the card says `Claims: 3 supported · 1 contradicted · 1 not checked`, the contradicted claim is `commit 5d1c5e3f57e1`, and the exit code is `1` for both. Change one claim in only one file and the test fails.
+
+## 7. The OpenClaw hook adapter: a spec and a harness
+
+**Labels:** `good first issue`, `design` · **Size:** medium, a spec and one test file, no OpenClaw needed · **Touches:** new `docs/openclaw-adapter.md`, new `tests/openclaw-adapter-spec.test.ts`
+
+OpenClaw gives plugins `before_tool_call`, which can rewrite a call's parameters, block it or require approval, and `after_tool_call`, which sees each result, error and duration ([hook reference](https://docs.openclaw.ai/plugins/hooks/reference)). A TrustShell plugin would check each call against the owner's policy there and keep a receipt of what ran. It does not exist; `src/lib/init.ts` says the plugin seam is not implemented. The skill in `skills/trustshell/` runs the CLI, which is a different thing.
+
+**Do:** write the spec. Say what `before_tool_call` decides for each policy outcome (allow, block, require approval), what an `after_tool_call` receipt line holds (tool name, a hash of the parameters, outcome, duration, time), and what the adapter must never do (log parameter values, call the network, treat the model's own say-so as permission). Then write a harness that feeds fake hook events to a stub policy function and checks those rules. The owner policy itself is still a prototype (#593), so the stub stands in for it.
+
+**Done when:** the harness shows a denied call is blocked before it runs, an allowed call produces exactly one receipt line, and a receipt line never contains a parameter value. The spec names every rule the harness checks, and nothing in it is described as built.
+
+## 8. A claim template for one named job: `gha.job_succeeded`
+
+**Labels:** `good first issue`, `enhancement` · **Size:** medium · **Touches:** `src/lib/action-evidence.ts`, `tests/action-evidence.test.ts`, `docs/action-evidence.md`
+
+The record already holds every job of the run (`/observation/jobs/items`: name, status, conclusion, commit, attempt), but no template reads one job by name. "The check job passed, run 39619591025." comes back NOT_CHECKED today.
+
+**Do:** add `gha.job_succeeded`. It reads a sentence that names a job and cites the inspected run. Find the named job and support the claim only if every job with that name concluded `success` on the run's commit and attempt. Write the scope the way the existing templates do ("Whether the job named X in run N concluded success. Not which steps it ran, not any other job."). Add a refusal case: if no job has that name, the claim is NOT_CHECKED with a reason saying so, never CONTRADICTED and never SUPPORTED.
+
+**Done when:** tests on the recorded fixtures show a supported case, a contradicted case (the job failed in `failed-run.json`), the no-such-job refusal, and a sentence that names a job but no run, which stays NOT_CHECKED. `docs/action-evidence.md` lists the template with its scope, and the existing templates' results are unchanged.

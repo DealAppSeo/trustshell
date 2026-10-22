@@ -1,3 +1,6 @@
 # The Chrome extension ships as these files, byte for byte (scripts/pack-extension.mjs). LF on every
 # checkout, so a zip packed on Windows has the same sha256 as the one CI attaches to extension-latest.
 extension/** text=auto eol=lf
+# The /build page prints the sha-256 of these sample-receipt files; LF on every checkout keeps the
+# served bytes equal to the printed hash (tests/build-ledger.test.ts checks it).
+public/samples/** text eol=lf
