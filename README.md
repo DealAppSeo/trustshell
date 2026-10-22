@@ -6,12 +6,12 @@ TrustShell reads a **public GitHub Actions run** from GitHub and sets what your 
 
 ## Check your own CI run
 
-Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `--claims` and `--claims-file` are new in 1.8.0 (see Status below); 1.7.0 and older do not have them.
+Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `--claims` and `--claims-file` are new in 1.8.0 (see Status below); 1.7.0 and older do not have them. `@latest` makes npx fetch the current release; without it, npx runs any older copy installed globally.
 
 ```bash
 RUN=https://github.com/OWNER/REPO/actions/runs/1234567890
 printf 'The workflow run succeeded, run %s.\n' "${RUN##*/}" > claims.txt
-npx @hyperdag/trustshell check "$RUN" --claims-file claims.txt
+npx @hyperdag/trustshell@latest check "$RUN" --claims-file claims.txt
 ```
 
 Windows PowerShell:
@@ -19,7 +19,7 @@ Windows PowerShell:
 ```powershell
 $run = "https://github.com/OWNER/REPO/actions/runs/1234567890"
 "The workflow run succeeded, run $($run.Split('/')[-1])." | Set-Content claims.txt
-npx @hyperdag/trustshell check $run --claims-file claims.txt
+npx @hyperdag/trustshell@latest check $run --claims-file claims.txt
 ```
 
 `claims.txt` is what your agent said. The line above writes one claim for you so the first run works; **replace it with your agent's own words** to test them. You get a card that marks each claim **SUPPORTED**, **CONTRADICTED** or **NOT_CHECKED**, and ends with what it does not prove. An excerpt, recorded 2026-10-21 on 1.8.0-rc.0 against a finished public run (`vitejs/vite`, run 39524643058), exit 0:
