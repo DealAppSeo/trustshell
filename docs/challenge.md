@@ -2,7 +2,7 @@
 
 Your AI says the job is done. TrustShell checks the evidence. Catch an AI's false claim about a CI run, see exactly which evidence decided it, then try to break the checker.
 
-No account, no API key, no TrustShell server: once installed, the only network call is to `api.github.com`. Everyone checks the same pinned run, so everyone should get the same result. If you don't, that is a finding.
+No account, no API key, no TrustShell server: once installed, the only network call is to `api.github.com`. Everyone checks the same pinned run, so everyone should get the same verdicts. (The record's digest differs from run to run, because the record includes when it was fetched.) If your verdicts differ, that is a finding.
 
 Inspect runs as `trustshell check <run-url> --claims-file <file>`. (`trustshell inspect` is a different command: it verifies a local session log.)
 
@@ -10,8 +10,18 @@ Inspect runs as `trustshell check <run-url> --claims-file <file>`. (`trustshell 
 
 Node 22.13 or newer.
 
+bash or zsh:
+
 ```bash
 mkdir ts-challenge && cd ts-challenge && npm init -y
+npm install @hyperdag/trustshell@next
+npx @hyperdag/trustshell@next --version
+```
+
+Windows PowerShell:
+
+```powershell
+mkdir ts-challenge; cd ts-challenge; npm init -y
 npm install @hyperdag/trustshell@next
 npx @hyperdag/trustshell@next --version
 ```
@@ -40,7 +50,7 @@ $run = "https://github.com/DealAppSeo/trustshell/actions/runs/39619591025"
 npx @hyperdag/trustshell@next check $run --claims-file claims.txt --out card; "exit $LASTEXITCODE"
 ```
 
-What you should see (measured on the release candidate, 2026-10-21):
+What you should see, abridged (measured on the release candidate, 2026-10-21):
 
 ```
 ### Claims: 3 supported · 1 contradicted · 1 not checked
@@ -75,7 +85,7 @@ Open an issue on [DealAppSeo/trustshell](https://github.com/DealAppSeo/trustshel
 
 ## Known limits
 
-- Anonymous GitHub allows 60 requests an hour per IP, about five per check. Set `GITHUB_TOKEN` to raise it; it is used for nothing else.
+- Anonymous GitHub allows 60 requests an hour per IP, and a check makes two, so about 30 checks an hour from one network. Set `GITHUB_TOKEN` to raise it; it is used for nothing else.
 - Only GitHub Actions runs are read.
 - We will not re-run or delete the pinned run. If it ever disappears, every claim about it comes back not checked, which is the honest answer.
 - Policies that refuse an action, and a signed bundle that carries your settings to another model, are being built and attacked now. They are not part of this challenge until their tests and the red-team battery pass.

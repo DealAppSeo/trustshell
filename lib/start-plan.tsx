@@ -58,9 +58,9 @@ const CLAIM: Step = {
 
 function chrome(): Step {
   return CHROME_STORE_URL
-    ? { text: `Add the Chrome extension: every reply on ${STAMPED_SITES.join(', ')} gets a stamp.`, href: CHROME_STORE_URL, label: 'Add to Chrome' }
+    ? { text: `Add the Chrome extension, switch a chat site on (${STAMPED_SITES.join(', ')}), then click Check this reply to get a stamp. Every site starts off.`, href: CHROME_STORE_URL, label: 'Add to Chrome' }
     : {
-        text: `Add the Chrome extension: every reply on ${STAMPED_SITES.join(', ')} gets a stamp. It is not on the Chrome Web Store yet: download the test build, unzip it, open chrome://extensions, turn on Developer mode and choose Load unpacked.`,
+        text: `Add the Chrome extension, switch a chat site on (${STAMPED_SITES.join(', ')}), then click Check this reply to get a stamp. Every site starts off. It is a test build, not on the Chrome Web Store yet: download the test build, unzip it, open chrome://extensions, turn on Developer mode and choose Load unpacked.`,
         href: TEST_BUILD_ZIP,
         label: 'Download the test build',
       };

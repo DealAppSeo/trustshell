@@ -35,20 +35,20 @@ export const metadata: Metadata = {
    * production's, which would make a preview link silently misrepresent what it is showing.
    */
   metadataBase: new URL(SITE_URL),
-  title: 'TrustShell - AI Agents That Earn Your Trust',
-  description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
-  keywords: ['AI agents', 'ERC-8004', 'trust layer', 'blockchain', 'reputation', 'x402', 'hallucination defense', 'LangChain', 'LlamaIndex', 'HuggingFace', 'agent framework'],
+  title: 'TrustShell: your AI says the job is done. Check the evidence.',
+  description: 'Your AI says the job is done. TrustShell checks the evidence: a free CLI checks what an AI agent says about a GitHub Actions run against the run itself, plus an MCP server and SDK. Open source, Apache 2.0.',
+  keywords: ['AI agents', 'agent claims', 'evidence', 'GitHub Actions', 'CI', 'MCP', 'MCP server', 'LangGraph', 'smolagents', 'ERC-8004', 'x402', 'open source'],
   authors: [{ name: 'HyperDAG' }],
   openGraph: {
-    title: 'TrustShell - AI Agents That Earn Your Trust',
-    description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
+    title: 'TrustShell: your AI says the job is done. Check the evidence.',
+    description: 'Your AI says the job is done. TrustShell checks the evidence: a free CLI checks what an AI agent says about a GitHub Actions run against the run itself, plus an MCP server and SDK. Open source, Apache 2.0.',
     type: 'website',
     url: 'https://trustshell.dev',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TrustShell - AI Agents That Earn Your Trust',
-    description: 'Open-source trust layer for AI agents — framework-agnostic, model-agnostic, ERC-8004 RepID + x402 payment gating. Apache 2.0.',
+    title: 'TrustShell: your AI says the job is done. Check the evidence.',
+    description: 'Your AI says the job is done. TrustShell checks the evidence: a free CLI checks what an AI agent says about a GitHub Actions run against the run itself, plus an MCP server and SDK. Open source, Apache 2.0.',
   },
 };
 
@@ -86,7 +86,7 @@ export default function RootLayout({
         <footer className="border-t border-[#1e293b] px-4 pt-6 pb-24 sm:pb-6 text-sm text-[#94a3b8]">
           <nav aria-label="Site" className="max-w-6xl mx-auto flex flex-wrap gap-x-6">
             <a href="/build" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Build with us</a>
-            <a href="/privacy.html" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Privacy policy</a>
+            <a href="/privacy.html" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Privacy: extension and sentence check</a>
             <a href="https://github.com/DealAppSeo/trustshell" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Source on GitHub</a>
             <a href="https://www.npmjs.com/package/@hyperdag/trustshell" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">npm</a>
             <a href="https://github.com/DealAppSeo/trustshell/blob/main/LICENSE" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Apache 2.0</a>

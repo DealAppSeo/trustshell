@@ -24,7 +24,7 @@ export default function BlamePage() {
       </p>
       <p>
         TrustShell puts the check where the answer lands: on this page, in your chat, in your terminal, in your
-        agent. Two checkers that did not write the answer read it, and you see who they were and what they said.
+        agent. Two checkers from different model families read it (one may share the family of the model that wrote it), and you see who they were and what they said.
       </p>
       <p>
         You still decide. The stamp is a second opinion from two other models, not a ruling from an authority.
