@@ -4,8 +4,9 @@
  *   BY DESIGN        local guardrails: the policy FILE is the authority; anything running as the owner's OS user
  *                    can rewrite it, so a hand-edited, unsigned or stranger-signed policy is enforced. Disclosed.
  *   DISCLOSURE GAP   the behaviour is fine for local guardrails, the wording claims more.
- *   KNOWN DEFECT     a signature that is not the owner's earns a protected label. These assertions pin the
- *                    defect AS IT IS, so the fix has to flip them on purpose.
+ *   KNOWN DEFECT     a signature that is not the owner's earns a protected label. Pinned AS IT WAS, so the fix
+ *                    had to flip it on purpose: case 2 is now FIXED (a stranger's key is said not to be this
+ *                    install's).
  * Today's code is LOCAL GUARDRAILS, not protected owner authority. If enforcement ever starts checking the
  * signature, the BY DESIGN pins here go red: that is a permission-model change (MAJOR, Sean), not a cleanup.
  */
@@ -190,7 +191,7 @@ describe('guard authority: who can grant a permission, and what the output calls
   });
 
   describe('2. signed with a key other than the owner\'s', () => {
-    it('KNOWN DEFECT a stranger\'s key that verifies is labelled "owner-signed" on the run card and the bundle export', async () => {
+    it('FIXED (was KNOWN DEFECT) a stranger\'s key that verifies is named, and said NOT to be this install\'s; never "owner-signed"', async () => {
       await cli(A, 'guard', 'init');
       await cli(A, 'guard', 'sign'); // A's install ("owner") key now exists
       const own = signingKey(A.home).signer.fingerprint;
@@ -206,9 +207,22 @@ describe('guard authority: who can grant a permission, and what the output calls
       expect(await showLine(A)).toContain(`signed by ${k.signer.fingerprint.slice(0, 16)}`);
       expect(await showJsonSigner(A)).toBe(k.signer.fingerprint);
       expect(lastOf(A, 'decision')?.authorized.policy_signed_by).toBe(k.signer.fingerprint);
-      // THE DEFECT: a key this host never trusted is called the owner's.
-      expect(r.card).toContain('owner-signed');
-      expect(await exportLine(A)).toContain(`owner-signed by ${k.signer.fingerprint.slice(0, 16)}`);
+      // Was: "owner-signed" on both, for a key this host never trusted.
+      expect(r.card).toContain(`signed by ${k.signer.fingerprint.slice(0, 16)}…, NOT this install's key`);
+      expect(r.card).not.toContain('owner-signed');
+      const exp = await exportLine(A);
+      expect(exp).toContain(`signed by ${k.signer.fingerprint.slice(0, 16)}…, NOT the bundle author's key`);
+      expect(exp).not.toContain('owner-signed');
+    });
+
+    it('a key file that does not parse cannot crash `run` after the command ran: no install key, so no signature is the owner\'s', async () => {
+      await cli(A, 'guard', 'init');
+      await cli(A, 'guard', 'allow', 'tool:node');
+      await cli(A, 'guard', 'sign');
+      writeFileSync(join(A.home, 'bundle-signing-key.pem'), 'not a key\n');
+      const r = runNode(A);
+      expect(r).toMatchObject({ code: 0, started: true });
+      expect(r.card).toContain("NOT this install's key");
     });
 
     it('since #608 a stranger\'s signature claiming the install key\'s fingerprint names nobody', async () => {

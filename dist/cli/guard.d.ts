@@ -37,9 +37,11 @@ export declare function plannedAction(args: ParsedArgs): {
 export declare function runGuarded(args: ParsedArgs, inner: () => Promise<number>, io: IO, env?: NodeJS.ProcessEnv): Promise<number>;
 /**
  * The card `trustshell run` prints: the five things a reader must keep apart. `doc` is the policy the decision
- * was made under: with it, a signature that does not verify reads as such instead of as "unsigned".
+ * was made under: with it, a signature that does not verify reads as such instead of as "unsigned". `own` is
+ * this install's key: a signature that verifies under any OTHER key read "owner-signed" until 2026-10-22, so a
+ * policy anyone self-signed was called the owner's (GUARD_AUTHORITY_CONCLUSION, case 2).
  */
-export declare function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null, doc?: PolicyDocument | null): string;
+export declare function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null, doc?: PolicyDocument | null, own?: string | null): string;
 export interface Spawner {
     (cmd: string, args: string[]): {
         status: number | null;
