@@ -12,7 +12,8 @@
  * does not exercise them.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
@@ -58,6 +59,26 @@ describe('the Guard + Carry demo, two hosts', () => {
     const block = doc.match(/<!-- demo-output:start -->\n```text\n([\s\S]*?)\n```\n<!-- demo-output:end -->/);
     expect(block).not.toBeNull();
     expect(normalize(run.out)).toBe(normalize(block![1]!));
+  });
+
+  // "0 attempts" means something only if the preload catches an attempt: a fetch, a c-ares resolve and a UDP send.
+  it.each([
+    ['fetch', "fetch('https://example.com').catch(() => {})"],
+    ['dns.resolve4', "require('dns').resolve4('example.com', () => {})"],
+    ['udp send', "require('dgram').createSocket('udp4').send(Buffer.from('x'), 53, '192.0.2.1', () => {})"],
+  ])('the no-network preload refuses and logs a %s', (_name, code) => {
+    const dir = mkdtempSync(join(tmpdir(), 'guard-carry-net-'));
+    try {
+      const log = join(dir, 'net.log');
+      const r = spawnSync(process.execPath, ['--require', join(ROOT, 'demo', 'guard-carry', 'no-network.cjs'), '-e', code], {
+        encoding: 'utf8',
+        env: { ...process.env, GUARD_CARRY_NET_LOG: log },
+        timeout: 30000,
+      });
+      expect({ logged: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').length : 0, err: r.stderr }).toMatchObject({ logged: 1 });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('a missing CLI is NOT_CHECKED (exit 2), never the exit code of success', () => {

@@ -10,8 +10,8 @@
  * TWO HOMES ARE TWO HOSTS. Each host is its own HOME, TRUSTSHELL_HOME and working folder under one temp folder,
  * and every command runs with a minimal environment (PATH and the OS basics only), so no key, token or setting of
  * yours reaches it. Copying bundle.json between the two folders is the transfer. No model, no account, and no
- * network: every trustshell process starts with no-network.cjs preloaded, which refuses and logs any TCP connect
- * or host lookup, and the demo fails if that log is not empty.
+ * network: every trustshell process starts with no-network.cjs preloaded, which refuses and logs any TCP connect,
+ * UDP send or DNS query made through Node's net, dgram or dns modules, and the demo fails if that log is not empty.
  *
  * `reader` and `deleter` are two named copies of the node binary, so the guard can tell them apart by name: `run`
  * allows an executable only by its own name. It bounds WHICH executable starts, not what it then does.
@@ -342,7 +342,7 @@ hold(
   "on Host B `guard allow tool:deleter` needed no key and no password: the owner signature was dropped and the next delete ran. On Host A the same edit plus `guard sign` re-signed it with the install key, and a third host trusting that key enforced it and ran the delete. The signature says which key signed, not that the owner meant it. Each change was recorded with the policy hash before and after; none was prevented.",
 );
 const attempts = fs.existsSync(NET_LOG) ? fs.readFileSync(NET_LOG, 'utf8').split('\n').filter(Boolean).length : 0;
-hold('no network', attempts === 0, `every TrustShell process ran with TCP connects and host lookups refused and logged: ${attempts} attempt(s).`);
+hold('no network', attempts === 0, `each TrustShell process ran with every TCP connect, UDP send and DNS query through Node refused and logged: ${attempts} attempt(s).`);
 const notHeld = held.filter((h) => h.ok === false).length;
 const notChecked = held.filter((h) => h.ok === null).length;
 say();
