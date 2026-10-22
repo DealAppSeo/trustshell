@@ -45,6 +45,7 @@ function Status({ state, children }: { state: "MEASURED" | "NOT_CHECKED"; childr
   );
 }
 
+// A prompt line keeps "$" and its command together (\u00a0), so a wrapped line never leaves a lone "$".
 /** A transcript or data block: real output only, so mono is the material, not a costume. Wraps on
  * phones so the deciding line is never cut off; a script keeps its lines (wrap=false). */
 function Session({ label, lines, caption, wrap = true }: { label: string; lines: [Tone, string][]; caption: ReactNode; wrap?: boolean }) {
@@ -79,8 +80,8 @@ const CHALLENGE: [Tone, string][] = [
   ['out', 'The check workflow succeeded, run 39619591025.'],
   ['out', 'The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.'],
   ['dim', ''],
-  ['cmd', '$ RUN=https://github.com/DealAppSeo/trustshell/actions/runs/39619591025'],
-  ['cmd', '$ npx trustshell check "$RUN" --claims-file claims.txt'],
+  ['cmd', '$\u00a0RUN=https://github.com/DealAppSeo/trustshell/actions/runs/39619591025'],
+  ['cmd', '$\u00a0npx trustshell check "$RUN" --claims-file claims.txt'],
   ['dim', ''],
   ['out', 'Claims: 3 supported · 1 contradicted · 1 not checked'],
   ['failed', 'CONTRADICTED  commit 5d1c5e3f57e1'],
@@ -119,7 +120,7 @@ const SPEND: [Tone, string][] = [
   ['out', "  catch (e) { console.log('REFUSED', label, '-', e.message); }"],
   ['out', '}'],
   ['dim', ''],
-  ['cmd', '$ node spend.mjs'],
+  ['cmd', '$\u00a0node spend.mjs'],
   ['failed', 'REFUSED no policy - policy_required: spend intent has no policy (fail-closed — missing policy refuses)'],
   ['failed', 'REFUSED over the cap - cap_exceeded: amount 150000 > cap 100000'],
 ];
