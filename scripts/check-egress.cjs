@@ -84,6 +84,13 @@ const NONE_RUNS = {
   learn: { args: ['learn', 'report'], env: {}, stdout: 'learn report: no memory file, nothing measured', exit: 0 },
   // profile writes .trustshell/profile.md in the empty cwd: the write path is held to the claim too.
   profile: { args: ['profile', 'add', 'value', 'egress check value'], env: {}, stdout: 'added values 1: egress check value', exit: 0 },
+  // bundle export signs with a key it creates under TRUSTSHELL_HOME: a RELATIVE home keeps it inside the
+  // empty temp cwd, never ~/.trustshell. It reads the memory file and writes one bundle file.
+  bundle: { args: ['bundle', 'export', 'egress-check-bundle.json'], env: { TRUSTSHELL_HOME: 'home' }, stdout: 'exported egress-check-bundle.json', exit: 0 },
+  // guard init writes the guardrails file, the same way: relative home, inside the temp cwd.
+  guard: { args: ['guard', 'init'], env: { TRUSTSHELL_HOME: 'home' }, stdout: 'local commands only, every limit 0', exit: 0 },
+  // run with no policy authorizes nothing: it starts no command, prints its refusal on stderr and exits 2.
+  run: { args: ['run', '--tool', 'egress-check', '--', 'node', '-e', '0'], env: { TRUSTSHELL_HOME: 'home' }, stdout: '', exit: 2 },
 };
 
 /** The sentence form of `check`: it must reach the backend's classify path and nothing else. */

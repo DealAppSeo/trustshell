@@ -109,6 +109,13 @@ export interface ParsedProfile {
  * from running, it must stop `report` from sharing.
  */
 export declare function parseProfile(text: string): ParsedProfile;
+/**
+ * `who — why: reason`: split at the FIRST `why:` (any case) that has whitespace, one or more of — – -, and
+ * optional whitespace before it, exactly as `^(.*?)\s+[—–-]+\s*why:\s*(.*)$/i` did. A linear scan: that regex
+ * was quadratic (CodeQL js/polynomial-redos). Each backward walk stops at the previous `why:`, so the walks
+ * never overlap. No separator: the whole item is who.
+ */
+export declare function splitPerson(item: string): PersonHelped;
 /** `cost,quality speed` → ['cost','quality','speed'], lower-cased. */
 export declare function splitOrder(raw: string): string[];
 /** null when `names` ranks all three priorities exactly once; otherwise why not. */

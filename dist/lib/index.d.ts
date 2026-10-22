@@ -103,3 +103,20 @@ export type { GroundClaim, GroundPage, GroundOptions, GroundResult, GroundReceip
 export { rememberUntrusted, listQuarantined, explainQuarantine, releaseByGround, releaseExitCode, sourceDigest, UNCHECKED_REASON, } from '../memory/quarantine';
 export type { QuarantineRecord, QuarantineListItem, ReleaseOutcome, Provenance } from '../memory/quarantine';
 export { releaseByHal } from '../memory/quarantine-hal';
+/**
+ * GUARD: the owner's local policy (`~/.trustshell/policy.json`, or TRUSTSHELL_HOME), a SUBSET of the engine
+ * kernel's owner-policy fields with the same meanings (actions spend | post | tool | tool:<name>, per_tx_raw,
+ * daily_raw, total_raw, expires_at, nonce). `guardDecide(trustshellHome(), { tool, class, amount_raw })` decides
+ * one request and records the decision (with its assurance scope) BEFORE the caller acts; no policy file returns
+ * null, never an allow. Not a sandbox: see GUARD_DOES_NOT_COVER.
+ */
+export { guardDecide, decide, loadPolicy, parsePolicy, parsePolicyDocument, policySha256, readLedger, defaultPolicy, trustshellHome, GUARD_DOES_NOT_COVER, } from './guardrails';
+export type { LocalPolicy, PolicyDocument, GuardRequest, GuardDecision, GuardRecord, AssuranceScope, LedgerReading } from './guardrails';
+/**
+ * CARRY: the owner's context as one Ed25519-signed file (profile, policy by hash, selected memories, evidence
+ * pointers). Authority never travels: `policyImportDecision` enforces a carried policy only when its owner
+ * signature verifies with a trusted key and its nonce supersedes the one in force. `brainContext` is the text
+ * any model is handed. No network.
+ */
+export { verifyBundle, brainContext, bundleProblems, policyImportDecision, BundleError, BUNDLE_SCHEMA } from './bundle';
+export type { Bundle, BundlePayload, VerifiedBundle } from './bundle';

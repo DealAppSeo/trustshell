@@ -19,6 +19,7 @@ exports.terminalAsk = terminalAsk;
 const profile_1 = require("../lib/profile");
 const init_1 = require("../lib/init");
 const remember_1 = require("./remember");
+const ingest_1 = require("../lib/ingest");
 exports.PROFILE_PATH = `${init_1.TRUSTSHELL_DIR}/${init_1.PROFILE_FILE}`;
 const SECTION_ALIASES = {
     value: 'values',
@@ -40,9 +41,20 @@ exports.INTERVIEW = [
 function learnJobHint(job) {
     return `Jobs are not kept in your profile. Add it with: trustshell learn job add "${job.replace(/["\\]/g, '\\$&')}"`;
 }
-/** One entry's text: one line, no comment markers, no credential shapes. */
+/**
+ * One entry's text: one line, no comment markers, no credential shapes, and nothing that reads as an
+ * instruction to an agent (the profile is handed to models, so a hidden order would act like a poisoned note:
+ * Lane D, 2026-10-21). The screen is the fixed pattern set in src/lib/ingest.ts.
+ */
 function entryError(raw, what) {
-    return (0, profile_1.checkText)(raw, what) ?? ((0, remember_1.refusedValue)(raw) ? `${what} looks like a credential; it is not stored` : null);
+    const shape = (0, profile_1.checkText)(raw, what);
+    if (shape)
+        return shape;
+    if ((0, remember_1.refusedValue)(raw))
+        return `${what} looks like a credential; it is not stored`;
+    if ((0, ingest_1.ingest)(raw).ingest !== 'clean')
+        return `${what} reads like an instruction to an agent (injection screen); it is not stored`;
+    return null;
 }
 /**
  * PURE. Turn the words after `profile` into one operation, or a usage error. Every flag must

@@ -201,7 +201,9 @@ function parseFrontmatter(text: string): Record<string, string> {
   const out: Record<string, string> = {};
   if (!m || !m[1]) return out;
   for (const line of m[1].split(/\r?\n/)) {
-    const kv = line.match(/^([A-Za-z0-9_]+)\s*:\s*(.*)$/);
+    // No `\s*` after the colon: the value is trimmed below, and `\s*(.*)` is quadratic on a run of spaces
+    // (CodeQL js/polynomial-redos, reachable since a bundle's profile is parsed: src/lib/bundle.ts).
+    const kv = line.match(/^([A-Za-z0-9_]+)\s*:(.*)$/);
     if (kv && kv[1] !== undefined && kv[2] !== undefined) out[kv[1]] = kv[2].trim();
   }
   return out;
@@ -222,15 +224,32 @@ function sectionBody(text: string, heading: string): string {
   let collecting = false;
   const body: string[] = [];
   for (const line of lines) {
-    const h = line.match(/^#\s+(.*?)\s*$/);
-    if (h) {
+    // `# ` then the heading, trimmed: what `^#\s+(.*?)\s*$` captured, without its quadratic backtracking.
+    const h = /^#\s/.test(line) ? line.slice(1).trim() : null;
+    if (h !== null) {
       if (collecting) break;
-      collecting = (h[1] ?? '').toLowerCase() === want;
+      collecting = h.toLowerCase() === want;
       continue;
     }
     if (collecting) body.push(line);
   }
-  return body.join('\n').replace(/<!--[\s\S]*?-->/g, '').trim();
+  return stripComments(body.join('\n')).trim();
+}
+
+/**
+ * Remove every `<!-- ... -->` exactly as `/<!--[\s\S]*?-->/g` did, by a linear scan: that regex was
+ * quadratic on many `<!--` with no `-->` (CodeQL js/polynomial-redos). An unclosed `<!--` stays, as before.
+ */
+function stripComments(text: string): string {
+  let out = '';
+  let from = 0;
+  for (;;) {
+    const open = text.indexOf('<!--', from);
+    const close = open === -1 ? -1 : text.indexOf('-->', open + 4);
+    if (close === -1) return out + text.slice(from);
+    out += text.slice(from, open);
+    from = close + 3;
+  }
 }
 
 function parseBool(raw: string | undefined, field: string, problems: ProfileProblem[]): boolean {
@@ -319,18 +338,38 @@ function listItems(body: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * `who — why: reason`: split at the FIRST `why:` (any case) that has whitespace, one or more of — – -, and
+ * optional whitespace before it, exactly as `^(.*?)\s+[—–-]+\s*why:\s*(.*)$/i` did. A linear scan: that regex
+ * was quadratic (CodeQL js/polynomial-redos). Each backward walk stops at the previous `why:`, so the walks
+ * never overlap. No separator: the whole item is who.
+ */
+export function splitPerson(item: string): PersonHelped {
+  const ws = (c: string | undefined) => c !== undefined && /\s/.test(c);
+  for (let at = 0; at + 4 <= item.length; at += 1) {
+    if (item[at + 3] !== ':' || item.slice(at, at + 3).toLowerCase() !== 'why') continue;
+    let dashEnd = at;
+    while (ws(item[dashEnd - 1])) dashEnd -= 1;
+    let dashStart = dashEnd;
+    while (dashStart > 0 && '—–-'.includes(item[dashStart - 1] as string)) dashStart -= 1;
+    let who = dashStart;
+    while (ws(item[who - 1])) who -= 1;
+    if (dashStart === dashEnd || who === dashStart) continue;
+    return { who: item.slice(0, who).trim(), why: item.slice(at + 4).trim() };
+  }
+  return { who: item, why: '' };
+}
+
 /** An unparseable line drops only that line and is reported; nothing is guessed. */
 function parsePersonal(text: string, problems: ProfileProblem[]): Pick<Profile, PersonalSection> {
   const body = (s: PersonalSection) => sectionBody(text, PERSONAL_SECTIONS[s]);
 
-  const people = listItems(body('people')).map((item) => {
-    const m = item.match(/^(.*?)\s+[—–-]+\s*why:\s*(.*)$/i);
-    return m ? { who: (m[1] ?? '').trim(), why: (m[2] ?? '').trim() } : { who: item, why: '' };
-  });
+  const people = listItems(body('people')).map(splitPerson);
 
   const style: Partial<Record<StyleKey, string>> = {};
   for (const line of listItems(body('style'))) {
-    const kv = line.match(/^([A-Za-z_]+)\s*:\s*(.+)$/);
+    // The value is trimmed below; `\s*(.+)` after the colon was quadratic (CodeQL js/polynomial-redos).
+    const kv = line.match(/^([A-Za-z_]+)\s*:(.+)$/);
     const key = kv?.[1]?.toLowerCase();
     if (kv && (STYLE_KEYS as readonly string[]).includes(key ?? '')) style[key as StyleKey] = (kv[2] ?? '').trim();
     else problems.push({ field: 'style', detail: `"${line}" is not one of ${STYLE_KEYS.join(', ')} as key: value — ignored` });
@@ -341,7 +380,8 @@ function parsePersonal(text: string, problems: ProfileProblem[]): Pick<Profile, 
   const found: ModelPriorities[] = [];
   let unclear = false;
   for (const line of listItems(body('priorities'))) {
-    const kv = line.match(/^(preset|order)\s*:\s*(.*)$/i);
+    // Every reader of `raw` trims or splits on whitespace, so no `\s*` after the colon (polynomial-redos).
+    const kv = line.match(/^(preset|order)\s*:(.*)$/i);
     const isPreset = kv?.[1]?.toLowerCase() === 'preset';
     const raw = kv?.[2] ?? '';
     const err = !kv ? 'it is neither preset: nor order:' : isPreset ? checkPreset(raw) : checkOrder(splitOrder(raw));

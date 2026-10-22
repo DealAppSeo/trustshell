@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LEARN_USAGE = exports.stdinTerminal = void 0;
+exports.learnExecutes = learnExecutes;
 exports.runLearn = runLearn;
 /**
  * `trustshell learn …` — the learning loop's verbs. Local sqlite only; no network.
@@ -71,6 +72,20 @@ function parse(argv) {
             pos.push(a);
     }
     return { pos, opt };
+}
+/**
+ * PURE. The verb when `argv` would execute a registered command (`check run`, `probe run`), else null.
+ * Arguments that do not parse return null: `learn` refuses them before anything runs.
+ */
+function learnExecutes(argv) {
+    let pos;
+    try {
+        pos = parse(argv).pos;
+    }
+    catch {
+        return null;
+    }
+    return (pos[0] === 'check' || pos[0] === 'probe') && pos[1] === 'run' ? `learn ${pos[0]} run` : null;
 }
 function whole(what, v) {
     if (v === undefined)
