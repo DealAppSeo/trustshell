@@ -75,10 +75,12 @@ function summaryLines(b) {
     const p = b.payload;
     const pol = p.policy;
     const signer = pol && (0, guardrails_1.policySigner)(pol.document);
+    // "Owner" is the author's key only: any other key that verifies read "owner-signed" until 2026-10-22 (case 2).
+    const signed = !signer ? null : signer === b.author.fingerprint ? `owner-signed by ${signer.slice(0, 16)}…` : `signed by ${signer.slice(0, 16)}…, NOT the bundle author's key`;
     return [
         `author      ${b.author.fingerprint}`,
         `profile     ${p.profile !== null ? 'yes' : 'none'}`,
-        `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${signer ? `owner-signed by ${signer.slice(0, 16)}…` : pol.document.signature ? `${guardrails_1.SIGNATURE_DOES_NOT_VERIFY} (imports as suggested, never enforced)` : 'UNSIGNED (imports as suggested, never enforced)'}` : 'none'}`,
+        `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${signed ?? (pol.document.signature ? `${guardrails_1.SIGNATURE_DOES_NOT_VERIFY} (imports as suggested, never enforced)` : 'UNSIGNED (imports as suggested, never enforced)')}` : 'none'}`,
         `memories    ${p.memories.length} note(s) you selected (they import as untrusted, quarantined)`,
         `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${e.name} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
     ];
