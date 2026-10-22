@@ -30,7 +30,7 @@ import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
-import { claimsExitCode, inspectRunClaims, terminalSafeJson } from '../lib/action-evidence';
+import { claimsExitCode, inspectRunClaims, MAX_CLAIMS_FILE_BYTES, terminalSafeJson } from '../lib/action-evidence';
 import { renderCardHtml, renderCardMarkdown } from '../lib/evidence-card';
 import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE, pathLine, OFFLINE_REASON } from '../lib/claim';
 import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
@@ -1452,8 +1452,7 @@ export async function run(
   }
 }
 
-/** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
-export const MAX_CLAIMS_FILE_BYTES = 256 * 1024;
+export { MAX_CLAIMS_FILE_BYTES };
 
 /**
  * `--claims-file <path>`: the only way claim text comes from a file.
