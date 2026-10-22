@@ -35,8 +35,19 @@ const TONE: Record<Tone, string> = {
   absent: 'text-[#a8b3c2]',
 };
 
-/** A transcript or data block: real output only, so mono is the material, not a costume. */
-function Session({ label, lines, caption }: { label: string; lines: [Tone, string][]; caption: ReactNode }) {
+/** One status, readable: the site's verdict badge (word + icon + colour) and its explanation at body size. */
+function Status({ state, children }: { state: "MEASURED" | "NOT_CHECKED"; children: ReactNode }) {
+  return (
+    <li className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-3">
+      <TrustBadge state={state} className="shrink-0" />
+      <span className="text-base leading-relaxed text-slate-300">{children}</span>
+    </li>
+  );
+}
+
+/** A transcript or data block: real output only, so mono is the material, not a costume. Wraps on
+ * phones so the deciding line is never cut off; a script keeps its lines (wrap=false). */
+function Session({ label, lines, caption, wrap = true }: { label: string; lines: [Tone, string][]; caption: ReactNode; wrap?: boolean }) {
   return (
     <figure className="min-w-0">
       <pre
@@ -45,7 +56,7 @@ function Session({ label, lines, caption }: { label: string; lines: [Tone, strin
         className="overflow-x-auto rounded-lg border border-slate-800 bg-[#0b1220] px-4 py-4 font-mono text-[13px] leading-6 shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]"
       >
         {lines.map(([tone, text], i) => (
-          <span key={i} className={`block whitespace-pre ${TONE[tone]}`}>
+          <span key={i} className={`block ${wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"} ${TONE[tone]}`}>
             {text || ' '}
           </span>
         ))}
@@ -68,13 +79,12 @@ const CHALLENGE: [Tone, string][] = [
   ['out', 'The check workflow succeeded, run 39619591025.'],
   ['out', 'The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.'],
   ['dim', ''],
-  ['cmd', '$ npx trustshell check \\'],
-  ['cmd', '    https://github.com/DealAppSeo/trustshell/actions/runs/39619591025 \\'],
-  ['cmd', '    --claims-file claims.txt'],
+  ['cmd', '$ RUN=https://github.com/DealAppSeo/trustshell/actions/runs/39619591025'],
+  ['cmd', '$ npx trustshell check "$RUN" --claims-file claims.txt'],
   ['dim', ''],
   ['out', 'Claims: 3 supported · 1 contradicted · 1 not checked'],
   ['failed', 'CONTRADICTED  commit 5d1c5e3f57e1'],
-  ['dim', '              cites 5d1c5e3f57e1; the run is on 392797a69b6a'],
+  ['dim', '  cites 5d1c5e3f57e1; the run is on 392797a69b6a'],
   ['measured', 'SUPPORTED     The check workflow succeeded'],
   ['measured', 'SUPPORTED     run 39619591025'],
   ['dim', ''],
@@ -199,15 +209,9 @@ export default function BuildPage() {
               </p>
             </div>
             <ul className="space-y-3">
-              <li>
-                <TrustBadge state="MEASURED" detail="Our engine writes RepID feedback to the ERC-8004 reputation registry on Base Sepolia; the write on the right was read back from chain." />
-              </li>
-              <li>
-                <TrustBadge state="NOT_CHECKED" detail="Feedback bound to its evidence: not built yet. One live agent's proof currently points at another agent's attestation." />
-              </li>
-              <li>
-                <TrustBadge state="NOT_CHECKED" detail="Trades between different owners: none proven yet (0 of 34 settled trades in the 30 days to 21 October 2026)." />
-              </li>
+              <Status state="MEASURED">Our engine writes RepID feedback to the ERC-8004 reputation registry on Base Sepolia; the write on the right was read back from chain.</Status>
+              <Status state="NOT_CHECKED">Feedback bound to its evidence: not built yet. One live agent&apos;s proof currently points at another agent&apos;s attestation.</Status>
+              <Status state="NOT_CHECKED">Trades between different owners: none proven yet (0 of 34 settled trades in the 30 days to 21 October 2026).</Status>
             </ul>
             <p className="text-base">
               <Ext href="https://github.com/DealAppSeo/trustshell/issues/589">Help us build evidence-bound feedback (issue #589)</Ext>
@@ -244,20 +248,15 @@ export default function BuildPage() {
               </p>
             </div>
             <ul className="space-y-3">
-              <li>
-                <TrustBadge state="MEASURED" detail="Refusals before signing, run from the npm developer preview on 21 October 2026." />
-              </li>
-              <li>
-                <TrustBadge state="MEASURED" detail="Paying runs on Base Sepolia testnet only, and needs an API key and a funded testnet wallet." />
-              </li>
-              <li>
-                <TrustBadge state="NOT_CHECKED" detail="Paying only for work that checked out: not built yet. This is the part we want to build with you." />
-              </li>
+              <Status state="MEASURED">Refusals before signing, run from the npm developer preview on 21 October 2026.</Status>
+              <Status state="MEASURED">Paying runs on Base Sepolia testnet only, and needs an API key and a funded testnet wallet.</Status>
+              <Status state="NOT_CHECKED">Paying only for work that checked out: not built yet. This is the part we want to build with you.</Status>
             </ul>
           </div>
           <Session
             label="The spend guard refusing two payments before signing"
             lines={SPEND}
+            wrap={false}
             caption="Output from the npm developer preview, 1.8.0-rc.0. Signing an allowed payment also needs the ethers package, which the error tells you to install."
           />
         </section>
@@ -285,12 +284,8 @@ export default function BuildPage() {
               </p>
             </div>
             <ul className="space-y-3">
-              <li>
-                <TrustBadge state="MEASURED" detail="Inspect checks an agent's claim about a CI run: the challenge at the top of this page." />
-              </li>
-              <li>
-                <TrustBadge state="NOT_CHECKED" detail="An OpenClaw adapter: not built yet." />
-              </li>
+              <Status state="MEASURED">Inspect checks an agent&apos;s claim about a CI run: the challenge at the top of this page.</Status>
+              <Status state="NOT_CHECKED">An OpenClaw adapter: not built yet.</Status>
             </ul>
           </div>
           <Session
