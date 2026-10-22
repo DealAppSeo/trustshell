@@ -32,7 +32,7 @@ const ledger = JSON.parse(readFileSync(join(process.cwd(), 'lib', 'build-ledger.
 const RUN = 'https://github.com/DealAppSeo/trustshell/actions/runs/39619591025';
 const C1 = 'The check workflow succeeded, run 39619591025.';
 const C2 = 'The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.';
-const PKG = /npx (@hyperdag\/trustshell(?:@next)?) check/; // either side of the 1.8.0 flip
+const PKG = /npx (@hyperdag\/trustshell@(?:next|latest)) check/; // either side of the 1.8.0 flip
 const BASH = (pkg) => [`RUN=${RUN}`, `printf '${C1}\\n\\n${C2}\\n' > claims.txt`, `npx ${pkg} check "$RUN" --claims-file claims.txt; echo "exit $?"`].join('\n');
 const PS = (pkg) => [`$run = "${RUN}"`, `"${C1}", "", "${C2}" | Set-Content claims.txt`, `npx ${pkg} check $run --claims-file claims.txt; "exit $LASTEXITCODE"`].join('\n');
 

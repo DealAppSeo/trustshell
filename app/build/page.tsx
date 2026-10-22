@@ -28,8 +28,10 @@ import { ShellSwitch } from '@/components/build/shell-switch';
 import { Explainer, FeedbackGap, RUN_URL, StudyBars, TradesBar, VerdictBreakdown } from '@/components/build/charts';
 
 // The package every command on this page runs. 1.8.0-rc.0 is on npm under `next`; when 1.8.0 is on
-// `latest` (the release PR), these two lines become '@hyperdag/trustshell' and '1.8.0', and every
-// command, caption and copy button follows. Re-run the transcripts on that package first.
+// `latest` (the release PR), these two lines become '@hyperdag/trustshell@latest' and '1.8.0', and
+// every command, caption and copy button follows. Keep a tag: a bare npx runs any older global
+// install instead (measured 2026-10-22: bare printed 1.4.0 while latest was 1.7.0). Re-run the
+// transcripts on that package first.
 const PKG = '@hyperdag/trustshell@next';
 const PKG_VERSION = '1.8.0-rc.0';
 
