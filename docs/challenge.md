@@ -13,7 +13,7 @@ Node 22.13 or newer.
 ```bash
 mkdir ts-challenge && cd ts-challenge && npm init -y
 npm install @hyperdag/trustshell@next
-npx trustshell --version
+npx @hyperdag/trustshell@next --version
 ```
 
 `@next` is the release candidate, 1.8.0-rc.0. A plain `npm install @hyperdag/trustshell` gives 1.7.0, which does not have `--claims`.
@@ -29,7 +29,7 @@ bash or zsh:
 ```bash
 RUN=https://github.com/DealAppSeo/trustshell/actions/runs/39619591025
 printf 'The check workflow succeeded, run 39619591025.\n\nThe check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.\n' > claims.txt
-npx trustshell check "$RUN" --claims-file claims.txt --out card; echo "exit $?"
+npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt --out card; echo "exit $?"
 ```
 
 Windows PowerShell:
@@ -37,7 +37,7 @@ Windows PowerShell:
 ```powershell
 $run = "https://github.com/DealAppSeo/trustshell/actions/runs/39619591025"
 "The check workflow succeeded, run 39619591025.", "", "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025." | Set-Content claims.txt
-npx trustshell check $run --claims-file claims.txt --out card; "exit $LASTEXITCODE"
+npx @hyperdag/trustshell@next check $run --claims-file claims.txt --out card; "exit $LASTEXITCODE"
 ```
 
 What you should see (measured on the release candidate, 2026-10-21):
