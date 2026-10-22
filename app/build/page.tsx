@@ -151,7 +151,7 @@ const CHAIN: [Tone, string][] = [
   ['out', 'tx      0xcdb4f83f5843…2eb8f481ff1c8c'],
   ['out', 'event   NewFeedback'],
   ['out', 'agent   5863'],
-  ['out', 'value   2276    tag hyperdag_repid'],
+  ['out', 'value   2276    tag2 hyperdag_repid'],
   ['out', 'mined   2026-10-20 12:05 UTC'],
   ['dim', ''],
   ['measured', 'read back from chain     yes'],
@@ -192,6 +192,7 @@ const HOOKS: [Tone, string][] = [
 
 const REPORT: [Tone, string][] = [
   ['cmd', '$ npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt --out card'],
+  ['dim', '…'],
   ['out', 'wrote record.json, card.md and card.html to card'],
 ];
 
@@ -214,7 +215,8 @@ export default function BuildPage() {
               Your AI says the job is done. TrustShell checks the evidence.
             </h1>
             <p className="max-w-prose text-lg leading-relaxed text-white">
-              Your agent claims a CI run passed. Inspect checks the run itself.
+              Your agent says a GitHub Actions run succeeded and cites it. Inspect reads that run and checks the
+              sentence.
             </p>
             <p className="max-w-prose text-lg leading-relaxed">
               For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Each result below comes
