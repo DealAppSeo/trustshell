@@ -116,7 +116,7 @@ function Code({ children }: { children: ReactNode }) {
 
 /** The section's builder-side opener: what you can do with this in your stack today. */
 function Lead({ children }: { children: ReactNode }) {
-  return <p className="max-w-prose border-l-2 border-amber-600 pl-4 text-lg leading-relaxed text-white">{children}</p>;
+  return <p className="max-w-prose text-lg leading-relaxed text-white">{children}</p>;
 }
 
 const RUN_URL = 'https://github.com/DealAppSeo/trustshell/actions/runs/39619591025';
@@ -191,7 +191,7 @@ const HOOKS: [Tone, string][] = [
 ];
 
 const REPORT: [Tone, string][] = [
-  ['cmd', '$ npx @hyperdag/trustshell@next check <run-url> --claims-file claims.txt --out card'],
+  ['cmd', '$ npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt --out card'],
   ['out', 'wrote record.json, card.md and card.html to card'],
 ];
 
@@ -254,7 +254,7 @@ export default function BuildPage() {
               }
             />
             <details className="rounded-lg border border-slate-800">
-              <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-semibold text-white">
+              <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-white marker:text-slate-400 hover:text-amber-300">
                 The same three commands in Windows PowerShell
               </summary>
               <div className="px-4 pb-4">
@@ -417,8 +417,9 @@ export default function BuildPage() {
             lines={REPORT}
             caption={
               <>
-                Attach <Code>card.md</Code> and <Code>record.json</Code> with the run URL, your claims file as you ran
-                it and the exit code. Public runs only; never paste a secret.
+                Set <Code>RUN</Code> to the run you checked, as in the challenge at the top. Attach{' '}
+                <Code>card.md</Code> and <Code>record.json</Code> with the run URL, your claims file as you ran it and the
+                exit code. Public runs only; never paste a secret.
               </>
             }
           />
