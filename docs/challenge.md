@@ -71,7 +71,7 @@ Find one of these and report it:
 - a true claim it refuses to read, or a result you found confusing,
 - a way to make the card print something misleading.
 
-Open an issue on [DealAppSeo/trustshell](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the run URL, your claims file verbatim and the exit code. Public runs only; never paste a secret. Every reproducible finding becomes a permanent case in the red-team battery, so the next release has to survive it.
+Open an issue on [DealAppSeo/trustshell](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the run URL, your claims file verbatim and the exit code. Public runs only; never paste a secret. A bug we accept and fix gets a regression test in the repository's own test suite, so the next release has to survive it.
 
 ## Known limits
 
