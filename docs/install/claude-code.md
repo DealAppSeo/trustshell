@@ -6,7 +6,7 @@ The package was `@hyperdag/trustshell@1.5.0`. `trustshell --version` printed 1.5
 ## Install
 
 ```
-npm i -g @hyperdag/trustshell@1.7.0
+npm i -g @hyperdag/trustshell@1.8.0
 ```
 
 That provides `trustshell` and `trustshell-mcp`.

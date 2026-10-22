@@ -77,7 +77,7 @@ const SURFACES: ReadonlyArray<Surface> = [
     state: 'shipped',
     one: 'The stranger path, finished.',
     body:
-      'Paste a sentence; two independent model families check it; you see what each one said — Checks out, Caught, or Not checked. The SDK is published on npm as @hyperdag/trustshell (1.7.0). This is the one live product entry point, and it needs no signup and no wallet.',
+      'Paste a sentence; two independent model families check it; you see what each one said — Checks out, Caught, or Not checked. The SDK is published on npm as @hyperdag/trustshell (1.8.0). This is the one live product entry point, and it needs no signup and no wallet.',
     link: { href: '/start', label: 'Start here' },
   },
   {

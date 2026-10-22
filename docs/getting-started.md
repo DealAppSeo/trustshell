@@ -34,7 +34,7 @@ Verify the install:
 
 ```bash
 trustshell --version
-# → 1.7.0   (the installed package version)
+# → 1.8.0   (the installed package version)
 ```
 
 ## 4. 60-second quickstart
@@ -202,7 +202,7 @@ Environment variables the code in `src/` reads (`grep -rn 'env' src/`):
 | `TRUSTSHELL_MEMORY` | CLI `remember` / `recall` / `redact`, MCP memory tools | Path of the local memory file. Default `~/.trustshell/memory.sqlite`. |
 | `TRUSTSHELL_MEMORY_ENCRYPT`, `TRUSTSHELL_MEMORY_KEY` | same | Opt-in encryption at rest for new notes. See [`api-reference.md`](./api-reference.md). |
 | `TRUSTSHELL_HOME` | SDK (`guardedX402Payment` audit log) | Directory for the local spend audit log. Default `~/.trustshell`. |
-| `TRUSTSHELL_LOCAL_ONLY` | SDK (HAL verify, classify), CLI `verify` / `check "<sentence>"`, MCP `verify_output` / `check_claim` | In this tree, not in the published 1.7.0. `1` sends none of your text anywhere: each of those answers `NOT_CHECKED` before any network call. The SDK option `localOnly: true` does the same. Off by default. A HAL result's `seenBy` lists the providers the engine says saw the text (`[]` when nothing was sent, `unknown` when the engine does not say). |
+| `TRUSTSHELL_LOCAL_ONLY` | SDK (HAL verify, classify), CLI `verify` / `check "<sentence>"`, MCP `verify_output` / `check_claim` | Since 1.8.0. `1` sends none of your text anywhere: each of those answers `NOT_CHECKED` before any network call. The SDK option `localOnly: true` does the same. Off by default. A HAL result's `seenBy` lists the providers the engine says saw the text (`[]` when nothing was sent, `unknown` when the engine does not say). |
 | `TRUSTSHELL_LAYA` | CLI `verify` | `local` or `engine` runs a Laya lane before HAL, which can exit `2` (cheap lane, nothing sent to HAL) or `4` (ASK). Unset: straight to the HAL quorum. |
 | `OFFLINE` | CLI `status`, `bind-status`, `check`, `verify`; MCP `status`, `check_claim` | `OFFLINE=1` sends nothing: the backend reads are skipped and reported `NOT_CHECKED`, and `check` (both forms) and `verify` print `NOT_CHECKED` and exit 2 before any network call. |
 

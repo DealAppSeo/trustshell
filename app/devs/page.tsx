@@ -6,13 +6,13 @@ const LINES = [
 /**
  * The commands, in the order a developer meets them. Until 2026-10-07 this page had two sentences
  * and no commands, and `init --pai` — the only way to make an agent from a terminal — was named
- * only in the API reference. Each line runs against the published @hyperdag/trustshell@1.7.0.
+ * only in the API reference. Each line runs against the published @hyperdag/trustshell@1.8.0.
  */
 const STEPS: { what: string; code: string }[] = [
-  { what: 'Check one sentence. Exit 0 checks out, 1 caught, 2 not checked.', code: 'npx @hyperdag/trustshell@1.7.0 check "The capital of Australia is Sydney."' },
-  { what: 'Make an agent. Writes .trustshell/credentials.json with its ID and key; keep that file private.', code: 'npx @hyperdag/trustshell@1.7.0 init --pai' },
-  { what: 'Give Claude Desktop, Cursor or Claude Code the check tools (paste into its MCP config).', code: '{"mcpServers":{"trustshell":{"command":"npx","args":["-y","-p","@hyperdag/trustshell@1.7.0","trustshell-mcp"]}}}' },
-  { what: 'Wrap your own agent: install the SDK, then register() and verifyOutput() as in Getting started.', code: 'npm i @hyperdag/trustshell@1.7.0' },
+  { what: 'Check one sentence. Exit 0 checks out, 1 caught, 2 not checked.', code: 'npx @hyperdag/trustshell@1.8.0 check "The capital of Australia is Sydney."' },
+  { what: 'Make an agent. Writes .trustshell/credentials.json with its ID and key; keep that file private.', code: 'npx @hyperdag/trustshell@1.8.0 init --pai' },
+  { what: 'Give Claude Desktop, Cursor or Claude Code the check tools (paste into its MCP config).', code: '{"mcpServers":{"trustshell":{"command":"npx","args":["-y","-p","@hyperdag/trustshell@1.8.0","trustshell-mcp"]}}}' },
+  { what: 'Wrap your own agent: install the SDK, then register() and verifyOutput() as in Getting started.', code: 'npm i @hyperdag/trustshell@1.8.0' },
 ];
 
 export const metadata = {
