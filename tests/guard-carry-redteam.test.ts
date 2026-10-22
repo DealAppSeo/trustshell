@@ -14,6 +14,7 @@ import { runRun } from '../src/cli/guard';
 import { signValue, signingKey } from '../src/lib/install-key';
 
 const ROOT = join(__dirname, '..');
+const DOES_NOT_VERIFY = 'signature does NOT verify over this policy';
 const SCOPE_X = { mediated: ['test'], not_mediated: ['test'] };
 const c = (...cps: number[]) => String.fromCodePoint(...cps);
 const CONTROL = new RegExp(`[${c(0x00)}-${c(0x09)}${c(0x0b)}-${c(0x1f)}${c(0x7f)}-${c(0x9f)}${c(0x200b)}-${c(0x200f)}${c(0x202a)}-${c(0x202e)}${c(0x2066)}-${c(0x2069)}]`, 'u');
@@ -187,6 +188,42 @@ describe('Lane D findings on #593, fixed', () => {
     expect(records().map((r) => r.kind)).toEqual(['check', 'check']);
     expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '200' }, SCOPE_X)?.decision.decision).toBe('DENIED'); // per_tx 100
     expect(guardDecide(home(), { tool: 'pay', class: 'spend', amount_raw: '100' }, SCOPE_X)?.decision.decision).toBe('ALLOWED');
+  });
+
+  it('CC1 2026-10-22 a signed policy edited by hand names no signer: show, the run card, the record and a bundle all say the signature does not verify', async () => {
+    await cli('guard', 'init');
+    await cli('guard', 'sign');
+    const fp = records().pop()?.authorized.policy_signed_by;
+    expect(fp).toMatch(/^[0-9a-f]{64}$/); // control: a signature that verifies names its signer
+    runRun(['--tool', 'inspect', '--', 'inspect'], io, process.env, () => ({ status: 0, signal: null }));
+    expect(err.join('\n')).toContain('owner-signed');
+    expect(records().pop()?.authorized.policy_signed_by).toBe(fp);
+
+    // The reproduction: add an action, leave the signature object exactly as it was.
+    const path = join(home(), POLICY_FILE);
+    const doc = JSON.parse(readFileSync(path, 'utf8'));
+    doc.policy.actions.push('tool:deleter');
+    writeFileSync(path, JSON.stringify(doc));
+
+    await cli('guard', 'show');
+    expect(out.join('\n')).toContain(DOES_NOT_VERIFY);
+    expect(out.join('\n')).not.toContain('signed by');
+    await cli('guard', 'show', '--json');
+    expect(JSON.parse(out.join('\n')).signed_by).toBeNull();
+
+    out = [];
+    err = [];
+    const code = runRun(['--tool', 'deleter', '--', 'deleter'], io, process.env, () => ({ status: 0, signal: null }));
+    expect(code).toBe(0); // whether an edited policy is still ENFORCED is Sean's open decision; only the label changed
+    expect(err.join('\n')).not.toContain('owner-signed');
+    expect(err.join('\n')).toContain(DOES_NOT_VERIFY);
+    const [decision, outcome] = records().slice(-2);
+    expect(decision?.authorized.policy_signed_by).toBeNull();
+    expect(outcome?.authorized.policy_signed_by).toBeNull();
+
+    await cli('bundle', 'export', join(root, 'b.json'));
+    expect(out.join('\n')).not.toContain('owner-signed');
+    expect(out.join('\n')).toContain(DOES_NOT_VERIFY);
   });
 
   it('#1 #2 the guard states what it does not cover: the MCP server, and an agent that can run the CLI', async () => {

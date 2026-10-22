@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { brainContext, buildBundle, BundleError, policyImportDecision, verifyBundle, type Bundle, type BundlePayload, type EvidencePointer } from '../lib/bundle';
-import { GUARD_RECEIPTS_FILE, POLICY_FILE, SUGGESTED_POLICY_FILE, loadPolicy, nonceHighWater, policySignedBy, readLedger, renderPolicyDocument, trustshellHome } from '../lib/guardrails';
+import { GUARD_RECEIPTS_FILE, POLICY_FILE, SIGNATURE_DOES_NOT_VERIFY, SUGGESTED_POLICY_FILE, loadPolicy, nonceHighWater, policySignedBy, policySigner, readLedger, renderPolicyDocument, trustshellHome } from '../lib/guardrails';
 import { TRUSTSHELL_DIR } from '../lib/init';
 import { ownFingerprint, signingKey } from '../lib/install-key';
 import { resolvePackageVersion } from '../lib/version';
@@ -72,10 +72,11 @@ export function parseBundleArgs(argv: string[]): BundleArgs | { error: string } 
 function summaryLines(b: Bundle): string[] {
   const p = b.payload;
   const pol = p.policy;
+  const signer = pol && policySigner(pol.document);
   return [
     `author      ${b.author.fingerprint}`,
     `profile     ${p.profile !== null ? 'yes' : 'none'}`,
-    `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${pol.document.signature ? `owner-signed by ${pol.document.signature.fingerprint.slice(0, 16)}…` : 'UNSIGNED (imports as suggested, never enforced)'}` : 'none'}`,
+    `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${signer ? `owner-signed by ${signer.slice(0, 16)}…` : pol.document.signature ? `${SIGNATURE_DOES_NOT_VERIFY} (imports as suggested, never enforced)` : 'UNSIGNED (imports as suggested, never enforced)'}` : 'none'}`,
     `memories    ${p.memories.length} note(s) you selected (they import as untrusted, quarantined)`,
     `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${e.name} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
   ];
@@ -136,7 +137,7 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
       const tmp = `${a.file}.partial-${process.pid}`;
       fs.writeFileSync(tmp, JSON.stringify(bundle, null, 2) + '\n', { mode: 0o600 });
       fs.renameSync(tmp, a.file);
-      if (a.json) io.out(JSON.stringify({ file: a.file, author: bundle.author.fingerprint, memories: memories.length, evidence, policy: bundle.payload.policy && { sha256: bundle.payload.policy.sha256, signed: !!bundle.payload.policy.document.signature } }, null, 2));
+      if (a.json) io.out(JSON.stringify({ file: a.file, author: bundle.author.fingerprint, memories: memories.length, evidence, policy: bundle.payload.policy && { sha256: bundle.payload.policy.sha256, signed: !!bundle.payload.policy.document.signature, signed_by: policySigner(bundle.payload.policy.document) } }, null, 2));
       else io.out([`exported ${a.file}`, ...summaryLines(bundle), '', `On the other machine: trustshell bundle import ${a.file} --signer ${bundle.author.fingerprint}`].join('\n'));
       io.err('A bundle is signed, NOT encrypted: anyone with the file can read it. Keep it out of git and shared folders.');
       return 0;

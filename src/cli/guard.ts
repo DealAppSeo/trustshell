@@ -20,6 +20,7 @@ import {
   GUARD_DOES_NOT_COVER,
   GUARD_RECEIPTS_FILE,
   POLICY_FILE,
+  SIGNATURE_DOES_NOT_VERIFY,
   TOOL_CLASSES,
   appendRecord,
   defaultPolicy,
@@ -29,6 +30,7 @@ import {
   loadPolicy,
   parsePolicy,
   policySha256,
+  policySigner,
   readLedger,
   renderPolicyDocument,
   trustshellHome,
@@ -73,7 +75,7 @@ export function recordPolicyChange(dir: string, via: string, before: string | nu
   return appendRecord(dir, {
     kind: 'policy-change',
     requested: { action: 'policy-change', tool: 'guard', class: 'other' },
-    authorized: { decision: 'ALLOWED', reasons: [], policy_sha256: sha, policy_nonce: after.policy.nonce, policy_signed_by: after.signature?.fingerprint ?? null },
+    authorized: { decision: 'ALLOWED', reasons: [], policy_sha256: sha, policy_nonce: after.policy.nonce, policy_signed_by: policySigner(after) },
     executed: null,
     assurance_scope: POLICY_SCOPE,
     change: { via, before_sha256: before, after_sha256: sha },
@@ -117,16 +119,20 @@ export async function runGuarded(args: ParsedArgs, inner: () => Promise<number>,
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
 
-/** The card `trustshell run` prints: the five things a reader must keep apart. */
-export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null): string {
+/**
+ * The card `trustshell run` prints: the five things a reader must keep apart. `doc` is the policy the decision
+ * was made under: with it, a signature that does not verify reads as such instead of as "unsigned".
+ */
+export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null, doc: PolicyDocument | null = null): string {
   const d = decision;
+  const signed = d.authorized.policy_signed_by ? 'owner-signed' : doc?.signature ? SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
   const ex = outcome?.executed;
   const executed =
     ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
   return [
     `trustshell run  —  ${d.authorized.decision}`,
     `  requested             ${d.requested.action}${d.requested.executable ? ` (starts ${d.requested.executable})` : ''}${d.requested.amount_raw ? ` amount ${d.requested.amount_raw}` : ''}; --class is the caller's label`,
-    `  authorized            ${d.authorized.decision}${d.authorized.reasons.length ? `: ${d.authorized.reasons.join('; ')}` : ''} (policy ${String(d.authorized.policy_sha256).slice(0, 12)}…, nonce ${d.authorized.policy_nonce}${d.authorized.policy_signed_by ? ', owner-signed' : ', unsigned'})`,
+    `  authorized            ${d.authorized.decision}${d.authorized.reasons.length ? `: ${d.authorized.reasons.join('; ')}` : ''} (policy ${String(d.authorized.policy_sha256).slice(0, 12)}…, nonce ${d.authorized.policy_nonce}, ${signed})`,
     `  executed              ${executed}`,
     '  independently observed  nothing: no outside party watched this command',
     `  unknown               ${RUN_SCOPE.not_mediated.join('; ')}`,
@@ -185,7 +191,7 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
     return 2;
   }
   if (g.decision.decision === 'DENIED') {
-    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null));
+    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null, g.loaded.state === 'ok' ? g.loaded.doc : null));
     return EXIT_REFUSED;
   }
   const t0 = Date.now();
@@ -197,7 +203,7 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
     executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0 },
     assurance_scope: RUN_SCOPE,
   });
-  (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome));
+  (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null));
   return r.status ?? 3;
 }
 
@@ -216,8 +222,9 @@ function showLines(doc: PolicyDocument, path: string, ledgerText: string, defaul
   const p = doc.policy;
   const l = readLedger(ledgerText, undefined, undefined, policySha256(p));
   const spent = l.spent === null ? 'UNKNOWN (ledger BROKEN)' : `${l.spent.today} in the last 24 h, ${l.spent.total} under this policy`;
+  const signer = policySigner(doc);
   return [
-    `policy      ${path}  (sha256 ${policySha256(p).slice(0, 16)}…, nonce ${p.nonce}, ${doc.signature ? `signed by ${doc.signature.fingerprint.slice(0, 16)}…` : 'unsigned'})`,
+    `policy      ${path}  (sha256 ${policySha256(p).slice(0, 16)}…, nonce ${p.nonce}, ${signer ? `signed by ${signer.slice(0, 16)}…` : doc.signature ? SIGNATURE_DOES_NOT_VERIFY : 'unsigned'})`,
     `subject     ${p.subject}`,
     `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
     'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
@@ -284,7 +291,7 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
       }
       const l = readLedger(ledgerText(), undefined, undefined, loaded.sha256);
       if (json) {
-        io.out(JSON.stringify({ state: 'ok', path, ...loaded.doc, sha256: loaded.sha256, defaulted: loaded.defaulted, records: { count: l.count, chain: l.verdict, spent: l.spent && { today: String(l.spent.today), total: String(l.spent.total) }, breaks: l.breaks } }, null, 2));
+        io.out(JSON.stringify({ state: 'ok', path, ...loaded.doc, signed_by: policySigner(loaded.doc), sha256: loaded.sha256, defaulted: loaded.defaulted, records: { count: l.count, chain: l.verdict, spent: l.spent && { today: String(l.spent.today), total: String(l.spent.total) }, breaks: l.breaks } }, null, 2));
       } else io.out(showLines(loaded.doc, path, ledgerText(), loaded.defaulted).join('\n'));
       return l.verdict === 'BROKEN' ? 1 : 0;
     }
