@@ -54,6 +54,7 @@ const badge_1 = require("../lib/badge");
 const version_1 = require("../lib/version");
 const check_1 = require("../lib/check");
 const action_evidence_1 = require("../lib/action-evidence");
+Object.defineProperty(exports, "MAX_CLAIMS_FILE_BYTES", { enumerable: true, get: function () { return action_evidence_1.MAX_CLAIMS_FILE_BYTES; } });
 const evidence_card_1 = require("../lib/evidence-card");
 const claim_1 = require("../lib/claim");
 const init_1 = require("../lib/init");
@@ -1379,8 +1380,6 @@ async function run(args, client, io = realIO) {
             return exports.EXIT.OK;
     }
 }
-/** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
-exports.MAX_CLAIMS_FILE_BYTES = 256 * 1024;
 /**
  * `--claims-file <path>`: the only way claim text comes from a file.
  *
@@ -1399,8 +1398,8 @@ function readClaimsFile(path, fs = require('node:fs')) {
     }
     if (!st?.isFile())
         throw new Error(`--claims-file: no such file: ${path}`);
-    if (st.size > exports.MAX_CLAIMS_FILE_BYTES)
-        throw new Error(`--claims-file is ${st.size} bytes; the limit is ${exports.MAX_CLAIMS_FILE_BYTES}`);
+    if (st.size > action_evidence_1.MAX_CLAIMS_FILE_BYTES)
+        throw new Error(`--claims-file is ${st.size} bytes; the limit is ${action_evidence_1.MAX_CLAIMS_FILE_BYTES}`);
     const text = String(fs.readFileSync(path, 'utf8'));
     // One leading byte-order mark is a file-encoding marker, not text: Windows PowerShell 5.1 writes it
     // for `Out-File` and `Set-Content -Encoding utf8`, and kept it would make line 1 non-ASCII and

@@ -36,7 +36,7 @@
  *    spliced into generated sentences. Those sentences interpolate only digits and hex.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MIN_SUPPORTING_SHA = exports.MAX_LINE = exports.MAX_CLAIMS = exports.MAX_CLAIM_TEXT = exports.RECORD_DOES_NOT_PROVE = exports.ACTION_EVIDENCE_SCHEMA = void 0;
+exports.MIN_SUPPORTING_SHA = exports.MAX_LINE = exports.MAX_CLAIMS = exports.MAX_CLAIM_TEXT = exports.RECORD_DOES_NOT_PROVE = exports.MAX_CLAIMS_FILE_BYTES = exports.ACTION_EVIDENCE_SCHEMA = void 0;
 exports.digestRecord = digestRecord;
 exports.cleanCodePoints = cleanCodePoints;
 exports.wellFormed = wellFormed;
@@ -54,6 +54,11 @@ exports.claimsExitCode = claimsExitCode;
 const jcs_1 = require("./jcs");
 const check_1 = require("./check");
 exports.ACTION_EVIDENCE_SCHEMA = 'dev.trustshell.action-evidence/0.1-draft';
+/**
+ * Claim text larger than this is refused, in UTF-8 bytes: no agent message or PR description is a
+ * megabyte. One constant for `--claims-file` and the MCP `inspect_run`, so the two cannot drift.
+ */
+exports.MAX_CLAIMS_FILE_BYTES = 256 * 1024;
 /** SHA-256 over the RFC 8785 canonical form of the record. Detects later edits; says nothing about authorship. */
 function digestRecord(record) {
     return { algorithm: 'sha-256', canonicalization: 'RFC 8785', value: (0, jcs_1.jcsSha256)(record) };

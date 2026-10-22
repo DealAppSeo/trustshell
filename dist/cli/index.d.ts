@@ -26,6 +26,7 @@
  */
 import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdict } from '../lib/trustshell';
 import { type AgentIdentity } from '../lib/identity';
+import { MAX_CLAIMS_FILE_BYTES } from '../lib/action-evidence';
 import { type ProfileOp } from './profile';
 import { type QuarantineListItem, type QuarantineRecord } from '../memory/quarantine';
 import { type KernelReceiptRead } from '../lib/kernel-client';
@@ -215,8 +216,7 @@ export declare function formatQuarantineList(rows: readonly QuarantineListItem[]
 /** `quarantine explain <id>`: the whole taint record, one field per line. */
 export declare function formatQuarantineRecord(r: QuarantineRecord): string;
 export declare function run(args: ParsedArgs, client: TrustShell, io?: CliIO): Promise<number>;
-/** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
-export declare const MAX_CLAIMS_FILE_BYTES: number;
+export { MAX_CLAIMS_FILE_BYTES };
 /**
  * `--claims-file <path>`: the only way claim text comes from a file.
  *
