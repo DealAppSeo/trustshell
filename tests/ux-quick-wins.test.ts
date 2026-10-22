@@ -5,7 +5,7 @@
  * Mostly a source scan, like the other page tests here. The /check rail is RENDERED (jest compiles TSX,
  * see jest.config.js): its whole point is what is on the page before a check, and markup shows that.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createElement, type FunctionComponent } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -64,10 +64,19 @@ describe('UX-08 contrast', () => {
     expect(contrast('#ffffff', AMBER_600)).toBeLessThan(4.5);
     expect(contrast('#000000', AMBER_600)).toBeGreaterThanOrEqual(4.5);
     expect(contrast('#000000', AMBER_500)).toBeGreaterThanOrEqual(4.5);
-    for (const f of ['app/check/CheckForm.tsx', 'app/check/CompareForm.tsx', 'components/sticky-check.tsx', 'components/stranger-rail.tsx', 'components/home-agent.tsx']) {
-      const classes = [...read(f).matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\}|\{[^}]*'([^']*bg-amber-600[^']*)')/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? '');
-      for (const c of classes.filter((x) => /(^|\s)bg-amber-600(\s|$)/.test(x))) expect(c).not.toMatch(/(^|\s)text-white(\s|$)/);
+    // Every page and component, not only the check surfaces the audit named: 34 white-on-amber
+    // buttons were still live on /pai, /why/*, /wallet, /stake and others on 2026-10-21. Scans every
+    // quoted class list, including the branches of a conditional className.
+    const tsx = (dir: string): string[] => readdirSync(join(ROOT, dir), { withFileTypes: true })
+      .flatMap((e) => (e.isDirectory() ? tsx(`${dir}/${e.name}`) : e.name.endsWith('.tsx') ? [`${dir}/${e.name}`] : []));
+    const offenders: string[] = [];
+    for (const f of [...tsx('app'), ...tsx('components')]) {
+      for (const [, body] of read(f).matchAll(/["'`]([^"'`\n]*\bbg-amber-600\b[^"'`\n]*)["'`]/g)) {
+        const toks = body!.split(/\s+/);
+        if (toks.includes('bg-amber-600') && toks.includes('text-white')) offenders.push(`${f}: ${body}`);
+      }
     }
+    expect(offenders).toEqual([]);
     expect(read('components/hero.tsx')).not.toContain('hover:bg-amber-600 hover:text-white');
   });
 

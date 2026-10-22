@@ -103,6 +103,8 @@ const WRITE = (tamper: string) => `({ oc, fx, abi, clone }) => {
   return oc.checkReputationWrite(a);
 }`;
 const OTHER_ID = `'0x' + (424242).toString(16).padStart(64, '0')`;
+const ID = '32e0e809-c1c4-4405-913f-135c8a2d6626';
+const ID_URI = `https://repid.dev/agents/${ID}/metadata`;
 
 describe('onchain.erc8004_reputation_write — checkReputationWrite', () => {
   it('the real write passes: one NewFeedback for agent 3747, registered on chain as SOPHIA (= trinity-sophia), with the receipt\'s value', () => {
@@ -124,9 +126,24 @@ describe('onchain.erc8004_reputation_write — checkReputationWrite', () => {
     ['a NewFeedback whose INDEXED tag topic is not keccak256("hyperdag_repid")', `ev.topics[3] = '0x' + 'cd'.repeat(32);`, /indexed tag topic .* is not keccak256\("hyperdag_repid"\)/],
     ['two NewFeedback events in one tx (exactly one may exist)', `a.receipt.logs.push(clone(ev));`, /2 NewFeedback events in one tx: .* ambiguous/],
     ['a write older than the window', `a.nowMs = fx.repMinedAtMs + 49 * 3600e3;`, /bound 48h/],
+    ['an id-only registration with no engine id to bind it',
+      `ev.topics[1] = ${OTHER_ID}; a.registrations['424242'] = '${ID_URI}';`, new RegExp(`registered on chain as "${ID}", not trinity-nexus or trinity-sophia`)],
+    ['an id-only registration whose id the engine gives to nobody it names',
+      `ev.topics[1] = ${OTHER_ID}; a.registrations['424242'] = '${ID_URI}'; a.expectAgentIds = { [a.expectAgents[0]]: 'another-id', [a.expectAgents[1]]: null };`, new RegExp(`registered on chain as "${ID}"`)],
   ])('FAILED: %s', (_why, tamper, problem) => {
     const r = run(WRITE(tamper));
     expect(r.wrong.join(' | ')).toMatch(problem);
+  });
+
+  // trustshell #589: trinity-shofet's token 5863 is registered as https://repid.dev/agents/<id>/metadata.
+  it('an id-only registration binds through the id the engine\'s passport gives a named party, and says so', () => {
+    const r = run(WRITE(`ev.topics[1] = ${OTHER_ID}; a.registrations['424242'] = '${ID_URI}'; a.expectAgentIds = { [a.expectAgents[1]]: '${ID.toUpperCase()}' };`));
+    expect(r.wrong).toEqual([]);
+    expect(r.feedback).toMatchObject({ agentId: '424242', registeredAs: ID, boundBy: 'engine-id' });
+  });
+
+  it('a name on chain is still the binding when there is one (boundBy name)', () => {
+    expect(run(WRITE('')).feedback).toMatchObject({ registeredAs: 'SOPHIA', boundBy: 'name' });
   });
 
   it('the pinned tag topic IS keccak256("hyperdag_repid") (recomputed, and equal to the real log)', () => {
@@ -143,6 +160,8 @@ describe('onchain.erc8004_reputation_write — checkReputationWrite', () => {
 describe('the on-chain agent binding — agentNameFromTokenURI / bindsToAgent', () => {
   it('reads the name from both live tokenURI shapes, and nothing from junk', () => {
     expect(run(`({ oc, fx }) => [oc.agentNameFromTokenURI(fx.registrations['3747']), oc.agentNameFromTokenURI(fx.registrations['6711'])]`)).toEqual(['SOPHIA', 'trinity-nexus']);
+    // The agent is the segment after /agents/, never a trailing "metadata" (#589).
+    expect(run(`({ oc }) => [oc.agentNameFromTokenURI('${ID_URI}'), oc.agentNameFromTokenURI('https://trustrepid.dev/agents/someone-else')]`)).toEqual([ID, 'someone-else']);
     for (const junk of ['', 'not a uri', 'data:application/json;base64,!!!', 'data:application/json,{"name":""}', 'ipfs://Qm']) {
       expect(run(`({ oc }) => oc.agentNameFromTokenURI(${JSON.stringify(junk)})`)).toBeNull();
     }

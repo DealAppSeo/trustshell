@@ -85,6 +85,7 @@ export default function RootLayout({
             the last line clear of the home page's fixed mobile Check bar. */}
         <footer className="border-t border-[#1e293b] px-4 pt-6 pb-24 sm:pb-6 text-sm text-[#94a3b8]">
           <nav aria-label="Site" className="max-w-6xl mx-auto flex flex-wrap gap-x-6">
+            <a href="/build" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Build with us</a>
             <a href="/privacy.html" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Privacy policy</a>
             <a href="https://github.com/DealAppSeo/trustshell" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Source on GitHub</a>
             <a href="https://www.npmjs.com/package/@hyperdag/trustshell" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">npm</a>

@@ -37,6 +37,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
@@ -46,7 +48,7 @@ jobs:
       - name: Note why this ran
         run: echo "ref_note = ${{ inputs.ref_note || 'pull_request' }}"
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       # Playwright is deliberately NOT a package dependency (see tests/e2e/chromium-path.mjs), so it
       # is installed here only, unsaved. Pinned to the version the agent sandbox carries
@@ -54,7 +56,7 @@ jobs:
       # the same driver against the same browser revision.
       - name: Install Playwright and Chromium
         run: |
-          npm install --no-save playwright@1.56.1
+          npm install --no-save --ignore-scripts playwright@1.56.1
           npx playwright install --with-deps chromium
 
       - name: Extension load, worker, menu and five hosts

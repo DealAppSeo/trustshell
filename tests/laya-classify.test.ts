@@ -74,6 +74,18 @@ describe('laya classify', () => {
     expect(classify('   ')).toBe('ask');
   });
 
+  it('drops trailing . and ! exactly as before, in linear time (CodeQL polynomial-redos)', () => {
+    expect(classify('OK!!!')).toBe('cheap');
+    expect(classify('thank you.')).toBe('cheap');
+    expect(classify('yes.!.!')).toBe('cheap');
+    expect(classify('ok!x')).toBe('escalate');
+    expect(classify('!!!')).toBe('escalate'); // nothing left after the run is not a cheap word
+    const t0 = Date.now();
+    expect(classify('!'.repeat(40_000) + 'x')).toBe('escalate'); // was 9 s with /[.!]+$/
+    expect(classify('.'.repeat(40_000))).toBe('escalate');
+    expect(Date.now() - t0).toBeLessThan(500);
+  });
+
   it('does not call a paid API from classify.ts', () => {
     const src = readFileSync(join(__dirname, '../src/cli/classify.ts'), 'utf8');
     expect(src).not.toMatch(/fetch\(|openai|anthropic|generativelanguage|https:\/\/|process\.env/i);

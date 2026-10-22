@@ -19,6 +19,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { cleanCodePoints } from './action-evidence';
 
 /**
  * Four outcomes. INTACT and BROKEN are verdicts; UNCHAINED and NO_LOG are both
@@ -299,18 +300,23 @@ export function noLog(path: string): InspectResult {
 }
 
 export function formatInspectCard(r: InspectResult): string {
+  // Every string that came from the log (or names it) is shown through the same scrub `check` uses: a
+  // C0/C1 control becomes a space, a bidi override or invisible character is dropped. A chained log
+  // whose tool was ESC[2J ESC[31m"ALL CLEAR" cleared the screen after the verdict (Lane D, 2026-10-21).
+  // Plain ASCII passes through unchanged, so a genuine log prints exactly as before.
+  const show = (v: unknown) => cleanCodePoints(String(v));
   const lines = [`trustshell inspect  —  ${r.verdict}`, ''];
-  lines.push(`  log      ${r.path}`);
+  lines.push(`  log      ${show(r.path)}`);
   lines.push(`  format   ${r.format}`);
   lines.push(`  entries  ${r.entries}`);
-  if (r.first_ts && r.last_ts) lines.push(`  window   ${r.first_ts} → ${r.last_ts}`);
+  if (r.first_ts && r.last_ts) lines.push(`  window   ${show(r.first_ts)} → ${show(r.last_ts)}`);
   if (r.tools.length) {
     lines.push('', '  tools');
-    for (const t of r.tools) lines.push(`    ${String(t.calls).padStart(5)}  ${t.tool}`);
+    for (const t of r.tools) lines.push(`    ${String(t.calls).padStart(5)}  ${show(t.tool)}`);
   }
   if (r.breaks.length) {
     lines.push('', '  chain breaks');
-    for (const b of r.breaks) lines.push(`    line ${b.line}${b.seq !== null ? ` (seq ${b.seq})` : ''}: ${b.reason}`);
+    for (const b of r.breaks) lines.push(`    line ${b.line}${b.seq !== null ? ` (seq ${b.seq})` : ''}: ${show(b.reason)}`);
   }
   lines.push('', '  What this does NOT prove:');
   for (const d of r.does_not_prove) lines.push(`    - ${d}`);

@@ -1,0 +1,66 @@
+name: Wrong verdict — the card said SUPPORTED and it shouldn't have
+description: trustshell check <runUrl> --claims-file marked a claim SUPPORTED (or CONTRADICTED) that the run does not back
+title: "[wrong-verdict] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The inspector's one rule is to never claim more than the evidence proves, so a **SUPPORTED the run does not back is the worst bug it can have**, and we fix reproducible ones first.
+
+        Use this form only with a **public** run and claim text you wrote yourself. Do not paste tokens, private repository content or anyone's personal data. A security hole goes to [SECURITY.md](https://github.com/DealAppSeo/trustshell/blob/main/SECURITY.md), not here.
+  - type: dropdown
+    id: wrong
+    attributes:
+      label: What did the card get wrong?
+      options:
+        - It marked a claim SUPPORTED and the run does not back it
+        - It marked a claim CONTRADICTED and the run does back it
+        - It was NOT_CHECKED on a plain claim the templates should read
+        - The exit code did not match the verdict (NOT_CHECKED must never exit 0)
+    validations:
+      required: true
+  - type: input
+    id: run
+    attributes:
+      label: Run URL
+      description: A public GitHub Actions run, https://github.com/OWNER/REPO/actions/runs/NUMBER
+    validations:
+      required: true
+  - type: textarea
+    id: claims
+    attributes:
+      label: The claim file, exactly as you passed it
+      description: Paste the contents of the --claims-file you used, character for character. If it was --claims "text", paste the text.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What GitHub shows that makes the verdict wrong
+      description: For example "the run's conclusion is failure", "the head commit is a different sha", "this is attempt 2". Say where on the run page you see it.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: The verdict lines and the exit code
+      description: Paste the "Claims:" line and the claim you dispute from the card (or from --json), and the exit code (echo $? or $LASTEXITCODE).
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: trustshell --version, and node -v
+      description: Which one you ran, for example 1.8.0-rc.0 from npx @hyperdag/trustshell@next, or a clone at a commit.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before you submit
+      options:
+        - label: The run is public, and nothing here is a secret or personal data.
+          required: true

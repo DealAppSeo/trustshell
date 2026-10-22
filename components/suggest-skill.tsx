@@ -113,7 +113,7 @@ export function SuggestSkill() {
         <button
           type="submit"
           data-testid="skill-save"
-          className="rounded bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-500"
+          className="rounded bg-amber-600 px-4 py-2 text-sm font-bold text-black hover:bg-amber-500"
         >
           Save the link
         </button>

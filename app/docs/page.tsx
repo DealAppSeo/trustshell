@@ -23,7 +23,7 @@ export default function DocsIndex() {
             href="https://github.com/DealAppSeo/trustshell/tree/main/docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline"
+            className="text-accent underline underline-offset-2 hover:no-underline"
           >
             github.com/DealAppSeo/trustshell/docs
           </a>{" "}
@@ -105,9 +105,9 @@ export default function DocsIndex() {
       </section>
 
       <footer className="pt-6 border-t border-border">
-        <p className="text-xs text-muted/60">
+        <p className="text-xs text-muted">
           See also:{" "}
-          <Link href="/repid" className="text-accent hover:underline">
+          <Link href="/repid" className="text-accent underline underline-offset-2 hover:no-underline">
             /repid governance
           </Link>{" "}
           ·{" "}
@@ -115,7 +115,7 @@ export default function DocsIndex() {
             href="https://github.com/DealAppSeo/trustshell"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline"
+            className="text-accent underline underline-offset-2 hover:no-underline"
           >
             Source
           </a>{" "}
@@ -124,7 +124,7 @@ export default function DocsIndex() {
             href="https://www.npmjs.com/package/@hyperdag/trustshell"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline"
+            className="text-accent underline underline-offset-2 hover:no-underline"
           >
             npm
           </a>

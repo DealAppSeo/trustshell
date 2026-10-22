@@ -120,7 +120,7 @@ export default function ConnectPage() {
             <label className="flex items-center gap-2 text-sm text-[#94a3b8]">
               <input type="checkbox" required /> I understand there is no recovery
             </label>
-            <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold p-3 rounded">Create Vault</button>
+            <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold p-3 rounded">Create Vault</button>
           </form>
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function ConnectPage() {
         <form onSubmit={handleUnlock} className="space-y-4">
           <input type="password" required placeholder="Passphrase" value={passphrase} onChange={e=>setPassphrase(e.target.value)} className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white" />
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold p-3 rounded">Unlock</button>
+          <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold p-3 rounded">Unlock</button>
         </form>
       </div>
     );
@@ -172,7 +172,7 @@ export default function ConnectPage() {
       </div>
 
       <div className="pt-4 border-t border-[#1e293b] flex justify-end">
-        <button onClick={saveKeys} className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded">Save and continue</button>
+        <button onClick={saveKeys} className="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded">Save and continue</button>
       </div>
     </div>
   );

@@ -79,7 +79,7 @@ export function FounderPanel({ onFiled }: { onFiled?: (msg: string) => void }) {
           <button
             type="button"
             onClick={() => void saveGoals()}
-            className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-amber-500"
+            className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-bold text-black hover:bg-amber-500"
           >
             Save version
           </button>
