@@ -1,0 +1,77 @@
+{
+  "ledger": "trustshell-build-page-charts/1",
+  "built_at": "2026-10-22T06:32:34.918Z",
+  "study": {
+    "source": "arXiv:2606.26028v3 abstract (Xiong et al.)",
+    "url": "https://arxiv.org/abs/2606.26028v3",
+    "revised": "18 Oct 2026",
+    "data_through": "2026-05-13",
+    "chains": [
+      "Ethereum",
+      "BSC",
+      "Base"
+    ],
+    "reviewers_sybil_pct": [
+      73.5,
+      59.2,
+      90.6
+    ],
+    "agents_no_valid_feedback_pct": [
+      15.8,
+      77.9,
+      86.8
+    ],
+    "tag": "[S] third-party study, not our measurement"
+  },
+  "owner_distinct": {
+    "source": "Trinity prod service_contracts via the engine's own classification SQL (repid-engine scripts/metrics/owner-distinct-share.mjs)",
+    "window": "30 days ending 2026-10-22T00:00:00Z",
+    "ruler_sha256": "eff25a737d908843ca08bfcdbdce89c14614a3b6132c47f813ca8ef05bb992af",
+    "total": 34,
+    "counts": {
+      "distinct_strong": 0,
+      "distinct_administrative": 3,
+      "same_strong": 0,
+      "same_administrative": 23,
+      "unknown_none": 8
+    },
+    "tag": "[V] our own database; no public source yet, the page must say so"
+  },
+  "sample_check": {
+    "source": "the page's own command, `check <run> --claims-file claims.txt --out card`, run in a clean folder; run read from api.github.com",
+    "run_id": 39619591025,
+    "run_conclusion": "success",
+    "run_head_sha": "392797a69b6a3e57406cef210a8471585667e3af",
+    "claimed_commit": "5d1c5e3f57e1",
+    "claim_matches_run": false,
+    "verdict_counts": {
+      "SUPPORTED": 3,
+      "NOT_CHECKED": 1,
+      "CONTRADICTED": 1
+    },
+    "record_sha256_of_file": "9e523645b361f705af4d5f5b0c1223a2378bba12d3db76b0107cff6df16457de",
+    "card_says_contradicted_commit": true,
+    "tag": "[V] a staged sample challenge, not an observed agent failure"
+  },
+  "erc8004_feedback": {
+    "source": "Base Sepolia public RPC (read-only) + the engine's erc8004_reputation_writes",
+    "tx": "0xcdb4f83f5843ec029513d6416564afc5c57b7951dfcb98880c2eb8f481ff1c8c",
+    "status": "success",
+    "block": 48364821,
+    "mined_utc": "2026-10-20T12:05:30.000Z",
+    "registry": "0x8004b663056a597dffe9eccc1965a193b7388713",
+    "agent_id": "5863",
+    "value": 2276,
+    "tag2": "hyperdag_repid",
+    "engine_row_id": "147",
+    "engine_rows_total": 148,
+    "engine_latest_write": "2026-10-21T12:02:52.654Z",
+    "missing_link": "no signed receipt or delivery evidence is bound to this feedback; issue #589 (open) lists the live mismatch",
+    "tag": "[V] chain read-back; the agent-name mapping is our DB's, not on chain"
+  },
+  "issue_589": {
+    "url": "https://github.com/DealAppSeo/trustshell/issues/589",
+    "state": "open",
+    "title": "🔴 e2e-honesty RED — since 2026-10-21"
+  }
+}

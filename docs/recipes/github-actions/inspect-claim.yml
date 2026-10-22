@@ -1,0 +1,41 @@
+# Check a claim about a finished workflow run with TrustShell Inspect.
+# Copy to .github/workflows/inspect-claim.yml and change `workflows:` to the name of the workflow you want to check.
+#
+# STATUS: the command was verified against finished public runs on 1.8.0-rc.0; this file has NOT been run inside GitHub Actions yet.
+# Run it once on a fork and tell us what happens (that is the first contribution on offer).
+#
+# Rules the checker enforces, found by testing:
+#   - the claim must name the workflow EXACTLY as GitHub calls it ("The Zizmor workflow succeeded, run 123."). A wrong name comes back NOT_CHECKED, not SUPPORTED.
+#   - a run is only decided once it has finished, so this runs on `workflow_run: completed`, never inside the workflow it is checking.
+#   - GITHUB_TOKEN raises GitHub's anonymous 60 requests/hour limit; TrustShell uses it for nothing else.
+name: inspect-claim
+on:
+  workflow_run:
+    workflows: ["CI"]          # <- the workflow to check
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: State the claim, then check it
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          printf 'The %s workflow succeeded, run %s.\n' "$WORKFLOW" "$RUN_ID" > claims.txt
+          # exit 0: every claim SUPPORTED · 1: a claim CONTRADICTED · 3: something NOT_CHECKED (never a pass).
+          # The card goes to the job summary, and the step then fails with TrustShell's own exit code (a pipe into `tee` would hide it).
+          code=0
+          npx -y @hyperdag/trustshell@next check "$RUN_URL" --claims-file claims.txt --out card > card-summary.md || code=$?
+          cat card-summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$code"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: trustshell-card, path: card }

@@ -6,8 +6,12 @@
  *   receipt card's verdict badges (teal measured, dashed grey not checked) on real transcripts.
  * STORY: an ERC-8004, x402 or OpenClaw builder sees the real output first, finds their question,
  *   learns what is measured and what is not built, and tries Inspect or picks something to break.
- * FIRST VIEWPORT: headline left with Try Inspect; the challenge transcript right, CONTRADICTED
- *   visible without scrolling at 1280 px; on phones the transcript follows the action.
+ * FIRST VIEWPORT: headline left with Try Inspect; right, the three-step explainer (agent claim ->
+ *   actual evidence -> TrustShell verdict) ending on CONTRADICTED, visible without scrolling at
+ *   1280 px, with the full receipt one click away; on phones it follows the action. The runnable
+ *   commands (Bash / PowerShell switch, copy buttons) and the real transcript come next.
+ * CHARTS (2026-10-22, Sean via Lane D's overnight plan): every number from lib/build-ledger.json,
+ *   each a list or table with its bars, played once on entry, static under reduced motion.
  * FORM: session log, dealt 6 of 7 (lead), seed key c9e9c8ab, chosen by Sean 2026-10-22.
  * FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the
  *   verdict, DESIGN.md, and every shipping raster carrying its provenance.
@@ -18,6 +22,18 @@
  */
 import type { ReactNode } from 'react';
 import { TrustBadge } from '@/components/trust-state';
+import { Cmd } from '@/components/build/cmd';
+import { CopyButton } from '@/components/build/copy-button';
+import { ShellSwitch } from '@/components/build/shell-switch';
+import { Explainer, FeedbackGap, RUN_URL, StudyBars, TradesBar, VerdictBreakdown } from '@/components/build/charts';
+
+// The package every command on this page runs. 1.8.0-rc.0 is on npm under `next`; when 1.8.0 is on
+// `latest` (the release PR), these two lines become '@hyperdag/trustshell@latest' and '1.8.0', and
+// every command, caption and copy button follows. Keep a tag: a bare npx runs any older global
+// install instead (measured 2026-10-22: bare printed 1.4.0 while latest was 1.7.0). Re-run the
+// transcripts on that package first.
+const PKG = '@hyperdag/trustshell@next';
+const PKG_VERSION = '1.8.0-rc.0';
 
 export const metadata = {
   title: 'Build with us — TrustShell',
@@ -46,57 +62,44 @@ function Status({ state, children }: { state: 'MEASURED' | 'NOT_CHECKED'; childr
   );
 }
 
-/** A command breaks only at spaces and after "/", and a flag never splits at its own hyphens, so a
- * wrapped URL stays readable and "--claims-file" never becomes "--claims-" + "file". */
-function Cmd({ text }: { text: string }) {
-  return (
-    <>
-      {text.split(' ').map((word, i) => (
-        <span key={i}>
-          {i > 0 && ' '}
-          {word.startsWith('-') ? (
-            <span className="whitespace-nowrap">{word}</span>
-          ) : (
-            word.split('/').map((part, j, all) => (
-              <span key={j}>
-                {part}
-                {j < all.length - 1 && (all[j + 1] === '' ? '/' : (
-                  <>
-                    /<wbr />
-                  </>
-                ))}
-              </span>
-            ))
-          )}
-        </span>
-      ))}
-    </>
-  );
-}
-
 // A prompt line keeps "$" and its command together ( ), so a wrapped line never leaves a lone "$".
 /** A transcript or data block: real output only, so mono is the material, not a costume. Output
  * always wraps so the deciding line is never cut off on a phone; a script keeps its code lines
  * (wrap=false) and scrolls instead. */
-function Session({ label, lines, caption, wrap = true }: { label: string; lines: [Tone, string][]; caption?: ReactNode; wrap?: boolean }) {
+function Session({ label, lines, caption, wrap = true, copy }: { label: string; lines: [Tone, string][]; caption?: ReactNode; wrap?: boolean; copy?: { text: string; label: string; title: string } }) {
+  const body = (
+    <pre
+      tabIndex={0}
+      role="region"
+      aria-label={label}
+      className={`overflow-x-auto px-4 py-4 font-mono text-[13px] leading-6 [font-variant-ligatures:none] ${
+        copy ? 'rounded-b-lg bg-[#0b1220]' : 'rounded-lg border border-slate-800 bg-[#0b1220] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]'
+      }`}
+    >
+      {lines.map(([tone, text], i) => {
+        const keep = !wrap && tone === 'out';
+        const flow = keep ? 'whitespace-pre' : tone === 'cmd' ? 'whitespace-pre-wrap [overflow-wrap:normal]' : 'whitespace-pre-wrap break-words';
+        return (
+          <span key={i} className={`block ${flow} ${TONE[tone]}`}>
+            {tone === 'cmd' ? <Cmd text={text} /> : text || ' '}
+          </span>
+        );
+      })}
+    </pre>
+  );
   return (
     <figure className="min-w-0">
-      <pre
-        tabIndex={0}
-        role="region"
-        aria-label={label}
-        className="overflow-x-auto rounded-lg border border-slate-800 bg-[#0b1220] px-4 py-4 font-mono text-[13px] leading-6 [font-variant-ligatures:none] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]"
-      >
-        {lines.map(([tone, text], i) => {
-          const keep = !wrap && tone === 'out';
-          const flow = keep ? 'whitespace-pre' : tone === 'cmd' ? 'whitespace-pre-wrap [overflow-wrap:normal]' : 'whitespace-pre-wrap break-words';
-          return (
-            <span key={i} className={`block ${flow} ${TONE[tone]}`}>
-              {tone === 'cmd' ? <Cmd text={text} /> : text || ' '}
-            </span>
-          );
-        })}
-      </pre>
+      {copy ? (
+        <div className="min-w-0 rounded-lg border border-slate-800 bg-[#0b1220] shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-2 py-1">
+            <span className="px-3 text-sm font-semibold text-slate-300">{copy.title}</span>
+            <CopyButton text={copy.text} label={copy.label} />
+          </div>
+          {body}
+        </div>
+      ) : (
+        body
+      )}
       {caption && <figcaption className="mt-3 text-sm leading-relaxed text-slate-400">{caption}</figcaption>}
     </figure>
   );
@@ -119,14 +122,36 @@ function Lead({ children }: { children: ReactNode }) {
   return <p className="max-w-prose text-lg leading-relaxed text-white">{children}</p>;
 }
 
-const RUN_URL = 'https://github.com/DealAppSeo/trustshell/actions/runs/39619591025';
 
 // Commands are /inspect's (docs/challenge.md), so the two pages can never teach different steps.
 // Output lines are verbatim from stdout, run in an empty folder with no credential variables set.
-const CHALLENGE: [Tone, string][] = [
-  ['cmd', `$ RUN=${RUN_URL}`],
-  ['cmd', "$ printf 'The check workflow succeeded, run 39619591025.\\n\\nThe check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.\\n' > claims.txt"],
-  ['cmd', '$ npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt'],
+const CLAIMS = ['The check workflow succeeded, run 39619591025.', 'The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.'];
+
+const SHELLS = [
+  {
+    id: 'bash',
+    label: 'Bash',
+    prompt: '$',
+    commands: [
+      `RUN=${RUN_URL}`,
+      `printf '${CLAIMS[0]}\\n\\n${CLAIMS[1]}\\n' > claims.txt`,
+      `npx ${PKG} check "$RUN" --claims-file claims.txt; echo "exit $?"`,
+    ],
+  },
+  {
+    id: 'powershell',
+    label: 'PowerShell',
+    prompt: 'PS>',
+    commands: [
+      `$run = "${RUN_URL}"`,
+      `"${CLAIMS[0]}", "", "${CLAIMS[1]}" | Set-Content claims.txt`,
+      `npx ${PKG} check $run --claims-file claims.txt; "exit $LASTEXITCODE"`,
+    ],
+  },
+];
+
+// Verbatim stdout lines, run in an empty folder with no credential variables set; the same in both shells.
+const CHALLENGE_OUT: [Tone, string][] = [
   ['dim', '…'],
   ['out', '### Claims: 3 supported · 1 contradicted · 1 not checked'],
   ['failed', '- **CONTRADICTED** `commit 5d1c5e3f57e1`'],
@@ -136,30 +161,11 @@ const CHALLENGE: [Tone, string][] = [
   ['dim', '…'],
   ['absent', '- **This workflow run succeeding: not checked.** `The check workflow succeeded` …'],
   ['dim', '…'],
-  ['cmd', '$ echo $?'],
-  ['out', '1'],
-];
-
-const CHALLENGE_PS: [Tone, string][] = [
-  ['cmd', `PS> $run = "${RUN_URL}"`],
-  ['cmd', 'PS> "The check workflow succeeded, run 39619591025.", "", "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025." | Set-Content claims.txt'],
-  ['cmd', 'PS> npx @hyperdag/trustshell@next check $run --claims-file claims.txt; "exit $LASTEXITCODE"'],
-];
-
-const CHAIN: [Tone, string][] = [
-  ['dim', '# Base Sepolia · ERC-8004 reputation registry · read-only'],
-  ['out', 'tx      0xcdb4f83f5843…2eb8f481ff1c8c'],
-  ['out', 'event   NewFeedback'],
-  ['out', 'agent   5863'],
-  ['out', 'value   2276    tag2 hyperdag_repid'],
-  ['out', 'mined   2026-10-20 12:05 UTC'],
-  ['dim', ''],
-  ['measured', 'read back from chain     yes'],
-  ['absent', 'bound to its evidence   not built yet'],
+  ['out', 'exit 1'],
 ];
 
 const SPEND: [Tone, string][] = [
-  ['dim', '// spend.mjs: npm i @hyperdag/trustshell@next, then node spend.mjs'],
+  ['dim', `// spend.mjs: npm i ${PKG}, then node spend.mjs`],
   ['out', "import { randomBytes } from 'node:crypto';"],
   ['out', "import { guardedX402Payment } from '@hyperdag/trustshell';"],
   ['dim', ''],
@@ -191,10 +197,40 @@ const HOOKS: [Tone, string][] = [
 ];
 
 const REPORT: [Tone, string][] = [
-  ['cmd', '$ npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt --out card'],
+  ['cmd', `$\u00a0npx ${PKG} check "$RUN" --claims-file claims.txt --out card`],
   ['dim', '…'],
   ['out', 'wrote record.json, card.md and card.html to card'],
 ];
+
+// Status words exactly as Lane D wrote them after running each recipe (docs/recipes/README.md).
+const RECIPES = [
+  {
+    tool: 'LangChain / LangGraph',
+    path: 'langgraph/recipe.py',
+    status: 'Verified:',
+    detail: '20 TrustShell tools load over MCP, and ground_quote returns VERIFIED for a real quote and VETO for a misquote. A LangGraph agent on top is not verified (it needs a model).',
+  },
+  {
+    tool: 'Hugging Face smolagents',
+    path: 'smolagents/recipe.py',
+    status: 'Verified, with one real gotcha:',
+    detail: 'it needs "mcp[ws]>=1.30,<2". The newest mcp 2.x breaks mcpadapt, and mcp 1.x needs the websockets extra. A CodeAgent on top is not verified.',
+  },
+  {
+    tool: 'GitHub Actions',
+    path: 'github-actions/inspect-claim.yml',
+    status: 'Command verified, workflow not yet run in Actions.',
+    detail: 'The step was run locally against a finished public run: exit 0 when the claim names the workflow exactly, exit 3 (not checked) when it does not. Run it once on a fork and tell us what happens.',
+  },
+  {
+    tool: 'Claude Code, Claude Desktop, Cursor',
+    path: 'mcp-clients/README.md',
+    status: 'Launch verified, apps not.',
+    detail: 'The same launch was exercised by the two recipes above; the three apps were not opened.',
+  },
+];
+
+const SPEND_SCRIPT = SPEND.filter(([tone]) => tone === 'out').map(([, line]) => line).join('\n');
 
 const sectionClass = 'scroll-mt-20 border-t border-slate-800 pt-14 mt-16 grid gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start';
 const h2Class = 'text-2xl sm:text-3xl font-semibold leading-tight text-white';
@@ -209,19 +245,14 @@ export default function BuildPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 sm:px-6 py-16 text-slate-300">
       <div className="mx-auto max-w-6xl">
-        <section className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-          <div className="space-y-6">
+        <section className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+          <div className="space-y-6 lg:col-start-1 lg:row-start-1">
             <h1 className="text-4xl sm:text-5xl font-semibold leading-[1.1] text-white">
               Your AI says the job is done. TrustShell checks the evidence.
             </h1>
             <p className="max-w-prose text-lg leading-relaxed text-white">
               Your agent says a GitHub Actions run succeeded and cites it. Inspect reads that run and checks the
               sentence.
-            </p>
-            <p className="max-w-prose text-lg leading-relaxed">
-              For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Each result below comes
-              with a command you can run or a source you can open; two facts come from our own database and say so.
-              Each section also says what is not built yet.
             </p>
             <div className="flex flex-wrap gap-3">
               <a
@@ -237,43 +268,59 @@ export default function BuildPage() {
                 Read the source
               </a>
             </div>
+          </div>
+          <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+            <Explainer />
+          </div>
+          <div className="space-y-4 lg:col-start-1 lg:row-start-2">
+            <p className="max-w-prose text-lg leading-relaxed">
+              For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Each result below comes
+              with a command you can run or a source you can open; two facts come from our own database and say so.
+              Each section also says what is not built yet.
+            </p>
             <p className="max-w-prose text-sm leading-relaxed text-slate-400">
-              Developer preview on npm: <Code>@hyperdag/trustshell@next</Code> (1.8.0-rc.0). No account and no key
+              Developer preview on npm: <Code>{PKG}</Code> ({PKG_VERSION}). No account and no key
               unless a section says so. Help us test it.
             </p>
           </div>
-          <div className="min-w-0 space-y-3">
-            <Session
-              label="Inspect checks two claims about a pinned CI run"
-              lines={CHALLENGE}
-              caption={
-                <>
-                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> 1.8.0-rc.0 from npm, run on 21
-                  October 2026 in an empty folder with no account and no key; … marks lines left out. The agent cited a green run as proof for
-                  the wrong commit, so that commit is contradicted. The same sentence&apos;s &ldquo;succeeded&rdquo; is
-                  not checked, because it names a commit this run is not on. Exit 1 means a claim was contradicted.
-                  The run is <Ext href={RUN_URL}>public</Ext>; check it yourself.
-                </>
-              }
-            />
-            <details className="rounded-lg border border-slate-800">
-              <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-white marker:text-slate-400 hover:text-amber-300">
-                The same three commands in Windows PowerShell
-              </summary>
-              <div className="px-4 pb-4">
-                <Session label="The challenge commands in Windows PowerShell" lines={CHALLENGE_PS} />
-              </div>
-            </details>
-          </div>
         </section>
 
-        <nav aria-label="On this page" className="mt-14 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <nav aria-label="On this page" className="mt-12 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <a href="#run-it" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">Run it</a>
           <a href="#erc-8004" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">ERC-8004</a>
           <a href="#x402" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">x402</a>
           <a href="#openclaw" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">OpenClaw</a>
+          <a href="#recipes" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">Recipes</a>
           <a href="#break-it" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">Break it</a>
           <a href="#status" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">What is built</a>
         </nav>
+
+        <section id="run-it" className="scroll-mt-20 mt-14 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start" aria-labelledby="run-it-h">
+          <div className="min-w-0 space-y-4">
+            <h2 id="run-it-h" className="text-2xl sm:text-3xl font-semibold leading-tight text-white">
+              Run the same check yourself
+            </h2>
+            <p className="max-w-prose text-base leading-relaxed">
+              Three commands in an empty folder, with Node 22.13 or newer. No account and no key. npx fetches the
+              package from npm; after that, the check&apos;s only request goes to api.github.com.
+            </p>
+            <ShellSwitch shells={SHELLS} label="Your shell" />
+            <Session
+              label="The output, the same in both shells"
+              lines={CHALLENGE_OUT}
+              caption={
+                <>
+                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> {PKG_VERSION} from npm, run on 21
+                  October 2026 in an empty folder with no account and no key; … marks lines left out. The first
+                  sentence is supported. In the second, the commit is contradicted, and its &ldquo;succeeded&rdquo; is
+                  not checked, because it names a commit this run is not on. Exit 1 means a claim was contradicted.
+                </>
+              }
+            />
+          </div>
+          <VerdictBreakdown />
+        </section>
+
 
         <section id="erc-8004" className={sectionClass} aria-labelledby="erc-8004-h">
           <div className="space-y-5">
@@ -287,16 +334,21 @@ export default function BuildPage() {
             <div className={proseClass}>
               <p>
                 ERC-8004 gives an agent an on-chain identity and a reputation registry. A reputation is only as good
-                as the feedback behind it. In a study of the ERC-8004 ecosystem, 59–91% of reviewers on Ethereum, BSC
-                and Base showed coordinated Sybil behaviour, and once their feedback was removed, 16–87% of rated
-                agents had no valid feedback left (
-                <Ext href="https://arxiv.org/abs/2606.26028v3">Xiong et al., arXiv:2606.26028 v3, 18 October 2026</Ext>).
+                as the feedback behind it. A study of the whole ERC-8004 ecosystem found that most reviewers on all
+                three chains showed coordinated Sybil behaviour, and that once their feedback was removed, many rated
+                agents had none left.
               </p>
+            </div>
+            <StudyBars />
+            <div className={proseClass}>
               <p>
                 Our own agents have the same question to answer. In our own database, none of the 34 trades they
                 settled in the 30 days to 21 October 2026 is yet proven to be between different owners. That figure
                 is not one you can check yourself yet.
               </p>
+            </div>
+            <TradesBar />
+            <div className={proseClass}>
               <p>
                 What we want to show you: one piece of feedback bound to its receipt, its payment, the delivered work
                 and an independent check of that work.
@@ -310,18 +362,7 @@ export default function BuildPage() {
               </Status>
             </ul>
           </div>
-          <Session
-            label="One ERC-8004 reputation write read back from Base Sepolia"
-            lines={CHAIN}
-            caption={
-              <>
-                Read-only, from the public Base Sepolia RPC.{' '}
-                <Ext href="https://sepolia.basescan.org/tx/0xcdb4f83f5843ec029513d6416564afc5c57b7951dfcb98880c2eb8f481ff1c8c">See the transaction</Ext>.
-                Testnet only. Our own database maps token 5863 to our agent trinity-shofet; the on-chain registration
-                does not name it (<Ext href="https://github.com/DealAppSeo/trustshell/issues/589">issue #589</Ext>).
-              </>
-            }
-          />
+          <FeedbackGap />
         </section>
 
         <section id="x402" className={sectionClass} aria-labelledby="x402-h">
@@ -339,7 +380,8 @@ export default function BuildPage() {
                 pay, <Code>guardedX402Payment</Code>, refuses before anything is signed when the call carries no policy
                 or no cap, an origin that may not pay, or an amount over the cap it states. The policy, cap and origin
                 are supplied by the calling code, so this stops a mistaken or unconfigured agent, not one that writes
-                its own policy. The lower-level signer it wraps still enforces the cap.
+                its own policy. They are caller-supplied, not owner-authenticated: nothing yet proves the owner chose
+                them. The lower-level signer it wraps still enforces the cap.
               </p>
               <p>
                 This script runs on your machine against the npm package. Its key is random and holds nothing, and it
@@ -350,11 +392,13 @@ export default function BuildPage() {
             </div>
             <ul className="space-y-3">
               <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 21 October 2026.</Status>
-              <Status state="NOT_CHECKED">Paying only for work that checked out: not available through TrustShell yet. This is the part we want to build with you. See {statusLink}.</Status>
+              <Status state="NOT_CHECKED">Paying only for work that checked out: not available through TrustShell yet. This is the part we want to build with you:{' '}
+                <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#10-x402-a-payment-that-waits-for-a-supported-card-a-spec-and-a-harness">starter task 10</Ext>. See {statusLink}.</Status>
             </ul>
           </div>
           <Session
             label="The spend guard refusing two payments before signing"
+            copy={{ text: SPEND_SCRIPT, label: 'Copy spend.mjs', title: 'spend.mjs' }}
             lines={SPEND}
             wrap={false}
             caption="Output from the npm developer preview, 1.8.0-rc.0. Signing an allowed payment also needs the ethers package, which the error tells you to install."
@@ -386,7 +430,9 @@ export default function BuildPage() {
             </div>
             <ul className="space-y-3">
               <Status state="NOT_CHECKED">
-                A TrustShell plugin that uses these hooks to check each call and keep a receipt: not built yet. An{' '}
+                A TrustShell plugin that uses these hooks to check each call and keep a receipt: not built yet. Its
+                specification is{' '}
+                <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#7-the-openclaw-hook-adapter-a-spec-and-a-harness">starter task 7</Ext>. An{' '}
                 <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/skills/trustshell/SKILL.md">OpenClaw skill</Ext> that
                 runs the CLI does exist. See {statusLink}.
               </Status>
@@ -397,6 +443,40 @@ export default function BuildPage() {
             lines={HOOKS}
             caption="The two hooks are OpenClaw's own; the plugin lines are what is missing."
           />
+        </section>
+
+        <section id="recipes" className="scroll-mt-20 border-t border-slate-800 pt-14 mt-16 space-y-6" aria-labelledby="recipes-h">
+          <h2 id="recipes-h" className={h2Class}>
+            Use it from the tools you already have
+          </h2>
+          <p className="max-w-prose text-base sm:text-lg leading-relaxed">
+            None of these needs an account, an API key or a model, and each says what was run and what was not. We
+            ran them on 22 October 2026, on Windows 11, with {PKG_VERSION}.
+          </p>
+          <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
+            {RECIPES.map((r) => (
+              <div key={r.tool} className="grid gap-1.5 py-4 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:gap-6">
+                <dt className="font-semibold text-white">
+                  <Ext href={`https://github.com/DealAppSeo/trustshell/blob/main/docs/recipes/${r.path}`}>{r.tool}</Ext>
+                </dt>
+                <dd className="leading-relaxed text-slate-300">
+                  <span className="font-semibold text-white">{r.status}</span> {r.detail}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <ul className="max-w-prose list-disc space-y-2 pl-5 text-base leading-relaxed">
+            <li>
+              Inspect, the check of a claim against a GitHub Actions run, is a command-line command, not an MCP tool.
+              The MCP server&apos;s <Code>check_claim</Code> is a different check: model-based and hosted. Putting
+              Inspect on MCP is{' '}
+              <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#9-inspect-over-mcp-an-inspect_run-tool">starter task 9</Ext>.
+            </li>
+            <li>
+              An MCP server runs code on your machine. Ours is outside the owner policy (Guard, merged into main but not in a release),
+              so do not treat it as a sandbox.
+            </li>
+          </ul>
         </section>
 
         <section id="break-it" className={sectionClass} aria-labelledby="break-it-h">
@@ -426,6 +506,7 @@ export default function BuildPage() {
           </div>
           <Session
             label="The command that makes a report to attach"
+            copy={{ text: `npx ${PKG} check "$RUN" --claims-file claims.txt --out card`, label: 'Copy the report command', title: 'Bash' }}
             lines={REPORT}
             caption={
               <>
@@ -442,8 +523,8 @@ export default function BuildPage() {
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {[
               ['Inspect', "Check an agent's plain sentences about a GitHub Actions run against the run itself.", 'In the npm developer preview'],
-              ['Guard', 'An owner policy that trustshell run and the CLI enforce. The MCP server is outside it, and anyone who can run the CLI can change it.', 'Prototype, in review, not released'],
-              ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Prototype, in review, not released'],
+              ['Guard', 'An owner policy that trustshell run and the CLI enforce. The MCP server is outside it, and anyone who can run the CLI can change it.', 'Prototype: merged into main, not in a release yet'],
+              ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Prototype: merged into main, not in a release yet'],
               ['Earn', 'Verified work raising what an agent is allowed to do.', 'Roadmap'],
               ['ERC-8004 feedback bound to its evidence', 'Feedback tied to its receipt, payment, delivered work and an independent check.', 'Not built yet'],
               ['Paying only for verified work', 'An x402 payment released only when the delivered work checks out.', 'Not available through TrustShell yet'],
