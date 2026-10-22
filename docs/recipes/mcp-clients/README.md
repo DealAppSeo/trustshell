@@ -27,4 +27,4 @@ On Windows, if the app cannot find `npx`, use `"command": "npx.cmd"`.
 - It exposes 20 tools. **Local, no network, no key:** `ground_quote`, `remember`, `recall`, `quarantine_list`. **Talk to the hosted engine:** `check_claim` (labels one sentence pass / veto / not-checked through the public classify endpoint, a model quorum), `verify_output` (the live HAL fact-check quorum), `get_repid` (a public RepID read; keyless). `kernel_receipt` needs `REPID_API_KEY`.
 - **Inspect, the check of a claim against a GitHub Actions run, is a CLI command, not an MCP tool.** `check_claim` is a different thing: it is model-based and hosted. Do not describe one as the other.
 - A note written over MCP is stored **untrusted and quarantined**; there is no release tool over MCP.
-- The MCP server is **outside the owner policy**. That policy is Guard, a prototype in review and not released, which covers `trustshell run` and the CLI only. Do not treat the server as a sandbox.
+- The MCP server is **outside the owner policy**. That policy is Guard, merged into main but not in a release yet, which covers `trustshell run` and the CLI only. Do not treat the server as a sandbox.

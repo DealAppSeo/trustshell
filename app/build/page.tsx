@@ -473,7 +473,7 @@ export default function BuildPage() {
               <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#9-inspect-over-mcp-an-inspect_run-tool">starter task 9</Ext>.
             </li>
             <li>
-              An MCP server runs code on your machine. Ours is outside the owner policy (Guard, a prototype in review),
+              An MCP server runs code on your machine. Ours is outside the owner policy (Guard, merged into main but not in a release),
               so do not treat it as a sandbox.
             </li>
           </ul>
@@ -523,8 +523,8 @@ export default function BuildPage() {
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {[
               ['Inspect', "Check an agent's plain sentences about a GitHub Actions run against the run itself.", 'In the npm developer preview'],
-              ['Guard', 'An owner policy that trustshell run and the CLI enforce. The MCP server is outside it, and anyone who can run the CLI can change it.', 'Prototype, in review, not released'],
-              ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Prototype, in review, not released'],
+              ['Guard', 'An owner policy that trustshell run and the CLI enforce. The MCP server is outside it, and anyone who can run the CLI can change it.', 'Prototype: merged into main, not in a release yet'],
+              ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Prototype: merged into main, not in a release yet'],
               ['Earn', 'Verified work raising what an agent is allowed to do.', 'Roadmap'],
               ['ERC-8004 feedback bound to its evidence', 'Feedback tied to its receipt, payment, delivered work and an independent check.', 'Not built yet'],
               ['Paying only for verified work', 'An x402 payment released only when the delivered work checks out.', 'Not available through TrustShell yet'],
