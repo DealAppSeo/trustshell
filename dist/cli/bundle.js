@@ -74,10 +74,11 @@ function parseBundleArgs(argv) {
 function summaryLines(b) {
     const p = b.payload;
     const pol = p.policy;
+    const signer = pol && (0, guardrails_1.policySigner)(pol.document);
     return [
         `author      ${b.author.fingerprint}`,
         `profile     ${p.profile !== null ? 'yes' : 'none'}`,
-        `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${pol.document.signature ? `owner-signed by ${pol.document.signature.fingerprint.slice(0, 16)}…` : 'UNSIGNED (imports as suggested, never enforced)'}` : 'none'}`,
+        `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${signer ? `owner-signed by ${signer.slice(0, 16)}…` : pol.document.signature ? `${guardrails_1.SIGNATURE_DOES_NOT_VERIFY} (imports as suggested, never enforced)` : 'UNSIGNED (imports as suggested, never enforced)'}` : 'none'}`,
         `memories    ${p.memories.length} note(s) you selected (they import as untrusted, quarantined)`,
         `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${e.name} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
     ];
@@ -137,7 +138,7 @@ function runBundle(argv, io, env = process.env) {
             fs.writeFileSync(tmp, JSON.stringify(bundle, null, 2) + '\n', { mode: 0o600 });
             fs.renameSync(tmp, a.file);
             if (a.json)
-                io.out(JSON.stringify({ file: a.file, author: bundle.author.fingerprint, memories: memories.length, evidence, policy: bundle.payload.policy && { sha256: bundle.payload.policy.sha256, signed: !!bundle.payload.policy.document.signature } }, null, 2));
+                io.out(JSON.stringify({ file: a.file, author: bundle.author.fingerprint, memories: memories.length, evidence, policy: bundle.payload.policy && { sha256: bundle.payload.policy.sha256, signed: !!bundle.payload.policy.document.signature, signed_by: (0, guardrails_1.policySigner)(bundle.payload.policy.document) } }, null, 2));
             else
                 io.out([`exported ${a.file}`, ...summaryLines(bundle), '', `On the other machine: trustshell bundle import ${a.file} --signer ${bundle.author.fingerprint}`].join('\n'));
             io.err('A bundle is signed, NOT encrypted: anyone with the file can read it. Keep it out of git and shared folders.');

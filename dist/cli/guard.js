@@ -37,7 +37,7 @@ function recordPolicyChange(dir, via, before, after) {
     return (0, guardrails_1.appendRecord)(dir, {
         kind: 'policy-change',
         requested: { action: 'policy-change', tool: 'guard', class: 'other' },
-        authorized: { decision: 'ALLOWED', reasons: [], policy_sha256: sha, policy_nonce: after.policy.nonce, policy_signed_by: after.signature?.fingerprint ?? null },
+        authorized: { decision: 'ALLOWED', reasons: [], policy_sha256: sha, policy_nonce: after.policy.nonce, policy_signed_by: (0, guardrails_1.policySigner)(after) },
         executed: null,
         assurance_scope: exports.POLICY_SCOPE,
         change: { via, before_sha256: before, after_sha256: sha },
@@ -80,15 +80,19 @@ async function runGuarded(args, inner, io, env = process.env) {
     return inner();
 }
 const sha256 = (s) => (0, node_crypto_1.createHash)('sha256').update(s, 'utf8').digest('hex');
-/** The card `trustshell run` prints: the five things a reader must keep apart. */
-function formatRunCard(decision, outcome) {
+/**
+ * The card `trustshell run` prints: the five things a reader must keep apart. `doc` is the policy the decision
+ * was made under: with it, a signature that does not verify reads as such instead of as "unsigned".
+ */
+function formatRunCard(decision, outcome, doc = null) {
     const d = decision;
+    const signed = d.authorized.policy_signed_by ? 'owner-signed' : doc?.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
     const ex = outcome?.executed;
     const executed = ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
     return [
         `trustshell run  —  ${d.authorized.decision}`,
         `  requested             ${d.requested.action}${d.requested.executable ? ` (starts ${d.requested.executable})` : ''}${d.requested.amount_raw ? ` amount ${d.requested.amount_raw}` : ''}; --class is the caller's label`,
-        `  authorized            ${d.authorized.decision}${d.authorized.reasons.length ? `: ${d.authorized.reasons.join('; ')}` : ''} (policy ${String(d.authorized.policy_sha256).slice(0, 12)}…, nonce ${d.authorized.policy_nonce}${d.authorized.policy_signed_by ? ', owner-signed' : ', unsigned'})`,
+        `  authorized            ${d.authorized.decision}${d.authorized.reasons.length ? `: ${d.authorized.reasons.join('; ')}` : ''} (policy ${String(d.authorized.policy_sha256).slice(0, 12)}…, nonce ${d.authorized.policy_nonce}, ${signed})`,
         `  executed              ${executed}`,
         '  independently observed  nothing: no outside party watched this command',
         `  unknown               ${exports.RUN_SCOPE.not_mediated.join('; ')}`,
@@ -149,7 +153,7 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner) {
         return 2;
     }
     if (g.decision.decision === 'DENIED') {
-        (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null));
+        (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null, g.loaded.state === 'ok' ? g.loaded.doc : null));
         return exports.EXIT_REFUSED;
     }
     const t0 = Date.now();
@@ -161,7 +165,7 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner) {
         executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0 },
         assurance_scope: exports.RUN_SCOPE,
     });
-    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome));
+    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null));
     return r.status ?? 3;
 }
 function usage(io, m) {
@@ -177,8 +181,9 @@ function showLines(doc, path, ledgerText, defaulted) {
     const p = doc.policy;
     const l = (0, guardrails_1.readLedger)(ledgerText, undefined, undefined, (0, guardrails_1.policySha256)(p));
     const spent = l.spent === null ? 'UNKNOWN (ledger BROKEN)' : `${l.spent.today} in the last 24 h, ${l.spent.total} under this policy`;
+    const signer = (0, guardrails_1.policySigner)(doc);
     return [
-        `policy      ${path}  (sha256 ${(0, guardrails_1.policySha256)(p).slice(0, 16)}…, nonce ${p.nonce}, ${doc.signature ? `signed by ${doc.signature.fingerprint.slice(0, 16)}…` : 'unsigned'})`,
+        `policy      ${path}  (sha256 ${(0, guardrails_1.policySha256)(p).slice(0, 16)}…, nonce ${p.nonce}, ${signer ? `signed by ${signer.slice(0, 16)}…` : doc.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned'})`,
         `subject     ${p.subject}`,
         `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
         'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
@@ -248,7 +253,7 @@ function runGuard(argv, io, env = process.env) {
             }
             const l = (0, guardrails_1.readLedger)(ledgerText(), undefined, undefined, loaded.sha256);
             if (json) {
-                io.out(JSON.stringify({ state: 'ok', path, ...loaded.doc, sha256: loaded.sha256, defaulted: loaded.defaulted, records: { count: l.count, chain: l.verdict, spent: l.spent && { today: String(l.spent.today), total: String(l.spent.total) }, breaks: l.breaks } }, null, 2));
+                io.out(JSON.stringify({ state: 'ok', path, ...loaded.doc, signed_by: (0, guardrails_1.policySigner)(loaded.doc), sha256: loaded.sha256, defaulted: loaded.defaulted, records: { count: l.count, chain: l.verdict, spent: l.spent && { today: String(l.spent.today), total: String(l.spent.total) }, breaks: l.breaks } }, null, 2));
             }
             else
                 io.out(showLines(loaded.doc, path, ledgerText(), loaded.defaulted).join('\n'));

@@ -54,6 +54,13 @@ export declare function parsePolicyDocument(text: string): {
 export declare function renderPolicyDocument(doc: PolicyDocument): string;
 /** sha256 of the RFC 8785 form of the policy: what records and bundles name it by. */
 export declare function policySha256(p: LocalPolicy): string;
+/**
+ * The fingerprint whose signature verifies over THIS policy, or null. A signature left in place after the
+ * policy was hand-edited names nobody: it kept the "owner-signed" label until 2026-10-22 (CC1).
+ */
+export declare function policySigner(doc: PolicyDocument): string | null;
+/** What a signature that is present but does not verify reads as, wherever a signer would be named. */
+export declare const SIGNATURE_DOES_NOT_VERIFY = "signature does NOT verify over this policy";
 /** Does the signature verify over the policy, by a key whose fingerprint is one of `trusted`? */
 export declare function policySignedBy(doc: PolicyDocument, trusted: readonly string[]): boolean;
 /** What one action asks for. `amount_raw` is smallest units, a canonical decimal string. */

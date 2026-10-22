@@ -174,10 +174,22 @@ export function policySha256(p: LocalPolicy): string {
   return jcsSha256(p);
 }
 
+/**
+ * The fingerprint whose signature verifies over THIS policy, or null. A signature left in place after the
+ * policy was hand-edited names nobody: it kept the "owner-signed" label until 2026-10-22 (CC1).
+ */
+export function policySigner(doc: PolicyDocument): string | null {
+  const s = doc.signature;
+  return s && verifyValue(doc.policy, s, s.signature) ? s.fingerprint : null;
+}
+
+/** What a signature that is present but does not verify reads as, wherever a signer would be named. */
+export const SIGNATURE_DOES_NOT_VERIFY = 'signature does NOT verify over this policy';
+
 /** Does the signature verify over the policy, by a key whose fingerprint is one of `trusted`? */
 export function policySignedBy(doc: PolicyDocument, trusted: readonly string[]): boolean {
-  const s = doc.signature;
-  return !!s && trusted.includes(s.fingerprint) && verifyValue(doc.policy, s, s.signature);
+  const f = policySigner(doc);
+  return f !== null && trusted.includes(f);
 }
 
 /** What one action asks for. `amount_raw` is smallest units, a canonical decimal string. */
@@ -589,7 +601,7 @@ function decideLocked(
         ...decision,
         policy_sha256: loaded.state === 'ok' ? loaded.sha256 : null,
         policy_nonce: loaded.state === 'ok' ? loaded.doc.policy.nonce : null,
-        policy_signed_by: loaded.state === 'ok' ? (loaded.doc.signature?.fingerprint ?? null) : null,
+        policy_signed_by: loaded.state === 'ok' ? policySigner(loaded.doc) : null,
       },
       executed: decision.decision === 'DENIED' || kind === 'check' ? 'not run' : null,
       assurance_scope: scope,

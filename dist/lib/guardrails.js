@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GUARD_DOES_NOT_COVER = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.LOCAL_TOOLS = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
+exports.GUARD_DOES_NOT_COVER = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.SIGNATURE_DOES_NOT_VERIFY = exports.LOCAL_TOOLS = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
 exports.defaultPolicy = defaultPolicy;
 exports.trustshellHome = trustshellHome;
 exports.parsePolicy = parsePolicy;
 exports.parsePolicyDocument = parsePolicyDocument;
 exports.renderPolicyDocument = renderPolicyDocument;
 exports.policySha256 = policySha256;
+exports.policySigner = policySigner;
 exports.policySignedBy = policySignedBy;
 exports.actionFor = actionFor;
 exports.decide = decide;
@@ -175,10 +176,20 @@ function renderPolicyDocument(doc) {
 function policySha256(p) {
     return (0, jcs_1.jcsSha256)(p);
 }
+/**
+ * The fingerprint whose signature verifies over THIS policy, or null. A signature left in place after the
+ * policy was hand-edited names nobody: it kept the "owner-signed" label until 2026-10-22 (CC1).
+ */
+function policySigner(doc) {
+    const s = doc.signature;
+    return s && (0, install_key_1.verifyValue)(doc.policy, s, s.signature) ? s.fingerprint : null;
+}
+/** What a signature that is present but does not verify reads as, wherever a signer would be named. */
+exports.SIGNATURE_DOES_NOT_VERIFY = 'signature does NOT verify over this policy';
 /** Does the signature verify over the policy, by a key whose fingerprint is one of `trusted`? */
 function policySignedBy(doc, trusted) {
-    const s = doc.signature;
-    return !!s && trusted.includes(s.fingerprint) && (0, install_key_1.verifyValue)(doc.policy, s, s.signature);
+    const f = policySigner(doc);
+    return f !== null && trusted.includes(f);
 }
 /** The action string the policy must list for this request (the kernel's actionPermitted). */
 function actionFor(req) {
@@ -483,7 +494,7 @@ function decideLocked(dir, req, scope, ctx, loaded) {
             ...decision,
             policy_sha256: loaded.state === 'ok' ? loaded.sha256 : null,
             policy_nonce: loaded.state === 'ok' ? loaded.doc.policy.nonce : null,
-            policy_signed_by: loaded.state === 'ok' ? (loaded.doc.signature?.fingerprint ?? null) : null,
+            policy_signed_by: loaded.state === 'ok' ? policySigner(loaded.doc) : null,
         },
         executed: decision.decision === 'DENIED' || kind === 'check' ? 'not run' : null,
         assurance_scope: scope,
