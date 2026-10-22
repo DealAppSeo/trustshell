@@ -47,8 +47,8 @@ describe('README first screen', () => {
     expect(readme.startsWith(`# ${README_TITLE}\n`)).toBe(true);
     expect(alsoAt).toBeGreaterThan(0);
     expect(first).toMatch(/## Check your own CI run/);
-    expect(bash).toContain('npx @hyperdag/trustshell check "$RUN" --claims-file claims.txt');
-    expect(powershell).toContain('npx @hyperdag/trustshell check $run --claims-file claims.txt');
+    expect(bash).toContain('npx @hyperdag/trustshell@latest check "$RUN" --claims-file claims.txt');
+    expect(powershell).toContain('npx @hyperdag/trustshell@latest check $run --claims-file claims.txt');
     expect(first).toMatch(/no account, no API key, no TrustShell server/);
     expect(bash).not.toMatch(/&&/);
     expect(powershell).not.toMatch(/&&/);
