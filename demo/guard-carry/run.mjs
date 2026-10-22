@@ -10,8 +10,9 @@
  * TWO HOMES ARE TWO HOSTS. Each host is its own HOME, TRUSTSHELL_HOME and working folder under one temp folder,
  * and every command runs with a minimal environment (PATH and the OS basics only), so no key, token or setting of
  * yours reaches it. Copying bundle.json between the two folders is the transfer. No model, no account, and no
- * network: every trustshell process starts with no-network.cjs preloaded, which refuses and logs any TCP connect,
- * UDP send or DNS query made through Node's net, dgram or dns modules, and the demo fails if that log is not empty.
+ * network: every node process the demo starts, and every one those start, loads no-network.cjs (by --require and
+ * NODE_OPTIONS), which refuses and logs any TCP connect, UDP send or DNS query made through Node's net, dgram or dns
+ * modules. The demo fails if that log is not empty, and counts it only if a canary lookup was caught.
  *
  * `reader` and `deleter` are two named copies of the node binary, so the guard can tell them apart by name: `run`
  * allows an executable only by its own name. It bounds WHICH executable starts, not what it then does.
@@ -46,6 +47,9 @@ const BASICS = new Set(['PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR',
 const BASE_ENV = {
   ...Object.fromEntries(Object.entries(process.env).filter(([k]) => BASICS.has(k.toUpperCase()))),
   GUARD_CARRY_NET_LOG: NET_LOG,
+  // Inherited by every node process a command starts (reader, deleter). Quoted: NODE_OPTIONS splits on spaces and
+  // reads a backslash inside quotes as an escape, which is what JSON.stringify writes.
+  NODE_OPTIONS: `--require ${JSON.stringify(PRELOAD)}`,
   NODE_NO_WARNINGS: '1',
 };
 const BIN = path.join(ROOT, 'bin');
@@ -66,6 +70,11 @@ function alias(target, n) {
 }
 alias(process.execPath, 'reader');
 alias(exe('reader'), 'deleter');
+// The canary: a node process started the way `trustshell run` starts one must have its lookup refused and logged.
+// If it is not, an empty log proves nothing, and "no network" is NOT_CHECKED.
+const CANARY_LOG = path.join(ROOT, 'canary.log');
+spawnSync(exe('reader'), ['-e', "require('dns').lookup('example.com', () => {})"], { env: { ...BASE_ENV, GUARD_CARRY_NET_LOG: CANARY_LOG }, timeout: 60000, windowsHide: true });
+const canaryCaught = fs.existsSync(CANARY_LOG);
 
 const PRECIOUS = 'the project file the owner never wants deleted\n';
 function host(name, label) {
@@ -342,7 +351,13 @@ hold(
   "on Host B `guard allow tool:deleter` needed no key and no password: the owner signature was dropped and the next delete ran. On Host A the same edit plus `guard sign` re-signed it with the install key, and a third host trusting that key enforced it and ran the delete. The signature says which key signed, not that the owner meant it. Each change was recorded with the policy hash before and after; none was prevented.",
 );
 const attempts = fs.existsSync(NET_LOG) ? fs.readFileSync(NET_LOG, 'utf8').split('\n').filter(Boolean).length : 0;
-hold('no network', attempts === 0, `each TrustShell process ran with every TCP connect, UDP send and DNS query through Node refused and logged: ${attempts} attempt(s).`);
+hold(
+  'no network',
+  canaryCaught ? attempts === 0 : null,
+  canaryCaught
+    ? `every node process the demo started, the CLI, the MCP server, reader and deleter, ran with Node's TCP connects, UDP sends and DNS queries refused and logged: ${attempts} attempt(s). A canary lookup was caught, so the check was live.`
+    : 'the preload did not catch a canary lookup, so an empty log proves nothing: not checked',
+);
 const notHeld = held.filter((h) => h.ok === false).length;
 const notChecked = held.filter((h) => h.ok === null).length;
 say();
