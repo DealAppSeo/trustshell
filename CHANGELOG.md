@@ -2,6 +2,14 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## Unreleased (on main, in no npm release)
+
+`package.json` on main is `1.9.0-dev.0`: main is ahead of the published 1.8.0, and nothing below is in any npm release.
+
+- **Guard + Carry, experimental (#593).** `trustshell guard` and `trustshell run` add a local owner policy enforced only on the paths they mediate. `trustshell bundle` adds a signed (not encrypted) bundle that carries a profile, a policy and selected notes to another host. These are local guardrails for cooperative agents, not a tamper-resistant boundary: anyone who can run the CLI as the owner can change the policy, and MCP and OS commands are not mediated.
+- **The two-host demonstration (#607, #609):** `node demo/guard-carry/run.mjs` (docs/guard-carry-demo.md). Its no-network assurance now fails if the egress blocker is not live.
+- **A policy names its signer only when the signature verifies (#608).** A hand-edited policy no longer reads as owner-signed.
+
 ## 1.8.0 — 2026-10-22
 
 1.8.0 is 1.8.0-rc.0 (the section below) promoted to npm `latest`, plus one fix, #596. A plain

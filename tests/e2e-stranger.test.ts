@@ -182,7 +182,8 @@ describe('stranger e2e on current main', () => {
   it('runs the other commands that exist on main', async () => {
     const version = await go(['--version']);
     expect(version.code).toBe(0);
-    expect(version.out).toMatch(/1\.8/);
+    // The version main says it is, not a hard-coded release: main runs ahead of npm between releases.
+    expect(version.out.trim()).toContain(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version);
 
     const help = await go(['--help']);
     expect(help.code).toBe(0);
