@@ -148,9 +148,9 @@ const CHALLENGE_PS: [Tone, string][] = [
 
 const CHAIN: [Tone, string][] = [
   ['dim', '# Base Sepolia · ERC-8004 reputation registry · read-only'],
-  ['out', 'tx      0xcdb4f83f5843…8eb8f481ff1c8c'],
+  ['out', 'tx      0xcdb4f83f5843…2eb8f481ff1c8c'],
   ['out', 'event   NewFeedback'],
-  ['out', 'agent   5863 (trinity-shofet)'],
+  ['out', 'agent   5863'],
   ['out', 'value   2276    tag hyperdag_repid'],
   ['out', 'mined   2026-10-20 12:05 UTC'],
   ['dim', ''],
@@ -185,7 +185,7 @@ const HOOKS: [Tone, string][] = [
   ['out', 'before_tool_call     rewrite params · block · require approval'],
   ['out', 'after_tool_call      observe result · error · duration'],
   ['dim', ''],
-  ['dim', '# what a TrustShell adapter would add'],
+  ['dim', '# what a TrustShell plugin would add'],
   ['absent', 'policy check per call     not built yet'],
   ['absent', 'receipt per call          not built yet'],
 ];
@@ -217,8 +217,9 @@ export default function BuildPage() {
               Your agent claims a CI run passed. Inspect checks the run itself.
             </p>
             <p className="max-w-prose text-lg leading-relaxed">
-              For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Everything on this page
-              is a command you can run or a source you can open, and each section says what is not built yet.
+              For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Each result below comes
+              with a command you can run or a source you can open; two facts come from our own database and say so.
+              Each section also says what is not built yet.
             </p>
             <div className="flex flex-wrap gap-3">
               <a
@@ -245,8 +246,8 @@ export default function BuildPage() {
               lines={CHALLENGE}
               caption={
                 <>
-                  Run with <Code>@hyperdag/trustshell</Code> 1.8.0-rc.0 from npm on 21 October 2026, in an empty
-                  folder, with no account and no key; … marks lines left out. The agent cited a green run as proof for
+                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> 1.8.0-rc.0 from npm, run on 21
+                  October 2026 in an empty folder with no account and no key; … marks lines left out. The agent cited a green run as proof for
                   the wrong commit, so that commit is contradicted. The same sentence&apos;s &ldquo;succeeded&rdquo; is
                   not checked, because it names a commit this run is not on. Exit 1 means a claim was contradicted.
                   The run is <Ext href={RUN_URL}>public</Ext>; check it yourself.
@@ -287,11 +288,12 @@ export default function BuildPage() {
                 as the feedback behind it. In a study of the ERC-8004 ecosystem, 59–91% of reviewers on Ethereum, BSC
                 and Base showed coordinated Sybil behaviour, and once their feedback was removed, 16–87% of rated
                 agents had no valid feedback left (
-                <Ext href="https://arxiv.org/abs/2606.26028v2">Xiong et al., arXiv:2606.26028 v2, 8 July 2026</Ext>).
+                <Ext href="https://arxiv.org/abs/2606.26028v3">Xiong et al., arXiv:2606.26028 v3, 18 October 2026</Ext>).
               </p>
               <p>
-                Our own agents have the same question to answer: none of the 34 trades they settled in the 30 days
-                to 21 October 2026 is yet proven to be between different owners.
+                Our own agents have the same question to answer. In our own database, none of the 34 trades they
+                settled in the 30 days to 21 October 2026 is yet proven to be between different owners. That figure
+                is not one you can check yourself yet.
               </p>
               <p>
                 What we want to show you: one piece of feedback bound to its receipt, its payment, the delivered work
@@ -313,7 +315,8 @@ export default function BuildPage() {
               <>
                 Read-only, from the public Base Sepolia RPC.{' '}
                 <Ext href="https://sepolia.basescan.org/tx/0xcdb4f83f5843ec029513d6416564afc5c57b7951dfcb98880c2eb8f481ff1c8c">See the transaction</Ext>.
-                Testnet only.
+                Testnet only. Our own database maps token 5863 to our agent trinity-shofet; the on-chain registration
+                does not name it (<Ext href="https://github.com/DealAppSeo/trustshell/issues/589">issue #589</Ext>).
               </>
             }
           />
@@ -322,28 +325,30 @@ export default function BuildPage() {
         <section id="x402" className={sectionClass} aria-labelledby="x402-h">
           <div className="space-y-5">
             <h2 id="x402-h" className={h2Class}>
-              An agent can pay per request. Does it refuse what its owner never allowed?
+              An agent can pay per request. Does anything stop it paying more than it should?
             </h2>
             <Lead>
-              If your agent pays with x402, run this script with a throwaway key and watch TrustShell refuse payments
-              its owner never allowed, before anything is signed.
+              If your agent pays with x402, run this script with a throwaway key and watch TrustShell refuse a payment
+              with no policy and one over its cap, before anything is signed.
             </Lead>
             <div className={proseClass}>
               <p>
                 x402 lets an agent pay for a request with a signed USDC authorization. TrustShell&apos;s default way to
-                pay, <Code>guardedX402Payment</Code>, refuses before anything is signed when the origin may not pay, the
-                owner gave no policy or no cap, or the amount is over the cap. The lower-level signer it wraps still
-                enforces the cap.
+                pay, <Code>guardedX402Payment</Code>, refuses before anything is signed when the call carries no policy
+                or no cap, an origin that may not pay, or an amount over the cap it states. The policy, cap and origin
+                are supplied by the calling code, so this stops a mistaken or unconfigured agent, not one that writes
+                its own policy. The lower-level signer it wraps still enforces the cap.
               </p>
               <p>
                 This script runs on your machine against the npm package. Its key is random and holds nothing, and it
-                moves nothing. Making a real payment is a different step: it runs on Base Sepolia testnet only and
-                needs an API key and a funded testnet wallet.
+                moves nothing. Our hosted payment flow settles on Base Sepolia testnet only and needs an API key and
+                a funded testnet wallet. The SDK signer defaults to Base Sepolia and will sign for another chain if you
+                tell it to.
               </p>
             </div>
             <ul className="space-y-3">
               <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 21 October 2026.</Status>
-              <Status state="NOT_CHECKED">Paying only for work that checked out: not built yet. This is the part we want to build with you. See {statusLink}.</Status>
+              <Status state="NOT_CHECKED">Paying only for work that checked out: not available through TrustShell yet. This is the part we want to build with you. See {statusLink}.</Status>
             </ul>
           </div>
           <Session
@@ -361,29 +366,34 @@ export default function BuildPage() {
             </h2>
             <Lead>
               If you already use <Code>before_tool_call</Code> and <Code>after_tool_call</Code>, that is exactly where
-              a policy check and a receipt would attach. Build the adapter with us.
+              a policy check and a receipt would attach. Build the plugin with us.
             </Lead>
             <div className={proseClass}>
               <p>
                 <Code>before_tool_call</Code> can rewrite a tool call&apos;s parameters, block it or require approval,
                 and <Code>after_tool_call</Code> sees each result, error and duration (
                 <Ext href="https://docs.openclaw.ai/plugins/hooks/reference">OpenClaw hook reference</Ext>). A TrustShell
-                adapter would use them to check each call against the owner&apos;s policy and keep a receipt of what
+                plugin would use them to check each call against the owner&apos;s policy and keep a receipt of what
                 ran.
               </p>
               <p>
-                What works today: when your agent says last night&apos;s CI run passed, Inspect checks that claim
-                against the run itself, as in the challenge at the top of this page.
+                What works today: Inspect checks three kinds of plain sentence about a GitHub Actions run (that it
+                succeeded, which run it was, which commit it ran on), as in the challenge at the top of this page.
+                Anything else comes back not checked.
               </p>
             </div>
             <ul className="space-y-3">
-              <Status state="NOT_CHECKED">A TrustShell adapter for OpenClaw: not built yet. See {statusLink}.</Status>
+              <Status state="NOT_CHECKED">
+                A TrustShell plugin that uses these hooks to check each call and keep a receipt: not built yet. An{' '}
+                <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/skills/trustshell/SKILL.md">OpenClaw skill</Ext> that
+                runs the CLI does exist. See {statusLink}.
+              </Status>
             </ul>
           </div>
           <Session
-            label="The OpenClaw hooks an adapter would use"
+            label="The OpenClaw hooks a plugin would use"
             lines={HOOKS}
-            caption="The two hooks are OpenClaw's own; the adapter lines are what is missing."
+            caption="The two hooks are OpenClaw's own; the plugin lines are what is missing."
           />
         </section>
 
@@ -405,8 +415,8 @@ export default function BuildPage() {
               </div>
             </dl>
             <p className="max-w-prose leading-relaxed">
-              Every reproducible finding becomes a permanent case in our red-team tests, so the next release has to
-              survive it. Report it on the{' '}
+              A bug we accept and fix gets a regression test in the repository&apos;s own test suite, so the next
+              release has to survive it. Report it on the{' '}
               <Ext href="https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml">wrong-verdict form</Ext>, or start
               with the <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/CONTRIBUTING.md">contributing guide</Ext> or the{' '}
               <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md">starter tasks</Ext>.
@@ -429,13 +439,13 @@ export default function BuildPage() {
           <h2 id="status-h" className={h2Class}>What runs today, and what does not yet</h2>
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {[
-              ['Inspect', 'Check what an agent says about a CI run against the run itself.', 'In the npm developer preview'],
-              ['Guard', 'An owner policy the CLI enforces.', 'Prototype, in review, not released'],
-              ['Carry', 'Your settings and memory, moved to another model as one signed file.', 'Prototype, in review, not released'],
+              ['Inspect', "Check an agent's plain sentences about a GitHub Actions run against the run itself.", 'In the npm developer preview'],
+              ['Guard', 'An owner policy that trustshell run and the CLI enforce. The MCP server is outside it, and anyone who can run the CLI can change it.', 'Prototype, in review, not released'],
+              ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Prototype, in review, not released'],
               ['Earn', 'Verified work raising what an agent is allowed to do.', 'Roadmap'],
               ['ERC-8004 feedback bound to its evidence', 'Feedback tied to its receipt, payment, delivered work and an independent check.', 'Not built yet'],
-              ['Paying only for verified work', 'An x402 payment released only when the delivered work checks out.', 'Not built yet'],
-              ['OpenClaw adapter', 'A policy check before each tool call and a receipt after it.', 'Not built yet'],
+              ['Paying only for verified work', 'An x402 payment released only when the delivered work checks out.', 'Not available through TrustShell yet'],
+              ['OpenClaw plugin', 'Uses the hooks for a policy check before each tool call and a receipt after it.', 'Not built yet'],
             ].map(([name, what, status]) => (
               <div key={name} className="grid gap-1 py-4 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,14rem)] sm:gap-6">
                 <dt className="font-semibold text-white">{name}</dt>

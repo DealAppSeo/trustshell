@@ -35,7 +35,7 @@ Owner-controlled authority, evidence-backed actions, portable context and earned
 ## Product Principles
 - Evidence over claims: every public sentence maps to a file, test, run or source.
 - Unknown is an answer: NOT_CHECKED is shown, never rounded up to a pass.
-- Invite people to break it: findings become permanent test cases.
+- Invite people to break it: a bug we accept and fix gets a regression test in the repo's own suite.
 - One primary action per surface: today it is "Try Inspect".
 
 ## Accessibility & Inclusion

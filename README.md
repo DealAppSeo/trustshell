@@ -47,10 +47,10 @@ If the card says **SUPPORTED** and it should not have, that is the worst bug thi
 For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. This is a developer preview and we want you to test it with us. [trustshell.dev/build](https://trustshell.dev/build) shows, for each, what runs today with a command or a source you can check, and what is not built yet:
 
 - **ERC-8004:** if you read ERC-8004 feedback, you can check one of ours on Base Sepolia today. Help us bind feedback to its receipt, payment, delivered work and an independent check; that is not built yet ([#589](https://github.com/DealAppSeo/trustshell/issues/589)).
-- **x402:** if your agent pays with x402, run the page's script with a throwaway key and watch the default payment path refuse a payment with no owner policy, or over the owner's cap, before anything is signed. Paying only for work that checked out is not built yet.
-- **OpenClaw:** if you already use `before_tool_call` and `after_tool_call`, that is exactly where a policy check and a receipt would attach. The adapter is not built yet; build it with us.
+- **x402:** if your agent pays with x402, run the page's script with a throwaway key and watch the default payment path refuse a payment with no policy, or over the cap it states, before anything is signed. The calling code supplies the policy and cap, so this stops a mistaken or unconfigured agent, not one that writes its own policy. Paying only for work that checked out is not available through TrustShell yet.
+- **OpenClaw:** if you already use `before_tool_call` and `after_tool_call`, that is exactly where a policy check and a receipt would attach. An OpenClaw skill that runs the CLI exists ([`skills/trustshell`](skills/trustshell/SKILL.md)); a plugin that uses the hooks does not yet. Build it with us.
 
-The finding we want most is a claim we wrongly supported. A permission we failed to enforce, or a record another machine cannot verify, comes next. [Tell us](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the card from `npx @hyperdag/trustshell@next check <run-url> --claims-file claims.txt --out card`; every reproducible finding becomes a permanent test case.
+The finding we want most is a claim we wrongly supported. A permission we failed to enforce, or a record another machine cannot verify, comes next. [Tell us](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the card from `npx @hyperdag/trustshell@next check <run-url> --claims-file claims.txt --out card`; a bug we accept and fix gets a regression test in the repo's own test suite.
 
 ## Also: check one sentence an AI told you
 
