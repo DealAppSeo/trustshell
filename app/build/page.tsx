@@ -13,7 +13,8 @@
  *   verdict, DESIGN.md, and every shipping raster carrying its provenance.
  *
  * Copy rules: every factual sentence maps to evidence (see the PR body); developer preview, never
- * "launched"; nothing unbuilt is described as working.
+ * "launched"; nothing unbuilt is described as working. Each section names one thing not built yet;
+ * the full list lives in the table at the bottom, so the two can never disagree.
  */
 import type { ReactNode } from 'react';
 import { TrustBadge } from '@/components/trust-state';
@@ -36,7 +37,7 @@ const TONE: Record<Tone, string> = {
 };
 
 /** One status, readable: the site's verdict badge (word + icon + colour) and its explanation at body size. */
-function Status({ state, children }: { state: "MEASURED" | "NOT_CHECKED"; children: ReactNode }) {
+function Status({ state, children }: { state: 'MEASURED' | 'NOT_CHECKED'; children: ReactNode }) {
   return (
     <li className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-3">
       <TrustBadge state={state} className="shrink-0" />
@@ -45,10 +46,39 @@ function Status({ state, children }: { state: "MEASURED" | "NOT_CHECKED"; childr
   );
 }
 
-// A prompt line keeps "$" and its command together (\u00a0), so a wrapped line never leaves a lone "$".
-/** A transcript or data block: real output only, so mono is the material, not a costume. Wraps on
- * phones so the deciding line is never cut off; a script keeps its lines (wrap=false). */
-function Session({ label, lines, caption, wrap = true }: { label: string; lines: [Tone, string][]; caption: ReactNode; wrap?: boolean }) {
+/** A command breaks only at spaces and after "/", and a flag never splits at its own hyphens, so a
+ * wrapped URL stays readable and "--claims-file" never becomes "--claims-" + "file". */
+function Cmd({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(' ').map((word, i) => (
+        <span key={i}>
+          {i > 0 && ' '}
+          {word.startsWith('-') ? (
+            <span className="whitespace-nowrap">{word}</span>
+          ) : (
+            word.split('/').map((part, j, all) => (
+              <span key={j}>
+                {part}
+                {j < all.length - 1 && (all[j + 1] === '' ? '/' : (
+                  <>
+                    /<wbr />
+                  </>
+                ))}
+              </span>
+            ))
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
+
+// A prompt line keeps "$" and its command together ( ), so a wrapped line never leaves a lone "$".
+/** A transcript or data block: real output only, so mono is the material, not a costume. Output
+ * always wraps so the deciding line is never cut off on a phone; a script keeps its code lines
+ * (wrap=false) and scrolls instead. */
+function Session({ label, lines, caption, wrap = true }: { label: string; lines: [Tone, string][]; caption?: ReactNode; wrap?: boolean }) {
   return (
     <figure className="min-w-0">
       <pre
@@ -56,13 +86,17 @@ function Session({ label, lines, caption, wrap = true }: { label: string; lines:
         aria-label={label}
         className="overflow-x-auto rounded-lg border border-slate-800 bg-[#0b1220] px-4 py-4 font-mono text-[13px] leading-6 shadow-[0_12px_32px_-16px_rgba(0,0,0,0.8)]"
       >
-        {lines.map(([tone, text], i) => (
-          <span key={i} className={`block ${wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre"} ${TONE[tone]}`}>
-            {text || ' '}
-          </span>
-        ))}
+        {lines.map(([tone, text], i) => {
+          const keep = !wrap && tone === 'out';
+          const flow = keep ? 'whitespace-pre' : tone === 'cmd' ? 'whitespace-pre-wrap [overflow-wrap:normal]' : 'whitespace-pre-wrap break-words';
+          return (
+            <span key={i} className={`block ${flow} ${TONE[tone]}`}>
+              {tone === 'cmd' ? <Cmd text={text} /> : text || ' '}
+            </span>
+          );
+        })}
       </pre>
-      <figcaption className="mt-3 text-sm leading-relaxed text-slate-400">{caption}</figcaption>
+      {caption && <figcaption className="mt-3 text-sm leading-relaxed text-slate-400">{caption}</figcaption>}
     </figure>
   );
 }
@@ -75,21 +109,40 @@ function Ext({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
+function Code({ children }: { children: ReactNode }) {
+  return <code className="font-mono text-[0.95em] text-slate-200">{children}</code>;
+}
+
+/** The section's builder-side opener: what you can do with this in your stack today. */
+function Lead({ children }: { children: ReactNode }) {
+  return <p className="max-w-prose border-l-2 border-amber-600 pl-4 text-lg leading-relaxed text-white">{children}</p>;
+}
+
+const RUN_URL = 'https://github.com/DealAppSeo/trustshell/actions/runs/39619591025';
+
+// Commands are /inspect's (docs/challenge.md), so the two pages can never teach different steps.
+// Output lines are verbatim from stdout, run in an empty folder with no credential variables set.
 const CHALLENGE: [Tone, string][] = [
-  ['dim', '# claims.txt: what the agent said'],
-  ['out', 'The check workflow succeeded, run 39619591025.'],
-  ['out', 'The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.'],
-  ['dim', ''],
-  ['cmd', '$\u00a0RUN=https://github.com/DealAppSeo/trustshell/actions/runs/39619591025'],
-  ['cmd', '$\u00a0npx trustshell check "$RUN" --claims-file claims.txt'],
-  ['dim', ''],
-  ['out', 'Claims: 3 supported · 1 contradicted · 1 not checked'],
-  ['failed', 'CONTRADICTED  commit 5d1c5e3f57e1'],
-  ['dim', '  cites 5d1c5e3f57e1; the run is on 392797a69b6a'],
-  ['measured', 'SUPPORTED     The check workflow succeeded'],
-  ['measured', 'SUPPORTED     run 39619591025'],
-  ['dim', ''],
-  ['out', 'exit 1'],
+  ['cmd', `$ RUN=${RUN_URL}`],
+  ['cmd', "$ printf 'The check workflow succeeded, run 39619591025.\\n\\nThe check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.\\n' > claims.txt"],
+  ['cmd', '$ npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt'],
+  ['dim', '…'],
+  ['out', '### Claims: 3 supported · 1 contradicted · 1 not checked'],
+  ['failed', '- **CONTRADICTED** `commit 5d1c5e3f57e1`'],
+  ['dim', '  - **Why** The claim cites commit 5d1c5e3f57e1; the inspected run is on 392797a69b6a.'],
+  ['measured', '- **SUPPORTED** `The check workflow succeeded`'],
+  ['measured', '- **SUPPORTED** `run 39619591025`'],
+  ['dim', '…'],
+  ['absent', '- **This workflow run succeeding: not checked.** `The check workflow succeeded` …'],
+  ['dim', '…'],
+  ['cmd', '$ echo $?'],
+  ['out', '1'],
+];
+
+const CHALLENGE_PS: [Tone, string][] = [
+  ['cmd', `PS> $run = "${RUN_URL}"`],
+  ['cmd', 'PS> "The check workflow succeeded, run 39619591025.", "", "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025." | Set-Content claims.txt'],
+  ['cmd', 'PS> npx @hyperdag/trustshell@next check $run --claims-file claims.txt; "exit $LASTEXITCODE"'],
 ];
 
 const CHAIN: [Tone, string][] = [
@@ -120,7 +173,7 @@ const SPEND: [Tone, string][] = [
   ['out', "  catch (e) { console.log('REFUSED', label, '-', e.message); }"],
   ['out', '}'],
   ['dim', ''],
-  ['cmd', '$\u00a0node spend.mjs'],
+  ['cmd', '$ node spend.mjs'],
   ['failed', 'REFUSED no policy - policy_required: spend intent has no policy (fail-closed — missing policy refuses)'],
   ['failed', 'REFUSED over the cap - cap_exceeded: amount 150000 > cap 100000'],
 ];
@@ -135,22 +188,35 @@ const HOOKS: [Tone, string][] = [
   ['absent', 'receipt per call          not built yet'],
 ];
 
+const REPORT: [Tone, string][] = [
+  ['cmd', '$ npx @hyperdag/trustshell@next check <run-url> --claims-file claims.txt --out card'],
+  ['out', 'wrote record.json, card.md and card.html to card'],
+];
+
 const sectionClass = 'scroll-mt-20 border-t border-slate-800 pt-14 mt-16 grid gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start';
 const h2Class = 'text-2xl sm:text-3xl font-semibold leading-tight text-white';
 const proseClass = 'space-y-4 text-base sm:text-lg leading-relaxed text-slate-300 max-w-prose';
+const statusLink = (
+  <a href="#status" className="text-slate-300 underline underline-offset-4 hover:text-white">
+    everything not built yet
+  </a>
+);
 
 export default function BuildPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-4 sm:px-6 py-16 text-slate-300">
       <div className="mx-auto max-w-6xl">
-        <section className="grid gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
+        <section className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl font-semibold leading-[1.1] text-white">
               Your AI says the job is done. TrustShell checks the evidence.
             </h1>
+            <p className="max-w-prose text-lg leading-relaxed text-white">
+              Your agent claims a CI run passed. Inspect checks the run itself.
+            </p>
             <p className="max-w-prose text-lg leading-relaxed">
-              For builders on ERC-8004, x402 and OpenClaw. Everything on this page is a command you can run or a
-              source you can open. Anything we have not built yet says so.
+              For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Everything on this page
+              is a command you can run or a source you can open, and each section says what is not built yet.
             </p>
             <div className="flex flex-wrap gap-3">
               <a
@@ -167,27 +233,41 @@ export default function BuildPage() {
               </a>
             </div>
             <p className="max-w-prose text-sm leading-relaxed text-slate-400">
-              Developer preview on npm: <code className="font-mono text-slate-200">@hyperdag/trustshell@next</code>{' '}
-              (1.8.0-rc.0). No account and no key unless a section says so. Help us test it.
+              Developer preview on npm: <Code>@hyperdag/trustshell@next</Code> (1.8.0-rc.0). No account and no key
+              unless a section says so. Help us test it.
             </p>
           </div>
-          <Session
-            label="Inspect checks two claims about a pinned CI run"
-            lines={CHALLENGE}
-            caption={
-              <>
-                Run from npm with no account and no key on 21 October 2026. The agent cited a green run as proof for
-                the wrong commit. The run is <Ext href="https://github.com/DealAppSeo/trustshell/actions/runs/39619591025">public</Ext>; check it yourself.
-              </>
-            }
-          />
+          <div className="min-w-0 space-y-3">
+            <Session
+              label="Inspect checks two claims about a pinned CI run"
+              lines={CHALLENGE}
+              caption={
+                <>
+                  Run with <Code>@hyperdag/trustshell</Code> 1.8.0-rc.0 from npm on 21 October 2026, in an empty
+                  folder, with no account and no key; … marks lines left out. The agent cited a green run as proof for
+                  the wrong commit, so that commit is contradicted. The same sentence&apos;s &ldquo;succeeded&rdquo; is
+                  not checked, because it names a commit this run is not on. Exit 1 means a claim was contradicted.
+                  The run is <Ext href={RUN_URL}>public</Ext>; check it yourself.
+                </>
+              }
+            />
+            <details className="rounded-lg border border-slate-800">
+              <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-semibold text-white">
+                The same three commands in Windows PowerShell
+              </summary>
+              <div className="px-4 pb-4">
+                <Session label="The challenge commands in Windows PowerShell" lines={CHALLENGE_PS} />
+              </div>
+            </details>
+          </div>
         </section>
 
         <nav aria-label="On this page" className="mt-14 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          <a href="#erc-8004" className="text-slate-300 underline-offset-4 hover:text-white hover:underline">ERC-8004</a>
-          <a href="#x402" className="text-slate-300 underline-offset-4 hover:text-white hover:underline">x402</a>
-          <a href="#openclaw" className="text-slate-300 underline-offset-4 hover:text-white hover:underline">OpenClaw</a>
-          <a href="#break-it" className="text-slate-300 underline-offset-4 hover:text-white hover:underline">Break it</a>
+          <a href="#erc-8004" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">ERC-8004</a>
+          <a href="#x402" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">x402</a>
+          <a href="#openclaw" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">OpenClaw</a>
+          <a href="#break-it" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">Break it</a>
+          <a href="#status" className="inline-flex min-h-11 items-center text-slate-300 underline-offset-4 hover:text-white hover:underline">What is built</a>
         </nav>
 
         <section id="erc-8004" className={sectionClass} aria-labelledby="erc-8004-h">
@@ -195,6 +275,10 @@ export default function BuildPage() {
             <h2 id="erc-8004-h" className={h2Class}>
               An agent can have an identity and a reputation. Can you verify what earned it?
             </h2>
+            <Lead>
+              If you read ERC-8004 feedback, you can check one of ours on Base Sepolia today. Help us bind feedback
+              to its evidence.
+            </Lead>
             <div className={proseClass}>
               <p>
                 ERC-8004 gives an agent an on-chain identity and a reputation registry. A reputation is only as good
@@ -204,19 +288,21 @@ export default function BuildPage() {
                 <Ext href="https://arxiv.org/abs/2606.26028v2">Xiong et al., arXiv:2606.26028 v2, 8 July 2026</Ext>).
               </p>
               <p>
+                Our own agents have the same question to answer: none of the 34 trades they settled in the 30 days
+                to 21 October 2026 is yet proven to be between different owners.
+              </p>
+              <p>
                 What we want to show you: one piece of feedback bound to its receipt, its payment, the delivered work
-                and an independent check of that work, verifiable on your own machine with the chain and our servers
-                switched off.
+                and an independent check of that work.
               </p>
             </div>
             <ul className="space-y-3">
-              <Status state="MEASURED">Our engine writes RepID feedback to the ERC-8004 reputation registry on Base Sepolia; the write on the right was read back from chain.</Status>
-              <Status state="NOT_CHECKED">Feedback bound to its evidence: not built yet. One live agent&apos;s proof currently points at another agent&apos;s attestation.</Status>
-              <Status state="NOT_CHECKED">Trades between different owners: none proven yet (0 of 34 settled trades in the 30 days to 21 October 2026).</Status>
+              <Status state="MEASURED">Our engine writes RepID feedback to the ERC-8004 reputation registry on Base Sepolia. The write shown here was read back from chain.</Status>
+              <Status state="NOT_CHECKED">
+                Feedback bound to its evidence: not built yet. One live agent&apos;s proof currently points at another
+                agent&apos;s attestation (<Ext href="https://github.com/DealAppSeo/trustshell/issues/589">issue #589</Ext>). See {statusLink}.
+              </Status>
             </ul>
-            <p className="text-base">
-              <Ext href="https://github.com/DealAppSeo/trustshell/issues/589">Help us build evidence-bound feedback (issue #589)</Ext>
-            </p>
           </div>
           <Session
             label="One ERC-8004 reputation write read back from Base Sepolia"
@@ -236,22 +322,26 @@ export default function BuildPage() {
             <h2 id="x402-h" className={h2Class}>
               An agent can pay per request. Does it refuse what its owner never allowed?
             </h2>
+            <Lead>
+              If your agent pays with x402, run this script with a throwaway key and watch TrustShell refuse payments
+              its owner never allowed, before anything is signed.
+            </Lead>
             <div className={proseClass}>
               <p>
                 x402 lets an agent pay for a request with a signed USDC authorization. TrustShell&apos;s default way to
-                pay, <code className="font-mono text-[0.95em] text-slate-200">guardedX402Payment</code>, refuses before
-                anything is signed when the origin may not pay, the owner gave no policy or no cap, or the amount is
-                over the cap. The lower-level signer it wraps still enforces the cap.
+                pay, <Code>guardedX402Payment</Code>, refuses before anything is signed when the origin may not pay, the
+                owner gave no policy or no cap, or the amount is over the cap. The lower-level signer it wraps still
+                enforces the cap.
               </p>
               <p>
-                The script on the right runs on your machine against the npm package, with a throwaway key. It
-                moves nothing.
+                This script runs on your machine against the npm package. Its key is random and holds nothing, and it
+                moves nothing. Making a real payment is a different step: it runs on Base Sepolia testnet only and
+                needs an API key and a funded testnet wallet.
               </p>
             </div>
             <ul className="space-y-3">
-              <Status state="MEASURED">Refusals before signing, run from the npm developer preview on 21 October 2026.</Status>
-              <Status state="MEASURED">Paying runs on Base Sepolia testnet only, and needs an API key and a funded testnet wallet.</Status>
-              <Status state="NOT_CHECKED">Paying only for work that checked out: not built yet. This is the part we want to build with you.</Status>
+              <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 21 October 2026.</Status>
+              <Status state="NOT_CHECKED">Paying only for work that checked out: not built yet. This is the part we want to build with you. See {statusLink}.</Status>
             </ul>
           </div>
           <Session
@@ -267,26 +357,25 @@ export default function BuildPage() {
             <h2 id="openclaw-h" className={h2Class}>
               Your agent worked overnight. What did it do, what was allowed, what should you trust?
             </h2>
+            <Lead>
+              If you already use <Code>before_tool_call</Code> and <Code>after_tool_call</Code>, that is exactly where
+              a policy check and a receipt would attach. Build the adapter with us.
+            </Lead>
             <div className={proseClass}>
               <p>
-                OpenClaw already gives plugins the two places this needs.{' '}
-                <code className="font-mono text-[0.95em] text-slate-200">before_tool_call</code> can rewrite a tool
-                call&apos;s parameters, block it or require approval, and{' '}
-                <code className="font-mono text-[0.95em] text-slate-200">after_tool_call</code> sees each result, error
-                and duration (<Ext href="https://docs.openclaw.ai/plugins/hooks/reference">OpenClaw hook reference</Ext>).
-              </p>
-              <p>
-                A TrustShell adapter would use them to check each call against the owner&apos;s policy and keep a receipt
-                of what ran. It does not exist yet. If you build on OpenClaw, build it with us.
+                <Code>before_tool_call</Code> can rewrite a tool call&apos;s parameters, block it or require approval,
+                and <Code>after_tool_call</Code> sees each result, error and duration (
+                <Ext href="https://docs.openclaw.ai/plugins/hooks/reference">OpenClaw hook reference</Ext>). A TrustShell
+                adapter would use them to check each call against the owner&apos;s policy and keep a receipt of what
+                ran.
               </p>
               <p>
                 What works today: when your agent says last night&apos;s CI run passed, Inspect checks that claim
-                against the run itself.
+                against the run itself, as in the challenge at the top of this page.
               </p>
             </div>
             <ul className="space-y-3">
-              <Status state="MEASURED">Inspect checks an agent&apos;s claim about a CI run: the challenge at the top of this page.</Status>
-              <Status state="NOT_CHECKED">An OpenClaw adapter: not built yet.</Status>
+              <Status state="NOT_CHECKED">A TrustShell adapter for OpenClaw: not built yet. See {statusLink}.</Status>
             </ul>
           </div>
           <Session
@@ -296,46 +385,56 @@ export default function BuildPage() {
           />
         </section>
 
-        <section id="break-it" className="scroll-mt-20 border-t border-slate-800 pt-14 mt-16 space-y-8" aria-labelledby="break-it-h">
-          <div className="space-y-4">
+        <section id="break-it" className={sectionClass} aria-labelledby="break-it-h">
+          <div className="space-y-6">
             <h2 id="break-it-h" className={h2Class}>Bring your own agent. Show us where we&apos;re wrong.</h2>
-            <p className="max-w-prose text-base sm:text-lg leading-relaxed">
-              Run the challenge, then try to break it. Three kinds of finding matter most.
+            <Lead>
+              The finding we want most: a claim we wrongly supported. The card said SUPPORTED and the record does not
+              back it. That is the worst bug this tool can have.
+            </Lead>
+            <dl className="space-y-5">
+              <div className="space-y-1">
+                <dt className="text-lg font-semibold text-white">A permission we failed to enforce</dt>
+                <dd className="leading-relaxed">The owner did not allow something, and it happened anyway.</dd>
+              </div>
+              <div className="space-y-1">
+                <dt className="text-lg font-semibold text-white">A record another machine cannot verify</dt>
+                <dd className="leading-relaxed">We wrote a record, and checking it somewhere else fails, or passes when it should not.</dd>
+              </div>
+            </dl>
+            <p className="max-w-prose leading-relaxed">
+              Every reproducible finding becomes a permanent case in our red-team tests, so the next release has to
+              survive it. Report it on the{' '}
+              <Ext href="https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml">wrong-verdict form</Ext>, or start
+              with the <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/CONTRIBUTING.md">contributing guide</Ext> or the{' '}
+              <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md">starter tasks</Ext>.
             </p>
           </div>
-          <dl className="grid gap-x-10 gap-y-6 md:grid-cols-3">
-            <div className="space-y-2">
-              <dt className="text-lg font-semibold text-white">A claim we wrongly supported</dt>
-              <dd className="leading-relaxed">The card said SUPPORTED and the record does not back it. This is the worst bug the tool can have.</dd>
-            </div>
-            <div className="space-y-2">
-              <dt className="text-lg font-semibold text-white">A permission we failed to enforce</dt>
-              <dd className="leading-relaxed">The owner did not allow something, and it happened anyway.</dd>
-            </div>
-            <div className="space-y-2">
-              <dt className="text-lg font-semibold text-white">A record another machine cannot verify</dt>
-              <dd className="leading-relaxed">We wrote a record, and checking it somewhere else fails, or passes when it should not.</dd>
-            </div>
-          </dl>
-          <p className="max-w-prose leading-relaxed">
-            Every reproducible finding becomes a permanent case in our red-team tests, so the next release has to
-            survive it. Start with the{' '}
-            <Ext href="https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml">wrong-verdict form</Ext>, the{' '}
-            <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/CONTRIBUTING.md">contributing guide</Ext> or the{' '}
-            <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md">starter tasks</Ext>.
-          </p>
+          <Session
+            label="The command that makes a report to attach"
+            lines={REPORT}
+            caption={
+              <>
+                Attach <Code>card.md</Code> and <Code>record.json</Code> with the run URL, your claims file as you ran
+                it and the exit code. Public runs only; never paste a secret.
+              </>
+            }
+          />
         </section>
 
-        <section className="border-t border-slate-800 pt-14 mt-16 space-y-6" aria-labelledby="status-h">
+        <section id="status" className="scroll-mt-20 border-t border-slate-800 pt-14 mt-16 space-y-6" aria-labelledby="status-h">
           <h2 id="status-h" className={h2Class}>What runs today, and what does not yet</h2>
-          <dl className="max-w-3xl divide-y divide-slate-800 border-y border-slate-800">
+          <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {[
-              ['Inspect', 'Check what an agent says against the record.', 'In the npm developer preview'],
+              ['Inspect', 'Check what an agent says about a CI run against the run itself.', 'In the npm developer preview'],
               ['Guard', 'An owner policy the CLI enforces.', 'Prototype, in review, not released'],
               ['Carry', 'Your settings and memory, moved to another model as one signed file.', 'Prototype, in review, not released'],
               ['Earn', 'Verified work raising what an agent is allowed to do.', 'Roadmap'],
+              ['ERC-8004 feedback bound to its evidence', 'Feedback tied to its receipt, payment, delivered work and an independent check.', 'Not built yet'],
+              ['Paying only for verified work', 'An x402 payment released only when the delivered work checks out.', 'Not built yet'],
+              ['OpenClaw adapter', 'A policy check before each tool call and a receipt after it.', 'Not built yet'],
             ].map(([name, what, status]) => (
-              <div key={name} className="grid gap-1 py-4 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,16rem)] sm:gap-6">
+              <div key={name} className="grid gap-1 py-4 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,14rem)] sm:gap-6">
                 <dt className="font-semibold text-white">{name}</dt>
                 <dd className="text-slate-300">{what}</dd>
                 <dd className="text-slate-400">{status}</dd>

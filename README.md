@@ -44,13 +44,13 @@ If the card says **SUPPORTED** and it should not have, that is the worst bug thi
 
 ## Building on ERC-8004, x402 or OpenClaw?
 
-This is a developer preview, and we want builders to test it with us. For each community, [trustshell.dev/build](https://trustshell.dev/build) shows what runs today, with a command or a source you can check, and what is not built yet:
+For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. This is a developer preview and we want you to test it with us. [trustshell.dev/build](https://trustshell.dev/build) shows, for each, what runs today with a command or a source you can check, and what is not built yet:
 
-- **ERC-8004:** an agent can have an identity and a reputation. Can you verify what earned it? Feedback bound to its receipt, payment, delivered work and an independent check is not built yet ([#589](https://github.com/DealAppSeo/trustshell/issues/589)).
-- **x402:** the default payment path refuses a payment with no owner policy, no cap, or an amount over the cap, before anything is signed. Paying runs on Base Sepolia testnet only and needs an API key.
-- **OpenClaw:** your agent worked overnight. What did it do, what was allowed, what should you trust? OpenClaw's `before_tool_call` and `after_tool_call` hooks are where an adapter would sit; the adapter is not built yet. Build it with us.
+- **ERC-8004:** if you read ERC-8004 feedback, you can check one of ours on Base Sepolia today. Help us bind feedback to its receipt, payment, delivered work and an independent check; that is not built yet ([#589](https://github.com/DealAppSeo/trustshell/issues/589)).
+- **x402:** if your agent pays with x402, run the page's script with a throwaway key and watch the default payment path refuse a payment with no owner policy, or over the owner's cap, before anything is signed. Paying only for work that checked out is not built yet.
+- **OpenClaw:** if you already use `before_tool_call` and `after_tool_call`, that is exactly where a policy check and a receipt would attach. The adapter is not built yet; build it with us.
 
-Found a claim we wrongly supported, a permission we failed to enforce, or a record another machine cannot verify? [Tell us](https://github.com/DealAppSeo/trustshell/issues/new/choose); every reproducible finding becomes a permanent test case.
+The finding we want most is a claim we wrongly supported. A permission we failed to enforce, or a record another machine cannot verify, comes next. [Tell us](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the card from `npx @hyperdag/trustshell@next check <run-url> --claims-file claims.txt --out card`; every reproducible finding becomes a permanent test case.
 
 ## Also: check one sentence an AI told you
 
