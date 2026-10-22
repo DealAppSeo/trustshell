@@ -36,8 +36,11 @@ node demo/guard-carry/run.mjs
 per host (each its own `HOME`, `TRUSTSHELL_HOME` and working folder) and the `node` binary under two names,
 `reader` and `deleter` (links where your OS allows; on Windows, one copy and a hard link to it). It never reads
 or writes your own `~/.trustshell`. Every command runs with the OS basics only (`PATH`, temp folders), so no key or token in your
-environment reaches it. Every TrustShell process starts with `demo/guard-carry/no-network.cjs` preloaded, which
-refuses and logs any TCP connection or host lookup; the demo fails if the log is not empty.
+environment reaches it. Every node process the demo starts, and every node process those start, loads
+`demo/guard-carry/no-network.cjs` (by `--require` and `NODE_OPTIONS`), which refuses and logs any TCP connect, UDP
+send or DNS query made through Node's `net`, `dgram` or `dns` modules. The demo fails if that log is not empty, and
+counts an empty log only if a canary lookup was caught first. It cannot see a native addon, or a process that is
+not node.
 
 **Exit codes.** `0` every step and every line about authority and limits held. `1` one did not; the demo prints
 which, with what the CLI said. `2` NOT_CHECKED: no CLI at the path, or the MCP server could not be asked.
@@ -70,7 +73,7 @@ of the node binary, so the guard can tell them apart by name.
 
 1  The owner sets a policy and chooses what context travels (Host A)
    guard init, guard allow tool:reader, guard sign
-   policy 9da231d8bc4f…, nonce 2, signed by Host A's install key 1df2da072e47…
+   policy 309018104b55…, nonce 2, signed by Host A's install key d92c34ecdef8…
    tool:reader is listed; tool:deleter is not, so it is denied
    profile: one value, one constraint. Two notes written; the owner selects note 1 to carry
 
@@ -84,12 +87,12 @@ of the node binary, so the guard can tell them apart by name.
                                     selected note, and a pointer to Host A's guard ledger
            the CLI says: A bundle is signed, NOT encrypted: anyone with the file can read it. Keep it out of git and shared folders.
    Host B  bundle verify            NOT_CHECKED, exit 2: no key named, so nothing is trusted
-   Host B  bundle verify --signer   VERIFIED, signed by 1df2da072e47…; the policy WOULD BE ENFORCED here
+   Host B  bundle verify --signer   VERIFIED, signed by d92c34ecdef8…; the policy WOULD BE ENFORCED here
 
 4  Host B imports the approved context and establishes its effective policy
    before the import       run --tool reader: NOT_CHECKED, exit 2 (no policy here, nothing is authorized)
    bundle import --signer  policy ENFORCED; profile written; 1 note stored untrusted, in quarantine
-   guard show              policy 9da231d8bc4f…, nonce 2, signed by 1df2da072e47…: the same policy as Host A
+   guard show              policy 309018104b55…, nonce 2, signed by d92c34ecdef8…: the same policy as Host A
    bundle context          what a model on Host B is handed:
      | # The person this agent works for (from their signed TrustShell bundle)
      |
@@ -104,7 +107,7 @@ of the node binary, so the guard can tell them apart by name.
      | Owner policy (enforced by the harness, not by you; anything not listed is denied):
      | - allowed actions: tool:bundle, tool:ground, tool:init, tool:inspect, tool:learn, tool:profile, tool:quarantine, tool:recall, tool:redact, tool:remember, tool:report, tool:traps, tool:reader
      | - limits: per action 0, per day 0, in total 0 (smallest units)
-     | - expires: 2026-11-21T18:11:06.000Z
+     | - expires: 2026-11-21T18:38:47.000Z
      |
      | Notes they chose to carry:
      | - precious.txt is the project file the owner never wants deleted
@@ -116,22 +119,22 @@ of the node binary, so the guard can tell them apart by name.
 6  Both hosts wrote evidence, and every record says what it did not see
    Host A  guard-receipts.jsonl, 12 records, chain INTACT
            record 9 tool:reader ALLOWED; record 10 it exited 0
-           record 11 tool:deleter DENIED, executed "not run", under the policy signed by 1df2da072e47…
+           record 11 tool:deleter DENIED, executed "not run", under the policy signed by d92c34ecdef8…
    Host B  guard-receipts.jsonl, 6 records, chain INTACT
            record 4 tool:reader ALLOWED; record 5 it exited 0
-           record 6 tool:deleter DENIED, executed "not run", under the policy signed by 1df2da072e47…
+           record 6 tool:deleter DENIED, executed "not run", under the policy signed by d92c34ecdef8…
    each record lists what it did not see, e.g. "commands run without `trustshell run`"
    the bundle points at Host A's ledger by record 12's hash: the hash travels, the records do not
 
 What this shows, and what it does not. Each line was exercised just now; the demo exits 1 if one
 did not hold.
-HELD  owner-signed: the policy carries a signature by Host A's install key 1df2da072e47…. Host B enforced it only because its operator named that key (--signer); without it, NOT_CHECKED. That fingerprint must reach Host B by a channel you trust: the bundle naming its own author proves nothing. One changed word in the file: REFUSED. A record names a key, not a person.
+HELD  owner-signed: the policy carries a signature by Host A's install key d92c34ecdef8…. Host B enforced it only because its operator named that key (--signer); without it, NOT_CHECKED. That fingerprint must reach Host B by a channel you trust: the bundle naming its own author proves nothing. One changed word in the file: REFUSED. A record names a key, not a person.
 HELD  mediated paths only: the guard decides for `trustshell run` (the deleter, exit 5) and for TrustShell's own commands at the CLI gate (`remember`, exit 5, once the owner denied tool:remember). Nothing else.
 HELD  not mediated: an MCP `remember` call wrote note 3 on Host A while the policy denied tool:remember (stored untrusted, in quarantine), and the deleter, started directly instead of through TrustShell, deleted precious.txt on Host B. The guard sees only what goes through it.
 HELD  signed, not encrypted: the carried note reads as plain text in bundle.json; the note the owner did not select is not in it. Anyone with the file can read it.
 HELD  a declaration is not authorization: the delete labelled `--class read`, and the deleter started as `--tool reader`, were both refused. A model is told the policy is "enforced by the harness, not by you"; what it says about its own permission changes nothing.
 HELD  whoever runs the CLI as the owner can change the policy: on Host B `guard allow tool:deleter` needed no key and no password: the owner signature was dropped and the next delete ran. On Host A the same edit plus `guard sign` re-signed it with the install key, and a third host trusting that key enforced it and ran the delete. The signature says which key signed, not that the owner meant it. Each change was recorded with the policy hash before and after; none was prevented.
-HELD  no network: every TrustShell process ran with TCP connects and host lookups refused and logged: 0 attempt(s).
+HELD  no network: every node process the demo started, the CLI, the MCP server, reader and deleter, ran with Node's TCP connects, UDP sends and DNS queries refused and logged: 0 attempt(s). A canary lookup was caught, so the check was live.
 
 RESULT  steps 1-6 held; 7 of 7 lines above held
 ```
@@ -166,6 +169,8 @@ behaviour changes, the demo exits 1 and its test fails until the sentence is cha
   agent that can run the CLI itself. Every change is recorded with the policy hash before and after; none is
   prevented. Whether to require more than "can run the CLI as the owner" to change a policy is an open design
   decision.
-- **No network.** Observed, not assumed: every TrustShell process ran with connections refused and logged.
+- **No network.** Observed, not assumed: every node process the demo started ran with Node's TCP, UDP and DNS calls
+  refused and logged, a canary lookup proves the refusal was live in that run, and the test checks that the same
+  preload catches a `fetch`, a `dns.resolve4` and a UDP send.
 
 `trustshell guard show` prints the full list of what the guard does not cover, on any host with a policy.
