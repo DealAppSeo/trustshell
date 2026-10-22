@@ -79,3 +79,7 @@ Open an issue on [DealAppSeo/trustshell](https://github.com/DealAppSeo/trustshel
 - Only GitHub Actions runs are read.
 - We will not re-run or delete the pinned run. If it ever disappears, every claim about it comes back not checked, which is the honest answer.
 - Policies that refuse an action, and a signed bundle that carries your settings to another model, are being built and attacked now. They are not part of this challenge until their tests and the red-team battery pass.
+
+## Building on ERC-8004, x402 or OpenClaw?
+
+See [what runs today, what is not built yet, and what to build with us](https://trustshell.dev/build).

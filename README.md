@@ -42,6 +42,16 @@ Four things to know before you try your own words:
 
 If the card says **SUPPORTED** and it should not have, that is the worst bug this tool can have: [open an issue](https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml) with the run URL and your claim file. The rules are in [docs/action-evidence.md](docs/action-evidence.md); to help, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Building on ERC-8004, x402 or OpenClaw?
+
+This is a developer preview, and we want builders to test it with us. For each community, [trustshell.dev/build](https://trustshell.dev/build) shows what runs today, with a command or a source you can check, and what is not built yet:
+
+- **ERC-8004:** an agent can have an identity and a reputation. Can you verify what earned it? Feedback bound to its receipt, payment, delivered work and an independent check is not built yet ([#589](https://github.com/DealAppSeo/trustshell/issues/589)).
+- **x402:** the default payment path refuses a payment with no owner policy, no cap, or an amount over the cap, before anything is signed. Paying runs on Base Sepolia testnet only and needs an API key.
+- **OpenClaw:** your agent worked overnight. What did it do, what was allowed, what should you trust? OpenClaw's `before_tool_call` and `after_tool_call` hooks are where an adapter would sit; the adapter is not built yet. Build it with us.
+
+Found a claim we wrongly supported, a permission we failed to enforce, or a record another machine cannot verify? [Tell us](https://github.com/DealAppSeo/trustshell/issues/new/choose); every reproducible finding becomes a permanent test case.
+
 ## Also: check one sentence an AI told you
 
 Paste something an AI told you and see if it checks out. This is a different command with a different promise: it sends the sentence (after scrubbing secrets on your device) to the hosted checkers, so it leaves your machine.
