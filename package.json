@@ -1,7 +1,7 @@
 {
   "name": "@hyperdag/trustshell",
   "version": "1.8.0",
-  "description": "Trust SDK for AI agents — HAL hallucination filtering, portable RepID, and agent-to-agent service purchase with verifiable receipts, against the live HyperDAG backend.",
+  "description": "Check what your AI agent says it did against the evidence. Inspect checks an agent's claims about a GitHub Actions run against GitHub's own record, with no account; also a hosted second-opinion check, local memory, an MCP server and an SDK.",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"

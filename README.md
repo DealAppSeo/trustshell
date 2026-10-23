@@ -77,7 +77,7 @@ That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run
 
 [![npm](https://img.shields.io/npm/v/@hyperdag/trustshell)](https://www.npmjs.com/package/@hyperdag/trustshell)
 [![npm downloads](https://img.shields.io/npm/dm/@hyperdag/trustshell.svg)](https://www.npmjs.com/package/@hyperdag/trustshell)
-[![Standard: ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-blue)](https://github.com/DealAppSeo/hyperdag-protocol)
+[![Standard: ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-blue)](https://eips.ethereum.org/EIPS/eip-8004)
 [![Protocol: HyperDAG](https://img.shields.io/badge/Protocol-HyperDAG-purple)](https://github.com/DealAppSeo/hyperdag-protocol)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
 
@@ -120,15 +120,20 @@ The Chrome extension in `extension/` does not import this package. It asks the s
 
 ---
 
-## The portable agentic trust harness
+## The trust harness: what runs today, and where it is going
 
-Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass. That is the difference between *another LLM judge* and a *trust rail*.
+Most "LLM trust" tools are *judges*: they score an output and leave the decision to you. TrustShell is built to **fail closed**. An unavailable check is never a pass. It hands you evidence you can check yourself, rather than our word.
+- **Today:** Inspect checks an agent's claims about a CI run against GitHub's own record. Its record is canonical JSON with a SHA-256 digest; it is not signed yet.
+- **Direction:** a harness that is yours. Your rules, memory and evidence stay with you as you swap the model underneath. Carry, which takes your profile, rules and notes to another machine, is built and not yet released. Reputation that moves with an agent is the aim, and it is not a property of this release.
 
-**One `npm install` gives any agent three protocols in one wrapper:**
+Why we build it, and the research for and against each part: [hyperdag-protocol/docs/WHY.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/docs/WHY.md).
 
-- ✅ **HAL cross-LLM verification** — `verifyOutput()` — real cross-provider fact-check quorum (keyless, live-verified)
-- 🏅 **ERC-8004 portable reputation** — `getRepID()` / `presentProof()` — look up any agent's RepID score + tier, or present a client-verifiable range proof (keyless, live-verified)
-- 💸 **x402 payments** — `executeA2A()` / `guardedX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (key-gated: blocked without an API key and a funded Base Sepolia wallet, which is why [Live vs paused](#live-vs-paused) lists it as `paused/blocked`)
+**One `npm install` gives you:**
+
+- 🔎 **Inspect** — `trustshell check <run-url> --claims-file <file>` — checks what an agent said about a GitHub Actions run against GitHub's record (no account, no key; its only network call is to api.github.com)
+- ✅ **A hosted second-opinion check** — `verifyOutput()` — two AI checkers read one sentence (keyless). Two agreeing checkers are a second opinion, not proof.
+- 🏅 **ERC-8004 reputation** — `getRepID()` / `presentProof()` — look up an agent's RepID score and tier, or present a range proof anyone can check; the score itself is public (keyless, Base Sepolia test network)
+- 💸 **x402 payments** ([x402](https://github.com/coinbase/x402) by Coinbase) — `executeA2A()` / `guardedX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (key-gated: blocked without an API key and a funded Base Sepolia wallet, which is why [Live vs paused](#live-vs-paused) lists it as `paused/blocked`)
 
 HAL verify and RepID lookup run against the live backend with **no key**. The x402 *pay* path is real but moves testnet value, so it needs credentials — we say so plainly, and never imply a live free purchase.
 
@@ -196,7 +201,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 npm install @hyperdag/trustshell
 ```
 
-This is the one live, published install today. It delivers all three protocols in one wrapper — **HAL** verification, **ERC-8004** portable RepID, and **x402** agent-to-agent payments — against the live backend.
+This is the one live, published install today. It delivers Inspect, the hosted **HAL** check, **ERC-8004** RepID reads and range proofs, and **x402** payments with a spend guard, against the live backend (anything on-chain is on the Base Sepolia test network).
 
 The package does not carry the Next.js/React site. The 1.8.0 tarball is 123 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.8.0 dependencies peerDependencies dist.fileCount`)
 
@@ -204,9 +209,9 @@ The package does not carry the Next.js/React site. The 1.8.0 tarball is 123 file
 
 | If you're… | Install | What you get |
 |---|---|---|
-| A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — HAL verification + ERC-8004 RepID + x402 payments, in your TypeScript/JS |
+| A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — Inspect, HAL verification, ERC-8004 RepID reads and x402 payments, in your TypeScript/JS |
 | Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.8.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
-| Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone Plonky3 proof checking. It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
+| Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone checking of [Plonky3](https://github.com/Plonky3/Plonky3) proofs (Plonky3 is Polygon Labs' proof system). It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
 
 **Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a separate package it depends on: npm installs it alongside, and the published tarball contains none of its files.**
 
@@ -451,7 +456,7 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
 
 The check subcommand reads a public GitHub Actions run URL from the **public** GitHub API
 and prints what GitHub can confirm about it — that the run finished, that its conclusion was
-success, that **every job** passed, and that the commit exists on the remote.
+success, that **every job** passed, and which commit it ran on, as GitHub reports it.
 
 A run that is still queued or in progress is `INCONCLUSIVE`, never `FAILED` — an unfinished build
 has not failed, it has not answered. Likewise, if GitHub reports more jobs than it returned, the
@@ -792,7 +797,7 @@ Register your agent at **[repid.dev/start](https://repid.dev/start)**. Browse li
 
 ## Model card
 
-A portable trust harness so AI has to earn it.
+A trust harness so AI has to earn it.
 
 Read-only card at [app/model-card/page.tsx](app/model-card/page.tsx). Columns: family, host, Honesty A, Help B. Honesty A is **FIXTURE** counts of TRUE, FALSE, and NOT_CHECKED from [`fixtures/hal-last-week.fixture.json`](fixtures/hal-last-week.fixture.json). Help B is **no ratings**. There is no human-ratings table in this repo.
 
@@ -813,6 +818,6 @@ HyperDAG Protocol — the trust layer TrustShell builds on — is moving toward 
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE). Patent rights, if any, are granted under the Apache 2.0 patent grant clause. Commercial use of the (experimental) Pythagorean Comma Veto methodology in closed-source systems requires written permission from DealApp Inc.
+Apache 2.0 — see [LICENSE](LICENSE). Copyright 2026 Sean Goodwin. Patent rights, if any, are granted under the Apache 2.0 patent grant clause.
 
-Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol). ERC-8004 compatible. Micah 6:8.
+**Part of the HyperDAG trust stack.** How the pieces fit: [BUILDERS.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/BUILDERS.md#how-the-pieces-fit). Credits and licences, including [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) by its authors, [x402](https://github.com/coinbase/x402) by Coinbase and [Plonky3](https://github.com/Plonky3/Plonky3) by Polygon Labs: [ACKNOWLEDGEMENTS.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/ACKNOWLEDGEMENTS.md). Micah 6:8.
