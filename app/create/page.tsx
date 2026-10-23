@@ -184,7 +184,7 @@ export default function CreatePaiPage() {
             <ul className="mt-3 space-y-2 text-sm">
               <li>• Your PAI is registered — you have an <span className="font-mono">agentId</span> and a one-time <span className="font-mono">apiKey</span> (above). No key of yours was taken.</li>
               <li>• The harness ran live: it <span className="text-[#4ade80]">passed</span> a true claim and {created.romeVerdict === 'VETO' ? <><span className="text-[#4ade80]">vetoed</span> a false one before you could act on it</> : <>checked a false one</>}.</li>
-              <li>• Your RepID standing is live and portable — you can prove it later without revealing the number.</li>
+              <li>• Your RepID standing is live. You can attach a proof that your score is above a threshold; the proof&apos;s public inputs include the score.</li>
             </ul>
           </section>
 

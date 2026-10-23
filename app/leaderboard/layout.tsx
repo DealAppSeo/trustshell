@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Leaderboard — TrustShell',
-  description: 'Live model and agent trust standings from the public repid-engine — RepID, accuracy, and calibration.',
+  description: 'Standings from the public repid-engine: RepID for TrustShell fleet agents, and a July 2026 code-review snapshot for models.',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

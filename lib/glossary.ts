@@ -89,7 +89,7 @@ export const TERMS: Term[] = [
     group: 'using',
     status: 'shipped',
     definition:
-      'One conversation that sits in front of the whole trust kernel. Instead of learning six screens, you talk to your PAI and it files the work, runs the checks and shows you what it did.',
+      'A short conversation that writes your agent\'s rules (a three-question interview), then points you to the page that answers what you asked. It matches keywords and can find nothing; it does not file work or run checks for you.',
     related: ['agent', 'constitution'],
   },
   {
@@ -181,9 +181,9 @@ export const TERMS: Term[] = [
     slug: 'stake',
     term: 'Stake',
     group: 'own',
-    status: 'shipped',
+    status: 'not-live',
     definition:
-      'Collateral an agent\'s owner posts to raise how much that agent may transact autonomously. Skin in the game, expressed as a number the system can check.',
+      'Designed so that collateral an agent\'s owner posts raises how much that agent may spend. Today a stake runs on the Base Sepolia test network only, moves no real money, and does not raise what an agent may spend.',
     related: ['authority-ceiling', 'a-eff'],
   },
   {
@@ -328,7 +328,7 @@ export const TERMS: Term[] = [
     definition:
       'Anything an agent picks up from outside — a web page, a tool result, another agent\'s message — is held apart and does not enter the agent\'s trusted core until a check promotes it. Untrusted input can be read and reasoned about; it cannot silently become a fact the agent acts on.',
     note:
-      'A missed prompt-injection, or a falsified fact admitted to the core as true, is a LARGE loss — it costs more than several confirmed rights earn, because one poisoned fact can steer every decision made after it. The asymmetry is deliberate: better to quarantine a true thing by mistake than to admit a false one. A first, narrow version runs on main in the package\'s local memory and is not yet in a published release: a note the operator has not vouched for is held out of recall until a ground or HAL check, or the operator, releases it, and injection-looking text is never released. It has no sandboxed execution and no adaptive learning; those are direction, not live.',
+      'A missed prompt-injection, or a falsified fact admitted to the core as true, is a LARGE loss — it costs more than several confirmed rights earn, because one poisoned fact can steer every decision made after it. The asymmetry is deliberate: better to quarantine a true thing by mistake than to admit a false one. A first, narrow version ships in the current `latest` npm release (`trustshell quarantine`) in the package\'s local memory: a note the operator has not vouched for is held out of recall until a ground or HAL check, or the operator, releases it, and injection-looking text is never released. It has no sandboxed execution and no adaptive learning; those are direction, not live.',
     related: ['constitution', 'measured', 'repid'],
   },
   {
@@ -454,9 +454,9 @@ export const TERMS: Term[] = [
     slug: 'cascade',
     term: 'Cascade',
     group: 'protocol',
-    status: 'shipped',
+    status: 'engine-only',
     definition:
-      'The settlement-to-fulfilment pipeline: after payment, escrow moves to fulfilled and an on-chain reputation attestation is written — autonomously, and exactly once.',
+      'The settlement-to-fulfilment pipeline in the engine: after settlement, the engine may publish a reputation attestation. Publishing is periodic and can be paused, so a settled deal does not always end in an on-chain write.',
     related: ['x402', 'attestation'],
   },
   {

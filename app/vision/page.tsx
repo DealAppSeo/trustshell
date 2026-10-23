@@ -77,7 +77,7 @@ const SURFACES: ReadonlyArray<Surface> = [
     state: 'shipped',
     one: 'The stranger path, finished.',
     body:
-      'Paste a sentence; two independent model families check it; you see what each one said — Checks out, Caught, or Not checked. The SDK is published on npm as @hyperdag/trustshell (1.7.0). This is the one live product entry point, and it needs no signup and no wallet.',
+      'Paste a sentence; two checkers from different model families check it (they can run on the same host); you see what each one said — Checks out, Caught, or Not checked. The SDK is published on npm as @hyperdag/trustshell (1.7.0). This is the one live product entry point, and it needs no signup and no wallet.',
     link: { href: '/start', label: 'Start here' },
   },
   {
@@ -86,7 +86,7 @@ const SURFACES: ReadonlyArray<Surface> = [
     star: true,
     one: 'The star at the centre.',
     body:
-      'One engine carries the two things every surface leans on: a portable score for how an agent has actually behaved, and a check that runs a claim past independent model families before it counts. Every surface below is a spoke to this engine — not a new trust system of its own. That is the whole shape: a star, not a mesh.',
+      'One engine carries the two things every surface leans on: our engine’s score for how an agent has behaved, which the engine also writes as ERC-8004 feedback on Base Sepolia testnet, and a check that asks two model families (they can share a host) before a claim counts. Every surface below is a spoke to this engine — not a new trust system of its own. That is the whole shape: a star, not a mesh.',
     link: { href: '/how-verification', label: 'How verification works' },
   },
   {
@@ -233,8 +233,8 @@ export default function VisionPage() {
         <div className="space-y-3 text-sm md:text-base text-muted leading-relaxed">
           <p>
             <span className="text-foreground font-semibold">Shipped</span> means it is live today and
-            you can use it now — the check, and the engine behind it. The check runs past independent
-            model families and lands on one of three results: Checks out, Caught, or Not checked. Not
+            you can use it now — the check, and the engine behind it. The check runs past two model
+            families (they can share a host) and lands on one of three results: Checks out, Caught, or Not checked. Not
             checked is never a quiet yes; it fails closed.
           </p>
           <p>

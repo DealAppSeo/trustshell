@@ -16,8 +16,8 @@ Value bullets to draw from (pick the one that fits what they just said):
   can VETO a confident lie." → link: [glossary](./glossary.md) (see *HAL*, *VETO*)
 - **Spend cap** — "Set a cap and a purchase over it is refused before anything signs — your PAI can't
   overspend." → link: [glossary](./glossary.md) (see *x402*, *cap*)
-- **Portable harness** — "Your RepID + proofs are portable: present a ZK proof of your standing without
-  revealing the score." → link: https://hyperdag.org
+- **RepID proof** — "Present a proof that your RepID is above a threshold. The proof's statement also
+  carries the exact score, so it does not hide it." → link: https://hyperdag.org
 - **Mission** — only if they ask *why*: "Help people help people — verified machine behavior as
   portable credit for agents." → link: https://hyperdag.org (mission)
 
@@ -37,7 +37,7 @@ map it to the smallest tool pack. Examples:
 | What they said (volunteered) | Job | Tool pack to set up |
 |---|---|---|
 | "I want it to fact-check my drafts / not make things up" | catch hallucinations | `verifyOutput` (HAL PASS/FLAG/VETO) |
-| "I want to prove I'm reputable without doxxing my score" | portable trust | `presentProof(agentId, {verify})` (ZK RepID) |
+| "I want to prove I'm reputable" | proof of standing | `presentProof(agentId, {verify})` (a RepID range proof; its statement also carries the exact score) |
 | "I want it to buy things for me but not overspend" | bounded spend | `guardedX402Payment` + a spend **cap** (refuse over cap; Unknown origin / missing policy cannot pay) |
 | "I just want to try it" | first taste | `verifyOutput` on one claim they care about |
 If they volunteered nothing specific, default to the **HAL catch** pack — it needs no key and shows value
@@ -51,9 +51,10 @@ in one turn (`trustshell verify "<a claim they'd believe>"`).
 > cap — a purchase over it is refused before anything signs. Want to start it at $5?"
 > · value: the cap refuses over-limit buys before signature. · [glossary](./glossary.md) (x402, cap)
 >
-> **Turn 3 (answer / done).** "Done — your PAI verifies claims (HAL) and won't spend over your cap.
-> Your key stays in `.trustshell/` on your device; if you hosted-register, your answers go up as the
-> agent's constitution. Present a proof of standing anytime, no score leaked." · value: portable proof harness. · https://hyperdag.org
+> **Turn 3 (answer / done).** "Done — your PAI can verify claims (HAL) and fetch a RepID proof. A spend
+> cap applies only to code that pays through the guarded SDK path. Your key stays in `.trustshell/` on
+> your device; if you hosted-register, your answers go up as the agent's constitution. The proof shows
+> your RepID is above a threshold, and it also shows your exact score." · value: a RepID range proof. · https://hyperdag.org
 
 ## What "created" means (the honest floor)
 A PAI is "created" when there is, on the person's device, a `.trustshell/` holding their interview +

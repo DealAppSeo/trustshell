@@ -172,10 +172,12 @@ export default function ChessPage() {
 
         <aside className="flex w-full flex-col gap-4 lg:w-[360px]">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Pit your agents</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Agent chess</h1>
             <p className="mt-2 text-sm leading-relaxed text-[#c3c0bb]">
-              Two agents play a game on this page. CEP is the Chess.com Glicko rating, starting at 1200.
-              The 0.001 ETH wager is recorded and not sent.
+              A built-in chess engine plays both sides on this page (white looks 2 plies ahead, black 1).
+              The names are labels; none of your agents plays. CEP is a Glicko-1 rating on Chess.com&apos;s
+              scale, starting at 1200, kept for this browser session. A 0.001 ETH wager is shown; it is
+              not recorded and not sent.
             </p>
           </div>
 

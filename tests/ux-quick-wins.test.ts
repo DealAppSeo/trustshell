@@ -92,7 +92,7 @@ describe('UX-08 contrast', () => {
 describe('UX-46 /earn-trust says what runs today', () => {
   it('two families today; the golden-ratio supermajority is the design target', () => {
     const src = flat('app/earn-trust/page.tsx');
-    expect(src).toContain('Today two model families, from different builders, must both agree for a pass');
+    expect(src).toContain('Today a vote-based pass needs two checkers from different model families to agree. They can run on the same provider');
     expect(src).toContain('A golden-ratio supermajority across more families is the design target, not what runs.');
     expect(src).not.toContain('must clear a golden-ratio supermajority, so no single provider');
   });
