@@ -102,7 +102,7 @@ export function planFor(where: Where, origin: Origin): Step[] {
         ? [
             {
               text: 'Make your agent. Three questions; it writes .trustshell/credentials.json with the agent’s ID and key. Keep that file private.',
-              code: 'npx @hyperdag/trustshell@1.7.0 init --pai',
+              code: 'npx @hyperdag/trustshell@1.8.0 init --pai',
             },
             { ...CLAIM, text: 'Claim it on this site with your wallet: paste the agent ID and the key from .trustshell/credentials.json.' },
           ]

@@ -359,7 +359,7 @@ it in version control.
 
 ### `trustshell profile show | add | set | remove | interview`
 
-In this tree, not in the published 1.7.0. Read and edit the personal sections of `.trustshell/profile.md`. **No network.**
+Since 1.8.0; on 1.7.0 and older `profile` is an unknown command. Read and edit the personal sections of `.trustshell/profile.md`. **No network.**
 Every entry is text you type; nothing is detected or inferred. These sections:
 
 - **Values**: ranked, in your own words. Use `profile add value "<text>"`. To re-rank, edit the file.
@@ -433,7 +433,7 @@ Immune system v0 for local memory. `remember "<text>"` (with or without `--untru
 
 ### `trustshell learn <verb>`
 
-> **Not in the published 1.7.0.** On 1.7.0 and 1.6.1 this command exits `2` with
+> **Since 1.8.0.** On 1.7.0 and older this command exits `2` with
 > `unknown command: learn`.
 
 The learning loop v1, local. Nothing leaves the machine. `trustshell learn` alone lists the verbs.
@@ -609,19 +609,19 @@ a run or a session that happened — run these against your own and read the rea
 | `ground` | **none** — reads the `--source` file. Since 1.7.0 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
-| `profile` | **none** — reads and writes `.trustshell/profile.md`. In this tree, not in the published 1.7.0 | none |
+| `profile` | **none** — reads and writes `.trustshell/profile.md`. Since 1.8.0 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
-| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. In this tree, not in the published 1.7.0 | none |
+| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. Since 1.8.0 | none |
 | `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
-| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, not in the published 1.7.0 | none |
-| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, not in the published 1.7.0 | none |
-| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, not in the published 1.7.0 | none |
+| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, in no npm release yet (not in 1.8.0) | none |
+| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, in no npm release yet (not in 1.8.0) | none |
+| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, in no npm release yet (not in 1.8.0) | none |
 
 `init` and `profile` are the only commands that write to your working directory, and they write exactly
 one file: `.trustshell/profile.md`.
@@ -995,4 +995,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v1.7.0 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
+> Reflects the published `@hyperdag/trustshell` v1.8.0 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).

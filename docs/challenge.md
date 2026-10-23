@@ -14,19 +14,19 @@ bash or zsh:
 
 ```bash
 mkdir ts-challenge && cd ts-challenge && npm init -y
-npm install @hyperdag/trustshell@next
-npx @hyperdag/trustshell@next --version
+npm install @hyperdag/trustshell@latest
+npx @hyperdag/trustshell@latest --version
 ```
 
 Windows PowerShell:
 
 ```powershell
 mkdir ts-challenge; cd ts-challenge; npm init -y
-npm install @hyperdag/trustshell@next
-npx @hyperdag/trustshell@next --version
+npm install @hyperdag/trustshell@latest
+npx @hyperdag/trustshell@latest --version
 ```
 
-`@next` is the release candidate, 1.8.0-rc.0. A plain `npm install @hyperdag/trustshell` gives 1.7.0, which does not have `--claims`.
+`--version` should print 1.8.0 or later. `--claims` and `--claims-file` are new in 1.8.0; 1.7.0 and older do not have them.
 
 ## 2. Check two claims against a pinned run
 
@@ -39,7 +39,7 @@ bash or zsh:
 ```bash
 RUN=https://github.com/DealAppSeo/trustshell/actions/runs/39619591025
 printf 'The check workflow succeeded, run 39619591025.\n\nThe check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.\n' > claims.txt
-npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt --out card; echo "exit $?"
+npx @hyperdag/trustshell@latest check "$RUN" --claims-file claims.txt --out card; echo "exit $?"
 ```
 
 Windows PowerShell:
@@ -47,10 +47,10 @@ Windows PowerShell:
 ```powershell
 $run = "https://github.com/DealAppSeo/trustshell/actions/runs/39619591025"
 "The check workflow succeeded, run 39619591025.", "", "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025." | Set-Content claims.txt
-npx @hyperdag/trustshell@next check $run --claims-file claims.txt --out card; "exit $LASTEXITCODE"
+npx @hyperdag/trustshell@latest check $run --claims-file claims.txt --out card; "exit $LASTEXITCODE"
 ```
 
-What you should see, abridged (measured on the release candidate, 2026-10-21):
+What you should see, abridged (measured on 1.8.0 from npm, in bash and in Windows PowerShell, 2026-10-23):
 
 ```
 ### Claims: 3 supported · 1 contradicted · 1 not checked

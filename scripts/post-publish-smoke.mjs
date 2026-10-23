@@ -7,9 +7,9 @@
  * pushed or written outside the temp directory. API keys and TRUSTSHELL_API_URL are removed from
  * every child's environment, so `check` asks the default public endpoint with no key.
  *
- * Usage:  node scripts/post-publish-smoke.mjs <version> [--files 105] [--tools 19] [--keep]
- *   --files  how many files `npm pack` counted for this release (1.7.0: 105)
- *   --tools  how many tools its MCP server lists (1.7.0: 19, and never `quarantine_release`)
+ * Usage:  node scripts/post-publish-smoke.mjs <version> [--files 123] [--tools 20] [--keep]
+ *   --files  how many files `npm pack` counted for this release (1.8.0: 123)
+ *   --tools  how many tools its MCP server lists (1.8.0: 20, and never `quarantine_release`)
  *
  * Exit 0 only when every check passes. 1 when any fails, including `latest` not being <version>.
  * 2 when the registry did not answer: NOT_CHECKED, never a pass.
@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const PKG = '@hyperdag/trustshell';
-const DEFAULTS = { files: 105, tools: 19 };
+const DEFAULTS = { files: 123, tools: 20 };
 // Decided by the engine's exact calculation, so the answer does not depend on which model is up.
 const TRUE_SENTENCE = '2 + 2 = 4';
 const FALSE_SENTENCE = '2 + 2 = 5';

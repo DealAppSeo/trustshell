@@ -3,8 +3,8 @@
     pip install langchain-mcp-adapters langgraph
     python recipe.py
 
-The TrustShell MCP server is started by npx (the first run downloads @hyperdag/trustshell@next). On Windows use "npx.cmd" if "npx" is not found.
-Verified 2026-10-22 on Windows 11, Python 3.13, langchain-mcp-adapters 0.3.2, langgraph 1.2.16, @hyperdag/trustshell 1.8.0-rc.0.
+The TrustShell MCP server is started by npx (the first run downloads @hyperdag/trustshell@latest). On Windows use "npx.cmd" if "npx" is not found.
+Verified 2026-10-22 on Windows 11, Python 3.13, langchain-mcp-adapters 0.3.2, langgraph 1.2.16, @hyperdag/trustshell 1.8.0-rc.0. The same launch lists the same 20 tools on 1.8.0 (2026-10-23).
 """
 import asyncio
 import json
@@ -26,7 +26,7 @@ ENV = {  # a throwaway home, so the recipe touches none of your real notes
 async def main() -> None:
     client = MultiServerMCPClient({"trustshell": {
         "transport": "stdio", "command": "npx",
-        "args": ["-y", "-p", "@hyperdag/trustshell@next", "trustshell-mcp"], "env": ENV}})
+        "args": ["-y", "-p", "@hyperdag/trustshell@latest", "trustshell-mcp"], "env": ENV}})
     tools = await client.get_tools()
     print(f"{len(tools)} TrustShell tools loaded, e.g. {', '.join(sorted(t.name for t in tools)[:6])}")
     ground = next(t for t in tools if t.name == "ground_quote")
