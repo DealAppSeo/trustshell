@@ -21,6 +21,23 @@ exports.fetchCommitChecks = fetchCommitChecks;
  *                                a file out of them, wrote its own checks (R4, W1)
  */
 const check_1 = require("./check");
+/**
+ * U+FFFD for an unpaired surrogate, and nothing else: the same neutralisation `wellFormed` in
+ * action-evidence.ts applies to every other string GitHub returns. These strings come from the
+ * repository being inspected, and the record is hashed with RFC 8785, which refuses an unpaired
+ * surrogate: one of them would throw the digest, or `encodeURIComponent`, and abort the whole command
+ * instead of recording what it could. Local rather than imported, because action-evidence.ts imports
+ * this module. (Strix LOW on #620.)
+ */
+function wellFormed(s) {
+    const replacement = String.fromCharCode(0xfffd);
+    let out = '';
+    for (const ch of String(s ?? '')) {
+        const cp = ch.codePointAt(0);
+        out += cp >= 0xd800 && cp <= 0xdfff ? replacement : ch;
+    }
+    return out;
+}
 const FAILED = new Set(['failure', 'timed_out', 'startup_failure']);
 /** Ruleset rules that gate a merge on something this does not read: never "all checks pass" with one. */
 const UNSUPPORTED_RULES = new Set(['workflows', 'code_scanning', 'required_deployments']);
@@ -109,7 +126,7 @@ async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () =
     const addPrs = (list) => {
         for (const p of list) {
             prs.set(p.number, p);
-            bases.add(p.base.ref);
+            bases.add(wellFormed(p.base.ref));
         }
     };
     const pulls = await array(get, `${commit}/pulls`, 1);
@@ -142,11 +159,11 @@ async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () =
     else {
         how = 'push';
         if (run.head_branch)
-            bases.add(run.head_branch);
+            bases.add(wellFormed(run.head_branch));
         else {
             const r = await get(at);
             if (r.ok && typeof r.body?.default_branch === 'string')
-                bases.add(r.body.default_branch);
+                bases.add(wellFormed(r.body.default_branch));
             else
                 resolved = false;
         }
@@ -221,29 +238,33 @@ async function fetchCommitChecks(owner, repo, sha, env = process.env, now = () =
         check_runs: {
             total_count: latest?.total_count ?? 1, // unread: claims one more run than it lists, so it is never complete
             items: (latest?.items ?? []).map((c) => ({
-                name: String(c?.name ?? ''),
-                status: String(c?.status ?? ''),
-                conclusion: typeof c?.conclusion === 'string' ? c.conclusion : null,
+                name: wellFormed(c?.name ?? ''),
+                status: wellFormed(c?.status ?? ''),
+                conclusion: typeof c?.conclusion === 'string' ? wellFormed(c.conclusion) : null,
                 app_id: typeof c?.app?.id === 'number' ? c.app.id : null,
             })),
         },
         statuses: {
             total_count: status?.total_count ?? 1,
-            items: (status?.items ?? []).map((x) => ({ context: String(x?.context ?? ''), state: String(x?.state ?? '') })),
+            items: (status?.items ?? []).map((x) => ({ context: wellFormed(x?.context ?? ''), state: wellFormed(x?.state ?? '') })),
         },
         suites: complete(suites)
             ? {
                 total_count: suites.total_count,
                 items: suites.items.map((x) => ({
-                    app: String(x?.app?.slug ?? ''),
-                    status: String(x?.status ?? ''),
-                    conclusion: typeof x?.conclusion === 'string' ? x.conclusion : null,
+                    app: wellFormed(x?.app?.slug ?? ''),
+                    status: wellFormed(x?.status ?? ''),
+                    conclusion: typeof x?.conclusion === 'string' ? wellFormed(x.conclusion) : null,
                     runs: Number(x?.latest_check_runs_count ?? 0),
                 })),
             }
             : null,
         superseded_failures: reruns === null || flipped === null ? null : reruns + flipped,
-        required: required === null ? null : required.filter((q, i) => required.findIndex((r) => r.context === q.context && r.app_id === q.app_id) === i),
+        required: required === null
+            ? null
+            : required
+                .filter((q, i) => required.findIndex((r) => r.context === q.context && r.app_id === q.app_id) === i)
+                .map((q) => ({ ...q, context: wellFormed(q.context) })),
         unsupported_rules: unsupported === null ? null : [...new Set(unsupported)],
         workflows_changed: files === null ? null : files.some((f) => f.startsWith('.github/workflows/') || f.startsWith('.github/actions/')),
         sources,

@@ -537,3 +537,29 @@ describe('adversarial corpora under guided mode: no SUPPORTED outcome, no exit 0
     expect(c.filter((e) => e.status === 'SUPPORTED' && OUTCOMES.has(e.template))).toEqual([]);
   });
 });
+
+describe('strings from the inspected repository are neutralised before hashing (Strix LOW on #620)', () => {
+  // An unpaired UTF-16 surrogate in a check name or status context used to reach the RFC 8785 digest, which
+  // refuses it: the command aborted with no record instead of recording what it could. Built at runtime so
+  // no lone surrogate sits in this file.
+  const LONE = String.fromCharCode(0xd800);
+  const poisoned = () =>
+    evidence('green-run.json', 'guided-green-checks.json', (r) => {
+      const runs = Object.keys(r).find((k) => k.includes('/check-runs?filter=latest'))!;
+      const statuses = Object.keys(r).find((k) => k.endsWith('/status?per_page=100&page=1'))!;
+      const cr = r[runs].body.check_runs;
+      if (cr.length) cr[0].name = `check${LONE}name`;
+      const st = r[statuses].body.statuses;
+      if (Array.isArray(st) && st.length) st[0].context = `ctx${LONE}`;
+      else r[statuses].body.statuses = [{ context: `ctx${LONE}`, state: 'success' }];
+    });
+
+  it('still produces a record and a digest, with U+FFFD in place of the surrogate', async () => {
+    const { record, digest } = await inspect(poisoned(), 'All checks pass.');
+    expect(typeof digest.value).toBe('string');
+    const json = JSON.stringify(record);
+    expect(json.includes(LONE)).toBe(false);
+    expect(json).toContain(String.fromCharCode(0xfffd));
+    expect(digest.value).toBe(digestRecord(JSON.parse(json)).value);
+  });
+});
