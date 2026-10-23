@@ -6,7 +6,7 @@ import { bindStatus } from '@/lib/bind-status';
 export const metadata = {
   title: 'Claim your agent — TrustShell',
   description:
-    'Sign once to prove an agent is yours. Ownership is a signature you made, checkable by anyone, revocable at any time. No email, no name, no transaction.',
+    'Your wallet asks to sign twice (three times for a new account) to prove an agent is yours. Ownership is a signature you made, checkable by anyone, revocable at any time. No email, no name, no transaction.',
 };
 
 /**
@@ -33,7 +33,8 @@ export default function BindPage() {
           and you can withdraw at any time.
         </p>
         <p className="max-w-[64ch] leading-relaxed text-[#a1a1aa]">
-          It asks for a wallet and nothing else. No email, no name, no transaction, no fee. An
+          It asks for a wallet signature and the agent&apos;s own key (sent to the engine, not saved
+          here). No email, no name, no transaction, no fee. An
           address is a pseudonym — this is the most private way to hold anything here, and it
           is the last thing the walkthrough asks of you.
         </p>

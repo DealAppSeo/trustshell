@@ -8,4 +8,4 @@ An agent does not see a full key. `register()` returns `apiKey` once, on `Regist
 
 The shape check that already exists is `src/lib/ingest.ts`: a prompt that asks to reveal a secret or an API key is refused. The paste ban is in [docs/WALKTHROUGH.md](./WALKTHROUGH.md).
 
-Staking is not live.
+Staking is on the Base Sepolia test network only. No mainnet or real-money stake.

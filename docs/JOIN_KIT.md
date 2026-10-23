@@ -21,4 +21,4 @@ If the vote did not come back, the last word is NOT_CHECKED:
 openai openai NOT_CHECKED
 ```
 
-Staking is not live.
+Staking is on the Base Sepolia test network only. No mainnet or real-money stake.
