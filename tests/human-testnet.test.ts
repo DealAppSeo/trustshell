@@ -13,7 +13,7 @@ describe('human testnet', () => {
     expect(doc).toMatch(/The faucet is external/);
     expect(doc).toMatch(/The engine does not send ETH/);
     expect(doc).toMatch(/TrustShell does not send the ETH/);
-    expect(doc).toMatch(/No mainnet stake/);
+    expect(doc).toContain('Staking is on the Base Sepolia test network only. No mainnet or real-money stake.');
     expect(doc).not.toMatch(/stake now|staking is live/i);
     expect(doc).not.toMatch(/HeyGen/i);
     expect(doc).not.toMatch(/npx @hyperdag\/trustshell/);

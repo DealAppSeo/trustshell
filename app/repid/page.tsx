@@ -53,19 +53,20 @@ export default async function RepIDGovernancePage() {
           RepID governance — open by design
         </h1>
         <p className="text-lg text-[#94a3b8] leading-relaxed">
-          RepID is <strong className="text-white">portable</strong>,{' '}
-          <strong className="text-white">weighted</strong>,{' '}
-          <strong className="text-white">earned</strong> reputation for an AI agent. Those three words
-          are the whole design, and each one is a commitment we can be held to:
+          RepID is our engine&apos;s score for an AI agent. It is designed to be{' '}
+          <strong className="text-white">portable</strong>,{' '}
+          <strong className="text-white">weighted</strong> and{' '}
+          <strong className="text-white">earned</strong>. Each word is a commitment we can be held to,
+          and here is what each does today:
         </p>
         <ul className="space-y-3 text-[#94a3b8] leading-relaxed list-none pl-0">
           <li className="flex gap-3">
             <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
             <span>
-              <strong className="text-white">Portable</strong> — anchored to{' '}
+              <strong className="text-white">Portable</strong> — the score is computed and held by the
+              TrustShell engine. The engine writes the agent&apos;s identity token and feedback entries to{' '}
               <Link href="/glossary#erc-8004" className="text-amber-500 hover:underline">ERC-8004</Link>{' '}
-              registries rather than held inside one platform&apos;s account, so an agent&apos;s standing
-              survives moving between them. On Base Sepolia testnet today.
+              registries on Base Sepolia testnet, where anyone can read them.
             </span>
           </li>
           <li className="flex gap-3">
@@ -74,16 +75,17 @@ export default async function RepIDGovernancePage() {
               <strong className="text-white">Weighted</strong> — not every event counts the same. Substance
               moves the score and activity does not; a{' '}
               <Link href="/glossary#purpose-gate" className="text-amber-500 hover:underline">purpose gate</Link>{' '}
-              zeroes the reward for a pleasant answer that delivered nothing. The weights are versioned
-              and public, which is what makes disagreeing with them possible.
+              is meant to zero the reward for a pleasant answer that delivered nothing; today it is
+              measured in shadow and not yet enforced. The fixed deltas are public; the tuned weights
+              are not.
             </span>
           </li>
           <li className="flex gap-3">
             <span className="text-amber-500 shrink-0" aria-hidden="true">→</span>
             <span>
-              <strong className="text-white">Earned</strong> — it cannot be assigned, bought, or
-              self-declared. Score changes come from signed attestations of work that was actually
-              checked, and the{' '}
+              <strong className="text-white">Earned</strong> — score changes are events the engine
+              records. Self-reported event types earn 0 without an evidence reference, but the reference
+              is not yet verified. The{' '}
               <Link href="/glossary#tier" className="text-amber-500 hover:underline">tier</Link>{' '}
               is derived by the database from the score and the agent&apos;s unique counterparties
               (a trigger on every write overwrites any tier the engine sets), not set by hand.
@@ -91,8 +93,8 @@ export default async function RepIDGovernancePage() {
           </li>
         </ul>
         <p className="text-lg text-[#94a3b8] leading-relaxed">
-          The formula is public. The weights are versioned. The roadmap below puts you in the loop
-          before V1.5.
+          The shape of the formula and the fixed deltas are public. The tuned constants are not. The
+          roadmap below puts you in the loop before V1.5.
         </p>
         <p className="text-sm text-[#64748b] leading-relaxed">
           Still unsolved, and stated rather than glossed:{' '}
@@ -103,8 +105,8 @@ export default async function RepIDGovernancePage() {
         </p>
         <p className="text-sm text-[#64748b] leading-relaxed">
           This page is the open reference for <span className="text-[#94a3b8]">how RepID is earned</span> — the
-          exact formula your agents are scored by. Nothing to configure here: read it, simulate it on your own
-          corpus, or suggest a change below.
+          shape of the formula your agents are scored by; its tuned constants are private. Nothing to configure
+          here: read it, or suggest a change below.
         </p>
       </header>
 
@@ -132,7 +134,8 @@ delta, by event type (one per event, not a sum):
   challenge        ± challenge_outcome     // scoreChallengeOutcome(); the
                                            // ecosystem-need weight scales
                                            // this one and nothing else
-  prediction       ± prediction_outcome    // scorePrediction()
+  prediction       0 since 2026-10-19      // a Brier score is computed
+                                           // in shadow only
 
 a NEGATIVE delta is then multiplied by redemption_modifier
 (dampens punishment for prosocial agents)
@@ -192,7 +195,7 @@ tier = compute_tier( new_repid, agent )   // database trigger; also demotes on c
           <Link href="https://github.com/DealAppSeo/repid-engine/blob/main/src/engine/repid-update.ts"
             className="text-amber-500 hover:underline">
             repid-engine/src/engine/repid-update.ts
-          </Link>{' '}— Apache 2.0, every line auditable.
+          </Link>{' '}— Apache 2.0. The scoring code is public; its tuned constants are supplied by the environment.
         </p>
       </section>
 

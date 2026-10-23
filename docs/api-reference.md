@@ -593,8 +593,9 @@ a run or a session that happened — run these against your own and read the rea
 ### What each command talks to
 
 `--json` gives machine-readable output on most commands; `remember`, `recall`, `redact` and
-`bind-status` print plain lines. **No command exits `0` on NOT CHECKED.** `verify` / `evaluate` and
-`check "<sentence>"` exit `2` for it; `check <runUrl>`, `inspect` and `report` exit `3`.
+`bind-status` print plain lines. `verify` / `evaluate` and `check "<sentence>"` exit `2` on NOT
+CHECKED; `check <runUrl>`, `inspect` and `report` exit `3`. **Not every command does:** `traps`,
+`recall <key>` and `redact <key>` print `NOT_CHECKED` and exit `0`.
 
 | Command | Network egress | Auth |
 |---|---|---|
@@ -623,8 +624,10 @@ a run or a session that happened — run these against your own and read the rea
 | `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, not in the published 1.7.0 | none |
 | `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, not in the published 1.7.0 | none |
 
-`init` and `profile` are the only commands that write to your working directory, and they write exactly
-one file: `.trustshell/profile.md`.
+`init` and `profile` write one file to your working directory, `.trustshell/profile.md`. Other commands
+write there too: `check <runUrl> --out <dir>` writes `record.json`, `card.md` and `card.html` into `<dir>`,
+`init --pai` writes `.trustshell/credentials.json`, `bundle export <file>` writes the bundle file, and
+`bundle import` writes `.trustshell/profile.md` plus a policy file under `~/.trustshell`.
 
 ### `trustshell --help` / `--version`
 
@@ -995,4 +998,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v1.7.0 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
+> Reflects the main branch, not one release. A section marked "Since 1.7.0" is in npm `latest` 1.7.0. `profile`, `learn` and `check --claims-file` are in `next` 1.8.0-rc.0 only. `bundle`, `guard` and `run` are on main and in no npm release. REST examples are from the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).

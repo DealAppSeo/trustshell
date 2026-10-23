@@ -7,4 +7,4 @@ Chain is Base Sepolia, chain id 84532. This is not mainnet.
 3. The faucet is external. The engine does not send ETH.
 4. Fund a wallet from a faucet that response names. TrustShell does not send the ETH.
 5. `trustshell verify "The capital of France is Paris."` needs no ETH.
-6. `trustshell status` leaves can_stake shadow. No mainnet stake.
+6. `trustshell status` prints `can_stake false` today (the engine's value; a true would print `shadow — not live`). Staking is on the Base Sepolia test network only. No mainnet or real-money stake.

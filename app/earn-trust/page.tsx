@@ -5,7 +5,7 @@ import { TrustBadge } from '@/components/trust-state';
 export const metadata = {
   title: 'Earn trust — TrustShell',
   description:
-    'Guardrails alone cannot make an autonomous agent safe. It takes a trust ecosystem: a sandbox that contains execution, a harness that carries memory, context, permissions and the refuse across models, and trust the agent has earned — RepID. Each part marked for what it is today: shipped or a direction.',
+    'Guardrails alone cannot make an autonomous agent safe. It takes a trust ecosystem: a sandbox that contains execution, a harness designed to carry memory, context, permissions and the refuse across models (today: local memory with quarantine), and trust the agent has earned — RepID. Each part marked for what it is today: shipped or a direction.',
   openGraph: {
     title: 'Earn trust — TrustShell',
     description:
@@ -96,7 +96,7 @@ const PILLARS: ReadonlyArray<Pillar> = [
     verb: 'carries the record',
     one: 'Four things that travel with the agent, not the vendor.',
     body:
-      'Its memory of what it has done, its working context, the permissions it has been granted, and its constitution — the ability to refuse. Switching models resets none of them. A person is at the root, and the owner can stop everything under a grant at once.',
+      'Its memory of what it has done, its working context, the permissions it has been granted, and its constitution — the ability to refuse. It is designed so switching models resets none of them. Today memory stays on one machine; carrying it to another machine is on main, unreleased. A person is at the root, and revoking a grant marks everything under it not live, but nothing blocks a tool on it yet.',
     link: { href: '/trust-harness', label: 'The trust harness, end to end' },
   },
   {
@@ -104,7 +104,7 @@ const PILLARS: ReadonlyArray<Pillar> = [
     verb: 'earns standing',
     one: 'Reputation from verified behaviour, not a badge someone assigned.',
     body:
-      'RepID moves when a confirmed action helped someone who is not the actor. It is weighted so substance counts and activity does not, and anchored on-chain so it belongs to the agent rather than to whoever hosts it today.',
+      'RepID is meant to move when a confirmed action helped someone who is not the actor, weighted so substance counts and activity does not. Today it also moves on fixed events. It is our engine’s score for the agent; the engine writes it as ERC-8004 feedback on Base Sepolia testnet, where anyone can read it.',
     link: { href: '/repid', label: 'How RepID is governed' },
   },
 ];
@@ -196,12 +196,12 @@ const DIFFS: ReadonlyArray<Diff> = [
   {
     dimension: 'Is the claim true?',
     guardrail: 'A filter scans the wording and hopes. One model marking its own homework.',
-    ecosystem: 'Today two model families, from different builders, must both agree for a pass, so one provider’s bias or outage cannot fake a pass on its own. A golden-ratio supermajority across more families is the design target, not what runs.',
+    ecosystem: 'Today a vote-based pass needs two checkers from different model families to agree. They can run on the same provider, and an equation is calculated rather than voted on. A golden-ratio supermajority across more families is the design target, not what runs.',
   },
   {
     dimension: 'When a check cannot run',
     guardrail: 'Silence reads as approval — the unmeasured case quietly becomes a yes.',
-    ecosystem: 'A kernel that fails closed. Not checked is an absence, rendered neutral, and it blocks a post or a spend rather than defaulting to one.',
+    ecosystem: 'Not checked is an absence, rendered neutral, and it never counts as a pass. Nothing yet blocks a spend or a post on it.',
   },
   {
     dimension: 'Who is responsible',
@@ -211,7 +211,7 @@ const DIFFS: ReadonlyArray<Diff> = [
   {
     dimension: 'What it may spend',
     guardrail: 'A sentence in the prompt. A jailbreak argues straight past it.',
-    ecosystem: 'x402 payment conditioned on a signed grant — an amount, a payee, an expiry, a purpose — that the account itself is built to enforce.',
+    ecosystem: 'The SDK refuses to sign an x402 payment with no policy, no cap, an over-cap amount, or a turn that may not pay. The policy is supplied by the calling code, not signed by the owner. Base Sepolia by default.',
   },
   {
     dimension: 'What you can show afterwards',
@@ -289,8 +289,8 @@ export default function EarnTrustPage() {
         <h2 className="text-2xl font-bold text-foreground">What safe autonomy actually takes</h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
           Three parts, in the order a request moves through them. Contain where it can reach, carry
-          who is behind it and what it may do, then let it earn more — always inside a ceiling a
-          person already signed.
+          who is behind it and what it may do, then let it earn more. Widening what an agent may do
+          from its record is roadmap.
         </p>
         <div className="grid gap-4 sm:grid-cols-3">
           {PILLARS.map((p) => (
@@ -442,17 +442,18 @@ export default function EarnTrustPage() {
         <h2 className="text-2xl font-bold text-foreground">Earn trust: standing, not a badge</h2>
         <p className="text-sm md:text-base text-muted leading-relaxed max-w-2xl">
           A sandbox and a harness make an agent safe to run. Earned trust is what lets it do more
-          over time without a human breaking every tie. RepID is portable, earned, weighted
-          reputation: earned by verified work rather than assigned, weighted so substantive
-          contributions move it and activity alone does not, and portable because it is anchored
-          on-chain rather than held by one platform.
+          over time without a human breaking every tie. RepID is our engine’s score for an agent,
+          meant to be earned by verified work rather than assigned, and weighted so substantive
+          contributions move it and activity alone does not. The engine writes it as ERC-8004
+          feedback on Base Sepolia testnet, where anyone can read it. The scoring code is public;
+          its tuned constants are not.
         </p>
         <p className="text-sm md:text-base text-muted leading-relaxed max-w-2xl">
           Earned is the load-bearing word, and it has a sharp edge: the score should move when a{' '}
           <span className="text-foreground">confirmed action helped someone who is not the actor</span>.
-          Helping yourself does not count. A clean record can widen the band an agent is allowed to
-          act in; a caught claim, an off-list payee, or a dispute narrows it and asks the person. It
-          can never raise the cap above what the owner signed.
+          Helping yourself is not meant to count. Planned: a clean record widens the band an agent is
+          allowed to act in, up to a cap the owner sets; a caught claim, an off-list payee, or a
+          dispute narrows it and asks the person.
         </p>
         <div className="rounded-xl border border-border bg-card px-5 py-4">
           <p className="text-sm leading-relaxed">
@@ -591,8 +592,8 @@ export default function EarnTrustPage() {
         <div className="space-y-3 text-sm md:text-base text-muted leading-relaxed">
           <p>
             <span className="text-foreground font-semibold">Shipped</span> means it is live today and
-            you can observe it — the check, the harness, the kernel that refuses anything but a clean,
-            bound ALLOW.
+            you can observe it — the check, local memory with quarantine, and the SDK client that
+            refuses anything but a clean, bound ALLOW.
           </p>
           <p>
             <span className="text-foreground font-semibold">Direction</span> means we are building

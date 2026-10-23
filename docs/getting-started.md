@@ -12,8 +12,8 @@ Three primitives: **RepID** (reputation), **HAL** (hallucination defense), **x40
 
 | Requirement | Minimum | Notes |
 |---|---|---|
-| **Node.js** | `>=18.0.0` | The CLI bin uses Node 18+ runtime features. |
-| **npm** | bundled with Node 18 | Yarn / pnpm should work but aren't tested. |
+| **Node.js** | `>=22.13.0` | `package.json` `engines`. The local memory commands (`remember`, `recall`, `redact`, `quarantine`, `learn`) need Node 22.13 or newer. The hosted commands may run on older Node; not tested. |
+| **npm** | bundled with Node 22.13 | Yarn / pnpm should work but aren't tested. |
 | **Base Sepolia ETH** (testnet) | optional, only for on-chain writes | You **do not** need any ETH to (a) run HAL evaluation, (b) look up a RepID, or (c) read on-chain history. ETH is only needed if you plan to *write* reputation attestations yourself, which is rare for SDK consumers — most users let the engine handle on-chain writes. |
 | **An API key (free, testnet)** | *not* required for HAL | HAL scoring, RepID reads, proofs, service discovery and `register` are keyless. A key is needed to buy (`executeA2A`, and reading the contract after it). `register` returns a key for the agent it creates. See §4. |
 | **`curl` + `jq` (optional)** | nice-to-have | Used by the verification snippets below. |
@@ -196,7 +196,7 @@ Environment variables the code in `src/` reads (`grep -rn 'env' src/`):
 
 | Env var | Read by | Description |
 |---|---|---|
-| `REPID_API_KEY` | CLI, MCP server | Optional API key, sent as `Authorization: Bearer` when set. No CLI command or MCP tool needs it. |
+| `REPID_API_KEY` | CLI, MCP server | Optional API key, sent as `Authorization: Bearer` when set. Only `receipt` (and the MCP `kernel_receipt` tool) needs it. |
 | `TRUSTSHELL_API_URL` | SDK, CLI, MCP server | Override the backend origin. It must be `https://` (plain `http://` only for localhost, 127.0.0.1 or [::1]); anything else is refused before anything is sent. A non-default origin prints a `WARNING:` line on stderr. `REPID_API_KEY` is sent only to an `https://` origin. |
 | `GITHUB_TOKEN` | CLI `check <runUrl>` | Optional. Raises the GitHub rate limit; a rejected token is retried anonymously. |
 | `TRUSTSHELL_MEMORY` | CLI `remember` / `recall` / `redact`, MCP memory tools | Path of the local memory file. Default `~/.trustshell/memory.sqlite`. |
