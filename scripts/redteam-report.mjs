@@ -188,7 +188,9 @@ const rtRuler = (r) => `${r.engine}${r.fixes ? '+fixes' : ''} · oracle ${r.mani
 const arRuler = (r) => `${r.git} · ${/^stub$/.test(r.calls) ? 'built-in stub agents' : 'free models'}`;
 
 // ── the page ────────────────────────────────────────────────────────────────────────────────────
-const cell = (v) => String(v ?? '—').replace(/\|/g, '\\|');
+// Log text reaches table cells. One pass escapes the backslash together with the pipe (a pipe-only escape turns `\|` into
+// `\\|`: an escaped backslash, then a live column break), a newline would end the row, and `<` would let log text open a tag.
+const cell = (v) => String(v ?? '—').replace(/\r?\n/g, ' ').replace(/[\\|]/g, '\\$&').replace(/</g, '&lt;');
 const table = (head, rows) => [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((r) => `| ${r.map(cell).join(' | ')} |`)].join('\n');
 const z = (iso) => iso.replace(/\.\d+Z$/, 'Z');
 const sum = (xs, k) => xs.reduce((a, x) => a + x[k], 0);

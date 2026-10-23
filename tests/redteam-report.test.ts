@@ -6,7 +6,7 @@
  * (scripts/redteam-report.mjs) over small hand-made records. Nothing in it is mocked.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -86,6 +86,43 @@ describe('docs/red-team.md', () => {
     expect(second).not.toContain('0 breaches');
     // the arena run that recorded two breaches is reported as two, with its own ruler
     expect(page).toMatch(/Arena, scheduled runs, ruler A1:\*\* 2 FAIL \(double_execution ×2/);
+  });
+
+  it('cannot be made to break a table by text in a log line: a backslash before a pipe stays literal', () => {
+    // Log text reaches table cells. In Markdown a backslash escapes the next character, so escaping only the pipe turns
+    // `\|` into `\\|`, an escaped backslash followed by a live column break. (CodeQL js/incomplete-sanitization.)
+    fixture(join(tmp, 'rec'));
+    const hostile = 'x\\|y \\\\| z | <b>w</b>';
+    appendFileSync(join(tmp, 'rec', 'arena-loop.log'), `==== Wed 10/21/2026  4:15:01.70 \nARENA 2026-10-21T11:15:02.038Z batch=eeeeeeee ${hostile} EXIT 2\n`);
+    appendFileSync(join(tmp, 'rec', 'redteam-loop.log'), `==== Wed 10/21/2026 18:30:00.49 \nREDTEAM 2026-10-22T01:30:00.983Z batch=ffffffff infra: ${hostile} calls=80/300 EXIT 2\n`);
+    const out = join(tmp, 'page.md');
+    expect(run(['--records', join(tmp, 'rec'), '--out', out]).status).toBe(0);
+    const lines = readFileSync(out, 'utf8').split('\n');
+    // Markdown's own rule: a backslash escapes the next character; an unescaped pipe ends a cell.
+    const split = (row: string) => {
+      const cells: string[] = []; let cur = '';
+      for (let i = 0; i < row.length; i++) {
+        if (row[i] === '\\' && i + 1 < row.length) { cur += row[i] + row[i + 1]; i++; }
+        else if (row[i] === '|') { cells.push(cur); cur = ''; }
+        else cur += row[i];
+      }
+      cells.push(cur);
+      return cells.slice(1, -1).map((c) => c.trim()); // drop what is outside the first and last pipe
+    };
+    let width = 0, checked = 0;
+    for (const l of lines) {
+      if (!l.startsWith('|')) { width = 0; continue; }
+      const n = split(l).length;
+      if (!width) width = n;
+      expect({ row: l.slice(0, 90), cells: n }).toEqual({ row: l.slice(0, 90), cells: width });
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(30);
+    // and the cell reads back as exactly what was in the log
+    const unescape = (c: string) => c.replace(/\\([\\|])/g, '$1');
+    const rows = lines.filter((l) => l.includes('eeeeeeee') && l.startsWith('|')).concat(lines.filter((l) => l.includes('ffffffff') && l.startsWith('|')));
+    expect(rows).toHaveLength(2);
+    for (const r of rows) expect(split(r).map(unescape).some((c) => c.includes(hostile.replace('<b>w</b>', '&lt;b>w&lt;/b>')))).toBe(true);
   });
 
   it('stops, rather than printing a number, when a log line and its ledger line disagree', () => {
