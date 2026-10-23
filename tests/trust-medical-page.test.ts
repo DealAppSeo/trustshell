@@ -69,7 +69,8 @@ describe('/trust-medical: the sentences about today say what the code does', () 
   it('idea 4: the check is a vote; matching a quote to its source is a separate local command, not the check', () => {
     // The live check is the family vote. Quote-against-source is `trustshell ground` (docs/api-reference.md), local,
     // no model and no network, and not part of the check.
-    expect(COPY).toContain('which is a vote by independent model families');
+    // Different families, not independent: both may run on one host, and one may share the writer's family.
+    expect(COPY).toContain('which is a vote by checkers from different model families');
     expect(COPY).toContain('a local command, trustshell ground,');
     expect(COPY).toContain('with no model and no network');
     expect(COPY).toContain('It is not part of the check.');

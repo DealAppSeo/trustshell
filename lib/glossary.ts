@@ -120,7 +120,7 @@ export const TERMS: Term[] = [
     definition:
       'The browser-local store for your model provider keys, encrypted with AES-GCM behind a passphrase that never leaves your device.',
     note:
-      'Non-custodial in the sense that matters: we never receive your keys. Not in the stronger sense — we serve the JavaScript that runs in your browser, so the honest claim is "we never receive them", not "we could not possibly access them".',
+      'Your keys are stored only in this browser, but we do receive them when you use them: Test sends that one key to our engine, and a prompt on Auto (the default) or Paid only sends every unlocked key with that request. Free only sends none. We also serve the JavaScript that runs in your browser, so this describes what the code does, not a guarantee that we could not access them.',
     related: ['no-vendor-lock-in'],
   },
   {

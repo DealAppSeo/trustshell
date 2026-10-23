@@ -58,7 +58,7 @@ export const AGENT_TABS = [
 
 const PASTE = mcpPaste();
 
-const STAMP_LINE = `Every reply on ${STAMPED_SITES.slice(0, -1).join(', ')} and ${STAMPED_SITES[STAMPED_SITES.length - 1]} gets a stamp: Checks out, Caught, or Not checked.`;
+const STAMP_LINE = `Switch on ${STAMPED_SITES.slice(0, -1).join(', ')} or ${STAMPED_SITES[STAMPED_SITES.length - 1]}, then click Check this reply (or choose automatic) to get a stamp: Checks out, Caught, or Not checked. Every site starts off.`;
 
 /** A row at least 44px tall that opens one way in. The chevron turns when open; motion is off for those who ask. */
 const ROW =

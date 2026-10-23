@@ -59,6 +59,17 @@ export function Hero() {
           <p className="text-lg sm:text-xl text-slate-200" data-testid="hero-sub">
             Paste the answer. Two other AIs check it, and you see what each one said.
           </p>
+          {/* Developers (the meetup, the preview invite) want the credential-free CLI check, which lives on
+              /build; without this it is reachable only through the menu. */}
+          <p className="text-sm">
+            <a
+              href="/build#run-it"
+              data-testid="hero-dev-link"
+              className="inline-flex min-h-11 items-center text-amber-400 underline underline-offset-4 hover:text-amber-300"
+            >
+              Building agents? Check what your AI says about a CI run, in 5 minutes →
+            </a>
+          </p>
         </div>
 
         <div className="min-w-0 space-y-3 lg:col-start-2 lg:row-start-1 lg:row-span-2">

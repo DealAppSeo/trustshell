@@ -283,7 +283,9 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     const rest = text.split(NOT_YET).join('');
     expect(rest.match(/ChatGPT/g)).toHaveLength(1);
     expect(rest.match(/\bGrok\b/g)).toHaveLength(1);
-    expect(rest).toContain('Every reply on ChatGPT, Claude, Gemini, Grok and DeepSeek gets a stamp');
+    // A fresh install has every site OFF and checks only on click (extension/settings.js), so the line says so.
+    expect(rest).toContain('Switch on ChatGPT, Claude, Gemini, Grok or DeepSeek, then click Check this reply');
+    expect(rest).not.toContain('Every reply on');
   });
 
   it('shows no speed number, no receipt promise, and none of the removed lines', () => {
