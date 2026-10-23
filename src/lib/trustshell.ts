@@ -9,7 +9,7 @@ import { loadEthers } from './optional-ethers';
 import { createHash } from 'node:crypto';
 import { redact } from '../memory/redact';
 import { isHttps, resolveApiBase } from './api-url';
-import { LOCAL_ONLY_REASON, localOnly, seenByFromHal, type SeenBy } from './local-only';
+import { LOCAL_ONLY_REASON, OFFLINE_REASON, localOnly, offline, seenByFromHal, type SeenBy } from './local-only';
 import { assertOriginCanPay } from './origin';
 import type { AgentTurnOrigin } from './origin';
 import {
@@ -728,7 +728,10 @@ export class TrustShell {
 
   async score(response: string, options: ScoreOptions = {}): Promise<ScoreResult> {
     // SEC F2: local-only sends nothing. NOT_CHECKED, no trust earned, and nobody saw the text.
-    if (localOnly(this.config.localOnly)) {
+    // OFFLINE=1 says the same (it used to stop only the CLI's own `verify`, so the MCP verify_output
+    // and the SDK still sent the text: loop sprint 1, 2026-10-23). Every HAL send comes through here.
+    const stopReason = localOnly(this.config.localOnly) ? LOCAL_ONLY_REASON : offline() ? OFFLINE_REASON : null;
+    if (stopReason) {
       return {
         trustScore: 0,
         halScore: 0,
@@ -737,7 +740,7 @@ export class TrustShell {
         flaggedHallucination: false,
         provider: 'none',
         model: 'none',
-        decisionReason: `NOT_CHECKED — ${LOCAL_ONLY_REASON}`,
+        decisionReason: `NOT_CHECKED — ${stopReason}`,
         evidence: [],
         seenBy: [],
       };

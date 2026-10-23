@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LOCAL_ONLY_REASON = void 0;
+exports.OFFLINE_REASON = exports.LOCAL_ONLY_REASON = void 0;
+exports.offline = offline;
 exports.localOnly = localOnly;
 exports.seenByFromHal = seenByFromHal;
 /**
@@ -28,6 +29,20 @@ exports.seenByFromHal = seenByFromHal;
  * MCP tool return does not change in a stub.
  */
 exports.LOCAL_ONLY_REASON = 'local-only is on (TRUSTSHELL_LOCAL_ONLY=1 or localOnly: true), so nothing was sent';
+/**
+ * Why a check was not sent under OFFLINE=1. The CLI's `verify` and `check <url>`, `classifyClaim`
+ * (so `check "<sentence>"` and MCP check_claim) and `TrustShell.score` (so SDK verifyOutput and the
+ * MCP verify_output, verify and evaluate) all print these words.
+ */
+exports.OFFLINE_REASON = 'OFFLINE=1 is set, so nothing was sent';
+/**
+ * True when OFFLINE=1 is in the environment. The older, CLI-era switch: same promise as local-only
+ * for the text-sending paths, but the CLI also uses it to skip backend reads (status, bind-status),
+ * which local-only does not. A path that sends your text honours both.
+ */
+function offline(env = typeof process !== 'undefined' ? process.env : {}) {
+    return env.OFFLINE === '1';
+}
 /** True when the caller asked for local-only, by option or by env. */
 function localOnly(explicit, env = typeof process !== 'undefined' ? process.env : {}) {
     return explicit === true || env.TRUSTSHELL_LOCAL_ONLY === '1';
