@@ -22,11 +22,12 @@ export function offlineState(): 'NOT_CHECKED' | 'RUN' {
 }
 
 describe('e2e CLI smoke (no engine)', () => {
-  it('trustshell --version includes 1.4', async () => {
+  it('trustshell --version prints the version package.json declares', async () => {
     const { io, out } = capture();
     const code = await run(parseArgs(['--version']), {} as never, io);
     expect(code).toBe(0);
-    expect(out.join('\n')).toMatch(/1\.8/);
+    // The version main says it is, not a hard-coded release: main runs ahead of npm between releases.
+    expect(out.join('\n').trim()).toContain(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version);
   });
 
   it('help lists verify, repid, and proof', async () => {

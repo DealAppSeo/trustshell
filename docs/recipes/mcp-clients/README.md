@@ -2,12 +2,12 @@
 
 The server is the `trustshell-mcp` command inside `@hyperdag/trustshell`. The older standalone `@hyperdag/trustshell-mcp` package is superseded (it predates `check_claim`); do not use it.
 
-**Verified:** this exact launch, `npx -y -p @hyperdag/trustshell@next trustshell-mcp`, starts the server and lists 20 tools from two different MCP clients (LangChain adapters and smolagents) on Windows, through both `npx` and `npx.cmd`.
+**Verified:** this exact launch, `npx -y -p @hyperdag/trustshell@latest trustshell-mcp`, starts server 1.8.0 and lists 20 tools (2026-10-23, Windows, `npx.cmd`). The same launch on 1.8.0-rc.0 listed 20 tools from two different MCP clients (LangChain adapters and smolagents) on Windows, through both `npx` and `npx.cmd`.
 **Not verified:** the three apps below were not opened for this note. If one does not start the server, send us its log.
 
 ## Claude Code
 ```bash
-claude mcp add trustshell -- npx -y -p @hyperdag/trustshell@next trustshell-mcp
+claude mcp add trustshell -- npx -y -p @hyperdag/trustshell@latest trustshell-mcp
 ```
 
 ## Claude Desktop (`claude_desktop_config.json`) and Cursor (`.cursor/mcp.json`)
@@ -16,7 +16,7 @@ claude mcp add trustshell -- npx -y -p @hyperdag/trustshell@next trustshell-mcp
   "mcpServers": {
     "trustshell": {
       "command": "npx",
-      "args": ["-y", "-p", "@hyperdag/trustshell@next", "trustshell-mcp"]
+      "args": ["-y", "-p", "@hyperdag/trustshell@latest", "trustshell-mcp"]
     }
   }
 }

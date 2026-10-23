@@ -22,7 +22,7 @@ $run = "https://github.com/OWNER/REPO/actions/runs/1234567890"
 npx @hyperdag/trustshell@latest check $run --claims-file claims.txt
 ```
 
-`claims.txt` is what your agent said. The line above writes one claim for you so the first run works; **replace it with your agent's own words** to test them. You get a card that marks each claim **SUPPORTED**, **CONTRADICTED** or **NOT_CHECKED**, and ends with what it does not prove. An excerpt, recorded 2026-10-21 on 1.8.0-rc.0 against a finished public run (`vitejs/vite`, run 39524643058), exit 0:
+`claims.txt` is what your agent said. The line above writes one claim for you so the first run works; **replace it with your agent's own words** to test them. You get a card that marks each claim **SUPPORTED**, **CONTRADICTED** or **NOT_CHECKED**, and ends with what it does not prove. An excerpt, recorded 2026-10-23 on 1.8.0 from npm against a finished public run (`vitejs/vite`, run 39524643058), exit 0:
 
 ```
 - **Run** `vitejs/vite` · run 39524643058 · attempt 1 · commit `daa260240c0863604b8ab565e3c35d81df6e85f2`

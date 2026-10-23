@@ -9,6 +9,8 @@ All notable changes to the `@hyperdag/trustshell` package.
 - **Guard + Carry, experimental (#593).** `trustshell guard` and `trustshell run` add a local owner policy enforced only on the paths they mediate. `trustshell bundle` adds a signed (not encrypted) bundle that carries a profile, a policy and selected notes to another host. These are local guardrails for cooperative agents, not a tamper-resistant boundary: anyone who can run the CLI as the owner can change the policy, and MCP and OS commands are not mediated.
 - **The two-host demonstration (#607, #609):** `node demo/guard-carry/run.mjs` (docs/guard-carry-demo.md). Its no-network assurance now fails if the egress blocker is not live.
 - **A policy names its signer only when the signature verifies (#608).** A hand-edited policy no longer reads as owner-signed.
+- **"Owner-signed" means this install's key (#611).** The `trustshell run` card called a policy owner-signed when its signature verified under any key, and the bundle summary did the same for a key other than the bundle author's. Both now name the key and say it is NOT this install's (or NOT the author's).
+- **`inspect_run` over MCP (#610).** Inspect for agents: a run URL and the claims as text in; the same record, digest and card that `trustshell check <runUrl> --claims` produces out, from api.github.com only. 1.8.0's MCP server lists 20 tools, and this is not one of them.
 
 ## 1.8.0 — 2026-10-22
 
