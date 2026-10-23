@@ -258,7 +258,7 @@ export async function runCheck(url: string, env: Record<string, string | undefin
             ? `${failed.length} of ${jobList.length} jobs did not pass: ${failed.map((j) => j.name).join(', ')}`
             : plural(jobList.length, 'job'),
       },
-      { ok: Boolean(sha), label: 'The commit exists on the remote', detail: sha },
+      { ok: Boolean(sha), label: 'GitHub reports the commit this run ran on', detail: sha },
     ],
     does_not_prove: DOES_NOT_PROVE,
     run: {
