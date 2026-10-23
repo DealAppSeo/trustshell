@@ -40,6 +40,12 @@ import { CheckError, DOES_NOT_PROVE as CHECK_DOES_NOT_PROVE, parseRun, plural, r
 
 export const ACTION_EVIDENCE_SCHEMA = 'dev.trustshell.action-evidence/0.1-draft' as const;
 
+/**
+ * Claim text larger than this is refused, in UTF-8 bytes: no agent message or PR description is a
+ * megabyte. One constant for `--claims-file` and the MCP `inspect_run`, so the two cannot drift.
+ */
+export const MAX_CLAIMS_FILE_BYTES = 256 * 1024;
+
 export type ClaimStatus = 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
 
 export type TemplateId =

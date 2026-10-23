@@ -36,6 +36,11 @@
  */
 import { type CheckJob, type CheckResult, type CheckVerdict } from './check';
 export declare const ACTION_EVIDENCE_SCHEMA: "dev.trustshell.action-evidence/0.1-draft";
+/**
+ * Claim text larger than this is refused, in UTF-8 bytes: no agent message or PR description is a
+ * megabyte. One constant for `--claims-file` and the MCP `inspect_run`, so the two cannot drift.
+ */
+export declare const MAX_CLAIMS_FILE_BYTES: number;
 export type ClaimStatus = 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
 export type TemplateId = 'gha.run_succeeded' | 'ci.all_checks_pass' | 'ci.tests_pass' | 'ci.build_unscoped' | 'git.head_sha' | 'gha.run_id' | 'gha.run_attempt' | 'excluded.completion' | 'excluded.security' | 'excluded.no_bugs' | 'excluded.readiness' | 'excluded.fix' | 'excluded.local_run' | 'excluded.test_count' | 'excluded.coverage' | 'excluded.deployment' | 'excluded.performance' | 'excluded.review' | 'unmapped' | 'excluded.markup' | 'truncated';
 export interface Observation {
