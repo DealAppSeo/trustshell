@@ -27,6 +27,7 @@ import {
   defaultPolicy,
   guardDecide,
   homeShadowWarning,
+  isPolicyAction,
   nodeGuardFs,
   nonceHighWater,
   loadPolicy,
@@ -168,11 +169,26 @@ const nodeSpawner: Spawner = (cmd, args) => {
 
 export const RUN_USAGE = 'trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--json] -- <command> [args...]';
 
+/**
+ * Windows PowerShell drops a bare `--` before it reaches npm's `trustshell.ps1` shim, so the documented
+ * `run --tool git -- git status` arrived as `run --tool git git status` and failed "unexpected git" with no
+ * hint (stranger walk, 2026-10-23, PS 5.1). Quoted, or through the `.cmd` shim, the `--` survives.
+ */
+export const RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
+
+const isHelp = (a: string | undefined) => a === '--help' || a === '-h' || a === 'help';
+
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
 export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.env, spawn: Spawner = nodeSpawner): number {
   const dash = argv.indexOf('--');
   const opts = dash === -1 ? argv : argv.slice(0, dash);
   const command = dash === -1 ? [] : argv.slice(dash + 1);
+  if (opts.some((a) => a === '--help' || a === '-h')) {
+    io.out(`${RUN_USAGE}\n${RUN_POWERSHELL}`);
+    return 0;
+  }
+  // No `--` at all: a word that is not an option is the command, written without its separator. Still refused.
+  const noDash = (m: string) => runUsage(io, dash === -1 ? `${m}: run needs -- before the command. ${RUN_POWERSHELL}` : m);
   let tool: string | undefined;
   let cls: ToolClass = 'other';
   let amount: string | undefined;
@@ -185,12 +201,12 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
       if (a === '--tool') tool = v;
       else if (a === '--amount') amount = v;
       else if ((TOOL_CLASSES as readonly string[]).includes(v)) cls = v as ToolClass;
-      else return usage(io, `--class takes ${TOOL_CLASSES.join(', ')}`);
+      else return runUsage(io, `--class takes ${TOOL_CLASSES.join(', ')}`);
       i += 1;
-    } else return usage(io, `unexpected ${a}`);
+    } else return a.startsWith('-') ? runUsage(io, `unexpected ${a}`) : noDash(`unexpected ${a}`);
   }
-  if (!tool || !/^[A-Za-z0-9_.:-]{1,128}$/.test(tool)) return usage(io, 'run needs --tool <name> (letters, digits, _ . : -)');
-  if (!command.length || !command[0]) return usage(io, 'run needs the command after --');
+  if (!tool || !/^[A-Za-z0-9_.:-]{1,128}$/.test(tool)) return runUsage(io, 'run needs --tool <name> (letters, digits, _ . : -)');
+  if (!command.length || !command[0]) return runUsage(io, dash === -1 ? `run needs -- and then the command. ${RUN_POWERSHELL}` : 'run needs the command after --');
 
   const dir = trustshellHome(env);
   const shadow = homeShadowWarning(env);
@@ -230,8 +246,14 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
   return r.status ?? 3;
 }
 
-function usage(io: IO, m: string): number {
-  io.err(`error: ${m}\n${RUN_USAGE}\n${GUARD_USAGE}`);
+/** A usage error names only the command it is about: guard's errors printed run's usage first. */
+function runUsage(io: IO, m: string): number {
+  io.err(`error: ${m}\n${RUN_USAGE}`);
+  return 2;
+}
+
+function guardUsage(io: IO, m: string): number {
+  io.err(`error: ${m}\n${GUARD_USAGE}`);
   return 2;
 }
 
@@ -266,10 +288,10 @@ function runLevel(words: string[], json: boolean, io: IO, dir: string, p: LocalP
   if (sub === 'record' || sub === 'revoke') {
     let ev: Parameters<typeof recordAutonomyEvent>[3];
     if (sub === 'revoke') {
-      if (words.length !== 1) return usage(io, 'guard level revoke takes nothing');
+      if (words.length !== 1) return guardUsage(io, 'guard level revoke takes nothing');
       ev = { kind: 'revocation', via: 'guard level revoke' };
     } else {
-      if (words.length !== 2) return usage(io, 'guard level record takes one record.json, as trustshell check <runUrl> --claims-file <path> --out <dir> writes it');
+      if (words.length !== 2) return guardUsage(io, 'guard level record takes one record.json, as trustshell check <runUrl> --claims-file <path> --out <dir> writes it');
       const file = words[1] as string;
       let text: string;
       try {
@@ -314,7 +336,7 @@ function runLevel(words: string[], json: boolean, io: IO, dir: string, p: LocalP
     io.out(lines.join('\n'));
     return 0;
   }
-  if (sub !== undefined) return usage(io, 'guard level takes shadow, enforce, off, after, record or revoke');
+  if (sub !== undefined) return guardUsage(io, 'guard level takes shadow, enforce, off, after, record or revoke');
   const reading = readAutonomy(fs.exists(path) ? fs.read(path) : '');
   const s = levelState(reading, config);
   const m = measured(reading);
@@ -360,6 +382,24 @@ function showLines(doc: PolicyDocument, path: string, ledgerText: string, defaul
   ];
 }
 
+/**
+ * PURE. The line `guard limit` (and `guard allow spend`) adds while a limit is still 0. An amount must fit all
+ * three and 0 allows nothing, so `limit per-tx 100` alone still denied a spend of 50, and the printed
+ * `per_tx 100 · daily 0 · total 0` did not say why (stranger walk, 2026-10-23). null once every limit is above 0.
+ */
+export function zeroLimitNote(p: LocalPolicy): string | null {
+  const zero = (
+    [
+      ['per-tx', p.per_tx_raw],
+      ['daily', p.daily_raw],
+      ['total', p.total_raw],
+    ] as const
+  ).filter(([, v]) => v === '0').map(([k]) => k);
+  if (!zero.length) return null;
+  const names = zero.length === 1 ? zero[0] : `${zero.slice(0, -1).join(', ')} and ${zero[zero.length - 1]}`;
+  return `note        an amount must fit all three limits, and 0 allows none: ${names} ${zero.length === 1 ? 'is' : 'are'} 0, so no amount passes yet (${zero.map((k) => `trustshell guard limit ${k} <n>`).join(', ')})`;
+}
+
 export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.env): number {
   const fs = require('node:fs') as typeof import('node:fs');
   const dir = trustshellHome(env);
@@ -367,7 +407,11 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
   const [verb, ...rest] = argv;
   const json = rest.includes('--json');
   const words = rest.filter((w) => w !== '--json');
-  const bad = (m: string) => usage(io, m);
+  const bad = (m: string) => guardUsage(io, m);
+  if (isHelp(verb)) {
+    io.out(GUARD_USAGE);
+    return 0;
+  }
   const write = (doc: PolicyDocument) => {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     fs.writeFileSync(path, renderPolicyDocument(doc), { mode: 0o600 });
@@ -469,6 +513,10 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
       if (verb === 'allow' || verb === 'deny') {
         if (words.length !== 1) return bad(`guard ${verb} takes one action: spend, post, tool or tool:<name>`);
         const a = words[0] as string;
+        if (!isPolicyAction(a)) {
+          const hint = /^[A-Za-z0-9_.-]{1,128}$/.test(a) ? ` For the command ${a}, the action is tool:${a}.` : '';
+          return bad(`${a} is not an action, so nothing was written. An action is spend, post, tool or tool:<name>.${hint}`);
+        }
         p.actions = verb === 'allow' ? (p.actions.includes(a) ? p.actions : [...p.actions, a]) : p.actions.filter((x) => x !== a);
       } else if (verb === 'limit') {
         const key = { 'per-tx': 'per_tx_raw', daily: 'daily_raw', total: 'total_raw' }[words[0] ?? ''] as 'per_tx_raw' | 'daily_raw' | 'total_raw' | undefined;
@@ -506,6 +554,8 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
       if (loaded.doc.signature) io.err('the owner signature covered the old policy, so it was removed: trustshell guard sign signs this one');
       io.out(showLines({ policy: checked.policy, signature: null }, path, ledgerText(), checked.defaulted).slice(0, 5).join('\n'));
       if (verb === 'level') io.out(autonomyLine(checked.policy));
+      const note = verb === 'limit' || (verb === 'allow' && words[0] === 'spend') ? zeroLimitNote(checked.policy) : null;
+      if (note) io.out(note);
       return 0;
     }
     default:

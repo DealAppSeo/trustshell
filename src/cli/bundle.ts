@@ -87,6 +87,10 @@ function summaryLines(b: Bundle): string[] {
 }
 
 export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.env): number {
+  if (argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') {
+    io.out(BUNDLE_USAGE);
+    return 0;
+  }
   const a = parseBundleArgs(argv);
   if ('error' in a) {
     io.err(`error: ${a.error}`);
@@ -160,6 +164,11 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
     // policy.json or re-running guard init cannot reopen an old, looser signed policy.
     const hw = nonceHighWater(home);
     const pol = policyImportDecision(p.policy, trustedOwners, hw === null ? null : { nonce: hw }, policySignedBy);
+    // The decision stands. Its reason, "a downgrade or a replay", was all a stranger read for the very policy
+    // in force, on the machine that had just exported it (stranger walk, 2026-10-23); say that it is the same.
+    if (pol && !pol.enforce && p.policy && inForce.state === 'ok' && inForce.sha256 === p.policy.sha256) {
+      pol.why += '. It is the policy already in force here (same sha256), so importing it changes nothing';
+    }
     if (a.verb === 'verify') {
       const lines = [`VERIFIED signature good, author trusted as ${v.trusted_as}`, ...summaryLines(v.bundle)];
       if (pol) lines.push(`policy here ${pol.enforce ? 'WOULD BE ENFORCED' : 'would be suggested, NOT enforced'}: ${pol.why}`);

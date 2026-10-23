@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_CLAIMS_FILE_BYTES = exports.INIT_PAI_DOC = exports.INIT_PAI_SCRIPT = exports.VERSION = exports.EXIT = void 0;
+exports.GUARD_LEDGER_NOT_A_SESSION_LOG = exports.MAX_CLAIMS_FILE_BYTES = exports.INIT_PAI_DOC = exports.INIT_PAI_SCRIPT = exports.VERSION = exports.EXIT = void 0;
 exports.resolveInitPai = resolveInitPai;
 exports.runInitPai = runInitPai;
 exports.parseArgs = parseArgs;
@@ -20,6 +20,9 @@ exports.formatQuarantineRecord = formatQuarantineRecord;
 exports.run = run;
 exports.readClaimsFile = readClaimsFile;
 exports.runClaimCheck = runClaimCheck;
+exports.isGuardLedger = isGuardLedger;
+exports.quietSqliteWarning = quietSqliteWarning;
+exports.fatalLine = fatalLine;
 exports.main = main;
 exports.isEntryPath = isEntryPath;
 /**
@@ -78,6 +81,8 @@ const node_path_1 = require("node:path");
 const cli_1 = require("../learn/cli");
 const bundle_1 = require("./bundle");
 const guard_1 = require("./guard");
+const guardrails_1 = require("../lib/guardrails");
+const api_url_1 = require("../lib/api-url");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -274,9 +279,11 @@ COMMANDS
                              owner signature verifies with a key you trust AND its nonce is higher
                              than the one in force, else it is saved as policy.suggested.json, not
                              enforced. An altered, partial or other-version file is refused (exit 1).
-  guard init [--days N]      GUARD: write ~/.trustshell/policy.json, the engine kernel's owner-policy
+  guard init [--days N] [--force]
+                             GUARD: write ~/.trustshell/policy.json, the engine kernel's owner-policy
                              fields (subject, actions, per_tx_raw, daily_raw, total_raw, expires_at,
                              nonce): local commands only, every limit 0, expires in N days (30).
+                             --force replaces a policy that is already there.
                              While a policy exists, learn check run and learn probe run are denied:
                              they run a stored shell command.
   guard show                 Print the policy, what was allowed so far and the record chain.
@@ -300,6 +307,8 @@ COMMANDS
                              recorded. The card says what was requested, authorized, executed,
                              independently observed (nothing) and unknown. No policy: nothing runs (2).
                              While a policy exists, every other command must be listed as tool:<name>.
+                             Windows PowerShell drops a bare --: write it quoted, '--', or call
+                             trustshell.cmd (trustshell run --tool git '--' git status).
   learn <verb>               The learning loop, local: jobs you create, checks you register, your
                              corrections as lessons you accept, injected verbatim (max 5 / 400
                              tokens), unaided probes, spaced review, rulers. trustshell learn for
@@ -329,7 +338,8 @@ OPTIONS
   --                         End of options. What follows is text, even if it starts with a dash:
                              trustshell check -- "-5 is less than 3."
   --json                     Emit machine-readable JSON instead of human text.
-  -h, --help                 Show this help.
+  -h, --help                 Show this help. After guard, run, bundle or learn, that command's
+                             usage only: trustshell guard --help.
   -v, --version              Show the version.
 
 EXIT CODES
@@ -365,6 +375,9 @@ ENV
   TRUSTSHELL_HOME      where policy.json, its records and the signing key live (default ~/.trustshell).
                        Pointing it at a folder with no policy switches the owner policy off for that
                        command; a WARNING says so when ~/.trustshell/policy.json exists.
+                       It does not move your notes or your profile: notes stay in ~/.trustshell/memory.sqlite
+                       (TRUSTSHELL_MEMORY names another file), the profile in ./.trustshell/profile.md.
+  TRUSTSHELL_MEMORY    the local memory file (default ~/.trustshell/memory.sqlite)
 
 CI GATE EXAMPLE
   # fail the build if HAL vetoes a claim in your changelog
@@ -1343,6 +1356,8 @@ async function run(args, client, io = realIO) {
                     io.out((0, action_evidence_1.terminalSafeJson)(r));
                 else
                     io.out((0, inspect_1.formatInspectCard)(r));
+                if (r.verdict === 'BROKEN' && isGuardLedger(text))
+                    io.err(exports.GUARD_LEDGER_NOT_A_SESSION_LOG);
                 return (0, inspect_1.inspectExitCode)(r.verdict);
             }
             catch (e) {
@@ -1496,8 +1511,54 @@ async function runClaimCheck(sentence, json, io) {
         return claim_1.CLAIM_EXIT.error;
     }
 }
+/**
+ * `inspect` reads session logs, not the guard's ledger. Pointed at `~/.trustshell/guard-receipts.jsonl` (also
+ * hash-chained, also JSONL), it said BROKEN on every line, about the file `guard show` calls INTACT, and nothing
+ * said why (stranger walk, 2026-10-23). The verdict and exit code are unchanged; this line names the format.
+ */
+exports.GUARD_LEDGER_NOT_A_SESSION_LOG = `inspect: these lines are ${guardrails_1.GUARD_RECORD_SCHEMA} records, the guard's ledger, not a session log. inspect does not read that format, ` +
+    'so BROKEN here is about the format, not the chain. trustshell guard show verifies the ledger beside the policy in force (~/.trustshell, or TRUSTSHELL_HOME).';
+/** PURE. Is the first non-empty line a guard record? */
+function isGuardLedger(text) {
+    const first = text.split(/\r?\n/).find((l) => l.trim() !== '');
+    try {
+        return JSON.parse(first ?? '')?.schema === guardrails_1.GUARD_RECORD_SCHEMA;
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * Node 22 prints `ExperimentalWarning: SQLite is an experimental feature and might change at any time` the first
+ * time `node:sqlite` loads, so every memory command (remember, recall, quarantine, learn, bundle) ended with two
+ * stderr lines that read like an error (stranger walk, 2026-10-23, Git Bash and PowerShell 5.1). The CLI drops
+ * that ONE warning; every other warning, and every other ExperimentalWarning, still prints. Only the CLI process
+ * does this: the SDK and the MCP server leave the host's warnings alone.
+ */
+function quietSqliteWarning(proc = process) {
+    const emit = proc.emitWarning;
+    proc.emitWarning = function (warning, ...rest) {
+        const type = warning instanceof Error ? warning.name : typeof rest[0] === 'string' ? rest[0] : rest[0]?.type;
+        const text = typeof warning === 'string' ? warning : warning?.message;
+        if (type === 'ExperimentalWarning' && /^SQLite is an experimental feature\b/.test(String(text)))
+            return;
+        return emit.apply(this, [warning, ...rest]);
+    };
+}
+/**
+ * PURE. The last line a crashed command prints. A refused TRUSTSHELL_API_URL is the caller's setting, not a crash:
+ * it printed a stack trace, even for local-only commands (guard show, recall, run), with no next step (stranger
+ * walk, 2026-10-23). It now prints the reason and what to change; the exit code is still 3.
+ */
+function fatalLine(e) {
+    if (e instanceof api_url_1.ApiUrlError) {
+        return `trustshell: ${e.message}. Unset TRUSTSHELL_API_URL, or point it at an https URL. Every command reads it today, even local ones such as guard and recall.`;
+    }
+    return `trustshell: fatal: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`;
+}
 /** Entry point: parse argv, run, exit with the returned code. */
 async function main(argv = process.argv.slice(2)) {
+    quietSqliteWarning();
     const args = parseArgs(argv);
     // The owner policy, if the person wrote one, decides before the command runs (src/cli/guard.ts).
     const code = await (0, guard_1.runGuarded)(args, () => run(args, makeClient()), realIO);
@@ -1551,8 +1612,7 @@ const isEntry = (() => {
 })();
 if (isEntry) {
     main().catch((e) => {
-        const detail = e instanceof Error ? (e.stack ?? e.message) : String(e);
-        process.stderr.write((0, scrub_print_1.scrubPrinted)(`trustshell: fatal: ${detail}\n`));
+        process.stderr.write((0, scrub_print_1.scrubPrinted)(`${fatalLine(e)}\n`));
         process.exit(exports.EXIT.RUNTIME);
     });
 }

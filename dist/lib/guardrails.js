@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GUARD_DOES_NOT_COVER = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.SIGNATURE_DOES_NOT_VERIFY = exports.LOCAL_TOOLS = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
+exports.GUARD_DOES_NOT_COVER = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.SIGNATURE_DOES_NOT_VERIFY = exports.isPolicyAction = exports.LOCAL_TOOLS = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
 exports.defaultPolicy = defaultPolicy;
 exports.trustshellHome = trustshellHome;
 exports.parsePolicy = parsePolicy;
@@ -64,6 +64,9 @@ exports.TOOL_CLASSES = ['read', 'spend', 'post', 'other'];
 /** The commands that only read or write local files: what `guard init` allows. `learn` is listed, but its `check run` and `probe run` run a stored shell command and the CLI denies them while a policy is in force. */
 exports.LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'];
 const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
+/** PURE. Is `a` an entry a policy's `actions` may hold (spend, post, tool or tool:<name>)? */
+const isPolicyAction = (a) => ACTION.test(a);
+exports.isPolicyAction = isPolicyAction;
 const CANONICAL_UINT = /^(?:0|[1-9][0-9]{0,77})$/;
 const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy'];
 const UINT256_MAX = BigInt('0x' + 'f'.repeat(64));
