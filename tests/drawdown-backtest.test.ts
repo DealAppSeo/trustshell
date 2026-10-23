@@ -12,7 +12,8 @@
  *     other answer: the as-written arm never trades, and a configuration that does trade is in the
  *     market on every day.
  *
- * The module is ESM, jest here is CommonJS, so each check runs the real module in a child `node`.
+ * The module is ESM, jest here is CommonJS, so each check runs the real module in a child `node`
+ * through tests/helpers/esm-call.mjs: JSON in, JSON out, no source built from strings.
  */
 import { spawnSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -26,18 +27,23 @@ const SCRIPT = join(ROOT, 'scripts', 'drawdown-backtest.mjs');
 const DATA = join(ROOT, 'docs', 'measurements', 'drawdown-backtest-2026-10-23');
 const VECTORS = join(ROOT, 'fixtures', 'veto-engine-vectors.json');
 
-function esm(expr: string, cwd = ROOT) {
-  const src = `import { readFileSync } from 'node:fs'; import * as m from ${JSON.stringify('file:///' + SCRIPT.replace(/\\/g, '/'))}; const out = await (async () => (${expr}))(); console.log(JSON.stringify(out));`;
-  const r = spawnSync(process.execPath, ['--input-type=module', '-e', src], { cwd, encoding: 'utf8' });
+const RUNNER = join(ROOT, 'tests', 'helpers', 'esm-call.mjs');
+
+/**
+ * Call an export of the ES module once per argument list, in a child `node`. The request goes in as
+ * JSON on stdin and the answers come back as JSON: no JavaScript source is assembled from strings.
+ */
+function call(fn: string, calls: unknown[][]): { value?: any; error?: string }[] {
+  const r = spawnSync(process.execPath, [RUNNER], { input: JSON.stringify({ module: SCRIPT, fn, calls }), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.status !== 0) throw new Error(`node exited ${r.status}: ${r.stderr}`);
-  return JSON.parse(r.stdout.trim().split('\n').pop() as string);
+  return JSON.parse(r.stdout);
 }
 
 const results = JSON.parse(readFileSync(join(DATA, 'results.json'), 'utf8'));
 
 describe('drawdown backtest: the ruler', () => {
   it('the pinned files hash to the manifest, and a flipped byte is refused', () => {
-    expect(esm('m.verifyPinned() && "ok"')).toBe('ok');
+    expect(call('verifyPinned', [[]])[0].error).toBeUndefined();
     const dir = mkdtempSync(join(tmpdir(), 'ts-dd-'));
     try {
       cpSync(DATA, dir, { recursive: true });
@@ -45,9 +51,8 @@ describe('drawdown backtest: the ruler', () => {
       const bytes = readFileSync(f);
       bytes[bytes.length - 3] = bytes[bytes.length - 3] === 0x31 ? 0x32 : 0x31; // change one digit
       writeFileSync(f, bytes);
-      const src = `import { verifyPinned } from ${JSON.stringify('file:///' + SCRIPT.replace(/\\/g, '/'))}; try { verifyPinned(${JSON.stringify(dir)}); console.log('accepted'); } catch (e) { console.log('refused: ' + e.message.slice(0, 40)); }`;
-      const r = spawnSync(process.execPath, ['--input-type=module', '-e', src], { encoding: 'utf8' });
-      expect(r.stdout).toContain('refused: NOT_CHECKED');
+      // The same call that just succeeded, pointed at the altered copy, must now refuse.
+      expect(call('verifyPinned', [[dir]])[0].error).toContain('NOT_CHECKED');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -76,8 +81,18 @@ describe('drawdown backtest: the port matches the Python original', () => {
 
   it('113 vectors agree on veto, execute, unity (4 dp) and dissonance (6 dp); the exactly-aligned corner is bounded', () => {
     expect(fixture.vectors.length).toBeGreaterThanOrEqual(100);
-    // The vectors go in by path: 60 KB of JSON on the command line is past Windows' 32 KB limit.
-    const got = esm(`JSON.parse(readFileSync(${JSON.stringify(VECTORS)}, 'utf8')).vectors.map((v) => { const r = m.computeVeto(v.signals, v.repid, v.profile); return { aligned: new Set(m.notesOf(v.signals)).size === 1, veto: r.veto, execute: r.execute, unity: Math.round(r.unity * 1e4) / 1e4, dissonance: Math.round(r.dissonance * 1e6) / 1e6 }; })`);
+    const veto = call('computeVeto', fixture.vectors.map((v) => [v.signals, v.repid, v.profile]));
+    const notes = call('notesOf', fixture.vectors.map((v) => [v.signals]));
+    const got = fixture.vectors.map((_, i) => {
+      const r = veto[i].value;
+      return {
+        aligned: new Set(notes[i].value as number[]).size === 1,
+        veto: r.veto as boolean,
+        execute: r.execute as boolean,
+        unity: Math.round(r.unity * 1e4) / 1e4,
+        dissonance: Math.round(r.dissonance * 1e6) / 1e6,
+      };
+    });
     const pairs = fixture.vectors.map((v, i) => ({ v, g: got[i] }));
     // Everywhere the notes are not all the same, the port matches the Python to the digits it prints.
     const wrong = pairs.filter(({ v, g }) => !g.aligned && (g.veto !== v.veto || g.execute !== v.execute || Math.abs(g.unity - v.unity) > 1e-4 || Math.abs(g.dissonance - v.dissonance) > 1e-6));
@@ -99,7 +114,8 @@ describe('drawdown backtest: the port matches the Python original', () => {
   });
 
   it('rounds halves to even like numpy (JS Math.round would send them up)', () => {
-    expect(esm('[0.5, 1.5, 2.5, 3.5, 6.5, 7.5].map(m.roundHalfEven)')).toEqual([0, 2, 2, 4, 6, 8]);
+    const got = call('roundHalfEven', [[0.5], [1.5], [2.5], [3.5], [6.5], [7.5]]).map((x) => x.value);
+    expect(got).toEqual([0, 2, 2, 4, 6, 8]);
   });
 });
 
