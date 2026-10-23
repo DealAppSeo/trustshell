@@ -41,7 +41,7 @@ import {
   type PolicyDocument,
   type ToolClass,
 } from '../lib/guardrails';
-import { signValue, signingKey } from '../lib/install-key';
+import { ownFingerprint, signValue, signingKey } from '../lib/install-key';
 
 type IO = { out: (s: string) => void; err: (s: string) => void };
 
@@ -121,11 +121,14 @@ const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex
 
 /**
  * The card `trustshell run` prints: the five things a reader must keep apart. `doc` is the policy the decision
- * was made under: with it, a signature that does not verify reads as such instead of as "unsigned".
+ * was made under: with it, a signature that does not verify reads as such instead of as "unsigned". `own` is
+ * this install's key: a signature that verifies under any OTHER key read "owner-signed" until 2026-10-22, so a
+ * policy anyone self-signed was called the owner's (GUARD_AUTHORITY_CONCLUSION, case 2).
  */
-export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null, doc: PolicyDocument | null = null): string {
+export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null, doc: PolicyDocument | null = null, own: string | null = null): string {
   const d = decision;
-  const signed = d.authorized.policy_signed_by ? 'owner-signed' : doc?.signature ? SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
+  const by = d.authorized.policy_signed_by;
+  const signed = by ? (by === own ? 'owner-signed' : `signed by ${by.slice(0, 16)}…, NOT this install's key`) : doc?.signature ? SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
   const ex = outcome?.executed;
   const executed =
     ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
@@ -190,8 +193,15 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
     io.err(`NOT_CHECKED no policy at ${join(dir, POLICY_FILE)}: nothing is authorized, so nothing was run. trustshell guard init writes one.`);
     return 2;
   }
+  // Read before anything starts: an unreadable key must not throw after the command ran. No key, no owner.
+  let own: string | null = null;
+  try {
+    own = ownFingerprint(dir);
+  } catch {
+    /* not a key: no signature is this install's */
+  }
   if (g.decision.decision === 'DENIED') {
-    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null, g.loaded.state === 'ok' ? g.loaded.doc : null));
+    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
     return EXIT_REFUSED;
   }
   const t0 = Date.now();
@@ -203,7 +213,7 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
     executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0 },
     assurance_scope: RUN_SCOPE,
   });
-  (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null));
+  (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
   return r.status ?? 3;
 }
 

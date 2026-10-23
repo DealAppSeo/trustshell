@@ -82,11 +82,14 @@ async function runGuarded(args, inner, io, env = process.env) {
 const sha256 = (s) => (0, node_crypto_1.createHash)('sha256').update(s, 'utf8').digest('hex');
 /**
  * The card `trustshell run` prints: the five things a reader must keep apart. `doc` is the policy the decision
- * was made under: with it, a signature that does not verify reads as such instead of as "unsigned".
+ * was made under: with it, a signature that does not verify reads as such instead of as "unsigned". `own` is
+ * this install's key: a signature that verifies under any OTHER key read "owner-signed" until 2026-10-22, so a
+ * policy anyone self-signed was called the owner's (GUARD_AUTHORITY_CONCLUSION, case 2).
  */
-function formatRunCard(decision, outcome, doc = null) {
+function formatRunCard(decision, outcome, doc = null, own = null) {
     const d = decision;
-    const signed = d.authorized.policy_signed_by ? 'owner-signed' : doc?.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
+    const by = d.authorized.policy_signed_by;
+    const signed = by ? (by === own ? 'owner-signed' : `signed by ${by.slice(0, 16)}…, NOT this install's key`) : doc?.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
     const ex = outcome?.executed;
     const executed = ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
     return [
@@ -152,8 +155,16 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner) {
         io.err(`NOT_CHECKED no policy at ${(0, node_path_1.join)(dir, guardrails_1.POLICY_FILE)}: nothing is authorized, so nothing was run. trustshell guard init writes one.`);
         return 2;
     }
+    // Read before anything starts: an unreadable key must not throw after the command ran. No key, no owner.
+    let own = null;
+    try {
+        own = (0, install_key_1.ownFingerprint)(dir);
+    }
+    catch {
+        /* not a key: no signature is this install's */
+    }
     if (g.decision.decision === 'DENIED') {
-        (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null, g.loaded.state === 'ok' ? g.loaded.doc : null));
+        (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
         return exports.EXIT_REFUSED;
     }
     const t0 = Date.now();
@@ -165,7 +176,7 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner) {
         executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0 },
         assurance_scope: exports.RUN_SCOPE,
     });
-    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null));
+    (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
     return r.status ?? 3;
 }
 function usage(io, m) {
