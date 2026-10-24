@@ -23,7 +23,18 @@ The first published call of a run is exactly `npx @hyperdag/trustshell@latest`. 
 
 A check that cannot run because the network, a quota or a provider failed says so in `cause` (`network`, `quota`, `provider`, `rpc`, `npm`, `devnet`, `timeout`). A model label that is the opposite of the expected one is `quality` and is a FAIL. The report carries the pack's own SHA-256 and the SHA-256 of the claims it asked, so two runs are comparable only when both match.
 
-Options: `--skip hosted,published,erc8004,devnet,gate`, `--out-dir`, `--stem`, `--runs-log <file>`, `--keep`. The hosted checkers are paced to 2.9 requests a minute, and the pack stops asking after a 429 or after `--hosted-daily-cap` calls (default 60) in a UTC day.
+## Can the pack fail?
+
+A pack that has never failed has not shown it can. Two tests answer that, both included here:
+
+```bash
+npm run test:proof-pack-controls   # offline, seconds: a verifier that always says ok, one that always says no, and a tamper that changes nothing are all caught
+npm run test:proof-pack-mutants    # needs npm; about a minute per mutant: runs the pack against three deliberately broken copies of this checkout's tarball
+```
+
+Measured 2026-10-24: with `inspect` made to ignore a changed line, the pack FAILED step 3 (1 check); with the pay gate made to swallow a receipt failure and sign anyway, step 5 (2 checks); with `digestRecord` made to return a constant, step 2 (8 checks). All three exited 1. `--tarball <file>` is the option that makes this possible, and is also how to run the pack against a build you made yourself.
+
+Options: `--skip hosted,published,erc8004,devnet,gate`, `--tarball <file>`, `--out-dir`, `--stem`, `--runs-log <file>`, `--keep`. The hosted checkers are paced to 2.9 requests a minute, and the pack stops asking after a 429 or after `--hosted-daily-cap` calls (default 60) in a UTC day.
 
 For step 5 on a devnet, set `PROOF_PACK_DEVNET_MODULE` (a `devnet.mjs` exporting `startDevnet({dir})`) and `PROOF_PACK_DEVNET_DIR` (a folder with `hardhat` installed). Without them that part is NOT_CHECKED and the gate checks still run, without a chain.
 

@@ -32,6 +32,7 @@
  *   --skip a,b              hosted | published | erc8004 | devnet | gate
  *   --state-file <file>     hosted-call counter (default <tmp>/proof-pack-state.json)
  *   --hosted-daily-cap <n>  stop calling the hosted checkers after n calls per UTC day (default 60)
+ *   --tarball <file>        test this tarball instead of packing the checkout (how a broken build is shown to FAIL)
  *   --keep                  keep the temp dir
  * Env: PROOF_PACK_DEVNET_MODULE / PROOF_PACK_DEVNET_DIR  devnet.mjs and the folder with hardhat in it
  *      PROOF_PACK_RPC                                    Base Sepolia RPC (default https://sepolia.base.org)
@@ -57,6 +58,7 @@ const OUT_DIR = path.resolve(ROOT, opt('--out-dir', 'docs/proof-pack'));
 const STEM = opt('--stem', `proof-pack-${UTC_DATE}`);
 const STATE_FILE = opt('--state-file', path.join(os.tmpdir(), 'proof-pack-state.json'));
 const HOSTED_CAP = Number(opt('--hosted-daily-cap', '60'));
+const TARBALL = opt('--tarball', null); // test a tarball you built (or a deliberately broken one) instead of packing this checkout
 
 // ---- the ruler: what exactly is being asked. Changing any of this changes pack_ruler_sha256. ----------------------
 const RUN_ID = '39619591025';
@@ -186,7 +188,13 @@ async function setup() {
     tools.published = { version: S.pubVersion, source: 'npm view @hyperdag/trustshell version' };
     return P(`latest is ${S.pubVersion}`);
   }, '[npm]');
-  await check(st, 'npm pack this checkout', async () => {
+  await check(st, TARBALL ? `use the tarball given with --tarball (${path.basename(TARBALL)})` : 'npm pack this checkout', async () => {
+    if (TARBALL) {
+      if (!fs.existsSync(TARBALL)) return N(`no such file: ${TARBALL}`, 'usage');
+      S.tgz = path.resolve(TARBALL);
+      tools.packed = { name: '(from --tarball)', version: null, bytes: fs.statSync(S.tgz).size, tarball_sha256: sha256(fs.readFileSync(S.tgz)), note: 'a tarball the caller supplied; this pack did not build it' };
+      return P(`${tools.packed.bytes} bytes, sha256 ${tools.packed.tarball_sha256.slice(0, 12)}`);
+    }
     const r = await npm(['pack', '--json', '--pack-destination', S.tmp], { cwd: ROOT, timeoutMs: 120000 });
     if (r.code !== 0) return F(first(r.stderr) || 'npm pack failed', 'npm');
     const j = JSON.parse(r.stdout)[0];
@@ -197,6 +205,7 @@ async function setup() {
   if (S.tgz) await check(st, 'install the packed tarball cold into an empty dir', async () => {
     const r = await installPkg(S.packedDir, [S.tgz]);
     if (r.code !== 0) return N(first(r.stderr) || 'npm install failed', r.timedOut ? 'timeout' : 'npm');
+    tools.packed.version ??= verOf(S.packedDir);
     return P(`installed ${verOf(S.packedDir)} in ${r.ms} ms`);
   }, '[npm]');
   if (S.pubVersion && !SKIP.has('published')) await check(st, `install the published @hyperdag/trustshell@${S.pubVersion} cold into an empty dir`, async () => {
