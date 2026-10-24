@@ -40,14 +40,15 @@ function render(modulePath: string): { html: string; calls: unknown[] } {
   }
 }
 
+/** The words a reader sees. `&amp;` is decoded LAST, so `&amp;lt;` stays `&lt;` (CodeQL js/double-escaping). */
 function words(html: string): string {
   return html
     .replace(/<[^>]+>/g, ' ')
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ');
 }
 
