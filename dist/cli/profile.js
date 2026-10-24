@@ -196,7 +196,7 @@ async function runProfile(op, io, fs, json = false) {
         else if (!exists)
             io.out(`NO_PROFILE  ${exports.PROFILE_PATH} does not exist. \`trustshell init\` creates a blank one.`);
         else {
-            // The file may hold text someone else wrote (a profile imported from a signed bundle), and a problem line quotes the bad value: print both as text.
+            // The file sits in the working folder (./.trustshell/profile.md), so a cloned repository can carry one someone else wrote, and a problem line quotes the bad value: print both as text.
             io.out((0, action_evidence_1.cleanCodePoints)(text.replace(/\s+$/, ''), true));
             for (const pr of parsed.problems)
                 io.err(`problem: ${pr.field}: ${(0, action_evidence_1.cleanCodePoints)(pr.detail)}`);
