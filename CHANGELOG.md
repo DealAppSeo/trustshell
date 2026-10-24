@@ -10,6 +10,7 @@ All notable changes to the `@hyperdag/trustshell` package.
 - **The two-host demonstration (#607, #609):** `node demo/guard-carry/run.mjs` (docs/guard-carry-demo.md). Its no-network assurance now fails if the egress blocker is not live.
 - **A policy names its signer only when the signature verifies (#608).** A hand-edited policy no longer reads as owner-signed.
 - **"Owner-signed" means this install's key (#611).** The `trustshell run` card called a policy owner-signed when its signature verified under any key, and the bundle summary did the same for a key other than the bundle author's. Both now name the key and say it is NOT this install's (or NOT the author's).
+- **Fix: `OFFLINE=1` now stops the MCP `verify_output` (and `verify`, `evaluate`) and the SDK `verifyOutput`/`evaluate` too.** They sent the text to HAL under `OFFLINE=1`; only `TRUSTSHELL_LOCAL_ONLY=1` stopped them. Now they answer `NOT_CHECKED` with `seenBy: []` and no request leaves. The CLI `verify` and `check`, `check_claim` and `inspect_run` already did this. (`TrustShell.score` in `src/lib/trustshell.ts`; tests/mcp-offline-sends-nothing.test.ts.)
 - **`inspect_run` over MCP (#610).** Inspect for agents: a run URL and the claims as text in; the same record, digest and card that `trustshell check <runUrl> --claims` produces out, from api.github.com only. 1.8.0's MCP server lists 20 tools, and this is not one of them.
 
 ## 1.8.0 — 2026-10-22

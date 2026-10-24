@@ -38,12 +38,11 @@ exports.isUrlOperand = isUrlOperand;
 const redact_1 = require("../memory/redact");
 const api_url_1 = require("./api-url");
 const local_only_1 = require("./local-only");
+Object.defineProperty(exports, "OFFLINE_REASON", { enumerable: true, get: function () { return local_only_1.OFFLINE_REASON; } });
 exports.CLAIM_LABELS = ['pass', 'veto', 'not-checked'];
 /** The SDK's default backend origin (`TrustShell` constructor). Kept identical on purpose. */
 exports.DEFAULT_API_URL = 'https://repid-engine-production.up.railway.app';
 exports.CLASSIFY_PATH = '/api/v1/classify';
-/** Why a check was not sent under OFFLINE=1. The CLI's `verify` and `check <url>` print the same words. */
-exports.OFFLINE_REASON = 'OFFLINE=1 is set, so nothing was sent';
 /** Stop waiting after this. A later answer is not-checked, never a pass. */
 exports.CLAIM_TIMEOUT_MS = 6000;
 /** A label is one short word. A body larger than this is not an answer. */
@@ -296,7 +295,7 @@ async function classifyClaim(text, opts = {}) {
     // SEC F3: OFFLINE=1 sends nothing. Every caller (CLI check, MCP check_claim, quarantine release) comes through here.
     const env = opts.env ?? (typeof process !== 'undefined' ? process.env : {});
     if (env.OFFLINE === '1')
-        return mark({ label: 'not-checked', latency_ms: 0, reason: exports.OFFLINE_REASON });
+        return mark({ label: 'not-checked', latency_ms: 0, reason: local_only_1.OFFLINE_REASON });
     // SEC F2: local-only sends nothing (CLI check, MCP check_claim and quarantine release all come here).
     if ((0, local_only_1.localOnly)(opts.localOnly, opts.env))
         return mark({ label: 'not-checked', latency_ms: 0, reason: local_only_1.LOCAL_ONLY_REASON });

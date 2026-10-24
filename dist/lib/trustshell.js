@@ -216,7 +216,10 @@ class TrustShell {
     }
     async score(response, options = {}) {
         // SEC F2: local-only sends nothing. NOT_CHECKED, no trust earned, and nobody saw the text.
-        if ((0, local_only_1.localOnly)(this.config.localOnly)) {
+        // OFFLINE=1 says the same (it used to stop only the CLI's own `verify`, so the MCP verify_output
+        // and the SDK still sent the text: loop sprint 1, 2026-10-23). Every HAL send comes through here.
+        const stopReason = (0, local_only_1.localOnly)(this.config.localOnly) ? local_only_1.LOCAL_ONLY_REASON : (0, local_only_1.offline)() ? local_only_1.OFFLINE_REASON : null;
+        if (stopReason) {
             return {
                 trustScore: 0,
                 halScore: 0,
@@ -225,7 +228,7 @@ class TrustShell {
                 flaggedHallucination: false,
                 provider: 'none',
                 model: 'none',
-                decisionReason: `NOT_CHECKED — ${local_only_1.LOCAL_ONLY_REASON}`,
+                decisionReason: `NOT_CHECKED — ${stopReason}`,
                 evidence: [],
                 seenBy: [],
             };
