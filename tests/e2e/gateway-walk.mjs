@@ -4,9 +4,9 @@
  *   - Loading the page makes no request to any other host (the cases' sources are links, not fetches).
  *   - Copy puts exactly the Inspect command and a parseable MCP setup on the clipboard.
  *   - Every stage of the ramp the page links to (/agents → /leaderboard) is served.
- *   - The join form posts { email, note, source } to gateway_signups and to nothing else, says
- *     "Saved" only on a 201, and says "Not saved" when the table is missing (PostgREST PGRST205,
- *     the state until Sean applies the SQL) or the request never arrives.
+ *   - The join form posts { email, source, metadata: { note } } to trustshell_v15_waitlist and to
+ *     nothing else (never `waitlist`, whose trigger mails a TrustTrader promotion), says "Saved"
+ *     only on a 201, and "Not saved" on a refusal (PostgREST PGRST205 here) or a dropped request.
  *   - Nothing scrolls sideways at 375 px.
  *
  * The Supabase origin is a stub: the build is given NEXT_PUBLIC_SUPABASE_URL=https://stub-supabase.invalid
@@ -84,7 +84,7 @@ try {
       return route.fulfill({
         status: 404,
         contentType: 'application/json',
-        body: JSON.stringify({ code: 'PGRST205', message: "Could not find the table 'public.gateway_signups' in the schema cache" }),
+        body: JSON.stringify({ code: 'PGRST205', message: "Could not find the table 'public.trustshell_v15_waitlist' in the schema cache" }),
       });
     }
     return route.fulfill({ status: 201, body: '' });
@@ -132,7 +132,7 @@ try {
   await note.fill('Show me what it got wrong.');
   await submit.click();
   await page.locator('[data-testid=join-failed]').waitFor({ timeout: 10_000 }).catch(() => {});
-  check('join: a missing table reads Not saved, never Saved', (await page.locator('[data-testid=join-failed]').isVisible()) && !(await page.locator('[data-testid=join-saved]').count()));
+  check('join: a refused insert reads Not saved, never Saved', (await page.locator('[data-testid=join-failed]').isVisible()) && !(await page.locator('[data-testid=join-saved]').count()));
 
   answer = 'abort';
   await submit.click();
@@ -145,13 +145,13 @@ try {
   check('join: a 201 reads Saved', await page.locator('[data-testid=join-saved]').isVisible());
 
   const writes = posts.filter((p) => p.method === 'POST');
-  check('join: every write goes to gateway_signups and none to waitlist', writes.length >= 2 && writes.every((w) => new URL(w.url).pathname === '/rest/v1/gateway_signups'), writes.map((w) => w.url).join(' '));
+  check('join: every write goes to trustshell_v15_waitlist and none to waitlist', writes.length >= 2 && writes.every((w) => new URL(w.url).pathname === '/rest/v1/trustshell_v15_waitlist'), writes.map((w) => w.url).join(' '));
   let row = null;
   try { row = JSON.parse(writes.at(-1)?.body ?? 'null'); } catch { /* reported below */ }
   const one = Array.isArray(row) ? row[0] : row;
   check(
-    'join: the row is the email, the note and the source, nothing else',
-    one && JSON.stringify(Object.keys(one).sort()) === '["email","note","source"]' && one.email === 'walker@example.com' && one.note === 'Show me what it got wrong.' && one.source === 'trustshell.dev/gateway',
+    'join: the row is the email, the source and the note, nothing else',
+    one && JSON.stringify(Object.keys(one).sort()) === '["email","metadata","source"]' && one.email === 'walker@example.com' && JSON.stringify(one.metadata) === '{"note":"Show me what it got wrong."}' && one.source === 'trustshell.dev/gateway',
     JSON.stringify(row),
   );
   await desk.close();
