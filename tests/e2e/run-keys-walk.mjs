@@ -1,5 +1,5 @@
 /**
- * Which vault keys does /run actually send, in a real browser? (loop sprint 5, 2026-10-23)
+ * Which vault keys does /run actually send, in a real browser? (loop sprint 5, 2026-10-23; default flipped 2026-10-24)
  *
  * lib/run-keys.ts decides it, tests/run-keys.test.ts holds the logic, and this holds the WIRING: a
  * helper that is correct and not called is the failure LESSONS rule 2 names. It builds the app twice
@@ -7,8 +7,8 @@
  * vault in the browser, saves a key for every one of the seven providers, opens an agent, runs a
  * prompt on Auto, and reads what the engine received in `user_paid_keys`.
  *
- *   flag unset (default):           every key the vault holds is sent, as before
- *   NEXT_PUBLIC_RUN_LEAST_KEYS=1:   only openai and anthropic, the two the engine reads
+ *   variable unset (the default):   only openai and anthropic, the two the engine reads
+ *   NEXT_PUBLIC_RUN_LEAST_KEYS=0:   the one opt-out: every key the vault holds is sent, as it was before
  *
  * Free only is checked in the same pass: it sends no keys on either build.
  *
@@ -84,10 +84,10 @@ if (await portBusy(APP_PORT)) {
   process.exit(2);
 }
 
-/** Build with the given flag, serve, drive the browser, return the key names the engine received per run. */
-async function walk(label, flag) {
+/** Build (opted out of least-keys, or by default), serve, drive the browser, return the key names the engine received per run. */
+async function walk(label, optOut) {
   const env = { ...process.env, NEXT_PUBLIC_REPID_ENGINE_URL: `http://127.0.0.1:${ENGINE_PORT}` };
-  if (flag) env.NEXT_PUBLIC_RUN_LEAST_KEYS = '1';
+  if (optOut) env.NEXT_PUBLIC_RUN_LEAST_KEYS = '0';
   else delete env.NEXT_PUBLIC_RUN_LEAST_KEYS;
 
   const build = spawnNext(['build'], { env, stdio: 'ignore' });
@@ -173,24 +173,25 @@ async function walk(label, flag) {
 }
 
 try {
-  const off = await walk('flag off', false);
-  check('flag OFF (default): Auto reached the engine', off.autoKeys !== null, 'no /llm/complete request seen');
+  const def = await walk('default', false);
+  check('default build: Auto reached the engine', def.autoKeys !== null, 'no /llm/complete request seen');
   check(
-    'flag OFF (default): Auto sends every key in the vault, as before',
-    JSON.stringify(off.autoKeys) === JSON.stringify([...PROVIDERS].sort()),
-    `sent ${JSON.stringify(off.autoKeys)}`,
+    'default build: Auto sends only the keys the engine reads (openai, anthropic), though the vault holds seven',
+    JSON.stringify(def.autoKeys) === JSON.stringify(['anthropic', 'openai']),
+    `sent ${JSON.stringify(def.autoKeys)}`,
   );
-  check('flag OFF: the values sent are the ones the person saved', off.autoValues.every((v) => String(v).startsWith('walk-fixture-')));
-  check('flag OFF: Free only sends no keys', JSON.stringify(off.freeKeys) === '[]', `sent ${JSON.stringify(off.freeKeys)}`);
+  check('default build: the values sent are the ones the person saved', def.autoValues.every((v) => String(v).startsWith('walk-fixture-')));
+  check('default build: Free only sends no keys', JSON.stringify(def.freeKeys) === '[]', `sent ${JSON.stringify(def.freeKeys)}`);
 
-  const on = await walk('flag on', true);
-  check('flag ON: Auto reached the engine', on.autoKeys !== null, 'no /llm/complete request seen');
+  // The control: the same walk can see all seven, so "two" above is a measurement, not a blind spot.
+  const out = await walk('opted out', true);
+  check('NEXT_PUBLIC_RUN_LEAST_KEYS=0: Auto reached the engine', out.autoKeys !== null, 'no /llm/complete request seen');
   check(
-    'flag ON: Auto sends only the keys the engine reads (openai, anthropic)',
-    JSON.stringify(on.autoKeys) === JSON.stringify(['anthropic', 'openai']),
-    `sent ${JSON.stringify(on.autoKeys)}`,
+    'NEXT_PUBLIC_RUN_LEAST_KEYS=0: Auto sends every key in the vault, as it did before',
+    JSON.stringify(out.autoKeys) === JSON.stringify([...PROVIDERS].sort()),
+    `sent ${JSON.stringify(out.autoKeys)}`,
   );
-  check('flag ON: Free only still sends no keys', JSON.stringify(on.freeKeys) === '[]', `sent ${JSON.stringify(on.freeKeys)}`);
+  check('NEXT_PUBLIC_RUN_LEAST_KEYS=0: Free only still sends no keys', JSON.stringify(out.freeKeys) === '[]', `sent ${JSON.stringify(out.freeKeys)}`);
 } catch (e) {
   check('walk completed', false, String(e && e.message ? e.message : e).split('\n')[0]);
 } finally {
