@@ -229,11 +229,12 @@ describe('home page is the check form, and rendering it sends nothing', () => {
     const firstScreen = lines.slice(0, job2 + 1).join('\n');
     expect(firstScreen).not.toMatch(/receipt|autonomy|\bkeys?\b|\bHAL\b|\bstakes?\b|preferences|sav(e|es|ing) you money|wallet field/i);
     expect(text).not.toMatch(/the truth comes out|source of truth|proves? (it|the truth)/i);
-    // Job 3 has one door, to /pai, and it says the test network.
+    // Job 3 has one door, to /pai. It does not ask for a wallet or a spending limit (Sean, 2026-10-24);
+    // those are on /bind and /spend, with the test-network note beside them.
     const agent = home.html.slice(home.html.indexOf('id="your-agent"'), home.html.indexOf('id="proof"'));
     expect(agent.match(/href="\/pai"/g)).toHaveLength(1);
     expect(words(agent)).toContain('Make your agent');
-    expect(words(agent)).toContain('Claiming, funding and spending run on Base Sepolia, a test network.');
+    expect(words(agent)).not.toMatch(/wallet|spend|Base Sepolia/i);
   });
 
   it('says what it will not call, with the runs and the date', () => {
