@@ -199,8 +199,8 @@ describe('home page is the check form, and rendering it sends nothing', () => {
 
   it('says the job, then the second opinion, then shows a result, then the box: and promises nothing more', () => {
     // 2026-10-16 (Sean: "what is this and why should I care, jobs to be done"). The first screen is job 1.
-    const H1 = 'Get a second opinion before you use an AI answer.';
-    const SUB = 'Paste the answer. Two other AIs check it, and you see what each one said.';
+    const H1 = 'Your AI says the job is done. Is it?';
+    const SUB = 'Paste what it told you. Two other AIs check it, and you see what each one said.';
     const h1 = home.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
     expect(words(h1?.[1] ?? '')).toBe(H1);
     expect(words(h1?.[3] ?? '')).toBe(SUB);

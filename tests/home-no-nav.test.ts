@@ -44,8 +44,8 @@ describe('stranger nav', () => {
   });
 
   it('keeps the hero check, and does not put the other labels back on the home source', () => {
-    expect(hero).toContain('Get a second opinion before you use an AI answer.');
-    expect(hero).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
+    expect(hero).toContain('Your AI says the job is done. Is it?');
+    expect(hero).toContain('Paste what it told you. Two other AIs check it, and you see what each one said.');
     expect(form).toContain('Free. No signup. No wallet. Don&apos;t paste anything private.');
     expect(hero).toContain('<CheckForm');
     expect(agentScreen).toContain('Get the check where you already use AI');
