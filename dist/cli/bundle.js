@@ -103,7 +103,7 @@ function runBundle(argv, io, env = process.env) {
             }
             const loaded = (0, guardrails_1.loadPolicy)(home);
             if (loaded.state === 'invalid') {
-                io.err(`bundle export: ${loaded.path} does not parse (${loaded.problems.join('; ')}); fix it first (trustshell guard show). Nothing was written.`);
+                io.err(`bundle export: ${loaded.path} does not parse (${(0, action_evidence_1.cleanCodePoints)(loaded.problems.join('; '))}); fix it first (trustshell guard show). Nothing was written.`);
                 return 1;
             }
             // Memories only when the owner selects them; the memory file is not even opened otherwise.

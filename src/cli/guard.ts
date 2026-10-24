@@ -15,6 +15,7 @@
 import type { ParsedArgs } from './index';
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
+import { cleanCodePoints } from '../lib/action-evidence';
 import { learnExecutes } from '../learn/cli';
 import {
   GUARD_DOES_NOT_COVER,
@@ -345,7 +346,7 @@ function showLines(doc: PolicyDocument, path: string, ledgerText: string, defaul
   const signer = policySigner(doc);
   return [
     `policy      ${path}  (sha256 ${policySha256(p).slice(0, 16)}…, nonce ${p.nonce}, ${signer ? `signed by ${signer.slice(0, 16)}…` : doc.signature ? SIGNATURE_DOES_NOT_VERIFY : 'unsigned'})`,
-    `subject     ${p.subject}`,
+    `subject     ${cleanCodePoints(p.subject)}`, // policy.json is text someone else may have written (an imported, signed policy): print it as text
     `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
     'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
     `limits      per_tx ${p.per_tx_raw} · daily ${p.daily_raw} · total ${p.total_raw} (smallest units)${defaulted.length ? `; left out, so 0: ${defaulted.join(', ')}` : ''}; allowed so far: ${spent}`,
@@ -407,7 +408,7 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
         return 0;
       }
       if (loaded.state === 'invalid') {
-        io.out(json ? JSON.stringify(loaded, null, 2) : [`${path} does not parse, so EVERYTHING is denied:`, ...loaded.problems.map((p) => `  - ${p}`)].join('\n'));
+        io.out(json ? JSON.stringify(loaded, null, 2) : [`${path} does not parse, so EVERYTHING is denied:`, ...loaded.problems.map((p) => `  - ${cleanCodePoints(p)}`)].join('\n'));
         return 1;
       }
       const l = readLedger(ledgerText(), undefined, undefined, loaded.sha256);
