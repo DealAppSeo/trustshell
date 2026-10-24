@@ -33,7 +33,9 @@ permissions:
 
 jobs:
   extension:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04 on 2026-10-24, where Playwright 1.56.1 cannot install Chromium.
+    # Move this with the Playwright pin below, not before it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7

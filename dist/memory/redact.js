@@ -94,6 +94,12 @@ const HEX_64 = /\b(?:0x)?[0-9a-fA-F]{64}\b/g;
 /** Shared with remember refusal. Token bodies are assumed to be at least 8 characters. */
 exports.PREFIXED_TOKEN = /\b(?:pypi-|npm_|hf_|whsec_|glsoat-|glagent-|glptt-|gloas-|glrt-|gldt-|glpat-|ghs_|ghr_|ghu_|gho_|xoxc-|xoxs-|xoxr-|xoxe-|xoxa-|xoxp-|xoxb-)[A-Za-z0-9_-]{8,}\b/;
 const PREFIXED_TOKENS = new RegExp(exports.PREFIXED_TOKEN.source, 'g');
+/**
+ * Bare provider API keys this ecosystem is built on, which the list above did not know and the loop's own scrubber did: Groq `gsk_`, Cerebras
+ * `csk-`, xAI `xai-`, Perplexity `pplx-`, Fireworks `fw_`, Supabase `sbp_`, Tavily `tvly-`, Replicate `r8_`. Each carries its key's real body length
+ * rather than PREFIXED_TOKEN's 8: `fw_update_package` is an identifier, not a key. A labelled `GROQ_API_KEY=...` was always caught.
+ */
+const PROVIDER_KEYS = /\b(?:(?:gsk_|csk-|xai-|pplx-)[A-Za-z0-9]{40,}|fw_[A-Za-z0-9]{20,}|sbp_[0-9a-f]{40}|tvly-[A-Za-z0-9-]{20,}|r8_[A-Za-z0-9]{30,})\b/g;
 /** Personal data. Each shape needs its separators, so plain numbers in a claim are left alone. */
 /**
  * An email address, bounded by the limits of an address itself (RFC 5321): the local part up to 64 characters,
@@ -256,7 +262,7 @@ function isBareAwsSecret(candidate) {
  */
 function containsSecret(value) {
     const s = String(value ?? '');
-    const shaped = [SECRET, DB_URL, BEARER, EYJ, SK, STRIPE, AWS_KEY_ID, GOOGLE_API_KEY, GOOGLE_OAUTH, WEBHOOK_SIGNING, EXTENDED_KEY, WIF_KEY, SOLANA_BASE58, GHP, GITHUB_PAT, HF, WEBHOOK_URL, CREDENTIAL_ASSIGNMENT, HEX_64, PREFIXED_TOKENS]
+    const shaped = [SECRET, DB_URL, BEARER, EYJ, SK, STRIPE, AWS_KEY_ID, GOOGLE_API_KEY, GOOGLE_OAUTH, WEBHOOK_SIGNING, EXTENDED_KEY, WIF_KEY, SOLANA_BASE58, GHP, GITHUB_PAT, HF, WEBHOOK_URL, CREDENTIAL_ASSIGNMENT, HEX_64, PREFIXED_TOKENS, PROVIDER_KEYS]
         .some((re) => {
         re.lastIndex = 0;
         const hit = re.test(s);
@@ -287,6 +293,7 @@ function redact(value) {
         .replace(HF, '')
         .replace(WEBHOOK_SIGNING, '')
         .replace(PREFIXED_TOKENS, '')
+        .replace(PROVIDER_KEYS, '')
         .replace(EXTENDED_KEY, '')
         .replace(WIF_KEY, '')
         .replace(CREDENTIAL_ASSIGNMENT, '$1$2$3')

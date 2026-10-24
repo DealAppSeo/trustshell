@@ -24,6 +24,24 @@
  */
 export const LOCAL_ONLY_REASON = 'local-only is on (TRUSTSHELL_LOCAL_ONLY=1 or localOnly: true), so nothing was sent';
 
+/**
+ * Why a check was not sent under OFFLINE=1. The CLI's `verify` and `check <url>`, `classifyClaim`
+ * (so `check "<sentence>"` and MCP check_claim) and `TrustShell.score` (so SDK verifyOutput and the
+ * MCP verify_output, verify and evaluate) all print these words.
+ */
+export const OFFLINE_REASON = 'OFFLINE=1 is set, so nothing was sent';
+
+/**
+ * True when OFFLINE=1 is in the environment. The older, CLI-era switch: same promise as local-only
+ * for the text-sending paths, but the CLI also uses it to skip backend reads (status, bind-status),
+ * which local-only does not. A path that sends your text honours both.
+ */
+export function offline(
+  env: Record<string, string | undefined> = typeof process !== 'undefined' ? process.env : {},
+): boolean {
+  return env.OFFLINE === '1';
+}
+
 /** Which outside providers saw the text. [] = nothing was sent. 'unknown' = the engine did not say. */
 export type SeenBy = string[] | 'unknown';
 

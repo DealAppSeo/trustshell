@@ -16,7 +16,7 @@ Developers building AI agents who need to check what an agent says it did before
 Owner-controlled authority, evidence-backed actions, portable context and earned autonomy, as one harness that works with any model. This is shown with a reproducible demo (the pinned-run challenge), never asserted as unique: no comparative research supports "nobody else does this".
 
 ## Operating Context
-- `npx @hyperdag/trustshell@latest check <run-url> --claims-file <file>` (Inspect): reads one public GitHub Actions run from api.github.com, no account, no key. Developer preview, in npm `latest` (1.8.0).
+- `npx @hyperdag/trustshell@latest check <run-url> --claims-file <file>` (Inspect): reads one public GitHub Actions run from api.github.com, no account, no key. Developer preview, in npm `latest` (1.8.1).
 - trustshell.dev: the hosted sentence check (sends text to the engine), `/inspect` (the challenge), `/docs`.
 - Developers arrive from GitHub, npm and their community channels; they evaluate by running a command, not by reading claims.
 

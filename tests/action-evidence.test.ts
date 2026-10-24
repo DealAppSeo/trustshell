@@ -928,7 +928,10 @@ describe('record digest (RFC 8785 + SHA-256)', () => {
   });
 });
 
-const GOLDEN_GREEN_NARROW = 'cb114733d44e731213d02d78349bad4afcb1d23236f563b31ff42a18ea5c6455';
+// Moved 2026-10-23, on purpose: the run check's commit label said "The commit exists on the remote", but no lookup
+// is done; it now says "GitHub reports the commit this run ran on". The label is in the record, so the digest moved.
+// Recomputed independently with Python's json.dumps(sort_keys=True) | sha256 on the same record: same value.
+const GOLDEN_GREEN_NARROW = '9b7c9646ccec6cf5dff69bd066ed41f13ed6b1e769347323e4431c5faceb9d97';
 
 // ── the card ──────────────────────────────────────────────────────────────────────────────────────
 
