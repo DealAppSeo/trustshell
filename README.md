@@ -89,7 +89,7 @@ That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run
 
 | | Today |
 |---|---|
-| npm `latest` | **1.8.0** (`npm view @hyperdag/trustshell version`). |
+| npm `latest` | **1.8.1** (`npm view @hyperdag/trustshell version`). |
 | HAL quorum | **3 answering / 5 configured** (MEASURED 2026-10-06, `GET /api/v1/hal/stats` → `quorum_health`, 24-hour window). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
@@ -203,14 +203,14 @@ npm install @hyperdag/trustshell
 
 This is the one live, published install today. It delivers Inspect, the hosted **HAL** check, **ERC-8004** RepID reads and range proofs, and **x402** payments with a spend guard, against the live backend (anything on-chain is on the Base Sepolia test network).
 
-The package does not carry the Next.js/React site. The 1.8.0 tarball is 123 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.8.0 dependencies peerDependencies dist.fileCount`)
+The package does not carry the Next.js/React site. The 1.8.1 tarball is 123 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.8.1 dependencies peerDependencies dist.fileCount`)
 
 ### Which package do I install?
 
 | If you're… | Install | What you get |
 |---|---|---|
 | A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — Inspect, HAL verification, ERC-8004 RepID reads and x402 payments, in your TypeScript/JS |
-| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.8.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
+| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.8.1`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
 | Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone checking of [Plonky3](https://github.com/Plonky3/Plonky3) proofs (Plonky3 is Polygon Labs' proof system). It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
 
 **Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a separate package it depends on: npm installs it alongside, and the published tarball contains none of its files.**
@@ -220,7 +220,7 @@ The package does not carry the Next.js/React site. The 1.8.0 tarball is 123 file
 The MCP server is the `trustshell-mcp` bin inside `@hyperdag/trustshell`. A global install puts it on PATH:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.8.0
+npm i -g @hyperdag/trustshell@1.8.1
 ```
 
 Then add it to your Claude Desktop / Cursor / Claude Code config:
@@ -235,7 +235,7 @@ The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2
 
 ### Install straight from GitHub (no npm registry) — LIVE
 
-The SDK also installs directly from the repo. That gives you `main`, which can run ahead of the published 1.8.0 — useful for pinning a commit or as a registry-independent fallback:
+The SDK also installs directly from the repo. That gives you `main`, which can run ahead of the published 1.8.1 — useful for pinning a commit or as a registry-independent fallback:
 
 ```bash
 npm install github:DealAppSeo/trustshell
@@ -243,7 +243,7 @@ npm install github:DealAppSeo/trustshell
 npm install github:DealAppSeo/trustshell#<commit-or-branch>
 ```
 
-The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which can run ahead of the published release. For exactly what npm serves, install `@hyperdag/trustshell@1.8.0`.
+The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which can run ahead of the published release. For exactly what npm serves, install `@hyperdag/trustshell@1.8.1`.
 
 ---
 
@@ -724,10 +724,10 @@ Run `trustshell --help` for the full reference.
 
 ## Agent skill
 
-OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.8.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
+OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.8.1` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.8.0
+npm i -g @hyperdag/trustshell@1.8.1
 
 trustshell verify "<claim>"
 trustshell repid <id>

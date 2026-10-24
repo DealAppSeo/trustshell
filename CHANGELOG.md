@@ -2,6 +2,12 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.8.1 — 2026-10-24
+
+1.8.1 is 1.8.1-rc.0 (the section below) with its version set to 1.8.1. No package code changed
+between them: the published files differ only in `package.json`'s version, this section, and the
+README's install pins and npm `latest` row, which now name 1.8.1.
+
 ## 1.8.1-rc.0 — 2026-10-24 (release candidate)
 
 A patch for 1.8.0: fixes to code that 1.8.0 already ships, and nothing new. It is cut from
