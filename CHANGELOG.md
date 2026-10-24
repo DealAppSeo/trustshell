@@ -2,6 +2,44 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.8.1-rc.0 — 2026-10-24 (release candidate)
+
+A patch for 1.8.0: fixes to code that 1.8.0 already ships, and nothing new. It is cut from
+`4b01ec34` (the 1.8.0 source), not from main, so main's Guard + Carry, `trustshell run`, `bundle`
+and the MCP `inspect_run` are not in it. The MCP server still lists the same 20 tools.
+
+- **Fix: `OFFLINE=1` now stops the MCP `verify_output` (and `verify`, `evaluate`) and the SDK
+  `verifyOutput`/`evaluate` (#623).** In 1.8.0 they sent the text to HAL under `OFFLINE=1`; only
+  `TRUSTSHELL_LOCAL_ONLY=1` stopped them. Now they answer `NOT_CHECKED` with `seenBy: []` and no
+  request leaves. The CLI `verify` and `check` and the MCP `check_claim` already did this in 1.8.0.
+  (`TrustShell.score` in `src/lib/trustshell.ts`; tests/mcp-offline-sends-nothing.test.ts.)
+- **Fix: `profile show` prints `./.trustshell/profile.md` and its problem lines as text (#637).**
+  The file sits in the working folder, so a cloned repository can carry one, and its control and
+  bidi characters reached the terminal raw. Newlines are kept.
+  (tests/antifragile-profile-show-scrub.test.ts.)
+- **Fix: bare Groq, Cerebras, xAI, Perplexity, Fireworks, Supabase, Tavily and Replicate keys are
+  credential shapes (#642).** `remember` refused a labelled `GROQ_API_KEY=...` but stored a bare
+  `gsk_...` key, and `redact`, which runs before `check "<sentence>"` sends anything, left it in.
+  Each shape uses its key's real length, so an identifier like `fw_update_package` stays readable.
+  (`src/memory/redact.ts`; tests/antifragile-credential-shapes.test.ts.)
+- **Three CLI fixes from #647 (F3, F4, F9; the rest of #647 is guard, run and bundle).** `learn
+  inject` with no lesson for the turn says why on stderr, and stdout stays empty. The CLI drops
+  Node's `SQLite is an experimental feature` warning, and only that one. A refused
+  `TRUSTSHELL_API_URL` prints one line saying what to change instead of a stack trace (exit 3 as
+  before). (tests/release-1.8.1-first-run.test.ts.)
+- **The `check` record says only what was looked up (#619).** The run check labelled its commit
+  fact "The commit exists on the remote", but no lookup is made; it now reads "GitHub reports the
+  commit this run ran on". The label is part of the `--claims` evidence record, so a 1.8.1 record
+  of the same run and claims has a different SHA-256 digest from a 1.8.0 one.
+- **README, package description and LICENSE (#619, and the A2A lines).** The README no longer says
+  "ZK-verifiable receipt", "portable reputation" or "portable agentic trust harness", and no
+  longer carries a commercial-use term that the LICENSE does not contain; it credits x402
+  (Coinbase) and Plonky3 (Polygon Labs). The A2A lines no longer promise a "verifiable settlement
+  receipt": `pollUntilSettled` reads the backend's contract record and does not verify it. The npm
+  description leads with Inspect. LICENSE and README name the copyright holder as Sean Goodwin
+  (Sean, 2026-10-23).
+- **Package size.** 123 files, the same as 1.8.0. Runtime dependencies are unchanged.
+
 ## 1.8.0 — 2026-10-22
 
 1.8.0 is 1.8.0-rc.0 (the section below) promoted to npm `latest`, plus one fix, #596. A plain
