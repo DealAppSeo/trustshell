@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GUARD_USAGE = exports.RUN_USAGE = exports.CHECK_SCOPE = exports.POLICY_SCOPE = exports.RUN_SCOPE = exports.CLI_SCOPE = exports.NEVER_GUARDED = exports.EXIT_REFUSED = void 0;
+exports.LEVEL_IS_NOT = exports.GUARD_USAGE = exports.RUN_USAGE = exports.CHECK_SCOPE = exports.POLICY_SCOPE = exports.RUN_SCOPE = exports.CLI_SCOPE = exports.NEVER_GUARDED = exports.EXIT_REFUSED = void 0;
 exports.recordPolicyChange = recordPolicyChange;
 exports.plannedAction = plannedAction;
 exports.runGuarded = runGuarded;
@@ -9,9 +9,11 @@ exports.runRun = runRun;
 exports.runGuard = runGuard;
 const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
+const action_evidence_1 = require("../lib/action-evidence");
 const cli_1 = require("../learn/cli");
 const guardrails_1 = require("../lib/guardrails");
 const install_key_1 = require("../lib/install-key");
+const autonomy_1 = require("../lib/autonomy");
 /** Exit code for an action the policy denied. Never 0, and distinct from a VETO (1). */
 exports.EXIT_REFUSED = 5;
 exports.NEVER_GUARDED = new Set(['help', 'version', 'guard', 'run']);
@@ -187,7 +189,113 @@ exports.GUARD_USAGE = `trustshell guard init [--force] [--days N]
 trustshell guard show [--json]
 trustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]
 trustshell guard allow <action> · guard deny <action>      (spend | post | tool | tool:<name>)
-trustshell guard limit per-tx|daily|total <n> · guard expire <days> · guard kill · guard sign`;
+trustshell guard limit per-tx|daily|total <n> · guard expire <days> · guard kill · guard sign
+trustshell guard level [--json] · guard level shadow|enforce|off · guard level after L1|L2|L3 <n>
+trustshell guard level record <record.json> [--json] · guard level revoke      (SHADOW by default)`;
+/** The disclaimer every `guard level` reading carries. */
+exports.LEVEL_IS_NOT = 'Local guardrails for cooperative agents, not a security boundary: anything running as you can edit the policy or autonomy.jsonl, or hand guard level record a record.json it made up (a record is unsigned).';
+function autonomyLine(p) {
+    const a = p.autonomy;
+    if (!a)
+        return 'autonomy    off (trustshell guard level shadow turns it on)';
+    return `autonomy    ${a.mode === 'shadow' ? 'SHADOW: the level is computed and recorded, and Guard allows exactly what the policy allows' : 'ENFORCE: the level can also refuse; it never allows what the policy does not list'}`;
+}
+/** `guard level`, `guard level record <file>`, `guard level revoke`: the ones that do not change the policy. */
+function runLevel(words, json, io, dir, p) {
+    const [sub] = words;
+    const config = p.autonomy;
+    if (!config) {
+        (sub ? io.err : io.out)(autonomyLine(p));
+        return sub ? 2 : 0;
+    }
+    const fs = (0, guardrails_1.nodeGuardFs)();
+    const path = (0, node_path_1.join)(dir, autonomy_1.AUTONOMY_FILE);
+    if (sub === 'record' || sub === 'revoke') {
+        let ev;
+        if (sub === 'revoke') {
+            if (words.length !== 1)
+                return usage(io, 'guard level revoke takes nothing');
+            ev = { kind: 'revocation', via: 'guard level revoke' };
+        }
+        else {
+            if (words.length !== 2)
+                return usage(io, 'guard level record takes one record.json, as trustshell check <runUrl> --claims-file <path> --out <dir> writes it');
+            const file = words[1];
+            let text;
+            try {
+                const nfs = require('node:fs');
+                // A record of the 200 claims `check` reads at most is well under this.
+                if (nfs.statSync(file).size > 4 * 1024 * 1024)
+                    throw new Error('it is over 4 MB');
+                text = nfs.readFileSync(file, 'utf8');
+            }
+            catch (e) {
+                io.err(`not recorded: cannot read ${file}: ${e.message}`);
+                return 2;
+            }
+            const e = (0, autonomy_1.evidenceFromRecordFile)(text, p.subject);
+            if (!e.ok) {
+                io.err(`not recorded: ${e.error}`);
+                return 2;
+            }
+            ev = e.event;
+        }
+        const r = (0, autonomy_1.recordAutonomyEvent)(dir, fs, config, ev);
+        if (!r.ok) {
+            io.err(`not recorded: ${r.error}`);
+            return 2;
+        }
+        if (json) {
+            io.out(JSON.stringify(r.added, null, 2));
+            return 0;
+        }
+        const first = r.added[0];
+        const lines = [];
+        if (first.kind === 'evidence') {
+            const t = first.tally;
+            lines.push(`recorded ${first.run} for ${p.subject}: ${first.outcome} (${t.SUPPORTED} SUPPORTED, ${t.CONTRADICTED} CONTRADICTED, ${t.NOT_CHECKED} NOT_CHECKED), record ${first.seq}`);
+            if (first.outcome === 'NOT_CHECKED')
+                lines.push('  counts for nothing: a record counts only when every claim is SUPPORTED on a complete run');
+            else if (first.outcome === 'SUPPORTED' && r.after.supported <= r.before.supported && r.added.length === 1) {
+                lines.push(r.before.needed === null ? '  L3 is the highest level' : `  does not count: ${first.commit} was already counted`);
+            }
+        }
+        else
+            lines.push(`recorded the revocation, record ${first.seq}`);
+        const ch = r.added.find((a) => a.kind === 'level-change');
+        if (ch && ch.kind === 'level-change')
+            lines.push(`level       L${ch.from} -> L${ch.to}: ${ch.reason}`);
+        else if (r.after.needed !== null)
+            lines.push(`level       L${r.after.level}; L${r.after.level + 1} after ${r.after.needed}, ${r.after.supported} so far`);
+        if (config.mode === 'shadow')
+            lines.push('            SHADOW: nothing Guard allows has changed');
+        io.out(lines.join('\n'));
+        return 0;
+    }
+    if (sub !== undefined)
+        return usage(io, 'guard level takes shadow, enforce, off, after, record or revoke');
+    const reading = (0, autonomy_1.readAutonomy)(fs.exists(path) ? fs.read(path) : '');
+    const s = (0, autonomy_1.levelState)(reading, config);
+    const m = (0, autonomy_1.measured)(reading);
+    if (json) {
+        io.out(JSON.stringify({ subject: p.subject, ...config, ...s, measured: m, records: reading.records.length, breaks: reading.breaks, is_not: exports.LEVEL_IS_NOT }, null, 2));
+    }
+    else {
+        io.out([
+            autonomyLine(p),
+            `subject     ${p.subject}`,
+            `level       ${autonomy_1.LEVEL_MEANS[s.level]}`,
+            `why         ${s.reason}`,
+            `next        ${s.needed === null ? (s.chain === 'BROKEN' ? 'none while autonomy.jsonl is BROKEN' : 'none: L3 is the highest') : `L${s.level + 1} after ${s.needed} Inspect records SUPPORTED in full, one per commit; ${s.supported} so far since the last change`}`,
+            'falls       one level on a CONTRADICTED record or a refused out-of-lane attempt; to L0 on guard level revoke or guard kill',
+            `measured    ${m.decisions} Guard decision${m.decisions === 1 ? '' : 's'}: the level would have refused ${m.earned_denied} of the ${m.fixed_allowed} the policy allowed`,
+            `records     ${reading.records.length} in ${autonomy_1.AUTONOMY_FILE}, chain ${reading.verdict}${reading.breaks.length ? ': ' + reading.breaks.slice(0, 3).join('; ') : ''}`,
+            '',
+            exports.LEVEL_IS_NOT,
+        ].join('\n'));
+    }
+    return reading.verdict === 'BROKEN' ? 1 : 0;
+}
 function showLines(doc, path, ledgerText, defaulted) {
     const p = doc.policy;
     const l = (0, guardrails_1.readLedger)(ledgerText, undefined, undefined, (0, guardrails_1.policySha256)(p));
@@ -195,11 +303,12 @@ function showLines(doc, path, ledgerText, defaulted) {
     const signer = (0, guardrails_1.policySigner)(doc);
     return [
         `policy      ${path}  (sha256 ${(0, guardrails_1.policySha256)(p).slice(0, 16)}…, nonce ${p.nonce}, ${signer ? `signed by ${signer.slice(0, 16)}…` : doc.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned'})`,
-        `subject     ${p.subject}`,
+        `subject     ${(0, action_evidence_1.cleanCodePoints)(p.subject)}`, // policy.json is text someone else may have written (an imported, signed policy): print it as text
         `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
         'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
         `limits      per_tx ${p.per_tx_raw} · daily ${p.daily_raw} · total ${p.total_raw} (smallest units)${defaulted.length ? `; left out, so 0: ${defaulted.join(', ')}` : ''}; allowed so far: ${spent}`,
         `expires     ${new Date(p.expires_at * 1000).toISOString()}`,
+        autonomyLine(p),
         `records     ${l.count} in ${guardrails_1.GUARD_RECEIPTS_FILE}, chain ${l.verdict}${l.breaks.length ? ': ' + l.breaks.slice(0, 3).join('; ') : ''}`,
         ...(l.verdict === 'BROKEN' ? ['            No amount is allowed while it is BROKEN. Keep the file as evidence and move it aside to start a new ledger.'] : []),
         '',
@@ -259,7 +368,7 @@ function runGuard(argv, io, env = process.env) {
                 return 0;
             }
             if (loaded.state === 'invalid') {
-                io.out(json ? JSON.stringify(loaded, null, 2) : [`${path} does not parse, so EVERYTHING is denied:`, ...loaded.problems.map((p) => `  - ${p}`)].join('\n'));
+                io.out(json ? JSON.stringify(loaded, null, 2) : [`${path} does not parse, so EVERYTHING is denied:`, ...loaded.problems.map((p) => `  - ${(0, action_evidence_1.cleanCodePoints)(p)}`)].join('\n'));
                 return 1;
             }
             const l = (0, guardrails_1.readLedger)(ledgerText(), undefined, undefined, loaded.sha256);
@@ -310,12 +419,15 @@ function runGuard(argv, io, env = process.env) {
         case 'limit':
         case 'expire':
         case 'kill':
-        case 'sign': {
+        case 'sign':
+        case 'level': {
             const loaded = (0, guardrails_1.loadPolicy)(dir);
             if (loaded.state !== 'ok') {
                 io.err(loaded.state === 'absent' ? `no policy at ${path}; trustshell guard init writes one` : `${path} does not parse; fix it by hand or guard init --force`);
                 return 2;
             }
+            if (verb === 'level' && !['shadow', 'enforce', 'off', 'after'].includes(words[0] ?? ''))
+                return runLevel(words, json, io, dir, loaded.doc.policy);
             const p = JSON.parse(JSON.stringify(loaded.doc.policy));
             if (verb === 'sign') {
                 if (words.length)
@@ -344,6 +456,22 @@ function runGuard(argv, io, env = process.env) {
                     return bad('guard expire takes a number of days from now');
                 p.expires_at = Math.floor(Date.now() / 1000) + Number(words[0]) * 86400;
             }
+            else if (verb === 'level') {
+                const [sub, lv, n] = words;
+                if (sub === 'after') {
+                    if (!p.autonomy)
+                        return bad('levels are off: trustshell guard level shadow turns them on first');
+                    if (words.length !== 3 || !['L1', 'L2', 'L3'].includes(lv) || !/^[1-9][0-9]{0,4}$/.test(n))
+                        return bad('guard level after takes L1, L2 or L3, then a number of records');
+                    p.autonomy = { ...p.autonomy, promote_after: { ...p.autonomy.promote_after, [lv]: Number(n) } };
+                }
+                else if (words.length !== 1)
+                    return bad(`guard level ${sub} takes nothing`);
+                else if (sub === 'off')
+                    delete p.autonomy;
+                else
+                    p.autonomy = { ...(p.autonomy ?? autonomy_1.DEFAULT_AUTONOMY), mode: sub };
+            }
             else {
                 if (words.length)
                     return bad('guard kill takes nothing');
@@ -360,12 +488,17 @@ function runGuard(argv, io, env = process.env) {
             const next = { policy: checked.policy, signature: null };
             write(next);
             recordPolicyChange(dir, `guard ${verb}${words.length ? ' ' + words.join(' ') : ''}`, loaded.sha256, next);
+            // Killing the policy is the owner revoking trust, so the level falls to L0 too.
+            if (verb === 'kill' && checked.policy.autonomy)
+                (0, autonomy_1.recordAutonomyEvent)(dir, (0, guardrails_1.nodeGuardFs)(), checked.policy.autonomy, { kind: 'revocation', via: 'guard kill' });
             if (loaded.doc.signature)
                 io.err('the owner signature covered the old policy, so it was removed: trustshell guard sign signs this one');
             io.out(showLines({ policy: checked.policy, signature: null }, path, ledgerText(), checked.defaulted).slice(0, 5).join('\n'));
+            if (verb === 'level')
+                io.out(autonomyLine(checked.policy));
             return 0;
         }
         default:
-            return bad('guard takes init, show, check, allow, deny, limit, expire, kill or sign');
+            return bad('guard takes init, show, check, allow, deny, limit, expire, kill, sign or level');
     }
 }

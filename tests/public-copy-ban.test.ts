@@ -34,7 +34,7 @@ describe('public copy ban', () => {
     }
     expect(hits).toEqual([]);
     const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
-    expect(hero).toContain('Get a second opinion before you use an AI answer.');
-    expect(hero).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
+    expect(hero).toContain('Your AI says the job is done. Is it?');
+    expect(hero).toContain('Paste what it told you. Two other AIs check it, and you see what each one said.');
   });
 });

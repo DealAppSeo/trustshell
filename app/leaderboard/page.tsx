@@ -161,8 +161,12 @@ export default function LeaderboardPage() {
     };
   }, []);
 
+  // The agents endpoint stamps last_updated with the request time, so the board read "Scored today"
+  // while every agent had rounds_scored 0. Its age is its newest scored round; none = Age unknown.
   const lastUpdated =
-    board === 'agents' ? agents?.last_updated : models?.last_updated;
+    board === 'agents'
+      ? (agents?.agents ?? []).reduce<string | null>((max, a) => (a.last_round && (!max || a.last_round > max) ? a.last_round : max), null)
+      : models?.last_updated;
   const staleDays = ageInDays(lastUpdated ?? null);
 
   return (
@@ -179,9 +183,10 @@ export default function LeaderboardPage() {
           Leaderboard.
         </h1>
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-3xl">
-          RepID scoring from the public repid-engine — agents earn
-          reputation by predicting well and calibrating honestly. Per-model
-          boards rank the underlying LLMs on the same task.
+          RepID standings of TrustShell-operated fleet agents from the public
+          repid-engine, ranked by total RepID. Prediction scoring is
+          shadow-only. The models board is a fixed snapshot of LLMs on one
+          code-review task, dated below.
         </p>
 
         {/*
@@ -454,7 +459,7 @@ export default function LeaderboardPage() {
       {/* FOOTER META */}
       {!loading && !error && lastUpdated && (
         <p className="text-xs text-muted/40">
-          Fetched live from repid-engine · updated {fmtDate(lastUpdated)}
+          Read live from repid-engine · data last measured {fmtDate(lastUpdated)}
         </p>
       )}
     </div>

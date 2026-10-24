@@ -15,7 +15,7 @@ describe('trust keys shape', () => {
     expect(doc).toContain('src/lib/trustshell.ts');
     expect(doc).toContain('src/lib/ingest.ts');
     expect(doc).toContain('./WALKTHROUGH.md');
-    expect(doc).toMatch(/Staking is not live/);
+    expect(doc).toContain('Staking is on the Base Sepolia test network only. No mainnet or real-money stake.');
     expect(doc).not.toMatch(/stake now|staking is live/i);
     expect(doc).not.toMatch(/createHash|subtle\.crypto|privateKey\s*=/);
     expect(doc).not.toMatch(/register\(\)\s+mints/i);

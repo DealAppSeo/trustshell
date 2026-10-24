@@ -33,6 +33,8 @@ exports.homeShadowWarning = homeShadowWarning;
  *   expires_at              unix seconds. At or after it, everything is denied.
  *   nonce                   supersession: revoking is writing a policy with a higher nonce (the kernel has no
  *                           revocation list either). `guard kill` writes one that allows nothing.
+ *   autonomy                LOCAL ONLY, optional, the one field the kernel does not have: autonomy levels, off unless
+ *                           present, shadow by default (src/lib/autonomy.ts). A level only ever narrows this policy.
  * Not in the subset, because the local guard neither pays nor binds code: `owner` (a wallet), `payees`,
  * `authorized_impl_hashes`. The local hash is sha256 of the RFC 8785 form, not the kernel's EIP-712 digest.
  *
@@ -52,6 +54,7 @@ const node_os_1 = require("node:os");
 const node_path_1 = require("node:path");
 const jcs_1 = require("./jcs");
 const install_key_1 = require("./install-key");
+const autonomy_1 = require("./autonomy");
 exports.POLICY_FILE = 'policy.json';
 /** An imported policy that could not be enforced (unsigned, or signed by a key nobody named) lands here. */
 exports.SUGGESTED_POLICY_FILE = 'policy.suggested.json';
@@ -62,7 +65,7 @@ exports.TOOL_CLASSES = ['read', 'spend', 'post', 'other'];
 exports.LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'];
 const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
 const CANONICAL_UINT = /^(?:0|[1-9][0-9]{0,77})$/;
-const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce'];
+const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy'];
 const UINT256_MAX = BigInt('0x' + 'f'.repeat(64));
 /** The policy `guard init` writes: local commands only, every limit 0, expires in `days` days. */
 function defaultPolicy(nowS = Math.floor(Date.now() / 1000), days = 30) {
@@ -131,12 +134,25 @@ function parsePolicy(input) {
     const nonce = typeof input.nonce === 'number' && Number.isSafeInteger(input.nonce) && input.nonce >= 0 ? String(input.nonce) : input.nonce;
     if (typeof nonce !== 'string' || !CANONICAL_UINT.test(nonce))
         errors.push('nonce must be a non-negative decimal integer');
+    const auto = input.autonomy === undefined ? null : (0, autonomy_1.parseAutonomy)(input.autonomy);
+    if (auto && !auto.ok)
+        errors.push(...auto.errors);
     if (errors.length)
         return { ok: false, errors };
     return {
         ok: true,
         defaulted,
-        policy: { subject: subject, actions, per_tx_raw: per, daily_raw: daily, total_raw: total, expires_at: exp, nonce: nonce },
+        policy: {
+            subject: subject,
+            actions,
+            per_tx_raw: per,
+            daily_raw: daily,
+            total_raw: total,
+            expires_at: exp,
+            nonce: nonce,
+            // Only when present: a policy without it hashes exactly as it did before autonomy existed.
+            ...(auto?.ok ? { autonomy: auto.config } : {}),
+        },
     };
 }
 /** PURE. Parse `{ policy, signature }` text. A signature that is present must be well formed (verified separately). */
@@ -279,6 +295,12 @@ function readLedger(text, nowS = Math.floor(Date.now() / 1000), from, policySha 
         }
         catch {
             breaks.push(`line ${n}: not JSON`);
+            return;
+        }
+        // Valid JSON that is not an object (null, a number, a list) is not a record. `null` used to throw here, and every
+        // command that reads the ledger died with a stack trace instead of reading BROKEN (antifragile night, 2026-10-24).
+        if (r === null || typeof r !== 'object' || Array.isArray(r)) {
+            breaks.push(`line ${n}: not a record`);
             return;
         }
         const { hash, ...body } = r;
@@ -477,7 +499,26 @@ function decideLocked(dir, req, scope, ctx, loaded) {
     const checkpointPath = (0, node_path_1.join)(dir, exports.GUARD_CHECKPOINT_FILE);
     const ledger = readLedgerCheckpointed(fs.exists(ledgerPath) ? fs.read(ledgerPath) : '', fs.exists(checkpointPath) ? fs.read(checkpointPath) : null, nowS, loaded.state === 'ok' ? loaded.sha256 : null);
     const base = loaded.state === 'ok' ? decide(loaded.doc.policy, req, ledger.spent, nowS) : decide(null, req, null, nowS, loaded.problems);
-    const reasons = [...base.reasons, ...(ctx.extraReasons ?? [])];
+    const fixedReasons = [...base.reasons, ...(ctx.extraReasons ?? [])];
+    // AUTONOMY (src/lib/autonomy.ts), off unless the policy has the block. Shadow can never stop an action: a failure
+    // in it is swallowed and the decision stands. Enforce fails closed: a failure throws, and nothing runs.
+    const policy = loaded.state === 'ok' ? loaded.doc.policy : null;
+    const auto = policy?.autonomy;
+    let reading = null;
+    let level = null;
+    if (auto) {
+        try {
+            const p = (0, node_path_1.join)(dir, autonomy_1.AUTONOMY_FILE);
+            reading = (0, autonomy_1.readAutonomy)(fs.exists(p) ? fs.read(p) : '');
+            level = (0, autonomy_1.levelState)(reading, auto);
+        }
+        catch (e) {
+            if (auto.mode === 'enforce')
+                throw e;
+        }
+    }
+    const levelOk = level ? (0, autonomy_1.levelAllows)(level.level, req) : true;
+    const reasons = auto?.mode === 'enforce' && level && !levelOk ? [...fixedReasons, `autonomy level L${level.level} does not allow ${actionFor(req)} (enforced by the owner)`] : fixedReasons;
     const decision = { decision: reasons.length ? 'DENIED' : 'ALLOWED', reasons };
     const requested = { action: actionFor(req), tool: req.tool, class: req.class };
     if (req.amount_raw !== undefined)
@@ -499,6 +540,27 @@ function decideLocked(dir, req, scope, ctx, loaded) {
         executed: decision.decision === 'DENIED' || kind === 'check' ? 'not run' : null,
         assurance_scope: scope,
     }, ctx);
+    // A `guard check` is a question: no would-be record, never an incident.
+    if (auto && policy && reading && level && kind === 'decision') {
+        try {
+            const ref = { seq: record.seq, hash: record.hash };
+            const fixed = fixedReasons.length ? 'DENIED' : 'ALLOWED';
+            const events = [
+                { kind: 'would-be', guard_record: ref, action: requested.action, class: req.class, level: level.level, fixed, earned: fixed === 'ALLOWED' && levelOk ? 'ALLOWED' : 'DENIED' },
+            ];
+            // Out of lane: the policy does not list it, the caller named a reason it is always denied (a `run` executable
+            // that is not the tool, init --pai, learn check run), or an enforced level refused it. Not: expiry, an amount
+            // over a cap, a policy file that does not parse. Those are the owner's state, not the agent's attempt.
+            const outOfLane = decision.decision === 'DENIED' && (!permitted(policy.actions, req) || (ctx.extraReasons?.length ?? 0) > 0 || (auto.mode === 'enforce' && !levelOk));
+            if (outOfLane)
+                events.push({ kind: 'incident', guard_record: ref, action: requested.action, reasons });
+            (0, autonomy_1.appendAutonomy)(dir, fs, auto, events, record.ts, reading);
+        }
+        catch (e) {
+            if (auto.mode === 'enforce')
+                throw e;
+        }
+    }
     return { decision, record, loaded };
 }
 /** The sentences `guard show` will not let a reader forget. */

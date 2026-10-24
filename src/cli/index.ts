@@ -393,6 +393,13 @@ COMMANDS
   guard check --tool <name> [--class read|other|post|spend] [--amount <n>]
                              Ask the policy about any action from any harness. Recorded.
                              EXIT 0 ALLOWED, 5 DENIED, 2 NOT_CHECKED (no policy).
+  guard level [shadow|enforce|off]  SHADOW, off until turned on: an autonomy level (L0 observe, L1 read-only,
+                             L2 workspace, L3 broader) that rises with Inspect records SUPPORTED in full and
+                             falls on a CONTRADICTED one, an out-of-lane refusal or revocation. Shadow records
+                             the level and what it would have refused; Guard allows exactly what it did.
+                             enforce lets it refuse too, and never allows what the policy does not list.
+  guard level record <record.json> · guard level revoke · guard level after L1|L2|L3 <n>
+                             Count one record (check --claims-file --out writes it) · drop to L0 · set a threshold.
   run --tool <name> [--class <c>] [--amount <n>] -- <command> [args...]
                              The enforced path: decide and record BEFORE the command starts; a denied
                              command never starts (exit 5); an allowed one runs and its exit code is

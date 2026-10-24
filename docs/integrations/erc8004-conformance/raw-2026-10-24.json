@@ -1,0 +1,620 @@
+{
+  "probedAt": "2026-10-24T07:16:52.759Z",
+  "rpc": "https://sepolia.base.org",
+  "notes": [],
+  "chainId": 84532,
+  "blockNumber": 49521727,
+  "identity": {
+    "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "codeBytes": 130,
+    "codeHash": "0xd0e45b1d89fa9b6cc7e97c1f155d64180e5c232aaccf9900ef9d4fd738c02b41",
+    "eip1967Implementation": "0x7274e874CA62410a93Bd8bf61c69d8045E399c02",
+    "eip1967Admin": null,
+    "implementationCodeBytes": 14474,
+    "implementationCodeHash": "0xa5f9624ea85e45b3f4b8558581f03bfb3e6cefab278d7bf0500ec9bd065dc16f"
+  },
+  "reputation": {
+    "address": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    "codeBytes": 130,
+    "codeHash": "0xd0e45b1d89fa9b6cc7e97c1f155d64180e5c232aaccf9900ef9d4fd738c02b41",
+    "eip1967Implementation": "0x16e0FA7f7C56B9a767E34B192B51f921BE31dA34",
+    "eip1967Admin": null,
+    "implementationCodeBytes": 10491,
+    "implementationCodeHash": "0x38602de97f1bd86f0a4729f7f3c0a78b1d27892e6eb581272cce5504a68fd00b"
+  },
+  "identitySelectors": [
+    {
+      "sig": "register(string,(string,bytes)[])",
+      "selector": "0x8ea42286",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "register(string)",
+      "selector": "0xf2c298be",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "register()",
+      "selector": "0x1aa3a008",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "setAgentURI(uint256,string)",
+      "selector": "0x0af28bd3",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "getMetadata(uint256,string)",
+      "selector": "0xcb4799f2",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "setMetadata(uint256,string,bytes)",
+      "selector": "0x466648da",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "setAgentWallet(uint256,address,uint256,bytes)",
+      "selector": "0x2d1ef5ae",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "getAgentWallet(uint256)",
+      "selector": "0x00339509",
+      "inBytecode": true,
+      "form": "PUSH3"
+    },
+    {
+      "sig": "unsetAgentWallet(uint256)",
+      "selector": "0x3fddcf19",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "ownerOf(uint256)",
+      "selector": "0x6352211e",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "tokenURI(uint256)",
+      "selector": "0xc87b56dd",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "balanceOf(address)",
+      "selector": "0x70a08231",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "name()",
+      "selector": "0x06fdde03",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "symbol()",
+      "selector": "0x95d89b41",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "getApproved(uint256)",
+      "selector": "0x081812fc",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "isApprovedForAll(address,address)",
+      "selector": "0xe985e9c5",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "approve(address,uint256)",
+      "selector": "0x095ea7b3",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "setApprovalForAll(address,bool)",
+      "selector": "0xa22cb465",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "transferFrom(address,address,uint256)",
+      "selector": "0x23b872dd",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "safeTransferFrom(address,address,uint256)",
+      "selector": "0x42842e0e",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "safeTransferFrom(address,address,uint256,bytes)",
+      "selector": "0xb88d4fde",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "supportsInterface(bytes4)",
+      "selector": "0x01ffc9a7",
+      "inBytecode": true,
+      "form": "PUSH4"
+    }
+  ],
+  "identityEvents": [
+    {
+      "sig": "Registered(uint256,string,address)",
+      "topic0": "0xca52e62c367d81bb2e328eb795f7c7ba24afb478408a26c0e201d155c449bc4a",
+      "inBytecode": true
+    },
+    {
+      "sig": "URIUpdated(uint256,string,address)",
+      "topic0": "0x3a2c7fffc2cba7582c690e3b82c453ea02a308326a98a3ad7576c606336409fb",
+      "inBytecode": true
+    },
+    {
+      "sig": "MetadataSet(uint256,string,string,bytes)",
+      "topic0": "0x2c149ed548c6d2993cd73efe187df6eccabe4538091b33adbd25fafdb8a1468b",
+      "inBytecode": true
+    }
+  ],
+  "reputationSelectors": [
+    {
+      "sig": "getIdentityRegistry()",
+      "selector": "0xbc4d861b",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "giveFeedback(uint256,int128,uint8,string,string,string,string,bytes32)",
+      "selector": "0x3c036a7e",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "revokeFeedback(uint256,uint64)",
+      "selector": "0x4ab3ca99",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "appendResponse(uint256,address,uint64,string,bytes32)",
+      "selector": "0xc2349ab2",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "getSummary(uint256,address[],string,string)",
+      "selector": "0x81bbba58",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "readFeedback(uint256,address,uint64)",
+      "selector": "0x232b0810",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "readAllFeedback(uint256,address[],string,string,bool)",
+      "selector": "0xd9d84224",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "getResponseCount(uint256,address,uint64,address[])",
+      "selector": "0x6e04cacd",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "getClients(uint256)",
+      "selector": "0x42dd519c",
+      "inBytecode": true,
+      "form": "PUSH4"
+    },
+    {
+      "sig": "getLastIndex(uint256,address)",
+      "selector": "0xf2d81759",
+      "inBytecode": true,
+      "form": "PUSH4"
+    }
+  ],
+  "reputationEvents": [
+    {
+      "sig": "NewFeedback(uint256,address,uint64,int128,uint8,string,string,string,string,string,bytes32)",
+      "topic0": "0x6a4a61743519c9d648a14e6493f47dbe3ff1aa29e7785c96c8326a205e58febc",
+      "inBytecode": true
+    },
+    {
+      "sig": "FeedbackRevoked(uint256,address,uint64)",
+      "topic0": "0x25156fd3288212246d8b008d5921fde376c71ed14ac2e072a506eb06fde6d09d",
+      "inBytecode": true
+    },
+    {
+      "sig": "ResponseAppended(uint256,address,uint64,address,string,bytes32)",
+      "topic0": "0xb1c6be0b5b8aef6539e2fac0fd131a2faa7b49edf8e505b5eb0ad487d56051d4",
+      "inBytecode": true
+    }
+  ],
+  "reputationOldGiveFeedbackShape": [
+    {
+      "sig": "giveFeedback(uint256,uint8,string,string,string,string,bytes32,bytes)",
+      "selector": "0x8f51901d",
+      "inBytecode": false,
+      "form": null
+    }
+  ],
+  "identityVsReferenceAbi": {
+    "referenceAbi": "abis/IdentityRegistry.json (erc-8004/erc-8004-contracts master, fetched 2026-10-24T06:34:51Z)",
+    "referenceFunctions": 31,
+    "inReferenceButNotInDeployedBytecode": [],
+    "inEipListButNotInReferenceAbi": [],
+    "inReferenceAbiButNotInEipList": [
+      "UPGRADE_INTERFACE_VERSION()",
+      "eip712Domain()",
+      "getVersion()",
+      "initialize()",
+      "owner()",
+      "proxiableUUID()",
+      "renounceOwnership()",
+      "transferOwnership(address)",
+      "upgradeToAndCall(address,bytes)"
+    ],
+    "referenceAbiSha256": "cdb8e30f41a56ed53421126dab87551ff2a178b8463646f69f75bc5dc9620564"
+  },
+  "reputationVsReferenceAbi": {
+    "referenceAbi": "abis/ReputationRegistry.json (erc-8004/erc-8004-contracts master, fetched 2026-10-24T06:34:52Z)",
+    "referenceFunctions": 18,
+    "inReferenceButNotInDeployedBytecode": [],
+    "inEipListButNotInReferenceAbi": [],
+    "inReferenceAbiButNotInEipList": [
+      "UPGRADE_INTERFACE_VERSION()",
+      "getVersion()",
+      "initialize(address)",
+      "owner()",
+      "proxiableUUID()",
+      "renounceOwnership()",
+      "transferOwnership(address)",
+      "upgradeToAndCall(address,bytes)"
+    ],
+    "referenceAbiSha256": "867b7975a5f2f9fee38c4a148a84471b141f4de91409ccc0c6bebe3df4f04001"
+  },
+  "erc165": {
+    "ERC165 0x01ffc9a7": {
+      "ok": true,
+      "value": true
+    },
+    "ERC721 0x80ac58cd": {
+      "ok": true,
+      "value": true
+    },
+    "ERC721Metadata 0x5b5e139f": {
+      "ok": true,
+      "value": true
+    },
+    "ERC721Enumerable 0x780e9d63": {
+      "ok": true,
+      "value": false
+    },
+    "invalid 0xffffffff": {
+      "ok": true,
+      "value": false
+    }
+  },
+  "reputationSupportsInterface": {
+    "ok": false,
+    "errCode": 3,
+    "errMsg": "execution reverted",
+    "errData": null
+  },
+  "identityName": {
+    "ok": true,
+    "value": "AgentIdentity"
+  },
+  "identitySymbol": {
+    "ok": true,
+    "value": "AGENT"
+  },
+  "identityVersion": {
+    "ok": true,
+    "value": "2.0.0"
+  },
+  "reputationVersion": {
+    "ok": true,
+    "value": "2.0.0"
+  },
+  "identityOwner": {
+    "ok": true,
+    "value": "0x547289319C3e6aedB179C0b8e8aF0B5ACd062603"
+  },
+  "reputationOwner": {
+    "ok": true,
+    "value": "0x547289319C3e6aedB179C0b8e8aF0B5ACd062603"
+  },
+  "reputationGetIdentityRegistry": {
+    "ok": true,
+    "value": "0x8004A818BFB912233c491871b3d84c89A494BD9e"
+  },
+  "ownerOfNeverMinted": {
+    "ok": false,
+    "errCode": 3,
+    "errMsg": "execution reverted",
+    "errData": "0x7e2732890000000000000100000000000000000000000000000000000000000000000000"
+  },
+  "summaryWithEmptyClients": {
+    "ok": false,
+    "errCode": 3,
+    "errMsg": "execution reverted: clientAddresses required",
+    "errData": "0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000018636c69656e744164647265737365732072657175697265640000000000000000"
+  },
+  "agents": [
+    {
+      "agentId": "1",
+      "ownerOf": {
+        "ok": true,
+        "value": "0x21fdEd74C901129977B8e28C2588595163E1e235"
+      },
+      "tokenURI": {
+        "ok": true,
+        "value": "data:application/json;base64,eyJ0eXBlIjoiaHR0cHM6Ly9laXBzLmV0aGVyZXVtLm9yZy9FSVBTL2VpcC04MDA0I3JlZ2lzdHJhdGlvbi12MSIsIm5hbWUiOiJUZXN0IEFnZW50IDAwNCAoSW1hZ2UgVGVzdCkiLCJkZXNjcmlwdGlvbiI6IlRlc3RpbmcgdGhhdCBORlQgaW1hZ2UgZGlzcGxheXMgY29ycmVjdGx5IG9uIDgwMDRzY2FuLiIsImltYWdlIjoiaHR0cHM6Ly9zdGF0aWMuZGVzeWduZXIuY29tL3dwLWNvbnRlbnQvdXBsb2Fkcy9zaXRlcy8xMy8yMDIyLzA1LzA0MTQxNjQyL0ZyZWUtU3RvY2stUGhvdG9zLTAxLTE1MzZ4MTAyNC5qcGciLCJwcm90b2NvbCI6ImN1c3RvbSIsImVuZHBvaW50cyI6W3sibmFtZSI6IndlYiIsImVuZHBvaW50IjoiaHR0cHM6Ly9leGFtcGxlLmNvbS90ZXN0In0seyJuYW1lIjoieDQwMiIsImVuZHBvaW50IjoiaHR0cHM6Ly9leGFtcGxlLmNvbS9hcGkiLCJ2ZXJzaW9uIjoiMi4wIiwic2tpbGxzIjpbInRlc3Qtc2tpbGwiXSwiZG9tYWlucyI6WyJ0ZXN0aW5nIl19XSwieDQwMlN1cHBvcnQiOnRydWUsImFjdGl2ZSI6dHJ1ZSwicmVnaXN0cmF0aW9ucyI6W10sInN1cHBvcnRlZFRydXN0IjpbInJlcHV0YXRpb24iXX0="
+      },
+      "agentWallet": {
+        "ok": true,
+        "value": "0x0000000000000000000000000000000000000000"
+      },
+      "clients": {
+        "ok": true,
+        "value": [
+          "0xE7251742c6f4F8849600d44c6aed62e07DaA7Ea1",
+          "0xb0d39280Abd48F605459675142dc6243eb353270",
+          "0x142b204dD6b4E1f9A637518688266972c53519f2",
+          "0xf13021F02E23a8113C1bD826575a1682F6Fac927",
+          "0x4b20514936594b46B5EeD8546Ce81539A6a17f62",
+          "0xCE10ff73c1c7Ca61C90e59320A03C6476Cc2ed68",
+          "0xFB9BC1942C438b89a2b9e8A5326A73b0c672A5e0",
+          "0xBd94C9C3c44F3b18C2021Be21Cb01e52d5F2C0fc",
+          "0xB3819bBf557771Cfe2c2e90BF4c14ef60537825e",
+          "0x0A0228E6a5E1d7Be234A190A8D9A3af9E08ec455",
+          "0xB4b90D033bA1Fe07c5E178CC6FcE10ab18822eF8",
+          "0xFDCCC2cAb0fD593F76c4BE2A45E0Db404B6CB36B"
+        ]
+      },
+      "summary": {
+        "ok": true,
+        "value": [
+          "74",
+          "4963",
+          "2"
+        ]
+      },
+      "feedback": {
+        "entries": 111,
+        "firstValue": 85,
+        "lastValue": 97,
+        "meanOfEntries": 3124.108108108108,
+        "tag1s": [
+          "quality",
+          "reliability",
+          "trustScore",
+          "glicko2-mu",
+          "match-count",
+          "win-rate",
+          "e2e-test",
+          "swap-execution",
+          "abi-e2e",
+          "reliable",
+          "accurate",
+          "slow",
+          "tradingYield",
+          "payment",
+          "platform-beta",
+          "compliance"
+        ],
+        "tag2s": [
+          "test-run",
+          "overall",
+          "ipd",
+          "automated",
+          "defi",
+          "test",
+          "fast",
+          "",
+          "trade",
+          "x402-settlement",
+          "aml"
+        ],
+        "revoked": 37,
+        "distinctClients": 12
+      }
+    },
+    {
+      "agentId": "2",
+      "ownerOf": {
+        "ok": true,
+        "value": "0x08684d223809fe810de0CCe2d232946a2bdB16C8"
+      },
+      "tokenURI": {
+        "ok": true,
+        "value": "ipfs://bafkreiffkwgvqplnbg6rev43eizpa3ldybfzb35koecyro67c6ezj5fsba"
+      },
+      "agentWallet": {
+        "ok": true,
+        "value": "0x0000000000000000000000000000000000000000"
+      },
+      "clients": {
+        "ok": true,
+        "value": [
+          "0x858f414B52b1cA994d8396E1E24e9b64364F510B"
+        ]
+      },
+      "summary": {
+        "ok": true,
+        "value": [
+          "1",
+          "75",
+          "0"
+        ]
+      },
+      "feedback": {
+        "entries": 1,
+        "firstValue": 75,
+        "lastValue": 75,
+        "meanOfEntries": 75,
+        "tag1s": [
+          "credit"
+        ],
+        "tag2s": [
+          "assessment"
+        ],
+        "revoked": 0,
+        "distinctClients": 1
+      }
+    },
+    {
+      "agentId": "5863",
+      "ownerOf": {
+        "ok": true,
+        "value": "0xdf6b8215D193b11B4903d223729c3CF7A6de271d"
+      },
+      "tokenURI": {
+        "ok": true,
+        "value": "https://repid.dev/agents/32e0e809-c1c4-4405-913f-135c8a2d6626/metadata"
+      },
+      "agentWallet": {
+        "ok": true,
+        "value": "0xdf6b8215D193b11B4903d223729c3CF7A6de271d"
+      },
+      "clients": {
+        "ok": true,
+        "value": [
+          "0xf6eE1768868c3266868edcA78bC41C50309cb22A",
+          "0xb24268884472E7613aA58D38C8813f7Af1667382"
+        ]
+      },
+      "summary": {
+        "ok": true,
+        "value": [
+          "30",
+          "2419",
+          "0"
+        ]
+      },
+      "feedback": {
+        "entries": 30,
+        "firstValue": 2675,
+        "lastValue": 2276,
+        "meanOfEntries": 2419.4666666666667,
+        "tag1s": [
+          "hyperdag_repid"
+        ],
+        "tag2s": [
+          "tier:ESTABLISHED"
+        ],
+        "revoked": 0,
+        "distinctClients": 2
+      }
+    },
+    {
+      "agentId": "6705",
+      "ownerOf": {
+        "ok": true,
+        "value": "0xf6eE1768868c3266868edcA78bC41C50309cb22A"
+      },
+      "tokenURI": {
+        "ok": true,
+        "value": "https://trustrepid.dev/agents/trinity-orch"
+      },
+      "agentWallet": {
+        "ok": true,
+        "value": "0xf6eE1768868c3266868edcA78bC41C50309cb22A"
+      },
+      "clients": {
+        "ok": true,
+        "value": [
+          "0xb24268884472E7613aA58D38C8813f7Af1667382"
+        ]
+      },
+      "summary": {
+        "ok": true,
+        "value": [
+          "17",
+          "1664",
+          "0"
+        ]
+      },
+      "feedback": {
+        "entries": 17,
+        "firstValue": 1330,
+        "lastValue": 1969,
+        "meanOfEntries": 1664.764705882353,
+        "tag1s": [
+          "hyperdag_repid"
+        ],
+        "tag2s": [
+          "tier:ESTABLISHED"
+        ],
+        "revoked": 0,
+        "distinctClients": 1
+      }
+    },
+    {
+      "agentId": "6706",
+      "ownerOf": {
+        "ok": true,
+        "value": "0xf6eE1768868c3266868edcA78bC41C50309cb22A"
+      },
+      "tokenURI": {
+        "ok": true,
+        "value": "https://trustrepid.dev/agents/trinity-w3c"
+      },
+      "agentWallet": {
+        "ok": true,
+        "value": "0xf6eE1768868c3266868edcA78bC41C50309cb22A"
+      },
+      "clients": {
+        "ok": true,
+        "value": [
+          "0xb24268884472E7613aA58D38C8813f7Af1667382"
+        ]
+      },
+      "summary": {
+        "ok": true,
+        "value": [
+          "9",
+          "1703",
+          "0"
+        ]
+      },
+      "feedback": {
+        "entries": 9,
+        "firstValue": 1025,
+        "lastValue": 1891,
+        "meanOfEntries": 1703.111111111111,
+        "tag1s": [
+          "hyperdag_repid"
+        ],
+        "tag2s": [
+          "tier:ESTABLISHED"
+        ],
+        "revoked": 0,
+        "distinctClients": 1
+      }
+    }
+  ]
+}

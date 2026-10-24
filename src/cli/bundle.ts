@@ -4,6 +4,7 @@
  */
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
+import { cleanCodePoints } from '../lib/action-evidence';
 import { brainContext, buildBundle, BundleError, policyImportDecision, verifyBundle, type Bundle, type BundlePayload, type EvidencePointer } from '../lib/bundle';
 import { GUARD_RECEIPTS_FILE, POLICY_FILE, SIGNATURE_DOES_NOT_VERIFY, SUGGESTED_POLICY_FILE, loadPolicy, nonceHighWater, policySignedBy, policySigner, readLedger, renderPolicyDocument, trustshellHome } from '../lib/guardrails';
 import { TRUSTSHELL_DIR } from '../lib/init';
@@ -80,7 +81,8 @@ function summaryLines(b: Bundle): string[] {
     `profile     ${p.profile !== null ? 'yes' : 'none'}`,
     `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${signed ?? (pol.document.signature ? `${SIGNATURE_DOES_NOT_VERIFY} (imports as suggested, never enforced)` : 'UNSIGNED (imports as suggested, never enforced)')}` : 'none'}`,
     `memories    ${p.memories.length} note(s) you selected (they import as untrusted, quarantined)`,
-    `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${e.name} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
+    // The name is the sender's text, signed but not safe to print: a control or bidi byte in it reached the terminal (antifragile night, 2026-10-24).
+    `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${cleanCodePoints(e.name)} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
   ];
 }
 
@@ -100,7 +102,7 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
       }
       const loaded = loadPolicy(home);
       if (loaded.state === 'invalid') {
-        io.err(`bundle export: ${loaded.path} does not parse (${loaded.problems.join('; ')}); fix it first (trustshell guard show). Nothing was written.`);
+        io.err(`bundle export: ${loaded.path} does not parse (${cleanCodePoints(loaded.problems.join('; '))}); fix it first (trustshell guard show). Nothing was written.`);
         return 1;
       }
       // Memories only when the owner selects them; the memory file is not even opened otherwise.
@@ -210,11 +212,13 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
     if (added) io.err(`${added} note(s) are quarantined as untrusted: trustshell quarantine list, then release what you recognise.`);
     return 0;
   } catch (e) {
+    // The message can quote the file: an unknown field name, a bad schema value. The shape is checked BEFORE any
+    // signature, so an unsigned file from anyone reached the reader's terminal through here (antifragile night, cycle 2).
     if (e instanceof BundleError) {
-      io.err(e.message);
+      io.err(cleanCodePoints(e.message));
       return e.exit;
     }
-    io.err(`bundle ${a.verb} failed: ${(e as Error)?.message ?? String(e)}`);
+    io.err(`bundle ${a.verb} failed: ${cleanCodePoints((e as Error)?.message ?? String(e))}`);
     return 3;
   }
 }
