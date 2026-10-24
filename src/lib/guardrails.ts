@@ -341,6 +341,12 @@ export function readLedger(text: string, nowS: number = Math.floor(Date.now() / 
       breaks.push(`line ${n}: not JSON`);
       return;
     }
+    // Valid JSON that is not an object (null, a number, a list) is not a record. `null` used to throw here, and every
+    // command that reads the ledger died with a stack trace instead of reading BROKEN (antifragile night, 2026-10-24).
+    if (r === null || typeof r !== 'object' || Array.isArray(r)) {
+      breaks.push(`line ${n}: not a record`);
+      return;
+    }
     const { hash, ...body } = r;
     let want: string | null = null;
     try {
