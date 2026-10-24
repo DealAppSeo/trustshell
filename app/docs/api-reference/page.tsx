@@ -9,7 +9,9 @@ export const metadata = {
     "Full SDK + CLI + Public REST API reference for @hyperdag/trustshell, with verified-live curl examples for each endpoint.",
 };
 
-export const dynamic = "force-dynamic";
+// Read once, at build. It was force-dynamic ("always reflects main"), but the file ships inside the deployment, so a
+// request can only ever read the version that was built: the per-request lambda, fs read and markdown render bought no
+// freshness and cost TTFB (65 ms vs 15 ms for a static page locally, more on a cold function).
 
 async function loadDoc(): Promise<string> {
   const filePath = path.join(process.cwd(), "docs", "api-reference.md");
