@@ -104,11 +104,26 @@ export function clientsForHyperDagSummary(clients: readonly string[]): string[] 
   return Array.from(clients).filter((c) => allowed.has(c.toLowerCase()));
 }
 
+const BASE_SEPOLIA_CHAIN_ID = 84532;
+
+/**
+ * ONE provider for a whole leaderboard read. Each fetchAgentRepID used to build its own, which for 12 agents meant
+ * 12 chain-id probes and 24 contract calls sent as ~36 separate requests; the public RPC allows 25 requests a second
+ * ("-32007 25/second request limit reached"), so live GET /api/agent-leaderboard answered 503 on 4 of 5 tries
+ * (MEASURED 2026-10-24). Sharing a provider lets ethers batch the calls of one tick into one HTTP request, and a
+ * static network skips the chain-id probe (only when the caller did not pick another RPC).
+ */
+function leaderboardProvider(rpcUrl?: string): ethers.JsonRpcProvider {
+  if (rpcUrl) return new ethers.JsonRpcProvider(rpcUrl);
+  const network = ethers.Network.from(BASE_SEPOLIA_CHAIN_ID);
+  return new ethers.JsonRpcProvider(BASE_SEPOLIA_RPC, network, { staticNetwork: network });
+}
+
 export async function fetchAgentRepID(
   tokenId: number,
-  options?: { rpcUrl?: string; registryAddress?: string }
+  options?: { rpcUrl?: string; registryAddress?: string; provider?: ethers.ContractRunner }
 ): Promise<{ repid: number | null; feedbackCount: number; source: 'on-chain' | 'no-on-chain-writes' }> {
-  const provider = new ethers.JsonRpcProvider(options?.rpcUrl ?? BASE_SEPOLIA_RPC);
+  const provider = options?.provider ?? leaderboardProvider(options?.rpcUrl);
   const registry = options?.registryAddress ?? REPUTATION_REGISTRY;
   const contract = new ethers.Contract(registry, REPUTATION_REGISTRY_ABI, provider);
 
@@ -183,15 +198,16 @@ export interface Leaderboard {
  * `/api/v1/agents/minted` endpoint is unreachable, so the ship never breaks.
  */
 export async function fetchLeaderboard(
-  options?: { rpcUrl?: string; registryAddress?: string; engineUrl?: string }
+  options?: { rpcUrl?: string; registryAddress?: string; engineUrl?: string; provider?: ethers.ContractRunner }
 ): Promise<Leaderboard> {
   const dynamicAgents = await fetchMintedAgents({ engineUrl: options?.engineUrl });
   const rosterSource: RosterSource = dynamicAgents ? 'engine-minted' : 'fallback-squad';
   const agents: readonly MintedAgent[] = dynamicAgents ?? MINTED_SQUAD_AGENTS;
 
+  const provider = options?.provider ?? leaderboardProvider(options?.rpcUrl);
   const entries = await Promise.all(
     agents.map(async (agent) => {
-      const { repid, feedbackCount, source } = await fetchAgentRepID(agent.tokenId, options);
+      const { repid, feedbackCount, source } = await fetchAgentRepID(agent.tokenId, { ...options, provider });
       return {
         name: agent.name,
         displayName: agent.displayName,
