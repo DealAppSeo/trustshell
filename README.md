@@ -42,6 +42,8 @@ Four things to know before you try your own words:
 
 If the card says **SUPPORTED** and it should not have, that is the worst bug this tool can have: [open an issue](https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml) with the run URL and your claim file. The rules are in [docs/action-evidence.md](docs/action-evidence.md); to help, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+We also attack it ourselves, and the results are public with the exact setup beside every number: [docs/red-team.md](docs/red-team.md), regenerated from the red-team loops' own records, listing the runs that found nothing to grade as well as the ones that did. It claims counts for specific runs, not that the system is unbreakable. The research behind that caution, including the work that cuts against us, is in [hyperdag-protocol/docs/WHY.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/docs/WHY.md).
+
 ## Building on ERC-8004, x402 or OpenClaw?
 
 For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. This is a developer preview and we want you to test it with us. [trustshell.dev/build](https://trustshell.dev/build) shows, for each, what runs today with a command or a source you can check, and what is not built yet:

@@ -1,0 +1,30 @@
+==== Wed 10/21/2026  2:30:00.49 
+REDTEAM 2026-10-21T09:30:00.983Z batch=dff44ece chain=hardhat-devnet variants=72 PASS=65 FAIL=0 NOT_CHECKED=7 reached_kernel=31 breaches=[] calls=184/300 pass=49/50 engine=ac791e53+fixes report=<ops>/reports/2026-10-21/REDTEAM_LOOP.md EXIT 0
+==== Wed 10/21/2026  6:30:01.15 
+REDTEAM 2026-10-21T13:30:01.658Z batch=61d3fd13 chain=hardhat-devnet variants=56 PASS=49 FAIL=0 NOT_CHECKED=7 reached_kernel=23 breaches=[] calls=223/300 pass=39/50 engine=ac791e53+fixes report=<ops>/reports/2026-10-21/REDTEAM_LOOP.md EXIT 0
+==== Wed 10/21/2026 10:30:01.07 
+REDTEAM 2026-10-21T17:30:01.223Z batch=9e8d262d infra: devnet did not come up on chain 31337 (got null) calls=273/300 EXIT 2
+==== Wed 10/21/2026 14:30:01.33 
+REDTEAM 2026-10-21T21:30:01.439Z batch=84b036c2 infra: devnet did not come up on chain 31337 (got null) calls=300/300 EXIT 2
+==== Wed 10/21/2026 18:30:03.85 
+REDTEAM 2026-10-22T01:30:04.171Z batch=7fe2fa8a infra: devnet did not come up on chain 31337 (got null) calls=49/300 EXIT 2
+==== Wed 10/21/2026 22:30:01.25 
+REDTEAM 2026-10-22T05:30:01.452Z batch=203f3dac infra: devnet did not come up on chain 31337 (got null) calls=88/300 EXIT 2
+==== Thu 10/22/2026  2:30:05.75 
+REDTEAM 2026-10-22T09:30:05.878Z batch=2297a0b9 infra: devnet did not come up on chain 31337 (got null) calls=127/300 EXIT 2
+==== Thu 10/22/2026  6:30:01.19 
+REDTEAM 2026-10-22T13:30:01.666Z batch=b3898aba infra: devnet did not come up on chain 31337 (got null) calls=164/300 EXIT 2
+==== Thu 10/22/2026 10:30:03.99 
+REDTEAM 2026-10-22T17:30:04.506Z batch=e3ed859d infra: devnet did not come up on chain 31337 (got null) calls=200/300 EXIT 2
+==== Thu 10/22/2026 14:30:02.72 
+REDTEAM 2026-10-22T21:30:02.861Z batch=49c8f5eb infra: devnet did not come up on chain 31337 (got null) calls=237/300 EXIT 2
+==== Thu 10/22/2026 17:11:42.51 
+REDTEAM 2026-10-23T00:11:43.203Z batch=dbc487e8 chain=hardhat-devnet variants=65 PASS=9 FAIL=0 NOT_CHECKED=56 reached_kernel=5 breaches=[] calls=49/300 pass=49/50 engine=ac791e53+fixes report=<ops>/reports/2026-10-23/REDTEAM_LOOP.md EXIT 0
+==== Thu 10/22/2026 18:30:03.29 
+==== Thu 10/22/2026 18:32:47.90 
+REDTEAM 2026-10-23T01:32:47.990Z batch=280a6b3a chain=hardhat-devnet variants=49 PASS=36 FAIL=0 NOT_CHECKED=13 reached_kernel=11 breaches=[] calls=90/300 pass=37/50 engine=ac791e53+fixes report=<ops>/reports/2026-10-23/REDTEAM_LOOP.md EXIT 0
+==== Thu 10/22/2026 22:30:05.67 
+REDTEAM 2026-10-23T05:30:06.275Z batch=bcff3ec0 chain=hardhat-devnet variants=48 PASS=33 FAIL=0 NOT_CHECKED=15 reached_kernel=10 breaches=[] calls=127/300 pass=37/50 engine=ac791e53+fixes report=<ops>/reports/2026-10-23/REDTEAM_LOOP.md EXIT 0
+==== Fri 10/23/2026  2:30:01.48 
+==== Fri 10/23/2026 10:30:02.28 
+REDTEAM 2026-10-23T17:30:02.366Z batch=d6d1a376 chain=hardhat-devnet variants=49 PASS=37 FAIL=0 NOT_CHECKED=12 reached_kernel=14 breaches=[] calls=164/300 pass=37/50 engine=ac791e53+fixes report=<ops>/reports/2026-10-23/REDTEAM_LOOP.md EXIT 0
