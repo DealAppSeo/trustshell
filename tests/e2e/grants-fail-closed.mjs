@@ -31,8 +31,7 @@
  */
 
 import { createServer } from 'node:http';
-import { spawn } from 'node:child_process';
-import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit } from './chromium-path.mjs';
+import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit, spawnNext } from './chromium-path.mjs';
 
 // Playwright is deliberately NOT a dependency of this package. CI does not run this suite
 // (see the header), so declaring it would install a browser driver on every pull request for
@@ -46,6 +45,9 @@ const APP_PORT = 3100;
 const GRANTOR = 'agent-grantor-001';
 const GRANTEE = 'agent-grantee-002';
 const GRANT_ID = '7cca48d4-b9fd-4f0a-9468-1dca180f4a38';
+// The grantor agent's own key, as register() would have returned it. Fixture value, not a credential.
+// Built from parts so a secret scanner has no literal to mistake for one.
+const GRANTOR_KEY = ['e2e', 'fixture', 'grantor', 'value'].join('-');
 
 // --- the mock engine --------------------------------------------------------
 // One mutable mode, flipped by the test between scenarios. Deliberately returns the REAL
@@ -54,6 +56,8 @@ const GRANT_ID = '7cca48d4-b9fd-4f0a-9468-1dca180f4a38';
 
 let mode = 'ok';
 const hits = [];
+// Every revoke POST the engine saw, with the key header it carried (null = none).
+const revokeCalls = [];
 
 function liveGrant() {
   const now = Date.now();
@@ -96,7 +100,8 @@ const engine = createServer((req, res) => {
   const cors = {
     'access-control-allow-origin': '*',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers': 'content-type,authorization',
+    // x-api-key is in the real engine's browser allow-list (src/config/cors-headers.ts BROWSER_HEADERS).
+    'access-control-allow-headers': 'content-type,authorization,x-api-key',
   };
   if (req.method === 'OPTIONS') {
     res.writeHead(204, cors);
@@ -113,6 +118,14 @@ const engine = createServer((req, res) => {
     return json(200, { grants: [liveGrant()] });
   }
   if (req.method === 'POST' && req.url.includes('/revoke')) {
+    // PRODUCTION-FAITHFUL AUTH (repid-engine src/middleware/auth.ts at fb1e350b): POST
+    // /grants/:id/revoke is in no keyless allow-list, so no key is a 401, and a key bound to
+    // another agent is a 403. This mock used to answer 200 to everyone, which is how a Revoke
+    // button that sent no key at all could pass this suite while failing against the real engine.
+    const sent = req.headers['x-api-key'] ? String(req.headers['x-api-key']) : null;
+    revokeCalls.push({ url: req.url, key: sent });
+    if (!sent) return json(401, { error: 'Unauthorized: API key required' });
+    if (sent !== GRANTOR_KEY) return json(403, { error: 'Forbidden: agent identity mismatch (API key is bound to a different agent identity)' });
     if (mode === 'revoke_403') {
       return json(403, { error: 'only the grantor of this grant may revoke it' });
     }
@@ -152,6 +165,33 @@ async function openConfirm(page) {
   return confirm;
 }
 
+/**
+ * Put agents in this browser's local store, exactly where the app keeps them (idb-keyval's default
+ * database, key `trustshell_agents_v1`, lib/db.ts). The page must already be on the app's origin.
+ */
+async function seedAgents(page, agents) {
+  await page.evaluate(
+    (rows) =>
+      new Promise((resolve, reject) => {
+        const open = indexedDB.open('keyval-store');
+        open.onupgradeneeded = () => open.result.createObjectStore('keyval');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction('keyval', 'readwrite');
+          tx.objectStore('keyval').put(rows, 'trustshell_agents_v1');
+          tx.oncomplete = () => { db.close(); resolve(); };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    agents,
+  );
+}
+
+const grantorAgent = (apiKey) => ({
+  id: GRANTOR, name: 'Grantor PAI', createdAt: 1, totalPrompts: 0, lastUsedAt: 1, ...(apiKey ? { apiKey } : {}),
+});
+
 async function waitForApp(url, timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -185,7 +225,7 @@ const buildEnv = {
   NEXT_PUBLIC_REPID_ENGINE_URL: `http://127.0.0.1:${ENGINE_PORT}`,
 };
 
-const build = spawn('npx', ['next', 'build'], { env: buildEnv, stdio: 'ignore' });
+const build = spawnNext(['build'], { env: buildEnv, stdio: 'ignore' });
 const buildCode = await new Promise((r) => build.on('exit', r));
 if (buildCode !== 0) {
   console.error(`FATAL: next build exited ${buildCode}`);
@@ -222,7 +262,7 @@ if (__portBusy) {
 }
 
 // `detached` puts the server in its own process GROUP so the whole tree dies with killApp().
-const app = spawn('npx', ['next', 'start', '--port', String(APP_PORT)], {
+const app = spawnNext(['start', '--port', String(APP_PORT)], {
   env: buildEnv,
   stdio: 'ignore',
   detached: true,
@@ -256,6 +296,11 @@ page.on('requestfailed', (r) => {
 });
 
 try {
+  // This browser holds the grantor agent's own key (what register() handed back), as it does for
+  // anyone who created the agent here. Scenario E removes it.
+  await page.goto(`${base}/grants`, { waitUntil: 'networkidle' });
+  await seedAgents(page, [grantorAgent(GRANTOR_KEY)]);
+
   // --- Scenario A: the service answers. Grants render, revoke is offered to the grantor.
   mode = 'ok';
   hits.length = 0;
@@ -292,9 +337,15 @@ try {
       (r) => r.url().includes('/api/v1/grants/') && r.url().includes('/revoke') && r.request().method() === 'POST',
       { timeout: 15_000 },
     );
+    revokeCalls.length = 0;
     await confirm.click();
     const okRes = await revokeOk;
     check('revoke 200 — POST reached /api/v1/grants/:id/revoke', okRes.status() === 200, `status ${okRes.status()}`);
+    check(
+      'revoke 200 — the POST carried the grantor agent key (x-api-key)',
+      revokeCalls.length === 1 && revokeCalls[0].key === GRANTOR_KEY,
+      `engine saw ${JSON.stringify(revokeCalls.map((c) => c.key === null ? 'no key' : 'a key'))}`,
+    );
   } catch (e) {
     check('revoke 200 — POST reached /api/v1/grants/:id/revoke', false, e.message.split('\n')[0]);
   }
@@ -322,6 +373,26 @@ try {
   } catch (e) {
     check('revoke 403 — refusal surfaced', false, e.message.split('\n')[0]);
   }
+
+  // --- Scenario E: this browser does NOT hold the grantor's key (another browser created the
+  // agent, or it was created before keys were stored). The engine would answer 401 to a keyless
+  // POST, so the page must not offer a button that can only fail, and must say why. Nothing sent.
+  mode = 'ok';
+  await seedAgents(page, [grantorAgent(undefined)]);
+  revokeCalls.length = 0;
+  await page.goto(`${base}/grants/${GRANTOR}`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(800);
+  body = await page.locator('body').innerText();
+  check(
+    'no key held — no Revoke button that can only fail',
+    (await page.getByRole('button', { name: /^revoke$/i }).count()) === 0,
+  );
+  check(
+    'no key held — says this browser does not hold the key',
+    /does not hold/i.test(body),
+    'a missing control with no reason reads as "you may not revoke"',
+  );
+  check('no key held — nothing was posted to /revoke', revokeCalls.length === 0, `${revokeCalls.length} calls`);
 
   check('no runtime errors across all scenarios', pageErrors.length === 0, pageErrors.join('; '));
 } finally {

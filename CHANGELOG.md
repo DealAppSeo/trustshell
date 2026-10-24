@@ -11,6 +11,7 @@ All notable changes to the `@hyperdag/trustshell` package.
 - **A policy names its signer only when the signature verifies (#608).** A hand-edited policy no longer reads as owner-signed.
 - **"Owner-signed" means this install's key (#611).** The `trustshell run` card called a policy owner-signed when its signature verified under any key, and the bundle summary did the same for a key other than the bundle author's. Both now name the key and say it is NOT this install's (or NOT the author's).
 - **Autonomy levels for Guard, SHADOW (off until `guard level shadow`).** L0 observe, L1 read-only, L2 workspace, L3 broader. An agent rises one level after N Inspect records SUPPORTED in full (one per commit; NOT_CHECKED never counts) and falls on a CONTRADICTED record, an out-of-lane refusal, or revocation (`guard level revoke`, `guard kill`). In shadow Guard allows exactly what the policy allows; the level and what it would have refused are recorded in `autonomy.jsonl`, for measuring whether earned autonomy reduces harmful actions. `guard level enforce` is an explicit owner opt-in that only narrows the policy. Local guardrails for cooperative agents, not a security boundary. docs/autonomy-levels.md.
+- **Fix: `OFFLINE=1` now stops the MCP `verify_output` (and `verify`, `evaluate`) and the SDK `verifyOutput`/`evaluate` too.** They sent the text to HAL under `OFFLINE=1`; only `TRUSTSHELL_LOCAL_ONLY=1` stopped them. Now they answer `NOT_CHECKED` with `seenBy: []` and no request leaves. The CLI `verify` and `check`, `check_claim` and `inspect_run` already did this. (`TrustShell.score` in `src/lib/trustshell.ts`; tests/mcp-offline-sends-nothing.test.ts.)
 - **`inspect_run` over MCP (#610).** Inspect for agents: a run URL and the claims as text in; the same record, digest and card that `trustshell check <runUrl> --claims` produces out, from api.github.com only. 1.8.0's MCP server lists 20 tools, and this is not one of them.
 
 ## 1.8.0 — 2026-10-22
@@ -47,6 +48,21 @@ account, no key, no TrustShell backend, and `GITHUB_TOKEN` is optional (it only 
 The first bullet below is that. The rest rode along from main since 1.7.0 was cut (it was re-cut on
 `51897d4c`, #575) and are not what this candidate asks testers to try.
 
+- **`check <runUrl> --claims … --guided` (EXPERIMENTAL): "All checks pass." against every check on
+  the commit.**
+  - A claim line that cites nothing is read as being about the named run, but only when nothing in
+    the text points elsewhere.
+  - Every check on the run's commit is read: latest and earlier attempts, statuses, suites, the
+    base branch's required checks, and whether the change edits its own workflows.
+  - SUPPORTED only when all of them passed. CONTRADICTED when any failed. Otherwise NOT_CHECKED,
+    with the reason.
+  - "All required checks pass." is a separate template (`ci.required_checks_pass`): only the base
+    branch's required checks, pinned to their apps. It is never decided without `--guided`.
+  - Off by default. Without the flag, output is byte-identical.
+  - Still only api.github.com, with more requests; `OFFLINE=1` sends nothing.
+  - Files: `src/lib/commit-checks.ts`, guided mode in `src/lib/action-evidence.ts`, tests in
+    `tests/action-evidence-guided.test.ts`, and a guided run in `scripts/check-egress.cjs`.
+    Reference: `docs/action-evidence.md`.
 - **`trustshell check <runUrl> --claims "<text>"` / `--claims-file <path>` (draft): what an agent
   said, against what the run reports.** Claims are split into atomic parts, each SUPPORTED,
   CONTRADICTED or NOT_CHECKED by a fixed template. Deny by default: only plain claim lines

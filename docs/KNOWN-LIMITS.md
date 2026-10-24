@@ -174,8 +174,9 @@ to leak or subpoena. That property is real.
 
 The qualifier: **we serve the JavaScript that runs in your browser.** Whoever
 controls the served bundle could read the keys at unlock time. So the accurate
-claim is *"we never receive your keys"* — not *"we could not possibly access
-them."* Making the stronger claim verifiable needs Subresource Integrity and
+claim is *"we do not store your keys, and we receive them only when you use them"*
+(Test, or a prompt on Auto or Paid only, which sends your OpenAI and Anthropic keys) —
+not *"we never receive your keys"*, and not *"we could not possibly access them."* Making the stronger claim verifiable needs Subresource Integrity and
 reproducible builds with published hashes, which are **not** in place yet.
 
 Zero-knowledge proofs do not solve this and are not claimed to. ZKP proves a

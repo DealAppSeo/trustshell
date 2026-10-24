@@ -33,6 +33,7 @@ const strong = (v: string): Span => ({ t: 'strong', v: cleanCodePoints(v) });
 const TOPIC: Record<string, string> = {
   'gha.run_succeeded': 'This workflow run succeeding',
   'ci.all_checks_pass': 'All checks on the commit passing',
+  'ci.required_checks_pass': 'Required checks passing',
   'ci.tests_pass': 'Tests passing',
   'ci.build_unscoped': 'An unnamed build passing',
   'git.head_sha': 'Cited commit',
@@ -92,6 +93,49 @@ function jobSummary(r: ActionEvidenceRecord): Line {
   return line;
 }
 
+const BASE_HOW: Record<string, string> = {
+  pr: "the run's own pull request (found by its head branch), plus any GitHub associates with the commit",
+  push: 'the branch this push ran on, plus any pull requests GitHub associates with the commit',
+  unresolved: "nothing certain: the run's own context could not be found, so required checks are unknown",
+};
+
+/** Guided mode: every check on the commit, as counts. Check names are third-party text and stay out. */
+function commitChecksSummary(r: ActionEvidenceRecord): Line[] {
+  const c = r.observation.commit_checks;
+  if (!c) return [];
+  const tally = (values: string[]) => {
+    const m = new Map<string, number>();
+    for (const v of values) {
+      const k = /^[a-z_]{1,32}$/.test(v) ? v : 'unrecognised';
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return [...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, n]) => `${n} ${k}`).join(', ') || 'none';
+  };
+  const reported = new Set([...c.check_runs.items.map((x) => x.name), ...c.statuses.items.map((x) => x.context)]);
+  // A required check pinned to an app counts only when that app's run reported it.
+  const met = (q: { context: string; app_id: number | null }) =>
+    q.app_id !== null ? c.check_runs.items.some((x) => x.name === q.context && x.app_id === q.app_id) : reported.has(q.context);
+  const req = c.required === null ? 'not read' : `${c.required.filter(met).length} of ${c.required.length} reported`;
+  const rerun = c.superseded_failures === null ? 'not read' : String(c.superseded_failures);
+  const wf = c.workflows_changed === null ? 'not read' : c.workflows_changed ? 'yes' : 'no';
+  return [
+    [strong('Guided mode (experimental).'), text(' A claim line that cites nothing was read as being about this run.')],
+    [
+      strong('Every check on the commit'),
+      text(
+        ` read ${c.started_at} to ${c.retrieved_at}: ${c.check_runs.items.length} of ${c.check_runs.total_count} check runs (${tally(c.check_runs.items.map((x) => x.conclusion ?? x.status))})` +
+          ` · ${c.statuses.items.length} of ${c.statuses.total_count} statuses (${tally(c.statuses.items.map((x) => x.state))})` +
+          ` · required checks: ${req} · failed on an earlier attempt: ${rerun} · the change edits its own workflows: ${wf}`,
+      ),
+    ],
+    [
+      strong('Base branch'),
+      text(` (whose required checks apply), found from ${BASE_HOW[c.base.how]}: `),
+      ...(c.base.branches.length ? c.base.branches.slice(0, 5).flatMap((b, i) => [...(i ? [text(', ')] : []), code(b)]) : [text('none')]),
+    ],
+  ];
+}
+
 function claimDetails(c: ClaimEntry): Line[] {
   const d: Line[] = [];
   if (c.sentence !== c.claim) d.push([strong('In'), text(' '), code(c.sentence)]);
@@ -122,6 +166,7 @@ function buildModel(r: ActionEvidenceRecord, opts: { demo?: boolean }): CardMode
       strong(o.check.verdict),
     ],
     jobSummary(r),
+    ...commitChecksSummary(r),
     [strong('Observed'), text(` ${o.fetchedAt} from ${o.host} (${o.freshness} at that time)`)],
     [
       strong('Evidence class'),

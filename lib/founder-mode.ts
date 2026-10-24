@@ -22,7 +22,8 @@
  * off-device.
  *
  * NO SECRETS. `trustshell` is a public repository and `lib/vault.ts` deliberately keeps
- * provider keys in the browser, AES-GCM encrypted, never transmitted. A founder event carries
+ * provider keys in the browser, AES-GCM encrypted, and sends one to the engine only for a Test or a
+ * prompt (lib/run-keys.ts), never inside a founder event. A founder event carries
  * a surface, an intent and a note — never a key, never a wallet secret, never a raw prompt
  * body copied wholesale.
  */

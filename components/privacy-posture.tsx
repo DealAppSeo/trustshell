@@ -4,7 +4,7 @@ const privacyFeatures = [
   {
     icon: Key,
     title: 'Keys stored only in your browser',
-    description: 'Vault encrypted with AES-GCM, stored in IndexedDB. The passphrase never leaves your device — we can\'t recover it. Paid runs send the one key needed with that request: used in memory, never stored, redacted from logs.',
+    description: 'Vault encrypted with AES-GCM, stored in IndexedDB. The passphrase never leaves your device — we can\'t recover it. Paid runs send your OpenAI and Anthropic keys, if saved, with that request: used in memory, never stored, redacted from logs.',
   },
   {
     icon: Eye,
@@ -28,7 +28,8 @@ export function PrivacyPosture() {
           </h2>
           <p className="text-muted leading-relaxed">
             TrustShell is a glass box for the owner — including about its own limits. Your vault
-            passphrase and provider keys are stored in your browser and never reach our servers, and
+            passphrase never leaves your browser and your provider keys are stored only there, but a
+            key is sent to our engine when you use it (Test, or a prompt on Auto or Paid only), and
             your decision history lives on your device with no server-side copy.
           </p>
           <p className="text-muted leading-relaxed mt-4">

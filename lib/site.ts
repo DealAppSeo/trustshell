@@ -45,6 +45,11 @@ export const INDEXABLE_ROUTES: ReadonlyArray<{ path: string; priority: number }>
   // The stranger's door: paste a sentence, get Checks out / Caught / Not checked. It was
   // reachable only by typing the URL until 2026-10-05.
   { path: '/check', priority: 0.9 },
+  // One static page per audience (hero v2, 2026-10-24): a link posted in a community lands on its own path, so the
+  // page view count tells which hook works without a script. See lib/audiences.ts.
+  { path: '/for/openclaw', priority: 0.8 },
+  { path: '/for/vibe-coders', priority: 0.8 },
+  { path: '/for/erc', priority: 0.8 },
   { path: '/mission', priority: 0.9 },
   // The vision/story page: the mission line in full plus every surface marked shipped or
   // direction. A story page reached from the home vision band, the footer and related pages,

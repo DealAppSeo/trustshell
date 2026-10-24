@@ -157,17 +157,41 @@ function fakeGithubFetch(url) {
   if (u.includes('/api/v1/classify')) {
     return { ok: true, status: 200, text: async () => JSON.stringify({ label: 'not-checked', latency_ms: 1 }) };
   }
-  const body = u.includes('/jobs')
-    ? // head_sha matches the run's: `check --claims` will not tie a job without one to the commit.
-      { total_count: 1, jobs: [{ name: 'job-0', conclusion: 'success', head_sha: 'abc123def4567890' }] }
-    : {
-        conclusion: 'success',
-        status: 'completed',
-        head_sha: 'abc123def4567890',
-        head_branch: 'main',
-        name: 'check',
-        display_title: 'egress-allowlist',
-      };
+  // A full 40-hex SHA: `check --claims --guided` reads a commit's checks only for a full SHA, so a
+  // short one would make the guided run below pass without reading anything.
+  const sha = 'abc123def4567890abc123def4567890abc123de';
+  const path = u.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+  // Guided mode (every check on the commit): one passing check, no statuses, one completed suite,
+  // no pull request (so the default branch and the commit's own files), and no required checks.
+  const body = u.includes('/check-runs')
+    ? { total_count: 1, check_runs: [{ id: 1, name: 'job-0', status: 'completed', conclusion: 'success' }] }
+    : u.includes('/check-suites')
+      ? { total_count: 1, check_suites: [{ app: { slug: 'github-actions' }, status: 'completed', conclusion: 'success', latest_check_runs_count: 1 }] }
+      : /\/commits\/[0-9a-f]{40}\/status$/.test(path)
+        ? { state: 'pending', total_count: 0, statuses: [] }
+        : /\/commits\/[0-9a-f]{40}\/(pulls|statuses)$/.test(path) || u.includes('/rules/branches/')
+          ? []
+          : /\/branches\/[^/]+$/.test(path)
+            ? { name: 'main', protected: false }
+          : /\/commits\/[0-9a-f]{40}$/.test(path)
+            ? { sha, files: [{ filename: 'README.md' }] }
+            : /^\/repos\/[^/]+\/[^/]+$/.test(path)
+              ? { default_branch: 'main' }
+              : u.includes('/jobs')
+                ? // head_sha matches the run's: `check --claims` will not tie a job without one to the commit.
+                  { total_count: 1, jobs: [{ name: 'job-0', conclusion: 'success', head_sha: sha }] }
+                : {
+                    conclusion: 'success',
+                    status: 'completed',
+                    head_sha: sha,
+                    head_branch: 'main',
+                    name: 'check',
+                    display_title: 'egress-allowlist',
+                    // The same repository as the run URL, so the guided run takes the push path.
+                    event: 'push',
+                    repository: { full_name: 'DealAppSeo/trustshell' },
+                    head_repository: { full_name: 'DealAppSeo/trustshell', owner: { login: 'DealAppSeo' } },
+                  };
   return {
     ok: true,
     status: 200,
@@ -525,6 +549,20 @@ function main() {
       else if (!claimsBody || !claimsBody.record || claimsBody.record.schema !== 'dev.trustshell.action-evidence/0.1-draft') {
         problems.push(`check --claims produced ${JSON.stringify(claimsRan.stdout.trim().slice(0, 120))} (exit ${claimsRan.status}), expected an action-evidence record`);
       } else if (claimsRan.status !== 0) problems.push(`check --claims supported its one claim but exited ${claimsRan.status}, expected 0`);
+
+      // `check <url> --claims --guided` (EXPERIMENTAL) reads every check on the commit: more
+      // requests, still the one host. It must actually read them, or this run proves nothing.
+      const guidedLog = join(cwd, 'guided.log');
+      writeFileSync(guidedLog, '');
+      const guidedRan = spawnCli(compiled.cli, [cmd, CHECK_URL_GITHUB, '--claims', 'All checks pass.', '--guided', '--json'], { cwd, allow: ALLOW_HOST, logPath: guidedLog });
+      const guidedForeign = guidedRan.log.filter((e) => e.host && e.host !== ALLOW_HOST);
+      const guidedBody = parseJson(guidedRan.stdout);
+      const guidedClaim = guidedBody?.record?.claims?.find((c) => c.template === 'ci.all_checks_pass');
+      if (guidedRan.error) problems.push(`check --claims --guided: spawn failed: ${guidedRan.error.message}`);
+      else if (guidedForeign.length) problems.push(`check --claims --guided reached a host other than ${ALLOW_HOST}: ${guidedForeign.map((e) => e.host).join(', ')}`);
+      else if (!guidedBody?.record?.observation?.commit_checks) problems.push(`check --claims --guided produced no commit checks (exit ${guidedRan.status})`);
+      else if (guidedRan.log.filter((e) => e.host === ALLOW_HOST).length <= 2) problems.push('check --claims --guided made no request beyond the run and its jobs');
+      else if (guidedClaim?.status !== 'SUPPORTED' || guidedRan.status !== 0) problems.push(`check --claims --guided: "All checks pass." was ${guidedClaim?.status} with exit ${guidedRan.status}, expected SUPPORTED and 0`);
     }
   }
 
@@ -561,6 +599,7 @@ function main() {
     ['check "<sentence>"', ['check', SENTENCE]],
     ['check <github run url>', ['check', CHECK_URL_GITHUB]],
     ['check <github run url> --claims', ['check', CHECK_URL_GITHUB, '--claims', 'All tests pass.']],
+    ['check <github run url> --claims --guided', ['check', CHECK_URL_GITHUB, '--claims', 'All checks pass.', '--guided']],
     ['verify "<claim>"', ['verify', SENTENCE]],
   ]) {
     const cwd = mkdtempSync(join(tmpdir(), 'ts-egress-offline-'));
@@ -583,7 +622,7 @@ function main() {
 
   console.log('VERIFIED');
   console.log(
-    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com; check <url> --claims reached only ${ALLOW_HOST}; check "<sentence>" reached only /api/v1/classify, once, with a pasted email removed; with OFFLINE=1, check (both forms) and verify made zero network calls and exited 2 NOT_CHECKED, and so did check <url> --claims`,
+    `no-network: ${none.join(', ')} produced their verdicts with fetch/http/https stubbed to throw; ${githubOnly.join(', ')} reached ${ALLOW_HOST} and failed when pointed at example.com; check <url> --claims (and --guided) reached only ${ALLOW_HOST}; check "<sentence>" reached only /api/v1/classify, once, with a pasted email removed; with OFFLINE=1, check (both forms) and verify made zero network calls and exited 2 NOT_CHECKED, and so did check <url> --claims (and --guided)`,
   );
   process.exit(EXIT_VERIFIED);
 }

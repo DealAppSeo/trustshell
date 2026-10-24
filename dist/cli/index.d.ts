@@ -114,6 +114,8 @@ export interface ParsedArgs {
     out?: string;
     /** check <runUrl> --claims: mark the cards DEMO. */
     demo?: boolean;
+    /** check <runUrl> --claims: guided mode (EXPERIMENTAL), binding plus every check on the commit. */
+    guided?: boolean;
     /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
     learnArgv?: string[];
     /** bundle / guard: everything after the command, parsed by src/cli/bundle.ts and src/cli/guard.ts. */

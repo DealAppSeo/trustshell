@@ -173,6 +173,11 @@ COMMANDS
                              (dev.trustshell.action-evidence/0.1-draft) and its RFC 8785 SHA-256.
       [--out <dir>]          Also write record.json, card.md and card.html into <dir>.
       [--demo]               Mark both cards DEMO.
+      [--guided]             EXPERIMENTAL. A claim line that cites nothing is read as about this
+                             run, and every check on the run's commit is read: check runs and
+                             re-runs, commit statuses, suites, the base branch's required checks,
+                             and whether the change edits its own workflows. So "All checks pass."
+                             can be decided. More requests to api.github.com, and nothing else.
                              EXIT 0 every claim SUPPORTED on a COMPLETE run, 1 a claim CONTRADICTED
                              or the run FAILED/INCONSISTENT, 3 anything NOT_CHECKED.
   check "<sentence>"         Label one sentence pass / veto / not-checked — the same label the
@@ -430,6 +435,8 @@ function parseArgs(argv) {
             flags.add('include-quarantined');
         else if (a === '--demo')
             flags.add('demo');
+        else if (a === '--guided')
+            flags.add('guided');
         else if (a === '-h' || a === '--help')
             flags.add('help');
         else if (a === '-v' || a === '--version')
@@ -503,7 +510,7 @@ function parseArgs(argv) {
             const full = isFreeText ? rest.join(' ') : operand;
             const claimsText = values['claims'];
             const claimsFile = values['claims-file'];
-            if (cmd === 'check' && (claimsText !== undefined || claimsFile !== undefined || values['out'] !== undefined || flags.has('demo'))) {
+            if (cmd === 'check' && (claimsText !== undefined || claimsFile !== undefined || values['out'] !== undefined || flags.has('demo') || flags.has('guided'))) {
                 // Refused rather than ignored: `check "<sentence>" --claims x` would otherwise send the
                 // sentence to the classify endpoint and quietly drop the claims the caller meant to map.
                 if (isFreeText) {
@@ -513,9 +520,9 @@ function parseArgs(argv) {
                     return { command: 'check', json, verify, error: 'give --claims "<text>" or --claims-file <path>, not both' };
                 }
                 if (claimsText === undefined && claimsFile === undefined) {
-                    return { command: 'check', json, verify, error: '--out and --demo apply only with --claims or --claims-file' };
+                    return { command: 'check', json, verify, error: '--out, --demo and --guided apply only with --claims or --claims-file' };
                 }
-                return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo') };
+                return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo'), guided: flags.has('guided') };
             }
             return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
         }
@@ -1432,7 +1439,7 @@ async function runClaimsAgainstRun(args, io) {
         return exports.EXIT.USAGE;
     }
     try {
-        const { record, digest } = await (0, action_evidence_1.inspectRunClaims)(args.operand, claimText);
+        const { record, digest } = await (0, action_evidence_1.inspectRunClaims)(args.operand, claimText, { guided: args.guided });
         const card = (0, evidence_card_1.renderCardMarkdown)(record, { demo: args.demo });
         if (args.out) {
             const fs = require('node:fs');

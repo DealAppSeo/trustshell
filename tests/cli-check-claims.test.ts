@@ -62,6 +62,12 @@ describe('parseArgs', () => {
     expect(parseArgs(['check', URL_GREEN, '--demo']).error).toMatch(/only with --claims/);
   });
 
+  it('routes --guided (EXPERIMENTAL) with claims, refuses it without them, and leaves it off by default', () => {
+    expect(parseArgs(['check', URL_GREEN, '--claims', 'All checks pass.', '--guided'])).toMatchObject({ claims: 'All checks pass.', guided: true });
+    expect(parseArgs(['check', URL_GREEN, '--claims', 'x']).guided).toBe(false);
+    expect(parseArgs(['check', URL_GREEN, '--guided']).error).toMatch(/only with --claims/);
+  });
+
   it('routes --claims-file, and refuses both flags at once', () => {
     expect(parseArgs(['check', URL_GREEN, '--claims-file', 'pr.md'])).toMatchObject({ command: 'check', claimsFile: 'pr.md' });
     expect(parseArgs(['check', URL_GREEN, '--claims', 'x', '--claims-file', 'pr.md']).error).toMatch(/not both/);
@@ -77,6 +83,7 @@ describe('parseArgs', () => {
     await run(parseArgs(['--help']), NO_CLIENT, io);
     expect(out.join(' ')).toContain('check <runUrl> --claims "<text>"');
     expect(out.join(' ')).toContain('check <runUrl> --claims-file <path>');
+    expect(out.join(' ')).toContain('[--guided]');
   });
 });
 

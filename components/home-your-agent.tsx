@@ -5,9 +5,14 @@ import Link from 'next/link';
  * Until this section, a first-time visitor could not reach /pai or /bind from the home page, /start,
  * /docs or /check (checked on the live site, 2026-10-16).
  *
- * Every line restates the step pages: /pai ("three questions, then we're done"), /bind ("It asks for a
- * wallet and nothing else", "up to a limit you set on Spend", "Everything here runs on Base Sepolia
- * testnet") and the home page's own "Agents have a public reputation score, RepID".
+ * Every line restates the step pages: /pai ("three questions, then we're done") and the home page's own
+ * "Agents have a public reputation score, RepID".
+ *
+ * NO WALLET ON THE FIRST PAGE (Sean, 2026-10-24). This section used to say "Claim it with your wallet, set how
+ * much it may spend", with a testnet note about claiming, funding and spending. A wallet is a step for later,
+ * on /bind, once there is an agent worth claiming; asking for one here turns visitors away before they have
+ * made anything. Claiming and spending are still on /bind and /spend, with the testnet note beside them.
+ * tests/home-no-wallet-claim.test.ts holds this.
  *
  * prefetch={false}: the home page sends nothing on load (tests/e2e/check-walk pins it).
  */
@@ -23,8 +28,7 @@ export function HomeYourAgent() {
           Want an agent you can trust?
         </h2>
         <p className="text-base sm:text-lg text-slate-300 text-wrap">
-          Make one in three questions. Claim it with your wallet, set how much it may spend, and watch its public
-          reputation score, RepID, move.
+          Make one in three questions, then watch its public reputation score, RepID, move.
         </p>
         <p>
           <Link
@@ -36,7 +40,6 @@ export function HomeYourAgent() {
             Make your agent
           </Link>
         </p>
-        <p className="text-sm text-slate-400">Claiming, funding and spending run on Base Sepolia, a test network.</p>
       </div>
     </section>
   );

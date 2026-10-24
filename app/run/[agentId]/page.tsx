@@ -3,6 +3,7 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { localDb, Agent, HistoryRow } from '@/lib/db';
 import { vault } from '@/lib/vault';
+import { keysToSend } from '@/lib/run-keys';
 import { tokenHeader, fetchGateStatus, getGateEmail } from '@/lib/agent-gate';
 import { GateModal } from '@/components/gate-modal';
 import { TrustBadge } from '@/components/trust-state';
@@ -106,7 +107,9 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         setLoading(false);
         return;
       }
-      user_paid_keys = keys || {};
+      // Which keys go is lib/run-keys.ts: only the two the engine reads (OpenAI, Anthropic), unless
+      // the build set NEXT_PUBLIC_RUN_LEAST_KEYS=0, which sends every unlocked key.
+      user_paid_keys = keysToSend(keys);
     }
 
     try {

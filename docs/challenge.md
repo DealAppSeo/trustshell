@@ -83,6 +83,8 @@ Find one of these and report it:
 
 Open an issue on [DealAppSeo/trustshell](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the run URL, your claims file verbatim and the exit code. Public runs only; never paste a secret. A bug we accept and fix gets a regression test in the repository's own test suite, so the next release has to survive it.
 
+Our own attacks, with the setup beside every number, are on [the red-team results page](https://github.com/DealAppSeo/trustshell/blob/main/docs/red-team.md). It says what ran, what was never checked, and what it does not show.
+
 ## Known limits
 
 - Anonymous GitHub allows 60 requests an hour per IP, and a check makes two, so about 30 checks an hour from one network. Set `GITHUB_TOKEN` to raise it; it is used for nothing else.
