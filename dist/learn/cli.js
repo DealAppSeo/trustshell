@@ -281,6 +281,11 @@ async function dispatch(argv, io, env, tty) {
             }
             if (r && r.text)
                 io.out(r.text);
+            // The job exists and nothing applies: stdout stays empty (it is what a hook injects), and stderr, which
+            // the example hook drops, says where to look. The README's own example accepted a lesson scoped to
+            // ship-tests and then injected with no --check, and got nothing, silently (stranger walk, 2026-10-23).
+            else if (r)
+                io.err(`learn inject: no lesson applies to this turn of job ${opt.job}, so nothing was printed. A lesson scoped to a check prints only on a turn that names it (--check <check>); trustshell learn lessons --job ${opt.job} shows each lesson's job/check.`);
             return 0;
         }
         case 'probe': {
@@ -334,6 +339,10 @@ async function dispatch(argv, io, env, tty) {
     }
 }
 async function runLearn(argv, io, env = process.env, tty = exports.stdinTerminal) {
+    if (argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') {
+        io.out(exports.LEARN_USAGE);
+        return 0;
+    }
     try {
         return await dispatch(argv, io, env, tty);
     }

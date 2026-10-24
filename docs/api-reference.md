@@ -444,7 +444,7 @@ The learning loop v1, local. Nothing leaves the machine. `trustshell learn` alon
 - `rate <episode> accept|edit|reject`: your rating, reported, outside the agent rulers.
 - `correct --job <slug> "<your words>"`: writes an eval case, then a candidate lesson, verbatim, untrusted and quarantined until `accept <lesson>`. `--derived-from-untrusted <label>` marks text that is not yours (a page, another agent, a model): held for good, never injectable. `--source` is its deprecated old name and prints a warning saying so. `--credit <label>` records who prompted the correction and leaves the lesson yours. `--note` keeps a model paraphrase as a quarantined note, never injected. Secret-shaped text writes nothing; injection-looking text is held.
 - `accept <lesson>` (30 days, renewable), `decline <lesson>`, `lessons [--job <slug>]`. `accept` refuses a retired lesson. `reaccept <lesson>` brings one back: it prints the retirement receipt, then needs an interactive terminal and the lesson id typed back before it writes, and records a re-accept receipt. Without a terminal it refuses and writes nothing. There is no MCP tool for either. `decline` puts the lesson's text back in quarantine.
-- `inject --job <slug> [--turn K] [--check C] [--model M] [--family F]`: what a prompt hook prints. Only this job's accepted, unexpired lessons that are job-wide or scoped to the check this episode froze (no frozen check: job-wide only), verbatim, at most 5 and 400 tokens with the scaffold and the cloze included, recorded as the episode's `loop_tokens` (a second inject on the same turn does not count them again). If the scaffold and the cloze alone would pass 400, the cloze is left out and the text says so. `--model` and `--family` are recorded on the episode; an episode with no family is left out of ruler 1. In `learn` mode: the scaffold only until `attempt --job <slug> "<your attempt>"`, then the lessons and one blank cut from your attempt. In `cowork` mode: it asks for your prediction first. A missing memory file or an unknown job prints nothing and exits `0`.
+- `inject --job <slug> [--turn K] [--check C] [--model M] [--family F]`: what a prompt hook prints. Only this job's accepted, unexpired lessons that are job-wide or scoped to the check this episode froze (no frozen check: job-wide only), verbatim, at most 5 and 400 tokens with the scaffold and the cloze included, recorded as the episode's `loop_tokens` (a second inject on the same turn does not count them again). If the scaffold and the cloze alone would pass 400, the cloze is left out and the text says so. `--model` and `--family` are recorded on the episode; an episode with no family is left out of ruler 1. In `learn` mode: the scaffold only until `attempt --job <slug> "<your attempt>"`, then the lessons and one blank cut from your attempt. In `cowork` mode: it asks for your prediction first. A missing memory file or an unknown job prints nothing and exits `0`. A job with nothing to inject on that turn (for example, every accepted lesson is scoped to a check the turn did not name) prints nothing to stdout, which is what a hook injects, and one line on stderr saying why.
 - `probe add --job <slug> --check <check> --criterion "<text>"`, `probe run <probe>`: an unaided attempt on a `learn` job, criterion written first, scored 1 or 0 by the check. No lesson is printed.
 - `review`, `review <review> yes|no`: spaced review on a 1/3/7/14/30-day ladder. A miss goes back to the 1-day step.
 - `report`: the rulers, each with its job, check id, model family and eval-set hash, or `not measured`.
@@ -470,6 +470,8 @@ when it is not). A policy that does not parse denies everything. `help`, `versio
 Two commands are denied whatever the policy lists, because they start a process the guard cannot see:
 `init --pai` (it spawns the register script) and `learn check run` / `learn probe run` (they run a stored
 shell command).
+`guard allow` and `guard deny` take one action exactly as the policy lists it: `guard allow tool:git`, not `guard allow
+git` (refused, with the `tool:git` form named; nothing is written).
 `guard check --tool <name> [--class read|other|post|spend] [--amount <n>]` asks the policy about any action:
 `0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow). A check is recorded as a question: its
 amount is never counted as spent.
@@ -495,6 +497,11 @@ the guard bounds which executable starts, not what it then does, so allowing an 
 allows any script it is given. `--class` is the caller's label. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
 (files, network, child processes) is not observed, and commands run without `trustshell run` are not mediated.
 
+In Windows PowerShell, write the `--` quoted: `trustshell run --tool git '--' git status`. PowerShell drops a bare `--`
+before it reaches npm's `trustshell.ps1`, and `run` then refuses the command (exit `2`, nothing runs). `trustshell.cmd`
+keeps a bare `--`. `trustshell run --help`, `guard --help`, `bundle --help` and `learn --help` print that command's
+usage only (exit `0`).
+
 ### `trustshell bundle export <file> | verify <file> | import <file> | context <file>`
 
 CARRY. One Ed25519-signed file (this install's key, `~/.trustshell/bundle-signing-key.pem`, never in the file):
@@ -511,6 +518,11 @@ it catches the textbook override forms, not paraphrased standing orders or claim
 its owner signature verifies with a key you trust AND its nonce is higher than the policy in force; otherwise it is
 saved as `policy.suggested.json` and NOT enforced (an unsigned policy, a key nobody named, or an older nonce: a
 downgrade or a replay). `context` prints the profile, the policy as information and the selected notes for a model.
+
+Two installs on ONE machine: `TRUSTSHELL_HOME` moves the policy, its records and the signing key, and nothing else.
+Notes stay in `~/.trustshell/memory.sqlite` unless `TRUSTSHELL_MEMORY` names another file, and the profile is
+`.trustshell/profile.md` in the folder you run from. So give each install its own `TRUSTSHELL_MEMORY` and its own
+working folder, or the second already "has" the first one's notes before any import.
 
 | Outcome | Exit |
 |---|---|

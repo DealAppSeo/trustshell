@@ -70,6 +70,8 @@ import { join } from 'node:path';
 import { runLearn } from '../learn/cli';
 import { runBundle } from './bundle';
 import { EXIT_REFUSED, runGuard, runGuarded, runRun } from './guard';
+import { GUARD_RECORD_SCHEMA } from '../lib/guardrails';
+import { ApiUrlError } from '../lib/api-url';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -380,9 +382,11 @@ COMMANDS
                              owner signature verifies with a key you trust AND its nonce is higher
                              than the one in force, else it is saved as policy.suggested.json, not
                              enforced. An altered, partial or other-version file is refused (exit 1).
-  guard init [--days N]      GUARD: write ~/.trustshell/policy.json, the engine kernel's owner-policy
+  guard init [--days N] [--force]
+                             GUARD: write ~/.trustshell/policy.json, the engine kernel's owner-policy
                              fields (subject, actions, per_tx_raw, daily_raw, total_raw, expires_at,
                              nonce): local commands only, every limit 0, expires in N days (30).
+                             --force replaces a policy that is already there.
                              While a policy exists, learn check run and learn probe run are denied:
                              they run a stored shell command.
   guard show                 Print the policy, what was allowed so far and the record chain.
@@ -406,6 +410,8 @@ COMMANDS
                              recorded. The card says what was requested, authorized, executed,
                              independently observed (nothing) and unknown. No policy: nothing runs (2).
                              While a policy exists, every other command must be listed as tool:<name>.
+                             Windows PowerShell drops a bare --: write it quoted, '--', or call
+                             trustshell.cmd (trustshell run --tool git '--' git status).
   learn <verb>               The learning loop, local: jobs you create, checks you register, your
                              corrections as lessons you accept, injected verbatim (max 5 / 400
                              tokens), unaided probes, spaced review, rulers. trustshell learn for
@@ -435,7 +441,8 @@ OPTIONS
   --                         End of options. What follows is text, even if it starts with a dash:
                              trustshell check -- "-5 is less than 3."
   --json                     Emit machine-readable JSON instead of human text.
-  -h, --help                 Show this help.
+  -h, --help                 Show this help. After guard, run, bundle or learn, that command's
+                             usage only: trustshell guard --help.
   -v, --version              Show the version.
 
 EXIT CODES
@@ -471,6 +478,9 @@ ENV
   TRUSTSHELL_HOME      where policy.json, its records and the signing key live (default ~/.trustshell).
                        Pointing it at a folder with no policy switches the owner policy off for that
                        command; a WARNING says so when ~/.trustshell/policy.json exists.
+                       It does not move your notes or your profile: notes stay in ~/.trustshell/memory.sqlite
+                       (TRUSTSHELL_MEMORY names another file), the profile in ./.trustshell/profile.md.
+  TRUSTSHELL_MEMORY    the local memory file (default ~/.trustshell/memory.sqlite)
 
 CI GATE EXAMPLE
   # fail the build if HAL vetoes a claim in your changelog
@@ -1415,6 +1425,7 @@ export async function run(
         const r = from === 'claude-code' ? readClaudeCode(text, path) : verifyChain(text, path);
         if (args.json) io.out(terminalSafeJson(r));
         else io.out(formatInspectCard(r));
+        if (r.verdict === 'BROKEN' && isGuardLedger(text)) io.err(GUARD_LEDGER_NOT_A_SESSION_LOG);
         return inspectExitCode(r.verdict);
       } catch (e: any) {
         io.err(`inspect failed: ${e?.message ?? String(e)}`);
@@ -1570,8 +1581,57 @@ export async function runClaimCheck(
   }
 }
 
+/**
+ * `inspect` reads session logs, not the guard's ledger. Pointed at `~/.trustshell/guard-receipts.jsonl` (also
+ * hash-chained, also JSONL), it said BROKEN on every line, about the file `guard show` calls INTACT, and nothing
+ * said why (stranger walk, 2026-10-23). The verdict and exit code are unchanged; this line names the format.
+ */
+export const GUARD_LEDGER_NOT_A_SESSION_LOG =
+  `inspect: these lines are ${GUARD_RECORD_SCHEMA} records, the guard's ledger, not a session log. inspect does not read that format, ` +
+  'so BROKEN here is about the format, not the chain. trustshell guard show verifies the ledger beside the policy in force (~/.trustshell, or TRUSTSHELL_HOME).';
+
+/** PURE. Is the first non-empty line a guard record? */
+export function isGuardLedger(text: string): boolean {
+  const first = text.split(/\r?\n/).find((l) => l.trim() !== '');
+  try {
+    return (JSON.parse(first ?? '') as { schema?: unknown })?.schema === GUARD_RECORD_SCHEMA;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Node 22 prints `ExperimentalWarning: SQLite is an experimental feature and might change at any time` the first
+ * time `node:sqlite` loads, so every memory command (remember, recall, quarantine, learn, bundle) ended with two
+ * stderr lines that read like an error (stranger walk, 2026-10-23, Git Bash and PowerShell 5.1). The CLI drops
+ * that ONE warning; every other warning, and every other ExperimentalWarning, still prints. Only the CLI process
+ * does this: the SDK and the MCP server leave the host's warnings alone.
+ */
+export function quietSqliteWarning(proc: Pick<NodeJS.Process, 'emitWarning'> = process): void {
+  const emit = proc.emitWarning;
+  proc.emitWarning = function (this: unknown, warning: string | Error, ...rest: unknown[]) {
+    const type = warning instanceof Error ? warning.name : typeof rest[0] === 'string' ? rest[0] : (rest[0] as { type?: string } | undefined)?.type;
+    const text = typeof warning === 'string' ? warning : warning?.message;
+    if (type === 'ExperimentalWarning' && /^SQLite is an experimental feature\b/.test(String(text))) return;
+    return (emit as (...a: unknown[]) => void).apply(this, [warning, ...rest]);
+  } as NodeJS.Process['emitWarning'];
+}
+
+/**
+ * PURE. The last line a crashed command prints. A refused TRUSTSHELL_API_URL is the caller's setting, not a crash:
+ * it printed a stack trace, even for local-only commands (guard show, recall, run), with no next step (stranger
+ * walk, 2026-10-23). It now prints the reason and what to change; the exit code is still 3.
+ */
+export function fatalLine(e: unknown): string {
+  if (e instanceof ApiUrlError) {
+    return `trustshell: ${e.message}. Unset TRUSTSHELL_API_URL, or point it at an https URL. Every command reads it today, even local ones such as guard and recall.`;
+  }
+  return `trustshell: fatal: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`;
+}
+
 /** Entry point: parse argv, run, exit with the returned code. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
+  quietSqliteWarning();
   const args = parseArgs(argv);
   // The owner policy, if the person wrote one, decides before the command runs (src/cli/guard.ts).
   const code = await runGuarded(args, () => run(args, makeClient()), realIO);
@@ -1625,8 +1685,7 @@ const isEntry = (() => {
 
 if (isEntry) {
   main().catch((e) => {
-    const detail = e instanceof Error ? (e.stack ?? e.message) : String(e);
-    process.stderr.write(scrubPrinted(`trustshell: fatal: ${detail}\n`));
+    process.stderr.write(scrubPrinted(`${fatalLine(e)}\n`));
     process.exit(EXIT.RUNTIME);
   });
 }

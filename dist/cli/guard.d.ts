@@ -13,7 +13,7 @@
  * change the rules, and `run` makes its own decision.
  */
 import type { ParsedArgs } from './index';
-import { type AssuranceScope, type GuardRecord, type GuardRequest, type PolicyDocument } from '../lib/guardrails';
+import { type AssuranceScope, type GuardRecord, type GuardRequest, type LocalPolicy, type PolicyDocument } from '../lib/guardrails';
 type IO = {
     out: (s: string) => void;
     err: (s: string) => void;
@@ -49,10 +49,22 @@ export interface Spawner {
     };
 }
 export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--json] -- <command> [args...]";
+/**
+ * Windows PowerShell drops a bare `--` before it reaches npm's `trustshell.ps1` shim, so the documented
+ * `run --tool git -- git status` arrived as `run --tool git git status` and failed "unexpected git" with no
+ * hint (stranger walk, 2026-10-23, PS 5.1). Quoted, or through the `.cmd` shim, the `--` survives.
+ */
+export declare const RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
 export declare function runRun(argv: string[], io: IO, env?: NodeJS.ProcessEnv, spawn?: Spawner): number;
 export declare const GUARD_USAGE = "trustshell guard init [--force] [--days N]\ntrustshell guard show [--json]\ntrustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]\ntrustshell guard allow <action> \u00B7 guard deny <action>      (spend | post | tool | tool:<name>)\ntrustshell guard limit per-tx|daily|total <n> \u00B7 guard expire <days> \u00B7 guard kill \u00B7 guard sign\ntrustshell guard level [--json] \u00B7 guard level shadow|enforce|off \u00B7 guard level after L1|L2|L3 <n>\ntrustshell guard level record <record.json> [--json] \u00B7 guard level revoke      (SHADOW by default)";
 /** The disclaimer every `guard level` reading carries. */
 export declare const LEVEL_IS_NOT = "Local guardrails for cooperative agents, not a security boundary: anything running as you can edit the policy or autonomy.jsonl, or hand guard level record a record.json it made up (a record is unsigned).";
+/**
+ * PURE. The line `guard limit` (and `guard allow spend`) adds while a limit is still 0. An amount must fit all
+ * three and 0 allows nothing, so `limit per-tx 100` alone still denied a spend of 50, and the printed
+ * `per_tx 100 · daily 0 · total 0` did not say why (stranger walk, 2026-10-23). null once every limit is above 0.
+ */
+export declare function zeroLimitNote(p: LocalPolicy): string | null;
 export declare function runGuard(argv: string[], io: IO, env?: NodeJS.ProcessEnv): number;
 export {};

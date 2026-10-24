@@ -72,6 +72,8 @@ export interface PolicyDocument {
 export const LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'] as const;
 
 const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
+/** PURE. Is `a` an entry a policy's `actions` may hold (spend, post, tool or tool:<name>)? */
+export const isPolicyAction = (a: string): boolean => ACTION.test(a);
 const CANONICAL_UINT = /^(?:0|[1-9][0-9]{0,77})$/;
 const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy'];
 const UINT256_MAX = BigInt('0x' + 'f'.repeat(64));
