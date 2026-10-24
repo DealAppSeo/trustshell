@@ -669,11 +669,10 @@ try {
   for (const [name, fn, skipKey] of [['1a', step1a, null], ['1b', step1b, 'hosted'], ['2-3', step23, null], ['4', step4, 'erc8004'], ['5', step5, 'gate']]) {
     if (skipKey && SKIP.has(skipKey)) { const st = mkStep(name, `skipped by --skip ${skipKey}`, ''); notRun(st, name, `skipped by --skip ${skipKey}`, 'skipped'); st.verdict = 'NOT_CHECKED'; continue; }
     err(`step ${name}`);
-    const s0 = Date.now(); const before = steps.length;
     try { await fn(); } catch (e) { fatal = e; const st = steps[steps.length - 1]; st.checks.push({ label: `step ${name} crashed`, verdict: 'FAIL', cause: 'pack-bug', ms: 0, detail: String(e?.stack || e).split('\n').slice(0, 3).join(' | ') }); st.verdict = 'FAIL'; }
-    const spent = Date.now() - s0; for (let i = before; i < steps.length; i++) steps[i].ms = Math.round(spent / (steps.length - before));
   }
 } catch (e) { fatal = e; err(`setup crashed: ${e?.stack || e}`); }
+for (const s of steps) s.ms = s.checks.reduce((a, c) => a + c.ms, 0); // a step's time is the sum of its checks'
 const all = steps.flatMap((s) => s.checks);
 const summary = { checks: all.length, pass: all.filter((c) => c.verdict === 'PASS').length, fail: all.filter((c) => c.verdict === 'FAIL').length, not_checked: all.filter((c) => c.verdict === 'NOT_CHECKED').length };
 const verdict = fatal && !all.length ? 'ERROR' : summary.fail ? 'FAIL' : summary.not_checked ? 'NOT_CHECKED' : 'PASS';
