@@ -91,9 +91,10 @@ export default function ConnectPage() {
             <span className="text-white font-medium">stored on your device, not on our servers</span>. A key leaves
             this browser only when you use it: <span className="text-white font-medium">Test</span> sends that one
             key to our engine, and a prompt on <span className="text-white font-medium">Auto</span> (the default) or{' '}
-            <span className="text-white font-medium">Paid only</span> sends every unlocked key with that request so
-            the engine can call a provider for you. <span className="text-white font-medium">Free only</span> sends
-            no keys.
+            <span className="text-white font-medium">Paid only</span> sends your OpenAI and Anthropic keys, if you
+            saved them, with that request so the engine can call a provider for you. Your other keys are not sent
+            with a prompt, because the engine does not use them. <span className="text-white font-medium">Free only</span>{' '}
+            sends no keys.
           </p>
 
           <ProgressStrip />
