@@ -224,6 +224,13 @@ describe('every branch, stubbed chain and hosts', () => {
     }
   });
 
+  it('a hostile tokenURI cannot clear the terminal or add a row to the report', () => {
+    const s = by('a tokenURI with escape codes and a newline is printed as text');
+    expect(s.report.agentURI.value).toContain('\x1b[2J'); // the control: the chain really returned it
+    expect(s.text).not.toMatch(/[\x00-\x09\x0b-\x1f\x7f\u202e]/);
+    expect(s.text.split('\n').filter((l) => l.startsWith('chain '))).toHaveLength(1);
+  });
+
   it('an unreachable RPC is NOT_CHECKED, exit 2', () => {
     const s = by('rpc unreachable');
     expect(s.exit).toBe(2);
