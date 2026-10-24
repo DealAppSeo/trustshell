@@ -85,12 +85,15 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
       setAgent(found);
       setAgentsLoaded(true);
       setJob(undefined);
-      listGrantsFor(agentId).then((grants) => setJob(grants === 'error' ? 'error' : jobCard(agentId, found?.name ?? 'this agent', grants)));
+      // An agent that is not in this browser gets only the "not here" message below, so the engine is not asked about it:
+      // the card call answered 400 for a made-up id and put a red error in the console of anyone who opened a stale link.
+      if (!found) return;
+      listGrantsFor(agentId).then((grants) => setJob(grants === 'error' ? 'error' : jobCard(agentId, found.name, grants)));
+      fetchAgentRepId(agentId).then(setLookup);
     });
     localDb.getHistory().then(h => setHistory(h.filter(row => row.agentId === agentId)));
     setLookup(null);
     setEarned(0);
-    fetchAgentRepId(agentId).then(setLookup);
   }, [agentId]);
 
   const handleRun = async (e: React.FormEvent) => {

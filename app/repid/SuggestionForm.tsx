@@ -46,7 +46,7 @@ export default function SuggestionForm() {
           type="text"
           id="github_username"
           name="github_username"
-          pattern="[A-Za-z0-9-]{1,39}"
+          pattern="[A-Za-z0-9\-]{1,39}"
           placeholder="octocat"
           className="w-full px-4 py-2 bg-[#0f172a] border border-[#1e293b] rounded-lg text-white placeholder-[#475569] focus:outline-none focus:border-amber-500 transition-colors"
         />

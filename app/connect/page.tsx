@@ -77,7 +77,9 @@ export default function ConnectPage() {
     }
   };
 
-  if (hasVault === null) return null;
+  // Not `null`: an empty page leaves the footer at the top of the screen, and it jumps down when the vault state arrives
+  // (CLS 0.33 at 375 px). The same fill-the-screen height as /pai's waiting state keeps it below the fold.
+  if (hasVault === null) return <div className="min-h-[calc(100svh-3.5rem)]" aria-hidden />;
 
   if (!hasVault) {
     return (
@@ -161,14 +163,17 @@ export default function ConnectPage() {
       
       <div className="space-y-4">
         {providers.map(p => (
-          <div key={p} className="flex gap-4 items-center bg-[#0f172a] p-4 rounded-xl border border-[#1e293b]">
+          <div key={p} className="flex flex-wrap gap-x-4 gap-y-2 items-center bg-[#0f172a] p-4 rounded-xl border border-[#1e293b]">
             <div className="w-24 font-bold capitalize text-white">{p}</div>
-            <input 
-              type="password" 
+            {/* basis-40 + min-w-0: label, field, Test and status are 500+ px of fixed widths, so at 375 px the row wrapped
+                nothing and the page scrolled sideways by 46 px. Now the field shares the first line with the label and
+                Test + status drop to the second one when there is no room. */}
+            <input
+              type="password"
               placeholder={`${p} key`}
               value={(keys as any)[p] || ''}
               onChange={e => setKeys({...keys, [p]: e.target.value})}
-              className="flex-1 bg-[#0a0f1a] border border-[#334155] rounded p-2 text-white"
+              className="min-w-0 flex-1 basis-40 bg-[#0a0f1a] border border-[#334155] rounded p-2 text-white"
             />
             <button onClick={() => testKey(p)} className="px-4 py-2 bg-[#1e293b] hover:bg-[#334155] rounded font-medium text-sm text-white">Test</button>
             <div className="w-24 text-sm text-center text-[#94a3b8]">{testing[p]}</div>

@@ -341,13 +341,15 @@ export default function PaiPage() {
   // --- render --------------------------------------------------------------
 
   if (phase === 'loading') {
-    return <div className="mt-20 text-center text-[#94a3b8]">Waking your agent…</div>;
+    // Fills the screen below the nav (h-14) so the footer starts below the fold in this state and in the loaded one;
+    // a short placeholder left the footer mid-screen and it jumped down when the page arrived (CLS 0.93 at 375 px).
+    return <div className="min-h-[calc(100svh-3.5rem)] pt-20 text-center text-[#94a3b8]">Waking your agent…</div>;
   }
 
   const q = phase === 'interview' ? CONSTITUTION_QUESTIONS[qIndex] : null;
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-8">
+    <div className="mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-3xl flex-col gap-4 px-4 py-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">
