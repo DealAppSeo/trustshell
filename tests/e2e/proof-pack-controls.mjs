@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { jcs, verifyRecordText, controlVerdict, flipHex, chainedLog, classifySentence, classifyRun } from '../../scripts/proof-pack.mjs';
+import { jcs, verifyRecordText, controlVerdict, flipHex, chainedLog, classifySentence, classifyRun, mdEscape } from '../../scripts/proof-pack.mjs';
 
 let failed = 0, ran = 0;
 const t = (name, fn) => { ran++; try { fn(); console.log(`ok   ${name}`); } catch (e) { failed++; console.error(`FAIL ${name}: ${e.message}`); } };
@@ -24,6 +24,7 @@ const record = { schema: 'dev.trustshell.action-evidence/0.1-draft', observation
 const good = JSON.stringify({ record, digest: { algorithm: 'sha-256', canonicalization: 'RFC 8785', value: sha(jcs(record)) } });
 const digest = JSON.parse(good).digest.value;
 
+t('report markdown: a backslash before a pipe cannot un-escape it', () => eq(mdEscape('a\\|b'), 'a\\\\\\|b'));
 t('RFC 8785: keys sort and nest regardless of input order', () => eq(jcs({ b: 1, a: [{ d: 2, c: 3 }] }), '{"a":[{"c":3,"d":2}],"b":1}'));
 t('RFC 8785: a key order change does not change the digest', () => eq(sha(jcs({ x: 1, y: { b: 2, a: 1 } })), sha(jcs({ y: { a: 1, b: 2 }, x: 1 }))));
 t('the real verifier accepts an untouched record', () => eq(verifyRecordText(good).ok, true));

@@ -158,7 +158,9 @@ function controlVerdict(verify, good, bad) {
   const v = verify(bad);
   return v.ok ? F('tamper NOT detected (this pack is invalid until that is fixed)', 'control-failed') : P(v.reason);
 }
-export { jcs, verifyRecordText, controlVerdict, flipHex, chainedLog, classifySentence, classifyRun }; // imported by tests/e2e/proof-pack-controls.mjs
+// A check's detail can quote a model or a remote file: escape the backslash first, or a detail ending in \ un-escapes the pipe.
+const mdEscape = (s) => String(s).replace(/[\\|]/g, '\\$&');
+export { jcs, verifyRecordText, controlVerdict, flipHex, chainedLog, classifySentence, classifyRun, mdEscape }; // imported by tests/e2e/proof-pack-controls.mjs
 
 // ---- state: hosted-call budget (the production engine's budgets are real visitors') ---------------------------------
 const loadState = () => { try { const s = readJson(STATE_FILE); if (s.utc === UTC_DATE) return s; } catch { /* first run today */ } return { utc: UTC_DATE, hosted: 0, quota: false }; };
@@ -657,7 +659,7 @@ function renderMd(res) {
   L.push('');
   for (const s of res.steps) {
     L.push(`## ${s.id}. ${s.label}`, '');
-    for (const c of s.checks) L.push(`- **${c.verdict}** ${c.label} (${c.ms} ms)${c.detail ? ': ' + String(c.detail).replace(/\|/g, '\\|') : ''}${c.cause ? ` \`[${c.cause}]\`` : ''}`);
+    for (const c of s.checks) L.push(`- **${c.verdict}** ${c.label} (${c.ms} ms)${c.detail ? ': ' + mdEscape(c.detail) : ''}${c.cause ? ` \`[${c.cause}]\`` : ''}`);
     L.push('');
   }
   L.push('## What this pack observed about itself (limits, not verdicts)', '');
