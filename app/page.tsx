@@ -202,16 +202,6 @@ export default function Home() {
           <a href="/docs" className="text-foreground underline underline-offset-2">Docs</a>
         </p>
       </Section>
-
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-8 text-sm text-muted">
-          <span className="text-foreground">TrustShell</span>
-          <a href="/docs" className="hover:text-foreground">Docs</a>
-          <a href={GITHUB} className="hover:text-foreground">GitHub</a>
-          <a href="https://www.npmjs.com/package/@hyperdag/trustshell" className="hover:text-foreground">npm</a>
-          <a href={`${GITHUB}/blob/main/LICENSE`} className="hover:text-foreground">Apache-2.0</a>
-        </div>
-      </footer>
     </main>
   );
 }
