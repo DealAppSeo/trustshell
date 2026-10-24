@@ -6,8 +6,9 @@
  * reads (repid-engine src/providers/router.ts, tier1Adapters). The other five providers' keys are not sent
  * with a prompt. Test sends the one key being tested. Free only sends none.
  *
- * That is true while NEXT_PUBLIC_RUN_LEAST_KEYS=1 is set in the Vercel project (set 2026-10-24, rebuilt,
- * and read back from the live bundle). Before that, /run sent every unlocked key, and three of these
+ * That is true by default in code (#629): only a build with NEXT_PUBLIC_RUN_LEAST_KEYS=0 sends every key.
+ * (It was first true because the Vercel variable was set 2026-10-24, rebuilt and read back from the live
+ * bundle; the default no longer depends on that variable.) Before that, /run sent every unlocked key, and three of these
  * surfaces said so; two others said "the one key needed", which was never true (up to two go), and one
  * said provider keys "never reach our servers", which was never true. Each assertion below names the
  * sentence it keeps from coming back.
