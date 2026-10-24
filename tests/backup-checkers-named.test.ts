@@ -31,9 +31,6 @@ describe('the backup checker is named wherever the text is sent from', () => {
     expect(privacy).toContain(`from this list and no other: ${NAME}, Meta's Llama model run by Cloudflare under Meta's Llama license;`);
   });
 
-  it('the homepage names it in what is live today', () => {
-    expect(read('components/home-where.tsx').replace(/\s+/g, ' ')).toContain(`takes its turn, such as ${NAME}.`);
-  });
 
   it('the old line that named no backup is gone everywhere', () => {
     const old = 'a backup checker listed in our privacy policy takes its turn';

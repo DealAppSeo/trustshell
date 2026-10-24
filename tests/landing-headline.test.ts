@@ -4,24 +4,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const hero = readFileSync(join(__dirname, '../components/hero.tsx'), 'utf8');
+const page = readFileSync(join(__dirname, '../app/page.tsx'), 'utf8');
 
 describe('landing headline', () => {
-  it('fails if the hero h1 is not the job, with the second-opinion line directly under it', () => {
-    const h1 = hero.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>\s*<(\w+)\b[^>]*>([\s\S]*?)<\/\2>/);
+  it('fails if the hero h1 is not the install-first promise', () => {
+    // 2026-10-24 (Sean: "What do we want a visitor to do? ... download, install and try TrustShell"): the h1 says
+    // what the tool does for a developer, and the page under it is one command and an install. It does not say
+    // "truth" or "correct": a supported claim is narrow, and a check can come back Not checked.
+    const h1 = page.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/);
     expect(h1).not.toBeNull();
-    // 2026-10-16 (Sean: "what is this and why should I care, jobs to be done"): the h1 is job 1, the
-    // second opinion the site has always promised. It does not say "know if it is right": two models
-    // agreeing is not the truth (2026-10-06), and a check can come back Not checked. "AI lies." moved
-    // to the why section (components/home-questions.tsx).
-    expect((h1?.[1] ?? '').trim()).toBe('Your AI says the job is done. Is it?');
-    expect((h1?.[3] ?? '').trim()).toBe('Paste what it told you. Two other AIs check it, and you see what each one said.');
+    expect((h1?.[1] ?? '').trim()).toBe('Check what your AI agent did, not what it says it did.');
     expect(h1?.[1] ?? '').not.toMatch(/\b(truth|right|correct|accurate)\b/i);
-    // No "stake": the model that wrote a chat reply has no RepID and stakes nothing.
-    expect(h1?.[3] ?? '').not.toMatch(/\bstakes?\b/i);
-    expect(hero).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
-    expect(h1?.[1] ?? '').not.toMatch(/stake now/i);
-    expect(hero).not.toMatch(/every transaction earns RepID/i);
-    expect(h1?.[1] ?? '').not.toMatch(/VETO/);
+    expect(h1?.[1] ?? '').not.toMatch(/VETO|stake now/i);
+    expect(page).not.toContain('Check any claim. Get a receipt. Your keys stay yours.');
+    expect(page).not.toMatch(/every transaction earns RepID/i);
+    expect(page.match(/<h1\b/g)).toHaveLength(1);
   });
 });

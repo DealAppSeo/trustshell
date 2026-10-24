@@ -22,7 +22,7 @@ describe('after the three commands', () => {
   });
 
   it('keeps the glass-box line on the after-register block and off the landing', () => {
-    const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
+    const hero = readFileSync(join(ROOT, 'components/home-install.tsx'), 'utf8');
     const afterCreate = readFileSync(join(ROOT, 'app/after-create/page.tsx'), 'utf8');
     const create = readFileSync(join(ROOT, 'app/create/page.tsx'), 'utf8');
     const agents = readFileSync(join(ROOT, 'app/agents/page.tsx'), 'utf8');

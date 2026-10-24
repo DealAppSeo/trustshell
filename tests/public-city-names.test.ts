@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
-const REQUIRED = ['app/page.tsx', 'components/hero.tsx', 'app/start/page.tsx', 'app/start/layout.tsx'];
+const REQUIRED = ['app/page.tsx', 'components/home-install.tsx', 'app/start/page.tsx', 'app/start/layout.tsx'];
 const WHEN_PRESENT = ['app/more/page.tsx', 'app/belts/page.tsx'];
 
 describe('public pages omit Paris, Rome, and Eiffel', () => {

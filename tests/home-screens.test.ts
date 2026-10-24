@@ -50,35 +50,26 @@ describe('home screens below the hero', () => {
   it('names Claude Desktop, Cursor and Claude Code, then says not yet', () => {
     expect(agent.AGENT_TABS.map((tab) => tab.label)).toEqual(['Claude Desktop', 'Cursor', 'Claude Code']);
     expect(agent.NOT_YET).toBe('ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.');
+  });
+
+  it('the install-first home renders its MCP tab from the same pinned config', () => {
+    // 2026-10-24: the home page is one command, the real output and three install tabs; the MCP tab
+    // pastes mcpPaste(), so it cannot drift from .mcp.json.
     const html = renderHome();
-    expect(html).toContain('Get the check where you already use AI');
-    expect(html).toContain('id="add-agent"');
-    expect(html).toContain('Where this goes');
-    expect(html).toContain('id="where"');
-    expect(html).toContain('Known key and personal-data formats are removed before sending.');
-    expect(html).toContain('Whole-sentence arithmetic is exact, with no model.');
-    expect(html).toContain('data-testid="sticky-check"');
-    expect(html).toContain('href="#claim"');
-    expect(html).toContain('sm:hidden');
-    const sticky = html.match(/<a\b[^>]*data-testid="sticky-check"[^>]*>/)?.[0] ?? '';
-    expect(sticky).not.toMatch(/type="submit"/);
-    const addAt = html.indexOf('Get the check where you already use AI');
-    const whereAt = html.indexOf('Where this goes');
-    const heroAt = html.indexOf('<h1');
-    expect(heroAt).toBeGreaterThan(-1);
-    expect(addAt).toBeGreaterThan(heroAt);
-    expect(whereAt).toBeGreaterThan(addAt);
+    expect(html).toContain('id="how"');
+    expect(html).toContain('id="install"');
+    expect(html).toContain('&quot;@hyperdag/trustshell@1.8.0&quot;');
+    expect(html.indexOf('<h1')).toBeGreaterThan(-1);
+    expect(html.indexOf('<h1')).toBeLessThan(html.indexOf('id="install"'));
   });
 
   it('does not say the lines that are not true', () => {
     const files = [
       'components/home-agent.tsx',
-      'components/home-where.tsx',
-      'components/sticky-check.tsx',
+      'app/page.tsx',
+      'components/home-install.tsx',
       'components/top-nav.tsx',
       'components/hero-result.tsx',
-      'components/home-your-agent.tsx',
-      'components/home-proof.tsx',
     ];
     const source = files.map((rel) => readFileSync(join(ROOT, rel), 'utf8')).join('\n');
     for (const line of FORBIDDEN) expect(source).not.toContain(line);

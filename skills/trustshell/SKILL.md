@@ -59,9 +59,9 @@ Do not wrap that bin in `npx`. Do not add a second MCP package.
 
 ## On trustshell.dev
 
-The homepage opens on a check, by job. First, one real result with its date (a price sentence that came back Caught, and what each checker said), then a box for pasting the answer you almost used. Under `No answer handy? Try one of ours` are two more measured sentences, one wrong and one right (a citation and a command). Each answer shows what each checker said, and the date and count of the runs that put the card there. Under that, `Got two answers that disagree? Paste both` checks two answers side by side. Nothing is sent on load.
+The homepage is install-first (2026-10-24): `Check what your AI agent did, not what it says it did.` It shows one command that checks a pinned public run with `--claims` and catches a claim that names the wrong commit, the real output of that command, and `Install it where you work` with three tabs: Terminal, Coding agent (a rules-file snippet so an agent checks itself before it says CI passed) and MCP. Nothing is sent on load. The one-sentence check moved to `/check`, where you paste one sentence and get Checks out, Caught or Not checked.
 
-The next section, `Get the check where you already use AI`, opens three ways in:
+Other ways in:
 
 - In Chrome: the extension stamps replies on ChatGPT, Claude, Gemini, Grok and DeepSeek.
 - In Claude Desktop, Cursor or Claude Code: an MCP paste. It runs `trustshell-mcp` from `@hyperdag/trustshell@1.8.0` through `npx -y -p`, for someone without the global install. With the prerequisite above, use the block under MCP instead. The ChatGPT and Grok apps do not load MCP servers yet; on their websites the Chrome extension stamps replies.

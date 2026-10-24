@@ -269,16 +269,8 @@ describe('nothing is sent, and the flag is off', () => {
     jest.isolateModules(() => { flag = (require('../lib/onboarding-flag') as { ONBOARDING_TALK: boolean }).ONBOARDING_TALK; });
     expect(flag).toBe(false);
   });
-  it('the home hero renders none of it while the flag is off', () => {
-    let html = '';
-    jest.isolateModules(() => {
-      const { createElement } = require('react') as typeof import('react');
-      const { renderToStaticMarkup } = require('react-dom/server') as typeof import('react-dom/server');
-      const { Hero } = require('../components/hero') as { Hero: () => ReactElement };
-      html = renderToStaticMarkup(createElement(Hero));
-    });
-    expect(html).toContain('Your AI says the job is done');
-    expect(html).not.toContain('data-testid="talk"');
+  it('the home page does not mount the guide (install-first since 2026-10-24)', () => {
+    expect(readFileSync(join(__dirname, '../app/page.tsx'), 'utf8')).not.toContain('OnboardingTalk');
   });
   it('the invite says what it is and that nothing is sent, before it asks anything', () => {
     let html = '';

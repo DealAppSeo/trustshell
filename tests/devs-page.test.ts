@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
-const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8').replace(/\r/g, '');
+const hero = readFileSync(join(ROOT, 'components/home-install.tsx'), 'utf8').replace(/\r/g, '');
 // The terminal step is on screen 3 since the 2026-10-05 home page.
 const agentScreen = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8').replace(/\r/g, '');
 const devs = readFileSync(join(ROOT, 'app/devs/page.tsx'), 'utf8').replace(/\r/g, '');

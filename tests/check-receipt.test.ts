@@ -122,14 +122,12 @@ describe('receiptOf', () => {
 describe('where the receipt is printed', () => {
   const form = readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8');
   const page = readFileSync(join(ROOT, 'app/check/page.tsx'), 'utf8');
-  const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
+  const home = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
   it('the /check page turns it on and the home page does not', () => {
     expect(page).toContain('<CheckForm receipt agent afterResult={<StrangerNext step="check" />} />');
     expect(form).toContain('receipt = false');
     expect(form).toContain('agent = false');
-    // The home page's check (components/hero.tsx) keeps its own card unchanged: no receipt, no agent strip.
-    const call = hero.slice(hero.indexOf('<CheckForm'), hero.indexOf('/>', hero.indexOf('<CheckForm')));
-    expect(call).toContain('samples={TRY_ONE}');
-    expect(call).not.toMatch(/\breceipt\b|\bagent\b/);
+    // Since 2026-10-24 the home page is install-first and has no CheckForm at all.
+    expect(home).not.toContain('<CheckForm');
   });
 });

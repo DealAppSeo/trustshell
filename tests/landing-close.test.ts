@@ -18,7 +18,7 @@ export function spokenAsProductClaim(text: string): boolean {
 describe('landing close', () => {
   const close = readFileSync(join(ROOT, 'components/landing-close.tsx'), 'utf8');
   const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
-  const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
+  const hero = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
   const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
 
   it('uses the close line and the end card, and does not say VETO in the headline', () => {
@@ -29,8 +29,7 @@ describe('landing close', () => {
     const headline = close.slice(close.indexOf('<h2'), close.indexOf('</h2>'));
     expect(headline).toContain(CLOSE_LINE);
     expect(headline).not.toMatch(/VETO/);
-    expect(hero).toContain('Your AI says the job is done. Is it?');
-    expect(hero).toContain('Paste what it told you. Two other AIs check it, and you see what each one said.');
+    expect(hero).toContain('Check what your AI agent did, not what it says it did.');
     expect(hero).not.toMatch(/Get a receipt/);
     expect(readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8')).toContain('No wallet.');
     expect(hero).not.toMatch(/connect wallet|your wallet|add wallet|Wallet and stake/i);

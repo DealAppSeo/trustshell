@@ -162,14 +162,9 @@ try {
     const nextFocus = await page.evaluate(() => document.activeElement?.getAttribute('data-testid'));
     check('keyboard: Tab goes to the first guess', nextFocus === 'stl-true', `focus on ${nextFocus}`);
 
-    // 7. The home page links to the game and the game link works.
-    await page.goto(base + '/', { waitUntil: 'networkidle' });
-    const link = page.getByTestId('hero-play-link');
-    check('home: has the quiet link to the game', (await link.count()) === 1);
-    await page.waitForTimeout(1500);
-    await link.click();
-    await page.waitForURL('**/for/vibe-coders', { timeout: 10_000 });
-    check('home: the link lands on the game page', (await page.getByTestId('spot-the-lie').count()) === 1);
+    // 7. The game page loads by its own URL. Since 2026-10-24 the home page is install-first and does not link it (Sean).
+    await page.goto(base + '/for/vibe-coders', { waitUntil: 'networkidle' });
+    check('the game page loads by its URL', (await page.getByTestId('spot-the-lie').count()) === 1);
 
     // 8. A phone: no sideways scroll on any of the four, and every button is a comfortable target.
     const phone = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });

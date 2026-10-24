@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
-const FILES = ['app/page.tsx', 'components/hero.tsx'];
+const FILES = ['app/page.tsx', 'components/home-install.tsx'];
 
 describe('landing wallet field', () => {
   it('has no wallet field and no stake-now string', () => {

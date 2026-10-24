@@ -14,12 +14,13 @@ import { linksForLanding } from '@/lib/landing-nav';
  * page of the agent path (the six steps in components/journey-steps.tsx). /start, /bind, /faucet,
  * /stake, /spend and /leaderboard stay at their URLs; leaderboard, market and stake stay off this list.
  */
+// Install-first (Sean, 2026-10-24): every link serves the one job, running and installing TrustShell.
+// The sentence check, the agent path and the vision stay at their URLs, off the nav.
 const NAV_LINKS: { href: string; label: string }[] = [
-  { href: '/check', label: 'Check' },
-  { href: '/inspect', label: 'Try Inspect' },
-  { href: '/#add-agent', label: 'Add to your AI' },
-  { href: '/pai', label: 'Your agent' },
+  { href: '/#how', label: 'How it works' },
+  { href: '/#install', label: 'Install' },
   { href: '/docs', label: 'Docs' },
+  { href: 'https://github.com/DealAppSeo/trustshell', label: 'GitHub' },
 ];
 
 /** The pages of the agent path: "Your agent" is current on each of them. */

@@ -40,11 +40,11 @@ describe('trustshell skill lists status', () => {
   // what components/hero.tsx and components/home-agent.tsx render, and this reads both, so the
   // skill cannot drift from the homepage again without a red test.
   it('describes the homepage that ships and does not put sqlite on /', () => {
-    const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
+    const home = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     const agent = readFileSync(join(ROOT, 'components/home-agent.tsx'), 'utf8');
     expect(skill).toContain('trustshell status');
-    for (const words of ['No answer handy? Try one of ours', 'Get the check where you already use AI']) {
-      expect(`${hero}\n${agent}`).toContain(words);
+    for (const words of ['Check what your AI agent did, not what it says it did.', 'Install it where you work']) {
+      expect(home).toContain(words);
       expect(skill).toContain(words);
     }
     expect(agent).toContain('ChatGPT and Grok apps: not yet.');
