@@ -212,11 +212,13 @@ export function runBundle(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
     if (added) io.err(`${added} note(s) are quarantined as untrusted: trustshell quarantine list, then release what you recognise.`);
     return 0;
   } catch (e) {
+    // The message can quote the file: an unknown field name, a bad schema value. The shape is checked BEFORE any
+    // signature, so an unsigned file from anyone reached the reader's terminal through here (antifragile night, cycle 2).
     if (e instanceof BundleError) {
-      io.err(e.message);
+      io.err(cleanCodePoints(e.message));
       return e.exit;
     }
-    io.err(`bundle ${a.verb} failed: ${(e as Error)?.message ?? String(e)}`);
+    io.err(`bundle ${a.verb} failed: ${cleanCodePoints((e as Error)?.message ?? String(e))}`);
     return 3;
   }
 }
