@@ -125,7 +125,8 @@ describe('every branch, stubbed chain and hosts', () => {
     const d = by('happy: data: URI needs no host');
     expect(d.exit).toBe(0);
     expect(d.report.registration.from).toBe('data: URI');
-    expect(d.fetched.filter((u) => u.startsWith('https://agents.example'))).toEqual([]);
+    // compare parsed hostnames, not a string prefix of a URL (a prefix test is how a host check gets bypassed)
+    expect(d.fetched.filter((u) => new URL(u).hostname === 'agents.example')).toEqual([]);
   });
 
   it('NOT_CHECKED is never exit 0: --no-check and OFFLINE=1 send nothing and exit 2', () => {
