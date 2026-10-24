@@ -68,6 +68,7 @@ import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/ke
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { join } from 'node:path';
 import { runLearn } from '../learn/cli';
+import { ApiUrlError } from '../lib/api-url';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -1485,8 +1486,38 @@ export async function runClaimCheck(
   }
 }
 
+/**
+ * Node 22 prints `ExperimentalWarning: SQLite is an experimental feature and might change at any time` the first
+ * time `node:sqlite` loads, so every memory command (remember, recall, quarantine, learn) ended with two
+ * stderr lines that read like an error (stranger walk, 2026-10-23, Git Bash and PowerShell 5.1). The CLI drops
+ * that ONE warning; every other warning, and every other ExperimentalWarning, still prints. Only the CLI process
+ * does this: the SDK and the MCP server leave the host's warnings alone.
+ */
+export function quietSqliteWarning(proc: Pick<NodeJS.Process, 'emitWarning'> = process): void {
+  const emit = proc.emitWarning;
+  proc.emitWarning = function (this: unknown, warning: string | Error, ...rest: unknown[]) {
+    const type = warning instanceof Error ? warning.name : typeof rest[0] === 'string' ? rest[0] : (rest[0] as { type?: string } | undefined)?.type;
+    const text = typeof warning === 'string' ? warning : warning?.message;
+    if (type === 'ExperimentalWarning' && /^SQLite is an experimental feature\b/.test(String(text))) return;
+    return (emit as (...a: unknown[]) => void).apply(this, [warning, ...rest]);
+  } as NodeJS.Process['emitWarning'];
+}
+
+/**
+ * PURE. The last line a crashed command prints. A refused TRUSTSHELL_API_URL is the caller's setting, not a crash:
+ * it printed a stack trace, even for local-only commands (recall), with no next step (stranger
+ * walk, 2026-10-23). It now prints the reason and what to change; the exit code is still 3.
+ */
+export function fatalLine(e: unknown): string {
+  if (e instanceof ApiUrlError) {
+    return `trustshell: ${e.message}. Unset TRUSTSHELL_API_URL, or point it at an https URL. Every command reads it today, even local ones such as recall.`;
+  }
+  return `trustshell: fatal: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`;
+}
+
 /** Entry point: parse argv, run, exit with the returned code. */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
+  quietSqliteWarning();
   const args = parseArgs(argv);
   const code = await run(args, makeClient());
   process.exit(code);
@@ -1539,8 +1570,7 @@ const isEntry = (() => {
 
 if (isEntry) {
   main().catch((e) => {
-    const detail = e instanceof Error ? (e.stack ?? e.message) : String(e);
-    process.stderr.write(scrubPrinted(`trustshell: fatal: ${detail}\n`));
+    process.stderr.write(scrubPrinted(`${fatalLine(e)}\n`));
     process.exit(EXIT.RUNTIME);
   });
 }

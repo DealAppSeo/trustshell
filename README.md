@@ -629,11 +629,12 @@ trustshell learn check add --job ship --id ship-tests --cmd "npm test"
 trustshell learn correct --job ship --check ship-tests "Run the linter before you say done."
 # eval case 1, then lesson 1 (candidate)
 trustshell learn accept 1
-trustshell learn inject --job ship        # what examples/learn-hook/user-prompt-submit.mjs prints each turn
+trustshell learn inject --job ship --check ship-tests   # what the hook prints on a turn judged by ship-tests
 trustshell learn check run ship-tests     # the only writer of a check outcome: the command's exit code
 trustshell learn report
 ```
 
+- **A lesson scoped to a check prints only on a turn that names that check.** The correction above is scoped to `ship-tests`, so `inject --job ship` with no `--check` prints nothing to stdout and says why on stderr; the hook passes the check from `TRUSTSHELL_LEARN_CHECK`.
 - **Only your words reach the model.** A correction is stored verbatim, untrusted and quarantined, until you `accept` it. Declined, held, expired (30 days) and other jobs' lessons never print. At most 5 lessons and 400 tokens per turn, counted as `loop_tokens`.
 - **The agent does not grade itself.** `learn record` and the MCP `learn_record` store the agent's outcome where no ruler reads it. Only `learn check run`, the command you registered, writes the outcome the rulers use. A failed check on a turn that carried a lesson retires that lesson, if it is scoped to that check or to no check. A lesson scoped to a check is only shown on turns judged by that check. Only you bring a retired lesson back: `learn reaccept <id>` shows why it was retired and needs you at a terminal to type the id back.
 - **Hooks.** `examples/learn-hook/user-prompt-submit.mjs` runs `inject` on every prompt (set `TRUSTSHELL_LEARN_JOB`, `TRUSTSHELL_LEARN_CHECK` for the check the turn is judged by, and `TRUSTSHELL_LEARN_MODEL` / `TRUSTSHELL_LEARN_FAMILY` so the episode carries its model). `examples/learn-hook/stop.mjs` fills in the turn's model, family and tokens from the transcript at the end of the turn.

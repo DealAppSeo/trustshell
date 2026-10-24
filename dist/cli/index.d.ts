@@ -225,6 +225,20 @@ export declare function readClaimsFile(path: string, fs?: Pick<typeof import('no
  * Exit codes: pass 0, veto 1, not-checked 2, error 3 (nothing was sent).
  */
 export declare function runClaimCheck(sentence: string, json: boolean, io: CliIO): Promise<number>;
+/**
+ * Node 22 prints `ExperimentalWarning: SQLite is an experimental feature and might change at any time` the first
+ * time `node:sqlite` loads, so every memory command (remember, recall, quarantine, learn) ended with two
+ * stderr lines that read like an error (stranger walk, 2026-10-23, Git Bash and PowerShell 5.1). The CLI drops
+ * that ONE warning; every other warning, and every other ExperimentalWarning, still prints. Only the CLI process
+ * does this: the SDK and the MCP server leave the host's warnings alone.
+ */
+export declare function quietSqliteWarning(proc?: Pick<NodeJS.Process, 'emitWarning'>): void;
+/**
+ * PURE. The last line a crashed command prints. A refused TRUSTSHELL_API_URL is the caller's setting, not a crash:
+ * it printed a stack trace, even for local-only commands (recall), with no next step (stranger
+ * walk, 2026-10-23). It now prints the reason and what to change; the exit code is still 3.
+ */
+export declare function fatalLine(e: unknown): string;
 /** Entry point: parse argv, run, exit with the returned code. */
 export declare function main(argv?: string[]): Promise<void>;
 /**

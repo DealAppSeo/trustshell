@@ -20,6 +20,8 @@ exports.formatQuarantineRecord = formatQuarantineRecord;
 exports.run = run;
 exports.readClaimsFile = readClaimsFile;
 exports.runClaimCheck = runClaimCheck;
+exports.quietSqliteWarning = quietSqliteWarning;
+exports.fatalLine = fatalLine;
 exports.main = main;
 exports.isEntryPath = isEntryPath;
 /**
@@ -75,6 +77,7 @@ const kernel_client_1 = require("../lib/kernel-client");
 const ground_1 = require("../lib/ground");
 const node_path_1 = require("node:path");
 const cli_1 = require("../learn/cli");
+const api_url_1 = require("../lib/api-url");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
     /** HAL PASS (or soft FLAG) — safe to proceed. */
@@ -1420,8 +1423,37 @@ async function runClaimCheck(sentence, json, io) {
         return claim_1.CLAIM_EXIT.error;
     }
 }
+/**
+ * Node 22 prints `ExperimentalWarning: SQLite is an experimental feature and might change at any time` the first
+ * time `node:sqlite` loads, so every memory command (remember, recall, quarantine, learn) ended with two
+ * stderr lines that read like an error (stranger walk, 2026-10-23, Git Bash and PowerShell 5.1). The CLI drops
+ * that ONE warning; every other warning, and every other ExperimentalWarning, still prints. Only the CLI process
+ * does this: the SDK and the MCP server leave the host's warnings alone.
+ */
+function quietSqliteWarning(proc = process) {
+    const emit = proc.emitWarning;
+    proc.emitWarning = function (warning, ...rest) {
+        const type = warning instanceof Error ? warning.name : typeof rest[0] === 'string' ? rest[0] : rest[0]?.type;
+        const text = typeof warning === 'string' ? warning : warning?.message;
+        if (type === 'ExperimentalWarning' && /^SQLite is an experimental feature\b/.test(String(text)))
+            return;
+        return emit.apply(this, [warning, ...rest]);
+    };
+}
+/**
+ * PURE. The last line a crashed command prints. A refused TRUSTSHELL_API_URL is the caller's setting, not a crash:
+ * it printed a stack trace, even for local-only commands (recall), with no next step (stranger
+ * walk, 2026-10-23). It now prints the reason and what to change; the exit code is still 3.
+ */
+function fatalLine(e) {
+    if (e instanceof api_url_1.ApiUrlError) {
+        return `trustshell: ${e.message}. Unset TRUSTSHELL_API_URL, or point it at an https URL. Every command reads it today, even local ones such as recall.`;
+    }
+    return `trustshell: fatal: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`;
+}
 /** Entry point: parse argv, run, exit with the returned code. */
 async function main(argv = process.argv.slice(2)) {
+    quietSqliteWarning();
     const args = parseArgs(argv);
     const code = await run(args, makeClient());
     process.exit(code);
@@ -1474,8 +1506,7 @@ const isEntry = (() => {
 })();
 if (isEntry) {
     main().catch((e) => {
-        const detail = e instanceof Error ? (e.stack ?? e.message) : String(e);
-        process.stderr.write((0, scrub_print_1.scrubPrinted)(`trustshell: fatal: ${detail}\n`));
+        process.stderr.write((0, scrub_print_1.scrubPrinted)(`${fatalLine(e)}\n`));
         process.exit(exports.EXIT.RUNTIME);
     });
 }
