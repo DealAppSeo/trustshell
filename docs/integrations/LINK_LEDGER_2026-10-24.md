@@ -2,15 +2,15 @@
 # Link ledger: ERC-8004, x402, OpenClaw (lane D, night program 2026-10-24)
 
 Every row is a URL fetched in this session by `ledger-fetch` (Node `fetch`, GET, honest user agent
-`trustshell-lane-d-link-check/1.0`, redirects followed, 2 in flight, 1.2 s per host). Fetch window: **2026-10-24T06:26:30.506Z to 2026-10-24T07:34:10.810Z** (UTC).
+`trustshell-lane-d-link-check/1.0`, redirects followed, 2 in flight, 1.2 s per host). Fetch window: **2026-10-24T06:26:30.506Z to 2026-10-24T08:03:19.753Z** (UTC).
 The status, final URL, size and sha256 are what the fetch returned. The "What the source says" column is **my paraphrase of
 what I read in that fetched body, and nothing else**; a row marked STATUS_ONLY was fetched and its status recorded but its
 content was not read, so it supports no claim. No adoption number comes from memory.
 
 ## Totals
 
-94 URLs. HTTP: no response (TLS): 2, 200: 86, 401: 1, 403: 4, 404: 1.
-By state: BLOCKED_BOT 4, BLOCKED_ENV 2, DEAD_AS_REQUESTED 1, MOVED_CONTENT_GONE 2, READ 53, STATUS_ONLY 32.
+103 URLs. HTTP: no response (TLS): 2, 200: 95, 401: 1, 403: 4, 404: 1.
+By state: BLOCKED_BOT 4, BLOCKED_ENV 2, DEAD_AS_REQUESTED 1, MOVED_CONTENT_GONE 2, READ 56, STATUS_ONLY 38.
 
 | State | Means |
 |---|---|
@@ -104,7 +104,7 @@ skills (about 7.5%). I did not open those pages, so none of those numbers appear
 | 20 | https://docs.x402.org/core-concepts/facilitator.md | 200 |  | 2026-10-24T06:52:29Z | 10421 | 55532931f011 | READ | Flow uses PAYMENT-REQUIRED, PAYMENT-SIGNATURE and PAYMENT-RESPONSE headers (v2). |
 | 21 | https://docs.x402.org/getting-started/quickstart-for-buyers.md | 200 |  | 2026-10-24T06:52:30Z | 27492 | 9c55a1eb4df2 | STATUS_ONLY | Buyer quickstart. Fetched; only skimmed for header and version words. |
 
-## OpenClaw, and the incident reports the pages cite (28)
+## OpenClaw, and the incident reports the pages cite (37)
 
 | # | URL (as requested) | HTTP | Final URL if different | Fetched (UTC) | Bytes | sha256 | State | What the source says (my paraphrase of what I read) |
 |---|---|---|---|---|---|---|---|---|
@@ -130,12 +130,21 @@ skills (about 7.5%). I did not open those pages, so none of those numbers appear
 | 20 | https://docs.openclaw.ai/clawhub/security-audits.md | 200 |  | 2026-10-24T06:52:32Z | 18304 | 3e4463898ba0 | READ | Says ClawHub audits are strong safety signals but not a guarantee that a release is risk-free. |
 | 21 | https://docs.openclaw.ai/help/faq/security-and-access-control.md | 200 |  | 2026-10-24T06:52:33Z | 7464 | e150435fd7cd | STATUS_ONLY | FAQ page. Fetched; not read. |
 | 22 | https://docs.openclaw.ai/plugins/building-plugins.md | 200 |  | 2026-10-24T06:52:34Z | 19807 | af61a05cd3ff | STATUS_ONLY | Plugin building guide. Fetched; not read. |
-| 23 | https://docs.openclaw.ai/automation/hooks/event-types.md | 200 |  | 2026-10-24T06:52:35Z | 10758 | cac73ab2db18 | READ | Documented internal hook events: command:new/reset/stop, session:auto-reset/compact/patch, agent:bootstrap, gateway:startup/shutdown/pre-restart, message:received/transcribed/preprocessed/sent. This page lists no per-tool-call event. |
+| 23 | https://docs.openclaw.ai/automation/hooks/event-types.md | 200 |  | 2026-10-24T06:52:35Z | 10758 | cac73ab2db18 | READ | Documented INTERNAL hook events: command:new/reset/stop, session:auto-reset/compact/patch, agent:bootstrap, gateway:startup/shutdown/pre-restart, message:received/transcribed/preprocessed/sent. This page lists no per-tool-call event; tool hooks belong to the separate plugin-hook system (see openclaw-gh-tool-policy-hook). |
 | 24 | https://docs.openclaw.ai/cli/security.md | 200 |  | 2026-10-24T06:52:37Z | 9838 | c3cb79949929 | STATUS_ONLY | `openclaw security` CLI page. Fetched; not read. |
 | 25 | https://docs.openclaw.ai/cli/mcp/registry.md | 200 |  | 2026-10-24T07:15:51Z | 15726 | fd7fab77977f | READ | OpenClaw saves MCP server definitions under mcp.servers; the page says runtime adapters decide which transport shapes they support at execution time. |
 | 26 | https://docs.openclaw.ai/gateway/config-extensions.md | 200 |  | 2026-10-24T07:15:52Z | 23128 | 486211a92a83 | READ | Extension config surfaces: mcp.*, skills.*, plugins.*, canvas.*. |
 | 27 | https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2026-25253 | 200 |  | 2026-10-24T07:18:17Z | 2941 | f01f8c5a3da4 | READ | NVD (status Analyzed): OpenClaw before 2026.1.29 takes a gatewayUrl from the query string and opens a WebSocket without prompting, sending a token. CVSS 8.8 (secondary source). This is not a malicious-skill CVE, whatever the blog and the issue imply. |
 | 28 | https://trustshell.dev/for/openclaw | 200 | https://www.trustshell.dev/for/openclaw | 2026-10-24T07:20:42Z | 41104 | 8d7da2e03cee | READ | Deployed /for/openclaw page (after PR #631). Footnote 3 cites the VirusTotal article for the 341 figure; fear 1 says tests had passed. See DRIFT_CHECK.md. |
+| 29 | https://docs.openclaw.ai/plugins/architecture-internals.md | 200 |  | 2026-10-24T08:02:03Z | 8045 | 6cfa0fafa553 | STATUS_ONLY | Plugin internals page. Fetched; searched for a tool-call hook name (none found); not read. |
+| 30 | https://docs.openclaw.ai/plugins/architecture.md | 200 |  | 2026-10-24T08:02:04Z | 88079 | 81cae33f9006 | STATUS_ONLY | Plugin capability model page. Fetched; searched for a tool-call hook name (none found); not read. |
+| 31 | https://docs.openclaw.ai/plugins/sdk-entrypoints/tool-policy-and-sandbox.md | 200 |  | 2026-10-24T08:02:05Z | 5587 | cc33fb33fb61 | STATUS_ONLY | Plugin SDK tool-policy and sandbox helpers. Fetched; searched for a tool-call hook name (none found); not read. |
+| 32 | https://docs.openclaw.ai/cli/policy.md | 200 |  | 2026-10-24T08:02:07Z | 4782 | 8e3b30f7ea45 | READ | The bundled Policy plugin is an enterprise conformance layer over existing OpenClaw settings, authored in policy.jsonc and reported through doctor --lint; the page says it does not enforce tool calls or rewrite runtime behavior at request time. |
+| 33 | https://docs.openclaw.ai/cli/policy/rules.md | 200 |  | 2026-10-24T08:02:08Z | 20819 | 169748ad7c59 | STATUS_ONLY | Policy rule reference. Fetched; not read. |
+| 34 | https://docs.openclaw.ai/gateway/security/tool-permissions.md | 200 |  | 2026-10-24T08:02:09Z | 15084 | abaaa528d157 | STATUS_ONLY | Tool and agent permissions page. Fetched; searched for a tool-call hook name (none found); not read. |
+| 35 | https://raw.githubusercontent.com/openclaw/openclaw/main/docs/plugins/hooks/tool-policy.md | 200 |  | 2026-10-24T08:03:17Z | 15416 | 4004d167826d | READ | OpenClaw repo docs (found by a GitHub code search of openclaw/openclaw for before_tool_call; none of the docs.openclaw.ai pages I fetched named it). before_tool_call receives tool name, params, agent id, session and requester and can return block, rewritten params or requireApproval; after_tool_call receives params, result, error and duration. Codex native tools support blocking and observation but not rewrites. |
+| 36 | https://raw.githubusercontent.com/openclaw/openclaw/main/docs/plugins/hooks.md | 200 |  | 2026-10-24T08:03:18Z | 19259 | 286d2db2db33 | READ | OpenClaw repo docs: plugin hooks overview. Three hook systems; a task-to-hook table (before_tool_call: block a tool or request approval); states the catalog is the registration API, not a promise that every runtime emits every hook. |
+| 37 | https://raw.githubusercontent.com/openclaw/openclaw/main/docs/plugins/sdk-overview/events-and-hooks.md | 200 |  | 2026-10-24T08:03:19Z | 4534 | dc1990dc160e | STATUS_ONLY | Plugin SDK events and hooks page in the OpenClaw repo. Fetched; not read. |
 
 ## How to reproduce a row
 

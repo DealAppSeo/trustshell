@@ -8,15 +8,18 @@ launch claim; for the status vocabulary see [`KNOWN-LIMITS.md`](../KNOWN-LIMITS.
 States used in this page: **MEASURED** (a command or read produced it, dated), **BUILT** (code exists and a test names it),
 **NOT BUILT**, **NOT CHECKED** (nobody looked, or could not).
 
-## 1. Ten minutes: three things you can run
+## 1. Ten minutes: five things you can run
 
 | You want to know | Run | You should see |
 |---|---|---|
 | What an ERC-8004 agent's identity says, and whether its registration file points back to it | `node examples/erc8004-read-only/read-agent.mjs 6705 --no-check` | `OWNER_FOUND`, the file's EIP-shape rows, `points back MATCH`, and a `not done` list. Exit 2 because the claim check was skipped. Read-only; see [the example's README](../../examples/erc8004-read-only/README.md). |
 | Whether the deployed registries expose the EIP's surface | `node docs/integrations/erc8004-conformance/probe.mjs --out raw.json --ids 6705` (needs `npm i ethers`) | The table in [`CONFORMANCE.md`](./erc8004-conformance/CONFORMANCE.md), at the block you ran it. |
 | The shape of our x402 payment header | the 10-line snippet in section 4, question 12 | A flat object with seven keys and none of the spec's four top-level ones. |
+| Whether what an agent says about a CI run matches GitHub's record (the OpenClaw operator's first job) | `node dist/cli/index.js check https://github.com/DealAppSeo/trustshell/actions/runs/40071506214 --claims "The check workflow passed on f02ae2427c07, run 40071506214."` from a clone (measured on this tree, 1.9.0-dev.0; the published 1.8.0 was not re-run by this lane) | `SUPPORTED`, exit 0. Change the claim to say a run that failed passed, and you get `CONTRADICTED`, exit 1. Table in section 5. |
+| What tools `trustshell-mcp` offers an MCP client such as OpenClaw | the `initialize` + `tools/list` exchange in section 5, question 19 | `trustshell` 1.9.0-dev.0, MCP protocol 2025-06-18, 21 tools, with `OFFLINE=1` so nothing can leave the machine. |
 
-Nothing above writes, signs or spends. The example sends one sentence to our hosted check unless you pass `--no-check`.
+Nothing above writes, signs or spends. The example and Inspect read; the example sends one sentence to our hosted check
+unless you pass `--no-check`, and Inspect talks to `api.github.com` only.
 
 ## 2. Who is building on these, as far as the sources themselves say
 
@@ -58,7 +61,9 @@ Only what each page says about itself. No adoption figure is ours; the ones quot
 | Project | [openclaw/openclaw](https://github.com/openclaw/openclaw), [docs index](https://docs.openclaw.ai/llms.txt) | MIT license shown; the docs index lists security, plugin, hook and MCP pages. | MEASURED |
 | Its own trust model | [Security trust model](https://docs.openclaw.ai/gateway/security/trust-model.md) | One trust boundary per gateway; **not** for mutually untrusted users; prompt-injection-only chains with no policy, auth or sandbox bypass are listed as not vulnerabilities by design. | MEASURED |
 | ClawHub audits | [Security Audits](https://docs.openclaw.ai/clawhub/security-audits.md) | Audits are "strong safety signals" but not a guarantee a release is risk-free. | MEASURED |
-| Hooks | [Hook event types](https://docs.openclaw.ai/automation/hooks/event-types.md) | Events: `command:*`, `session:*`, `agent:bootstrap`, `gateway:*`, `message:*`. This page lists no per-tool-call event. | MEASURED |
+| Internal hooks | [Hook event types](https://docs.openclaw.ai/automation/hooks/event-types.md) | Events: `command:*`, `session:*`, `agent:bootstrap`, `gateway:*`, `message:*`. This is the *internal* hook system and lists no per-tool-call event; tool hooks are a different system, next row. | MEASURED |
+| **Plugin hooks, incl. `before_tool_call`** | [Tool call policy hooks](https://raw.githubusercontent.com/openclaw/openclaw/main/docs/plugins/hooks/tool-policy.md), [Plugin hooks](https://raw.githubusercontent.com/openclaw/openclaw/main/docs/plugins/hooks.md) (OpenClaw repo docs, found by a GitHub code search of `openclaw/openclaw`) | `before_tool_call` gets the tool name, params, agent id, session and requester, and can **block**, **rewrite params**, or **require approval**; `after_tool_call` gets the params, result, error and duration. The overview says the catalog is "the registration API, not a promise that every runtime emits every hook" (Codex native tools support blocking and observation, not rewrites). | MEASURED (docs; no plugin written or run) |
+| Policy plugin | [`openclaw policy`](https://docs.openclaw.ai/cli/policy.md) | A conformance layer over OpenClaw settings, checked from `policy.jsonc`; the page says it "does not enforce tool calls or rewrite runtime behavior at request time". | MEASURED |
 | MCP | [saved MCP servers](https://docs.openclaw.ai/cli/mcp/registry.md), [config](https://docs.openclaw.ai/gateway/config-extensions.md) | MCP servers are defined under `mcp.servers`; "runtime adapters decide which transport shapes they actually support". | MEASURED |
 | Malicious skills | [THN](https://thehackernews.com/2026/02/researchers-find-341-malicious-clawhub.html), [eSecurityPlanet](https://www.esecurityplanet.com/threats/hundreds-of-malicious-skills-found-in-openclaws-clawhub/), [DigitalOcean](https://www.digitalocean.com/resources/articles/openclaw-security-challenges) | A Koi Security audit of 2,857 ClawHub skills found 341 malicious (335 from one campaign, "ClawHavoc"). DigitalOcean adds Bitdefender's separate scan at nearer 900, and SecurityScorecard's count of over 30,000 internet-exposed instances. | MEASURED (secondary reports of one audit) |
 | A real OpenClaw CVE | [NVD CVE-2026-25253](https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2026-25253) | OpenClaw before 2026.1.29 opens a WebSocket to a `gatewayUrl` taken from the query string and sends a token. CVSS 8.8 (secondary source). **Not** a malicious-skill CVE, whatever a blog and an issue imply. | MEASURED |
@@ -147,17 +152,56 @@ by an owner, and **no hosted page spends** ([`X402_SITE_GATE.md`](../X402_SITE_G
 interactions for reputation systems", and the likeliest evidence source for the feedback in question 5. Whether a TrustShell
 receipt should embed or point at it is an open design question ([`trust-receipt.md`](../trust-receipt.md), question 5). NOT BUILT.
 
-## 5. Questions an OpenClaw maintainer would ask
+## 5. For OpenClaw operators and maintainers
 
-**17. Is there an OpenClaw adapter?** No ([`PRODUCT.md`](../../PRODUCT.md) lists it as absent). NOT BUILT.
+OpenClaw runs an agent with real access (shell, files, browser, messages). The job TrustShell can do for an operator
+who wants the agent to work unattended is narrow: a record of what the agent said it did, checked against something
+outside the agent, and a limit it cannot argue past. What exists today, measured on this tree (1.9.0-dev.0) on 2026-10-24:
 
-**18. Could one be built on OpenClaw's hooks?** From the hook page I read: it documents lifecycle events (commands,
-sessions, bootstrap, gateway, messages) and lists no per-tool-call event, so a hook alone would see messages, not gate a tool. The plugin SDK's
-tool-policy helpers are listed on the docs index and were not read. NOT CHECKED.
+### Inspect on a real run
 
-**19. Can OpenClaw run `trustshell-mcp`?** OpenClaw documents saved MCP server definitions under `mcp.servers`, and says
-which transports work depends on the runtime adapter. We have not run `trustshell-mcp` inside OpenClaw. NOT CHECKED.
-Even if it runs there: the Guard demo says the MCP server "does not read the policy yet", so an owner policy would not apply over MCP.
+Three claims, each checked by `trustshell check <runUrl> --claims "<claim>"` against a public run of this repo. The "GitHub says"
+column is the GitHub CLI (`gh run list` and `gh api repos/DealAppSeo/trustshell/actions/runs/<id>`), read separately. No account, no key, no model for Inspect: `api.github.com` only.
+
+| Claim the agent made | GitHub says (independently) | Inspect | Exit |
+|---|---|---|---|
+| "The check workflow passed on f02ae2427c07, run 40071506214." | run 40071506214: `completed`, `success` | outcome **SUPPORTED**; commit **SUPPORTED**; run id **SUPPORTED** | 0 |
+| "The e2e-honesty workflow passed on 1b004b06942d, run 40071306908." | run 40071306908: `completed`, **`failure`** | outcome **CONTRADICTED** (the commit and run id are SUPPORTED) | 1 |
+| "All tests pass." | run 40071506214: `success` | **NOT_CHECKED**: a run record does not say which tests ran, and the sentence cites no run | 3 |
+
+Two behaviours worth knowing. A claim is decided only when it cites the run it is about. And **one line the templates do not
+read blocks every verdict in the text**: a three-sentence paste that included unreadable sentences decided nothing (0 supported, 0
+contradicted, 4 not checked, exit 3). That is deliberate (deny by default, [`action-evidence.md`](../action-evidence.md)). Every record ends with
+"What this does not prove": a successful run does not show which tests ran; the evidence is GitHub describing its own run; the record is not signed.
+Covers GitHub Actions runs only. MEASURED; the published 1.8.0 was not re-run.
+
+### What an OpenClaw operator can attach TrustShell to
+
+**17. Is there an OpenClaw integration?** A **skill**: yes. [`skills/trustshell`](../../skills/trustshell/SKILL.md) carries OpenClaw
+metadata, requires the `trustshell` and `trustshell-mcp` bins, pins `@hyperdag/trustshell@1.8.0`, and shells out to
+`verify`, `repid`, `proof --verify` and `status`; it also shows the one-line MCP definition. Whether it was run inside OpenClaw, and whether it
+is published on ClawHub, I did not check. A **plugin that uses OpenClaw's tool hooks**: no. The README and
+[`PRODUCT.md`](../../PRODUCT.md) say so. NOT BUILT.
+
+**18. Could a plugin be built on OpenClaw's own hooks?** The documented surface says yes, with caveats. OpenClaw's plugin API has
+`before_tool_call` (receives the tool name, params, agent id, session and requester; can return `block`, rewritten `params`, or
+`requireApproval`) and `after_tool_call` (receives params, result, error and duration). The README's sentence that this is "exactly where a policy
+check and a receipt would attach" matches those docs. Caveats from the same docs: the hook catalog is a registration API, not a promise that every runtime
+emits every hook, and Codex native tools support blocking and observation but not parameter rewrites. A sketch of what it would do, **not written, not run**:
+`before_tool_call` asks the guard whether this agent may spend or call this tool (block or require approval if not); `after_tool_call` writes a receipt
+from the params, result and duration. The internal-hook page I read first lists only lifecycle events; that is a different hook system.
+Nothing in this repo registers either hook. NOT BUILT.
+
+**19. Can OpenClaw run `trustshell-mcp`?** The server itself works over stdio, measured 2026-10-24 08:04Z with `OFFLINE=1` and
+`TRUSTSHELL_LOCAL_ONLY=1`: it answers MCP `initialize` (protocol 2025-06-18, server `trustshell` 1.9.0-dev.0, capability `tools`) and
+`tools/list` returns **21 tools**: `verify_output`, `check_claim`, `inspect_run`, `get_repid`, `present_proof`, `verify_proof`, `status`, `my_job`,
+`kernel_receipt`, `ground_quote`, `remember`, `recall`, the quarantine and learning tools, `getLeaderboard`, and deprecated aliases (`verify`, `evaluate`, `getRepID`, `repid`).
+`inspect_run` is in this tree and not in 1.8.0. OpenClaw documents saved MCP server definitions under `mcp.servers` and says which transports work depends on the
+runtime adapter. **I did not run it inside OpenClaw** (not installed here). NOT CHECKED. Even if it runs there: the Guard demo says the MCP server "does not read the policy yet", so an owner policy would not apply over MCP.
+
+**19b. How is this different from `openclaw policy`?** `openclaw policy` checks OpenClaw's own settings against a `policy.jsonc` and reports
+drift; its page says it "does not enforce tool calls or rewrite runtime behavior at request time". The runtime gate in OpenClaw is a `before_tool_call` plugin.
+TrustShell's Guard is a prototype that decides only for the paths TrustShell mediates (question 21).
 
 **20. Do you scan or sandbox skills?** No, and the site page says so. ClawHub's own audit page says audits are not a
 guarantee, and OpenClaw's trust model puts adversarial multi-user setups out of scope. TrustShell's one OpenClaw-relevant
