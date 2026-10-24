@@ -1,0 +1,841 @@
+{
+  "_provenance": {
+    "recorded_at": "2026-10-20T07:09:21.819Z",
+    "method": "fetchCommitChecks through `gh api --method GET` (read-only); public data; no token in this file",
+    "commit": "DealAppSeo/trustshell@5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5",
+    "note": "head of green-run.json (a push to main; the squash of PR #558)",
+    "modified": "DERIVED: trimmed to the fields fetchCommitChecks reads (ids, names, app ids, statuses, conclusions, refs, file names, rules, branch protection); no value changed"
+  },
+  "responses": {
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/check-runs?filter=latest&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 13,
+        "check_runs": [
+          {
+            "id": 118416822634,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118413253327,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118412464103,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118407749327,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118400022416,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118393866519,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118387848245,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118376482181,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118348084717,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118189863597,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118188659559,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118188659036,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118188659034,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/check-runs?filter=all&per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 13,
+        "check_runs": [
+          {
+            "id": 118416822634,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118413253327,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118412464103,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118407749327,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118400022416,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118393866519,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118387848245,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118376482181,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118348084717,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118189863597,
+            "name": "receipt",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118188659559,
+            "name": "Analyze (javascript-typescript)",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118188659036,
+            "name": "gitleaks",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          },
+          {
+            "id": 118188659034,
+            "name": "check",
+            "status": "completed",
+            "conclusion": "success",
+            "app": {
+              "id": 15368,
+              "slug": "github-actions"
+            }
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/status?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "state": "success",
+        "total_count": 1,
+        "statuses": [
+          {
+            "context": "Vercel",
+            "state": "success"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/statuses?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "context": "Vercel",
+          "state": "success"
+        },
+        {
+          "context": "Vercel",
+          "state": "pending"
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/check-suites?per_page=100&page=1": {
+      "status": 200,
+      "body": {
+        "total_count": 23,
+        "check_suites": [
+          {
+            "app": {
+              "slug": "vercel"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "cursor"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "cloudflare-workers-and-pages"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "supabase"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "railway-app"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "render"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "claude"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "figma"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "strix-security"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "greptile-apps"
+            },
+            "status": "queued",
+            "conclusion": null,
+            "latest_check_runs_count": 0
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          },
+          {
+            "app": {
+              "slug": "github-actions"
+            },
+            "status": "completed",
+            "conclusion": "success",
+            "latest_check_runs_count": 1
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5/pulls?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "number": 558,
+          "head": {
+            "sha": "8aa68bdec66499241acae3aacb59d50150b82c04"
+          },
+          "base": {
+            "ref": "main"
+          }
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/commits/5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5": {
+      "status": 200,
+      "body": {
+        "sha": "5cd68edc782fb2dd74e343e9335d3a8bcb04d5e5",
+        "files": [
+          {
+            "filename": ".mcp.json"
+          },
+          {
+            "filename": "CHANGELOG.md"
+          },
+          {
+            "filename": "README.md"
+          },
+          {
+            "filename": "app/builders/page.tsx"
+          },
+          {
+            "filename": "app/devs/page.tsx"
+          },
+          {
+            "filename": "app/earn-trust/page.tsx"
+          },
+          {
+            "filename": "app/vision/page.tsx"
+          },
+          {
+            "filename": "components/home-agent.tsx"
+          },
+          {
+            "filename": "dist/cli/index.js"
+          },
+          {
+            "filename": "dist/memory/quarantine.js"
+          },
+          {
+            "filename": "docs/HUMAN_TESTNET.md"
+          },
+          {
+            "filename": "docs/JOIN_KIT.md"
+          },
+          {
+            "filename": "docs/STATUS.md"
+          },
+          {
+            "filename": "docs/WALKTHROUGH.md"
+          },
+          {
+            "filename": "docs/api-reference.md"
+          },
+          {
+            "filename": "docs/getting-started.md"
+          },
+          {
+            "filename": "docs/install/claude-code.md"
+          },
+          {
+            "filename": "docs/install/claude-desktop.md"
+          },
+          {
+            "filename": "docs/install/cursor.md"
+          },
+          {
+            "filename": "examples/quickstart/QUICKSTART.md"
+          },
+          {
+            "filename": "lib/npm-latest.ts"
+          },
+          {
+            "filename": "lib/start-plan.tsx"
+          },
+          {
+            "filename": "package-lock.json"
+          },
+          {
+            "filename": "package.json"
+          },
+          {
+            "filename": "skills/trustshell/SKILL.md"
+          },
+          {
+            "filename": "skills/trustshell/skill.json"
+          },
+          {
+            "filename": "src/cli/index.ts"
+          },
+          {
+            "filename": "src/memory/quarantine.ts"
+          },
+          {
+            "filename": "tests/builders-page.test.ts"
+          },
+          {
+            "filename": "tests/e2e-cli-smoke.test.ts"
+          },
+          {
+            "filename": "tests/e2e-stranger.test.ts"
+          },
+          {
+            "filename": "tests/earn-trust-harness-tags.test.ts"
+          },
+          {
+            "filename": "tests/groq-key-silence.test.ts"
+          },
+          {
+            "filename": "tests/home-check.test.ts"
+          },
+          {
+            "filename": "tests/home-no-nav.test.ts"
+          },
+          {
+            "filename": "tests/home-screens.test.ts"
+          },
+          {
+            "filename": "tests/install-docs.test.ts"
+          },
+          {
+            "filename": "tests/join-kit.test.ts"
+          },
+          {
+            "filename": "tests/landing-public.test.ts"
+          },
+          {
+            "filename": "tests/quarantine.test.ts"
+          },
+          {
+            "filename": "tests/register-not-minted.test.ts"
+          },
+          {
+            "filename": "tests/site-npm-badge.test.ts"
+          },
+          {
+            "filename": "tests/skill-status.test.ts"
+          },
+          {
+            "filename": "tests/start-walkthrough.test.ts"
+          },
+          {
+            "filename": "tests/stranger-path.test.ts"
+          }
+        ]
+      }
+    },
+    "/repos/DealAppSeo/trustshell/pulls/558/files?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "filename": ".mcp.json"
+        },
+        {
+          "filename": "CHANGELOG.md"
+        },
+        {
+          "filename": "README.md"
+        },
+        {
+          "filename": "app/builders/page.tsx"
+        },
+        {
+          "filename": "app/devs/page.tsx"
+        },
+        {
+          "filename": "app/earn-trust/page.tsx"
+        },
+        {
+          "filename": "app/vision/page.tsx"
+        },
+        {
+          "filename": "components/home-agent.tsx"
+        },
+        {
+          "filename": "dist/cli/index.js"
+        },
+        {
+          "filename": "dist/memory/quarantine.js"
+        },
+        {
+          "filename": "docs/HUMAN_TESTNET.md"
+        },
+        {
+          "filename": "docs/JOIN_KIT.md"
+        },
+        {
+          "filename": "docs/STATUS.md"
+        },
+        {
+          "filename": "docs/WALKTHROUGH.md"
+        },
+        {
+          "filename": "docs/api-reference.md"
+        },
+        {
+          "filename": "docs/getting-started.md"
+        },
+        {
+          "filename": "docs/install/claude-code.md"
+        },
+        {
+          "filename": "docs/install/claude-desktop.md"
+        },
+        {
+          "filename": "docs/install/cursor.md"
+        },
+        {
+          "filename": "examples/quickstart/QUICKSTART.md"
+        },
+        {
+          "filename": "lib/npm-latest.ts"
+        },
+        {
+          "filename": "lib/start-plan.tsx"
+        },
+        {
+          "filename": "package-lock.json"
+        },
+        {
+          "filename": "package.json"
+        },
+        {
+          "filename": "skills/trustshell/SKILL.md"
+        },
+        {
+          "filename": "skills/trustshell/skill.json"
+        },
+        {
+          "filename": "src/cli/index.ts"
+        },
+        {
+          "filename": "src/memory/quarantine.ts"
+        },
+        {
+          "filename": "tests/builders-page.test.ts"
+        },
+        {
+          "filename": "tests/e2e-cli-smoke.test.ts"
+        },
+        {
+          "filename": "tests/e2e-stranger.test.ts"
+        },
+        {
+          "filename": "tests/earn-trust-harness-tags.test.ts"
+        },
+        {
+          "filename": "tests/groq-key-silence.test.ts"
+        },
+        {
+          "filename": "tests/home-check.test.ts"
+        },
+        {
+          "filename": "tests/home-no-nav.test.ts"
+        },
+        {
+          "filename": "tests/home-screens.test.ts"
+        },
+        {
+          "filename": "tests/install-docs.test.ts"
+        },
+        {
+          "filename": "tests/join-kit.test.ts"
+        },
+        {
+          "filename": "tests/landing-public.test.ts"
+        },
+        {
+          "filename": "tests/quarantine.test.ts"
+        },
+        {
+          "filename": "tests/register-not-minted.test.ts"
+        },
+        {
+          "filename": "tests/site-npm-badge.test.ts"
+        },
+        {
+          "filename": "tests/skill-status.test.ts"
+        },
+        {
+          "filename": "tests/start-walkthrough.test.ts"
+        },
+        {
+          "filename": "tests/stranger-path.test.ts"
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/rules/branches/main?per_page=100&page=1": {
+      "status": 200,
+      "body": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": false,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "Strix Security Review",
+                "integration_id": 2749804
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "/repos/DealAppSeo/trustshell/branches/main": {
+      "status": 200,
+      "body": {
+        "name": "main",
+        "protected": true,
+        "protection": {
+          "enabled": false,
+          "required_status_checks": {
+            "enforcement_level": "off",
+            "contexts": [],
+            "checks": []
+          }
+        }
+      }
+    }
+  }
+}

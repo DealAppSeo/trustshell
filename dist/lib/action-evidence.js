@@ -36,7 +36,7 @@
  *    spliced into generated sentences. Those sentences interpolate only digits and hex.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MIN_SUPPORTING_SHA = exports.MAX_LINE = exports.MAX_CLAIMS = exports.MAX_CLAIM_TEXT = exports.RECORD_DOES_NOT_PROVE = exports.MAX_CLAIMS_FILE_BYTES = exports.ACTION_EVIDENCE_SCHEMA = void 0;
+exports.MIN_SUPPORTING_SHA = exports.MAX_LINE = exports.MAX_CLAIMS = exports.MAX_CLAIM_TEXT = exports.GUIDED_DOES_NOT_PROVE = exports.RECORD_DOES_NOT_PROVE = exports.MAX_CLAIMS_FILE_BYTES = exports.ACTION_EVIDENCE_SCHEMA = void 0;
 exports.digestRecord = digestRecord;
 exports.cleanCodePoints = cleanCodePoints;
 exports.wellFormed = wellFormed;
@@ -53,6 +53,7 @@ exports.tallyClaims = tallyClaims;
 exports.claimsExitCode = claimsExitCode;
 const jcs_1 = require("./jcs");
 const check_1 = require("./check");
+const commit_checks_1 = require("./commit-checks");
 exports.ACTION_EVIDENCE_SCHEMA = 'dev.trustshell.action-evidence/0.1-draft';
 /**
  * Claim text larger than this is refused, in UTF-8 bytes: no agent message or PR description is a
@@ -63,14 +64,80 @@ exports.MAX_CLAIMS_FILE_BYTES = 256 * 1024;
 function digestRecord(record) {
     return { algorithm: 'sha-256', canonicalization: 'RFC 8785', value: (0, jcs_1.jcsSha256)(record) };
 }
+const ONLY_THIS_RUN = 'Only this one workflow run was read. Other workflows, check suites and status checks on the same commit were not.';
 exports.RECORD_DOES_NOT_PROVE = [
     ...check_1.DOES_NOT_PROVE,
     'SUPPORTED means the platform record matches the narrow scope written next to the claim. It is not a finding that the claim is true in any broader sense.',
     'A successful workflow run shows that run succeeded. It does not show which tests ran, that all tests or all checks passed, or that a change works.',
-    'Only this one workflow run was read. Other workflows, check suites and status checks on the same commit were not.',
+    ONLY_THIS_RUN,
     'Every observed fact is GitHub reporting on its own run (PLATFORM_REPORTED). Nothing was re-run or independently observed.',
     'Broader security: not checked. A CI conclusion is not a security review.',
     'The record is not signed. Its SHA-256 shows whether the record changed after it was made, not who made it.',
+];
+/**
+ * "All required checks pass" against the base branch's required checks only. SUPPORTED when the rules
+ * were read, require at least one check, and every required check reported from the app it is pinned
+ * to and concluded success, on a complete list with no check failed on an earlier attempt. CONTRADICTED
+ * when a required check failed. Otherwise NOT_CHECKED: a missing required check is absence, not failure.
+ */
+function requiredChecksEntry(base, o, c, how) {
+    const sha = shortSha(o.head_sha);
+    const fields = ['/observation/commit_checks'];
+    const scope = `Only the checks the base branch requires (rulesets and branch protection), for commit ${sha}, read between ${c.started_at} and ${c.retrieved_at}. ` +
+        'Not the other checks on the commit, not which tests ran, and not whether the change works or the task is done.';
+    const nc = (reason) => ({ ...base, status: 'NOT_CHECKED', evidence_fields: [], scope, reason });
+    if (c.required === null || c.unsupported_rules === null)
+        return nc(`The base branch's required checks could not be read.`);
+    if (c.unsupported_rules.length)
+        return nc(`The base branch also gates merging on rules this does not read, so the required checks are not all known.`);
+    if (c.required.length === 0)
+        return nc(`The base branch requires no checks, so there is nothing for this claim to be about.`);
+    const runs = c.check_runs.items;
+    const sts = c.statuses.items;
+    if (runs.length < c.check_runs.total_count || sts.length < c.statuses.total_count)
+        return nc(`GitHub reports more checks on commit ${sha} than it returned, so a required check could be among the unread ones.`);
+    const results = c.required.map((q) => [
+        ...runs.filter((r) => r.name === q.context && (q.app_id === null || r.app_id === q.app_id)).map((r) => (r.status === 'completed' ? r.conclusion ?? 'none' : 'pending')),
+        ...(q.app_id === null ? sts.filter((x) => x.context === q.context).map((x) => (x.state === 'error' ? 'failure' : x.state)) : []),
+    ]);
+    const failed = results.filter((rs) => rs.some((v) => FAILED_CONCLUSIONS.has(v))).length;
+    if (failed) {
+        return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${failed} of ${c.required.length} required checks failed on commit ${sha}. ${how}` };
+    }
+    const missing = results.filter((rs) => rs.length === 0).length;
+    if (missing)
+        return nc(`${missing} of ${c.required.length} required checks never reported on commit ${sha} from the app each requires. Absence is not a failure, and not a pass.`);
+    const notPassed = results.filter((rs) => !rs.every((v) => v === 'success')).length;
+    if (notPassed)
+        return nc(`${notPassed} of ${c.required.length} required checks on commit ${sha} are still running, or ended neither passing nor failing.`);
+    if (c.superseded_failures !== 0) {
+        return nc(c.superseded_failures === null ? `Earlier attempts of the checks on commit ${sha} were not read.` : `A check on commit ${sha} failed on an earlier attempt and passed when re-run.`);
+    }
+    // As for "all checks pass": a required GitHub Actions check can run the claimant's own workflow (XC1 Q-R1).
+    if (c.workflows_changed !== false) {
+        return nc(c.workflows_changed ? `The change edits its own workflows (.github/workflows), so its required checks ran the claimant's code.` : `The change's files could not all be read, so whether it edits its own workflows is unknown.`);
+    }
+    return {
+        ...base,
+        status: 'SUPPORTED',
+        evidence_fields: fields,
+        scope,
+        reason: `All ${(0, check_1.plural)(c.required.length, 'required check')} of the base branch passed on commit ${sha}. Other checks on the commit were not judged. ${how}`,
+    };
+}
+/**
+ * Guided mode (`--guided`, EXPERIMENTAL) reads every check on the commit, so the "only this one run"
+ * line no longer holds; what guided mode adds to the list instead.
+ */
+exports.GUIDED_DOES_NOT_PROVE = [
+    ...exports.RECORD_DOES_NOT_PROVE.filter((line) => line !== ONLY_THIS_RUN),
+    'Guided mode (experimental): a line that cites nothing was read as being about the inspected run, because whoever ran this named that run. That is an interpretation of the text, not something GitHub reports.',
+    'Every check on the commit was read as GitHub reported it at the time of reading. A re-run, or a check that reports later, can change the answer.',
+    'Checks that do not report to GitHub (a local run, another CI service) are not seen. "All checks pass" means every check GitHub knows about, not every test that exists.',
+    'The required checks are those of the base branch inferred for this commit (see observation.commit_checks.base), read as of now, not as of when the change was made.',
+    '"All checks pass" (every observed check, and every required one) and "all required checks pass" (only the required ones) are different claims, and neither means the task is complete.',
+    'The checks and rules are those of the repository whose run was named. A run in a fork is judged by the fork’s own checks and branch rules, not by the upstream repository’s.',
+    'Checks are attached to the commit named here (for a pull request, its head). For a pull request, GitHub tests a merge of that head into the base branch as it was then; the commit that later lands on the base branch has checks of its own, which were not read.',
 ];
 // ── normalisation and splitting ─────────────────────────────────────────────────────────────────
 /** A clause longer than this is stored cut, with an ellipsis. Templates still read all of it. */
@@ -278,6 +345,14 @@ const ALL_CHECKS = [
     /\b(?:all|everything)\s+(?:is\s+)?green\b/gi,
     /\bgreen\s+CI\b/gi,
     /\bpass(?:es|ed|ing)?\s+(?:all\s+)?(?:the\s+)?(?:checks|CI)\b/gi,
+];
+/**
+ * About the checks the base branch REQUIRES, not every check: "all required checks pass", "the
+ * required checks are green". Decided only in guided mode, against the base branch's rules; a
+ * different claim from "all checks pass", which needs every observed check too.
+ */
+const REQUIRED_CHECKS = [
+    /\b(?:all\s+(?:of\s+)?(?:the\s+)?|every\s+|the\s+)?required\s+(?:status\s+)?checks?\s+(?:are\s+|have\s+|has\s+)?(?:all\s+)?(?:now\s+)?(?:pass(?:es|ed|ing)?|green|succeed(?:s|ed)?)\b/gi,
 ];
 /** About tests: "all tests pass", "the unit tests are green", "passes all tests". */
 const TESTS_PASS = [
@@ -487,7 +562,7 @@ function citationEntry(h, sentence, o) {
     }
     return { ...base, status: 'SUPPORTED', evidence_fields: fields, scope, reason: `The cited attempt is ${o.run_attempt}, the one GitHub's record describes.` };
 }
-function outcomeEntry(h, sentence, o, anchor, qualifier) {
+function outcomeEntry(h, sentence, o, anchor, qualifier, checks) {
     const base = { claim: normalizeClaimText(h.span), sentence, template: h.template };
     const nc = (scope, reason) => ({ ...base, status: 'NOT_CHECKED', evidence_fields: [], scope, reason });
     const run = runRef(o);
@@ -518,7 +593,16 @@ function outcomeEntry(h, sentence, o, anchor, qualifier) {
     if (h.template === 'gha.run_succeeded' && !anchor.run) {
         return nc('Not compared: the claim does not cite this run.', `A commit has many workflow runs, and a workflow name can be shared, so only the run id identifies one. This line does not cite run ${o.run_id}, so it is not compared.`);
     }
-    const how = anchor.run ? 'The line cites this run.' : 'The line cites this commit.';
+    const how = anchor.bound
+        ? 'The line cites nothing; in guided mode it is taken to be about the inspected run.'
+        : anchor.run
+            ? 'The line cites this run.'
+            : 'The line cites this commit.';
+    if (h.template === 'ci.required_checks_pass') {
+        if (checks && checks.head_sha === o.head_sha)
+            return requiredChecksEntry(base, o, checks, how);
+        return nc('Not decided by one run: which checks the base branch requires is read only in guided mode (--guided).', `${run} is one workflow run; the base branch's required checks were not read, so this claim is not compared.`);
+    }
     if (h.template === 'ci.tests_pass') {
         const scope = 'Not decided by a run record: it says how jobs concluded, not which tests ran or how each one ended.';
         if (!finished)
@@ -558,6 +642,14 @@ function outcomeEntry(h, sentence, o, anchor, qualifier) {
         if (o.conclusion !== 'success') {
             return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${run} finished with conclusion "${word(o.conclusion)}", not "success".` };
         }
+        // Guided mode reads earlier attempts, so a run that passed only when re-run is visible here, and
+        // is treated as "all checks pass" treats it: not a pass (CLAIMS-v1 stage 3, the item that made
+        // the held-back test NO-GO). Without --guided the record holds only the latest attempt.
+        if (checks && checks.head_sha === o.head_sha && (o.run_attempt ?? 1) > 1 && checks.superseded_failures !== 0) {
+            return nc(scope, checks.superseded_failures === null
+                ? `${run} is a re-run, and earlier attempts of the checks on this commit were not read.`
+                : `${run} is a re-run, and ${(0, check_1.plural)(checks.superseded_failures, 'check')} on this commit failed on an earlier attempt. A run that passed only when re-run is not read as having passed.`);
+        }
         if (jobsUnread)
             return nc(scope, `GitHub reports conclusion "success", but ${jobsUnread}.`);
         if (notSucceeded)
@@ -572,6 +664,9 @@ function outcomeEntry(h, sentence, o, anchor, qualifier) {
             reason: `GitHub reports conclusion "success" for ${run}; ${ran} of ${(0, check_1.plural)(jobs.length, 'job')} concluded success${skipped ? ` and ${skipped} skipped` : ''}. ${how}`,
         };
     }
+    // Guided mode: with every check on the commit read, "all checks pass" is decided across all of them.
+    if (checks && checks.head_sha === o.head_sha)
+        return allChecksEntry(base, o, checks, how);
     // ci.all_checks_pass: one run can refute it, never establish it.
     const fields = ['/observation/status', '/observation/conclusion', '/observation/jobs'];
     const scope = 'A claim about every check on the commit. One workflow run can contradict it (a failing check is a counterexample) but cannot establish it: the other checks were not read.';
@@ -678,7 +773,11 @@ function scanSentence(sentence, full, o) {
         ? []
         : [
             ...hitsFor('gha.run_succeeded', RUN_SUCCEEDED, full),
-            ...hitsFor('ci.all_checks_pass', ALL_CHECKS, full),
+            // "All required checks pass" also contains "checks pass": the required reading wins, and the
+            // all-checks hit inside it is dropped, so one sentence is never read as both claims.
+            // Read only in guided mode (the observation holds the commit's checks), so without --guided
+            // "required" stays an unread word and the record is byte-identical to main (XC1 Q-R2).
+            ...((req) => [...req, ...hitsFor('ci.all_checks_pass', ALL_CHECKS, full).filter((h) => !req.some((r) => h.at >= r.at && h.at < r.at + r.span.length))])(o.commit_checks ? hitsFor('ci.required_checks_pass', REQUIRED_CHECKS, full) : []),
             ...hitsFor('ci.tests_pass', TESTS_PASS, full),
             ...hitsFor('ci.build_unscoped', BUILD_PASS, full),
         ];
@@ -723,6 +822,87 @@ function lineGate(s) {
     return null;
 }
 /**
+ * "All checks pass" against every check on the commit. SUPPORTED only when every one of these holds:
+ *   the whole list was returned, and every check run finished with `success` and every status is
+ *   `success` (skipped and neutral did not pass, XC1 C1/C2); at least one check run exists;
+ *   no GitHub Actions suite, and no suite that has runs, is still pending; every required check
+ *   reported and passed; the inspected run itself concluded success and each of its jobs is in the
+ *   list with that conclusion (XC1 C7); no check failed on an earlier attempt; and the PR does not
+ *   edit its own workflows; and (production only, stricter than the evaluated candidate) the base branch has no
+ *   rule this does not read. CONTRADICTED when any latest check run or status failed. Otherwise
+ *   NOT_CHECKED. Check names are third-party text, so only counts reach the reason.
+ */
+function allChecksEntry(base, o, c, how) {
+    const sha = shortSha(o.head_sha);
+    const runs = c.check_runs.items;
+    const sts = c.statuses.items;
+    const n = runs.length + sts.length;
+    const fields = ['/observation/commit_checks'];
+    const scope = `Every check GitHub reported for commit ${sha}, read between ${c.started_at} and ${c.retrieved_at}: the latest run of each check run, each commit status, and the required checks of the base branch inferred for it. ` +
+        `Not which tests ran, not checks that do not report to GitHub, and not whether the change works.` +
+        (c.workflows_changed === null ? ' Whether the change edited its own workflows was not checked.' : '');
+    // A suite that completed with no check run can still have failed: a workflow that never started a
+    // job (XC1 P1). Its runs, if any, are judged one by one below.
+    const emptySuites = (c.suites?.items ?? []).filter((x) => x.status === 'completed' && x.runs === 0);
+    const failed = runs.filter((r) => r.conclusion !== null && FAILED_CONCLUSIONS.has(r.conclusion)).length +
+        sts.filter((x) => x.state === 'failure' || x.state === 'error').length +
+        emptySuites.filter((x) => x.conclusion !== null && FAILED_CONCLUSIONS.has(x.conclusion)).length;
+    if (failed) {
+        return { ...base, status: 'CONTRADICTED', evidence_fields: fields, scope, reason: `${failed} of ${n} checks on commit ${sha} failed. ${how}` };
+    }
+    const nc = (reason) => ({ ...base, status: 'NOT_CHECKED', evidence_fields: [], scope, reason });
+    if (runs.length < c.check_runs.total_count || sts.length < c.statuses.total_count)
+        return nc(`GitHub reports more checks on commit ${sha} than it returned, so not every check was read.`);
+    if (runs.length === 0)
+        return nc(`GitHub reports no check run on commit ${sha}.`);
+    const unfinished = runs.filter((r) => r.status !== 'completed').length + sts.filter((x) => x.state === 'pending').length;
+    if (unfinished)
+        return nc(`${unfinished} of ${n} checks on commit ${sha} had not finished.`);
+    if (c.suites === null || c.suites.items.length < c.suites.total_count)
+        return nc(`The check suites on commit ${sha} were not all read, so a workflow that had not started could be missing.`);
+    const pending = c.suites.items.filter((x) => x.status !== 'completed' && (x.runs > 0 || x.app === 'github-actions')).length;
+    if (pending)
+        return nc(`${pending} check suites on commit ${sha} had not completed, so not every check has reported.`);
+    const unran = emptySuites.filter((x) => x.app === 'github-actions' && x.conclusion !== 'success' && x.conclusion !== 'neutral' && x.conclusion !== 'skipped').length;
+    if (unran)
+        return nc(`${unran} GitHub Actions check suites on commit ${sha} completed without running a check (for example cancelled), so they did not pass.`);
+    const notPassed = runs.filter((r) => r.conclusion !== 'success').length + sts.filter((x) => x.state !== 'success').length;
+    if (notPassed)
+        return nc(`${notPassed} of ${n} checks on commit ${sha} were skipped, neutral or cancelled. A check that did not run did not pass.`);
+    if (c.required === null)
+        return nc(`The base branch's required checks could not be read.`);
+    if (c.unsupported_rules === null)
+        return nc(`The base branch's rules could not be read.`);
+    if (c.unsupported_rules.length)
+        return nc(`The base branch also gates merging on rules this does not read (${c.unsupported_rules.filter((t) => /^[a-z_]{1,32}$/.test(t)).join(', ')}), so not every check is known.`);
+    // A required check pinned to an app is met only by a passing check run from that app: a commit
+    // status, or another app's run with the same name, could be posted by anyone with push access.
+    const met = (q) => q.app_id !== null
+        ? runs.some((r) => r.name === q.context && r.app_id === q.app_id && r.conclusion === 'success')
+        : runs.some((r) => r.name === q.context && r.conclusion === 'success') || sts.some((x) => x.context === q.context && x.state === 'success');
+    const missing = c.required.filter((q) => !met(q)).length;
+    if (missing)
+        return nc(`${missing} of ${c.required.length} checks the base branch requires never reported on commit ${sha} from the app it requires, so not all checks have passed.`);
+    const jobs = o.jobs.items;
+    // C7 compares the run's jobs with the list; with the jobs unread it would compare nothing (XC1 C7a).
+    if (o.jobs.http_status < 200 || o.jobs.http_status >= 300 || o.jobs.total > jobs.length || jobs.length === 0) {
+        return nc(`The inspected run's jobs were not all read, so it cannot be matched against the checks on commit ${sha}.`);
+    }
+    const absent = jobs.filter((j) => !runs.some((r) => r.name === j.name && r.conclusion === j.conclusion)).length;
+    if (o.conclusion !== 'success' || absent)
+        return nc(`The inspected run (${runRef(o)}) does not agree with the recorded checks, so the evidence is inconsistent.`);
+    if (c.superseded_failures === null)
+        return nc(`Earlier attempts of the checks on commit ${sha} were not read.`);
+    if (c.superseded_failures)
+        return nc(`${(0, check_1.plural)(c.superseded_failures, 'check')} on commit ${sha} failed on an earlier attempt and passed when re-run.`);
+    if (c.workflows_changed)
+        return nc(`The change edits its own workflows (.github/workflows), so these checks ran the claimant's code.`);
+    // Production only, stricter than the evaluated candidate (XC1 R8b): unknown is not "no".
+    if (c.workflows_changed === null)
+        return nc(`The change's files could not all be read, so whether it edits its own workflows is unknown.`);
+    return { ...base, status: 'SUPPORTED', evidence_fields: fields, scope, reason: `All ${n} checks GitHub reported on commit ${sha} passed, including every required check. ${how}` };
+}
+/**
  * Map free claim text onto an observation. PURE: same text and observation, same entries, same order.
  *
  * DENY BY DEFAULT, over the WHOLE input. A verdict is given only when every line is a plain claim
@@ -731,7 +911,7 @@ function lineGate(s) {
  * nothing here can tell what that line does to the others. Everything is still listed. Within a
  * readable text, each line's own citations decide which run it is about (see {@link Anchor}).
  */
-function mapClaims(text, o) {
+function mapClaims(text, o, opts = {}) {
     const { lines, dropped } = readClaims(text);
     const scanned = lines.map((l) => (l.problem ? null : scanSentence(l.text, l.text, o)));
     const blockers = [];
@@ -751,6 +931,13 @@ function mapClaims(text, o) {
     });
     if (dropped > 0)
         blockers.push(`${dropped} lines after the first ${exports.MAX_CLAIMS} were not read`);
+    // Guided mode binds a line that cites nothing to the inspected run, but only when nothing in the
+    // text points elsewhere: every citation anywhere is SUPPORTED, no line names something a run cannot
+    // show (a local run, a deployment), and every line was read (XC1 stage 2, B1-B6: "On commit
+    // deadbeef…" above "All checks pass." moved the claim to another commit).
+    const bindable = !!opts.bindToRun &&
+        lines.every((l, i) => !l.problem && scanned[i] !== null) &&
+        scanned.every((sc) => !sc || (sc.exclusions.length === 0 && sc.citations.every((c) => c.status === 'SUPPORTED')));
     const block = blockers.length
         ? `Not every line of this text is a plain claim the templates read in full (${blockers[0]}${blockers.length > 1 ? `, and ${blockers.length - 1} more` : ''}), so nothing in the text is decided.`
         : null;
@@ -780,9 +967,14 @@ function mapClaims(text, o) {
             commit: !mismatch && citations.some((c) => c.status === 'SUPPORTED' && (c.template === 'git.head_sha' || c.template === 'gha.run_id')),
             run: !mismatch && citations.some((c) => c.status === 'SUPPORTED' && c.template === 'gha.run_id'),
         };
+        if (bindable && citations.length === 0) {
+            anchor.commit = true;
+            anchor.run = true;
+            anchor.bound = true;
+        }
         const entries = [];
         citations.forEach((e, i) => entries.push({ at: s.citationAt[i], order: 0, e }));
-        s.outcomes.forEach((h) => entries.push({ at: h.at, order: 1, e: outcomeEntry(h, s.sentence, o, anchor, s.qualifier) }));
+        s.outcomes.forEach((h) => entries.push({ at: h.at, order: 1, e: outcomeEntry(h, s.sentence, o, anchor, s.qualifier, opts.commitChecks) }));
         s.exclusions.forEach((h, i) => entries.push({
             at: h.at,
             order: 2 + i,
@@ -876,12 +1068,15 @@ function observationFromCheck(r, fetchedAt) {
 }
 /** Assemble the record. PURE. */
 function buildRecord(observation, claimText) {
+    // A record is guided exactly when its observation holds the commit's checks, so the claims can
+    // always be re-derived from the record itself.
+    const guided = observation.commit_checks !== undefined;
     return {
         schema: exports.ACTION_EVIDENCE_SCHEMA,
         observation,
-        claims: mapClaims(claimText, observation),
+        claims: mapClaims(claimText, observation, guided ? { bindToRun: true, commitChecks: observation.commit_checks } : {}),
         assurance: { cryptographic_integrity: 'NOT_CHECKED', observation: 'PLATFORM_REPORTED' },
-        does_not_prove: exports.RECORD_DOES_NOT_PROVE,
+        does_not_prove: guided ? exports.GUIDED_DOES_NOT_PROVE : exports.RECORD_DOES_NOT_PROVE,
     };
 }
 /**
@@ -899,14 +1094,25 @@ function urlAttempt(url) {
  * describe a different run or attempt from the one the URL names.
  */
 async function inspectRunClaims(url, claimText, opts = {}) {
-    const result = await (0, check_1.runCheck)(url, opts.env ?? process.env);
-    const fetchedAt = (opts.now ?? (() => new Date()))().toISOString();
+    const env = opts.env ?? process.env;
+    const now = opts.now ?? (() => new Date());
+    const result = await (0, check_1.runCheck)(url, env);
+    const fetchedAt = now().toISOString();
     const asked = urlAttempt(url);
     if (asked !== null && asked !== result.run.attempt) {
         throw new check_1.CheckError(`the URL names attempt ${asked}, but GitHub's run endpoint answered for attempt ${result.run.attempt ?? 'unknown'} (the latest). ` +
             'Reading a specific earlier attempt is not supported yet; nothing was recorded.');
     }
-    const record = buildRecord(observationFromCheck(result, fetchedAt), claimText);
+    const observation = observationFromCheck(result, fetchedAt);
+    // Guided mode reads every check on the run's commit. Only a full SHA is asked about: a run whose
+    // head_sha is malformed has no commit to read, and stays an ordinary (unguided) record.
+    if (opts.guided) {
+        // Refused rather than silently dropped (XC1 F6): guided mode reads a commit, and needs its SHA.
+        if (!/^[0-9a-f]{40}$/.test(observation.head_sha))
+            throw new check_1.CheckError('--guided needs the run\'s full commit SHA, and GitHub returned none; nothing was recorded.');
+        observation.commit_checks = await (0, commit_checks_1.fetchCommitChecks)(observation.owner, observation.repo, observation.head_sha, env, now, result.run);
+    }
+    const record = buildRecord(observation, claimText);
     return { record, digest: digestRecord(record) };
 }
 function tallyClaims(claims) {

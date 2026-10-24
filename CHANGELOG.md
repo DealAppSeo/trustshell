@@ -47,6 +47,21 @@ account, no key, no TrustShell backend, and `GITHUB_TOKEN` is optional (it only 
 The first bullet below is that. The rest rode along from main since 1.7.0 was cut (it was re-cut on
 `51897d4c`, #575) and are not what this candidate asks testers to try.
 
+- **`check <runUrl> --claims … --guided` (EXPERIMENTAL): "All checks pass." against every check on
+  the commit.**
+  - A claim line that cites nothing is read as being about the named run, but only when nothing in
+    the text points elsewhere.
+  - Every check on the run's commit is read: latest and earlier attempts, statuses, suites, the
+    base branch's required checks, and whether the change edits its own workflows.
+  - SUPPORTED only when all of them passed. CONTRADICTED when any failed. Otherwise NOT_CHECKED,
+    with the reason.
+  - "All required checks pass." is a separate template (`ci.required_checks_pass`): only the base
+    branch's required checks, pinned to their apps. It is never decided without `--guided`.
+  - Off by default. Without the flag, output is byte-identical.
+  - Still only api.github.com, with more requests; `OFFLINE=1` sends nothing.
+  - Files: `src/lib/commit-checks.ts`, guided mode in `src/lib/action-evidence.ts`, tests in
+    `tests/action-evidence-guided.test.ts`, and a guided run in `scripts/check-egress.cjs`.
+    Reference: `docs/action-evidence.md`.
 - **`trustshell check <runUrl> --claims "<text>"` / `--claims-file <path>` (draft): what an agent
   said, against what the run reports.** Claims are split into atomic parts, each SUPPORTED,
   CONTRADICTED or NOT_CHECKED by a fixed template. Deny by default: only plain claim lines

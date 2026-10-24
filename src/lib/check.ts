@@ -51,6 +51,13 @@ export interface CheckResult {
     workflow_path: string;
     status: string;
     conclusion: string | null;
+    /** What triggered the run (`push`, `pull_request`, …), and the branch and owner it ran on. */
+    event: string | null;
+    head_branch: string | null;
+    head_owner: string | null;
+    /** `owner/name` of the run's repository and of its head repository, both as the API reports them now. */
+    repo_full_name: string | null;
+    head_full_name: string | null;
   };
   /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
   jobs: {
@@ -130,6 +137,16 @@ async function gh(path: string, token: string): Promise<GhResponse & { usedToken
     if (withToken.status !== 401) return { ...withToken, usedToken: true };
   }
   return { ...(await call('')), usedToken: false };
+}
+
+/**
+ * One GitHub GET for other read-only modules (`check --claims --guided` reads every check on a
+ * commit), with the same rule as `check`: the token in `GITHUB_TOKEN` is optional, only raises the
+ * rate limit, and a rejected one falls back to anonymous. `path` starts with `/repos/`.
+ */
+export async function githubGet(path: string, env: Record<string, string | undefined> = process.env): Promise<{ ok: boolean; status: number; body: any }> {
+  const { ok, status, body } = await gh(path, (env['GITHUB_TOKEN'] || '').trim());
+  return { ok, status, body };
 }
 
 /**
@@ -268,6 +285,11 @@ export async function runCheck(url: string, env: Record<string, string | undefin
       workflow_path: String(run.body.path ?? ''),
       status: String(run.body.status ?? ''),
       conclusion: typeof run.body.conclusion === 'string' ? run.body.conclusion : null,
+      event: typeof run.body.event === 'string' ? run.body.event : null,
+      head_branch: typeof run.body.head_branch === 'string' ? run.body.head_branch : null,
+      head_owner: typeof run.body.head_repository?.owner?.login === 'string' ? run.body.head_repository.owner.login : null,
+      repo_full_name: typeof run.body.repository?.full_name === 'string' ? run.body.repository.full_name : null,
+      head_full_name: typeof run.body.head_repository?.full_name === 'string' ? run.body.head_repository.full_name : null,
     },
     jobs: {
       http_status: jobs.status,

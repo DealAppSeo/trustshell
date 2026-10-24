@@ -133,12 +133,133 @@ does not match:
 |---|---|---|---|---|
 | `gha.run_succeeded` | "the workflow passed", "the check workflow succeeded", "run 123456 passed" | conclusion `success`, every job read, at least one job ran, all on this commit and attempt; **and** the line cites the run id (a workflow name, if the line gives one, must be this workflow's) | the run finished with another conclusion (same identification required) | the run is unfinished, or has no readable conclusion; jobs missing, unreadable, truncated, all skipped, or on another commit (or with no commit); a success run with a failed job; a commit cited without the run id, even with the workflow named (a commit has many workflow runs, and two workflow files can share one display name); another workflow named |
 | `ci.all_checks_pass` | "all checks pass", "CI is green", "everything is green" | **never**: one run is not every check | the run concluded `failure`, `timed_out` or `startup_failure`, or one of its jobs did | otherwise, including every green run |
+| `ci.required_checks_pass` | "all required checks pass", "the required checks are green", **read only with `--guided`** (without it, "required" stays an unread word and the line decides nothing, as before) | see guided mode below | see guided mode below | see guided mode below |
 | `ci.tests_pass` | "all tests pass", "the unit tests are green" | **never**: a run record does not say which tests ran | **never**: a failed run does not say a test failed | always |
 | `ci.build_unscoped` | "the build passes" | never: names no workflow or check | never | always |
 
 **Exclusions** are named and always NOT_CHECKED, with the reason: completion ("done"), security,
 absence of bugs, readiness, whether a fix works, local runs, test counts, coverage, deployment,
 performance, review.
+
+## Guided mode: `--guided` (EXPERIMENTAL)
+
+```
+trustshell check <runUrl> --claims "All checks pass." --guided
+```
+
+Guided mode is for the case where **whoever runs the check names the run** and types the claims.
+That is the guided form tested in the CLAIMS-v1 experiment. It changes two things, and nothing else:
+
+1. **A claim line that cites nothing is read as being about this run.** It is bound to the run, but
+   only when nothing in the text points elsewhere:
+   - every citation in the text is SUPPORTED (no other commit, run or attempt);
+   - no line names something a run cannot show (a local run, a deployment, "production ready");
+   - every line was read.
+
+   Otherwise, nothing is bound.
+2. **Every check on the run's commit is read**, so "All checks pass." / "CI is green." can be
+   decided. That covers:
+   - the latest run of each check run, and every earlier attempt;
+   - commit statuses and check suites;
+   - the base branch's required checks (rulesets);
+   - whether the change edits `.github/workflows`.
+
+   **Which base branches, and which files.** Always the **union** of two sources, never one in place of
+   the other:
+   - **Pull requests GitHub associates with the commit:** their base branches and their whole diffs,
+     even when a PR's head has moved on.
+   - **The run's own context.**
+     - **A pull-request-like run** (any `pull_request*` event, `merge_group`, or a head owned by another
+       account) contributes its own PR. That PR is found by the run's head label, and is either headed
+       at this commit or associated with it by GitHub. This covers forks, and closed PRs whose branch
+       is gone. If it cannot be found, the required checks are unknown, and nothing is SUPPORTED.
+     - **A same-owner push** contributes the branch it ran on, and the commit's own files. A push of
+       several commits shows only the last one's files.
+
+   If the change's files cannot all be read, whether it edits its own workflows is unknown, and the
+   claim is NOT_CHECKED. The record says what was used (`observation.commit_checks.base`).
+
+**"All checks pass." is SUPPORTED only when every one of these holds:**
+- the whole list was returned;
+- every check run concluded `success` and every status is `success` (skipped, neutral and cancelled checks did not pass);
+- no GitHub Actions suite, and no suite that has runs, is still pending;
+- every required check reported and passed. A required check pinned to an app (the ruleset's
+  `integration_id`, or classic protection's `app_id`) is met only by that app's check run, never by a
+  commit status or another app's run of the same name;
+- no check suite failed without running a check, and no GitHub Actions suite was cancelled before running one;
+- the inspected run concluded success, with each of its jobs in the list;
+- no check failed on an earlier attempt and was re-run until green, and no status failed and was later set to success;
+- the change does not edit its own workflows: a file in `.github/workflows` or `.github/actions`, or one renamed out of them;
+- the base branch has no rule this does not read (required workflows, code scanning results, deployments).
+
+**A run claim follows the same rule.** In guided mode, "The check workflow passed." about attempt 2
+or later is NOT_CHECKED when a check on the commit failed on an earlier attempt. A run that passed
+only when re-run is not read as having passed. Without `--guided`, the record holds only the latest
+attempt, and a run claim is judged on that attempt alone. Whether that should change is an open
+decision.
+
+**"All required checks pass." is a different claim.** It is judged only against the checks the base
+branch requires, not the other checks on the commit:
+- **SUPPORTED** when the rules were read, require at least one check, and every required check
+  reported from the app it is pinned to and passed, on a complete list, with no check on the commit
+  failed on an earlier attempt, and a change that does not edit its own workflows;
+- **CONTRADICTED** when a required check failed;
+- **NOT_CHECKED** otherwise. A required check that never reported is absence, not failure, and a
+  base branch that requires nothing gives the claim nothing to be about.
+
+So on a commit where only a non-required check failed, "All checks pass." is CONTRADICTED while
+"All required checks pass." is SUPPORTED. **Neither means the task is complete.**
+
+**Head commit, not merge commit.** Checks are attached to the commit the run names. For a pull
+request, that is its head, while GitHub tests a merge of that head into the base branch as it was
+then. The commit that later lands on the base branch, for example a squash merge, has checks of its
+own, which a claim about the head does not cover. The record's "does not prove" list says so.
+
+**It is CONTRADICTED when any check failed.** Anything else is NOT_CHECKED, and the reason says which
+condition stopped it. A queued suite with no runs, from an installed app that never acts on the
+repository, is ignored: every commit we measured had eight or more.
+
+**Known consequence.** In a repository whose required checks run only on pull requests, a push
+commit never has them. So "All checks pass." about a push is NOT_CHECKED (for example `5cd68edc` in
+the tests).
+
+**What it costs.** More requests to api.github.com, and nothing else: about eight for a commit with
+one pull request. Anonymous reads are limited to 60 an hour; `GITHUB_TOKEN`, if set, only raises
+that, exactly as for `check`. `OFFLINE=1` still sends nothing.
+
+**The record.** `observation.commit_checks` holds what was read, with every API path and its HTTP
+status. A record is guided exactly when that member is present, so its claims can be re-derived
+from the record alone. `does_not_prove` drops "only this one workflow run was read", and adds that
+binding is an interpretation of the text and that checks can change after they are read. The card
+shows "Guided mode (experimental)" and counts the checks, but does not print their names.
+
+**What differs from what was evaluated.** These were added after the evaluated candidate was frozen.
+They need reads the sealed evaluation data does not hold.
+- **Five conditions that can only turn a SUPPORTED into NOT_CHECKED:**
+  - the status history;
+  - classic branch protection (`app_id` -1 meaning any source);
+  - rules this does not read;
+  - `.github/actions` and renamed workflow files;
+  - the re-run rule for run claims.
+- **The live choice of base branch.** The evaluation took the base from each PR record. The live
+  reader infers it as above, and an unresolved run is NOT_CHECKED rather than falling back to the
+  default branch. XC1's two reviews of this PR found that earlier versions could be **less** strict:
+  - a fork PR into a non-default base;
+  - an associated PR replacing the run's own;
+  - a fork's run under another event name.
+
+  Each of those was fixed. Unknown workflow edits are now NOT_CHECKED too.
+- **Pages are de-duplicated by id,** and a list is complete only when its distinct items reach
+  GitHub's count.
+- **The record keeps when the reads started and ended.**
+
+**How it was tested before it existed here.** The same logic ran in shadow (CLAIMS-v1):
+- **Dev set:** 30 real PRs of this repository. Guided "All checks pass." went from 0/30 decided to
+  21 SUPPORTED, 1 CONTRADICTED (a real failed check) and 8 NOT_CHECKED, each for a named reason.
+- **Adversarial:** 0 false approvals on XC1's 61-input corpus and its 21 stage-2 items. XC1's
+  re-check then found two more shapes that its fixes close: a status standing in for a required
+  check, and a suite that never ran.
+- **The pre-registered held-back evaluation** is reported in the PR that adds this flag.
 
 ## Untrusted input
 
