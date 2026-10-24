@@ -1,0 +1,1002 @@
+{
+  "scriptSha256": "7235144e25e76659aa0b024bd17063de08833cc89666e803b1cc8160da4885ab",
+  "inputSha256": {
+    "btc-usd-daily.json": "42a87e6c461747e1aabaaa8a5b29b2febc93f6de5a0ac65f308a5a3067dc4634",
+    "fear-greed.json": "98a52e01586ec58e2abdb942a1801d9bf4deabb0b9b7bece5b7b647a321b9db9"
+  },
+  "ruler": {
+    "data": {
+      "symbol": "BTC-USD",
+      "bars": 1919,
+      "firstDay": "2019-10-01",
+      "lastDay": "2024-12-31",
+      "fngRows": 1919,
+      "fngMissingDays": 1
+    },
+    "windowDays": 30,
+    "signalsRebuilt": [
+      "fear_greed",
+      "btc_price",
+      "btc_rsi",
+      "volume_spike"
+    ],
+    "signalsHeldAtZero": [
+      "on_chain_health",
+      "whale_alert",
+      "exchange_sentiment",
+      "news_sentiment",
+      "interest_rates",
+      "inflation",
+      "guru_consensus",
+      "etf_flow",
+      "congressional_trading"
+    ],
+    "engine": "port of trinity-science/veto_engine.py compute_veto",
+    "notModelled": [
+      "fees",
+      "slippage",
+      "execution delay",
+      "9 of 13 signals",
+      "intraday moves",
+      "any asset but BTC"
+    ]
+  },
+  "gateArithmetic": {
+    "weightSum": 12.3,
+    "unityMaxAnyInput": 0.9339,
+    "unityGate": 0.95,
+    "gateReachable": false,
+    "note": "unity = (logic*chaos*beauty)^(1/phi), logic <= 1, and |h| <= the sum of the weights (12.3) divided by 13, so unity cannot exceed unityMaxAnyInput for any signals at any repid. `unity > 0.95` is false for every input."
+  },
+  "dissonance": {
+    "days": 1919,
+    "alignedDays": 0,
+    "min": 0.072398,
+    "max": 0.688985,
+    "byProfile": {
+      "very_conservative": {
+        "theta": 0.012052,
+        "daysAboveTheta": 1919
+      },
+      "conservative": {
+        "theta": 0.0156,
+        "daysAboveTheta": 1919
+      },
+      "moderate": {
+        "theta": 0.0195,
+        "daysAboveTheta": 1919
+      },
+      "aggressive": {
+        "theta": 0.031552,
+        "daysAboveTheta": 1919
+      },
+      "very_aggressive": {
+        "theta": 0.051052,
+        "daysAboveTheta": 1919
+      }
+    },
+    "note": "veto = dissonance > theta AND repid < profile threshold. If dissonance is above theta on every day, the veto is decided by the repid input alone and never by the market."
+  },
+  "claimedFigureScan": {
+    "targetPct": 49.63,
+    "postHoc": true,
+    "windows": [
+      {
+        "event": "COVID Market Crash",
+        "windowDays": 7,
+        "maxDrawdownPct": 46.97
+      },
+      {
+        "event": "China Mining Ban",
+        "windowDays": 7,
+        "maxDrawdownPct": 30.33
+      },
+      {
+        "event": "FTX Collapse",
+        "windowDays": 7,
+        "maxDrawdownPct": 25.39
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "windowDays": 7,
+        "maxDrawdownPct": 11.27
+      },
+      {
+        "event": "COVID Market Crash",
+        "windowDays": 14,
+        "maxDrawdownPct": 46.97
+      },
+      {
+        "event": "China Mining Ban",
+        "windowDays": 14,
+        "maxDrawdownPct": 41.27
+      },
+      {
+        "event": "FTX Collapse",
+        "windowDays": 14,
+        "maxDrawdownPct": 26.01
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "windowDays": 14,
+        "maxDrawdownPct": 15.9
+      },
+      {
+        "event": "COVID Market Crash",
+        "windowDays": 21,
+        "maxDrawdownPct": 51.26
+      },
+      {
+        "event": "China Mining Ban",
+        "windowDays": 21,
+        "maxDrawdownPct": 43.35
+      },
+      {
+        "event": "FTX Collapse",
+        "windowDays": 21,
+        "maxDrawdownPct": 26.01
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "windowDays": 21,
+        "maxDrawdownPct": 15.9
+      },
+      {
+        "event": "COVID Market Crash",
+        "windowDays": 30,
+        "maxDrawdownPct": 53.17
+      },
+      {
+        "event": "China Mining Ban",
+        "windowDays": 30,
+        "maxDrawdownPct": 43.35
+      },
+      {
+        "event": "FTX Collapse",
+        "windowDays": 30,
+        "maxDrawdownPct": 26.01
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "windowDays": 30,
+        "maxDrawdownPct": 15.9
+      },
+      {
+        "event": "COVID Market Crash",
+        "windowDays": 45,
+        "maxDrawdownPct": 53.17
+      },
+      {
+        "event": "China Mining Ban",
+        "windowDays": 45,
+        "maxDrawdownPct": 50.31
+      },
+      {
+        "event": "FTX Collapse",
+        "windowDays": 45,
+        "maxDrawdownPct": 26.01
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "windowDays": 45,
+        "maxDrawdownPct": 15.9
+      },
+      {
+        "event": "COVID Market Crash",
+        "windowDays": 60,
+        "maxDrawdownPct": 53.17
+      },
+      {
+        "event": "China Mining Ban",
+        "windowDays": 60,
+        "maxDrawdownPct": 50.64
+      },
+      {
+        "event": "FTX Collapse",
+        "windowDays": 60,
+        "maxDrawdownPct": 29.65
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "windowDays": 60,
+        "maxDrawdownPct": 15.9
+      },
+      {
+        "event": "COVID Market Crash",
+        "windowDays": 90,
+        "maxDrawdownPct": 53.17
+      },
+      {
+        "event": "China Mining Ban",
+        "windowDays": 90,
+        "maxDrawdownPct": 53.14
+      },
+      {
+        "event": "FTX Collapse",
+        "windowDays": 90,
+        "maxDrawdownPct": 35.56
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "windowDays": 90,
+        "maxDrawdownPct": 15.9
+      }
+    ],
+    "within0_5": []
+  },
+  "buyAndHold": {
+    "windows": [
+      {
+        "event": "COVID Market Crash",
+        "from": "2020-02-11",
+        "to": "2020-04-11",
+        "maxDrawdownPct": 53.17
+      },
+      {
+        "event": "China Mining Ban",
+        "from": "2021-04-19",
+        "to": "2021-06-18",
+        "maxDrawdownPct": 43.35
+      },
+      {
+        "event": "FTX Collapse",
+        "from": "2022-10-10",
+        "to": "2022-12-09",
+        "maxDrawdownPct": 26.01
+      },
+      {
+        "event": "Bitcoin ETF Approval Rally",
+        "from": "2023-12-11",
+        "to": "2024-02-09",
+        "maxDrawdownPct": 15.9
+      }
+    ],
+    "nearestToClaimed49_63": {
+      "claimedPct": 49.63,
+      "event": "COVID Market Crash",
+      "from": "2020-02-11",
+      "to": "2020-04-11",
+      "maxDrawdownPct": 53.17
+    }
+  },
+  "configs": [
+    {
+      "id": "as-written",
+      "label": "As written: repid 7000, moderate, unity gate 0.95",
+      "repid": 7000,
+      "profile": "moderate",
+      "gate": true,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": 50,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": 58.33,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": 51.67,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": 43.33,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 0,
+        "vetoedDays": 1877,
+        "withVetoMaxDrawdownPct": 0,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 0,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": 48.91,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "nogate-moderate-3000",
+      "label": "Gate removed: repid 3000, moderate",
+      "repid": 3000,
+      "profile": "moderate",
+      "gate": false,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": 50,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": 58.33,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": 51.67,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": 43.33,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 0,
+        "vetoedDays": 1877,
+        "withVetoMaxDrawdownPct": 0,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 0,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": 48.91,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "nogate-moderate-5000",
+      "label": "Gate removed: repid 5000, moderate",
+      "repid": 5000,
+      "profile": "moderate",
+      "gate": false,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": 50,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": 58.33,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": 51.67,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": 43.33,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 0,
+        "vetoedDays": 1877,
+        "withVetoMaxDrawdownPct": 0,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 0,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": 48.91,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "nogate-moderate-6499",
+      "label": "Gate removed: repid 6499, moderate",
+      "repid": 6499,
+      "profile": "moderate",
+      "gate": false,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": 50,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": 58.33,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": 51.67,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": 43.33,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 0,
+        "vetoedDays": 1877,
+        "withVetoMaxDrawdownPct": 0,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 0,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": 48.91,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "nogate-moderate-6500",
+      "label": "Gate removed: repid 6500, moderate",
+      "repid": 6500,
+      "profile": "moderate",
+      "gate": false,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 53.17,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": -32.91,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 43.35,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": -35.65,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 26.01,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": -10.46,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 15.9,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 14.38,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 1877,
+        "vetoedDays": 0,
+        "withVetoMaxDrawdownPct": 76.67,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 925.45,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": null,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "nogate-moderate-7000",
+      "label": "Gate removed: repid 7000, moderate",
+      "repid": 7000,
+      "profile": "moderate",
+      "gate": false,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 53.17,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": -32.91,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 43.35,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": -35.65,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 26.01,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": -10.46,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 15.9,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 14.38,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 1877,
+        "vetoedDays": 0,
+        "withVetoMaxDrawdownPct": 76.67,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 925.45,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": null,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "nogate-moderate-9500",
+      "label": "Gate removed: repid 9500, moderate",
+      "repid": 9500,
+      "profile": "moderate",
+      "gate": false,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 53.17,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": -32.91,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 43.35,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": -35.65,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 26.01,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": -10.46,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 60,
+          "vetoedDays": 0,
+          "withVetoMaxDrawdownPct": 15.9,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 14.38,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": null,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 1877,
+        "vetoedDays": 0,
+        "withVetoMaxDrawdownPct": 76.67,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 925.45,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": null,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "gate-moderate-9500",
+      "label": "Gate kept: repid 9500, moderate",
+      "repid": 9500,
+      "profile": "moderate",
+      "gate": true,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": 50,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": 58.33,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": 51.67,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": 43.33,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 0,
+        "vetoedDays": 1877,
+        "withVetoMaxDrawdownPct": 0,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 0,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": 48.91,
+        "allDaysDownSharePct": 48.91
+      }
+    },
+    {
+      "id": "gate-moderate-10000",
+      "label": "Gate kept: repid 10000, moderate",
+      "repid": 10000,
+      "profile": "moderate",
+      "gate": true,
+      "events": [
+        {
+          "event": "COVID Market Crash",
+          "date": "2020-03-12",
+          "from": "2020-02-11",
+          "to": "2020-04-11",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 53.17,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -32.91,
+          "vetoedDayDownSharePct": 50,
+          "allDaysDownSharePct": 50
+        },
+        {
+          "event": "China Mining Ban",
+          "date": "2021-05-19",
+          "from": "2021-04-19",
+          "to": "2021-06-18",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 43.35,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -35.65,
+          "vetoedDayDownSharePct": 58.33,
+          "allDaysDownSharePct": 58.33
+        },
+        {
+          "event": "FTX Collapse",
+          "date": "2022-11-09",
+          "from": "2022-10-10",
+          "to": "2022-12-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 26.01,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": -10.46,
+          "vetoedDayDownSharePct": 51.67,
+          "allDaysDownSharePct": 51.67
+        },
+        {
+          "event": "Bitcoin ETF Approval Rally",
+          "date": "2024-01-10",
+          "from": "2023-12-11",
+          "to": "2024-02-09",
+          "days": 60,
+          "executedDays": 0,
+          "vetoedDays": 60,
+          "withVetoMaxDrawdownPct": 0,
+          "withoutVetoMaxDrawdownPct": 15.9,
+          "withVetoReturnPct": 0,
+          "withoutVetoReturnPct": 14.38,
+          "vetoedDayDownSharePct": 43.33,
+          "allDaysDownSharePct": 43.33
+        }
+      ],
+      "fullPeriod": {
+        "from": "2019-11-10",
+        "to": "2024-12-30",
+        "days": 1877,
+        "executedDays": 0,
+        "vetoedDays": 1877,
+        "withVetoMaxDrawdownPct": 0,
+        "withoutVetoMaxDrawdownPct": 76.67,
+        "withVetoReturnPct": 0,
+        "withoutVetoReturnPct": 925.45,
+        "vetoedDayDownSharePct": 48.91,
+        "allDaysDownSharePct": 48.91
+      }
+    }
+  ]
+}

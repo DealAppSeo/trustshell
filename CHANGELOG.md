@@ -2,6 +2,41 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## Unreleased (on main, in no npm release)
+
+`package.json` on main is `1.9.0-dev.0`: main is ahead of the published 1.8.0, and nothing below is in any npm release.
+
+- **Guard + Carry, experimental (#593).** `trustshell guard` and `trustshell run` add a local owner policy enforced only on the paths they mediate. `trustshell bundle` adds a signed (not encrypted) bundle that carries a profile, a policy and selected notes to another host. These are local guardrails for cooperative agents, not a tamper-resistant boundary: anyone who can run the CLI as the owner can change the policy, and MCP and OS commands are not mediated.
+- **The two-host demonstration (#607, #609):** `node demo/guard-carry/run.mjs` (docs/guard-carry-demo.md). Its no-network assurance now fails if the egress blocker is not live.
+- **A policy names its signer only when the signature verifies (#608).** A hand-edited policy no longer reads as owner-signed.
+- **"Owner-signed" means this install's key (#611).** The `trustshell run` card called a policy owner-signed when its signature verified under any key, and the bundle summary did the same for a key other than the bundle author's. Both now name the key and say it is NOT this install's (or NOT the author's).
+- **Autonomy levels for Guard, SHADOW (off until `guard level shadow`).** L0 observe, L1 read-only, L2 workspace, L3 broader. An agent rises one level after N Inspect records SUPPORTED in full (one per commit; NOT_CHECKED never counts) and falls on a CONTRADICTED record, an out-of-lane refusal, or revocation (`guard level revoke`, `guard kill`). In shadow Guard allows exactly what the policy allows; the level and what it would have refused are recorded in `autonomy.jsonl`, for measuring whether earned autonomy reduces harmful actions. `guard level enforce` is an explicit owner opt-in that only narrows the policy. Local guardrails for cooperative agents, not a security boundary. docs/autonomy-levels.md.
+- **Fix: `OFFLINE=1` now stops the MCP `verify_output` (and `verify`, `evaluate`) and the SDK `verifyOutput`/`evaluate` too.** They sent the text to HAL under `OFFLINE=1`; only `TRUSTSHELL_LOCAL_ONLY=1` stopped them. Now they answer `NOT_CHECKED` with `seenBy: []` and no request leaves. The CLI `verify` and `check`, `check_claim` and `inspect_run` already did this. (`TrustShell.score` in `src/lib/trustshell.ts`; tests/mcp-offline-sends-nothing.test.ts.)
+- **`inspect_run` over MCP (#610).** Inspect for agents: a run URL and the claims as text in; the same record, digest and card that `trustshell check <runUrl> --claims` produces out, from api.github.com only. 1.8.0's MCP server lists 20 tools, and this is not one of them.
+
+## 1.8.0 — 2026-10-22
+
+1.8.0 is 1.8.0-rc.0 (the section below) promoted to npm `latest`, plus one fix, #596. A plain
+`npm install` now gives what that section lists. Between the candidate and this release the only
+change to package code (`src/`, `dist/`, `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`
+and `lib/interview.js`) is `src/cli/classify.ts` and its build, `dist/cli/classify.js`.
+
+- **Fix: the local Laya lane no longer takes quadratic time on a long run of trailing `.` or `!`
+  (#596).** `trustshell verify` with `TRUSTSHELL_LAYA=local` classifies the claim locally first, and
+  that classifier dropped trailing `.` and `!` with `/[.!]+$/`. CodeQL flagged it
+  (js/polynomial-redos): 20,000 `!` then a letter took 2.2 s, and 40,000 took 9 s. It now drops them
+  with a backwards scan and returns the same lane as before. (`classify` in `src/cli/classify.ts`;
+  tests/laya-classify.test.ts "drops trailing . and ! exactly as before, in linear time (CodeQL
+  polynomial-redos)", which pins `OK!!!`, `thank you.`, `yes.!.!`, `ok!x` and `!!!`, and runs
+  40,000 `!` and 40,000 `.` in under 500 ms.)
+- **In 1.8.0-rc.0 too, and not in its notes: `package.json` declares `engines` `node >=22.13.0`.**
+  The memory commands load `node:sqlite`. 1.7.0 declared no engines.
+- **Package size.** 123 files, the same count as 1.8.0-rc.0 (`dist.fileCount` from `npm view`;
+  `npm pack --dry-run` on this release). That is 1.7.0's 107 plus `dist/cli/profile`,
+  `dist/learn/cli`, `dist/learn/report`, `dist/learn/store`, `dist/lib/action-evidence`,
+  `dist/lib/evidence-card`, `dist/lib/jcs` and `dist/lib/local-only` (`.js` and `.d.ts` each).
+  Runtime dependencies are unchanged.
+
 ## 1.8.0-rc.0 — 2026-10-21 (release candidate, npm dist-tag `next`)
 
 A release candidate for outside testers. **`latest` stays 1.7.0**: nobody gets this from a plain
@@ -13,6 +48,21 @@ account, no key, no TrustShell backend, and `GITHUB_TOKEN` is optional (it only 
 The first bullet below is that. The rest rode along from main since 1.7.0 was cut (it was re-cut on
 `51897d4c`, #575) and are not what this candidate asks testers to try.
 
+- **`check <runUrl> --claims … --guided` (EXPERIMENTAL): "All checks pass." against every check on
+  the commit.**
+  - A claim line that cites nothing is read as being about the named run, but only when nothing in
+    the text points elsewhere.
+  - Every check on the run's commit is read: latest and earlier attempts, statuses, suites, the
+    base branch's required checks, and whether the change edits its own workflows.
+  - SUPPORTED only when all of them passed. CONTRADICTED when any failed. Otherwise NOT_CHECKED,
+    with the reason.
+  - "All required checks pass." is a separate template (`ci.required_checks_pass`): only the base
+    branch's required checks, pinned to their apps. It is never decided without `--guided`.
+  - Off by default. Without the flag, output is byte-identical.
+  - Still only api.github.com, with more requests; `OFFLINE=1` sends nothing.
+  - Files: `src/lib/commit-checks.ts`, guided mode in `src/lib/action-evidence.ts`, tests in
+    `tests/action-evidence-guided.test.ts`, and a guided run in `scripts/check-egress.cjs`.
+    Reference: `docs/action-evidence.md`.
 - **`trustshell check <runUrl> --claims "<text>"` / `--claims-file <path>` (draft): what an agent
   said, against what the run reports.** Claims are split into atomic parts, each SUPPORTED,
   CONTRADICTED or NOT_CHECKED by a fixed template. Deny by default: only plain claim lines

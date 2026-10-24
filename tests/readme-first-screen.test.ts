@@ -47,8 +47,8 @@ describe('README first screen', () => {
     expect(readme.startsWith(`# ${README_TITLE}\n`)).toBe(true);
     expect(alsoAt).toBeGreaterThan(0);
     expect(first).toMatch(/## Check your own CI run/);
-    expect(bash).toContain('npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt');
-    expect(powershell).toContain('npx @hyperdag/trustshell@next check $run --claims-file claims.txt');
+    expect(bash).toContain('npx @hyperdag/trustshell@latest check "$RUN" --claims-file claims.txt');
+    expect(powershell).toContain('npx @hyperdag/trustshell@latest check $run --claims-file claims.txt');
     expect(first).toMatch(/no account, no API key, no TrustShell server/);
     expect(bash).not.toMatch(/&&/);
     expect(powershell).not.toMatch(/&&/);
@@ -65,7 +65,8 @@ describe('README first screen', () => {
   });
 
   it('labels its sample card as an excerpt of one recorded run, with the date and version', () => {
-    expect(first).toMatch(/An excerpt, recorded 2026-10-21 on 1\.8\.0-rc\.0 against a finished public run/);
+    // Re-recorded on the published 1.8.0, 2026-10-23 (E:\dev\reports\2026-10-23\release-1.8.0\stranger-bash\vite.out).
+    expect(first).toMatch(/An excerpt, recorded 2026-10-23 on 1\.8\.0 from npm against a finished public run/);
     expect(first).toContain('PLATFORM_REPORTED');
   });
 

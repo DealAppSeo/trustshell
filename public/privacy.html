@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>TrustShell privacy</title>
+  <title>TrustShell privacy: the Chrome extension and the sentence check</title>
 </head>
 <body>
   <article>
-    <h1>TrustShell privacy</h1>
+    <h1>TrustShell privacy: the Chrome extension and the sentence check</h1>
+    <p>This page covers the Chrome extension and the hosted sentence check (/check). It does not yet cover prompts you run on /run, provider keys in the browser vault (see /connect), agent registration or wallet addresses.</p>
     <p>The reply text is sent to our engine. A reply that is one whole equation is computed there, with no model asked. Any other text is sent to our checkers, Groq and Cerebras. It is not stored. Not printed is not the same as not sent.</p>
-    <p>If one of them cannot answer (it is busy, down or out of capacity), a backup checker takes its turn, from this list and no other: Cloudflare Workers AI (Llama), Meta's Llama model run by Cloudflare under Meta's Llama license; OpenRouter, which we ask to use only providers that neither store nor train on what they are sent; and, only while we have paid checkers switched on, Mistral, Together and Fireworks. A backup is used only after it has answered our test claims correctly, and the two answers that decide a stamp always come from two different model families. Before any other host is added, this page changes first.</p>
+    <p>If one of them cannot answer (it is busy, down or out of capacity), a backup checker takes its turn, for the sentence check, from this list and no other: Cloudflare Workers AI (Llama), Meta's Llama model run by Cloudflare under Meta's Llama license; OpenRouter, which we ask to use only providers that neither store nor train on what they are sent; and, only while we have paid checkers switched on, Mistral, Together and Fireworks. A backup is used only after it has answered our test claims correctly, and the two answers that decide a stamp always come from two different model families. Before any other host is added, this page changes first.</p>
     <p>The extension reads the last assistant reply on chatgpt.com, chat.openai.com, claude.ai, gemini.google.com, grok.com, deepseek.com, and chat.deepseek.com.</p>
     <p>Nothing is sent until you switch a chat site on. A new install starts with every chat site off and with checks only when you click Check this reply; the extension's Options page opens at install and says what is sent and where before you choose. Checking automatically is a choice you make there.</p>
     <p>That text is sent to https://repid-engine-production.up.railway.app/api/v1/classify after the reply is on screen. There, a whole equation is computed with no model asked; any other text goes to the checkers named above. Known key and personal-data formats are removed before sending. The stamp says Checks out, Caught, or Not checked. A missing reply is Not checked.</p>

@@ -94,7 +94,7 @@ const OUTCOMES: ReadonlyArray<Outcome> = [
   {
     word: 'Checks out',
     state: 'MEASURED',
-    means: 'Two independent families looked at the claim and agreed it holds.',
+    means: 'Two checkers from different model families looked at the claim and agreed it holds.',
     blocks: 'Nothing — this is the clean result. It counts as a real check. A check on this site writes nothing to a score.',
   },
   {

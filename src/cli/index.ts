@@ -30,7 +30,7 @@ import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
-import { claimsExitCode, inspectRunClaims, terminalSafeJson } from '../lib/action-evidence';
+import { claimsExitCode, inspectRunClaims, MAX_CLAIMS_FILE_BYTES, terminalSafeJson } from '../lib/action-evidence';
 import { renderCardHtml, renderCardMarkdown } from '../lib/evidence-card';
 import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE, pathLine, OFFLINE_REASON } from '../lib/claim';
 import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
@@ -181,6 +181,8 @@ export interface ParsedArgs {
   out?: string;
   /** check <runUrl> --claims: mark the cards DEMO. */
   demo?: boolean;
+  /** check <runUrl> --claims: guided mode (EXPERIMENTAL), binding plus every check on the commit. */
+  guided?: boolean;
   /** learn: everything after `learn`, parsed by src/learn/cli.ts (its own verbs and options). */
   learnArgv?: string[];
   /** bundle / guard: everything after the command, parsed by src/cli/bundle.ts and src/cli/guard.ts. */
@@ -277,6 +279,11 @@ COMMANDS
                              (dev.trustshell.action-evidence/0.1-draft) and its RFC 8785 SHA-256.
       [--out <dir>]          Also write record.json, card.md and card.html into <dir>.
       [--demo]               Mark both cards DEMO.
+      [--guided]             EXPERIMENTAL. A claim line that cites nothing is read as about this
+                             run, and every check on the run's commit is read: check runs and
+                             re-runs, commit statuses, suites, the base branch's required checks,
+                             and whether the change edits its own workflows. So "All checks pass."
+                             can be decided. More requests to api.github.com, and nothing else.
                              EXIT 0 every claim SUPPORTED on a COMPLETE run, 1 a claim CONTRADICTED
                              or the run FAILED/INCONSISTENT, 3 anything NOT_CHECKED.
   check "<sentence>"         Label one sentence pass / veto / not-checked — the same label the
@@ -386,6 +393,13 @@ COMMANDS
   guard check --tool <name> [--class read|other|post|spend] [--amount <n>]
                              Ask the policy about any action from any harness. Recorded.
                              EXIT 0 ALLOWED, 5 DENIED, 2 NOT_CHECKED (no policy).
+  guard level [shadow|enforce|off]  SHADOW, off until turned on: an autonomy level (L0 observe, L1 read-only,
+                             L2 workspace, L3 broader) that rises with Inspect records SUPPORTED in full and
+                             falls on a CONTRADICTED one, an out-of-lane refusal or revocation. Shadow records
+                             the level and what it would have refused; Guard allows exactly what it did.
+                             enforce lets it refuse too, and never allows what the policy does not list.
+  guard level record <record.json> · guard level revoke · guard level after L1|L2|L3 <n>
+                             Count one record (check --claims-file --out writes it) · drop to L0 · set a threshold.
   run --tool <name> [--class <c>] [--amount <n>] -- <command> [args...]
                              The enforced path: decide and record BEFORE the command starts; a denied
                              command never starts (exit 5); an allowed one runs and its exit code is
@@ -513,6 +527,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     else if (a === '--trusted') flags.add('trusted');
     else if (a === '--include-quarantined') flags.add('include-quarantined');
     else if (a === '--demo') flags.add('demo');
+    else if (a === '--guided') flags.add('guided');
     else if (a === '-h' || a === '--help') flags.add('help');
     else if (a === '-v' || a === '--version') flags.add('version');
     else if (VALUE_OPTS.has(a) || a === '--echo') {
@@ -584,7 +599,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const full = isFreeText ? rest.join(' ') : operand;
       const claimsText = values['claims'];
       const claimsFile = values['claims-file'];
-      if (cmd === 'check' && (claimsText !== undefined || claimsFile !== undefined || values['out'] !== undefined || flags.has('demo'))) {
+      if (cmd === 'check' && (claimsText !== undefined || claimsFile !== undefined || values['out'] !== undefined || flags.has('demo') || flags.has('guided'))) {
         // Refused rather than ignored: `check "<sentence>" --claims x` would otherwise send the
         // sentence to the classify endpoint and quietly drop the claims the caller meant to map.
         if (isFreeText) {
@@ -594,9 +609,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
           return { command: 'check', json, verify, error: 'give --claims "<text>" or --claims-file <path>, not both' };
         }
         if (claimsText === undefined && claimsFile === undefined) {
-          return { command: 'check', json, verify, error: '--out and --demo apply only with --claims or --claims-file' };
+          return { command: 'check', json, verify, error: '--out, --demo and --guided apply only with --claims or --claims-file' };
         }
-        return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo') };
+        return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo'), guided: flags.has('guided') };
       }
       return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
     }
@@ -1452,8 +1467,7 @@ export async function run(
   }
 }
 
-/** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
-export const MAX_CLAIMS_FILE_BYTES = 256 * 1024;
+export { MAX_CLAIMS_FILE_BYTES };
 
 /**
  * `--claims-file <path>`: the only way claim text comes from a file.
@@ -1500,7 +1514,7 @@ async function runClaimsAgainstRun(args: ParsedArgs, io: CliIO): Promise<number>
     return EXIT.USAGE;
   }
   try {
-    const { record, digest } = await inspectRunClaims(args.operand as string, claimText);
+    const { record, digest } = await inspectRunClaims(args.operand as string, claimText, { guided: args.guided });
     const card = renderCardMarkdown(record, { demo: args.demo });
     if (args.out) {
       const fs = require('node:fs') as typeof import('node:fs');

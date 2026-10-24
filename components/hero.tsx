@@ -1,6 +1,8 @@
 import CheckForm from '@/app/check/CheckForm';
 import CompareForm from '@/app/check/CompareForm';
 import { HeroResult } from '@/components/hero-result';
+import { OnboardingTalk } from '@/components/onboarding-talk';
+import { ONBOARDING_TALK } from '@/lib/onboarding-flag';
 import { HERO_RUN, HOME_SAMPLES } from '@/lib/home-samples';
 import { MEANING } from '@/lib/stamp-words';
 
@@ -11,11 +13,14 @@ import { MEANING } from '@/lib/stamp-words';
  *
  * WHAT IT SAYS, AND WHERE EACH LINE COMES FROM. No new claim: each line restates one the site already
  * made (the PR body lists them).
- *   - The headline narrows the copy doc's "Know if an AI answer is right": two checkers agreeing is not
- *     the truth (Sean, 2026-10-06), and a check can come back Not checked, so the page promises the
- *     second opinion it has always promised ("TrustShell gets you a second opinion before you build on it").
- *   - The subhead is the old solution line, shortened: "Two other AIs check the answer, and you see what
- *     each one said."
+ *   - THE HEADLINE (hero v2, 2026-10-24) is PRODUCT.md's own line, "Your AI says the job is done", turned into the
+ *     question the visitor is about to answer for themselves: "Is it?" It replaced "Get a second opinion before
+ *     you use an AI answer.", which stated a good habit with nothing at risk and no reason to act now. It still
+ *     promises only what the code does: two checkers read it and you see what each said, and Not checked is an
+ *     answer. It does not say "the truth" or "right": two checkers agreeing is not the truth (Sean, 2026-10-06).
+ *     /build, the developer door, already used the same line as its headline.
+ *   - The subhead is the old solution line, shortened and made personal: "Paste what it told you. Two other AIs
+ *     check it, and you see what each one said."
  *   - The legend is the live check's own words for each label, and the cost section's line for Not checked.
  *
  * SHOWN, NOT DESCRIBED. HeroResult is one real production check of the price card, with its date
@@ -54,10 +59,32 @@ export function Hero() {
       <div className="mx-auto grid max-w-6xl min-w-0 gap-6 lg:grid-cols-2 lg:gap-x-12">
         <div className="min-w-0 space-y-3 lg:col-start-1 lg:row-start-1">
           <h1 id="hero-heading" className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            Get a second opinion before you use an AI answer.
+            Your AI says the job is done. Is it?
           </h1>
           <p className="text-lg sm:text-xl text-slate-200" data-testid="hero-sub">
-            Paste the answer. Two other AIs check it, and you see what each one said.
+            Paste what it told you. Two other AIs check it, and you see what each one said.
+          </p>
+          {/* Developers (the meetup, the preview invite) want the credential-free CLI check, which lives on
+              /build; without this it is reachable only through the menu. */}
+          <p className="text-sm">
+            <a
+              href="/build#run-it"
+              data-testid="hero-dev-link"
+              className="inline-flex min-h-11 items-center text-amber-400 underline underline-offset-4 hover:text-amber-300"
+            >
+              Building agents? Check what your AI says about a CI run, in 5 minutes →
+            </a>
+          </p>
+          {/* The shareable hook, one quiet line: a game that shows an AI being sure and wrong, in a minute,
+              with nothing sent (hero v2, 2026-10-24). It is a link, not a second primary action. */}
+          <p className="text-sm">
+            <a
+              href="/for/vibe-coders"
+              data-testid="hero-play-link"
+              className="inline-flex min-h-11 items-center text-slate-300 underline underline-offset-4 hover:text-white"
+            >
+              Think you can spot an AI&apos;s lie? Play five rounds →
+            </a>
           </p>
         </div>
 
@@ -88,6 +115,7 @@ export function Hero() {
             submitLabel="Check this answer"
             privacyFolded
             emptyHint="Paste an answer in the box first, then check it."
+            afterResult={ONBOARDING_TALK ? <OnboardingTalk /> : undefined}
           />
           <CompareForm />
         </div>

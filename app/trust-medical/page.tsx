@@ -67,7 +67,7 @@ const IDEAS: ReadonlyArray<Idea> = [
   {
     title: 'Claims about a study would be checked',
     body:
-      'A statement about a study could go through the check, which is a vote by independent model families. Matching a quote against the document it cites is a different, separate step: a local command, trustshell ground, that looks for the quote on the cited page with no model and no network. It is not part of the check. What cannot be checked would say Not checked, never pass.',
+      'A statement about a study could go through the check, which is a vote by checkers from different model families. Matching a quote against the document it cites is a different, separate step: a local command, trustshell ground, that looks for the quote on the cited page with no model and no network. It is not part of the check. What cannot be checked would say Not checked, never pass.',
   },
   {
     title: 'Health data lives somewhere else. Always.',
@@ -124,7 +124,7 @@ export default function TrustMedicalPage() {
         <ul className="space-y-3 text-sm md:text-base text-muted leading-relaxed">
           <li>
             <Link href="/check" className="text-accent hover:underline">The check</Link>: paste a
-            sentence and two independent model families each give a verdict. You see what each said,
+            sentence and two checkers from different model families each give a verdict. You see what each said,
             with a receipt. If they cannot decide, it says Not checked, which never counts as a pass.
           </li>
           <li>

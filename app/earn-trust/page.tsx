@@ -147,14 +147,14 @@ const SANDBOX_FACTS: ReadonlyArray<SandboxFact> = [
 type HarnessPart = {
   name: string;
   body: string;
-  /** What @hyperdag/trustshell 1.7.0 actually does for this part. null = nothing live yet. */
+  /** What @hyperdag/trustshell 1.8.0 actually does for this part. null = nothing live yet. */
   live: string | null;
   /** What is designed and not shipped. */
   direction: string;
 };
 
 // The four portable parts, verbatim in substance from the glossary `trust-harness` term's note.
-// Each carries LIVE (what the published 1.7.0 package does, per its README and tests) and DIRECTION
+// Each carries LIVE (what the published 1.8.0 package does, per its README and tests) and DIRECTION
 // (designed, not shipped). tests/earn-trust-harness-tags.test.ts pins the tags so a part cannot
 // drift to "live" without the copy saying what runs.
 const HARNESS_PARTS: ReadonlyArray<HarnessPart> = [

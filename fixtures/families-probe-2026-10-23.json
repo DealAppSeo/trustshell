@@ -1,0 +1,213 @@
+{
+ "about": "Two live answers from production, recorded 2026-10-23 for scripts/probe-families.mjs. Bodies are exactly as returned. A recording, not a live check: run the script for that.",
+ "engine": "https://repid-engine-production.up.railway.app",
+ "sentence": "Paris is the capital of France.",
+ "recordedAt": "2026-10-23T23:17:32.816Z",
+ "classify": {
+  "status": 200,
+  "body": {
+   "label": "pass",
+   "latency_ms": 279,
+   "by": "votes",
+   "voters": [
+    "groq",
+    "cerebras"
+   ],
+   "deciders": [
+    "groq",
+    "cerebras"
+   ],
+   "votes": [
+    {
+     "voter": "groq",
+     "family": "gpt-oss",
+     "verdict": "TRUE"
+    },
+    {
+     "voter": "cerebras",
+     "family": "qwen",
+     "verdict": "TRUE"
+    }
+   ]
+  }
+ },
+ "hal": {
+  "status": 200,
+  "body": {
+   "hal_score": 0,
+   "decision": "clean",
+   "mode": "fact-check",
+   "strictness": 2,
+   "product": "default",
+   "signals": {
+    "providers_used": 2,
+    "agreement": 1,
+    "degraded": false,
+    "families_used": 2,
+    "families": [
+     "qwen",
+     "openai"
+    ],
+    "independent_hosts": 2,
+    "families_unmapped": [
+     "deepseek-flash",
+     "qwen-3.8-27b"
+    ],
+    "quorum": "full",
+    "provider_health": {
+     "attempted": 2,
+     "succeeded": 2,
+     "failed": [],
+     "late": [
+      {
+       "name": "zai",
+       "note": "NOT_CHECKED: late after 2-family agreement"
+      }
+     ],
+     "selections": [
+      {
+       "name": "deepseek",
+       "model": "deepseek-flash",
+       "reason": "shipped default 'deepseek-chat' is not reachable on this key — selected 'deepseek-flash' from this key's live model list (family 'deepseek', new to this quorum)",
+       "source": "catalog"
+      },
+      {
+       "name": "cerebras",
+       "model": "qwen-3.8-27b",
+       "reason": "no model was configured — selected 'qwen-3.8-27b' from this key's live model list (family 'qwen', new to this quorum)",
+       "source": "catalog"
+      }
+     ]
+    }
+   },
+   "provider_responses": [
+    {
+     "provider": "cerebras",
+     "model": "qwen-3.8-27b",
+     "verdict": "TRUE",
+     "confidence": 100,
+     "note": "Paris is France's capital.",
+     "latency_ms": 192
+    },
+    {
+     "provider": "groq",
+     "model": "openai/gpt-oss-20b",
+     "verdict": "TRUE",
+     "confidence": 100,
+     "note": "Paris is France's capital.",
+     "latency_ms": 217
+    },
+    {
+     "provider": "zai",
+     "model": "glm-4.5-flash",
+     "verdict": "UNCERTAIN",
+     "confidence": 0,
+     "note": "NOT_CHECKED: late after 2-family agreement",
+     "latency_ms": 221,
+     "counted": false,
+     "late": true
+    }
+   ],
+   "latency_ms": 223,
+   "sbfa": {
+    "decision": "abstain",
+    "belief": 0,
+    "belief_not": 0.9099999999999999,
+    "ignorance_mass": 0.09000000000000002,
+    "confidence": 0.9099999999999999,
+    "weighted_agreement": 0,
+    "escalate_to": null,
+    "correlated_warning": false,
+    "comma_conservative": false,
+    "reliability_source": "constant-placeholder(mean=0.7,strength=4) — NOT a verified-outcome oracle; GA wires the real one",
+    "enforced": false,
+    "trace": {
+     "votes": [
+      {
+       "validator": "cerebras",
+       "modelVersion": "qwen-3.8-27b",
+       "family": "qwen",
+       "belief": 0,
+       "confidence": 1,
+       "reliability_mean": 0.7,
+       "reliability_alpha": 2.8,
+       "reliability_beta": 1.2000000000000002,
+       "trust": 0.7,
+       "contributes_act": 0,
+       "contributes_not": 0.7,
+       "contributes_ignorance": 0.30000000000000004
+      },
+      {
+       "validator": "groq",
+       "modelVersion": "openai/gpt-oss-20b",
+       "family": "openai",
+       "belief": 0,
+       "confidence": 1,
+       "reliability_mean": 0.7,
+       "reliability_alpha": 2.8,
+       "reliability_beta": 1.2000000000000002,
+       "trust": 0.7,
+       "contributes_act": 0,
+       "contributes_not": 0.7,
+       "contributes_ignorance": 0.30000000000000004
+      }
+     ],
+     "fused": {
+      "belief_act": 0,
+      "belief_not": 0.9099999999999999,
+      "ignorance_mass": 0.09000000000000002
+     },
+     "weighted_agreement": 0,
+     "act_threshold": 0.67,
+     "ignorance_cap": 0.45,
+     "min_confidence": 0.5,
+     "stakes": "medium",
+     "action": "protective",
+     "reliability_source": "constant-placeholder(mean=0.7,strength=4) — NOT a verified-outcome oracle; GA wires the real one",
+     "flags": {
+      "correlated_warning": false,
+      "comma_conservative": false,
+      "near_deadlock_triggered": false
+     },
+     "lines": [
+      "SBFA v0.2 · stakes=medium · action=protective · reliability=constant-placeholder(mean=0.7,strength=4) — NOT a verified-outcome oracle; GA wires the real one",
+      "· cerebras (qwen-3.8-27b/qwen): believes ACTION 0.00 @ conf 1.00, earned reliability 0.70 ⇒ evidence act 0.00 / ¬act 0.70 / ignorance 0.30",
+      "· groq (openai/gpt-oss-20b/openai): believes ACTION 0.00 @ conf 1.00, earned reliability 0.70 ⇒ evidence act 0.00 / ¬act 0.70 / ignorance 0.30",
+      "Fused (Yager DST): belief(act)=0.000, belief(¬act)=0.910, ignorance=0.090; weighted agreement=0.000, confidence=0.910.",
+      "Bars (medium/protective): act ≥ 0.67, ignorance ≤ 0.45, confidence ≥ 0.5.",
+      "DECISION: ABSTAIN — Insufficient consensus to act (belief_act 0.000 < 0.67 or ignorance 0.090 > 0.45) — abstain."
+     ]
+    }
+   },
+   "execution_floor": {
+    "enabled": false,
+    "overridden": false,
+    "note": "shadow: floor computed 1 verdict(s) (authoritative=false, authoritative-failure=false); HAL decision unchanged",
+    "report": {
+     "enabled": false,
+     "verdicts": [
+      {
+       "claim": {
+        "content": "Paris is the capital of France.",
+        "type": "source-grounded",
+        "checkability": 0.4
+       },
+       "checker": "none",
+       "executed": false,
+       "passed": null,
+       "authoritative": false,
+       "result": "non-executable (source-grounded) — falls through to HAL"
+      }
+     ],
+     "hasAuthoritativeVerdict": false,
+     "hasAuthoritativeFailure": false
+    }
+   },
+   "injection": {
+    "injectionScore": 0,
+    "matched": [],
+    "decision": "allow"
+   }
+  }
+ }
+}

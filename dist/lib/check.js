@@ -19,6 +19,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CheckError = exports.DOES_NOT_PROVE = void 0;
 exports.parseRun = parseRun;
+exports.githubGet = githubGet;
 exports.plural = plural;
 exports.formatCheckCard = formatCheckCard;
 exports.runCheck = runCheck;
@@ -78,6 +79,15 @@ async function gh(path, token) {
             return { ...withToken, usedToken: true };
     }
     return { ...(await call('')), usedToken: false };
+}
+/**
+ * One GitHub GET for other read-only modules (`check --claims --guided` reads every check on a
+ * commit), with the same rule as `check`: the token in `GITHUB_TOKEN` is optional, only raises the
+ * rate limit, and a rejected one falls back to anonymous. `path` starts with `/repos/`.
+ */
+async function githubGet(path, env = process.env) {
+    const { ok, status, body } = await gh(path, (env['GITHUB_TOKEN'] || '').trim());
+    return { ok, status, body };
 }
 /**
  * Pluralise a counted noun. The card is the artefact people are shown; "1 jobs"
@@ -203,7 +213,7 @@ async function runCheck(url, env = process.env) {
                                 ? `${failed.length} of ${jobList.length} jobs did not pass: ${failed.map((j) => j.name).join(', ')}`
                                 : plural(jobList.length, 'job'),
             },
-            { ok: Boolean(sha), label: 'The commit exists on the remote', detail: sha },
+            { ok: Boolean(sha), label: 'GitHub reports the commit this run ran on', detail: sha },
         ],
         does_not_prove: exports.DOES_NOT_PROVE,
         run: {
@@ -213,6 +223,11 @@ async function runCheck(url, env = process.env) {
             workflow_path: String(run.body.path ?? ''),
             status: String(run.body.status ?? ''),
             conclusion: typeof run.body.conclusion === 'string' ? run.body.conclusion : null,
+            event: typeof run.body.event === 'string' ? run.body.event : null,
+            head_branch: typeof run.body.head_branch === 'string' ? run.body.head_branch : null,
+            head_owner: typeof run.body.head_repository?.owner?.login === 'string' ? run.body.head_repository.owner.login : null,
+            repo_full_name: typeof run.body.repository?.full_name === 'string' ? run.body.repository.full_name : null,
+            head_full_name: typeof run.body.head_repository?.full_name === 'string' ? run.body.head_repository.full_name : null,
         },
         jobs: {
             http_status: jobs.status,

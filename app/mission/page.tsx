@@ -96,7 +96,7 @@ export default function MissionPage() {
             <span>
               <strong className="text-white">State that persists with the agent, not the vendor.</strong>{' '}
               Identity, constitution and standing follow the agent across models. Your provider keys sit
-              in an encrypted browser vault we never receive. Your decision history stays on your device
+              in an encrypted browser vault, and reach our engine only when you test them or run a prompt with them. Your decision history stays on your device
               — and to be exact rather than flattering, it is stored there <em>unencrypted</em>, so it is
               private from us but not from someone holding your laptop. We would rather you knew which
               of those two things we are actually claiming.
@@ -153,10 +153,9 @@ export default function MissionPage() {
           </li>
           <li>
             <strong className="text-white">SBFA — decorrelated validators.</strong> Same-family models
-            share the same blind spots, so we never let a model grade its own family&apos;s homework.
-            Verification runs across independent model families instead, and the design is meant to get
-            <em> more</em> resilient under attack — red-teaming and slashing are how it hardens, not how it
-            breaks.{' '}
+            share the same blind spots, so the check uses two checkers from different model families. Today
+            nothing stops one of them sharing the family of the model that wrote the answer, and both may run
+            on the same host; closing that gap is part of the design. Red-teaming is how it hardens.{' '}
             <Link href="/how-verification" className="text-amber-500 hover:underline">
               See how it works →
             </Link>
@@ -200,10 +199,9 @@ export default function MissionPage() {
           <p>
             <strong className="text-emerald-400">Real today.</strong>{' '}
             <code className="text-sm bg-black/40 px-1.5 py-0.5 rounded text-amber-300">npm install @hyperdag/trustshell</code>{' '}
-            wires an agent to HAL hallucination checking, ERC-8004 on-chain reputation, and x402
-            pay-on-trust against a live backend — with real Base Sepolia receipts, not a demo mode.
-            Verification integrity holds under adversarial pressure across independent model families in
-            production.
+            wires an agent to the hosted HAL check, reputation written as ERC-8004 feedback on the Base Sepolia
+            test network, and x402 payments the SDK signs on testnet, with limits the calling code sets. The
+            CLI&apos;s Inspect check of a GitHub Actions run needs no backend at all.
           </p>
           <p>
             <strong className="text-amber-400">Being built.</strong> Reputation is farmable today; the

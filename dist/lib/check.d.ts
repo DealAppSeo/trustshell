@@ -52,6 +52,13 @@ export interface CheckResult {
         workflow_path: string;
         status: string;
         conclusion: string | null;
+        /** What triggered the run (`push`, `pull_request`, …), and the branch and owner it ran on. */
+        event: string | null;
+        head_branch: string | null;
+        head_owner: string | null;
+        /** `owner/name` of the run's repository and of its head repository, both as the API reports them now. */
+        repo_full_name: string | null;
+        head_full_name: string | null;
     };
     /** What the jobs endpoint returned. `items` holds the jobs actually read, which may be fewer than `total`. */
     jobs: {
@@ -74,6 +81,16 @@ export declare function parseRun(url: string): ParsedRun | null;
  * says "✓ passed" is the failure this whole product exists to prevent.
  */
 export declare const DOES_NOT_PROVE: string[];
+/**
+ * One GitHub GET for other read-only modules (`check --claims --guided` reads every check on a
+ * commit), with the same rule as `check`: the token in `GITHUB_TOKEN` is optional, only raises the
+ * rate limit, and a rejected one falls back to anonymous. `path` starts with `/repos/`.
+ */
+export declare function githubGet(path: string, env?: Record<string, string | undefined>): Promise<{
+    ok: boolean;
+    status: number;
+    body: any;
+}>;
 /**
  * Pluralise a counted noun. The card is the artefact people are shown; "1 jobs"
  * on a tool whose subject is careful claims reads as carelessness about the

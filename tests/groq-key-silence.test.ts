@@ -3,7 +3,7 @@
  * Stdout and stderr must not contain it. A thrown error must not print it either.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -93,7 +93,8 @@ describe('GROQ_API_KEY stays out of CLI output', () => {
     expect(run.status).toBe(0);
     expect(run.stdout).not.toContain(SECRET);
     expect(run.stderr).not.toContain(SECRET);
-    expect(run.stdout).toMatch(/1\.8/);
+    // The version main says it is, not a hard-coded release: main runs ahead of npm between releases.
+    expect(run.stdout.trim()).toContain(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version);
   });
 
   it('a thrown error does not print the key', () => {

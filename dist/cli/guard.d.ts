@@ -37,9 +37,11 @@ export declare function plannedAction(args: ParsedArgs): {
 export declare function runGuarded(args: ParsedArgs, inner: () => Promise<number>, io: IO, env?: NodeJS.ProcessEnv): Promise<number>;
 /**
  * The card `trustshell run` prints: the five things a reader must keep apart. `doc` is the policy the decision
- * was made under: with it, a signature that does not verify reads as such instead of as "unsigned".
+ * was made under: with it, a signature that does not verify reads as such instead of as "unsigned". `own` is
+ * this install's key: a signature that verifies under any OTHER key read "owner-signed" until 2026-10-22, so a
+ * policy anyone self-signed was called the owner's (GUARD_AUTHORITY_CONCLUSION, case 2).
  */
-export declare function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null, doc?: PolicyDocument | null): string;
+export declare function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null, doc?: PolicyDocument | null, own?: string | null): string;
 export interface Spawner {
     (cmd: string, args: string[]): {
         status: number | null;
@@ -49,6 +51,8 @@ export interface Spawner {
 export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--json] -- <command> [args...]";
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
 export declare function runRun(argv: string[], io: IO, env?: NodeJS.ProcessEnv, spawn?: Spawner): number;
-export declare const GUARD_USAGE = "trustshell guard init [--force] [--days N]\ntrustshell guard show [--json]\ntrustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]\ntrustshell guard allow <action> \u00B7 guard deny <action>      (spend | post | tool | tool:<name>)\ntrustshell guard limit per-tx|daily|total <n> \u00B7 guard expire <days> \u00B7 guard kill \u00B7 guard sign";
+export declare const GUARD_USAGE = "trustshell guard init [--force] [--days N]\ntrustshell guard show [--json]\ntrustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]\ntrustshell guard allow <action> \u00B7 guard deny <action>      (spend | post | tool | tool:<name>)\ntrustshell guard limit per-tx|daily|total <n> \u00B7 guard expire <days> \u00B7 guard kill \u00B7 guard sign\ntrustshell guard level [--json] \u00B7 guard level shadow|enforce|off \u00B7 guard level after L1|L2|L3 <n>\ntrustshell guard level record <record.json> [--json] \u00B7 guard level revoke      (SHADOW by default)";
+/** The disclaimer every `guard level` reading carries. */
+export declare const LEVEL_IS_NOT = "Local guardrails for cooperative agents, not a security boundary: anything running as you can edit the policy or autonomy.jsonl, or hand guard level record a record.json it made up (a record is unsigned).";
 export declare function runGuard(argv: string[], io: IO, env?: NodeJS.ProcessEnv): number;
 export {};

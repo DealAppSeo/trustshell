@@ -54,6 +54,7 @@ const badge_1 = require("../lib/badge");
 const version_1 = require("../lib/version");
 const check_1 = require("../lib/check");
 const action_evidence_1 = require("../lib/action-evidence");
+Object.defineProperty(exports, "MAX_CLAIMS_FILE_BYTES", { enumerable: true, get: function () { return action_evidence_1.MAX_CLAIMS_FILE_BYTES; } });
 const evidence_card_1 = require("../lib/evidence-card");
 const claim_1 = require("../lib/claim");
 const init_1 = require("../lib/init");
@@ -172,6 +173,11 @@ COMMANDS
                              (dev.trustshell.action-evidence/0.1-draft) and its RFC 8785 SHA-256.
       [--out <dir>]          Also write record.json, card.md and card.html into <dir>.
       [--demo]               Mark both cards DEMO.
+      [--guided]             EXPERIMENTAL. A claim line that cites nothing is read as about this
+                             run, and every check on the run's commit is read: check runs and
+                             re-runs, commit statuses, suites, the base branch's required checks,
+                             and whether the change edits its own workflows. So "All checks pass."
+                             can be decided. More requests to api.github.com, and nothing else.
                              EXIT 0 every claim SUPPORTED on a COMPLETE run, 1 a claim CONTRADICTED
                              or the run FAILED/INCONSISTENT, 3 anything NOT_CHECKED.
   check "<sentence>"         Label one sentence pass / veto / not-checked — the same label the
@@ -281,6 +287,13 @@ COMMANDS
   guard check --tool <name> [--class read|other|post|spend] [--amount <n>]
                              Ask the policy about any action from any harness. Recorded.
                              EXIT 0 ALLOWED, 5 DENIED, 2 NOT_CHECKED (no policy).
+  guard level [shadow|enforce|off]  SHADOW, off until turned on: an autonomy level (L0 observe, L1 read-only,
+                             L2 workspace, L3 broader) that rises with Inspect records SUPPORTED in full and
+                             falls on a CONTRADICTED one, an out-of-lane refusal or revocation. Shadow records
+                             the level and what it would have refused; Guard allows exactly what it did.
+                             enforce lets it refuse too, and never allows what the policy does not list.
+  guard level record <record.json> · guard level revoke · guard level after L1|L2|L3 <n>
+                             Count one record (check --claims-file --out writes it) · drop to L0 · set a threshold.
   run --tool <name> [--class <c>] [--amount <n>] -- <command> [args...]
                              The enforced path: decide and record BEFORE the command starts; a denied
                              command never starts (exit 5); an allowed one runs and its exit code is
@@ -422,6 +435,8 @@ function parseArgs(argv) {
             flags.add('include-quarantined');
         else if (a === '--demo')
             flags.add('demo');
+        else if (a === '--guided')
+            flags.add('guided');
         else if (a === '-h' || a === '--help')
             flags.add('help');
         else if (a === '-v' || a === '--version')
@@ -495,7 +510,7 @@ function parseArgs(argv) {
             const full = isFreeText ? rest.join(' ') : operand;
             const claimsText = values['claims'];
             const claimsFile = values['claims-file'];
-            if (cmd === 'check' && (claimsText !== undefined || claimsFile !== undefined || values['out'] !== undefined || flags.has('demo'))) {
+            if (cmd === 'check' && (claimsText !== undefined || claimsFile !== undefined || values['out'] !== undefined || flags.has('demo') || flags.has('guided'))) {
                 // Refused rather than ignored: `check "<sentence>" --claims x` would otherwise send the
                 // sentence to the classify endpoint and quietly drop the claims the caller meant to map.
                 if (isFreeText) {
@@ -505,9 +520,9 @@ function parseArgs(argv) {
                     return { command: 'check', json, verify, error: 'give --claims "<text>" or --claims-file <path>, not both' };
                 }
                 if (claimsText === undefined && claimsFile === undefined) {
-                    return { command: 'check', json, verify, error: '--out and --demo apply only with --claims or --claims-file' };
+                    return { command: 'check', json, verify, error: '--out, --demo and --guided apply only with --claims or --claims-file' };
                 }
-                return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo') };
+                return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo'), guided: flags.has('guided') };
             }
             return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
         }
@@ -1379,8 +1394,6 @@ async function run(args, client, io = realIO) {
             return exports.EXIT.OK;
     }
 }
-/** A claims file larger than this is refused: no agent message or PR description is a megabyte. */
-exports.MAX_CLAIMS_FILE_BYTES = 256 * 1024;
 /**
  * `--claims-file <path>`: the only way claim text comes from a file.
  *
@@ -1399,8 +1412,8 @@ function readClaimsFile(path, fs = require('node:fs')) {
     }
     if (!st?.isFile())
         throw new Error(`--claims-file: no such file: ${path}`);
-    if (st.size > exports.MAX_CLAIMS_FILE_BYTES)
-        throw new Error(`--claims-file is ${st.size} bytes; the limit is ${exports.MAX_CLAIMS_FILE_BYTES}`);
+    if (st.size > action_evidence_1.MAX_CLAIMS_FILE_BYTES)
+        throw new Error(`--claims-file is ${st.size} bytes; the limit is ${action_evidence_1.MAX_CLAIMS_FILE_BYTES}`);
     const text = String(fs.readFileSync(path, 'utf8'));
     // One leading byte-order mark is a file-encoding marker, not text: Windows PowerShell 5.1 writes it
     // for `Out-File` and `Set-Content -Encoding utf8`, and kept it would make line 1 non-ASCII and
@@ -1426,7 +1439,7 @@ async function runClaimsAgainstRun(args, io) {
         return exports.EXIT.USAGE;
     }
     try {
-        const { record, digest } = await (0, action_evidence_1.inspectRunClaims)(args.operand, claimText);
+        const { record, digest } = await (0, action_evidence_1.inspectRunClaims)(args.operand, claimText, { guided: args.guided });
         const card = (0, evidence_card_1.renderCardMarkdown)(record, { demo: args.demo });
         if (args.out) {
             const fs = require('node:fs');

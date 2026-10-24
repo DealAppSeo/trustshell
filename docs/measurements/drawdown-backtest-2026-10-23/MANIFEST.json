@@ -1,0 +1,37 @@
+{
+  "pinnedBy": "scripts/drawdown-backtest.mjs fetch",
+  "fetchedAtUtc": "2026-10-23T23:04:36.599Z",
+  "range": {
+    "from": "2019-10-01",
+    "to": "2024-12-31"
+  },
+  "files": [
+    {
+      "name": "btc-usd-daily.json",
+      "sha256": "42a87e6c461747e1aabaaa8a5b29b2febc93f6de5a0ac65f308a5a3067dc4634",
+      "bytes": 116661,
+      "rows": 1919,
+      "columns": [
+        "time_unix_s",
+        "low",
+        "high",
+        "open",
+        "close",
+        "volume"
+      ],
+      "source": "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=86400 (public, keyless; 300 candles per call, merged and de-duplicated by time)"
+    },
+    {
+      "name": "fear-greed.json",
+      "sha256": "98a52e01586ec58e2abdb942a1801d9bf4deabb0b9b7bece5b7b647a321b9db9",
+      "bytes": 76746,
+      "rows": 1919,
+      "columns": [
+        "timestamp",
+        "value"
+      ],
+      "source": "https://api.alternative.me/fng/?limit=0 (public, keyless; filtered to the range)"
+    }
+  ],
+  "note": "The fetch step is the only one that touches the network. `run` verifies these hashes first and refuses to run if a file changed."
+}

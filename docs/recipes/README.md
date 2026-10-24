@@ -1,6 +1,6 @@
 # TrustShell recipes: use it from the tools you already have
 
-Each recipe uses only what ships today in `@hyperdag/trustshell` (`@next` = 1.8.0-rc.0; the plain name once 1.8.0 is on `latest`). None needs an account, an API key or a model. Each says exactly what was run and what was not.
+Each recipe uses only what ships today in `@hyperdag/trustshell` (1.8.0, npm `latest`). None needs an account, an API key or a model. Each says exactly what was run and what was not.
 
 | Recipe | You use | Status (2026-10-22, Windows 11) | Run it |
 |---|---|---|---|
@@ -13,8 +13,10 @@ Each recipe uses only what ships today in `@hyperdag/trustshell` (`@next` = 1.8.
 ## What these prove, and what they do not
 - `ground_quote` is a **local, deterministic text check**: the quote is, or is not, in the source you gave it. It does not say the quote is true, or that the source is trustworthy.
 - The Inspect step (GitHub Actions) reads a **finished** run from api.github.com. SUPPORTED is scoped to the platform record, and a claim with a wrong workflow name is NOT_CHECKED, never SUPPORTED. It is not a code review.
-- The MCP server does **not** expose Inspect (the CI-run check). Its `check_claim` tool is a different, model-based, hosted check. Only `ground_quote` and the note tools are local and deterministic.
+- The published MCP server (1.8.0) does **not** expose Inspect (the CI-run check). This tree adds the `inspect_run` tool: a run URL and the claims as text in, the same record, digest and card as `check <runUrl> --claims` out, from api.github.com only. It differs from `check_claim`, which is a hosted, model-based check of one sentence. `ground_quote` and the note tools are local and deterministic; `inspect_run` is deterministic and reads api.github.com.
 - Nothing here is sandboxed: MCP servers run code on your machine. Read before you enable.
 
+**MCP does not grant authority.** `inspect_run` reads evidence and authorizes nothing: a SUPPORTED claim is not permission to merge, deploy or pay. It is not the hosted `check_claim`. And a tool that an agent can discover and call over MCP is not, for that reason, a tool the agent is permitted to act on. What an agent may do is your decision, written in your own policy, never inferred from a tool list.
+
 ## Re-verify
-`python langgraph/recipe.py` and `python smolagents/recipe.py` should print `20 TrustShell tools loaded` and one `VERIFIED exact_match` and one `VETO quote_not_found` line. If the tool count changes, the server changed: re-read its tool list.
+`python langgraph/recipe.py` and `python smolagents/recipe.py` should print `20 TrustShell tools loaded` (21 from the first release with `inspect_run`) and one `VERIFIED exact_match` and one `VETO quote_not_found` line. If the tool count changes, the server changed: re-read its tool list.

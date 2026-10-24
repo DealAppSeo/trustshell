@@ -6,12 +6,12 @@ TrustShell reads a **public GitHub Actions run** from GitHub and sets what your 
 
 ## Check your own CI run
 
-Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `@next` is the release candidate that has `--claims`; plain `npx @hyperdag/trustshell` runs the stable release (see Status below), which does not have it yet.
+Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `--claims` and `--claims-file` are new in 1.8.0 (see Status below); 1.7.0 and older do not have them. `@latest` makes npx fetch the current release; without it, npx runs any older copy installed globally.
 
 ```bash
 RUN=https://github.com/OWNER/REPO/actions/runs/1234567890
 printf 'The workflow run succeeded, run %s.\n' "${RUN##*/}" > claims.txt
-npx @hyperdag/trustshell@next check "$RUN" --claims-file claims.txt
+npx @hyperdag/trustshell@latest check "$RUN" --claims-file claims.txt
 ```
 
 Windows PowerShell:
@@ -19,10 +19,10 @@ Windows PowerShell:
 ```powershell
 $run = "https://github.com/OWNER/REPO/actions/runs/1234567890"
 "The workflow run succeeded, run $($run.Split('/')[-1])." | Set-Content claims.txt
-npx @hyperdag/trustshell@next check $run --claims-file claims.txt
+npx @hyperdag/trustshell@latest check $run --claims-file claims.txt
 ```
 
-`claims.txt` is what your agent said. The line above writes one claim for you so the first run works; **replace it with your agent's own words** to test them. You get a card that marks each claim **SUPPORTED**, **CONTRADICTED** or **NOT_CHECKED**, and ends with what it does not prove. An excerpt, recorded 2026-10-21 on 1.8.0-rc.0 against a finished public run (`vitejs/vite`, run 39524643058), exit 0:
+`claims.txt` is what your agent said. The line above writes one claim for you so the first run works; **replace it with your agent's own words** to test them. You get a card that marks each claim **SUPPORTED**, **CONTRADICTED** or **NOT_CHECKED**, and ends with what it does not prove. An excerpt, recorded 2026-10-23 on 1.8.0 from npm against a finished public run (`vitejs/vite`, run 39524643058), exit 0:
 
 ```
 - **Run** `vitejs/vite` · run 39524643058 · attempt 1 · commit `daa260240c0863604b8ab565e3c35d81df6e85f2`
@@ -42,6 +42,8 @@ Four things to know before you try your own words:
 
 If the card says **SUPPORTED** and it should not have, that is the worst bug this tool can have: [open an issue](https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml) with the run URL and your claim file. The rules are in [docs/action-evidence.md](docs/action-evidence.md); to help, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+We also attack it ourselves, and the results are public with the exact setup beside every number: [docs/red-team.md](docs/red-team.md), regenerated from the red-team loops' own records, listing the runs that found nothing to grade as well as the ones that did. It claims counts for specific runs, not that the system is unbreakable. The research behind that caution, including the work that cuts against us, is in [hyperdag-protocol/docs/WHY.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/docs/WHY.md).
+
 ## Building on ERC-8004, x402 or OpenClaw?
 
 For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. This is a developer preview and we want you to test it with us. [trustshell.dev/build](https://trustshell.dev/build) shows, for each, what runs today with a command or a source you can check, and what is not built yet:
@@ -50,7 +52,7 @@ For teams already using ERC-8004 identities, x402 payments or OpenClaw hooks. Th
 - **x402:** if your agent pays with x402, run the page's script with a throwaway key and watch the default payment path refuse a payment with no policy, or over the cap it states, before anything is signed. The calling code supplies the policy and cap, so this stops a mistaken or unconfigured agent, not one that writes its own policy. Paying only for work that checked out is not available through TrustShell yet.
 - **OpenClaw:** if you already use `before_tool_call` and `after_tool_call`, that is exactly where a policy check and a receipt would attach. An OpenClaw skill that runs the CLI exists ([`skills/trustshell`](skills/trustshell/SKILL.md)); a plugin that uses the hooks does not yet. Build it with us.
 
-The finding we want most is a claim we wrongly supported. A permission we failed to enforce, or a record another machine cannot verify, comes next. [Tell us](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the card from `npx @hyperdag/trustshell@next check <run-url> --claims-file claims.txt --out card`; a bug we accept and fix gets a regression test in the repo's own test suite.
+The finding we want most is a claim we wrongly supported. A permission we failed to enforce, or a record another machine cannot verify, comes next. [Tell us](https://github.com/DealAppSeo/trustshell/issues/new/choose) with the card from `npx @hyperdag/trustshell check <run-url> --claims-file claims.txt --out card`; a bug we accept and fix gets a regression test in the repo's own test suite.
 
 ## Also: check one sentence an AI told you
 
@@ -77,7 +79,7 @@ That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run
 
 [![npm](https://img.shields.io/npm/v/@hyperdag/trustshell)](https://www.npmjs.com/package/@hyperdag/trustshell)
 [![npm downloads](https://img.shields.io/npm/dm/@hyperdag/trustshell.svg)](https://www.npmjs.com/package/@hyperdag/trustshell)
-[![Standard: ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-blue)](https://github.com/DealAppSeo/hyperdag-protocol)
+[![Standard: ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-blue)](https://eips.ethereum.org/EIPS/eip-8004)
 [![Protocol: HyperDAG](https://img.shields.io/badge/Protocol-HyperDAG-purple)](https://github.com/DealAppSeo/hyperdag-protocol)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
 
@@ -89,7 +91,7 @@ That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run
 
 | | Today |
 |---|---|
-| npm `latest` | **1.7.0** (`npm view @hyperdag/trustshell version`). |
+| npm `latest` | **1.8.0** (`npm view @hyperdag/trustshell version`). |
 | HAL quorum | **3 answering / 5 configured** (MEASURED 2026-10-06, `GET /api/v1/hal/stats` → `quorum_health`, 24-hour window). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
@@ -102,7 +104,7 @@ Not a launch announcement.
 
 **Calls:**
 
-- **[DealAppSeo/repid-engine](https://github.com/DealAppSeo/repid-engine)**, the HyperDAG engine, at `https://repid-engine-production.up.railway.app` unless `TRUSTSHELL_API_URL` names another. That default is set in the `TrustShell` constructor (`src/lib/trustshell.ts`) and as `DEFAULT_API_URL` (`src/lib/claim.ts`). Every networked SDK method, CLI command and MCP tool goes there, except `check <runUrl>` and `verifySigner()`.
+- **[DealAppSeo/repid-engine](https://github.com/DealAppSeo/repid-engine)**, the HyperDAG engine, at `https://repid-engine-production.up.railway.app` unless `TRUSTSHELL_API_URL` names another. That default is set in the `TrustShell` constructor (`src/lib/trustshell.ts`) and as `DEFAULT_API_URL` (`src/lib/claim.ts`). Every networked SDK method, CLI command and MCP tool goes there, except `check <runUrl>`, the MCP `inspect_run` tool (both api.github.com only) and `verifySigner()`.
 - **`@hyperdag/proof-verifier`** `^0.2.0`, a runtime dependency that npm installs beside this package. `verifyProof()`, `presentProof(id, { verify: true })`, the `verify()` export, `proof --verify` and `badge` load it when called and run it on your machine.
 - **The ERC-8004 ReputationRegistry on Base Sepolia**, read only: `getClients` through the public RPC `https://sepolia.base.org`, from `verifySigner()` alone (`src/lib/verify-signer.ts`, needs the optional `ethers`). The package writes nothing on chain and does not read the IdentityRegistry itself. For an agent whose record says `MINTED`, `getIdentity()` / `getRepID()` ask the engine for its own `ownerOf` read (`GET /api/v1/agents/:id/onchain`) and say "on-chain" only if that read found an owner for the token and the recorded registry is the canonical one; otherwise the answer is `NOT_CHECKED`. The canonical address sits in `src/lib/identity.ts` only to compare that record with.
 - **`api.github.com`**, from `check <runUrl>` alone.
@@ -120,15 +122,20 @@ The Chrome extension in `extension/` does not import this package. It asks the s
 
 ---
 
-## The portable agentic trust harness
+## The trust harness: what runs today, and where it is going
 
-Most "LLM trust" tools are *judges* — they score an output and leave the decision to you. TrustShell is a **fail-closed gate**: it can **refuse**, it hands back a **ZK-verifiable receipt** you check yourself (not our word), and it carries a **portable, earned RepID** that travels with the agent as you swap the model underneath. An unavailable check is never a pass. That is the difference between *another LLM judge* and a *trust rail*.
+Most "LLM trust" tools are *judges*: they score an output and leave the decision to you. TrustShell is built to **fail closed**. An unavailable check is never a pass. It hands you evidence you can check yourself, rather than our word.
+- **Today:** Inspect checks an agent's claims about a CI run against GitHub's own record. Its record is canonical JSON with a SHA-256 digest; it is not signed yet.
+- **Direction:** a harness that is yours. Your rules, memory and evidence stay with you as you swap the model underneath. Carry, which takes your profile, rules and notes to another machine, is built and not yet released. Reputation that moves with an agent is the aim, and it is not a property of this release.
 
-**One `npm install` gives any agent three protocols in one wrapper:**
+Why we build it, and the research for and against each part: [hyperdag-protocol/docs/WHY.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/docs/WHY.md).
 
-- ✅ **HAL cross-LLM verification** — `verifyOutput()` — real cross-provider fact-check quorum (keyless, live-verified)
-- 🏅 **ERC-8004 portable reputation** — `getRepID()` / `presentProof()` — look up any agent's RepID score + tier, or present a client-verifiable range proof (keyless, live-verified)
-- 💸 **x402 payments** — `executeA2A()` / `guardedX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (key-gated: blocked without an API key and a funded Base Sepolia wallet, which is why [Live vs paused](#live-vs-paused) lists it as `paused/blocked`)
+**One `npm install` gives you:**
+
+- 🔎 **Inspect** — `trustshell check <run-url> --claims-file <file>` — checks what an agent said about a GitHub Actions run against GitHub's record (no account, no key; its only network call is to api.github.com)
+- ✅ **A hosted second-opinion check** — `verifyOutput()` — two AI checkers read one sentence (keyless). Two agreeing checkers are a second opinion, not proof.
+- 🏅 **ERC-8004 reputation** — `getRepID()` / `presentProof()` — look up an agent's RepID score and tier, or present a range proof anyone can check; the score itself is public (keyless, Base Sepolia test network)
+- 💸 **x402 payments** ([x402](https://github.com/coinbase/x402) by Coinbase) — `executeA2A()` / `guardedX402Payment()` — agent-to-agent service purchase over EIP-3009 x402 (key-gated: blocked without an API key and a funded Base Sepolia wallet, which is why [Live vs paused](#live-vs-paused) lists it as `paused/blocked`)
 
 HAL verify and RepID lookup run against the live backend with **no key**. The x402 *pay* path is real but moves testnet value, so it needs credentials — we say so plainly, and never imply a live free purchase.
 
@@ -196,17 +203,17 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 npm install @hyperdag/trustshell
 ```
 
-This is the one live, published install today. It delivers all three protocols in one wrapper — **HAL** verification, **ERC-8004** portable RepID, and **x402** agent-to-agent payments — against the live backend.
+This is the one live, published install today. It delivers Inspect, the hosted **HAL** check, **ERC-8004** RepID reads and range proofs, and **x402** payments with a spend guard, against the live backend (anything on-chain is on the Base Sepolia test network).
 
-The package does not carry the Next.js/React site. The 1.7.0 tarball is 107 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.7.0 dependencies peerDependencies dist.fileCount`)
+The package does not carry the Next.js/React site. The 1.8.0 tarball is 123 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.8.0 dependencies peerDependencies dist.fileCount`)
 
 ### Which package do I install?
 
 | If you're… | Install | What you get |
 |---|---|---|
-| A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — HAL verification + ERC-8004 RepID + x402 payments, in your TypeScript/JS |
-| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.7.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
-| Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone Plonky3 proof checking. It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
+| A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — Inspect, HAL verification, ERC-8004 RepID reads and x402 payments, in your TypeScript/JS |
+| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.8.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
+| Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone checking of [Plonky3](https://github.com/Plonky3/Plonky3) proofs (Plonky3 is Polygon Labs' proof system). It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
 
 **Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a separate package it depends on: npm installs it alongside, and the published tarball contains none of its files.**
 
@@ -215,7 +222,7 @@ The package does not carry the Next.js/React site. The 1.7.0 tarball is 107 file
 The MCP server is the `trustshell-mcp` bin inside `@hyperdag/trustshell`. A global install puts it on PATH:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.7.0
+npm i -g @hyperdag/trustshell@1.8.0
 ```
 
 Then add it to your Claude Desktop / Cursor / Claude Code config:
@@ -224,13 +231,13 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.7.0 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY), `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). `kernel_receipt`, `ground_quote`, `quarantine_list` and `quarantine_explain` are new in 1.7.0; 1.6.1 had the rest, and 1.6.0 also lacked `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; 1.7.0 removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. Since 1.7.0, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). This tree also registers `learn_lessons_for` and `learn_record` (see "Learning loop v1" below); the published 1.7.0 tarball does not include them. It has no purchase tool; buying is the SDK's `executeA2A`. Since 1.7.0, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
+In 1.8.0 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY), `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP), the learning-loop tools `learn_lessons_for` and `learn_record` (local, no network; see "Learning loop v1" below), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). `learn_lessons_for` and `learn_record` are new in 1.8.0. `kernel_receipt`, `ground_quote`, `quarantine_list` and `quarantine_explain` came in 1.7.0; 1.6.1 had the rest, and 1.6.0 also lacked `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; 1.7.0 removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. Since 1.7.0, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). This tree also registers `inspect_run`, Inspect for agents: a run URL and the claims as text in, the same record, digest and card `trustshell check <runUrl> --claims "<text>"` produces out, deterministic and from api.github.com only. It is a different check from `check_claim`, which labels one sentence with a hosted, model-based check. 1.8.0 does not include it. It has no purchase tool; buying is the SDK's `executeA2A`. Since 1.7.0, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
 ### Install straight from GitHub (no npm registry) — LIVE
 
-The SDK also installs directly from the repo. That gives you `main`, which can run ahead of the published 1.7.0 — useful for pinning a commit or as a registry-independent fallback:
+The SDK also installs directly from the repo. That gives you `main`, which can run ahead of the published 1.8.0 — useful for pinning a commit or as a registry-independent fallback:
 
 ```bash
 npm install github:DealAppSeo/trustshell
@@ -238,7 +245,7 @@ npm install github:DealAppSeo/trustshell
 npm install github:DealAppSeo/trustshell#<commit-or-branch>
 ```
 
-The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which can run ahead of the published release. For exactly what npm serves, install `@hyperdag/trustshell@1.7.0`.
+The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which can run ahead of the published release. For exactly what npm serves, install `@hyperdag/trustshell@1.8.0`.
 
 ---
 
@@ -451,7 +458,7 @@ trustshell verify "$(cat CHANGELOG_CLAIM.txt)" || {
 
 The check subcommand reads a public GitHub Actions run URL from the **public** GitHub API
 and prints what GitHub can confirm about it — that the run finished, that its conclusion was
-success, that **every job** passed, and that the commit exists on the remote.
+success, that **every job** passed, and which commit it ran on, as GitHub reports it.
 
 A run that is still queued or in progress is `INCONCLUSIVE`, never `FAILED` — an unfinished build
 has not failed, it has not answered. Likewise, if GitHub reports more jobs than it returned, the
@@ -611,9 +618,9 @@ trustshell quarantine release 2 --trusted                        # your word, re
   - A `hal` release says two checkers agreed, not that the note is safe to act on.
 - **Keyed values (`remember KEY VALUE`) carry no taint label** in v0.
 
-### Learning loop v1 — in this tree, not in the published 1.7.0
+### Learning loop v1 — since 1.8.0
 
-> **Not in the published 1.7.0.** On 1.7.0 and 1.6.1, `learn` is an unknown command.
+> **Since 1.8.0.** On 1.7.0 and older, `learn` is an unknown command.
 
 A local loop where your corrections become lessons the agent sees, and rulers say whether anything
 improved. It does nothing until you create a job, and nothing leaves the machine.
@@ -656,19 +663,19 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `ground` | **none** — reads the `--source` file. Since 1.7.0 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
-| `profile` | **none** — reads and writes `.trustshell/profile.md`. In this tree, not in the published 1.7.0 | none |
+| `profile` | **none** — reads and writes `.trustshell/profile.md`. Since 1.8.0 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
 | `redact` | **none** — deletes one row from the local memory file | none |
 | `quarantine` | **none** — reads and updates the local memory file; `release --source` reads that file | none |
-| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. In this tree, not in the published 1.7.0 | none |
+| `learn` | **none** — reads and writes the local memory file; `check run` and `probe run` execute the command you registered. Since 1.8.0 | none |
 | `quarantine release --check hal` | the default HyperDAG backend only, `/api/v1/classify`, after the same scrub as `check`. A `TRUSTSHELL_API_URL` that points elsewhere is not asked, and nothing is released | keyless |
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
-| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, not in the published 1.7.0 | none |
-| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, not in the published 1.7.0 | none |
-| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, not in the published 1.7.0 | none |
+| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, in no npm release yet (not in 1.8.0) | none |
+| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. `guard level` (autonomy levels, SHADOW, off until turned on: [docs/autonomy-levels.md](docs/autonomy-levels.md)) also reads the record file you name and appends to `autonomy.jsonl`. In this tree, in no npm release yet (not in 1.8.0) | none |
+| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, in no npm release yet (not in 1.8.0) | none |
 
 No command uploads your input anywhere other than the host named above.
 
@@ -721,10 +728,10 @@ Run `trustshell --help` for the full reference.
 
 ## Agent skill
 
-OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.7.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
+OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.8.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.7.0
+npm i -g @hyperdag/trustshell@1.8.0
 
 trustshell verify "<claim>"
 trustshell repid <id>
@@ -795,7 +802,7 @@ Register your agent at **[repid.dev/start](https://repid.dev/start)**. Browse li
 
 ## Model card
 
-A portable trust harness so AI has to earn it.
+A trust harness so AI has to earn it.
 
 Read-only card at [app/model-card/page.tsx](app/model-card/page.tsx). Columns: family, host, Honesty A, Help B. Honesty A is **FIXTURE** counts of TRUE, FALSE, and NOT_CHECKED from [`fixtures/hal-last-week.fixture.json`](fixtures/hal-last-week.fixture.json). Help B is **no ratings**. There is no human-ratings table in this repo.
 
@@ -816,6 +823,6 @@ HyperDAG Protocol — the trust layer TrustShell builds on — is moving toward 
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE). Patent rights, if any, are granted under the Apache 2.0 patent grant clause. Commercial use of the (experimental) Pythagorean Comma Veto methodology in closed-source systems requires written permission from DealApp Inc.
+Apache 2.0 — see [LICENSE](LICENSE). Copyright 2026 Sean Goodwin. Patent rights, if any, are granted under the Apache 2.0 patent grant clause.
 
-Built on [HyperDAG Protocol](https://github.com/DealAppSeo/hyperdag-protocol). ERC-8004 compatible. Micah 6:8.
+**Part of the HyperDAG trust stack.** How the pieces fit: [BUILDERS.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/BUILDERS.md#how-the-pieces-fit). Credits and licences, including [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) by its authors, [x402](https://github.com/coinbase/x402) by Coinbase and [Plonky3](https://github.com/Plonky3/Plonky3) by Polygon Labs: [ACKNOWLEDGEMENTS.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/ACKNOWLEDGEMENTS.md). Micah 6:8.

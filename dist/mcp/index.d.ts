@@ -26,6 +26,10 @@
  *   - check_claim    — `trustshell check "<sentence>"` parity: pass / veto / not-checked, the same
  *                      label the Chrome extension shows. Calls src/lib/claim.ts classifyClaim, the
  *                      one function the CLI also calls.
+ *   - inspect_run    — `trustshell check <runUrl> --claims "<text>"` parity (Inspect): claims mapped
+ *                      onto a GitHub Actions run, no model, api.github.com only. Calls the CLI's
+ *                      functions (src/lib/action-evidence.ts, src/lib/evidence-card.ts), so the
+ *                      record digest is the CLI's. Not check_claim, and never falls back to it.
  *   - my_job         — the agent's role, the tools it may use and until when, from its live grants
  *                      (src/lib/my-job.ts). Which agent: TRUSTSHELL_AGENT_ID, or .trustshell/.
  *   - kernel_receipt — `trustshell receipt <id>` parity: read a kernel receipt back, hash checked

@@ -32,8 +32,8 @@ describe('post-publish smoke', () => {
     expect(src).toMatch(/'install', '--prefix', dir/);
   });
 
-  it('checks the 1.7.0 shape by default and fails when latest is not the version asked for', () => {
-    expect(src).toMatch(/const DEFAULTS = \{ files: 105, tools: 19 \};/);
+  it('checks the 1.8.0 shape by default and fails when latest is not the version asked for', () => {
+    expect(src).toMatch(/const DEFAULTS = \{ files: 123, tools: 20 \};/);
     expect(src).toContain("check('dist-tag latest is this version', latest === v");
     expect(src).toContain("!tools.names.includes('quarantine_release')");
     expect(src).toMatch(/process\.exit\(failed\.length \? 1 : 0\)/);

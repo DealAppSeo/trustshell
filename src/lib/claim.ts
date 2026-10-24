@@ -21,7 +21,7 @@
  */
 import { redact } from '../memory/redact';
 import { resolveApiBase } from './api-url';
-import { LOCAL_ONLY_REASON, localOnly } from './local-only';
+import { LOCAL_ONLY_REASON, OFFLINE_REASON, localOnly } from './local-only';
 
 export const CLAIM_LABELS = ['pass', 'veto', 'not-checked'] as const;
 export type ClaimLabel = (typeof CLAIM_LABELS)[number];
@@ -30,7 +30,7 @@ export type ClaimLabel = (typeof CLAIM_LABELS)[number];
 export const DEFAULT_API_URL = 'https://repid-engine-production.up.railway.app';
 export const CLASSIFY_PATH = '/api/v1/classify';
 /** Why a check was not sent under OFFLINE=1. The CLI's `verify` and `check <url>` print the same words. */
-export const OFFLINE_REASON = 'OFFLINE=1 is set, so nothing was sent';
+export { OFFLINE_REASON };
 /** Stop waiting after this. A later answer is not-checked, never a pass. */
 export const CLAIM_TIMEOUT_MS = 6000;
 /** A label is one short word. A body larger than this is not an answer. */

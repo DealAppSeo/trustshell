@@ -88,9 +88,13 @@ export default function ConnectPage() {
           <p className="text-[#94a3b8] max-w-xl leading-relaxed">
             A <span className="text-white font-medium">Vault</span> is an encrypted, browser-only store for the
             model API keys you&apos;ll connect next. It&apos;s locked with a passphrase only you know, and it&apos;s{' '}
-            <span className="text-white font-medium">stored on your device — never on our servers</span>. Free-tier
-            prompts send no keys at all; when you run a paid model, your key rides along with that one request so
-            the engine can call the provider on your behalf — used in memory, never stored, redacted from logs.
+            <span className="text-white font-medium">stored on your device, not on our servers</span>. A key leaves
+            this browser only when you use it: <span className="text-white font-medium">Test</span> sends that one
+            key to our engine, and a prompt on <span className="text-white font-medium">Auto</span> (the default) or{' '}
+            <span className="text-white font-medium">Paid only</span> sends your OpenAI and Anthropic keys, if you
+            saved them, with that request so the engine can call a provider for you. Your other keys are not sent
+            with a prompt, because the engine does not use them. <span className="text-white font-medium">Free only</span>{' '}
+            sends no keys.
           </p>
 
           <ProgressStrip />
@@ -147,8 +151,9 @@ export default function ConnectPage() {
       <div className="space-y-2">
         <h2 className="text-3xl font-bold">Your API Keys</h2>
         <p className="text-[#94a3b8] leading-relaxed">
-          Each key you add is encrypted straight into your Vault — stored only in this browser, never sent to a
-          server. Connect at least one LLM provider to run your own models, or skip it: the free tier works
+          Each key you add is encrypted straight into your Vault and stored only in this browser. It is sent to our
+          engine only when you use it: Test, or a prompt on Auto or Paid only with the Vault unlocked. Connect at
+          least one LLM provider to run your own models, or skip it: the free tier works
           without any keys. Next up: <span className="text-white font-medium">Run</span> a prompt.
         </p>
       </div>

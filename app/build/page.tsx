@@ -27,13 +27,12 @@ import { CopyButton } from '@/components/build/copy-button';
 import { ShellSwitch } from '@/components/build/shell-switch';
 import { Explainer, FeedbackGap, RUN_URL, StudyBars, TradesBar, VerdictBreakdown } from '@/components/build/charts';
 
-// The package every command on this page runs. 1.8.0-rc.0 is on npm under `next`; when 1.8.0 is on
-// `latest` (the release PR), these two lines become '@hyperdag/trustshell@latest' and '1.8.0', and
-// every command, caption and copy button follows. Keep a tag: a bare npx runs any older global
-// install instead (measured 2026-10-22: bare printed 1.4.0 while latest was 1.7.0). Re-run the
-// transcripts on that package first.
-const PKG = '@hyperdag/trustshell@next';
-const PKG_VERSION = '1.8.0-rc.0';
+// The package every command on this page runs: 1.8.0, npm `latest` since 2026-10-23. Every command,
+// caption and copy button follows these two lines. Keep a tag: a bare npx runs any older global
+// install instead (measured 2026-10-22: bare printed 1.4.0 while latest was 1.7.0). When the version
+// changes, re-run the transcripts on the new package first (E:\dev\reports\2026-10-23\release-1.8.0).
+const PKG = '@hyperdag/trustshell@latest';
+const PKG_VERSION = '1.8.0';
 
 export const metadata = {
   title: 'Build with us — TrustShell',
@@ -310,7 +309,7 @@ export default function BuildPage() {
               lines={CHALLENGE_OUT}
               caption={
                 <>
-                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> {PKG_VERSION} from npm, run on 21
+                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> {PKG_VERSION} from npm, run on 23
                   October 2026 in an empty folder with no account and no key; … marks lines left out. The first
                   sentence is supported. In the second, the commit is contradicted, and its &ldquo;succeeded&rdquo; is
                   not checked, because it names a commit this run is not on. Exit 1 means a claim was contradicted.
@@ -401,7 +400,7 @@ export default function BuildPage() {
             copy={{ text: SPEND_SCRIPT, label: 'Copy spend.mjs', title: 'spend.mjs' }}
             lines={SPEND}
             wrap={false}
-            caption="Output from the npm developer preview, 1.8.0-rc.0. Signing an allowed payment also needs the ethers package, which the error tells you to install."
+            caption="Output from 1.8.0 on npm, run on 23 October 2026. Signing an allowed payment also needs the ethers package, which the error tells you to install."
           />
         </section>
 
@@ -451,7 +450,8 @@ export default function BuildPage() {
           </h2>
           <p className="max-w-prose text-base sm:text-lg leading-relaxed">
             None of these needs an account, an API key or a model, and each says what was run and what was not. We
-            ran them on 22 October 2026, on Windows 11, with {PKG_VERSION}.
+            ran them on 22 October 2026, on Windows 11, with 1.8.0-rc.0, and re-checked the MCP launch on 1.8.0 on 23
+            October (20 tools).
           </p>
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {RECIPES.map((r) => (
