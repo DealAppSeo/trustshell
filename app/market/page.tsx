@@ -79,7 +79,7 @@ function fmtUsdc(usdc: number): string {
   return usdc < 0.01 ? `$${usdc.toFixed(4)}` : `$${usdc.toFixed(2)}`;
 }
 
-async function loadServiceCatalog(): Promise<{ rows: ServiceTypeRow[]; fetchOk: boolean }> {
+async function loadServiceCatalog(): Promise<{ rows: ServiceTypeRow[]; fetchOk: boolean; agents: number }> {
   // Keyless engine read. This page previously went through sbSelect, which
   // returns [] for both "not configured" and "any non-2xx" — so a 401 from the
   // disabled legacy key rendered as "no services listed yet" over 38 live rows.
@@ -87,6 +87,10 @@ async function loadServiceCatalog(): Promise<{ rows: ServiceTypeRow[]; fetchOk: 
   // happened, which is the only thing that makes the empty-state honest.
   const read = await readServiceCatalog();
   const fetchOk = read.kind === 'ok';
+  // A row is one listing, not one provider: one agent lists several services. Count agents apart.
+  const agents = new Set(
+    (read.kind === 'ok' ? read.services : []).filter((r) => r.active !== false).map((r) => r.provider_agent_id),
+  ).size;
   const rows: AgentService[] = (read.kind === 'ok' ? read.services : [])
     .filter((r) => r.active !== false)
     .map((r) => ({
@@ -150,11 +154,11 @@ async function loadServiceCatalog(): Promise<{ rows: ServiceTypeRow[]; fetchOk: 
       min_repid_required: c.min_repid_required === Infinity ? 0 : c.min_repid_required,
     }))
     .sort((a, b) => b.providers - a.providers || b.fulfilled - a.fulfilled);
-  return { rows: normalized, fetchOk };
+  return { rows: normalized, fetchOk, agents };
 }
 
 export default async function TrustMarketPage() {
-  const { rows: catalog, fetchOk } = await loadServiceCatalog();
+  const { rows: catalog, fetchOk, agents } = await loadServiceCatalog();
   const totalProviders = catalog.reduce((s, r) => s + r.providers, 0);
   const totalFulfilled = catalog.reduce((s, r) => s + r.fulfilled, 0);
 
@@ -197,7 +201,7 @@ export default async function TrustMarketPage() {
           <h2 className="text-2xl font-bold text-foreground">Service catalog</h2>
           {catalog.length > 0 && (
             <p className="text-xs text-muted/60">
-              {`${catalog.length} service types · ${totalProviders} providers · ${totalFulfilled} fulfilled`}
+              {`${catalog.length} service types · ${totalProviders} listings from ${agents} agents · ${totalFulfilled} fulfilled`}
             </p>
           )}
         </div>
@@ -305,7 +309,7 @@ function ServiceCard({ row }: { row: ServiceTypeRow }) {
           </p>
         </div>
         <div>
-          <p className="text-muted/60">Providers</p>
+          <p className="text-muted/60">Listings</p>
           <p className="text-foreground font-medium">{row.providers}</p>
         </div>
       </div>

@@ -36,7 +36,7 @@ const BEATS: ReadonlyArray<Beat> = [
     href: '/bind',
     label: 'Open /bind',
     title: 'Claim it',
-    show: 'Sign once to prove the agent is yours. Instant, on record, revocable — the first moment a wallet is needed.',
+    show: 'Your wallet asks to sign twice (three times for a new account) to prove the agent is yours. On record, revocable — the first moment a wallet is needed.',
   },
   {
     href: '/wallet',
@@ -48,13 +48,13 @@ const BEATS: ReadonlyArray<Beat> = [
     href: '/stake',
     label: 'Open /stake',
     title: 'Stake',
-    show: "Escrow testnet USDC to back the agent's authority ceiling. Practice money on the test network.",
+    show: "Send test USDC to the agent's wallet on Base Sepolia. There is no escrow, and the funds are not locked. Practice money on the test network.",
   },
   {
     href: '/spend',
     label: 'Open /spend',
-    title: 'Let it trade',
-    show: 'Set a spend cap in your own wallet; the agent can buy and sell up to it and no further.',
+    title: 'Let it pay',
+    show: 'Set a spend cap in your own wallet; the agent can pay up to that many test USDC to an address, and no further.',
   },
   {
     href: '/examples',
@@ -118,8 +118,8 @@ export default function DemoPage() {
       <footer className="space-y-2 border-t border-border pt-6 text-sm text-muted leading-relaxed">
         <p>
           Everything here runs on <span className="text-foreground">Base Sepolia testnet</span> —
-          the money is practice money with no value. The journey is anonymous until the claim
-          step, which is the only one that needs a wallet.
+          the money is practice money with no value. There is no account until the claim step.
+          Claiming, staking and setting a spend cap each need a wallet.
         </p>
         <p>
           Want the why behind the layers?{' '}

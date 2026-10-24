@@ -15,7 +15,7 @@ describe('first-pass doc', () => {
     expect(doc).toContain('not a count of 0');
     expect(doc).toContain('post-HAL stays NOT_CHECKED');
     expect(doc).toContain('trustshell status');
-    expect(doc).toContain('Staking is not live');
+    expect(doc).toContain('Staking is on the Base Sepolia test network only. No mainnet or real-money stake.');
     expect(doc).not.toMatch(/first_pass|post_hal/);
     expect(doc).not.toMatch(/stake now/i);
     expect(doc).not.toMatch(/\bstaking is live\b/i);

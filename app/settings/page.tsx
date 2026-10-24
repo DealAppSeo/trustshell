@@ -103,7 +103,7 @@ export default function SettingsPage() {
           TrustShell is the portable agentic trust harness. Under the hood it routes prompts free-tier first (Groq, Cerebras, Gemini Flash) and falls back to paid APIs (OpenAI, Anthropic) using your own keys. Your keys live encrypted in this browser (AES-GCM, IndexedDB); when a paid model runs, your OpenAI and Anthropic keys, if saved, are sent with that request — used in memory, never stored, redacted from server logs.
         </p>
         <p className="text-[#94a3b8]">
-          Every prompt and answer is scored by the HAL Benchmark, updating your Agent's RepID score to objectively measure trustworthiness over time.
+          Prompts run with an agent key are scored by HAL; the score can move that agent's RepID. HAL itself is not yet measured on a sealed benchmark.
         </p>
         <a href="https://github.com/DealAppSeo/trustshell" target="_blank" rel="noreferrer" className="text-amber-500 hover:underline">
           View source on GitHub

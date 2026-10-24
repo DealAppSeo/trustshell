@@ -62,8 +62,8 @@ const CONTROLS: ReadonlyArray<Control> = [
     name: 'Harness',
     verb: 'the signed RECORD',
     one: 'Who owns the agent, what it agreed to, and what it has earned — carried across every surface.',
-    safety: 'A person is at the root. The owner revokes, and everything under that grant stops at once.',
-    efficiency: 'Standing travels with the agent, not the vendor, so switching to a cheaper or better model is a routing change, not starting over.',
+    safety: 'A person is at the root. Revoking a grant marks it, and everything delegated under it, not live in the engine’s record. Tool calls are not yet gated on that.',
+    efficiency: 'RepID is held by the TrustShell engine against the agent id, not by the model provider, so switching to a cheaper or better model is a routing change, not starting over.',
   },
 ];
 
@@ -161,9 +161,9 @@ export default function TrustHarnessPage() {
           </li>
         </ol>
         <p className="text-xs text-muted/70 leading-relaxed max-w-2xl">
-          The tier bands, the exact score moves and the restore cadence are engine governance and are
-          published, open by design, on <Link href="/repid" className="text-accent hover:underline">/repid</Link> —
-          this page describes the shape and links there rather than restating the numbers.
+          The shape of the formula and the fixed deltas are on{' '}
+          <Link href="/repid" className="text-accent hover:underline">/repid</Link>. The tuned constants,
+          the tier thresholds and the restore cadence are not published; this page describes the shape only.
         </p>
       </section>
 

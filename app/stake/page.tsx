@@ -309,7 +309,8 @@ export default function StakePage() {
         <PracticeBadge />
         <h2 className="text-3xl font-bold text-white">Stake USDC to raise authority</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
-          Escrow USDC to back an agent&apos;s reputation. Higher stake raises the agent&apos;s{' '}
+          Send test USDC (Base Sepolia) to your agent&apos;s session wallet to back its reputation.
+          There is no escrow contract, and the funds are not locked. Higher stake raises the agent&apos;s{' '}
           <span className="text-white font-medium">authority ceiling</span> — the maximum economic
           action it can take before requiring peer verification. Only a real on-chain deposit
           raises the ceiling the spend gate uses. Testnet stake shows in the figure below, but it
@@ -349,8 +350,8 @@ export default function StakePage() {
             <div>
               <p className="text-white font-medium">Verify your email to stake</p>
               <p className="text-sm text-[#94a3b8] mt-0.5">
-                One code. It creates the account the stake credits — no password, no wallet needed
-                for practice.
+                One code. It creates the account the stake credits, with no password. A practice
+                stake also needs an agent already bound to a wallet.
               </p>
             </div>
             <button
@@ -500,7 +501,7 @@ export default function StakePage() {
                     />
                     <span className="text-sm">
                       <span className="text-white font-medium">
-                        Send a real USDC stake on-chain
+                        Send a test-USDC stake on Base Sepolia
                       </span>
                       <span className="block text-[#64748b] mt-0.5">
                         Your wallet builds, signs and sends a Base Sepolia test-USDC transfer to your
@@ -555,14 +556,14 @@ export default function StakePage() {
                     : !account
                     ? 'Verify email to stake'
                     : realMode
-                      ? `Sign & send ${amount || '0'} real USDC`
+                      ? `Sign & send ${amount || '0'} test USDC`
                       : `Stake ${amount || '0'} testnet USDC`}
               </button>
             </form>
             {!realMode && (
               <p className="text-xs text-[#475569]">
-                Testnet stake — no real funds move. It still credits authority, which is why it is
-                tied to your account.
+                Testnet stake — no real funds move. It records a figure only and does not raise what
+                the agent may spend. It is tied to your account.
               </p>
             )}
           </section>

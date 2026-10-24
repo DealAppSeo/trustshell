@@ -18,4 +18,4 @@ Checked 2026-09-26 against the public route. The body was `status: NOT_CHECKED`,
 
 `GET /api/v1/hal/fact-check-count` returns `total`, `by_source`, and `last_updated`. It is not this distinction.
 
-Staking is not live. Wallet and stake stay testnet / shadow.
+Staking is on the Base Sepolia test network only. No mainnet or real-money stake.
