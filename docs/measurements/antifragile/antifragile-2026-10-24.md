@@ -99,6 +99,7 @@ Counted from the driver's own ledger (82 model attempts, 2026-10-24 06:31Z to 08
 - `CONFIRMED` is a mechanical reading of the assertions, and 7 of 7 model-written ones were not defects. Treat every CONFIRMED as something to read.
 - The reviewer's six are one reader's. A different reader, or a model reading the same source, may find others or none of these.
 - One platform (Windows 11, Node 22.17.0) and one run per replay setting.
+- **The instrument had a weakness, found late.** The loop's runner scores a step that its 30 s clock killed as an ordinary exit code, and on a heavily loaded machine that flipped one case's label once (a single-case check, outside the two corpora). Every corpus run here was repeated (two repetitions; one for the regression and replay checks) and none disagreed with itself, but a timeout that hit both repetitions would not show. `replay.mjs` now reports a killed step as INVALID, not as a result. The published-1.8.0 replay rows were taken before that fix and were re-run after it with the same labels (see the pull request).
 
 ## Replay it
 
@@ -109,7 +110,7 @@ node docs/measurements/antifragile/replay.mjs --pkg <package dir> --corpus docs/
 node docs/measurements/antifragile/replay.mjs --pkg <package dir> --corpus docs/measurements/antifragile/corpus-a05438a8.jsonl
 ```
 
-It prints one label per case and a `REPLAY {...}` line with the corpus hash it read. On the pinned builds above it reproduced all 56 and all 25 labels of the loop's runner (checked once each). `replay.mjs` is a trimmed copy of that runner; the loop that wrote the cases and drove the models is not in this repository.
+It prints one label per case and a `REPLAY {...}` line with the corpus hash it read (sha256 of the file with LF line endings, which is how it was frozen; git on Windows checks the file out with CRLF, so the raw bytes would hash differently). On the pinned builds above it reproduced all 56 and all 25 labels of the loop's runner (checked once each). `replay.mjs` is a trimmed copy of that runner; the loop that wrote the cases and drove the models is not in this repository.
 
 ## Records
 

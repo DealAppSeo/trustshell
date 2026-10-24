@@ -4,7 +4,7 @@
 // `node <pkg>/dist/cli/index.js <args>` with no shell, a scratch home, and TRUSTSHELL_API_URL pointed at a closed port. A model proposed each fixture; THIS PROGRAM decides:
 //   CONFIRMED       every `confirm` assertion held (the tool did what the fixture says is wrong; read the fixture before calling it a defect: some are ill-posed)
 //   NOT_REPRODUCED  a `confirm` assertion did not hold
-//   INVALID         the fixture's own `control` did not hold, so it proves nothing
+//   INVALID         the fixture's own `control` did not hold, or a step ran past 30 s and was killed (a loaded machine), so it proves nothing
 // The corpus line's sha256 is its ruler. Exit 0 always (a CONFIRMED line is a reading to do, not a verdict); 2 on bad usage.
 import fs from "node:fs";
 import os from "node:os";
@@ -65,9 +65,11 @@ async function runFixture(f, work) {
       const r = await new Promise((resolve) => {
         const c = spawn(process.execPath, [CLI, ...s.run.map(sub)], { cwd: proj, env, windowsHide: true });
         let out = "", err = ""; c.stdout.on("data", (d) => { if (out.length < 512 * 1024) out += d; }); c.stderr.on("data", (d) => { if (err.length < 512 * 1024) err += d; });
-        const t = setTimeout(() => c.kill(), 30000); c.stdin.on("error", () => {}); c.stdin.end(s.stdin || "");
-        c.on("close", (code) => { clearTimeout(t); resolve({ code, out, err }); });
+        let killed = false; const t = setTimeout(() => { killed = true; c.kill(); }, 30000); c.stdin.on("error", () => {}); c.stdin.end(s.stdin || "");
+        c.on("close", (code) => { clearTimeout(t); resolve({ code, out, err, killed }); });
       });
+      // A step the clock killed says nothing about the tool. Scored as an exit code it flipped a case to the wrong label on a loaded machine (2026-10-24).
+      if (r.killed) return { verdict: "INVALID", why: `a step ran past 30 s and was killed (${s.run[0]}): NOT_CHECKED, not a result` };
       steps.push({ ...r, hits_delta: hits - before });
     }
   } finally { try { srv.closeAllConnections?.(); } catch {} srv.close(); }
@@ -81,5 +83,6 @@ const work = fs.mkdtempSync(path.join(os.tmpdir(), "af-replay-")), pj = JSON.par
 for (const r of rows) { const o = await runFixture(r.fixture, work); out.push({ id: r.fixture.id, origin: r.origin, verdict: o.verdict, why: o.why }); if (!process.argv.includes("--json")) console.log(`${o.verdict.padEnd(15)} ${r.fixture.id}  [${r.origin}]`); }
 fs.rmSync(work, { recursive: true, force: true });
 const n = (v) => out.filter((x) => x.verdict === v).length;
-const summary = { corpus_sha256: sha(body), fixtures: rows.length, artifact: `${pj.name}@${pj.version}`, CONFIRMED: n("CONFIRMED"), NOT_REPRODUCED: n("NOT_REPRODUCED"), INVALID: n("INVALID") };
+// The hash is over the file with LF line endings, which is how it was frozen; git on Windows checks the same file out with CRLF, and the raw bytes would hash differently.
+const summary = { corpus_sha256: sha(body.toString("utf8").replace(/\r\n/g, "\n")), fixtures: rows.length, artifact: `${pj.name}@${pj.version}`, CONFIRMED: n("CONFIRMED"), NOT_REPRODUCED: n("NOT_REPRODUCED"), INVALID: n("INVALID") };
 if (process.argv.includes("--json")) console.log(JSON.stringify({ ...summary, results: out }, null, 2)); else console.log(`\nREPLAY ${JSON.stringify(summary)}`);
