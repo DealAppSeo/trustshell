@@ -5,6 +5,7 @@
  */
 import { createHash } from 'node:crypto';
 import { classifyClaim } from '../../dist/lib/claim.js';
+import { cleanCodePoints } from '../../dist/lib/action-evidence.js';
 
 export const BASE_SEPOLIA = {
   chainId: 84532,
@@ -315,7 +316,8 @@ function finish(report) {
 
 export function render(r) {
   const L = [];
-  const row = (k, v) => L.push(`${k.padEnd(18)}${v}`);
+  // Values come from the chain, a remote file or the hosted check: print them as text, one line each (no escape codes, no injected rows).
+  const row = (k, v) => L.push(`${k.padEnd(18)}${cleanCodePoints(v)}`);
   L.push(`ERC-8004 agent ${r.agentId} on chain ${r.chainId}, registry ${r.registry}`, `(read only: ${r.rpc})`, '');
   row('chain', r.chain ? `${r.chain.state}${r.chain.reason ? ' - ' + r.chain.reason : ''}` : '');
   if (r.registryCode) row('registry code', `${r.registryCode.state}${r.registryCode.reason ? ' - ' + r.registryCode.reason : r.registryCode.bytes ? ` (${r.registryCode.bytes} bytes, a proxy if small)` : ''}`);
