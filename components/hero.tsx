@@ -1,6 +1,8 @@
 import CheckForm from '@/app/check/CheckForm';
 import CompareForm from '@/app/check/CompareForm';
 import { HeroResult } from '@/components/hero-result';
+import { OnboardingTalk } from '@/components/onboarding-talk';
+import { ONBOARDING_TALK } from '@/lib/onboarding-flag';
 import { HERO_RUN, HOME_SAMPLES } from '@/lib/home-samples';
 import { MEANING } from '@/lib/stamp-words';
 
@@ -113,6 +115,7 @@ export function Hero() {
             submitLabel="Check this answer"
             privacyFolded
             emptyHint="Paste an answer in the box first, then check it."
+            afterResult={ONBOARDING_TALK ? <OnboardingTalk /> : undefined}
           />
           <CompareForm />
         </div>
