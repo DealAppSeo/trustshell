@@ -1,4 +1,5 @@
 import { type Signer } from './install-key';
+import { type AutonomyConfig } from './autonomy';
 export declare const POLICY_FILE = "policy.json";
 /** An imported policy that could not be enforced (unsigned, or signed by a key nobody named) lands here. */
 export declare const SUGGESTED_POLICY_FILE = "policy.suggested.json";
@@ -15,6 +16,8 @@ export interface LocalPolicy {
     total_raw: string;
     expires_at: number;
     nonce: string;
+    /** Local only (not in the kernel): autonomy levels. Absent = off. */
+    autonomy?: AutonomyConfig;
 }
 export interface PolicySignature extends Signer {
     /** Ed25519 over the RFC 8785 form of `policy`, base64. */
