@@ -681,6 +681,8 @@ fs.writeFileSync(LOCK, String(process.pid));
 process.on('exit', () => { try { if (fs.readFileSync(LOCK, 'utf8') === String(process.pid)) fs.unlinkSync(LOCK); } catch { /* gone */ } });
 const t0 = Date.now();
 const startedAt = new Date().toISOString();
+const gb = (b) => Math.round(b / 1e8) / 10;
+const hostStart = { cpus: os.cpus().length, total_mem_gb: gb(os.totalmem()), free_mem_gb_start: gb(os.freemem()) }; // run time swings with machine load: record it so a slow run is not blamed on the product
 err(`proof pack ${startedAt} · node ${process.version} · ${ROOT}`);
 let fatal = null;
 try {
@@ -695,13 +697,13 @@ for (const s of steps) s.ms = s.checks.reduce((a, c) => a + c.ms, 0); // a step'
 const all = steps.flatMap((s) => s.checks);
 const summary = { checks: all.length, pass: all.filter((c) => c.verdict === 'PASS').length, fail: all.filter((c) => c.verdict === 'FAIL').length, not_checked: all.filter((c) => c.verdict === 'NOT_CHECKED').length };
 const verdict = fatal && !all.length ? 'ERROR' : summary.fail ? 'FAIL' : summary.not_checked ? 'NOT_CHECKED' : 'PASS';
-const res = { schema: 'dev.trustshell.proof-pack/0.1', started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Date.now() - t0, verdict, summary, git: gitInfo(), tools, pack_script_sha256: SELF_SHA, pack_ruler_sha256: RULER_SHA, ruler: RULER, steps, limits };
+const res = { schema: 'dev.trustshell.proof-pack/0.1', started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Date.now() - t0, verdict, summary, git: gitInfo(), tools, host: { ...hostStart, free_mem_gb_end: gb(os.freemem()) }, pack_script_sha256: SELF_SHA, pack_ruler_sha256: RULER_SHA, ruler: RULER, steps, limits };
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUT_DIR, `${STEM}.json`), JSON.stringify(res, null, 2) + '\n');
 fs.writeFileSync(path.join(OUT_DIR, `${STEM}.md`), renderMd(res));
 if (opt('--runs-log')) {
   fs.mkdirSync(path.dirname(opt('--runs-log')), { recursive: true });
-  fs.appendFileSync(opt('--runs-log'), JSON.stringify({ ts: startedAt, verdict, summary, duration_ms: res.duration_ms, git_sha: res.git.sha, pack_script_sha256: SELF_SHA, pack_ruler_sha256: RULER_SHA, packed: tools.packed?.version, published: tools.published?.version, steps: steps.map((s) => ({ id: s.id, verdict: s.verdict, ms: s.ms })), checks: all.map((c) => ({ label: c.label, verdict: c.verdict, ms: c.ms, ...(c.cause ? { cause: c.cause } : {}) })) }) + '\n');
+  fs.appendFileSync(opt('--runs-log'), JSON.stringify({ ts: startedAt, verdict, summary, duration_ms: res.duration_ms, free_mem_gb: [res.host.free_mem_gb_start, res.host.free_mem_gb_end], git_sha: res.git.sha, pack_script_sha256: SELF_SHA, pack_ruler_sha256: RULER_SHA, packed: tools.packed?.version, published: tools.published?.version, steps: steps.map((s) => ({ id: s.id, verdict: s.verdict, ms: s.ms })), checks: all.map((c) => ({ label: c.label, verdict: c.verdict, ms: c.ms, ...(c.cause ? { cause: c.cause } : {}) })) }) + '\n');
 }
 if (!has('--keep') && S.tmp) { try { fs.rmSync(S.tmp, { recursive: true, force: true }); } catch { /* temp is the OS's to clean */ } }
 console.log(`${verdict}: ${summary.pass} PASS, ${summary.fail} FAIL, ${summary.not_checked} NOT_CHECKED of ${summary.checks} checks in ${Math.round(res.duration_ms / 1000)} s -> ${path.join(OUT_DIR, STEM)}.{json,md}`);
