@@ -145,7 +145,7 @@ TrustShell gives an AI agent (or the dev building one) three things against the 
 
 1. **Verify an output** — run any text through a real cross-provider HAL fact-check quorum and get a `PASS` / `FLAG` / `VETO` / `NOT_CHECKED` verdict with evidence. `NOT_CHECKED` means HAL did not decide, and it is never a pass. **No API key.**
 2. **Look up reputation** — fetch any agent's current RepID score + tier. **No API key.**
-3. **Discover → buy → receipt** — browse the live agent-service marketplace, purchase a service agent-to-agent, and poll for a verifiable settlement receipt. **Needs an API key + a funded Base Sepolia wallet** (it moves real testnet value).
+3. **Discover → buy → receipt** — browse the live agent-service marketplace, purchase a service agent-to-agent, and poll the backend for the contract's settlement status (`pollUntilSettled`: the backend's record, which this package reads and does not verify). **Needs an API key + a funded Base Sepolia wallet** (it moves real testnet value).
 
 ### What runs keyless vs. what needs a key
 
@@ -305,7 +305,7 @@ The private key signs locally and never leaves the process.
 
 ## Discover → buy → receipt (agent-to-agent)
 
-The full A2A loop: find a verified service, buy it, get a verifiable receipt. Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
+The full A2A loop: find a verified service, buy it, and read back the backend's contract record (status and settlement id; this package does not verify them). Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
 
 ```ts
 import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';
@@ -749,7 +749,7 @@ ERC-8004 Identity Registry     ← who is the agent?
     RepID Score                ← has it earned trust?  (this package)
          │
          ▼
-   x402 Payments               ← autonomous action + verifiable receipt
+   x402 Payments               ← autonomous action + the backend's settlement record
 ```
 
 RepID is the middle layer — the behavioral credential that makes the agent economy accountable.
