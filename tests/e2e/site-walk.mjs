@@ -94,6 +94,9 @@ const HANDLER_ROUTES = ['/api/agent-leaderboard', '/api/hal-providers', '/api/ve
  * Known-and-accepted noise. Each entry says WHY, so it cannot quietly become a silencer. Empty is the goal.
  * { kind: 'console'|'http'|'requestfailed'|'pageerror', match: RegExp on the detail, route?: exact path, why }
  */
+/** Routes that are a deliberate 404 on production (VERCEL_ENV=production) and a page everywhere else. */
+const PREVIEW_ONLY = new Set(['/lab/talk']);
+
 const EXPECTED = [
   // /settings "Look it up" asks the engine for an agent it has never seen (the walk types the all-zero UUID). 404 is the engine's
   // contract for that (lib/agent-repid.ts maps it to NOT_CHECKED "unregistered"); Chrome logs every 404 as a console error.
@@ -353,6 +356,11 @@ async function walkOne(browser, route, vp) {
     }
   } catch (err) {
     problems.push({ kind: 'navigation', detail: String(err?.message ?? err).split('\n')[0] });
+  }
+
+  if (PRODUCTION_ORIGIN && PREVIEW_ONLY.has(route)) { // its contract on production is a 404, and nothing else about it is checked
+    await ctx.close();
+    return { route, width: vp.name, status, probe: null, warnings: [], problems: status === 404 ? [] : [{ kind: 'status', detail: `preview-only route answered ${status} on production; its contract is 404` }] };
   }
 
   const warnings = [];
