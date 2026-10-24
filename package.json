@@ -83,6 +83,7 @@
     "test:campaign-honesty": "node tests/e2e/campaign-honesty.mjs",
     "test:roles-honesty": "node tests/e2e/roles-honesty.mjs",
     "test:build-walk": "node tests/e2e/build-walk.mjs",
+    "test:site-walk": "node tests/e2e/site-walk.mjs",
     "test:check-walk": "node tests/e2e/check-walk.mjs",
     "test:stranger-path-walk": "node tests/e2e/stranger-path-walk.mjs",
     "test:scrub-outbound-walk": "node tests/e2e/scrub-outbound-walk.mjs",

@@ -109,7 +109,9 @@ export async function loadPlaywright() {
     // sandbox and many CI images put it.
     try {
       const { execFileSync } = await import('node:child_process');
-      const root = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim();
+      // On Windows `npm` is npm.cmd, which execFile cannot start without a shell: ENOENT, and every suite
+      // reported "no copy was found" while playwright sat in %APPDATA%\npm\node_modules.
+      const root = execFileSync('npm', ['root', '-g'], { encoding: 'utf8', shell: process.platform === 'win32' }).trim();
       if (root) {
         const { pathToFileURL } = await import('node:url');
         const { join } = await import('node:path');
