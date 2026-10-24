@@ -9,6 +9,7 @@ exports.runBundle = runBundle;
  */
 const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
+const action_evidence_1 = require("../lib/action-evidence");
 const bundle_1 = require("../lib/bundle");
 const guardrails_1 = require("../lib/guardrails");
 const init_1 = require("../lib/init");
@@ -217,11 +218,13 @@ function runBundle(argv, io, env = process.env) {
         return 0;
     }
     catch (e) {
+        // The message can quote the file: an unknown field name, a bad schema value. The shape is checked BEFORE any
+        // signature, so an unsigned file from anyone reached the reader's terminal through here (antifragile night, cycle 2).
         if (e instanceof bundle_1.BundleError) {
-            io.err(e.message);
+            io.err((0, action_evidence_1.cleanCodePoints)(e.message));
             return e.exit;
         }
-        io.err(`bundle ${a.verb} failed: ${e?.message ?? String(e)}`);
+        io.err(`bundle ${a.verb} failed: ${(0, action_evidence_1.cleanCodePoints)(e?.message ?? String(e))}`);
         return 3;
     }
 }
