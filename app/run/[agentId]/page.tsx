@@ -107,8 +107,8 @@ export default function RunPage({ params }: { params: Promise<{ agentId: string 
         setLoading(false);
         return;
       }
-      // Which keys go is lib/run-keys.ts: all of them today, only the ones the engine reads in
-      // least-keys mode (NEXT_PUBLIC_RUN_LEAST_KEYS=1, off by default).
+      // Which keys go is lib/run-keys.ts: only the two the engine reads (OpenAI, Anthropic), unless
+      // the build set NEXT_PUBLIC_RUN_LEAST_KEYS=0, which sends every unlocked key.
       user_paid_keys = keysToSend(keys);
     }
 
