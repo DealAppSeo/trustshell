@@ -4,20 +4,22 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 
 /**
- * /gateway, "join us": an email and an optional note, saved to its own table.
+ * /gateway, "join us": an email and an optional note, saved to the TrustShell signup table.
  *
  * NOT `waitlist`. Every insert into `waitlist` fires two triggers [MEASURED 2026-10-24, pg_trigger]:
  * `on_waitlist_insert` mails the address a TrustTrader welcome ("0% vs 49.63% without veto", "$499/mo
  * value", from hello@trusttrader.dev), and `trg_notify_new_signup` posts the address to Telegram. A
- * page about trust cannot answer a signup with claims nobody has checked, so the gateway writes to
- * `gateway_signups`, which has no triggers. Its SQL is in E:\dev\reports\2026-10-24\GATEWAY_PAGE.md for
- * Sean to apply (DDL is his). Until it exists the insert fails and the form says so: nothing saved,
- * here is GitHub instead. A failure is never shown as a success.
+ * page about trust cannot answer a signup with claims nobody has checked.
  *
- * Browser insert with the publishable key, the pattern BuilderWaitlist used against `waitlist` in
- * production (rows with source trustshell.dev/builder-form, 2026-09). The anon role gets INSERT only.
+ * `trustshell_v15_waitlist` instead [MEASURED 2026-10-24]: RLS on, anon may INSERT and has no read
+ * policy, no triggers, every column but email defaulted. The note rides in its `metadata` jsonb. The
+ * browser insert with the publishable key is the path components/roadmap-v15.tsx used against this
+ * table in production (rows with source trustshell.dev/v15-form, 2026-09-19).
+ *
+ * A failure is never shown as a success: no key in the build, a refused insert or a dropped request
+ * all read "Not saved", with GitHub as the way to reach us instead.
  */
-export const SIGNUP_TABLE = 'gateway_signups';
+export const SIGNUP_TABLE = 'trustshell_v15_waitlist';
 export const SIGNUP_SOURCE = 'trustshell.dev/gateway';
 export const MAX_NOTE = 1000;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -37,9 +39,10 @@ export function GatewayJoin() {
     if (!EMAIL_RE.test(email.trim())) return;
     setStatus('sending');
     try {
+      const text = note.trim();
       const { error } = await createClient()
         .from(SIGNUP_TABLE)
-        .insert({ email: email.trim(), note: note.trim() || null, source: SIGNUP_SOURCE });
+        .insert({ email: email.trim(), source: SIGNUP_SOURCE, ...(text ? { metadata: { note: text } } : {}) });
       setStatus(error ? 'failed' : 'saved');
     } catch {
       // No key in this build, or the request never left: still a failure, never a success.

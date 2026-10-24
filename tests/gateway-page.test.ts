@@ -7,7 +7,8 @@
  *   - every case on the page links its source and quotes it briefly (lib/ai-incidents.ts);
  *   - every piece of the plan says what runs today AND what does not yet; nothing is promoted to
  *     "today" by copy alone;
- *   - the join form never writes to `waitlist`, whose insert trigger mails a TrustTrader promotion;
+ *   - the join form writes to `trustshell_v15_waitlist` and never to `waitlist`, whose insert trigger
+ *     mails a TrustTrader promotion;
  *   - the install commands are the home page's own, so the two pages cannot drift.
  */
 /* eslint-disable @typescript-eslint/no-require-imports -- a fresh module registry per render needs require(), as in home-check.test.ts */
@@ -146,8 +147,8 @@ describe('/gateway', () => {
       expect(hrefs).toContain('https://github.com/DealAppSeo/trustshell/issues/new/choose');
     });
 
-    it('writes to gateway_signups, never to waitlist', () => {
-      expect(join_).toContain("export const SIGNUP_TABLE = 'gateway_signups'");
+    it('writes to trustshell_v15_waitlist, never to waitlist (whose trigger mails a TrustTrader promotion)', () => {
+      expect(join_).toContain("export const SIGNUP_TABLE = 'trustshell_v15_waitlist'");
       expect(join_).toMatch(/\.from\(SIGNUP_TABLE\)/);
       expect(join_).not.toMatch(/from\(['"]waitlist['"]\)/);
     });
