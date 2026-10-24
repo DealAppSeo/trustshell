@@ -14,8 +14,8 @@ describe('landing headline', () => {
     // second opinion the site has always promised. It does not say "know if it is right": two models
     // agreeing is not the truth (2026-10-06), and a check can come back Not checked. "AI lies." moved
     // to the why section (components/home-questions.tsx).
-    expect((h1?.[1] ?? '').trim()).toBe('Get a second opinion before you use an AI answer.');
-    expect((h1?.[3] ?? '').trim()).toBe('Paste the answer. Two other AIs check it, and you see what each one said.');
+    expect((h1?.[1] ?? '').trim()).toBe('Your AI says the job is done. Is it?');
+    expect((h1?.[3] ?? '').trim()).toBe('Paste what it told you. Two other AIs check it, and you see what each one said.');
     expect(h1?.[1] ?? '').not.toMatch(/\b(truth|right|correct|accurate)\b/i);
     // No "stake": the model that wrote a chat reply has no RepID and stakes nothing.
     expect(h1?.[3] ?? '').not.toMatch(/\bstakes?\b/i);

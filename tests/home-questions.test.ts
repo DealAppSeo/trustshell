@@ -73,7 +73,7 @@ describe('the three questions on the home page', () => {
   // you cite it", "Before you run it"). 2026-10-16: the second opinion is the headline and subhead, and
   // "Before you pay" heads the recorded result card.
   it('the subhead is the second opinion, and the cards name the moments that matter', () => {
-    expect(text(home)).toContain('Paste the answer. Two other AIs check it, and you see what each one said.');
+    expect(text(home)).toContain('Paste what it told you. Two other AIs check it, and you see what each one said.');
     // The legend is three chips (2026-10-16): icon, word, short meaning.
     for (const chip of ['Checks out checked and found true', 'Caught checked and found false', 'Not checked not decided, so look before you lean on it']) {
       expect(text(home)).toContain(chip);
