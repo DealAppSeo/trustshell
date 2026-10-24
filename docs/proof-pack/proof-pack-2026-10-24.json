@@ -1,0 +1,757 @@
+{
+  "schema": "dev.trustshell.proof-pack/0.1",
+  "started_at": "2026-10-24T09:06:24.612Z",
+  "ended_at": "2026-10-24T09:14:47.903Z",
+  "duration_ms": 503291,
+  "verdict": "PASS",
+  "summary": {
+    "checks": 70,
+    "pass": 70,
+    "fail": 0,
+    "not_checked": 0
+  },
+  "git": {
+    "sha": "9808dcf62ce6588c09a9843818f6871a4b634ccf",
+    "branch": "claude/night-proofpack-ab7022",
+    "dirty": false
+  },
+  "tools": {
+    "node": "v22.17.0",
+    "platform": "win32 10.0.26200",
+    "packed": {
+      "name": "@hyperdag/trustshell",
+      "version": "1.9.0-dev.0",
+      "files": 135,
+      "bytes": 367082,
+      "tarball_sha256": "f5333e53f9f8c27381cd95a574834e1e83d48b08bd29c426130700465de248c0",
+      "note": "packed from the committed dist/ (not rebuilt here); tests/sdk-dist-fresh gates its freshness"
+    },
+    "published": {
+      "version": "1.8.0",
+      "source": "npm view @hyperdag/trustshell version"
+    },
+    "npm": "10.9.2",
+    "ethers": "6.17.0"
+  },
+  "pack_script_sha256": "cbc8e7dc1c86ec22395003a54fe84448bdf5a224b255bb2dc2e73476f7740d50",
+  "pack_ruler_sha256": "60cefdb4cd68c8a1b073b2bf44d10233d20e453294defe38731254fa820a180d",
+  "ruler": {
+    "RUN_URL": "https://github.com/DealAppSeo/trustshell/actions/runs/39619591025",
+    "CLAIM_TRUE": "The check workflow succeeded, run 39619591025.",
+    "CLAIM_FALSE": "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025.",
+    "SENT_TRUE": "The capital of France is Paris.",
+    "SENT_FALSE": "The Eiffel Tower is located in Rome, Italy.",
+    "IDENTITY": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "REPUTATION": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    "chain": [
+      84532,
+      31337
+    ]
+  },
+  "steps": [
+    {
+      "id": "0",
+      "label": "setup: pack this checkout, install it cold, find what npm serves",
+      "source": "[npm]",
+      "verdict": "PASS",
+      "ms": 226497,
+      "checks": [
+        {
+          "label": "npm view @hyperdag/trustshell version (what a stranger gets from @latest)",
+          "verdict": "PASS",
+          "ms": 12357,
+          "source": "[npm]",
+          "detail": "latest is 1.8.0"
+        },
+        {
+          "label": "npm pack this checkout",
+          "verdict": "PASS",
+          "ms": 15415,
+          "source": "[npm]",
+          "detail": "@hyperdag/trustshell@1.9.0-dev.0, 135 files, 367082 bytes"
+        },
+        {
+          "label": "install the packed tarball cold into an empty dir",
+          "verdict": "PASS",
+          "ms": 73633,
+          "source": "[npm]",
+          "detail": "installed 1.9.0-dev.0 in 73630 ms"
+        },
+        {
+          "label": "install the published @hyperdag/trustshell@1.8.0 cold into an empty dir",
+          "verdict": "PASS",
+          "ms": 65230,
+          "source": "[npm]",
+          "detail": "installed 1.8.0 in 65225 ms"
+        },
+        {
+          "label": "install the packed tarball + ethers (the README: ethers only if you sign x402)",
+          "verdict": "PASS",
+          "ms": 59862,
+          "source": "[npm]",
+          "detail": "ethers 6.17.0"
+        }
+      ]
+    },
+    {
+      "id": "1a",
+      "label": "check a pinned CI run (run 39619591025): one TRUE and one FALSE claim, packed vs published",
+      "source": "[cmd] trustshell check <runUrl> --claims-file claims.txt --out <dir>   (api.github.com only)",
+      "verdict": "PASS",
+      "ms": 121507,
+      "checks": [
+        {
+          "label": "packed: true claim -> exit 0, SUPPORTED",
+          "verdict": "PASS",
+          "ms": 13089,
+          "detail": "exit 0, 2 claims SUPPORTED",
+          "data": {
+            "exit": 0,
+            "statuses": "[[\"gha.run_succeeded\",\"SUPPORTED\"],[\"gha.run_id\",\"SUPPORTED\"]]",
+            "cmd_ms": 13081
+          }
+        },
+        {
+          "label": "published: true claim -> exit 0, SUPPORTED",
+          "verdict": "PASS",
+          "ms": 45702,
+          "detail": "exit 0, 2 claims SUPPORTED",
+          "data": {
+            "exit": 0,
+            "statuses": "[[\"gha.run_succeeded\",\"SUPPORTED\"],[\"gha.run_id\",\"SUPPORTED\"]]",
+            "cmd_ms": 45614
+          }
+        },
+        {
+          "label": "packed and published agree on the true claim (exit code and per-claim statuses)",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "same exit code and statuses"
+        },
+        {
+          "label": "packed: false claim -> exit 1, CONTRADICTED",
+          "verdict": "PASS",
+          "ms": 16387,
+          "detail": "exit 1, 1 CONTRADICTED",
+          "data": {
+            "exit": 1,
+            "statuses": "[[\"gha.run_succeeded\",\"NOT_CHECKED\"],[\"git.head_sha\",\"CONTRADICTED\"],[\"gha.run_id\",\"SUPPORTED\"]]",
+            "cmd_ms": 16381
+          }
+        },
+        {
+          "label": "published: false claim -> exit 1, CONTRADICTED",
+          "verdict": "PASS",
+          "ms": 37660,
+          "detail": "exit 1, 1 CONTRADICTED",
+          "data": {
+            "exit": 1,
+            "statuses": "[[\"gha.run_succeeded\",\"NOT_CHECKED\"],[\"git.head_sha\",\"CONTRADICTED\"],[\"gha.run_id\",\"SUPPORTED\"]]",
+            "cmd_ms": 37652
+          }
+        },
+        {
+          "label": "packed and published agree on the false claim (exit code and per-claim statuses)",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "same exit code and statuses"
+        },
+        {
+          "label": "packed: the check discriminates (true and false claims get different results)",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "exit 0 vs 1"
+        },
+        {
+          "label": "published: the check discriminates (true and false claims get different results)",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "exit 0 vs 1"
+        },
+        {
+          "label": "packed: the TRUE claim in a CRLF+BOM file (what PowerShell 5.1 writes) gives the same record",
+          "verdict": "PASS",
+          "ms": 8668,
+          "source": "[cmd]",
+          "detail": "same statuses as the LF file"
+        }
+      ]
+    },
+    {
+      "id": "1b",
+      "label": "check one sentence through the hosted checkers: a TRUE and a FALSE one, packed vs published",
+      "source": "[cmd] trustshell check \"<sentence>\" --json   (POST /api/v1/classify; paced <= 2.9 requests/minute)",
+      "verdict": "PASS",
+      "ms": 124840,
+      "checks": [
+        {
+          "label": "packed: \"The capital of France is Paris.\" -> pass",
+          "verdict": "PASS",
+          "ms": 13689,
+          "detail": "pass (exit 0) by votes groq(gpt-oss)=TRUE cerebras(qwen)=TRUE in 178 ms",
+          "data": {
+            "label": "pass",
+            "by": "votes",
+            "latency_ms": 178,
+            "voters": [
+              "groq",
+              "cerebras"
+            ],
+            "votes": [
+              "groq(gpt-oss)=TRUE",
+              "cerebras(qwen)=TRUE"
+            ],
+            "exit": 0
+          }
+        },
+        {
+          "label": "published: \"The capital of France is Paris.\" -> pass",
+          "verdict": "PASS",
+          "ms": 37024,
+          "detail": "pass (exit 0) by votes groq(gpt-oss)=TRUE cerebras(qwen)=TRUE in 313 ms",
+          "data": {
+            "label": "pass",
+            "by": "votes",
+            "latency_ms": 313,
+            "voters": [
+              "groq",
+              "cerebras"
+            ],
+            "votes": [
+              "groq(gpt-oss)=TRUE",
+              "cerebras(qwen)=TRUE"
+            ],
+            "exit": 0
+          }
+        },
+        {
+          "label": "packed and published agree on the true sentence",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "both said pass"
+        },
+        {
+          "label": "packed: \"The Eiffel Tower is located in Rome, Italy.\" -> veto",
+          "verdict": "PASS",
+          "ms": 22680,
+          "detail": "veto (exit 1) by votes groq(gpt-oss)=FALSE cerebras(qwen)=FALSE in 208 ms",
+          "data": {
+            "label": "veto",
+            "by": "votes",
+            "latency_ms": 208,
+            "voters": [
+              "groq",
+              "cerebras"
+            ],
+            "votes": [
+              "groq(gpt-oss)=FALSE",
+              "cerebras(qwen)=FALSE"
+            ],
+            "exit": 1
+          }
+        },
+        {
+          "label": "published: \"The Eiffel Tower is located in Rome, Italy.\" -> veto",
+          "verdict": "PASS",
+          "ms": 51447,
+          "detail": "veto (exit 1) by votes groq(gpt-oss)=FALSE cerebras(qwen)=FALSE in 279 ms",
+          "data": {
+            "label": "veto",
+            "by": "votes",
+            "latency_ms": 279,
+            "voters": [
+              "groq",
+              "cerebras"
+            ],
+            "votes": [
+              "groq(gpt-oss)=FALSE",
+              "cerebras(qwen)=FALSE"
+            ],
+            "exit": 1
+          }
+        },
+        {
+          "label": "packed and published agree on the false sentence",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "both said veto"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "label": "the receipt in hand, verified OFFLINE (no socket may open)",
+      "source": "[pack] RFC 8785 digest recomputed here · [shipped] digestRecord() · [shipped cmd] trustshell inspect",
+      "verdict": "PASS",
+      "ms": 1817,
+      "checks": [
+        {
+          "label": "control: the offline guard blocks a connect attempt",
+          "verdict": "PASS",
+          "ms": 439,
+          "source": "[pack]",
+          "detail": "a fetch from a guarded process threw and was logged"
+        },
+        {
+          "label": "packed/true: record.json digest recomputed offline equals the digest in the file",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "sha-256 4a26d03a6631ed3e… over RFC 8785",
+          "data": {
+            "digest": "4a26d03a6631ed3e0b21b436accb9f4578cd3616cc9f00f6b108b610a1582e7d"
+          }
+        },
+        {
+          "label": "packed/true: the digest in card.md's footer equals the record's",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "card footer, record.json and recomputation agree"
+        },
+        {
+          "label": "packed/true: the shipped digestRecord() agrees with this file's own RFC 8785 code",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[shipped fn, deep import: not a CLI command]",
+          "detail": "two independent implementations, same digest"
+        },
+        {
+          "label": "packed/false: record.json digest recomputed offline equals the digest in the file",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "sha-256 3a8f9b78b45a65fd… over RFC 8785",
+          "data": {
+            "digest": "3a8f9b78b45a65fdf63e9076a99163e7d070f9d1d598745bddf328bc6fd5872d"
+          }
+        },
+        {
+          "label": "packed/false: the digest in card.md's footer equals the record's",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "card footer, record.json and recomputation agree"
+        },
+        {
+          "label": "packed/false: the shipped digestRecord() agrees with this file's own RFC 8785 code",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[shipped fn, deep import: not a CLI command]",
+          "detail": "two independent implementations, same digest"
+        },
+        {
+          "label": "published/true: record.json digest recomputed offline equals the digest in the file",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "sha-256 37ca583304c6a557… over RFC 8785",
+          "data": {
+            "digest": "37ca583304c6a5575d4c56488f6de247db491643474dcabb690d2411c87acf0d"
+          }
+        },
+        {
+          "label": "published/true: the digest in card.md's footer equals the record's",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "card footer, record.json and recomputation agree"
+        },
+        {
+          "label": "published/true: the shipped digestRecord() agrees with this file's own RFC 8785 code",
+          "verdict": "PASS",
+          "ms": 2,
+          "source": "[shipped fn, deep import: not a CLI command]",
+          "detail": "two independent implementations, same digest"
+        },
+        {
+          "label": "published/false: record.json digest recomputed offline equals the digest in the file",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "sha-256 d261b41005adf270… over RFC 8785",
+          "data": {
+            "digest": "d261b41005adf2707162996a97159d3d55ae339a2795019f6f41448622d1eac7"
+          }
+        },
+        {
+          "label": "published/false: the digest in card.md's footer equals the record's",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "card footer, record.json and recomputation agree"
+        },
+        {
+          "label": "published/false: the shipped digestRecord() agrees with this file's own RFC 8785 code",
+          "verdict": "PASS",
+          "ms": 2,
+          "source": "[shipped fn, deep import: not a CLI command]",
+          "detail": "two independent implementations, same digest"
+        },
+        {
+          "label": "packed: shipped `inspect` on an untouched 5-entry chained log -> INTACT (positive control)",
+          "verdict": "PASS",
+          "ms": 655,
+          "source": "[shipped cmd] trustshell inspect",
+          "detail": "INTACT, exit 0, 653 ms"
+        },
+        {
+          "label": "published: shipped `inspect` on an untouched 5-entry chained log -> INTACT (positive control)",
+          "verdict": "PASS",
+          "ms": 714,
+          "source": "[shipped cmd] trustshell inspect",
+          "detail": "INTACT, exit 0, 712 ms"
+        },
+        {
+          "label": "no network connect was attempted by any offline verifier",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "0 connect attempts logged by the guard"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "label": "TAMPER NEGATIVE CONTROL: change one character, the verifiers must FAIL",
+      "source": "[pack] + [shipped cmd] trustshell inspect",
+      "verdict": "PASS",
+      "ms": 4360,
+      "checks": [
+        {
+          "label": "packed: shipped `inspect` after \"flip one hex digit of one output_sha256\" -> BROKEN",
+          "verdict": "PASS",
+          "ms": 551,
+          "source": "[shipped cmd] trustshell inspect",
+          "detail": "BROKEN, exit 1"
+        },
+        {
+          "label": "packed: shipped `inspect` after \"delete one middle line\" -> BROKEN",
+          "verdict": "PASS",
+          "ms": 440,
+          "source": "[shipped cmd] trustshell inspect",
+          "detail": "BROKEN, exit 1"
+        },
+        {
+          "label": "published: shipped `inspect` after \"flip one hex digit of one output_sha256\" -> BROKEN",
+          "verdict": "PASS",
+          "ms": 1196,
+          "source": "[shipped cmd] trustshell inspect",
+          "detail": "BROKEN, exit 1"
+        },
+        {
+          "label": "published: shipped `inspect` after \"delete one middle line\" -> BROKEN",
+          "verdict": "PASS",
+          "ms": 2164,
+          "source": "[shipped cmd] trustshell inspect",
+          "detail": "BROKEN, exit 1"
+        },
+        {
+          "label": "packed/true: record.json after changing one hex character of observation.head_sha -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        },
+        {
+          "label": "packed/true: record.json after changing one hex digit of digest.value -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        },
+        {
+          "label": "packed/false: record.json after changing one hex character of observation.head_sha -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        },
+        {
+          "label": "packed/false: record.json after changing one hex digit of digest.value -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 2,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        },
+        {
+          "label": "published/true: record.json after changing one hex character of observation.head_sha -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        },
+        {
+          "label": "published/true: record.json after changing one hex digit of digest.value -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        },
+        {
+          "label": "published/false: record.json after changing one hex character of observation.head_sha -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        },
+        {
+          "label": "published/false: record.json after changing one hex digit of digest.value -> digest check FAILS",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "digest mismatch; the shipped digestRecord() also disagrees"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "label": "ERC-8004 on Base Sepolia, READ-ONLY (eth_chainId / eth_getCode / eth_call, public RPC)",
+      "source": "[rpc] eth_call against the IdentityRegistry",
+      "verdict": "PASS",
+      "ms": 1301,
+      "checks": [
+        {
+          "label": "a public RPC answers as Base Sepolia (chain id 84532)",
+          "verdict": "PASS",
+          "ms": 558,
+          "source": "[rpc]",
+          "detail": "sepolia.base.org answered 0x14a34",
+          "data": {
+            "rpc": "sepolia.base.org"
+          }
+        },
+        {
+          "label": "the IdentityRegistry 0x8004A818BFB912233c491871b3d84c89A494BD9e has contract code, and the README names it",
+          "verdict": "PASS",
+          "ms": 216,
+          "source": "[rpc]",
+          "detail": "130 bytes of code; README names the address"
+        },
+        {
+          "label": "an ERC-721 read decodes (supportsInterface(0x80ac58cd), name(), symbol())",
+          "verdict": "PASS",
+          "ms": 267,
+          "source": "[rpc]",
+          "detail": "{\"erc721\":true,\"name\":\"AgentIdentity\",\"symbol\":\"AGENT\"}",
+          "data": {
+            "erc721": true,
+            "name": "AgentIdentity",
+            "symbol": "AGENT"
+          }
+        },
+        {
+          "label": "info: ownerOf(6706) on the IdentityRegistry (not scored)",
+          "verdict": "PASS",
+          "ms": 93,
+          "source": "[rpc]",
+          "detail": "owner 0xf6ee1768868c3266868edca78bc41c50309cb22a",
+          "data": {
+            "owner": "0xf6ee1768868c3266868edca78bc41c50309cb22a"
+          }
+        },
+        {
+          "label": "the ReputationRegistry 0x8004B663056A597Dffe9eCcC1965A193B7388713 has contract code",
+          "verdict": "PASS",
+          "ms": 83,
+          "source": "[rpc]",
+          "detail": "130 bytes of code"
+        },
+        {
+          "label": "control: the same address with its last hex digit changed has NO code (the check can say no)",
+          "verdict": "PASS",
+          "ms": 84,
+          "source": "[rpc]",
+          "detail": "0x8004A818BFB912233c491871b3d84c89A494BD90 -> 0x"
+        },
+        {
+          "label": "only read methods were sent",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[pack]",
+          "detail": "eth_call, eth_chainId, eth_getCode",
+          "data": {
+            "methods": [
+              "eth_chainId",
+              "eth_getCode",
+              "eth_call"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "label": "pay gate: receipt BEFORE payment (guardedX402Payment + writeReceipt; the SDK's EIP-3009 envelope, not an x402 v2 payload), local devnet only",
+      "source": "[shipped fn] guardedX402Payment from the packed tarball · [devnet] chain 31337",
+      "verdict": "PASS",
+      "ms": 13116,
+      "checks": [
+        {
+          "label": "the gate is exported by the packed tarball",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[shipped fn]",
+          "detail": "guardedX402Payment is a function"
+        },
+        {
+          "label": "receipt OK -> a payment header is produced, receipt written BEFORE the signature",
+          "verdict": "PASS",
+          "ms": 177,
+          "source": "[shipped fn]",
+          "detail": "events receipt:write -> sign; 1 audit row; receipt file receipt-e318a87f.json",
+          "data": {
+            "events": [
+              "receipt:write",
+              "sign"
+            ]
+          }
+        },
+        {
+          "label": "the signature recovers to the payer under the chain-31337 domain",
+          "verdict": "PASS",
+          "ms": 20,
+          "source": "[pack] ethers.verifyTypedData",
+          "detail": "recovered 0x3E9D8B9f… = payer; to = payee"
+        },
+        {
+          "label": "NEGATIVE CONTROL: the receipt writer THROWS -> the payment REFUSES and nothing is signed",
+          "verdict": "PASS",
+          "ms": 15,
+          "source": "[shipped fn]",
+          "detail": "refused: receipt invalid (injected); events receipt:throw; 0 signatures"
+        },
+        {
+          "label": "NEGATIVE CONTROL: the receipt cannot really be written (ENOTDIR) -> REFUSES, nothing signed",
+          "verdict": "PASS",
+          "ms": 2,
+          "source": "[shipped fn]",
+          "detail": "refused: ENOTDIR"
+        },
+        {
+          "label": "origin Unknown -> origin_refused, no receipt written, nothing signed",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[shipped fn]",
+          "detail": "refused before any receipt"
+        },
+        {
+          "label": "no policy -> policy_required, no receipt written, nothing signed",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[shipped fn]",
+          "detail": "refused; 1 audit row written first"
+        },
+        {
+          "label": "policy denies -> policy_denied, no receipt written, nothing signed",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[shipped fn]",
+          "detail": "refused before any receipt"
+        },
+        {
+          "label": "amount over the cap -> cap_exceeded, nothing signed",
+          "verdict": "PASS",
+          "ms": 94,
+          "source": "[shipped fn]",
+          "detail": "refused; events receipt:write",
+          "data": {
+            "receipt_written_before_cap_refusal": true
+          }
+        },
+        {
+          "label": "CONTROL: with NO writeReceipt the same payment signs (so the refusals above are caused by the gate)",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[shipped fn]",
+          "detail": "signed without a receipt: the gate is opt-in"
+        },
+        {
+          "label": "a local Hardhat node answers as chain 31337 (devnet.mjs proves it before anything runs)",
+          "verdict": "PASS",
+          "ms": 12737,
+          "source": "[devnet]",
+          "detail": "http://127.0.0.1:62708 up in 12629 ms"
+        },
+        {
+          "label": "devnet run: receipt written, then a header signed for chain 31337",
+          "verdict": "PASS",
+          "ms": 0,
+          "source": "[devnet]",
+          "detail": "receipt:write -> sign"
+        },
+        {
+          "label": "the authorization is bound to chain 31337: it does NOT recover to the payer under the Base Sepolia (84532) domain",
+          "verdict": "PASS",
+          "ms": 42,
+          "source": "[pack] ethers.verifyTypedData",
+          "detail": "recovers under 31337, not under 84532"
+        },
+        {
+          "label": "nothing was sent to the devnet: same block number, payer nonce 0",
+          "verdict": "PASS",
+          "ms": 26,
+          "source": "[devnet]",
+          "detail": "block 0 before and after; nonce 0"
+        },
+        {
+          "label": "egress during this step: loopback only, no Base Sepolia contact",
+          "verdict": "PASS",
+          "ms": 1,
+          "source": "[pack]",
+          "detail": "hosts: 127.0.0.1",
+          "data": {
+            "hosts": [
+              "127.0.0.1"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "limits": [
+    {
+      "id": "inspect-unkeyed",
+      "observed": true,
+      "evidence": "an edited log whose later hashes were re-derived verified INTACT (exit 0); inspect's own card says an INTACT chain has no trusted anchor",
+      "meaning": "the tamper control proves inspect catches an edit that leaves later hashes alone, not a log rewritten end to end"
+    },
+    {
+      "id": "no-shipped-record-verifier",
+      "observed": true,
+      "evidence": "searched: the --help text of packed 1.9.0-dev.0 and published 1.8.0. Offline verbs found: {\"packed\":[\"verify \\\"<text>\\\"            Run <text> through the live HAL cross-provider fact-check\",\"evaluate \\\"<text>\\\"          Alias of verify. Same HAL quorum, same exits.\",\"badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,\",\"receipt <receiptId>        Read a policy-kernel receipt back (GET /api/v1/kernel/receipt/:\",\"inspect [<path>]          Verify an append-only tool-call log. Reads a local file and\",\"bundle export <file>       CARRY: one Ed25519-signed file (this install's key, never in th\",\"bundle verify <file> [--signer <fingerprint>]\",\"bundle context <file> [--signer <fingerprint>]\",\"bundle import <file> [--signer <fingerprint>] [--force]\",\"guard sign                 Sign the policy with this install's key (the owner signature a \",\"traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED \",\"2  usage / bad arguments                            · verify: HAL did not decide (NOT_CHEC\",\"verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_A\",\"receipt                          the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/kernel\",\"inspect                          NOTHING. Reads a local file.\",\"bundle · guard                   NOTHING. Local files only.\",\"REPID_API_KEY        optional API key (verify/repid/proof are keyless; receipt needs it)\",\"trustshell verify \\\"$(cat CHANGELOG_CLAIM.txt)\\\" || exit 1\"],\"published\":[\"verify \\\"<text>\\\"            Run <text> through the live HAL cross-provider fact-check\",\"evaluate \\\"<text>\\\"          Alias of verify. Same HAL quorum, same exits.\",\"badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,\",\"receipt <receiptId>        Read a policy-kernel receipt back (GET /api/v1/kernel/receipt/:\",\"inspect [<path>]          Verify an append-only tool-call log. Reads a local file and\",\"traps                      List the ten local fixture HAL claims. Each row is NOT_CHECKED \",\"2  usage / bad arguments                            · verify: HAL did not decide (NOT_CHEC\",\"verify · repid · proof · badge · status · bind-status   the HyperDAG backend (TRUSTSHELL_A\",\"receipt                          the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/kernel\",\"inspect                          NOTHING. Reads a local file.\",\"REPID_API_KEY        optional API key (verify/repid/proof are keyless; receipt needs it)\",\"trustshell verify \\\"$(cat CHANGELOG_CLAIM.txt)\\\" || exit 1\"]}",
+      "not_searched": "the SDK exports other than digestRecord (deep import), the MCP server tools, trustshell.dev/inspect in a browser",
+      "meaning": "step 2 verifies record.json with this file's own RFC 8785 code and the deep-imported digestRecord(); no `trustshell` command re-checks the digest a card prints"
+    },
+    {
+      "id": "envelope-not-x402-spec",
+      "observed": true,
+      "evidence": "the signed header decodes to a flat object with keys from, to, value, validAfter, validBefore, nonce, signature; the x402 exact/EVM spec payload is nested (x402Version, accepted, payload{signature, authorization})",
+      "meaning": "step 5 shows the TrustShell escrow envelope (EIP-3009). It does not show interoperability with an x402 facilitator (spec: x402-foundation/x402, specs/schemes/exact/scheme_exact_evm.md; first observed by the ERC-8004/x402 lane on 2026-10-24)"
+    },
+    {
+      "id": "receipt-written-before-cap-check",
+      "observed": true,
+      "evidence": "an over-cap spend wrote a receipt (events receipt:write) and was then refused by buildX402Payment",
+      "meaning": "the receipt gate runs before the cap check, so a refused spend can leave a receipt behind"
+    },
+    {
+      "id": "receipt-gate-is-opt-in",
+      "observed": true,
+      "evidence": "with no writeReceipt the same call signed (events sign)",
+      "meaning": "the gate exists only for callers that pass writeReceipt; omitting it pays with no receipt"
+    },
+    {
+      "id": "devnet-does-not-settle",
+      "observed": true,
+      "evidence": "the arena devnet is a bare Hardhat node with no contracts, so no EIP-3009 token exists on it",
+      "meaning": "the gate step proves refusal, ordering, signing and chain-binding; it does not settle a transfer on chain 31337"
+    }
+  ]
+}
