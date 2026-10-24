@@ -26,7 +26,7 @@ function fakeRunner() {
       calls.push(fn.name);
       return fn.name === 'getClients'
         ? iface.encodeFunctionResult('getClients', [[HYPERDAG_REPID_READ_SIGNERS[0]]])
-        : iface.encodeFunctionResult('getSummary', [3n, 850n, 1]);
+        : iface.encodeFunctionResult('getSummary', [BigInt(3), BigInt(850), 1]);
     },
   };
   return { runner: runner as unknown as ethers.ContractRunner, calls };
