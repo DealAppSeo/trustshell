@@ -4,6 +4,7 @@
  */
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
+import { cleanCodePoints } from '../lib/action-evidence';
 import { brainContext, buildBundle, BundleError, policyImportDecision, verifyBundle, type Bundle, type BundlePayload, type EvidencePointer } from '../lib/bundle';
 import { GUARD_RECEIPTS_FILE, POLICY_FILE, SIGNATURE_DOES_NOT_VERIFY, SUGGESTED_POLICY_FILE, loadPolicy, nonceHighWater, policySignedBy, policySigner, readLedger, renderPolicyDocument, trustshellHome } from '../lib/guardrails';
 import { TRUSTSHELL_DIR } from '../lib/init';
@@ -80,7 +81,8 @@ function summaryLines(b: Bundle): string[] {
     `profile     ${p.profile !== null ? 'yes' : 'none'}`,
     `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${signed ?? (pol.document.signature ? `${SIGNATURE_DOES_NOT_VERIFY} (imports as suggested, never enforced)` : 'UNSIGNED (imports as suggested, never enforced)')}` : 'none'}`,
     `memories    ${p.memories.length} note(s) you selected (they import as untrusted, quarantined)`,
-    `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${e.name} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
+    // The name is the sender's text, signed but not safe to print: a control or bidi byte in it reached the terminal (antifragile night, 2026-10-24).
+    `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${cleanCodePoints(e.name)} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
   ];
 }
 
