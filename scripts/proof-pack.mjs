@@ -150,6 +150,14 @@ function verifyRecordText(text) {
   return computed === j.digest.value ? { ok: true, computed } : { ok: false, reason: 'digest mismatch', computed, claimed: j.digest.value };
 }
 
+/** A tamper control passes only if the verifier accepts the UNTOUCHED copy and rejects the changed one: a verifier that always says no (or always yes) cannot pass it. */
+function controlVerdict(verify, good, bad) {
+  if (!verify(good).ok) return F('positive control failed: the verifier rejects the UNTOUCHED copy', 'control-failed');
+  const v = verify(bad);
+  return v.ok ? F('tamper NOT detected (this pack is invalid until that is fixed)', 'control-failed') : P(v.reason);
+}
+export { jcs, verifyRecordText, controlVerdict, flipHex, chainedLog, classifySentence, classifyRun }; // imported by tests/e2e/proof-pack-controls.mjs
+
 // ---- state: hosted-call budget (the production engine's budgets are real visitors') ---------------------------------
 const loadState = () => { try { const s = readJson(STATE_FILE); if (s.utc === UTC_DATE) return s; } catch { /* first run today */ } return { utc: UTC_DATE, hosted: 0, quota: false }; };
 const saveState = (s) => { try { fs.writeFileSync(STATE_FILE, JSON.stringify(s)); } catch { /* best effort */ } };
@@ -415,10 +423,10 @@ async function step23() {
     for (const [name, text] of variants) {
       await check(st3, `${tag}: record.json after changing ${name} -> digest check FAILS`, async () => {
         if (!text || text === rc.text) return F('could not make the tamper (pattern absent)', 'pack-bug');
-        const v = verifyRecordText(text);
-        if (v.ok) return F('tamper NOT detected by the digest check (this pack is invalid until that is fixed)', 'control-failed');
+        const c = controlVerdict(verifyRecordText, rc.text, text);
+        if (c.verdict !== 'PASS') return c;
         const d = shipped[leg] ? shipped[leg](JSON.parse(text).record).value === JSON.parse(text).digest.value : null;
-        return d === true ? F('the shipped digestRecord() accepted the tampered record', 'control-failed') : P(`${v.reason}${d === false ? '; the shipped digestRecord() also disagrees' : ''}`);
+        return d === true ? F('the shipped digestRecord() accepted the tampered record', 'control-failed') : P(`${c.detail}${d === false ? '; the shipped digestRecord() also disagrees' : ''}`);
       }, '[pack]');
     }
   }
@@ -655,6 +663,8 @@ function renderMd(res) {
 }
 
 // ---- main ----------------------------------------------------------------------------------------------------------
+// Imported (by the controls test) the file only offers its pure functions; run as a script it runs the pack.
+if (path.resolve(process.argv[1] || '').toLowerCase() === SELF.toLowerCase()) {
 // One pack at a time: two at once fought over the npm cache and the loaded laptop's memory.
 const LOCK = path.join(os.tmpdir(), 'proof-pack.lock');
 try { const pid = Number(fs.readFileSync(LOCK, 'utf8')); if (pid && pid !== process.pid) { process.kill(pid, 0); err(`another proof pack is running (pid ${pid}); not starting a second`); process.exit(3); } } catch (e) { if (e?.code !== 'ESRCH' && e?.code !== 'ENOENT' && !(e instanceof SyntaxError)) throw e; }
@@ -687,3 +697,4 @@ if (opt('--runs-log')) {
 if (!has('--keep') && S.tmp) { try { fs.rmSync(S.tmp, { recursive: true, force: true }); } catch { /* temp is the OS's to clean */ } }
 console.log(`${verdict}: ${summary.pass} PASS, ${summary.fail} FAIL, ${summary.not_checked} NOT_CHECKED of ${summary.checks} checks in ${Math.round(res.duration_ms / 1000)} s -> ${path.join(OUT_DIR, STEM)}.{json,md}`);
 process.exit(verdict === 'ERROR' ? 3 : summary.fail ? 1 : summary.not_checked ? 2 : 0);
+}
