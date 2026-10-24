@@ -185,6 +185,9 @@
     /\b((?:[A-Za-z0-9]{1,20}[_-]){0,4}(?:password|passwd|pwd|secret|api[_-]?key|apikey|api[_-]?secret|access[_-]?token|auth[_-]?token|refresh[_-]?token|session[_-]?token|client[_-]?secret|webhook[_-]?secret|signing[_-]?secret|secret[_-]?key|private[_-]?key|aws_secret_access_key))(["']?)(\s*[=:]\s*)(["']?)[^\s"',;]{6,}\4/gi;
   const HEX_64 = /\b(?:0x)?[0-9a-fA-F]{64}\b/g;
   const PREFIXED_TOKENS = /\b(?:pypi-|npm_|hf_|whsec_|glsoat-|glagent-|glptt-|gloas-|glrt-|gldt-|glpat-|ghs_|ghr_|ghu_|gho_|xoxc-|xoxs-|xoxr-|xoxe-|xoxa-|xoxp-|xoxb-)[A-Za-z0-9_-]{8,}\b/g;
+  // Bare provider API keys (Groq, Cerebras, xAI, Perplexity, Fireworks, Supabase, Tavily, Replicate), each at its key's real body length
+  // rather than 8: `fw_update_package` is an identifier, not a key (see PROVIDER_KEYS in src/memory/redact.ts).
+  const PROVIDER_KEYS = /\b(?:(?:gsk_|csk-|xai-|pplx-)[A-Za-z0-9]{40,}|fw_[A-Za-z0-9]{20,}|sbp_[0-9a-f]{40}|tvly-[A-Za-z0-9-]{20,}|r8_[A-Za-z0-9]{30,})\b/g;
   // Bounded by the limits of an address (local part 64, domain 253, top-level label 63); the unbounded form was
   // quadratic on a long run with no `@`, and this runs on the page's main thread (see EMAIL in src/memory/redact.ts).
   const EMAIL = /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}\b/g;
@@ -318,6 +321,7 @@
       .replace(HF, '')
       .replace(WEBHOOK_SIGNING, '')
       .replace(PREFIXED_TOKENS, '')
+      .replace(PROVIDER_KEYS, '')
       .replace(EXTENDED_KEY, '')
       .replace(WIF_KEY, '')
       .replace(CREDENTIAL_ASSIGNMENT, '$1$2$3')
