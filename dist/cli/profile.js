@@ -19,6 +19,7 @@ exports.terminalAsk = terminalAsk;
 const profile_1 = require("../lib/profile");
 const init_1 = require("../lib/init");
 const remember_1 = require("./remember");
+const action_evidence_1 = require("../lib/action-evidence");
 exports.PROFILE_PATH = `${init_1.TRUSTSHELL_DIR}/${init_1.PROFILE_FILE}`;
 const SECTION_ALIASES = {
     value: 'values',
@@ -195,9 +196,10 @@ async function runProfile(op, io, fs, json = false) {
         else if (!exists)
             io.out(`NO_PROFILE  ${exports.PROFILE_PATH} does not exist. \`trustshell init\` creates a blank one.`);
         else {
-            io.out(text.replace(/\s+$/, ''));
+            // The file may hold text someone else wrote (a profile imported from a signed bundle), and a problem line quotes the bad value: print both as text.
+            io.out((0, action_evidence_1.cleanCodePoints)(text.replace(/\s+$/, ''), true));
             for (const pr of parsed.problems)
-                io.err(`problem: ${pr.field}: ${pr.detail}`);
+                io.err(`problem: ${pr.field}: ${(0, action_evidence_1.cleanCodePoints)(pr.detail)}`);
         }
         return 0;
     }
@@ -205,7 +207,7 @@ async function runProfile(op, io, fs, json = false) {
     if (parsed.problems.length) {
         io.err(`${exports.PROFILE_PATH} has problems; fix them by hand first, nothing was written:`);
         for (const pr of parsed.problems)
-            io.err(`  ${pr.field}: ${pr.detail}`);
+            io.err(`  ${pr.field}: ${(0, action_evidence_1.cleanCodePoints)(pr.detail)}`);
         return 1;
     }
     let profile = parsed.profile;
