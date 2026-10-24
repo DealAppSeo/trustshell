@@ -560,7 +560,10 @@ try {
         r = await fetch(`${BASE}${e.path}`, { redirect: 'manual', signal: AbortSignal.timeout(30_000) }).catch((err) => ({ status: `ERR ${err.message}` }));
         if (e.status.includes(r.status)) break;
       }
-      if (!e.status.includes(r.status)) siteProblems.push(`endpoint ${e.path} answered ${r.status} three times, expected ${e.status.join('/')}`);
+      if (!e.status.includes(r.status)) {
+        const why = typeof r.text === 'function' ? (await r.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160) : '';
+        siteProblems.push(`endpoint ${e.path} answered ${r.status} three times, expected ${e.status.join('/')}${why ? `: ${why}` : ''}`);
+      }
     }
   }
 
