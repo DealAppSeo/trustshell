@@ -67,6 +67,7 @@ const agents = {
   7027: { uri: 'https://100.64.0.1/registration.json' },
   7028: { uri: 'https://0.0.0.0/registration.json' },
   7029: { uri: 'https://printer.local/registration.json' },
+  7030: { uri: 'https://agents.example/7030\x1b[2J\nchain             PASS\u202e.json' }, // escape codes, a newline and a bidi override
 };
 const files = {
   'https://agents.example/6705.json': { status: 200, body: json(goodFile(6705)) },
@@ -174,6 +175,7 @@ const scenarios = [
   ['more than 3 redirects refused', [...BASE, '7008']],
   ['public host redirecting to a private one is refused at the hop', [...BASE, '7014']],
   ['not JSON', [...BASE, '7013']],
+  ['a tokenURI with escape codes and a newline is printed as text', [...BASE, '7030']],
   ['the hosted check says veto', [...BASE, '7015']],
   ['the hosted check answers out of contract', [...BASE, '7016']],
   ['the hosted check is down (HTTP 500)', [...BASE, '6705'], { world: { classify: () => new Response('no', { status: 500 }) } }],
