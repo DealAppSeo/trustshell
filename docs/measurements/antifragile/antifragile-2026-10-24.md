@@ -24,7 +24,10 @@ A dated record of one night, not a live check and not a security claim. Every nu
 | cycle 1, after | `2a4880e3` | 56 | + 2 fixes, `190d3d9e61eb` | 2 |
 | cycle 2, before | `a05438a8` | 25 | `190d3d9e61eb` | 2 |
 | cycle 2, after | `a05438a8` | 25 | + 3 fixes, `d794f54f35f7` | 2 |
-| corpus 1 on the final build | `2a4880e3` | 56 | `d794f54f35f7` | 1 |
+| cycle 3, before | `b3f549d0` | 12 | `d794f54f35f7` | 2 |
+| cycle 3, after | `b3f549d0` | 12 | + 1 fix, `bce51b84c3c3` | 2 |
+| corpus 1 on the build after cycle 2 | `2a4880e3` | 56 | `d794f54f35f7` | 1 |
+| corpus 1 and 2 on the final build | `2a4880e3`, `a05438a8` | 56, 25 | `bce51b84c3c3` | 1 |
 | corpus 1 on published npm 1.8.0 | `2a4880e3` | 56 | tarball sha256 `52669e3c31cc0c27855a03ffa63ea0ac0b12ca72ed63831a7e21160714a527bf`, `78fbe676bcc2` | 2 |
 | corpus 2 on published npm 1.8.0 | `a05438a8` | 25 | the same tarball (standalone `replay.mjs`) | 1 |
 
@@ -55,11 +58,23 @@ C / N / I = CONFIRMED / NOT_REPRODUCED / INVALID. "Valid" = C + N, the cases tha
 | reviewer | 4 | 4 / 0 / 0 | 0 / 4 / 0 |
 | **all** | **25** | **7 / 13 / 5** | **3 / 17 / 5** |
 
-Only the cases named below changed verdict; in each run every other case has the same verdict before and after. Corpus 1 replayed on the final build is 4 / 33 / 19, the same as its own "after": the cycle-2 fixes broke nothing that cycle 1 had settled.
+**Cycle 3, corpus `b3f549d0`** (12 cases, written against the cycle-2 build, aimed at one class: a credential shape the detector does not know). This corpus is **not committed**, and neither is its one reviewer case: the models' fake keys trip gitleaks (4 findings), and the reviewer case's fake key bodies trip GitHub's own push protection (an xAI-shaped key), even though every body is fake and low-entropy. Only its hash is here. The permanent test for the fix (`tests/antifragile-credential-shapes.test.ts`, PR #642) builds the same eight key shapes at runtime from parts, so no secret-shaped literal is in the repository. The cycle-3 numbers below are therefore not replayable from this folder.
+
+| origin | cases | before C / N / I | after C / N / I |
+|---|---|---|---|
+| model: openai | 5 | 0 / 5 / 0 | 0 / 5 / 0 |
+| model: qwen | 6 | 0 / 0 / 6 | 0 / 0 / 6 |
+| model: llama | 0 | n/a | n/a |
+| reviewer | 1 | 1 / 0 / 0 | 0 / 1 / 0 |
+| **all** | **12** | **1 / 5 / 6** | **0 / 6 / 6** |
+
+The local llama round for cycle 3 was still computing at the freeze, so it is not in the corpus; it returned 2 cases afterwards, both INVALID on the pre-fix build.
+
+Only the cases named below changed verdict; in each run every other case has the same verdict before and after. Corpora 1 and 2 replayed on the final build, after all seven fixes, are 4 / 33 / 19 and 3 / 17 / 5, the same as their own "after" columns: the later fixes broke nothing that the earlier cycles had settled.
 
 ## What the free models found: nothing that was real
 
-Of the 7 model-written cases the program called CONFIRMED across both cycles, **none is a defect**. I read all seven. Each one's confirm assertion holds on *correct* behaviour:
+Of the 7 model-written cases the program called CONFIRMED across the three cycles (4 in cycle 1, 3 in cycle 2, none in cycle 3, whose 11 model cases all failed to reproduce or proved nothing), **none is a defect**. I read all seven. Each one's confirm assertion holds on *correct* behaviour:
 
 | case | judge's reading | my reading |
 |---|---|---|
@@ -75,7 +90,7 @@ So the judge called an ill-posed case a defect 2 times in 7. That is why a judge
 
 ## What the reviewer found, and fixed
 
-Six defects, each with a permanent test written first (it failed on the unfixed source for the stated reason and passes after) and one draft PR. **Five of the six are in code that is not in the published 1.8.0**: that tarball predates the `guard` and `bundle` commands (`unknown command`), so replaying corpus 1 on it gives 1 / 4 / 51 and corpus 2 gives 1 / 1 / 23, nearly all INVALID because the commands do not exist. **The sixth, `profile show`, is in the published 1.8.0**: the same fixture is CONFIRMED on that tarball. There the hostile text has to come from a profile file the owner did not write, for example a `.trustshell/profile.md` shipped inside a cloned repository.
+Seven defects, each with a permanent test written first (it failed on the unfixed source for the stated reason and passes after) and one draft PR. **Five of the seven are in code that is not in the published 1.8.0**: that tarball predates the `guard` and `bundle` commands (`unknown command`), so replaying corpus 1 on it gives 1 / 4 / 51 and corpus 2 gives 1 / 1 / 23, nearly all INVALID because the commands do not exist. **Two are in the published 1.8.0**: the same fixtures are CONFIRMED on that tarball. `profile show` (finding 6) needs hostile text from a profile file the owner did not write, for example a `.trustshell/profile.md` shipped inside a cloned repository. The provider-key shapes (finding 7) need nothing but the user pasting a key.
 
 | # | finding | corpus fixture | test | PR |
 |---|---|---|---|---|
@@ -84,13 +99,14 @@ Six defects, each with a permanent test written first (it failed on the unfixed 
 | 3 | `bundle verify` / `import` quote an unknown field name or bad `schema` raw in the REFUSED message, **before any signature check**, so an unsigned file from anyone reaches the terminal | `af-review-bundle-verify-unsigned-key-escape` | `tests/antifragile-bundle-error-scrub.test.ts` | #639 |
 | 4 | `guard show` prints a policy `subject` raw | `af-review-guard-show-subject-escape` | `tests/antifragile-guard-show-scrub.test.ts` | #638 |
 | 5 | `guard show` (and `bundle export`) print an unparseable policy's problem lines, which quote the file's own key text, raw | `af-review-guard-show-invalid-policy-key-escape` | same file | #638 |
-| 6 | `profile show` prints the profile and its "problem:" lines raw | `af-review-profile-show-escape` | `tests/antifragile-profile-show-scrub.test.ts` | #637 |
+| 6 | `profile show` prints the profile and its "problem:" lines raw (**also in published 1.8.0**) | `af-review-profile-show-escape` | `tests/antifragile-profile-show-scrub.test.ts` | #637 |
+| 7 | the credential detector (`remember`, `bundle export`, and the redactor on text bound for the hosted engine) does not know a bare Groq, Cerebras, xAI, Perplexity, Fireworks, Supabase, Tavily or Replicate key (**also in published 1.8.0**); the fix also changes the Chrome extension's copy of the redactor | `af-review-remember-accepts-provider-keys` | `tests/antifragile-credential-shapes.test.ts` | #642 |
 
-Findings 2 to 6 are one class (text from a file or bundle reaching the terminal unscrubbed) that `inspect`, `report` and `bundle context` had each been fixed for on 2026-10-21; these were the siblings. Finding 1 came from a shape fuzz of 15 readers (165 runs: `null`, `[]`, `5`, `"x"`, `{}`, … as a whole file or a line), which found no other crash.
+Findings 2 to 6 are one class (text from a file or bundle reaching the terminal unscrubbed) that `inspect`, `report` and `bundle context` had each been fixed for on 2026-10-21; these were the siblings. Finding 1 came from a shape fuzz of 15 readers (165 runs: `null`, `[]`, `5`, `"x"`, `{}`, … as a whole file or a line), which found no other crash. Finding 7 came from running the detector on the key shapes the loop's own scrubber already knew; the three model families were then pointed straight at that class in a directed round (cycle 3, below) and did not find it.
 
 ## What a dead key or a 429 cost
 
-Counted from the driver's own ledger (82 model attempts, 2026-10-24 06:31Z to 08:41Z): **0** dead-key, HTTP 404/410 or auth failures; **1** HTTP 429 (Groq), waited 65 s, retried, succeeded. 17 attempts returned no usable cases, none for a provider reason. By my reading of the ledger: 5 were my driver's own defects (a regex mangled by my shell, 3; a fetch timeout shorter than a CPU-bound local model needs, 2), 7 were a reasoning model spending its output budget thinking (fixed by setting its reasoning effort), 5 were the model emitting malformed JSON (fixed by the provider's JSON mode). None of these is a result about the tool. The two other free models the loop's router lists (nvidia nemotron, minimax on OpenRouter) are marked gone by that loop and were not called.
+Counted from the driver's own ledger (94 model attempts over the three cycles, 2026-10-24 06:31Z to 09:20Z): **0** dead-key, HTTP 404/410 or auth failures; **1** HTTP 429 (Groq), waited 65 s, retried, succeeded. 17 attempts returned no usable cases, none for a provider reason. By my reading of the ledger: 5 were my driver's own defects (a regex mangled by my shell, 3; a fetch timeout shorter than a CPU-bound local model needs, 2), 7 were a reasoning model spending its output budget thinking (fixed by setting its reasoning effort), 5 were the model emitting malformed JSON (fixed by the provider's JSON mode). None of these is a result about the tool. The two other free models the loop's router lists (nvidia nemotron, minimax on OpenRouter) are marked gone by that loop and were not called.
 
 ## What this does not show
 
