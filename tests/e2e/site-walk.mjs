@@ -552,8 +552,15 @@ try {
   // endpoints
   if (!ONLY) {
     for (const e of ENDPOINTS) {
-      const r = await fetch(`${BASE}${e.path}`, { redirect: 'manual', signal: AbortSignal.timeout(30_000) }).catch((err) => ({ status: `ERR ${err.message}` }));
-      if (!e.status.includes(r.status)) siteProblems.push(`endpoint ${e.path} answered ${r.status}, expected ${e.status.join('/')}`);
+      // Three tries, 2 s apart: /api/agent-leaderboard reads Base Sepolia over public RPC and answers 503 when that read
+      // hiccups, which is its contract. Only an endpoint that stays down fails the walk.
+      let r;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt) await new Promise((res) => setTimeout(res, 2000));
+        r = await fetch(`${BASE}${e.path}`, { redirect: 'manual', signal: AbortSignal.timeout(30_000) }).catch((err) => ({ status: `ERR ${err.message}` }));
+        if (e.status.includes(r.status)) break;
+      }
+      if (!e.status.includes(r.status)) siteProblems.push(`endpoint ${e.path} answered ${r.status} three times, expected ${e.status.join('/')}`);
     }
   }
 
