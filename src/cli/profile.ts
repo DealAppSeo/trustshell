@@ -27,6 +27,7 @@ import {
 import { TRUSTSHELL_DIR, PROFILE_FILE } from '../lib/init';
 import { refusedValue } from './remember';
 import { ingest } from '../lib/ingest';
+import { cleanCodePoints } from '../lib/action-evidence';
 
 export const PROFILE_PATH = `${TRUSTSHELL_DIR}/${PROFILE_FILE}`;
 
@@ -233,8 +234,9 @@ export async function runProfile(op: ProfileOp, io: ProfileIo, fs: ProfileFs, js
     if (json) io.out(JSON.stringify({ path: PROFILE_PATH, exists, ...parsed }, null, 2));
     else if (!exists) io.out(`NO_PROFILE  ${PROFILE_PATH} does not exist. \`trustshell init\` creates a blank one.`);
     else {
-      io.out(text.replace(/\s+$/, ''));
-      for (const pr of parsed.problems) io.err(`problem: ${pr.field}: ${pr.detail}`);
+      // The file may hold text someone else wrote (a profile imported from a signed bundle), and a problem line quotes the bad value: print both as text.
+      io.out(cleanCodePoints(text.replace(/\s+$/, ''), true));
+      for (const pr of parsed.problems) io.err(`problem: ${pr.field}: ${cleanCodePoints(pr.detail)}`);
     }
     return 0;
   }
@@ -242,7 +244,7 @@ export async function runProfile(op: ProfileOp, io: ProfileIo, fs: ProfileFs, js
   // Never rewrite a file this build cannot read cleanly: the rewrite could drop what it misread.
   if (parsed.problems.length) {
     io.err(`${PROFILE_PATH} has problems; fix them by hand first, nothing was written:`);
-    for (const pr of parsed.problems) io.err(`  ${pr.field}: ${pr.detail}`);
+    for (const pr of parsed.problems) io.err(`  ${pr.field}: ${cleanCodePoints(pr.detail)}`);
     return 1;
   }
 
