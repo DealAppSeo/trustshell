@@ -9,6 +9,7 @@ exports.runBundle = runBundle;
  */
 const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
+const action_evidence_1 = require("../lib/action-evidence");
 const bundle_1 = require("../lib/bundle");
 const guardrails_1 = require("../lib/guardrails");
 const init_1 = require("../lib/init");
@@ -82,7 +83,8 @@ function summaryLines(b) {
         `profile     ${p.profile !== null ? 'yes' : 'none'}`,
         `policy      ${pol ? `sha256 ${pol.sha256.slice(0, 16)}…, nonce ${pol.nonce}, ${signed ?? (pol.document.signature ? `${guardrails_1.SIGNATURE_DOES_NOT_VERIFY} (imports as suggested, never enforced)` : 'UNSIGNED (imports as suggested, never enforced)')}` : 'none'}`,
         `memories    ${p.memories.length} note(s) you selected (they import as untrusted, quarantined)`,
-        `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${e.name} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
+        // The name is the sender's text, signed but not safe to print: a control or bidi byte in it reached the terminal (antifragile night, 2026-10-24).
+        `evidence    ${p.evidence.length ? p.evidence.map((e) => `${e.kind} ${(0, action_evidence_1.cleanCodePoints)(e.name)} ${e.sha256.slice(0, 12)}…`).join('; ') : 'none'}`,
     ];
 }
 function runBundle(argv, io, env = process.env) {
