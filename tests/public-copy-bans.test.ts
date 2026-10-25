@@ -10,17 +10,14 @@ import { join } from 'node:path';
 const ROOT = join(__dirname, '..');
 const FILES = [
   'app/page.tsx',
-  'components/hero.tsx',
+  'components/home-install.tsx',
   'app/more/page.tsx',
   'app/why/page.tsx',
   'app/why/cost/page.tsx',
   'app/why/blame/page.tsx',
   'app/why/harness/page.tsx',
-  'components/home-questions.tsx',
   // The home page by jobs (2026-10-16): every new home section is scanned too.
   'components/hero-result.tsx',
-  'components/home-your-agent.tsx',
-  'components/home-proof.tsx',
   'components/vision-hero.tsx',
   'components/why-article.tsx',
   'lib/why-questions.ts',

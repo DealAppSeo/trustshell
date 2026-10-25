@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
 const COPY = [
-  'components/hero.tsx',
+  'components/home-install.tsx',
   'components/landing-close.tsx',
   'app/page.tsx',
   'app/start/page.tsx',

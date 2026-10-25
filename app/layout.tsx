@@ -81,9 +81,9 @@ export default function RootLayout({
           {children}
         </div>
         {/* The site footer: the privacy policy, the source and the package, on every page. Not
-            components/footer.tsx, the long link grid #246 kept off the landing. pb-24 below sm keeps
-            the last line clear of the home page's fixed mobile Check bar. */}
-        <footer className="border-t border-[#1e293b] px-4 pt-6 pb-24 sm:pb-6 text-sm text-[#94a3b8]">
+            components/footer.tsx, the long link grid #246 kept off the landing. (The extra phone padding
+            for the home page's fixed Check bar went with the bar, 2026-10-24.) */}
+        <footer className="border-t border-[#1e293b] px-4 py-6 text-sm text-[#94a3b8]">
           <nav aria-label="Site" className="max-w-6xl mx-auto flex flex-wrap gap-x-6">
             <a href="/build" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Build with us</a>
             <a href="/privacy.html" className="inline-flex min-h-11 min-w-11 items-center underline-offset-4 hover:text-white hover:underline">Privacy: extension and sentence check</a>

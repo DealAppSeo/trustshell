@@ -24,13 +24,12 @@
  * Every case runs at a phone viewport (390 x 844), because a door nobody can use on a phone is not
  * the phone door.
  *
- * THE HOME PAGE IS TRY TO TRICK IT (stubbed mode only, Sean 2026-10-06). The same form, with three
- * cards above an empty box: picking a card checks it. The walk counts every fetch, XHR and beacon the
- * page makes (stubbed in the page and counted) and every request that reaches the engine: loading the
- * page must send NOTHING, because crawlers and page loads must not spend the shared checker budget.
- * One card click is the positive control: it proves the counters can see a request at all, so their
- * zeros mean something. Not in --live or --deployed: the deployed home
- * page is whatever shipped last, and a live click would spend real budget.
+ * THE HOME PAGE IS INSTALL-FIRST (stubbed mode only, Sean 2026-10-24). It has no form: one command
+ * on a pinned run, the real output, and install tabs. The walk counts every fetch, XHR and beacon the
+ * page makes and every request that reaches the engine: loading the page must send NOTHING. One fetch
+ * the walk makes on purpose is the positive control: it proves the counter can see a request at all,
+ * so its zero means something. Not in --live or --deployed: the deployed home page is whatever
+ * shipped last.
  *
  *     npm run test:check-walk               # stubbed
  *     npm run test:check-walk -- --live     # production engine, this checkout's page
@@ -273,11 +272,6 @@ async function shown(page) {
   });
 }
 
-// Must match lib/home-samples.ts: the price card (Caught) and the citation card (Checks out).
-// The price trap is the hero's recorded result since 2026-10-16, not a card; the command is the wrong card.
-const FALSE_SAMPLE = 'Running git reset --hard keeps the changes you have not committed yet.';
-const TRUE_SAMPLE = 'Attention Is All You Need, the paper that introduced the Transformer, was published in 2017 by researchers at Google.';
-const NOT_YET = 'ChatGPT and Grok apps: not yet. On their websites, use the Chrome extension.';
 
 /** Count every way the page could send something: fetch, XHR and beacon, wrapped before any script runs. */
 function countSends() {
@@ -301,7 +295,13 @@ function countSends() {
   }
 }
 
-/** The home page by jobs (2026-10-16). Loading sends nothing; one card click sends one request. */
+/**
+ * The home page, install-first (Sean, 2026-10-24): one job, run TrustShell and install it. The sentence
+ * check and its sample cards moved off the home page (they live on /check, walked above), so this walk
+ * holds the new contract: loading sends nothing, nothing scrolls sideways on a phone or a desktop, the
+ * hero command is the pinned run with --claims and can be copied, the install tabs switch, and the old
+ * paste box is gone.
+ */
 async function walkHome(browser, phone, pageErrors) {
   const HOME_URL = `http://127.0.0.1:${APP_PORT}/`;
   const home = await phone.newPage();
@@ -309,151 +309,37 @@ async function walkHome(browser, phone, pageErrors) {
   await home.addInitScript(countSends);
   const engineHits = [];
   home.on('request', (r) => { if (r.url().startsWith(ENGINE)) engineHits.push(`${r.method()} ${r.url()}`); });
-  const sent = () => home.evaluate(() => window.__sent.slice());
   const before = seen.length;
-  const quiet = async () => {
-    const s = await sent();
-    return { ok: s.length === 0 && engineHits.length === 0 && seen.length === before, note: JSON.stringify({ sent: s, engineHits, engineSaw: seen.length - before }) };
-  };
 
   await home.goto(HOME_URL, { waitUntil: 'networkidle' });
-  const result = await home.locator('[data-testid=hero-result]').innerText().catch(() => '');
-  check('home: the hero shows the recorded result, Caught, with its date', /Caught/.test(result) && /Checked live on 2026-10-16\./.test(result), result);
-  check('home: the folded cards stay closed until opened', (await home.locator('[data-testid=check-card]').first().isVisible()) === false);
-  await home.locator('[data-testid=check-cards-fold] summary').click();
-  const cards = await home.locator('[data-testid=check-card]').count();
-  check('home: opening the fold shows two cards under an empty box', cards === 2 && (await home.inputValue('#claim')) === '' &&
-    (await home.locator('body').innerText()).includes('One is wrong, one is right.'), `cards ${cards}`);
-  const q = await quiet();
-  check('home: loading the page sends no request (fetch, XHR and beacon counted, engine counted)', q.ok, q.note);
-
-  // Two forms since 2026-10-06 (Check, and the folded Paste both), so the Check button is scoped.
-  const checkButton = home.locator('[data-testid=check-form] button[type=submit]');
-  // The short line stays on screen; the full privacy sentence opens under "Where your text goes".
-  const privacyBox = await home.locator('[data-testid=check-note]').boundingBox().catch(() => null);
-  const buttonBox = await checkButton.boundingBox().catch(() => null);
-  check('home: the privacy line sits above the Check button', Boolean(privacyBox && buttonBox) && privacyBox.y + privacyBox.height <= buttonBox.y,
-    `privacy ${privacyBox ? Math.round(privacyBox.y) : 'missing'} / button ${buttonBox ? Math.round(buttonBox.y) : 'missing'}`);
-  // 2026-10-16: the button looks active; an empty press sends nothing, focuses the box, shows one line.
-  check('home: Check looks active on an empty box', (await checkButton.isDisabled()) === false);
-  await checkButton.click();
-  const hint = await home.locator('[data-testid=check-hint]').textContent().catch(() => null);
-  const focused = await home.evaluate(() => document.activeElement?.id ?? null);
-  const q2 = await quiet();
-  check('home: an empty press points at the box and sends nothing', hint === 'Paste an answer in the box first, then check it.' && focused === 'claim' && q2.ok,
-    JSON.stringify({ hint, focused, quiet: q2.note }));
-  check('home: Paste both is folded away until opened', (await home.locator('[data-testid=compare-form]').isVisible()) === false);
+  const sent = await home.evaluate(() => window.__sent.slice());
+  check('home: loading the page sends no request (fetch, XHR and beacon counted, engine counted)',
+    sent.length === 0 && engineHits.length === 0 && seen.length === before, JSON.stringify({ sent, engineHits }));
+  // Positive control: the counter sees a fetch the walk makes on purpose, so the zero above is a reading.
+  const control = await home.evaluate(async () => { await fetch('/favicon.ico').catch(() => {}); return window.__sent.slice(); });
+  check('home: control: the counter sees a request when one is made', control.length === 1 && /favicon\.ico/.test(control[0] ?? ''), JSON.stringify(control));
   check('home: no sideways scroll on a 390px phone', (await home.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
+
+  const hero = (await home.locator('main pre').first().textContent()) ?? '';
+  check('home: the hero command checks the pinned run with --claims',
+    /npx @hyperdag\/trustshell@latest check https:\/\/github\.com\/DealAppSeo\/trustshell\/actions\/runs\/39619591025 --claims "/.test(hero), hero);
+  check('home: the hero command has a Copy button', (await home.getByRole('button', { name: 'Copy' }).count()) >= 1);
+  check('home: the old paste box is gone', (await home.locator('#claim').count()) === 0 && (await home.locator('[data-testid=check-form]').count()) === 0);
+
+  await home.getByRole('tab', { name: 'Coding agent' }).click();
+  check('home: the install tabs switch', await home.locator('#panel-agent').isVisible() && !(await home.locator('#panel-terminal').isVisible()));
+
   const text = await home.locator('body').innerText();
-  // Folded sections are not in innerText, so the words on the page, open or closed, come from <main>.
-  const all = (await home.locator('main').textContent()) ?? '';
-  // The extension stamps their websites; their apps do not load MCP servers (2026-10-05 home page).
-  const rest = all.split(NOT_YET).join('');
-  check('home: ChatGPT and Grok appear only in the Chrome stamp line and the not-yet line',
-    all.split(NOT_YET).length === 2 && (rest.match(/ChatGPT/g) ?? []).length === 1 && (rest.match(/\bGrok\b/g) ?? []).length === 1
-      && rest.includes('Every reply on ChatGPT, Claude, Gemini, Grok and DeepSeek gets a stamp'));
-  check('home: job 2 is the check where you already use AI', text.includes('Get the check where you already use AI') && ['Claude Desktop', 'Cursor', 'Claude Code'].every((name) => text.includes(name)));
-  check('home: job 3 is one door, to /pai', (await home.locator('#your-agent a[href="/pai"]').count()) === 1);
-  check('home: the why comes last, with where this goes folded in it', text.includes('Where this goes') && all.includes('Known key and personal-data formats are removed before sending.'));
-  // The sticky Check stays off the first screen, so it never covers the legend or doubles the button,
-  // and appears once the legend and the box are both scrolled away.
-  check('home: no sticky Check over the first screen at 390px', (await home.locator('[data-testid=sticky-check]').isVisible()) === false);
-  await home.locator('#where').scrollIntoViewIfNeeded();
-  await home.waitForTimeout(400);
-  check('home: the sticky Check appears once the box is scrolled away', await home.locator('[data-testid=sticky-check]').isVisible());
-  await home.evaluate(() => window.scrollTo(0, 0));
-  await home.waitForTimeout(400);
   check('home: no number followed by ms anywhere on the page', !/\d\s*ms\b/i.test(text), (text.match(/[^\n]*\d\s*ms\b[^\n]*/i) ?? [''])[0]);
-  check('home: the old hero lines are gone', !/Get a receipt|family host verdict|paste your own claim|trinity-shofet|Check a claim in the chat|trustshell status|The average is not 45|the truth comes out|source of truth/.test(text));
-  check('home: no measured record shows before a card is picked (guess first)', !text.includes('When we measured this sentence'));
+  check('home: the old hero lines are gone', !/Paste what it told you|Two other AIs check it|Play five rounds|Make your agent/.test(text));
   if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390.png'), fullPage: true });
-
-  // Positive control: one card click, one request, and the counters see it.
-  await home.click(`[data-testid=check-card][data-sample="${FALSE_SAMPLE}"]`);
-  await home.waitForSelector('[data-testid=check-label], [data-testid=check-error]', { timeout: 20_000 });
-  const card = await shown(home);
-  const posts = engineHits.filter((h) => h.startsWith('POST '));
-  const fetches = (await sent()).filter((s) => s.includes('/api/v1/classify'));
-  check('home: one card click sends exactly one request, with that card\'s sentence, and shows Caught',
-    posts.length === 1 && fetches.length === 1 && seen.length === before + 1 && seen.at(-1)?.text === FALSE_SAMPLE &&
-      (await home.inputValue('#claim')) === FALSE_SAMPLE && card.words === 'Caught' && card.title === 'veto' && /veto/.test(card.machine ?? ''),
-    JSON.stringify({ posts, fetches, sentText: seen.at(-1)?.text, card }));
-  // On a phone the cards stack above the box: the answer must come to the person, not wait below.
-  await home.waitForTimeout(1000);
-  const inView = await home.evaluate(() => {
-    const r = document.querySelector('[data-testid=check-result]')?.getBoundingClientRect();
-    return r ? { top: Math.round(r.top), bottom: Math.round(r.bottom), h: window.innerHeight, ok: r.top < window.innerHeight && r.bottom > 0 } : null;
-  });
-  check('home: on a phone the answer is brought into view after the card click', Boolean(inView?.ok), JSON.stringify(inView));
-  const whyLine = await home.locator('[data-testid=check-why-sample]').textContent().catch(() => null);
-  check('home: the card explains itself once the checkers agree with it', /discards every uncommitted change/.test(whyLine ?? ''), String(whyLine));
-  const pathText = await home.locator('[data-testid=check-path]').textContent().catch(() => null);
-  check('home: the answer says what each checker said', pathText === 'Groq said false. Cerebras said false.', String(pathText));
-  const measuredLine = await home.locator('[data-testid=check-measured]').textContent().catch(() => null);
-  check('home: after the answer, the card shows the runs that put it there, with the date',
-    /^When we measured this sentence on 2026-10-06, it came back Caught 5 times out of 5\. See every run\.$/.test((measuredLine ?? '').replace(/\s+/g, ' ').trim()), String(measuredLine));
-  const steps = await home.locator('[data-testid=check-steps] li').allTextContents().catch(() => []);
-  check('home: the steps come from the answer: who it was sent to, and the engine\'s own time',
-    steps.length === 2 && /Sent to Groq and Cerebras\./.test(steps[0] ?? '') && /Answered in 0\.3 s\./.test(steps[1] ?? ''), JSON.stringify(steps));
-  const raw = await home.locator('[data-testid=check-raw] pre').textContent().catch(() => null);
-  check('home: "What the engine answered" holds the fields the page read, each checker\'s word included',
-    /"label": "veto"/.test(raw ?? '') && /"latency_ms": 300/.test(raw ?? '') && /"verdict": "FALSE"/.test(raw ?? ''), String(raw));
-  const report = await home.locator('[data-testid=check-report]').getAttribute('href').catch(() => null);
-  check('home: a decided answer offers "Think it got this wrong?" as a public issue the person sees first',
-    (report ?? '').startsWith('https://github.com/DealAppSeo/trustshell/issues/new?title=') && decodeURIComponent(report ?? '').includes(FALSE_SAMPLE), String(report));
-  if (process.env.SHOT_DIR) await home.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-390-caught.png'), fullPage: true });
-
-  // The same card again: checked from scratch, and the page says the answer held.
-  await home.click(`[data-testid=check-card][data-sample="${FALSE_SAMPLE}"]`);
-  await home.waitForSelector('[data-testid=check-reaction]', { timeout: 20_000 });
-  const again = await home.locator('[data-testid=check-reaction]').textContent().catch(() => null);
-  check('home: the same card again is checked from scratch, and says the answer held',
-    again === 'Checked again from scratch: the same answer.' && seen.length === before + 2, JSON.stringify({ again, engineSaw: seen.length - before }));
-
-  // A different card, with a different answer and a backup that stood in.
-  await home.click(`[data-testid=check-card][data-sample="${TRUE_SAMPLE}"]`);
-  await home.waitForFunction(() => document.querySelector('[data-testid=check-label]')?.getAttribute('data-label') === 'pass', null, { timeout: 20_000 });
-  const changed = await home.locator('[data-testid=check-reaction]').textContent().catch(() => null);
-  const steps2 = await home.locator('[data-testid=check-steps] li').allTextContents().catch(() => []);
-  const why2 = await home.locator('[data-testid=check-why-sample]').textContent().catch(() => null);
-  const path2 = await home.locator('[data-testid=check-path]').textContent().catch(() => null);
-  check('home: a different card says the answer changed, names the backup, and explains itself',
-    changed === 'You changed the sentence, and the answer changed with it.' &&
-      steps2.some((x) => /could not answer, so a backup took its turn/.test(x)) && /1706\.03762/.test(why2 ?? '') &&
-      path2 === 'Groq said true. Cloudflare Workers AI said true.' && seen.length === before + 3,
-    JSON.stringify({ changed, steps2, why2, path2 }));
-
-  // Paste both: folded until opened, sends nothing until "Check both", then exactly two requests.
-  await home.locator('[data-testid=compare] summary').click();
-  await home.fill('[data-testid=compare-first]', 'compare-split: the first answer.');
-  await home.fill('[data-testid=compare-second]', 'compare-caught: the second answer.');
-  check('home: opening Paste both and typing sends nothing', seen.length === before + 3, `engine saw ${seen.length - before}`);
-  await home.click('[data-testid=compare-submit]');
-  await home.waitForSelector('[data-testid=compare-line]', { timeout: 20_000 });
-  const stamps = await home.locator('[data-testid=compare-stamp]').evaluateAll((els) => els.map((el) => ({ label: el.getAttribute('data-label'), text: el.textContent ?? '' })));
-  const line = await home.locator('[data-testid=compare-line]').textContent().catch(() => null);
-  check('home: Check both sends two requests and stamps each answer with what each checker said',
-    seen.length === before + 5 && stamps.length === 2 && stamps[0]?.label === 'not-checked' && stamps[1]?.label === 'veto' &&
-      /Groq said true\. Cerebras said false\. They disagree, and both cannot be right\./.test(stamps[0]?.text ?? '') &&
-      /Groq said false\. Cerebras said false\./.test(stamps[1]?.text ?? '') &&
-      line === 'The second was caught. The first was not checked, so it is not ruled in or out.',
-    JSON.stringify({ engineSaw: seen.length - before, stamps, line }));
   await home.close();
 
   const wide = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const desk = await wide.newPage();
   desk.on('pageerror', (e) => pageErrors.push(`home 1440: ${e}`));
-  await desk.addInitScript(countSends);
   await desk.goto(HOME_URL, { waitUntil: 'networkidle' });
-  const deskSent = await desk.evaluate(() => window.__sent.slice());
-  const deskNav = await desk.locator('header').innerText();
-  check('home: at 1440px the nav is Check, Add to your AI, Your agent, Docs',
-    ['Check', 'Add to your AI', 'Your agent', 'Docs'].every((label) => deskNav.includes(label)) &&
-      !/Leaderboard|Market|Stake/.test(deskNav), deskNav);
-  const overflow = await desk.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-  check('home: at 1440px, no sideways scroll and nothing sent on load',
-    overflow === false && deskSent.length === 0, JSON.stringify({ overflow, deskSent }));
-  check('home: the sticky Check is not on screen at 1440px', (await desk.locator('[data-testid=sticky-check]').isVisible()) === false);
+  check('home: no sideways scroll at 1440px', (await desk.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) === false);
   if (process.env.SHOT_DIR) await desk.screenshot({ path: join(process.env.SHOT_DIR, 'home-stubbed-1440.png'), fullPage: true });
   await wide.close();
 }

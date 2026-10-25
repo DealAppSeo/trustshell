@@ -19,7 +19,7 @@ describe('landing does not link stake', () => {
   it('the landing sources do not say stake now or point at /stake', () => {
     for (const rel of [
       'app/page.tsx',
-      'components/hero.tsx',
+      'components/home-install.tsx',
       'components/landing-close.tsx',
       'components/after-agent.tsx',
     ]) {

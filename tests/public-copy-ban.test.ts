@@ -21,7 +21,7 @@ describe('public copy ban', () => {
   it('bans stake claims on landing, /start, and the README, and keeps the hero', () => {
     const files = [
       join(ROOT, 'app/page.tsx'),
-      join(ROOT, 'components/hero.tsx'),
+      join(ROOT, 'components/home-install.tsx'),
       ...walk(join(ROOT, 'app/start')),
       join(ROOT, 'README.md'),
     ];
@@ -33,8 +33,6 @@ describe('public copy ban', () => {
       }
     }
     expect(hits).toEqual([]);
-    const hero = readFileSync(join(ROOT, 'components/hero.tsx'), 'utf8');
-    expect(hero).toContain('Your AI says the job is done. Is it?');
-    expect(hero).toContain('Paste what it told you. Two other AIs check it, and you see what each one said.');
+    expect(readFileSync(join(ROOT, 'app/page.tsx'), 'utf8')).toContain('Check what your AI agent did, not what it says it did.');
   });
 });

@@ -48,12 +48,7 @@ describe('the home page does not ask for a wallet', () => {
     expect(text).not.toMatch(/claiming, funding and spending/i);
   });
 
-  it('still offers the door: three questions, and a button to /pai', () => {
-    expect(text).toMatch(/three questions/i);
-    expect(text).toContain('Make your agent');
-  });
-
-  it('control: the page does say, in two places, that the check needs no wallet', () => {
-    expect(text.match(/no wallet/gi)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  it('control: the render is the real home page, so the absence above is a reading', () => {
+    expect(text).toContain('Check what your AI agent did, not what it says it did.');
   });
 });

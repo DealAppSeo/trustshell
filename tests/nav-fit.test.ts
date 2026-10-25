@@ -36,7 +36,9 @@ const SOURCE = readFileSync(join(__dirname, '..', 'components', 'top-nav.tsx'), 
 // measured above, so md still clears the row. Re-measured at 768px on the preview build.
 // 2026-10-21: Try Inspect added as a fifth link (sprint revision 2: one call to action for developers).
 // Five links cleared md at 768px on 2026-10-07; re-measured at 768px on this change's preview build.
-const MEASURED_LINK_COUNT = 5;
+// 2026-10-24: four links, install-first (How it works, Install, Docs, GitHub). Measured at 768px on the dev
+// server: the row runs from 429px to 744px, the logo ends at 114px, document scrollWidth 760, no overflow.
+const MEASURED_LINK_COUNT = 4;
 const BREAKPOINT = 'md';
 
 describe('top nav fits the viewport it appears in', () => {

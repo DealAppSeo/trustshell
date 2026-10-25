@@ -157,9 +157,7 @@ describe('the pages are findable', () => {
     const site = read('lib/site.ts');
     for (const slug of AUDIENCE_SLUGS) expect(site).toContain(`/for/${slug}`);
   });
-  it('the home page links to the game, as a link and not a second primary action', () => {
-    const hero = read('components/hero.tsx');
-    expect(hero).toContain('href="/for/vibe-coders"');
-    expect(hero).toContain('data-testid="hero-play-link"');
+  it('the home page does not link the game: it is install-first (Sean, 2026-10-24)', () => {
+    expect(read('app/page.tsx')).not.toContain('/for/vibe-coders');
   });
 });

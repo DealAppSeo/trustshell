@@ -77,7 +77,7 @@ describe('UX-08 contrast', () => {
       }
     }
     expect(offenders).toEqual([]);
-    expect(read('components/hero.tsx')).not.toContain('hover:bg-amber-600 hover:text-white');
+    expect(read('app/page.tsx')).not.toContain('hover:bg-amber-600 hover:text-white');
   });
 
   it('small meta text on the check surfaces is slate-400, not slate-500', () => {
@@ -161,8 +161,8 @@ describe('UX-16 /check: the box first, Next only after an answer', () => {
 });
 
 describe('UX-03 / UX-07 / UX-04 / UX-33', () => {
-  it('nav Check goes to /check', () => {
-    expect(read('components/top-nav.tsx')).toContain("{ href: '/check', label: 'Check' }");
+  it('nav Docs goes to /docs', () => {
+    expect(read('components/top-nav.tsx')).toContain("{ href: '/docs', label: 'Docs' }");
   });
 
   it('the docs spell HAL the canonical way', () => {
