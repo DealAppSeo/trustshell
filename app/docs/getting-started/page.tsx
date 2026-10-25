@@ -9,9 +9,9 @@ export const metadata = {
     "60-second path from npm install to a keyless score read (score and tier), not an on-chain attestation. Prerequisites, configuration, error handling.",
 };
 
-// Read on every request so the docs always reflect main without rebuild.
-// The markdown file ships in the repo, so the read is filesystem-local.
-export const dynamic = "force-dynamic";
+// Read once, at build. It was force-dynamic ("always reflects main without rebuild"), but the markdown ships inside the
+// deployment, so a request can only read the version that was built: the per-request lambda, fs read and markdown render
+// bought no freshness and cost TTFB.
 
 async function loadDoc(): Promise<string> {
   const filePath = path.join(process.cwd(), "docs", "getting-started.md");
