@@ -110,6 +110,13 @@ not exposed as an API; requesting one without `allowExperimentalTiers` **flags r
 fabricates** — there is no stub on this path. With `{ verify: true }` the proof is checked
 client-side by the bundled WASM verifier.
 
+The verifier only says the proof matches its statement, so `verification` also checks that the statement
+is about the agent you asked for. An id equal to the statement's agent id is bound as is; any other (a slug)
+is resolved with `GET /api/v1/repid/<id>?with=id`. A statement for a different agent is **not verified**
+(`verification.reason: "statement_for_other_agent"`), and an id the engine cannot resolve is **not checked**
+(`"binding_unavailable"`); in both `verified` is `false` and the WASM verifier is not run. `verifyProof(presentation)`
+applies the same rule; `verifyProof(proofBytes, statement)` names no agent and only checks proof against statement.
+
 ### `getLeaderboard(board) → Promise<Leaderboard>`
 
 `board: 'agents' | 'models'`. Overloaded — returns `AgentLeaderboard` or `ModelLeaderboard`.
@@ -236,7 +243,9 @@ Fetch the agent's proof, verify it **client-side**, and emit a portable, self-co
 reading `RepID ≥ <threshold> ✓ ZK-verified`. Options: `--markdown` (a copy-pasteable data-URI
 snippet instead of raw SVG), `--json`.
 
-The badge goes green **only** on a true local verification — it exits `3` in any other state
+The badge goes green **only** on a true local verification of a proof about the agent you named — a proof for
+a different agent renders red (`statement_for_other_agent`), one that cannot be tied to the agent renders grey
+(`binding_unavailable`, not checked) — and it exits `3` in any other state
 rather than rendering an unverified badge. It never prints the score itself; the proof's own
 statement still carries the score as a public input, so the badge is not a privacy claim.
 

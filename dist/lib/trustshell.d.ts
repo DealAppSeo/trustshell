@@ -294,6 +294,13 @@ export interface ProofPresentation {
         verified: boolean;
         error: string | null;
         verifierVersion: string;
+        /**
+         * Set when the WASM verifier was NOT asked, because the statement could not be tied to the agent
+         * that was asked about. `statement_for_other_agent`: the proof is about a different agent (NOT
+         * verified). `binding_unavailable`: the asked id could not be resolved, so this is NOT_CHECKED.
+         * Either way `verified` is false.
+         */
+        reason?: 'statement_for_other_agent' | 'binding_unavailable';
     };
 }
 /** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
@@ -704,6 +711,13 @@ export declare class TrustShell {
     verifyProof(proofBytesOrPresentation: string | ProofPresentation, statement?: ProofPresentation['statement']): Promise<NonNullable<ProofPresentation['verification']>>;
     /** Client-side WASM verification of a proof against its statement. */
     private verifyProofLocally;
+    /**
+     * Is the statement about the agent that was asked about? Ids are normalised as the extension does
+     * (trim, then the plain-id pattern). An asked id equal to the statement's is bound; any other (a
+     * slug, usually) is resolved through the live route `?with=id`, as the extension does. Nothing to
+     * compare against means NOT_CHECKED, never a pass.
+     */
+    private bindingProblem;
     audit(table?: string): Promise<AuditResult>;
     /**
      * Execute an A2A micro-transaction: create a service contract and (optionally) escrow payment
