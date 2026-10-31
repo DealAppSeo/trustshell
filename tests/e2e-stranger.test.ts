@@ -225,6 +225,13 @@ describe('stranger e2e on current main', () => {
     expect(ground.code).toBe(0);
     expect(ground.out).toContain('VERIFIED  exact_match');
 
+    // erc8004 reads the public Base RPC; a stranger offline gets NOT_CHECKED and a non-zero exit, never a pass.
+    process.env.OFFLINE = '1';
+    const erc8004 = await go(['erc8004', '0x' + 'a'.repeat(64)]);
+    delete process.env.OFFLINE;
+    expect(erc8004.code).toBe(2);
+    expect(erc8004.out).toContain('NOT_CHECKED');
+
     const homeDb = join(homedir(), '.trustshell', 'memory.sqlite');
     const homeBefore = existsSync(homeDb) ? statSync(homeDb).mtimeMs : null;
     const memory = join(dir, 'memory.sqlite');

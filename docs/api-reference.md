@@ -575,6 +575,32 @@ number in the quote, or with `--unit` exactly one number written right before th
 date must read only one way (`03/04/2026` is `ambiguous_value`). A quote that only repeats an
 `--echo` (in the SDK, `opts.echoes`) is `template_echo`.
 
+### `trustshell erc8004 <txHash> [--network base|base-sepolia] [--payment <txHash>]`
+
+> **Unreleased (on main, in no npm release).** Needs the optional `ethers` peer (`npm i ethers@^6`).
+
+Is one ERC-8004 feedback entry grounded in a payment from the rater? The command reads the public chain only, through `https://mainnet.base.org` (default) or `https://sepolia.base.org`. It never fetches the feedback file. `OFFLINE=1` sends nothing.
+
+The payment is `--payment` if given, else the `feedbackHash` read as a transaction. Payer and payee come from the USDC Transfer log, not the transaction's sender, and only USDC counts. Each fact is `true`, `false` or `not_measured`; a read that failed is never `false`.
+
+| Fact | True when |
+|---|---|
+| `raterIsPayer` | the rater sent a non-zero USDC amount in the payment |
+| `paidIsBoundWallet` | the payee is the agent's `getAgentWallet`, read at the feedback block |
+| `paymentBeforeFeedback` | the payment is in an earlier block, or earlier in the same block |
+| `raterNotOwnerOrOperator` | `isAuthorizedOrOwner(rater, agentId)` is false at the feedback block |
+| `paidIsBoundWalletAtPayment`, `paidIsBoundWalletNow` | the same binding, read at the payment block and the latest block |
+| `paymentAfterRegistration` | the agent existed at the payment block |
+| `noReturnTransfer` | the payee sent nothing back to the rater in the same transaction |
+
+| `grounded` | Meaning | Exit |
+|---|---|---|
+| `yes` | the first four facts are all true | `0` |
+| `no` | one of the first four is false | `1` |
+| `not_measured` | none false, but at least one could not be read: never a pass | `2` |
+
+These are the facts worked out in erc-8004/erc-8004-contracts#99. The tests replay the five public vectors offline (`tests/erc8004-grounding.test.ts`). Grounded means the rater paid the agent before rating. It does not show that the payment was for the rated work, and one payment can back many entries.
+
 ### `trustshell status`
 
 Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is the exact string 'true'.

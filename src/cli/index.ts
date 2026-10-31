@@ -66,6 +66,8 @@ import { scrubPrinted } from './scrub-print';
 import { buildTrapsList, formatTrapsList } from './traps';
 import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/kernel-client';
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
+import { GROUNDING_NETWORKS, groundFeedback, httpRpc } from '../lib/erc8004-grounding';
+import { MissingDependencyError } from '../lib/optional-ethers';
 import { join } from 'node:path';
 import { runLearn } from '../learn/cli';
 import { runBundle } from './bundle';
@@ -115,6 +117,7 @@ export type Command =
   | 'bind-status'
   | 'traps'
   | 'ground'
+  | 'erc8004'
   | 'learn'
   | 'bundle'
   | 'guard'
@@ -150,6 +153,9 @@ export interface ParsedArgs {
   evidence?: string;
   /** remember/recall/redact: a local sqlite key. Absent on the one-argument note path. */
   key?: string;
+  /** erc8004: the chain (eip155:8453 or eip155:84532) and an optional payment transaction to check against. */
+  network?: string;
+  payment?: string;
   /** ground: the source file, the quote, and the optional page / value / kind / unit. */
   source?: string;
   quote?: string;
@@ -430,6 +436,16 @@ COMMANDS
                              before this unit (150 ft).
       [--echo "<text>"]      Template or label text the document prints for every reader.
                              Repeatable. A quote that only repeats it is NOT_CHECKED.
+  erc8004 <txHash>           Is this ERC-8004 feedback grounded in a payment from the rater?
+                             Reads the public chain only: USDC from the rater to the agent's
+                             bound wallet, before the feedback, rater not owner or operator.
+                             Each fact is true, false or not_measured; a read that failed is
+                             never false. Needs the optional ethers peer (npm i ethers@^6).
+                             EXIT 0 grounded, 1 not grounded, 2 not measured (never a pass).
+      [--network base|base-sepolia]
+                             The chain (default base).
+      [--payment <txHash>]   The payment to check. Default: the feedbackHash, read as a
+                             transaction. The feedback file is never fetched.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -461,6 +477,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   check "<sentence>"               the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/classify only
   inspect                          NOTHING. Reads a local file.
   ground                           NOTHING. Reads the --source file.
+  erc8004                          the public Base RPC for --network (mainnet.base.org or sepolia.base.org) only
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
   learn                            NOTHING. Local sqlite only; check run executes your registered command.
@@ -514,7 +531,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   // Options that consume the NEXT argument. Indexed rather than for-of because a
   // value-taking flag has to be able to look ahead.
   const values: Record<string, string | undefined> = {};
-  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset', '--claims', '--claims-file', '--out']);
+  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset', '--claims', '--claims-file', '--out', '--network', '--payment']);
   // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
   // only something shaped like an option is refused there.
   const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo', '--why', '--claims']);
@@ -738,6 +755,16 @@ export function parseArgs(argv: string[]): ParsedArgs {
       if ((g.kind === 'number' || g.kind === 'date') !== (g.value !== undefined)) return usage('--value goes with --kind number or --kind date');
       if (g.unit !== undefined && g.kind !== 'number') return usage('--unit goes with --kind number');
       return { command: 'ground', json, verify, ...g, ...(echoes.length ? { echoes } : {}) };
+    }
+    case 'erc8004': {
+      const usage = (error: string): ParsedArgs => ({ command: 'erc8004', json, verify, error });
+      const HASH = /^0x[0-9a-fA-F]{64}$/;
+      const ALIAS: Record<string, string> = { base: 'eip155:8453', 'base-sepolia': 'eip155:84532' };
+      const network = ALIAS[values['network'] ?? 'base'] ?? values['network'];
+      if (rest.length !== 1 || !HASH.test(rest[0] as string)) return usage('`trustshell erc8004` takes one feedback transaction hash (0x + 64 hex)');
+      if (!network || !GROUNDING_NETWORKS[network]) return usage('--network must be base, base-sepolia, eip155:8453 or eip155:84532');
+      if (values['payment'] !== undefined && !HASH.test(values['payment'])) return usage('--payment must be a transaction hash (0x + 64 hex)');
+      return { command: 'erc8004', json, verify, operand: rest[0], network, ...(values['payment'] ? { payment: values['payment'] } : {}) };
     }
     case 'inspect':
     case 'report':
@@ -1173,6 +1200,37 @@ export async function run(
       if (args.json) io.out(JSON.stringify(r, null, 2));
       else io.out(formatGround(r.check, pages, r.limitations));
       return groundExitCode(r.check.status);
+    }
+
+    case 'erc8004': {
+      // Public chain reads only, to the network's fixed RPC. The feedback file is never fetched.
+      if (process.env.OFFLINE === '1') {
+        if (args.json) io.out(JSON.stringify({ grounded: 'not_measured', reason: OFFLINE_REASON }, null, 2));
+        else io.out(`NOT_CHECKED: ${OFFLINE_REASON}. This is not a pass.`);
+        return EXIT.NOT_CHECKED;
+      }
+      const network = args.network as string;
+      let r;
+      try {
+        r = await groundFeedback(httpRpc(GROUNDING_NETWORKS[network]!.rpc), network, args.operand as string, { paymentTx: args.payment });
+      } catch (e) {
+        if (e instanceof MissingDependencyError) {
+          io.err(e.message);
+          return EXIT.RUNTIME;
+        }
+        throw e;
+      }
+      if (args.json) io.out(JSON.stringify(r, null, 2));
+      else {
+        const lines = [
+          `agent ${r.agentId ?? '-'}  rater ${r.rater ?? '-'}  payment ${r.paymentTx ?? '-'} (${r.paymentSource ?? '-'})  payee ${r.payee ?? '-'}  amount ${r.amount ?? '-'}`,
+          ...Object.entries(r.facts).map(([f, v]) => `${v.padEnd(13)} ${f.padEnd(27)} ${r.detail[f as keyof typeof r.detail] ?? ''}`),
+          '',
+          `grounded: ${r.grounded}${r.grounded === 'not_measured' ? ' (this is not a pass)' : ''}`,
+        ];
+        io.out(lines.join('\n'));
+      }
+      return r.grounded === 'yes' ? EXIT.OK : r.grounded === 'no' ? EXIT.VETO : EXIT.NOT_CHECKED;
     }
 
     case 'verify':
