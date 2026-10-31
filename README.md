@@ -308,7 +308,7 @@ The private key signs locally and never leaves the process.
 
 ## Discover → buy → receipt (agent-to-agent)
 
-The full A2A loop: find a verified service, buy it, get a verifiable receipt. Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
+The full A2A loop: find a listed service, buy it, get a verifiable receipt. Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
 
 ```ts
 import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';

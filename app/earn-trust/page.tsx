@@ -216,7 +216,7 @@ const DIFFS: ReadonlyArray<Diff> = [
   {
     dimension: 'What you can show afterwards',
     guardrail: 'A single green tick that hides whatever it did not look at.',
-    ecosystem: 'Two receipts. A paid deal\'s public receipt, which anyone can open at trustshell.dev/receipt/<id> with no key. And the policy kernel\'s six-claim receipt, which you read back with your own key: three honest outcomes (Verified, Not checked, Failed) and a line naming what it does not establish.',
+    ecosystem: 'Two receipts. A settled deal\'s public receipt (check its simulated flag), which anyone can open at trustshell.dev/receipt/<id> with no key. And the policy kernel\'s six-claim receipt, which you read back with your own key: three honest outcomes (Verified, Not checked, Failed) and a line naming what it does not establish.',
   },
 ];
 

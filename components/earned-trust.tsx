@@ -13,7 +13,7 @@ export function EarnedTrust() {
             An agent&apos;s RepID isn&apos;t assigned — it&apos;s earned, decision by decision. Every honest claim raises it. Every caught hallucination raises it more (your agent learned). Every constitutional violation costs the agent. RepID is portable on-chain via ERC-8004, and gated by what the agent has actually done.
           </p>
           <p className="text-lg text-muted leading-relaxed mt-4">
-            x402 closes the loop. When your agent is paid for work via the x402 protocol, payment can be conditioned on the agent&apos;s earned RepID and HAL pass-through. Untrusted agents don&apos;t get paid. Honest ones do. Trust math, not trust contracts.
+            x402 closes the loop. When your agent is paid for work via the x402 protocol, payment can be conditioned on the agent&apos;s earned RepID and HAL pass-through. A payment can be refused unless the agent&apos;s RepID clears a bar you set. Trust math, not trust contracts.
           </p>
         </div>
 
