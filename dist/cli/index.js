@@ -77,6 +77,8 @@ const scrub_print_1 = require("./scrub-print");
 const traps_1 = require("./traps");
 const kernel_client_1 = require("../lib/kernel-client");
 const ground_1 = require("../lib/ground");
+const erc8004_grounding_1 = require("../lib/erc8004-grounding");
+const optional_ethers_1 = require("../lib/optional-ethers");
 const node_path_1 = require("node:path");
 const cli_1 = require("../learn/cli");
 const bundle_1 = require("./bundle");
@@ -327,6 +329,16 @@ COMMANDS
                              before this unit (150 ft).
       [--echo "<text>"]      Template or label text the document prints for every reader.
                              Repeatable. A quote that only repeats it is NOT_CHECKED.
+  erc8004 <txHash>           Is this ERC-8004 feedback grounded in a payment from the rater?
+                             Reads the public chain only: USDC from the rater to the agent's
+                             bound wallet, before the feedback, rater not owner or operator.
+                             Each fact is true, false or not_measured; a read that failed is
+                             never false. Needs the optional ethers peer (npm i ethers@^6).
+                             EXIT 0 grounded, 1 not grounded, 2 not measured (never a pass).
+      [--network base|base-sepolia]
+                             The chain (default base).
+      [--payment <txHash>]   The payment to check. Default: the feedbackHash, read as a
+                             transaction. The feedback file is never fetched.
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -358,6 +370,7 @@ NETWORK EGRESS (what each command dials, and nothing else)
   check "<sentence>"               the HyperDAG backend (TRUSTSHELL_API_URL), /api/v1/classify only
   inspect                          NOTHING. Reads a local file.
   ground                           NOTHING. Reads the --source file.
+  erc8004                          the public Base RPC for --network (mainnet.base.org or sepolia.base.org) only
   init                             NOTHING (default). --pai runs scripts/init-pai.mjs (live register).
   remember · recall · redact       NOTHING. Local sqlite only.
   learn                            NOTHING. Local sqlite only; check run executes your registered command.
@@ -413,7 +426,7 @@ function parseArgs(argv) {
     // Options that consume the NEXT argument. Indexed rather than for-of because a
     // value-taking flag has to be able to look ahead.
     const values = {};
-    const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset', '--claims', '--claims-file', '--out']);
+    const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset', '--claims', '--claims-file', '--out', '--network', '--payment']);
     // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
     // only something shaped like an option is refused there.
     const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo', '--why', '--claims']);
@@ -664,6 +677,19 @@ function parseArgs(argv) {
             if (g.unit !== undefined && g.kind !== 'number')
                 return usage('--unit goes with --kind number');
             return { command: 'ground', json, verify, ...g, ...(echoes.length ? { echoes } : {}) };
+        }
+        case 'erc8004': {
+            const usage = (error) => ({ command: 'erc8004', json, verify, error });
+            const HASH = /^0x[0-9a-fA-F]{64}$/;
+            const ALIAS = { base: 'eip155:8453', 'base-sepolia': 'eip155:84532' };
+            const network = ALIAS[values['network'] ?? 'base'] ?? values['network'];
+            if (rest.length !== 1 || !HASH.test(rest[0]))
+                return usage('`trustshell erc8004` takes one feedback transaction hash (0x + 64 hex)');
+            if (!network || !erc8004_grounding_1.GROUNDING_NETWORKS[network])
+                return usage('--network must be base, base-sepolia, eip155:8453 or eip155:84532');
+            if (values['payment'] !== undefined && !HASH.test(values['payment']))
+                return usage('--payment must be a transaction hash (0x + 64 hex)');
+            return { command: 'erc8004', json, verify, operand: rest[0], network, ...(values['payment'] ? { payment: values['payment'] } : {}) };
         }
         case 'inspect':
         case 'report':
@@ -1087,6 +1113,40 @@ async function run(args, client, io = realIO) {
             else
                 io.out(formatGround(r.check, pages, r.limitations));
             return groundExitCode(r.check.status);
+        }
+        case 'erc8004': {
+            // Public chain reads only, to the network's fixed RPC. The feedback file is never fetched.
+            if (process.env.OFFLINE === '1') {
+                if (args.json)
+                    io.out(JSON.stringify({ grounded: 'not_measured', reason: claim_1.OFFLINE_REASON }, null, 2));
+                else
+                    io.out(`NOT_CHECKED: ${claim_1.OFFLINE_REASON}. This is not a pass.`);
+                return exports.EXIT.NOT_CHECKED;
+            }
+            const network = args.network;
+            let r;
+            try {
+                r = await (0, erc8004_grounding_1.groundFeedback)((0, erc8004_grounding_1.httpRpc)(erc8004_grounding_1.GROUNDING_NETWORKS[network].rpc), network, args.operand, { paymentTx: args.payment });
+            }
+            catch (e) {
+                if (e instanceof optional_ethers_1.MissingDependencyError) {
+                    io.err(e.message);
+                    return exports.EXIT.RUNTIME;
+                }
+                throw e;
+            }
+            if (args.json)
+                io.out(JSON.stringify(r, null, 2));
+            else {
+                const lines = [
+                    `agent ${r.agentId ?? '-'}  rater ${r.rater ?? '-'}  payment ${r.paymentTx ?? '-'} (${r.paymentSource ?? '-'})  payee ${r.payee ?? '-'}  amount ${r.amount ?? '-'}`,
+                    ...Object.entries(r.facts).map(([f, v]) => `${v.padEnd(13)} ${f.padEnd(27)} ${r.detail[f] ?? ''}`),
+                    '',
+                    `grounded: ${r.grounded}${r.grounded === 'not_measured' ? ' (this is not a pass)' : ''}`,
+                ];
+                io.out(lines.join('\n'));
+            }
+            return r.grounded === 'yes' ? exports.EXIT.OK : r.grounded === 'no' ? exports.EXIT.VETO : exports.EXIT.NOT_CHECKED;
         }
         case 'verify':
         case 'evaluate': {

@@ -52,7 +52,7 @@ export declare const EXIT: {
     /** The owner policy (~/.trustshell/policy.json) denied the action. Nothing ran. */
     readonly REFUSED: 5;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'learn' | 'bundle' | 'guard' | 'run' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'erc8004' | 'learn' | 'bundle' | 'guard' | 'run' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -81,6 +81,9 @@ export interface ParsedArgs {
     evidence?: string;
     /** remember/recall/redact: a local sqlite key. Absent on the one-argument note path. */
     key?: string;
+    /** erc8004: the chain (eip155:8453 or eip155:84532) and an optional payment transaction to check against. */
+    network?: string;
+    payment?: string;
     /** ground: the source file, the quote, and the optional page / value / kind / unit. */
     source?: string;
     quote?: string;

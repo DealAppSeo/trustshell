@@ -155,18 +155,23 @@ describe('README: Where this sits', () => {
     expect(signer).toMatch(/function getClients\(/);
     expect(calls).toMatch(/ReputationRegistry on Base Sepolia/);
     expect(README).toContain(REPUTATION_REGISTRY_BASE_SEPOLIA);
-    // The README says the package does not read the IdentityRegistry itself. Hold the code to that: an ownerOf call is
-    // what a read would need, and there is none anywhere in src/. The registry's address does appear, in ONE file and
-    // for ONE purpose: src/lib/identity.ts compares the registry an agent's RECORD names with it (E-1), and asks the
-    // engine for the engine's own ownerOf read. It is never next to a provider or a contract construction.
+    // The README says the package reads the IdentityRegistry only from src/lib/erc8004-grounding.ts. Hold the code to
+    // that: an ownerOf call is what a read needs, and it appears in that one file. The registry's address appears there
+    // and in src/lib/identity.ts, which only compares the registry an agent's RECORD names with it (E-1) and asks the
+    // engine for the engine's own ownerOf read: never next to a provider or a contract construction.
     const files = walkTs(join(ROOT, 'src'));
-    const src = files.map((f) => readFileSync(f, 'utf8')).join('\n');
-    expect(src).not.toMatch(/ownerOf\s*\(/i);
-    const withAddress = files.filter((f) => /0x8004A818BFB912233c491871b3d84c89A494BD9e/i.test(readFileSync(f, 'utf8'))).map((f) => f.slice(ROOT.length + 1).replace(/\\/g, '/'));
-    expect(withAddress).toEqual(['src/lib/identity.ts']);
+    const rel = (f: string) => f.slice(ROOT.length + 1).replace(/\\/g, '/');
+    expect(files.filter((f) => /ownerOf\s*\(/i.test(readFileSync(f, 'utf8'))).map(rel)).toEqual(['src/lib/erc8004-grounding.ts']);
+    const withAddress = files.filter((f) => /0x8004A818BFB912233c491871b3d84c89A494BD9e/i.test(readFileSync(f, 'utf8'))).map(rel).sort();
+    expect(withAddress).toEqual(['src/lib/erc8004-grounding.ts', 'src/lib/identity.ts']);
     const identitySrc = readFileSync(join(ROOT, 'src/lib/identity.ts'), 'utf8');
     expect(identitySrc).not.toMatch(/JsonRpcProvider|new\s+Contract|loadEthers|from\s+'ethers'/);
-    expect(calls).toMatch(/does not read the IdentityRegistry itself/);
+    expect(calls).toMatch(/reads the IdentityRegistry only from `src\/lib\/erc8004-grounding\.ts`/);
+    // And the README names every RPC that file dials.
+    const grounding = readFileSync(join(ROOT, 'src/lib/erc8004-grounding.ts'), 'utf8');
+    const rpcs = [...grounding.matchAll(/\brpc: '(https:\/\/[^']+)'/g)].map((m) => m[1] as string);
+    expect(rpcs.length).toBeGreaterThan(0);
+    for (const u of rpcs) expect(calls).toContain(`\`${u}\``);
   });
 
   it('names api.github.com for check <runUrl>, which is where src/lib/check.ts fetches', () => {
