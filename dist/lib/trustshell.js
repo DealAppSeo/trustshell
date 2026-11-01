@@ -121,6 +121,11 @@ exports.TrustShellError = TrustShellError;
  * digit rules out `.` and `..`, which a URL parser collapses as dot segments even after encoding.
  */
 exports.AGENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+/** extension/agent.js cleanId: trim, then the plain-id pattern; null when it is not one. */
+function cleanAgentId(raw) {
+    const id = String(raw == null ? '' : raw).trim();
+    return exports.AGENT_ID_PATTERN.test(id) ? id : null;
+}
 /**
  * The one gate an agent id passes through before it is placed in a request path. An id that is not a
  * plain id THROWS before any request is made: an id supplied by an LLM agent, a pasted command or a
@@ -726,6 +731,13 @@ class TrustShell {
         if (typeof proofBytesOrPresentation === 'object' && proofBytesOrPresentation) {
             proofBytes = proofBytesOrPresentation.proofBytes;
             stmt = stmt ?? proofBytesOrPresentation.statement;
+            // The WASM verifier only says "this proof matches this statement". It cannot know whose proof you
+            // meant, so a valid proof for ANOTHER agent would verify under the asked agent's name. Same check as
+            // the extension (extension/agent.js, checkAgent). Bare (bytes, statement) names no agent: nothing to bind.
+            const unbound = await this.bindingProblem(proofBytesOrPresentation.agentId, stmt?.agent_id);
+            if (unbound) {
+                return { verified: false, error: unbound.error, verifierVersion: 'not run', reason: unbound.reason };
+            }
         }
         else {
             proofBytes = proofBytesOrPresentation;
@@ -749,6 +761,47 @@ class TrustShell {
                 verifierVersion: 'unavailable',
             };
         }
+    }
+    /**
+     * Is the statement about the agent that was asked about? Ids are normalised as the extension does
+     * (trim, then the plain-id pattern). An asked id equal to the statement's is bound; any other (a
+     * slug, usually) is resolved through the live route `?with=id`, as the extension does. Nothing to
+     * compare against means NOT_CHECKED, never a pass.
+     */
+    async bindingProblem(asked, proven) {
+        const want = cleanAgentId(asked);
+        const got = cleanAgentId(proven);
+        const notChecked = (why) => ({
+            reason: 'binding_unavailable',
+            error: `binding_unavailable: ${why}, so the proof was not checked`,
+        });
+        if (!want)
+            return notChecked('the agent asked about is not a plain agent id');
+        if (!got) {
+            return { reason: 'statement_for_other_agent', error: 'statement_for_other_agent: the statement names no valid agent id' };
+        }
+        let resolved = want;
+        if (want !== got) {
+            let live = null;
+            try {
+                const res = await fetch(`${this.baseUrl}/api/v1/repid/${encodeURIComponent(want)}?with=id`, {
+                    headers: this.getHeaders(),
+                    signal: AbortSignal.timeout(8000),
+                });
+                if (res.ok)
+                    live = await res.json();
+            }
+            catch {
+                // falls through to NOT_CHECKED below
+            }
+            const id = cleanAgentId(live?.agent_id);
+            if (!id)
+                return notChecked(`the engine did not say which agent '${want}' is`);
+            resolved = id;
+        }
+        return resolved === got
+            ? null
+            : { reason: 'statement_for_other_agent', error: `statement_for_other_agent: the proof is for agent ${got}, not ${want}` };
     }
     async audit(table = 'hal_classifications') {
         const url = `${this.baseUrl}/api/v1/audit/verify?table=${encodeURIComponent(table)}`;

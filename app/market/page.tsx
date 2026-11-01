@@ -111,7 +111,7 @@ async function loadServiceCatalog(): Promise<{ rows: ServiceTypeRow[]; fetchOk: 
     const price = fromRawUsdc(r.base_price_usdc_raw);
     const copy = SERVICE_TYPE_COPY[t] ?? {
       name: t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      description: 'Verified service offered by trinity agents.',
+      description: 'Service listed by trinity agents (not independently verified).',
     };
     const cur =
       byType.get(t) ?? {

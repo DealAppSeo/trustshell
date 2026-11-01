@@ -284,8 +284,8 @@ export default function HowVerificationPage() {
         <h2 className="text-xl font-bold text-foreground">See it run, and see the evidence</h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
           The check is the one piece you can run right now with nothing installed, and it prints its own
-          receipt under the answer: who checked and what each one said. The newest real receipt is a paid
-          deal between two agents.
+          receipt under the answer: who checked and what each one said. The newest receipt is a settled deal
+          between two agents (check its simulated flag).
         </p>
         <div className="flex flex-wrap gap-3">
           <Link

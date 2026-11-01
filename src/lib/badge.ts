@@ -89,6 +89,18 @@ export function proofBadgeStatus(presentation: ProofPresentation): ProofBadgeSta
     };
   }
 
+  // The proof could not be tied to the agent that was asked about, so nothing was checked: grey, not red.
+  // (A proof that IS about another agent has reason 'statement_for_other_agent' and falls through to red.)
+  if (verification.reason === 'binding_unavailable') {
+    return {
+      state: 'unverified',
+      label,
+      value: 'unverified',
+      color: COLORS.unverified,
+      detail: verification.error ?? 'could not confirm which agent the proof is about',
+    };
+  }
+
   // Verification ran and did NOT pass — including "verifier unavailable", which
   // the SDK reports as verified:false. That is a fail-closed red, not a pass.
   return {
