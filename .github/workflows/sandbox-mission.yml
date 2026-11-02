@@ -79,18 +79,17 @@ jobs:
       - name: Container runtimes Docker reports
         run: |
           docker version --format 'server {{.Server.Version}}'
-          docker info --format '{{json .Runtimes}}'
+          docker info --format 'runtimes: {{range $k, $v := .Runtimes}}{{$k}} {{end}}'
 
       - name: Re-verify the pinned image digest
         run: |
           set -euo pipefail
-          live=$(docker buildx imagetools inspect node:22-alpine | awk '/^Digest:/ {print $2; exit}')
-          echo "pinned:              $PINNED_DIGEST"
+          # What the tag points to today (informational; a lookup failure is reported, not fatal).
+          live=$( (docker pull -q node:22-alpine > /dev/null && docker image inspect node:22-alpine --format '{{join .RepoDigests " "}}') || echo "lookup failed")
+          echo "pinned:              node@$PINNED_DIGEST"
           echo "node:22-alpine now:  $live"
-          if [ "$live" != "$PINNED_DIGEST" ]; then
-            echo "::notice::node:22-alpine has moved on from the pin; the mission still runs the pinned digest"
-          fi
-          docker pull "node:22-alpine@$PINNED_DIGEST"
+          case "$live" in *"@$PINNED_DIGEST"*) echo "tag still points at the pin" ;; *) echo "::notice::node:22-alpine no longer matches the pin (or the lookup failed); the mission still runs the pinned digest" ;; esac
+          docker pull -q "node:22-alpine@$PINNED_DIGEST"
 
       - name: Compile the mission CLI
         run: npx tsc --outDir "$RUNNER_TEMP/sbx" --rootDir src --module commonjs --target es2020 --esModuleInterop --skipLibCheck --strict --types node src/sandbox/cli.ts
