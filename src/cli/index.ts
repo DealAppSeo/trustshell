@@ -72,6 +72,7 @@ import { join } from 'node:path';
 import { runLearn } from '../learn/cli';
 import { runBundle } from './bundle';
 import { EXIT_REFUSED, runGuard, runGuarded, runRun } from './guard';
+import { sandboxCli } from '../sandbox/run';
 import { GUARD_RECORD_SCHEMA } from '../lib/guardrails';
 import { ApiUrlError } from '../lib/api-url';
 
@@ -122,6 +123,7 @@ export type Command =
   | 'bundle'
   | 'guard'
   | 'run'
+  | 'sandbox'
   | 'help'
   | 'version';
 
@@ -198,6 +200,8 @@ export interface ParsedArgs {
   guardArgv?: string[];
   /** run: everything after `run`, parsed by src/cli/guard.ts (its options, then `--`, then the command). */
   runArgv?: string[];
+  /** sandbox: everything after `sandbox`, parsed by src/sandbox/run.ts (promote <mission>). */
+  sandboxArgv?: string[];
   /** profile: the parsed subcommand (show / add / set / remove / interview). */
   profileOp?: ProfileOp;
   /** A usage error message; when set the caller should print help + exit USAGE. */
@@ -418,7 +422,16 @@ COMMANDS
                              While a policy exists, every other command must be listed as tool:<name>.
                              Windows PowerShell drops a bare --: write it quoted, '--', or call
                              trustshell.cmd (trustshell run --tool git '--' git status).
-  learn <verb>               The learning loop, local: jobs you create, checks you register, your
+  run --sandbox [--runtime runc|runsc] --tool <name> -- <command> [args...]
+                             Guard decides first, as above; an allowed command then starts in a
+                             disposable container, never on this host: no network, the current
+                             directory read-only, one outbox, limits. No container runtime: refused (3).
+                             Its files wait in quarantine; nothing is promoted until the owner runs
+                             trustshell sandbox promote <mission>. guard require-sandbox on makes every
+                             run require --sandbox. Not tested against a hostile command.
+  sandbox promote <mission>  The owner step: promote what the airlock quarantined, revoke the mission
+                             token, sign the receipt. Gated like any command (tool:sandbox).
+  learn <verb>              The learning loop, local: jobs you create, checks you register, your
                              corrections as lessons you accept, injected verbatim (max 5 / 400
                              tokens), unaided probes, spaced review, rulers. trustshell learn for
                              the verbs. No network.
@@ -486,6 +499,9 @@ NETWORK EGRESS (what each command dials, and nothing else)
   profile                          NOTHING. Reads and writes .trustshell/profile.md.
   bundle · guard                   NOTHING. Local files only.
   run                              NOTHING itself. It starts YOUR command, whose own network it does not see.
+  run --sandbox                    the local Docker daemon, which pulls the pinned node:22-alpine digest from
+                                   Docker Hub if it is not already present. The command itself gets no network.
+  sandbox                          NOTHING. Local files only.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -526,6 +542,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (argv[0] === 'bundle') return { command: 'bundle', bundleArgv: argv.slice(1), json: false, verify: false };
   if (argv[0] === 'guard') return { command: 'guard', guardArgv: argv.slice(1), json: false, verify: false };
   if (argv[0] === 'run') return { command: 'run', runArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'sandbox') return { command: 'sandbox', sandboxArgv: argv.slice(1), json: false, verify: false };
   const flags = new Set<string>();
   const positionals: string[] = [];
   // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -1091,6 +1108,10 @@ export async function run(
     case 'run':
       // Starts the caller's command only after the policy allows it.
       return runRun(args.runArgv ?? [], io);
+
+    case 'sandbox':
+      // Local files only: the owner step that promotes a `run --sandbox` mission's quarantined outbox.
+      return sandboxCli(args.sandboxArgv ?? [], io);
 
     case 'recall': {
       try {

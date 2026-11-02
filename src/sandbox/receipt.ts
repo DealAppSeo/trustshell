@@ -40,6 +40,19 @@ export const STATEMENT =
   'candidate carrying a registered canary and a worker-written self-approval were refused while a benign ' +
   'artifact was promoted. In-container containment was not attacked.';
 
+/**
+ * The statement a `trustshell run --sandbox` receipt carries instead (src/sandbox/run.ts): that mission tests no
+ * malicious input, so it must not carry STATEMENT's canary and self-approval claims.
+ */
+export const RUN_STATEMENT =
+  'The restriction profile was applied and read back from docker inspect before the command started. ' +
+  'Its outbox went through the airlock, and the separate promotion writer promoted from it only when the owner ran ' +
+  '`trustshell sandbox promote`. The only denial tested was a replay of that approval after the mission token was ' +
+  'revoked, at the promotion gate. No malicious input was tested, and in-container containment was not attacked.';
+/** What a `run --sandbox` receipt adds to `not_measured`: the whole current directory is the command's input. */
+export const NOT_MEASURED_CWD =
+  'what the command read: the current directory is mounted read-only, so it can read every file there and copy any of them to the outbox; no canary is registered for them';
+
 export interface Attempt { label: string; approval: Approval | null; decisions: SignedDecision[] }
 
 export interface Receipt {
@@ -162,7 +175,8 @@ export function verifyReceipt(s: SignedReceipt, pins: Pins = {}): { ok: boolean;
     if (!r.destroy.temp_dirs_deleted) errors.push('mission temp dirs not deleted');
     if (!r.revoke.revoked) errors.push('mission token not revoked');
     const replay = r.revoke.replay_after_revoke;
-    if (replay.length === 0 || !replay.every((d) => d.decision.decision === 'refuse' && d.decision.reasons.includes(REVOKED_REASON))) {
+    // One replay decision per inspected candidate: an empty outbox has nothing to replay.
+    if (replay.length !== r.airlock.inspected.length || !replay.every((d) => d.decision.decision === 'refuse' && d.decision.reasons.includes(REVOKED_REASON))) {
       errors.push('a replay after revocation was not refused for the revoked token');
     }
     if (!replay.every((d) => d.decision.token_sha256 === r.revoke.token_sha256)) errors.push('replay used a different token than the revoked one');
@@ -179,7 +193,8 @@ export function verifyReceipt(s: SignedReceipt, pins: Pins = {}): { ok: boolean;
 
     for (const m of NOT_MEASURED_REQUIRED) if (!r.not_measured.includes(m)) errors.push(`not_measured is missing: ${m}`);
     if (r.runtime.observed !== 'runsc' && !r.not_measured.includes(NOT_MEASURED_RUNSC)) errors.push(`not_measured is missing: ${NOT_MEASURED_RUNSC}`);
-    if (r.denial_tested_at !== 'promotion gate' || r.statement !== STATEMENT) errors.push('statement or denial location changed');
+    if (r.denial_tested_at !== 'promotion gate' || ![STATEMENT, RUN_STATEMENT].includes(r.statement)) errors.push('statement or denial location changed');
+    if (r.statement === RUN_STATEMENT && !r.not_measured.includes(NOT_MEASURED_CWD)) errors.push(`not_measured is missing: ${NOT_MEASURED_CWD}`);
   } catch (e) {
     errors.push(`malformed receipt (${(e as Error).message})`);
   }

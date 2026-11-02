@@ -16,6 +16,8 @@
  *                           (src/lib/autonomy.ts). A level only ever narrows this policy.
  *   scripts                 LOCAL ONLY, optional: the scripts an allowed interpreter may run, each pinned by its
  *                           resolved path and sha256 (C5, INTERPRETERS below). Absent = no interpreter runs anything.
+ *   run                     LOCAL ONLY, optional: `{ require_sandbox: true }` makes `trustshell run` refuse unless it is
+ *                           given --sandbox (C2, src/sandbox/run.ts). Absent = plain run is allowed, as before.
  * Not in the subset, because the local guard neither pays nor binds code: `owner` (a wallet), `payees`,
  * `authorized_impl_hashes`. The local hash is sha256 of the RFC 8785 form, not the kernel's EIP-712 digest.
  *
@@ -59,6 +61,12 @@ export interface LocalPolicy {
   autonomy?: AutonomyConfig;
   /** Local only (not in the kernel): the scripts an allowed interpreter may run (C5). Absent = none. */
   scripts?: ScriptPin[];
+  /** Local only (not in the kernel): `trustshell run` must use --sandbox (C2). Absent = it need not. */
+  run?: RunRules;
+}
+
+export interface RunRules {
+  require_sandbox: boolean;
 }
 
 /** One script an interpreter may run: the executable's name, the file's resolved path, and the sha256 of its bytes. */
@@ -186,7 +194,7 @@ const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
 /** PURE. Is `a` an entry a policy's `actions` may hold (spend, post, tool or tool:<name>)? */
 export const isPolicyAction = (a: string): boolean => ACTION.test(a);
 const CANONICAL_UINT = /^(?:0|[1-9][0-9]{0,77})$/;
-const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy', 'scripts'];
+const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy', 'scripts', 'run'];
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 /** Absolute on either platform: a carried policy is parsed on the host it was carried to. */
 const ABSOLUTE = /^(\/|[A-Za-z]:[\\/]|\\\\)/;
@@ -292,6 +300,9 @@ export function parsePolicy(input: unknown): { ok: true; policy: LocalPolicy; de
   const auto = input.autonomy === undefined ? null : parseAutonomy(input.autonomy);
   if (auto && !auto.ok) errors.push(...auto.errors);
   const scripts = input.scripts === undefined ? null : parseScripts(input.scripts, errors);
+  const run = input.run;
+  const runOk = run === undefined || (isObject(run) && Object.keys(run).length === 1 && typeof run.require_sandbox === 'boolean');
+  if (!runOk) errors.push('run must be { require_sandbox: true or false }');
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
@@ -307,6 +318,7 @@ export function parsePolicy(input: unknown): { ok: true; policy: LocalPolicy; de
       // Only when present: a policy without it hashes exactly as it did before autonomy existed.
       ...(auto?.ok ? { autonomy: auto.config } : {}),
       ...(scripts ? { scripts } : {}),
+      ...(run !== undefined ? { run: { require_sandbox: (run as RunRules).require_sandbox } } : {}),
     },
   };
 }
@@ -375,6 +387,8 @@ export interface GuardRequest {
   executable?: string;
   /** The script an interpreter `executable` would open (C5): resolved path and sha256. Recorded by its hash only. */
   script?: { path: string; sha256: string };
+  /** `trustshell run` only: whether it was asked to run the command in a sandbox mission (--sandbox). */
+  sandbox?: boolean;
 }
 
 /**
@@ -429,6 +443,9 @@ export function decide(
   if (!permitted(policy.actions, req)) reasons.push(`the owner policy does not list ${actionFor(req)}`);
   const pin = pinReason(policy, req);
   if (pin) reasons.push(pin);
+  if (policy.run?.require_sandbox && req.sandbox === false) {
+    reasons.push('the owner policy requires --sandbox for trustshell run (run.require_sandbox; trustshell guard require-sandbox off clears it)');
+  }
   // The kernel's rule: a spend states its amount. Left out, it skipped every limit (Lane D, 2026-10-21).
   if (req.class === 'spend' && req.amount_raw === undefined) reasons.push('a spend must state its amount (--amount): an amount left out is not zero');
   if (req.amount_raw !== undefined) {
@@ -810,6 +827,7 @@ function decideLocked(
   if (req.command_sha256 !== undefined) requested.command_sha256 = req.command_sha256;
   if (req.executable !== undefined) requested.executable = req.executable;
   if (req.script !== undefined) requested.script_sha256 = req.script.sha256;
+  if (req.sandbox === true) requested.sandbox = true;
   const kind = ctx.kind ?? 'decision';
   const record = appendUnlocked(
     dir,
@@ -920,7 +938,7 @@ export const GUARD_DOES_NOT_COVER = [
   'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
   '`run` bounds WHICH executable starts, not what it does. An interpreter it recognises (node, python, sh and its kin, powershell) starts only with an entry script the policy pins by path and sha256, hashed as it starts; inline code, stdin, a prompt, module and loader flags are refused. A pin covers that one file: not what it imports or sources, not startup files the interpreter reads by itself (python site hooks, ~/.zshenv), not a file swapped between the hash and the open. Other interpreters (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) run whatever they are given.',
   'TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command. Set TRUSTSHELL_REQUIRE_POLICY (opt-in, default off) to make an absent policy fail closed instead.',
-  'It decides before an action starts. What a started command does (files, network, child processes) is not observed.',
+  'It decides before an action starts. `trustshell run --sandbox` (and every `run` once the owner sets run.require_sandbox) then starts the command in a disposable container: no network, the current directory read-only, one outbox whose files come home only through the airlock and `trustshell sandbox promote`, and limits; its profile is read back before it starts and it is not tested against a hostile command. Without --sandbox, what a started command does (files, network, child processes) is not observed.',
   'A missing record never proves no action happened: the guard sees only what goes through it.',
   'The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.',
   'Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted.',

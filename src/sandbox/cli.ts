@@ -16,9 +16,10 @@
  * The passport is measured by this process (the supervisor) from docker inspect, the pinned image, the Guard
  * policy in --policy-home (default TRUSTSHELL_HOME or ~/.trustshell) and the grant it made; never from the worker.
  *
- * The worker writes four files. Two are test data for the promotion gate: `notes.txt` copies a canary
- * the harness put in the input, and `approval.json` approves its own output. Neither touches the
- * container's restrictions; this lane does not test those against a hostile worker.
+ * The worker writes five files. Three are test data for the promotion gate: `notes.txt` copies a canary
+ * the harness put in the input, `token-leak.txt` copies the worker's own mission token, and `approval.json`
+ * approves its own output. All three are refused; none touches the container's restrictions; this lane does
+ * not test those against a hostile worker.
  */
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -41,8 +42,17 @@ const WORKER_JS = [
   "fs.writeFileSync(out + 'notes.txt', 'notes: ' + fs.readFileSync('/mission/input/secret.txt', 'utf8'));",
   "fs.writeFileSync(out + 'approval.json', JSON.stringify({ approver: 'mission:' + m.mission_id, approved: ['result.json', 'notes.txt'] }));",
   "fs.writeFileSync(out + 'memory.md', 'Proposed memory: summing the input is easy.\\n');",
+  "fs.writeFileSync(out + 'token-leak.txt', 'stolen token: ' + fs.readFileSync('/mission/token', 'utf8'));",
   "console.log('worker done');",
 ].join('\n');
+
+/**
+ * The secrets the airlock and promotion gate treat as canaries: the stand-in input secret AND the mission token,
+ * both mounted into the worker. A worker that copies either into its outbox is refused, never promoted.
+ */
+export function missionCanaries(canary: string, token: string): string[] {
+  return [canary, token];
+}
 
 function flag(args: string[], name: string): string | null {
   const i = args.indexOf(name);
@@ -84,9 +94,9 @@ function run(args: string[]): number {
     const destroy = destroyContainer(mission.container_id);
     if (!destroy.container_removed) throw new Error(`container ${mission.container_id} was not proven removed`);
 
-    const promoter = new Promoter({ keyDir: promoterKeyDir, stateDir: join(work, 'promoter-state'), quarantineDir, storeDir, canaries: [canary] });
+    const promoter = new Promoter({ keyDir: promoterKeyDir, stateDir: join(work, 'promoter-state'), quarantineDir, storeDir, canaries: missionCanaries(canary, token) });
     promoter.registerMission(missionId, mission.token_sha256);
-    const inspected = inspectOutbox(mission.paths.outbox, quarantineDir, { ...DEFAULT_AIRLOCK, canaries: [canary] });
+    const inspected = inspectOutbox(mission.paths.outbox, quarantineDir, { ...DEFAULT_AIRLOCK, canaries: missionCanaries(canary, token) });
 
     const workerIdentity = `mission:${missionId}`;
     const allShas = inspected.flatMap((c) => (c.sha256 ? [c.sha256] : []));

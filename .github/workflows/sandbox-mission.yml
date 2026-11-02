@@ -10,6 +10,10 @@
 # passports: only `runtime` may differ, plus `attestation` because each leg makes a fresh harness key.
 # A matching passport does not prove the worker's reasoning or memory is safe; the comparison says so.
 #
+# C2: each leg also runs `trustshell run --sandbox` through the built CLI on a benign probe, promotes its outbox
+# with `trustshell sandbox promote`, and checks from the host that the result arrived only in the trusted store,
+# the project directory is byte-identical, the container is gone, and the receipt and passport verify.
+#
 # What this does NOT test: the restrictions against an active hostile worker. Those tests await a
 # scope decision; the receipt's `not_measured` list says so.
 #
@@ -23,6 +27,8 @@ on:
       - 'src/lib/install-key.ts'
       - 'src/lib/jcs.ts'
       - 'src/lib/guardrails.ts'
+      - 'src/cli/guard.ts'
+      - 'src/cli/index.ts'
       - 'tests/sandbox-*.test.ts'
       - '.github/workflows/sandbox-mission.yml'
   push:
@@ -32,6 +38,8 @@ on:
       - 'src/lib/install-key.ts'
       - 'src/lib/jcs.ts'
       - 'src/lib/guardrails.ts'
+      - 'src/cli/guard.ts'
+      - 'src/cli/index.ts'
       - 'tests/sandbox-*.test.ts'
       - '.github/workflows/sandbox-mission.yml'
   workflow_dispatch:
@@ -115,6 +123,70 @@ jobs:
             --keys "$RUNNER_TEMP/out/public-keys.json" \
             --store "$RUNNER_TEMP/out/trusted-store" \
             --demo
+
+      # C2: `trustshell run --sandbox` through the real CLI, on a BENIGN probe that writes what it sees (its network
+      # interfaces and mounts) to its outbox. Guard decides first (the probe is pinned, C5; plain run is refused once
+      # require-sandbox is on). Everything below is checked from the HOST. A functional check of the configured
+      # profile, not an attack: hostile-command tests are C15 and await a scope decision.
+      - name: Build the trustshell CLI
+        run: npm run sdk:build
+
+      - name: trustshell run --sandbox, then an explicit promote, checked from the host
+        env:
+          TRUSTSHELL_HOME: ${{ runner.temp }}/ts-home
+        run: |
+          set -euo pipefail
+          ts() { node "$GITHUB_WORKSPACE/dist/cli/index.js" "$@"; }
+          proj="$RUNNER_TEMP/proj"
+          mkdir -p "$proj/sub"
+          cd "$proj"
+          printf 'project notes\n' > notes.txt
+          printf '[1,2,3]\n' > sub/data.json
+          printf '%s\n' \
+            'out=/mission/outbox' \
+            'echo "sandboxed result" > "$out/result.txt"' \
+            "sed -n 's/^ *\\([^:]*\\):.*/\\1/p' /proc/net/dev > \"\$out/net.txt\"" \
+            'cat /proc/mounts > "$out/mounts.txt"' \
+            'ls /mission/input > "$out/input-listing.txt"' > probe.sh
+          cat probe.sh
+          snap() { (cd "$proj" && find . -type f -print0 | sort -z | xargs -0 sha256sum); }
+          snap > "$RUNNER_TEMP/before.sha"
+
+          ts guard init
+          ts guard allow tool:sh --script probe.sh
+          ts guard allow tool:sandbox
+          ts guard require-sandbox on
+          set +e; ts run --tool sh -- sh probe.sh; rc=$?; set -e
+          test "$rc" = 5 || { echo "plain run was not refused under require-sandbox (exit $rc)"; exit 1; }
+
+          ts run --sandbox --runtime "$RUNTIME" --tool sh -- sh probe.sh
+          id=$(ls "$TRUSTSHELL_HOME/sandbox/missions")
+          mdir="$TRUSTSHELL_HOME/sandbox/missions/$id"
+          echo "mission $id"
+          test -z "$(docker ps -aq --filter "name=ts-mission-$id")" || { echo "container still present"; exit 1; }
+          test ! -e "$mdir/trusted-store" || { echo "something was promoted before the owner asked"; exit 1; }
+          snap | diff "$RUNNER_TEMP/before.sha" - || { echo "the host working directory changed"; exit 1; }
+
+          ts sandbox promote "$id" --json > "$RUNNER_TEMP/promote.json"
+          node -e 'for (const p of require(process.argv[1]).promoted) console.log(p.name + " " + p.path)' "$RUNNER_TEMP/promote.json" | tee "$RUNNER_TEMP/promoted.txt"
+          path_of() { awk -v n="$1" '$1 == n { print $2 }' "$RUNNER_TEMP/promoted.txt"; }
+          # The result came home, and only into the trusted store.
+          test "$(cat "$(path_of result.txt)")" = "sandboxed result"
+          test ! -e "$proj/result.txt"
+          case "$(path_of result.txt)" in "$mdir/trusted-store/"*) ;; *) echo "result is not in the trusted store"; exit 1 ;; esac
+          echo "interfaces seen inside:"; cat "$(path_of net.txt)"
+          test "$(sort -u "$(path_of net.txt)" | tr '\n' ' ')" = "lo " || { echo "an interface other than lo was visible"; exit 1; }
+          echo "input mount inside:"; grep ' /mission/input ' "$(path_of mounts.txt)"
+          grep ' /mission/input ' "$(path_of mounts.txt)" | grep -qw ro || { echo "the input was not mounted read-only"; exit 1; }
+          test "$(cat "$(path_of input-listing.txt)" | tr '\n' ' ')" = "notes.txt probe.sh sub "
+          snap | diff "$RUNNER_TEMP/before.sha" - || { echo "the host working directory changed"; exit 1; }
+          test -z "$(docker ps -aq --filter "name=ts-mission-$id")"
+
+          # Receipt and passport, verified with the public keys only, against the trusted store.
+          node "$RUNNER_TEMP/sbx/sandbox/cli.js" verify --receipt "$mdir/receipt.json" --keys "$mdir/public-keys.json" --store "$mdir/trusted-store"
+          mkdir -p "$RUNNER_TEMP/out/run-sandbox"
+          cp "$mdir/receipt.json" "$mdir/public-keys.json" "$mdir/passport.json" "$RUNNER_TEMP/out/run-sandbox/"
+          rm -rf "$TRUSTSHELL_HOME" # its two private keys
 
       - name: Upload the receipt
         if: always()

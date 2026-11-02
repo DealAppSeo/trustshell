@@ -7,6 +7,9 @@
  * `trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] -- <command> [args...]` is the
  * enforced path: the decision is recorded BEFORE the command starts, a denied command never starts, and an
  * allowed one is started by this process, which then records its exit code. That is all it sees.
+ * With `--sandbox` (or always, once the owner sets `run.require_sandbox`) the allowed command starts instead in a
+ * disposable mission container (src/sandbox/run.ts), never on this host; its files come back only through the
+ * airlock and `trustshell sandbox promote`.
  *
  * The gate: while a policy file exists, every other trustshell command must be listed as `tool:<command>` (or
  * `tool`) before it runs. `help`, `version`, `guard` and `run` always run: the person can always read and
@@ -50,6 +53,8 @@ import {
   type ToolClass,
 } from '../lib/guardrails';
 import { ownFingerprint, signValue, signingKey } from '../lib/install-key';
+import { MissionRefused, nodeExec, RUNTIMES, type Exec, type Runtime } from '../sandbox/mission';
+import { runSandboxed } from '../sandbox/run';
 import {
   AUTONOMY_FILE,
   DEFAULT_AUTONOMY,
@@ -81,6 +86,20 @@ export const CLI_SCOPE: AssuranceScope = {
 export const RUN_SCOPE: AssuranceScope = {
   mediated: ['the decision to start this command through `trustshell run`, checked against the owner policy before it started', 'the exit code of the process `trustshell run` started'],
   not_mediated: ['what the command did after it started: files, network, child processes', 'commands run without `trustshell run`'],
+};
+
+/** `trustshell run --sandbox` (C2): the command runs in a disposable mission container (src/sandbox/run.ts). */
+export const SANDBOX_RUN_SCOPE: AssuranceScope = {
+  mediated: [
+    'the decision to start this command through `trustshell run --sandbox`, checked against the owner policy before it started',
+    'that it starts only in a disposable container whose profile (no network, the current directory read-only, one outbox, limits) is read back from docker inspect first, and that the container is removed',
+    'the exit code docker reported',
+  ],
+  not_mediated: [
+    'how the container holds against a hostile command: not tested',
+    'what the command read from the current directory and wrote to its outbox: those files stay in quarantine until `trustshell sandbox promote`',
+    'commands run without `trustshell run`',
+  ],
 };
 
 export const POLICY_SCOPE: AssuranceScope = {
@@ -166,7 +185,7 @@ export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null
     `  authorized            ${d.authorized.decision}${d.authorized.reasons.length ? `: ${d.authorized.reasons.join('; ')}` : ''} (policy ${String(d.authorized.policy_sha256).slice(0, 12)}…, nonce ${d.authorized.policy_nonce}, ${signed})`,
     `  executed              ${executed}`,
     '  independently observed  nothing: no outside party watched this command',
-    `  unknown               ${RUN_SCOPE.not_mediated.join('; ')}`,
+    `  unknown               ${d.assurance_scope.not_mediated.join('; ')}`,
     `  records               ${d.seq}${outcome ? ` and ${outcome.seq}` : ''} in ${GUARD_RECEIPTS_FILE}`,
   ].join('\n');
 }
@@ -181,7 +200,8 @@ const nodeSpawner: Spawner = (cmd, args) => {
   return { status: r.status, signal: r.signal ?? null };
 };
 
-export const RUN_USAGE = 'trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--json] -- <command> [args...]';
+export const RUN_USAGE =
+  'trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--sandbox [--runtime runc|runsc]] [--json] -- <command> [args...]';
 
 /**
  * Windows PowerShell drops a bare `--` before it reaches npm's `trustshell.ps1` shim, so the documented
@@ -193,7 +213,7 @@ export const RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (
 const isHelp = (a: string | undefined) => a === '--help' || a === '-h' || a === 'help';
 
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
-export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.env, spawn: Spawner = nodeSpawner): number {
+export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.env, spawn: Spawner = nodeSpawner, sandboxExec: Exec = nodeExec): number {
   const dash = argv.indexOf('--');
   const opts = dash === -1 ? argv : argv.slice(0, dash);
   const command = dash === -1 ? [] : argv.slice(dash + 1);
@@ -207,11 +227,18 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
   let cls: ToolClass = 'other';
   let amount: string | undefined;
   let json = false;
+  let sandbox = false;
+  let runtime: Runtime | undefined;
   for (let i = 0; i < opts.length; i += 1) {
     const a = opts[i] as string;
     const v = opts[i + 1];
     if (a === '--json') json = true;
-    else if ((a === '--tool' || a === '--class' || a === '--amount') && v !== undefined && !v.startsWith('-')) {
+    else if (a === '--sandbox') sandbox = true;
+    else if (a === '--runtime') {
+      if (!(RUNTIMES as readonly string[]).includes(v ?? '')) return runUsage(io, `--runtime takes ${RUNTIMES.join(' or ')}`);
+      runtime = v as Runtime;
+      i += 1;
+    } else if ((a === '--tool' || a === '--class' || a === '--amount') && v !== undefined && !v.startsWith('-')) {
       if (a === '--tool') tool = v;
       else if (a === '--amount') amount = v;
       else if ((TOOL_CLASSES as readonly string[]).includes(v)) cls = v as ToolClass;
@@ -219,6 +246,7 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
       i += 1;
     } else return a.startsWith('-') ? runUsage(io, `unexpected ${a}`) : noDash(`unexpected ${a}`);
   }
+  if (runtime && !sandbox) return runUsage(io, '--runtime chooses the container runtime for --sandbox, and --sandbox was not given');
   if (!tool || !/^[A-Za-z0-9_.:-]{1,128}$/.test(tool)) return runUsage(io, 'run needs --tool <name> (letters, digits, _ . : -)');
   if (!command.length || !command[0]) return runUsage(io, dash === -1 ? `run needs -- and then the command. ${RUN_POWERSHELL}` : 'run needs the command after --');
 
@@ -240,8 +268,9 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
     command_sha256: sha256(JSON.stringify(command)),
     ...(amount !== undefined ? { amount_raw: amount } : {}),
     ...(c5.script ? { script: c5.script } : {}),
+    sandbox,
   };
-  const g = guardDecide(dir, req, RUN_SCOPE, { extraReasons: [...mismatch, ...c5.reasons] });
+  const g = guardDecide(dir, req, sandbox ? SANDBOX_RUN_SCOPE : RUN_SCOPE, { extraReasons: [...mismatch, ...c5.reasons] });
   if (!g) {
     io.err(`NOT_CHECKED no policy at ${join(dir, POLICY_FILE)}: nothing is authorized, so nothing was run. trustshell guard init writes one.`);
     return 2;
@@ -257,6 +286,7 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
     (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome: null }, null, 2) : formatRunCard(g.record, null, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
     return EXIT_REFUSED;
   }
+  if (sandbox) return runInSandbox(dir, g, own, json, io, command, runtime ?? 'runc', sandboxExec);
   const t0 = Date.now();
   const r = spawn(command[0], command.slice(1));
   const outcome = appendRecord(dir, {
@@ -268,6 +298,55 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
   });
   (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
   return r.status ?? 3;
+}
+
+/** C2: Guard has ALLOWED the command; it starts only in a mission container, never on this host. */
+function runInSandbox(
+  dir: string,
+  g: NonNullable<ReturnType<typeof guardDecide>>,
+  own: string | null,
+  json: boolean,
+  io: IO,
+  command: string[],
+  runtime: Runtime,
+  exec: Exec,
+): number {
+  const doc = g.loaded.state === 'ok' ? g.loaded.doc : null;
+  const t0 = Date.now();
+  let sr: ReturnType<typeof runSandboxed>;
+  try {
+    sr = runSandboxed({ home: dir, cwd: process.cwd(), runtime, command }, exec);
+  } catch (e) {
+    if (!(e instanceof MissionRefused)) {
+      io.err(`ERROR: the sandbox mission failed: ${(e as Error).message}. No outcome was recorded, and nothing came back from the container.`);
+      return 1;
+    }
+    const outcome = appendRecord(dir, { kind: 'outcome', requested: g.record.requested, authorized: g.record.authorized, executed: 'not run', assurance_scope: SANDBOX_RUN_SCOPE });
+    if (json) io.out(JSON.stringify({ decision: g.record, outcome, sandbox: { refused: e.message } }, null, 2));
+    else io.err(`${formatRunCard(g.record, outcome, doc, own)}\nREFUSED: ${e.message}\nNothing was run, on this host or in a container.`);
+    return 3;
+  }
+  const outcome = appendRecord(dir, {
+    kind: 'outcome',
+    requested: g.record.requested,
+    authorized: g.record.authorized,
+    executed: { exit_code: sr.exit_code, signal: sr.timed_out ? 'timeout' : null, duration_ms: Date.now() - t0 },
+    assurance_scope: SANDBOX_RUN_SCOPE,
+  });
+  if (json) io.out(JSON.stringify({ decision: g.record, outcome, sandbox: sr }, null, 2));
+  else {
+    const held = sr.candidates.filter((c) => c.status === 'quarantined').length;
+    io.err(
+      [
+        formatRunCard(g.record, outcome, doc, own),
+        `  sandbox               mission ${sr.mission_id} on ${runtime}: the container is removed; its terminal output is not shown (hashed in the receipt)`,
+        `  outbox                ${held} in quarantine, ${sr.candidates.length - held} refused by the airlock; nothing promoted`,
+        `  passport              ${sr.passport_path}`,
+        `  next                  trustshell sandbox promote ${sr.mission_id}   (the owner step: promote, revoke the mission token, sign the receipt)`,
+      ].join('\n'),
+    );
+  }
+  return sr.exit_code ?? 3;
 }
 
 /** A usage error names only the command it is about: guard's errors printed run's usage first. */
@@ -287,12 +366,19 @@ trustshell guard check --tool <name> [--class read|other|post|spend] [--amount <
 trustshell guard allow <action> · guard deny <action>      (spend | post | tool | tool:<name>)
 trustshell guard allow|deny tool:<interpreter> --script <path>   (pin or unpin one script by sha256: ${INTERPRETER_NAMES})
 trustshell guard limit per-tx|daily|total <n> · guard expire <days> · guard kill · guard sign
+trustshell guard require-sandbox on|off      (on: trustshell run refuses without --sandbox)
 trustshell guard level [--json] · guard level shadow|enforce|off · guard level after L1|L2|L3 <n>
 trustshell guard level record <record.json> [--json] · guard level revoke      (SHADOW by default)`;
 
 /** The disclaimer every `guard level` reading carries. */
 export const LEVEL_IS_NOT =
   'Local guardrails for cooperative agents, not a security boundary: anything running as you can edit the policy or autonomy.jsonl, or hand guard level record a record.json it made up (a record is unsigned).';
+
+function runLine(p: LocalPolicy): string {
+  return p.run?.require_sandbox
+    ? 'run         --sandbox required: a plain trustshell run is denied (run.require_sandbox; guard require-sandbox off)'
+    : 'run         plain trustshell run allowed (guard require-sandbox on makes it require --sandbox)';
+}
 
 function autonomyLine(p: LocalPolicy): string {
   const a = p.autonomy;
@@ -399,6 +485,7 @@ function showLines(doc: PolicyDocument, path: string, ledgerText: string, defaul
     'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
     `limits      per_tx ${p.per_tx_raw} · daily ${p.daily_raw} · total ${p.total_raw} (smallest units)${defaulted.length ? `; left out, so 0: ${defaulted.join(', ')}` : ''}; allowed so far: ${spent}`,
     `expires     ${new Date(p.expires_at * 1000).toISOString()}`,
+    runLine(p),
     autonomyLine(p),
     `records     ${l.count} in ${GUARD_RECEIPTS_FILE}, chain ${l.verdict}${l.breaks.length ? ': ' + l.breaks.slice(0, 3).join('; ') : ''}`,
     ...(l.verdict === 'BROKEN' ? ['            No amount is allowed while it is BROKEN. Keep the file as evidence and move it aside to start a new ledger.'] : []),
@@ -519,7 +606,8 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
     case 'expire':
     case 'kill':
     case 'sign':
-    case 'level': {
+    case 'level':
+    case 'require-sandbox': {
       const loaded = loadPolicy(dir);
       if (loaded.state !== 'ok') {
         io.err(loaded.state === 'absent' ? `no policy at ${path}; trustshell guard init writes one` : `${path} does not parse; fix it by hand or guard init --force`);
@@ -596,6 +684,11 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
         } else if (words.length !== 1) return bad(`guard level ${sub} takes nothing`);
         else if (sub === 'off') delete p.autonomy;
         else p.autonomy = { ...(p.autonomy ?? DEFAULT_AUTONOMY), mode: sub as 'shadow' | 'enforce' };
+      } else if (verb === 'require-sandbox') {
+        if (words.length !== 1 || (words[0] !== 'on' && words[0] !== 'off')) return bad('guard require-sandbox takes on or off');
+        // Off removes the field: a policy without it hashes exactly as one from before it existed.
+        if (words[0] === 'on') p.run = { require_sandbox: true };
+        else delete p.run;
       } else {
         if (words.length) return bad('guard kill takes nothing');
         p.actions = [];
@@ -616,11 +709,12 @@ export function runGuard(argv: string[], io: IO, env: NodeJS.ProcessEnv = proces
       if (loaded.doc.signature) io.err('the owner signature covered the old policy, so it was removed: trustshell guard sign signs this one');
       io.out(showLines({ policy: checked.policy, signature: null }, path, ledgerText(), checked.defaulted).slice(0, 6).join('\n'));
       if (verb === 'level') io.out(autonomyLine(checked.policy));
+      if (verb === 'require-sandbox') io.out(runLine(checked.policy));
       if (verb === 'limit' || (verb === 'allow' && words[0] === 'spend')) note = zeroLimitNote(checked.policy);
       if (note) io.out(note);
       return 0;
     }
     default:
-      return bad('guard takes init, show, check, allow, deny, limit, expire, kill, sign or level');
+      return bad('guard takes init, show, check, allow, deny, limit, expire, kill, sign, level or require-sandbox');
   }
 }

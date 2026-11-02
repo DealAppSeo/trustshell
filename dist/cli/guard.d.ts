@@ -7,6 +7,9 @@
  * `trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] -- <command> [args...]` is the
  * enforced path: the decision is recorded BEFORE the command starts, a denied command never starts, and an
  * allowed one is started by this process, which then records its exit code. That is all it sees.
+ * With `--sandbox` (or always, once the owner sets `run.require_sandbox`) the allowed command starts instead in a
+ * disposable mission container (src/sandbox/run.ts), never on this host; its files come back only through the
+ * airlock and `trustshell sandbox promote`.
  *
  * The gate: while a policy file exists, every other trustshell command must be listed as `tool:<command>` (or
  * `tool`) before it runs. `help`, `version`, `guard` and `run` always run: the person can always read and
@@ -14,6 +17,7 @@
  */
 import type { ParsedArgs } from './index';
 import { type AssuranceScope, type GuardRecord, type GuardRequest, type LocalPolicy, type PolicyDocument } from '../lib/guardrails';
+import { type Exec } from '../sandbox/mission';
 type IO = {
     out: (s: string) => void;
     err: (s: string) => void;
@@ -24,6 +28,8 @@ export declare const NEVER_GUARDED: Set<string>;
 /** The scope a CLI-gate record states. */
 export declare const CLI_SCOPE: AssuranceScope;
 export declare const RUN_SCOPE: AssuranceScope;
+/** `trustshell run --sandbox` (C2): the command runs in a disposable mission container (src/sandbox/run.ts). */
+export declare const SANDBOX_RUN_SCOPE: AssuranceScope;
 export declare const POLICY_SCOPE: AssuranceScope;
 /** Record that the policy in force changed. A rule change is never silent (Lane D, 2026-10-21). */
 export declare function recordPolicyChange(dir: string, via: string, before: string | null, after: PolicyDocument): GuardRecord;
@@ -48,7 +54,7 @@ export interface Spawner {
         signal: string | null;
     };
 }
-export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--json] -- <command> [args...]";
+export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--sandbox [--runtime runc|runsc]] [--json] -- <command> [args...]";
 /**
  * Windows PowerShell drops a bare `--` before it reaches npm's `trustshell.ps1` shim, so the documented
  * `run --tool git -- git status` arrived as `run --tool git git status` and failed "unexpected git" with no
@@ -56,8 +62,8 @@ export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|oth
  */
 export declare const RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
-export declare function runRun(argv: string[], io: IO, env?: NodeJS.ProcessEnv, spawn?: Spawner): number;
-export declare const GUARD_USAGE = "trustshell guard init [--force] [--days N]\ntrustshell guard show [--json]\ntrustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]\ntrustshell guard allow <action> \u00B7 guard deny <action>      (spend | post | tool | tool:<name>)\ntrustshell guard allow|deny tool:<interpreter> --script <path>   (pin or unpin one script by sha256: node, python, py, sh, bash, dash, zsh, ksh, powershell, pwsh)\ntrustshell guard limit per-tx|daily|total <n> \u00B7 guard expire <days> \u00B7 guard kill \u00B7 guard sign\ntrustshell guard level [--json] \u00B7 guard level shadow|enforce|off \u00B7 guard level after L1|L2|L3 <n>\ntrustshell guard level record <record.json> [--json] \u00B7 guard level revoke      (SHADOW by default)";
+export declare function runRun(argv: string[], io: IO, env?: NodeJS.ProcessEnv, spawn?: Spawner, sandboxExec?: Exec): number;
+export declare const GUARD_USAGE = "trustshell guard init [--force] [--days N]\ntrustshell guard show [--json]\ntrustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]\ntrustshell guard allow <action> \u00B7 guard deny <action>      (spend | post | tool | tool:<name>)\ntrustshell guard allow|deny tool:<interpreter> --script <path>   (pin or unpin one script by sha256: node, python, py, sh, bash, dash, zsh, ksh, powershell, pwsh)\ntrustshell guard limit per-tx|daily|total <n> \u00B7 guard expire <days> \u00B7 guard kill \u00B7 guard sign\ntrustshell guard require-sandbox on|off      (on: trustshell run refuses without --sandbox)\ntrustshell guard level [--json] \u00B7 guard level shadow|enforce|off \u00B7 guard level after L1|L2|L3 <n>\ntrustshell guard level record <record.json> [--json] \u00B7 guard level revoke      (SHADOW by default)";
 /** The disclaimer every `guard level` reading carries. */
 export declare const LEVEL_IS_NOT = "Local guardrails for cooperative agents, not a security boundary: anything running as you can edit the policy or autonomy.jsonl, or hand guard level record a record.json it made up (a record is unsigned).";
 /**

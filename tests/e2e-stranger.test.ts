@@ -354,6 +354,10 @@ describe('stranger e2e on current main', () => {
       const ran = await go(['run', '--tool', 'git', '--', 'node', '-e', '0']);
       expect(ran.code).toBe(2);
       expect(ran.err).toMatch(/^NOT_CHECKED no policy/);
+      // sandbox promote with no mission promotes nothing and says so (exit 3).
+      const promote = await go(['sandbox', 'promote', '0123456789abcdef']);
+      expect(promote.code).toBe(3);
+      expect(promote.err).toMatch(/no pending mission/);
     } finally {
       process.chdir(prevCwd);
       if (prevHome === undefined) delete process.env.TRUSTSHELL_HOME;

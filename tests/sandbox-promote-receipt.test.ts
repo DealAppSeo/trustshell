@@ -12,7 +12,7 @@ import { DEFAULT_LIMITS, MOUNTS, PINNED_DIGEST, PINNED_IMAGE, TMPFS_OPTS, type M
 import { Promoter, REVOKED_REASON, verifyDecision, type Approval } from '../src/sandbox/promote';
 import { buildReceipt, demoProblems, NOT_MEASURED_RUNSC, RECEIPT_SCHEMA, RECEIPT_SCHEMA_V1, signReceipt, verifyReceipt, type Attempt, type SignedReceipt } from '../src/sandbox/receipt';
 import { buildPassport, signPassport } from '../src/sandbox/passport';
-import { main } from '../src/sandbox/cli';
+import { main, missionCanaries } from '../src/sandbox/cli';
 import { signValue } from '../src/lib/install-key';
 
 const CANARY = 'TS-CANARY-fedcba9876543210';
@@ -48,6 +48,14 @@ const req = (approval: Approval | null, token = TOKEN) => ({ mission_id: MISSION
 const outcome = (ds: ReturnType<Promoter['decide']>) => Object.fromEntries(ds.map((d) => [d.decision.name, d.decision.decision]));
 
 describe('the promotion gate', () => {
+  it('registers the mission token as a canary: a worker that copies its token to the outbox is refused', () => {
+    writeFileSync(join(outbox, 'token-leak.txt'), `stolen token: ${TOKEN}`);
+    const inspected = inspectOutbox(outbox, join(dir, 'q-token'), { maxFileBytes: 4096, maxFiles: 32, canaries: missionCanaries(CANARY, TOKEN) });
+    const leak = inspected.find((c) => c.name === 'token-leak.txt');
+    expect(leak?.status).toBe('refused');
+    expect(leak?.reasons.join(' ')).toMatch(/canary/);
+  });
+
   it('with a trusted approval: promotes only the benign artifact; refuses the canary and the self-approval file; holds memory', () => {
     const ds = promoter.decide(req(trusted()));
     expect(outcome(ds)).toEqual({ 'approval.json': 'refuse', 'memory.md': 'refuse', 'notes.txt': 'refuse', 'result.json': 'promote' });

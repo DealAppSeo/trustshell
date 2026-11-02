@@ -15,7 +15,7 @@ without TrustShell. Statuses use the vocabulary in [`SECURITY_GAP_MATRIX.md`](SE
 | ID | Control | Status | Evidence | Gap |
 |---|---|---|---|---|
 | C1 | `trustshell run` starts only an executable the policy lists, by its own name, before it starts | ENFORCED | `src/cli/guard.ts`, `tests/guardrails.test.ts`, `tests/guard-carry-redteam.test.ts` | Bounds WHICH executable starts, not what it does (C2, C5). |
-| C2 | What a started command does (files, network, child processes) | NOT_ENFORCED | `src/lib/guardrails.ts` | Not observed. Guard decides before an action starts and sees nothing after. |
+| C2 | What a started command does (files, network, child processes) | PARTIAL | `src/sandbox/run.ts`, `src/cli/guard.ts`, `tests/sandbox-run.test.ts`, `.github/workflows/sandbox-mission.yml` | Contained when run with `--sandbox`, or always when the owner sets `run.require_sandbox` (plain `run` is then denied): no network, the current directory read-only, outputs only through the outbox, the airlock and an explicit `trustshell sandbox promote`, limits (the C14 profile, read back before start; the C16 gate). Without them, not observed: Guard decides before an action starts and sees nothing after. Not tested against a hostile command (C15). The command can read every file in the current directory and copy any of them to the outbox. `run.require_sandbox` binds `trustshell run` only, not MCP or SDK calls (C3, C4). |
 | C3 | MCP server (`trustshell-mcp`) tool calls read the Guard policy | ENFORCED | `src/mcp/index.ts`, `tests/mcp-guard.test.ts`, `tests/guard-carry-demo.test.ts` | Every tool call is decided by the CLI's own decision and ledger, from the policy in the server's `TRUSTSHELL_HOME`, re-read per call, before the tool runs; unparseable, killed, expired or unreadable denies. A client that starts the server with a `TRUSTSHELL_HOME` holding no policy turns the gate off for it (C9). Cooperative guardrails, not a sandbox: anything running as the owner can edit the policy. |
 | C4 | SDK callers (code importing `@hyperdag/trustshell`) are bounded by Guard | PARTIAL | `src/lib/sdk-guard.ts`, `tests/sdk-guard.test.ts` | The SDK's own action functions consult Guard: the TrustShell network methods, x402 signing (under the C8 spend limits), and the kernel, signer and memory-writing exports, each decided by the CLI's own decision and ledger (origin `Sdk`, policy re-read per call) before it acts; a denial throws and nothing is sent, signed or written. Code that does not use them is not bounded: use a sandbox mission. The `./cli` and `./mcp` subpaths are the CLI's and the MCP server's own modules, gated at their entry points (C1, C3), not per function. |
 | C5 | `trustshell run` starts an interpreter it recognises (node, python, py, sh, bash, dash, zsh, ksh, powershell, pwsh) only with an entry script the policy pins by path and sha256, hashed from the file the interpreter will open as it starts; inline code, stdin, a prompt, module and loader flags, any other option before the script, powershell without -NoProfile, and startup variables (NODE_OPTIONS, BASH_ENV, ENV, ZDOTDIR, PYTHONPATH, PYTHONHOME, PYTHONSTARTUP, PYTHONINSPECT) are refused | ENFORCED | `src/lib/guardrails.ts`, `tests/guard-interpreter-pins.test.ts` | A pin covers the entry file only: not what it imports, requires or sources, and not startup files the interpreter reads by itself (python site hooks, ~/.zshenv). A file swapped between the hash and the open is not caught (a window of milliseconds; whatever can do it runs as the owner and could edit the policy too). Interpreters it does not recognise (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) are allowed by name (C1) and run whatever they are given. |
@@ -34,12 +34,13 @@ without TrustShell. Statuses use the vocabulary in [`SECURITY_GAP_MATRIX.md`](SE
 
 ## What would close the biggest gaps
 
-C2, and what C4 and C5 leave open (code that acts without the SDK's functions, imported code, interpreters it does
-not recognise), are the reason Guard is not a boundary (C3, the MCP server, is wired since IS-P0-5; C5 pins
+C2 when no `--sandbox` is given, and what C4 and C5 leave open (code that acts without the SDK's functions, imported code,
+interpreters it does not recognise), are the reason Guard is not a boundary (C3, the MCP server, is wired since IS-P0-5; C5 pins
 interpreter scripts since IS-H1; C4 gates the SDK's own acting functions since Lane K).
 Closing them needs OS-level isolation (a container, a separate user, a MicroVM) or Guard wired into every path an
 agent can act through. Both are deferred in
 `docs/living/OVERNIGHT_2026-11-01.md` §2; neither is claimed here.
 
-Sandbox missions (C14-C16) do not change C2, C4 or C5 for plain `trustshell run`: they are a separate path for
-work handed to a disposable container.
+Sandbox missions (C14-C16) do not change C4 or C5, and do not change a plain `trustshell run`. C2 is contained only
+for a `run` given `--sandbox`, or every `run` once the owner sets `run.require_sandbox`; that is not a tested boundary
+against a hostile command (C15).
