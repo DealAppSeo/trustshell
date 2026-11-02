@@ -319,10 +319,20 @@ The six claims are shown only when the engine's envelope names this exact receip
 hash). Otherwise the receipt still prints, with `six claims not shown: <why>`. `--json` prints the
 `kernelReceipt()` result from the SDK (`src/lib/kernel-client.ts`).
 
+**Signed receipts.** Both `kernel-receipt/1` and the signed `kernel-receipt/2` are read. For a
+`/2` the Ed25519 signature is checked locally, and a `signer` line says who sealed it: `AUTHENTIC` only
+when the key is one you pinned in `TRUSTSHELL_KERNEL_TRUSTED_SIGNERS` (comma-separated public keys,
+`0x` + 64 hex; the engine's are listed at `GET /api/v1/kernel/receipt-signers`, but pin them yourself:
+the client never fetches the engine's own list as the pin). With no pin the line says `NOT_CHECKED`.
+With a pin set, an unsigned `/1` receipt is refused as a downgrade. `kernelDecide()` applies the same
+rules to the ALLOW it gets back.
+
 | Outcome | Exit |
 |---|---|
 | read, and the hash matches | `0` |
 | the receipt does **not** match its own hash. Treat it as tampered | `1` |
+| `receipt_not_authentic`: a bad signature, a key you did not pin, or unsigned while a pin is set. Treat it as forged | `1` |
+| `trusted_signers_invalid`: a `TRUSTSHELL_KERNEL_TRUSTED_SIGNERS` entry is not `0x` + 64 hex. Nothing is sent | `3` |
 | not read: no key (401), another agent's key (403), no such receipt (404), network, timeout | `3` |
 
 ### `trustshell inspect [<path>] [--from <format>]`

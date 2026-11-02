@@ -922,7 +922,9 @@ const CLAIM_LABEL: Record<(typeof SIX_CLAIM_KEYS)[number], string> = {
 /** `trustshell receipt`: the hash check, then the six claims one by one. Deliberately no rollup line. */
 export function formatKernelReceipt(r: KernelReceiptRead): string {
   if (!r.ok) return `receipt NOT read: ${r.detail} (${r.reason})`;
-  const lines = [`kernel receipt ${r.receipt_id}`, `  hash  ✓ recomputed here, matches ${r.receipt.header.receipt_hash}`, ''];
+  const a = r.authenticity;
+  const signer = a.status === 'AUTHENTIC' ? `✓ AUTHENTIC, signature verified here under pinned key ${a.fingerprint}` : `${a.status}: ${a.detail}`;
+  const lines = [`kernel receipt ${r.receipt_id}`, `  hash  ✓ recomputed here, matches ${r.receipt.header.receipt_hash}`, `  signer ${signer}`, ''];
   if (!r.six_claims) return [...lines, `  six claims not shown: ${r.six_claims_note}`].join('\n');
   lines.push('  There is no single verdict. Six separate claims, each with its own gaps:');
   for (const k of SIX_CLAIM_KEYS) {
@@ -1341,7 +1343,7 @@ export async function run(
       if (args.json) io.out(JSON.stringify(r, null, 2));
       else (r.ok ? io.out : io.err)(formatKernelReceipt(r));
       if (r.ok) return EXIT.OK;
-      return r.reason === 'receipt_hash_mismatch' ? EXIT.VETO : EXIT.RUNTIME;
+      return r.reason === 'receipt_hash_mismatch' || r.reason === 'receipt_not_authentic' ? EXIT.VETO : EXIT.RUNTIME;
     }
 
     case 'proof': {
