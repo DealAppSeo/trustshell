@@ -285,8 +285,33 @@ export declare function guardDecide(dir: string, req: GuardRequest, scope: Assur
         state: 'absent';
     }>;
 } | null;
+/** A Guard refusal of one SDK call (C4): the call, the action it was decided as, every rule it broke, and its record. */
+export declare class GuardDeniedError extends Error {
+    readonly call: string;
+    readonly action: string;
+    readonly reasons: string[];
+    readonly record: {
+        seq: number;
+        hash: string;
+    } | null;
+    readonly policyPath: string | null;
+    constructor(call: string, action: string, reasons: string[], record: {
+        seq: number;
+        hash: string;
+    } | null, policyPath: string | null);
+}
+/** The scope an SDK decision record states. */
+export declare function sdkScope(call: string): AssuranceScope;
+/**
+ * C4: the SDK's own action functions call this BEFORE they act. The same decision and ledger as the CLI and the MCP
+ * server, origin 'Sdk', policy re-read from `env`'s TRUSTSHELL_HOME on every call. Throws GuardDeniedError on a
+ * denial, and when the policy cannot be checked (fail closed). No policy: returns, as the CLI does (C9); a
+ * TRUSTSHELL_HOME that hides the default policy is warned about on stderr once per process, since a library warning
+ * on every call would drown its caller.
+ */
+export declare function sdkGuard(call: string, req: GuardRequest, env?: NodeJS.ProcessEnv): void;
 /** The sentences `guard show` will not let a reader forget. */
-export declare const GUARD_DOES_NOT_COVER: readonly ["It covers the trustshell CLI, `trustshell run` and every trustshell-mcp tool call (the MCP server reads this policy and records in this ledger on each call). SDK calls (code that imports @hyperdag/trustshell) are not covered: such code must call guardDecide itself.", "It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).", "It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.", "`run` bounds WHICH executable starts, not what it does. An interpreter it recognises (node, python, sh and its kin, powershell) starts only with an entry script the policy pins by path and sha256, hashed as it starts; inline code, stdin, a prompt, module and loader flags are refused. A pin covers that one file: not what it imports or sources, not startup files the interpreter reads by itself (python site hooks, ~/.zshenv), not a file swapped between the hash and the open. Other interpreters (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) run whatever they are given.", "TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command.", "It decides before an action starts. What a started command does (files, network, child processes) is not observed.", "A missing record never proves no action happened: the guard sees only what goes through it.", "The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.", "Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted."];
+export declare const GUARD_DOES_NOT_COVER: readonly ["It covers the trustshell CLI, `trustshell run`, every trustshell-mcp tool call (the MCP server reads this policy and records in this ledger on each call) and the SDK's own acting functions (code that imports @hyperdag/trustshell: the TrustShell network methods, x402 signing, the kernel, signer and memory-writing exports, decided before they act, origin Sdk). Code that acts without those functions (its own fetch, signing or file writes) is not covered: the SDK cannot see it.", "It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).", "It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.", "`run` bounds WHICH executable starts, not what it does. An interpreter it recognises (node, python, sh and its kin, powershell) starts only with an entry script the policy pins by path and sha256, hashed as it starts; inline code, stdin, a prompt, module and loader flags are refused. A pin covers that one file: not what it imports or sources, not startup files the interpreter reads by itself (python site hooks, ~/.zshenv), not a file swapped between the hash and the open. Other interpreters (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) run whatever they are given.", "TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command.", "It decides before an action starts. What a started command does (files, network, child processes) is not observed.", "A missing record never proves no action happened: the guard sees only what goes through it.", "The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.", "Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted."];
 /**
  * The loud line for a TRUSTSHELL_HOME that hides a policy: set to a folder with no policy while the default
  * `~/.trustshell/policy.json` exists, it switches the guard off for that command (Lane D, 2026-10-21). null when

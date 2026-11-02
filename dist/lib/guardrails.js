@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GUARD_DOES_NOT_COVER = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.SIGNATURE_DOES_NOT_VERIFY = exports.isPolicyAction = exports.LOCAL_TOOLS = exports.isInterpreter = exports.INTERPRETER_RULE = exports.INTERPRETER_NAMES = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
+exports.GUARD_DOES_NOT_COVER = exports.GuardDeniedError = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.SIGNATURE_DOES_NOT_VERIFY = exports.isPolicyAction = exports.LOCAL_TOOLS = exports.isInterpreter = exports.INTERPRETER_RULE = exports.INTERPRETER_NAMES = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
 exports.interpreterScript = interpreterScript;
 exports.resolveScript = resolveScript;
 exports.interpreterCheck = interpreterCheck;
@@ -22,6 +22,8 @@ exports.nonceHighWater = nonceHighWater;
 exports.loadPolicy = loadPolicy;
 exports.appendRecord = appendRecord;
 exports.guardDecide = guardDecide;
+exports.sdkScope = sdkScope;
+exports.sdkGuard = sdkGuard;
 exports.homeShadowWarning = homeShadowWarning;
 /**
  * GUARD: the owner's local policy, enforced in code before an action starts, with a record of every decision.
@@ -726,9 +728,58 @@ function decideLocked(dir, req, scope, ctx, loaded) {
     }
     return { decision, record, loaded };
 }
+/** A Guard refusal of one SDK call (C4): the call, the action it was decided as, every rule it broke, and its record. */
+class GuardDeniedError extends Error {
+    constructor(call, action, reasons, record, policyPath) {
+        super(`DENIED by the owner policy${policyPath ? ` (${policyPath})` : ''}${record ? `, record ${record.seq}` : ''}: ${call} is ${action}; ${reasons.join('; ')}. Nothing was run. trustshell guard show prints the policy.`);
+        this.call = call;
+        this.action = action;
+        this.reasons = reasons;
+        this.record = record;
+        this.policyPath = policyPath;
+        this.name = 'GuardDeniedError';
+    }
+}
+exports.GuardDeniedError = GuardDeniedError;
+/** The scope an SDK decision record states. */
+function sdkScope(call) {
+    return {
+        mediated: [`whether the SDK call ${call} was allowed to start, checked in the calling process against the owner policy before it started`],
+        not_mediated: [
+            'what the call does once started',
+            'code in the same process that does not call the SDK: it can fetch, sign or write files itself',
+            'a TRUSTSHELL_HOME holding no policy (the gate is off for it)',
+        ],
+    };
+}
+const sdkWarned = new Set();
+/**
+ * C4: the SDK's own action functions call this BEFORE they act. The same decision and ledger as the CLI and the MCP
+ * server, origin 'Sdk', policy re-read from `env`'s TRUSTSHELL_HOME on every call. Throws GuardDeniedError on a
+ * denial, and when the policy cannot be checked (fail closed). No policy: returns, as the CLI does (C9); a
+ * TRUSTSHELL_HOME that hides the default policy is warned about on stderr once per process, since a library warning
+ * on every call would drown its caller.
+ */
+function sdkGuard(call, req, env = process.env) {
+    const shadow = homeShadowWarning(env);
+    if (shadow && !sdkWarned.has(shadow)) {
+        sdkWarned.add(shadow);
+        process.stderr.write(`trustshell sdk: ${shadow}\n`);
+    }
+    let g;
+    try {
+        g = guardDecide(trustshellHome(env), req, sdkScope(call), { origin: 'Sdk' });
+    }
+    catch (e) {
+        throw new GuardDeniedError(call, actionFor(req), [`the owner policy could not be checked (${e instanceof Error ? e.message : String(e)})`], null, null);
+    }
+    if (g && g.decision.decision === 'DENIED') {
+        throw new GuardDeniedError(call, g.record.requested.action, g.decision.reasons, { seq: g.record.seq, hash: g.record.hash }, g.loaded.path);
+    }
+}
 /** The sentences `guard show` will not let a reader forget. */
 exports.GUARD_DOES_NOT_COVER = [
-    'It covers the trustshell CLI, `trustshell run` and every trustshell-mcp tool call (the MCP server reads this policy and records in this ledger on each call). SDK calls (code that imports @hyperdag/trustshell) are not covered: such code must call guardDecide itself.',
+    "It covers the trustshell CLI, `trustshell run`, every trustshell-mcp tool call (the MCP server reads this policy and records in this ledger on each call) and the SDK's own acting functions (code that imports @hyperdag/trustshell: the TrustShell network methods, x402 signing, the kernel, signer and memory-writing exports, decided before they act, origin Sdk). Code that acts without those functions (its own fetch, signing or file writes) is not covered: the SDK cannot see it.",
     'It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).',
     'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
     '`run` bounds WHICH executable starts, not what it does. An interpreter it recognises (node, python, sh and its kin, powershell) starts only with an entry script the policy pins by path and sha256, hashed as it starts; inline code, stdin, a prompt, module and loader flags are refused. A pin covers that one file: not what it imports or sources, not startup files the interpreter reads by itself (python site hooks, ~/.zshenv), not a file swapped between the hash and the open. Other interpreters (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) run whatever they are given.',

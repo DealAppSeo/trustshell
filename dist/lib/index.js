@@ -36,11 +36,22 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BUNDLE_SCHEMA = exports.BundleError = exports.policyImportDecision = exports.bundleProblems = exports.brainContext = exports.verifyBundle = exports.GUARD_DOES_NOT_COVER = exports.trustshellHome = exports.defaultPolicy = exports.readLedger = exports.policySha256 = exports.parsePolicyDocument = exports.parsePolicy = exports.loadPolicy = exports.decide = exports.guardDecide = exports.releaseByHal = exports.UNCHECKED_REASON = exports.sourceDigest = exports.releaseExitCode = exports.releaseByGround = exports.explainQuarantine = exports.listQuarantined = exports.rememberUntrusted = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.onchainFeedbackClients = exports.classifySigners = exports.verifySigner = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.default = void 0;
+exports.GuardDeniedError = exports.GUARD_DOES_NOT_COVER = exports.trustshellHome = exports.defaultPolicy = exports.readLedger = exports.policySha256 = exports.parsePolicyDocument = exports.parsePolicy = exports.loadPolicy = exports.decide = exports.guardDecide = exports.releaseByHal = exports.releaseByGround = exports.rememberUntrusted = exports.UNCHECKED_REASON = exports.sourceDigest = exports.releaseExitCode = exports.explainQuarantine = exports.listQuarantined = exports.LIMITATIONS = exports.splitPages = exports.groundClaims = exports.groundQuote = exports.HAL_VERDICT_ORDER = exports.meetsThreshold = exports.wrapExecute = exports.proofBadgeStatus = exports.renderProofBadgeMarkdown = exports.renderProofBadge = exports.isActionEnvelope = exports.EnvelopeRequiredError = exports.runEnvelopedAction = exports.onchainFeedbackClients = exports.verifySigner = exports.REPUTATION_REGISTRY_BASE_SEPOLIA = exports.HYPERDAG_REPID_SIGNERS = exports.classifySigners = exports.guardedX402Payment = exports.CircuitBreaker = exports.auditThenAct = exports.PAY_CAPABLE_ORIGINS = exports.assertOriginCanPay = exports.canPay = exports.MissingDependencyError = exports.kernelReceipt = exports.requireKernelAllow = exports.kernelDecide = exports.SDK_GUARD_METHODS = exports.default = exports.TrustShell = void 0;
+exports.BUNDLE_SCHEMA = exports.BundleError = exports.policyImportDecision = exports.bundleProblems = exports.brainContext = exports.verifyBundle = void 0;
 exports.verify = verify;
 __exportStar(require("./trustshell"), exports);
-var trustshell_1 = require("./trustshell");
-Object.defineProperty(exports, "default", { enumerable: true, get: function () { return trustshell_1.TrustShell; } });
+/**
+ * GUARD (C4): the root's TrustShell and the root's acting functions below are the gated ones from ./sdk-guard. Each
+ * asks the owner's Guard policy (TRUSTSHELL_HOME) before it acts and throws GuardDeniedError on a denial; no policy
+ * changes nothing, as at the CLI. These explicit exports shadow the ungated names the `export *` lines carry.
+ */
+var sdk_guard_1 = require("./sdk-guard");
+Object.defineProperty(exports, "TrustShell", { enumerable: true, get: function () { return sdk_guard_1.TrustShell; } });
+Object.defineProperty(exports, "default", { enumerable: true, get: function () { return sdk_guard_1.TrustShell; } });
+Object.defineProperty(exports, "SDK_GUARD_METHODS", { enumerable: true, get: function () { return sdk_guard_1.SDK_GUARD_METHODS; } });
+Object.defineProperty(exports, "kernelDecide", { enumerable: true, get: function () { return sdk_guard_1.kernelDecide; } });
+Object.defineProperty(exports, "requireKernelAllow", { enumerable: true, get: function () { return sdk_guard_1.requireKernelAllow; } });
+Object.defineProperty(exports, "kernelReceipt", { enumerable: true, get: function () { return sdk_guard_1.kernelReceipt; } });
 var optional_ethers_1 = require("./optional-ethers");
 Object.defineProperty(exports, "MissingDependencyError", { enumerable: true, get: function () { return optional_ethers_1.MissingDependencyError; } });
 /**
@@ -79,11 +90,12 @@ Object.defineProperty(exports, "guardedX402Payment", { enumerable: true, get: fu
  * policy. Keyless (public RPC). See docs/SIGNER_VERIFICATION.md.
  */
 var verify_signer_1 = require("./verify-signer");
-Object.defineProperty(exports, "verifySigner", { enumerable: true, get: function () { return verify_signer_1.verifySigner; } });
 Object.defineProperty(exports, "classifySigners", { enumerable: true, get: function () { return verify_signer_1.classifySigners; } });
-Object.defineProperty(exports, "onchainFeedbackClients", { enumerable: true, get: function () { return verify_signer_1.onchainFeedbackClients; } });
 Object.defineProperty(exports, "HYPERDAG_REPID_SIGNERS", { enumerable: true, get: function () { return verify_signer_1.HYPERDAG_REPID_SIGNERS; } });
 Object.defineProperty(exports, "REPUTATION_REGISTRY_BASE_SEPOLIA", { enumerable: true, get: function () { return verify_signer_1.REPUTATION_REGISTRY_BASE_SEPOLIA; } });
+var sdk_guard_2 = require("./sdk-guard");
+Object.defineProperty(exports, "verifySigner", { enumerable: true, get: function () { return sdk_guard_2.verifySigner; } });
+Object.defineProperty(exports, "onchainFeedbackClients", { enumerable: true, get: function () { return sdk_guard_2.onchainFeedbackClients; } });
 /**
  * S5: one action class cannot run without a typed envelope. Exported and used
  * by the CLI `verify`/`evaluate` command (origin=Cli, actionClass=verify).
@@ -153,15 +165,15 @@ Object.defineProperty(exports, "LIMITATIONS", { enumerable: true, get: function 
  * See src/memory/quarantine.ts for what it does NOT do.
  */
 var quarantine_1 = require("../memory/quarantine");
-Object.defineProperty(exports, "rememberUntrusted", { enumerable: true, get: function () { return quarantine_1.rememberUntrusted; } });
 Object.defineProperty(exports, "listQuarantined", { enumerable: true, get: function () { return quarantine_1.listQuarantined; } });
 Object.defineProperty(exports, "explainQuarantine", { enumerable: true, get: function () { return quarantine_1.explainQuarantine; } });
-Object.defineProperty(exports, "releaseByGround", { enumerable: true, get: function () { return quarantine_1.releaseByGround; } });
 Object.defineProperty(exports, "releaseExitCode", { enumerable: true, get: function () { return quarantine_1.releaseExitCode; } });
 Object.defineProperty(exports, "sourceDigest", { enumerable: true, get: function () { return quarantine_1.sourceDigest; } });
 Object.defineProperty(exports, "UNCHECKED_REASON", { enumerable: true, get: function () { return quarantine_1.UNCHECKED_REASON; } });
-var quarantine_hal_1 = require("../memory/quarantine-hal");
-Object.defineProperty(exports, "releaseByHal", { enumerable: true, get: function () { return quarantine_hal_1.releaseByHal; } });
+var sdk_guard_3 = require("./sdk-guard");
+Object.defineProperty(exports, "rememberUntrusted", { enumerable: true, get: function () { return sdk_guard_3.rememberUntrusted; } });
+Object.defineProperty(exports, "releaseByGround", { enumerable: true, get: function () { return sdk_guard_3.releaseByGround; } });
+Object.defineProperty(exports, "releaseByHal", { enumerable: true, get: function () { return sdk_guard_3.releaseByHal; } });
 /**
  * GUARD: the owner's local policy (`~/.trustshell/policy.json`, or TRUSTSHELL_HOME), a SUBSET of the engine
  * kernel's owner-policy fields with the same meanings (actions spend | post | tool | tool:<name>, per_tx_raw,
@@ -180,6 +192,7 @@ Object.defineProperty(exports, "readLedger", { enumerable: true, get: function (
 Object.defineProperty(exports, "defaultPolicy", { enumerable: true, get: function () { return guardrails_1.defaultPolicy; } });
 Object.defineProperty(exports, "trustshellHome", { enumerable: true, get: function () { return guardrails_1.trustshellHome; } });
 Object.defineProperty(exports, "GUARD_DOES_NOT_COVER", { enumerable: true, get: function () { return guardrails_1.GUARD_DOES_NOT_COVER; } });
+Object.defineProperty(exports, "GuardDeniedError", { enumerable: true, get: function () { return guardrails_1.GuardDeniedError; } });
 /**
  * CARRY: the owner's context as one Ed25519-signed file (profile, policy by hash, selected memories, evidence
  * pointers). Authority never travels: `policyImportDecision` enforces a carried policy only when its owner

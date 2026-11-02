@@ -260,8 +260,9 @@ describe('SDK action functions pass the Guard policy (C4)', () => {
       const fakeHome = join(root, 'user');
       mkdirSync(join(fakeHome, '.trustshell'), { recursive: true });
       writeFileSync(join(fakeHome, '.trustshell', POLICY_FILE), renderPolicyDocument({ policy: defaultPolicy(), signature: null }));
-      process.env.HOME = fakeHome;
-      process.env.USERPROFILE = fakeHome;
+      // os.homedir() reads the real environment, not Jest's copy of process.env, so the home is stubbed directly.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const homeSpy = jest.spyOn(require('node:os') as typeof import('node:os'), 'homedir').mockReturnValue(fakeHome);
       const writes: string[] = [];
       const spy = jest.spyOn(process.stderr, 'write').mockImplementation((s: string | Uint8Array) => (writes.push(String(s)), true));
       try {
@@ -271,6 +272,7 @@ describe('SDK action functions pass the Guard policy (C4)', () => {
         await client.getService('svc-1').catch(() => null);
       } finally {
         spy.mockRestore();
+        homeSpy.mockRestore();
       }
       expect(fetchCalls).toHaveLength(3);
       expect(writes.filter((w) => /is NOT in force/.test(w))).toHaveLength(1);

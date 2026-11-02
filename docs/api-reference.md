@@ -495,8 +495,10 @@ git` (refused, with the `tool:git` form named; nothing is written).
 `0` ALLOWED, `5` DENIED, `2` NOT_CHECKED (no policy — never an allow). A check is recorded as a question: its
 amount is never counted as spent.
 
-What it covers: the trustshell CLI and `trustshell run`. The MCP server (`trustshell-mcp`) does not read the
-policy yet, and neither do SDK calls: code that imports the package must call `guardDecide` itself. It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the
+What it covers: the trustshell CLI, `trustshell run`, every MCP server (`trustshell-mcp`) tool call, and the SDK's
+own acting functions (the TrustShell network methods, x402 signing, the kernel, signer and memory-writing exports):
+each asks the policy before it acts and a denial throws `GuardDeniedError`. Code that imports the package and acts
+without those functions (its own fetch, signing or file writes) is not covered. It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the
 policy, and every change (including an import that enforces a carried policy) leaves a `policy-change` record
 with the policy hash before and after. A `TRUSTSHELL_HOME` with no policy, while `~/.trustshell/policy.json`
 exists, prints a warning on every command, because it switches the guard off for that command. The warning does not

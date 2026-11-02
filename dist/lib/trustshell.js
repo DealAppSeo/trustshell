@@ -55,6 +55,7 @@ const redact_1 = require("../memory/redact");
 const api_url_1 = require("./api-url");
 const local_only_1 = require("./local-only");
 const origin_1 = require("./origin");
+const guardrails_1 = require("./guardrails");
 const honest_contract_1 = require("./honest-contract");
 const identity_1 = require("./identity");
 /** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
@@ -1244,6 +1245,9 @@ async function buildX402Payment(params) {
         ],
     };
     const message = { from, to, value, validAfter, validBefore, nonce };
+    // C4/C8: the owner's Guard policy decides the spend, with its per-tx, daily and total limits, after every check
+    // above and immediately before the signature. Allowed, the amount is counted in the Guard ledger; denied, throws.
+    (0, guardrails_1.sdkGuard)('buildX402Payment', { tool: 'x402', class: 'spend', amount_raw: value });
     // ethers v6: signTypedData produces the EIP-712 signature over the domain/type/message.
     const signature = await wallet.signTypedData(domain, types, message);
     // The facilitator decodes the header as JSON: { from, to, value, validAfter, validBefore, nonce, signature }.

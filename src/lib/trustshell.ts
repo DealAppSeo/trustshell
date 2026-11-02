@@ -11,6 +11,7 @@ import { redact } from '../memory/redact';
 import { isHttps, resolveApiBase } from './api-url';
 import { LOCAL_ONLY_REASON, OFFLINE_REASON, localOnly, offline, seenByFromHal, type SeenBy } from './local-only';
 import { assertOriginCanPay } from './origin';
+import { sdkGuard } from './guardrails';
 import type { AgentTurnOrigin } from './origin';
 import {
   verifyOutputGrounding,
@@ -1878,6 +1879,10 @@ export async function buildX402Payment(params: BuildX402PaymentParams): Promise<
     ],
   };
   const message = { from, to, value, validAfter, validBefore, nonce };
+
+  // C4/C8: the owner's Guard policy decides the spend, with its per-tx, daily and total limits, after every check
+  // above and immediately before the signature. Allowed, the amount is counted in the Guard ledger; denied, throws.
+  sdkGuard('buildX402Payment', { tool: 'x402', class: 'spend', amount_raw: value });
 
   // ethers v6: signTypedData produces the EIP-712 signature over the domain/type/message.
   const signature = await wallet.signTypedData(domain, types, message);
