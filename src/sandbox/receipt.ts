@@ -6,6 +6,10 @@
  * profile against the fixed rules (it does not trust the receipt's own `all_ok`), every decision
  * signature, the destroy and revoke evidence, and that `not_measured` still names what was not tested.
  *
+ * From v2 the receipt carries the TrustMedic passport (`passport.ts`), signed by the same harness key. The
+ * verifier checks its digest and signature and recomputes it from the receipt's own observations, so a
+ * passport cannot claim a configuration the receipt did not observe. v1 receipts (no passport) still verify.
+ *
  * Where the denial was tested: at the PROMOTION GATE. A worker-written candidate carrying a canary and a
  * worker-written self-approval are refused there. Nothing here claims the container was attacked.
  */
@@ -13,9 +17,12 @@ import type { KeyObject } from 'node:crypto';
 import { signValue, verifyValue, type Signer } from '../lib/install-key';
 import type { Candidate } from './airlock';
 import { checkProfile, MOUNT_SHAPE, type DestroyEvidence, type MissionRun } from './mission';
+import { buildPassport, comparePassports, verifyPassport, type SignedPassport } from './passport';
 import { REVOKED_REASON, verifyDecision, type Approval, type SignedDecision } from './promote';
 
-export const RECEIPT_SCHEMA = 'trustshell.sandbox-mission-receipt/v1';
+export const RECEIPT_SCHEMA = 'trustshell.sandbox-mission-receipt/v2';
+/** Before passports. Still verified, under its own rules. */
+export const RECEIPT_SCHEMA_V1 = 'trustshell.sandbox-mission-receipt/v1';
 
 export const NOT_MEASURED_REQUIRED: readonly string[] = [
   'behaviour of the restrictions against an active hostile worker (adversarial in-container tests pending a scope decision)',
@@ -58,11 +65,14 @@ export interface Receipt {
   revoke: { token_sha256: string; revoked: boolean; replay_after_revoke: SignedDecision[] };
   keys: { harness: Signer; promoter: Signer };
   not_measured: string[];
+  /** v2 on. Absent from v1 receipts. */
+  passport?: SignedPassport;
 }
 export interface SignedReceipt { receipt: Receipt; signature: string }
 
 export interface ReceiptInput {
   run: MissionRun;
+  passport: SignedPassport;
   signingKeysInMounts: boolean;
   inspected: Candidate[];
   attempts: Attempt[];
@@ -105,7 +115,18 @@ export function buildReceipt(i: ReceiptInput): Receipt {
     revoke: { token_sha256: i.run.token_sha256, revoked: i.revoked, replay_after_revoke: i.replay },
     keys: { harness: i.harness, promoter: i.promoter },
     not_measured: [...NOT_MEASURED_REQUIRED, ...(i.run.runtime.observed === 'runsc' ? [] : [NOT_MEASURED_RUNSC])],
+    passport: i.passport,
   };
+}
+
+/** The passport verifies under the harness key and matches what this receipt itself observed. */
+function passportProblems(r: Receipt): string[] {
+  if (!r.passport) return ['a v2 receipt with no passport'];
+  const e = verifyPassport(r.passport, r.keys.harness).map((x) => `passport: ${x}`);
+  // The Guard policy has no other record in the receipt, so it is taken from the passport; everything else is recomputed.
+  const again = buildPassport(r, r.passport.passport.policy.value, r.keys.harness);
+  for (const d of comparePassports(again, r.passport.passport).drifts) if (d.status !== 'identical') e.push(`passport ${d.field} does not match the receipt`);
+  return e;
 }
 
 export function signReceipt(r: Receipt, harnessKey: KeyObject): SignedReceipt {
@@ -119,7 +140,8 @@ export function verifyReceipt(s: SignedReceipt, pins: Pins = {}): { ok: boolean;
   const errors: string[] = [];
   try {
     const r = s.receipt;
-    if (r.schema !== RECEIPT_SCHEMA) errors.push(`unknown schema ${String(r.schema)}`);
+    if (r.schema !== RECEIPT_SCHEMA && r.schema !== RECEIPT_SCHEMA_V1) errors.push(`unknown schema ${String(r.schema)}`);
+    if (r.schema !== RECEIPT_SCHEMA_V1) errors.push(...passportProblems(r));
     if (!verifyValue(r, r.keys.harness, s.signature)) errors.push('harness signature does not verify over the receipt');
     if (pins.harness && r.keys.harness.fingerprint !== pins.harness) errors.push('harness key is not the pinned one');
     if (pins.promoter && r.keys.promoter.fingerprint !== pins.promoter) errors.push('promoter key is not the pinned one');
