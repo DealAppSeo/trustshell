@@ -18,7 +18,51 @@ export interface LocalPolicy {
     nonce: string;
     /** Local only (not in the kernel): autonomy levels. Absent = off. */
     autonomy?: AutonomyConfig;
+    /** Local only (not in the kernel): the scripts an allowed interpreter may run (C5). Absent = none. */
+    scripts?: ScriptPin[];
 }
+/** One script an interpreter may run: the executable's name, the file's resolved path, and the sha256 of its bytes. */
+export interface ScriptPin {
+    tool: string;
+    path: string;
+    sha256: string;
+}
+export declare const INTERPRETER_NAMES = "node, python, py, sh, bash, dash, zsh, ksh, powershell, pwsh";
+/** The rule every interpreter denial states. */
+export declare const INTERPRETER_RULE = "an allowed interpreter runs only a script the policy pins by sha256";
+/** Is `executable` (as `run` names it) an interpreter Guard pins scripts for? */
+export declare const isInterpreter: (executable: string) => boolean;
+/** PURE. The script file an interpreter is told to run, or why the command runs code that no pin can cover. */
+export declare function interpreterScript(executable: string, args: readonly string[]): {
+    script: string;
+} | {
+    refuse: string;
+};
+/**
+ * The file a script path names, the way node, python, sh and powershell open it: relative to the working directory,
+ * through any symlink. Refused when that is not exactly one regular file. Reads the bytes it hashes.
+ */
+export declare function resolveScript(arg: string, cwd?: string): {
+    ok: true;
+    path: string;
+    sha256: string;
+} | {
+    ok: false;
+    why: string;
+};
+/**
+ * C5, for `run`: the script an interpreter would open, resolved and hashed, and every reason it must not start. Not an
+ * interpreter: nothing. Whether the script is PINNED is decided under the policy lock, in decide().
+ * TOCTOU: the file is hashed here and opened by the interpreter a few milliseconds later; a swap in between is not
+ * caught. Anything that can make that swap runs as the owner, and could as well edit the policy (not a boundary).
+ */
+export declare function interpreterCheck(executable: string, args: readonly string[], env: NodeJS.ProcessEnv, cwd?: string): {
+    script?: {
+        path: string;
+        sha256: string;
+    };
+    reasons: string[];
+};
 export interface PolicySignature extends Signer {
     /** Ed25519 over the RFC 8785 form of `policy`, base64. */
     signature: string;
@@ -77,7 +121,17 @@ export interface GuardRequest {
     command_sha256?: string;
     /** The executable a `trustshell run` would start (its file name only). `run` requires it to BE the tool. */
     executable?: string;
+    /** The script an interpreter `executable` would open (C5): resolved path and sha256. Recorded by its hash only. */
+    script?: {
+        path: string;
+        sha256: string;
+    };
 }
+/**
+ * PURE. C5: why this request may not start an interpreter, or null. An interpreter starts only with a script whose
+ * resolved path AND sha256 the policy pins for that executable; no script, an unpinned one or a changed one: denied.
+ */
+export declare function pinReason(policy: LocalPolicy, req: GuardRequest): string | null;
 /** The action string the policy must list for this request (the kernel's actionPermitted). */
 export declare function actionFor(req: GuardRequest): string;
 export interface GuardDecision {
@@ -110,8 +164,10 @@ export interface GuardRecord {
      * that enforced a carried policy), with the hash before and after. A rule change is never silent.
      */
     kind: 'decision' | 'check' | 'outcome' | 'policy-change';
-    requested: GuardRequest & {
+    /** What was asked. A script is recorded by its sha256 only, never by its path (the command is never recorded). */
+    requested: Omit<GuardRequest, 'script'> & {
         action: string;
+        script_sha256?: string;
     };
     authorized: GuardDecision & {
         policy_sha256: string | null;
@@ -230,7 +286,7 @@ export declare function guardDecide(dir: string, req: GuardRequest, scope: Assur
     }>;
 } | null;
 /** The sentences `guard show` will not let a reader forget. */
-export declare const GUARD_DOES_NOT_COVER: readonly ["It covers the trustshell CLI, `trustshell run` and every trustshell-mcp tool call (the MCP server reads this policy and records in this ledger on each call). SDK calls (code that imports @hyperdag/trustshell) are not covered: such code must call guardDecide itself.", "It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).", "It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.", "`run` bounds WHICH executable starts, not what it does: allowing an interpreter (node, python, sh, powershell) allows any script it is given.", "TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command.", "It decides before an action starts. What a started command does (files, network, child processes) is not observed.", "A missing record never proves no action happened: the guard sees only what goes through it.", "The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.", "Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted."];
+export declare const GUARD_DOES_NOT_COVER: readonly ["It covers the trustshell CLI, `trustshell run` and every trustshell-mcp tool call (the MCP server reads this policy and records in this ledger on each call). SDK calls (code that imports @hyperdag/trustshell) are not covered: such code must call guardDecide itself.", "It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).", "It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.", "`run` bounds WHICH executable starts, not what it does. An interpreter it recognises (node, python, sh and its kin, powershell) starts only with an entry script the policy pins by path and sha256, hashed as it starts; inline code, stdin, a prompt, module and loader flags are refused. A pin covers that one file: not what it imports or sources, not startup files the interpreter reads by itself (python site hooks, ~/.zshenv), not a file swapped between the hash and the open. Other interpreters (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) run whatever they are given.", "TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command.", "It decides before an action starts. What a started command does (files, network, child processes) is not observed.", "A missing record never proves no action happened: the guard sees only what goes through it.", "The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.", "Amounts are counted from the decisions THIS ledger allowed. A spend made without asking the guard is not counted."];
 /**
  * The loud line for a TRUSTSHELL_HOME that hides a policy: set to a folder with no policy while the default
  * `~/.trustshell/policy.json` exists, it switches the guard off for that command (Lane D, 2026-10-21). null when

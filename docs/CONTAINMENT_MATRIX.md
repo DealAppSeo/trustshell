@@ -2,7 +2,7 @@
 
 What bounds an agent that runs on this machine through TrustShell, and what does not. Written 2026-11-01
 (overnight item 1), from `GUARD_DOES_NOT_COVER` in `src/lib/guardrails.ts` and the tests named below.
-`tests/baseline-matrices.test.ts` checks every row, and fails if rows C2-C4 stop agreeing with
+`tests/baseline-matrices.test.ts` checks every row, and fails if rows C2-C5 stop agreeing with
 `GUARD_DOES_NOT_COVER`: Guard covers the MCP server since IS-P0-5 (C3); when it starts covering SDK calls, this
 page must change with it.
 
@@ -18,7 +18,7 @@ without TrustShell. Statuses use the vocabulary in [`SECURITY_GAP_MATRIX.md`](SE
 | C2 | What a started command does (files, network, child processes) | NOT_ENFORCED | `src/lib/guardrails.ts` | Not observed. Guard decides before an action starts and sees nothing after. |
 | C3 | MCP server (`trustshell-mcp`) tool calls read the Guard policy | ENFORCED | `src/mcp/index.ts`, `tests/mcp-guard.test.ts`, `tests/guard-carry-demo.test.ts` | Every tool call is decided by the CLI's own decision and ledger, from the policy in the server's `TRUSTSHELL_HOME`, re-read per call, before the tool runs; unparseable, killed, expired or unreadable denies. A client that starts the server with a `TRUSTSHELL_HOME` holding no policy turns the gate off for it (C9). Cooperative guardrails, not a sandbox: anything running as the owner can edit the policy. |
 | C4 | SDK callers (code importing `@hyperdag/trustshell`) are bounded by Guard | NOT_ENFORCED | `src/lib/guardrails.ts` | Such code must call `guardDecide` itself; nothing makes it. |
-| C5 | Allowing an interpreter (node, python, sh, powershell) limits which scripts it runs | NOT_ENFORCED | `src/lib/guardrails.ts` | Allowing an interpreter allows any script it is given. |
+| C5 | `trustshell run` starts an interpreter it recognises (node, python, py, sh, bash, dash, zsh, ksh, powershell, pwsh) only with an entry script the policy pins by path and sha256, hashed from the file the interpreter will open as it starts; inline code, stdin, a prompt, module and loader flags, any other option before the script, powershell without -NoProfile, and startup variables (NODE_OPTIONS, BASH_ENV, ENV, ZDOTDIR, PYTHONPATH, PYTHONHOME, PYTHONSTARTUP, PYTHONINSPECT) are refused | ENFORCED | `src/lib/guardrails.ts`, `tests/guard-interpreter-pins.test.ts` | A pin covers the entry file only: not what it imports, requires or sources, and not startup files the interpreter reads by itself (python site hooks, ~/.zshenv). A file swapped between the hash and the open is not caught (a window of milliseconds; whatever can do it runs as the owner and could edit the policy too). Interpreters it does not recognise (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) are allowed by name (C1) and run whatever they are given. |
 | C6 | Commands that would run something Guard cannot see (`init --pai`, stored shell commands, `learn check run`) are denied while a policy is in force | ENFORCED | `src/cli/guard.ts`, `tests/guardrails.test.ts` | Only the commands the CLI knows spawn; an unknown spawner is C2. |
 | C7 | `guard kill` allows nothing afterwards, and a later `init --force` cannot replay an older looser signed policy | ENFORCED | `tests/guardrails.test.ts`, `tests/guard-carry-redteam.test.ts` | The owner (or anything running as them) can re-init. Kill stops cooperative agents, not a hostile one. |
 | C8 | Spend limits (per-tx, rolling daily, total) hold under concurrent runs | ENFORCED | `tests/guard-carry-redteam.test.ts`, `tests/guardrails.test.ts` | Counts only spends that asked the guard; a spend made without asking is not counted. |
@@ -33,7 +33,8 @@ without TrustShell. Statuses use the vocabulary in [`SECURITY_GAP_MATRIX.md`](SE
 
 ## What would close the biggest gaps
 
-C2, C4 and C5 together are the reason Guard is not a boundary (C3, the MCP server, is wired since IS-P0-5).
+C2 and C4, with what C5 leaves open (imported code, interpreters it does not recognise), are the reason Guard is
+not a boundary (C3, the MCP server, is wired since IS-P0-5; C5 pins interpreter scripts since IS-H1).
 Closing them needs OS-level isolation (a container, a separate user, a MicroVM) or Guard wired into every path an
 agent can act through. Both are deferred in
 `docs/living/OVERNIGHT_2026-11-01.md` §2; neither is claimed here.

@@ -83,13 +83,13 @@ describe('guard authority: who can grant a permission, and what the output calls
     const args = parseArgs(argv);
     return runGuarded(args, () => run(args, {} as never, io), io, process.env);
   }
-  /** `trustshell run --tool node -- node`, with a spawner that only records whether it was asked to start. */
-  function runNode(h: Host): { code: number; started: boolean; card: string } {
+  /** `trustshell run --tool deploy -- deploy` (not an interpreter, so no script pin is involved: C5), with a spawner that only records whether it was asked to start. */
+  function runDeploy(h: Host): { code: number; started: boolean; card: string } {
     as(h);
     out = [];
     err = [];
     let started = false;
-    const code = runRun(['--tool', 'node', '--', 'node', '-e', '0'], io, process.env, () => ((started = true), { status: 0, signal: null }));
+    const code = runRun(['--tool', 'deploy', '--', 'deploy'], io, process.env, () => ((started = true), { status: 0, signal: null }));
     return { code, started, card: err.join('\n') };
   }
   const spend = (h: Host, amount = '100') => guardDecide(h.home, { tool: 'pay', class: 'spend', amount_raw: amount }, SCOPE)?.decision.decision;
@@ -105,7 +105,7 @@ describe('guard authority: who can grant a permission, and what the output calls
   const lastOf = (h: Host, kind: GuardRecord['kind']) => [...records(h)].reverse().find((r) => r.kind === kind);
   const widen = (p: LocalPolicy, over: Partial<LocalPolicy> = {}): LocalPolicy => ({
     ...p,
-    actions: [...new Set([...p.actions, 'tool:node', 'spend'])],
+    actions: [...new Set([...p.actions, 'tool:deploy', 'spend'])],
     per_tx_raw: '1000',
     daily_raw: '1000',
     total_raw: '1000',
@@ -127,7 +127,7 @@ describe('guard authority: who can grant a permission, and what the output calls
   async function signedHost(name: string, mutate: (p: LocalPolicy) => LocalPolicy = (p) => p) {
     const h = host(name);
     expect(await cli(h, 'guard', 'init')).toBe(0);
-    expect(await cli(h, 'guard', 'allow', 'tool:node')).toBe(0);
+    expect(await cli(h, 'guard', 'allow', 'tool:deploy')).toBe(0);
     writeDoc(h, { policy: mutate(doc(h).policy), signature: null });
     expect(await cli(h, 'guard', 'sign')).toBe(0);
     return { h, fp: signingKey(h.home).signer.fingerprint };
@@ -160,11 +160,11 @@ describe('guard authority: who can grant a permission, and what the output calls
     it('BY DESIGN the added action and spend are ALLOWED (the file is the authority); since #608 nothing calls it signed', async () => {
       await cli(A, 'guard', 'init');
       await cli(A, 'guard', 'sign');
-      expect(runNode(A)).toMatchObject({ code: 5, started: false }); // control: tool:node is not listed yet
+      expect(runDeploy(A)).toMatchObject({ code: 5, started: false }); // control: tool:deploy is not listed yet
       const d = doc(A);
       writeDoc(A, { ...d, policy: widen(d.policy) }); // the signature object is left exactly as it was
 
-      const r = runNode(A);
+      const r = runDeploy(A);
       expect(r).toMatchObject({ code: 0, started: true });
       expect(spend(A)).toBe('ALLOWED');
 
@@ -181,9 +181,9 @@ describe('guard authority: who can grant a permission, and what the output calls
 
     it('DISCLOSURE GAP the same widening through the CLI plus `guard sign` reads "owner-signed": the install key is usable by anything running as the owner', async () => {
       await cli(A, 'guard', 'init');
-      await cli(A, 'guard', 'allow', 'tool:node'); // no key, no password
+      await cli(A, 'guard', 'allow', 'tool:deploy'); // no key, no password
       await cli(A, 'guard', 'sign'); // the install key: a file the same OS user can read
-      const r = runNode(A);
+      const r = runDeploy(A);
       expect(r).toMatchObject({ code: 0, started: true });
       expect(r.card).toContain('owner-signed');
       expect(await exportLine(A)).toContain('owner-signed by');
@@ -200,7 +200,7 @@ describe('guard authority: who can grant a permission, and what the output calls
       const p = widen(doc(A).policy);
       writeDoc(A, { policy: p, signature: { ...k.signer, signature: signValue(p, k.key) } });
 
-      const r = runNode(A);
+      const r = runDeploy(A);
       expect(r).toMatchObject({ code: 0, started: true }); // BY DESIGN: unsigned would be enforced too
       expect(spend(A)).toBe('ALLOWED');
       // Literally true: the key that signed, named by its fingerprint.
@@ -217,10 +217,10 @@ describe('guard authority: who can grant a permission, and what the output calls
 
     it('a key file that does not parse cannot crash `run` after the command ran: no install key, so no signature is the owner\'s', async () => {
       await cli(A, 'guard', 'init');
-      await cli(A, 'guard', 'allow', 'tool:node');
+      await cli(A, 'guard', 'allow', 'tool:deploy');
       await cli(A, 'guard', 'sign');
       writeFileSync(join(A.home, 'bundle-signing-key.pem'), 'not a key\n');
-      const r = runNode(A);
+      const r = runDeploy(A);
       expect(r).toMatchObject({ code: 0, started: true });
       expect(r.card).toContain("NOT this install's key");
     });
@@ -232,7 +232,7 @@ describe('guard authority: who can grant a permission, and what the output calls
       const k = strangerKey();
       const p = widen(doc(A).policy);
       writeDoc(A, { policy: p, signature: { ...k.signer, fingerprint: own, signature: signValue(p, k.key) } });
-      const r = runNode(A);
+      const r = runDeploy(A);
       expect(r).toMatchObject({ code: 0, started: true });
       expect(r.card).toContain(SIGNATURE_DOES_NOT_VERIFY);
       expect(r.card).not.toContain('owner-signed');
@@ -245,7 +245,7 @@ describe('guard authority: who can grant a permission, and what the output calls
     await cli(A, 'guard', 'init');
     await cli(A, 'guard', 'sign');
     writeDoc(A, { policy: widen(doc(A).policy), signature: null });
-    const r = runNode(A);
+    const r = runDeploy(A);
     expect(r).toMatchObject({ code: 0, started: true });
     expect(spend(A)).toBe('ALLOWED');
     expect(r.card).toContain('unsigned');
@@ -320,7 +320,7 @@ describe('guard authority: who can grant a permission, and what the output calls
       writeDoc(h, { policy: { ...doc(h).policy, actions: [...doc(h).policy.actions, 'spend'] }, signature: null }); // different content, SAME nonce
       await cli(h, 'guard', 'sign');
       const n20b = await exportTo(h, join(h.root, 'n20b.json'));
-      await cli(h, 'guard', 'deny', 'tool:node'); // not `kill`: that also denies tool:bundle, and the export with it
+      await cli(h, 'guard', 'deny', 'tool:deploy'); // not `kill`: that also denies tool:bundle, and the export with it
       await cli(h, 'guard', 'sign');
       const n21 = await exportTo(h, join(h.root, 'n21.json'));
       const B = host('b4e');
@@ -331,7 +331,7 @@ describe('guard authority: who can grant a permission, and what the output calls
       expect((await importOn(B, n21, '--signer', fp)).text).toContain('ENFORCED');
       expect((await importOn(B, n20, '--signer', fp)).text).toMatch(/does not supersede .*a downgrade or a replay/);
       expect(doc(B).policy.nonce).toBe('21'); // the newer policy is still in force
-      expect(runNode(B)).toMatchObject({ code: 5, started: false });
+      expect(runDeploy(B)).toMatchObject({ code: 5, started: false });
     });
 
     it('DISCLOSURE GAP replay onto a different subject: nothing compares `subject`, so agent-A\'s policy is ENFORCED on agent-B\'s host', async () => {
@@ -346,7 +346,7 @@ describe('guard authority: who can grant a permission, and what the output calls
       expect(r.text).toContain('ENFORCED (owner-signed by');
       expect(r.text).not.toContain('subject');
       expect(doc(B).policy.subject).toBe('agent-A');
-      expect(runNode(B)).toMatchObject({ code: 0, started: true });
+      expect(runDeploy(B)).toMatchObject({ code: 0, started: true });
     });
   });
 
@@ -356,7 +356,7 @@ describe('guard authority: who can grant a permission, and what the output calls
       await cli(A, 'guard', 'deny', 'tool:remember');
       expect(await gated(A, 'remember', 'gate probe')).toBe(5);
       unlinkSync(join(A.home, POLICY_FILE));
-      const r = runNode(A);
+      const r = runDeploy(A);
       expect(r).toMatchObject({ code: 2, started: false });
       expect(r.card).toContain('NOT_CHECKED no policy');
       expect(await gated(A, 'remember', 'after the delete')).toBe(0);
@@ -375,31 +375,31 @@ describe('guard authority: who can grant a permission, and what the output calls
     it('BY DESIGN, disclosed ("delete records"): deleting policy.json AND the ledger forgets the nonce high-water, so an older signed bundle is ENFORCED again', async () => {
       const { h, fp } = await signedHost('a5b');
       const old = await exportTo(h, join(h.root, 'old.json'));
-      await cli(h, 'guard', 'deny', 'tool:node');
+      await cli(h, 'guard', 'deny', 'tool:deploy');
       await cli(h, 'guard', 'sign');
       const newer = await exportTo(h, join(h.root, 'newer.json'));
       const B = host('b5b');
       await cli(B, 'guard', 'init');
       expect((await importOn(B, newer, '--signer', fp)).text).toContain('ENFORCED');
       expect((await importOn(B, old, '--signer', fp)).text).toContain('does not supersede');
-      expect(runNode(B)).toMatchObject({ code: 5, started: false });
+      expect(runDeploy(B)).toMatchObject({ code: 5, started: false });
       for (const f of [POLICY_FILE, GUARD_RECEIPTS_FILE, 'guard-receipts.checkpoint.json']) rmSync(join(B.home, f), { force: true });
       const r = await importOn(B, old, '--signer', fp);
       expect(r.text).toContain('ENFORCED (owner-signed by');
       expect(r.text).toContain('supersedes no policy');
-      expect(runNode(B)).toMatchObject({ code: 0, started: true });
+      expect(runDeploy(B)).toMatchObject({ code: 0, started: true });
     });
   });
 
   describe('6. expiry, nonce reuse, non-canonical numbers', () => {
     it('HOLDS + BY DESIGN an expired signed policy denies everything; moving expires_at forward by hand re-allows it, labelled as not verifying', async () => {
       const { h } = await signedHost('a6a', (p) => ({ ...p, expires_at: Math.floor(Date.now() / 1000) - 60 }));
-      const expired = runNode(h);
+      const expired = runDeploy(h);
       expect(expired).toMatchObject({ code: 5, started: false });
       expect(expired.card).toMatch(/DENIED: the policy expired at .*owner-signed/);
       const d = doc(h);
       writeDoc(h, { ...d, policy: { ...d.policy, expires_at: Math.floor(Date.now() / 1000) + 86400 } });
-      const revived = runNode(h);
+      const revived = runDeploy(h);
       expect(revived).toMatchObject({ code: 0, started: true });
       expect(revived.card).toContain(SIGNATURE_DOES_NOT_VERIFY);
     });
@@ -409,7 +409,7 @@ describe('guard authority: who can grant a permission, and what the output calls
       for (const t of ['tool:x1', 'tool:x2', 'tool:x3']) await cli(A, 'guard', 'allow', t);
       expect(doc(A).policy.nonce).toBe('4');
       writeDoc(A, { policy: { ...widen(doc(A).policy), nonce: '1' }, signature: null });
-      const r = runNode(A);
+      const r = runDeploy(A);
       expect(r).toMatchObject({ code: 0, started: true });
       expect(r.card).toContain('nonce 1, unsigned');
     });
@@ -423,7 +423,7 @@ describe('guard authority: who can grant a permission, and what the output calls
         writeDoc(A, JSON.stringify({ policy: { ...base, per_tx_raw: 'X' }, signature: null }).replace('"X"', lit));
         expect([lit, loadPolicy(A.home).state]).toEqual([lit, 'invalid']);
         expect([lit, spend(A, '1')]).toEqual([lit, 'DENIED']);
-        expect([lit, runNode(A).code]).toEqual([lit, 5]);
+        expect([lit, runDeploy(A).code]).toEqual([lit, 5]);
       }
       writeDoc(A, { policy: base, signature: null });
       expect(await cli(A, 'guard', 'limit', 'per-tx', '0100')).toBe(2);
