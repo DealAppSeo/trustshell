@@ -42,6 +42,40 @@ function within(dir, p) {
     const r = (0, node_path_1.relative)(dir, p);
     return r === '' || (!r.startsWith('..') && !(0, node_path_1.isAbsolute)(r));
 }
+/**
+ * The first TrustShell signing-key directory (<home>/sandbox/keys-harness|keys-promoter) nested inside `dir`, or null.
+ * The active-home / ~/.trustshell checks in runSandboxed miss a SECOND home left inside the cwd; a read-only mount of
+ * the cwd would then expose that home's keys to the worker (Grok, #668).
+ * ponytail: bounded depth-6 scan skipping node_modules/.git; a key dir nested deeper or inside those slips. Realistic
+ * homes sit at <cwd>/.trustshell/sandbox or <cwd>/sandbox.
+ */
+function keysUnder(dir, maxDepth = 6) {
+    const SKIP = new Set(['node_modules', '.git']);
+    const KEY_SUBPATHS = [(0, node_path_1.join)('sandbox', 'keys-harness'), (0, node_path_1.join)('sandbox', 'keys-promoter')];
+    const walk = (d, depth) => {
+        for (const sub of KEY_SUBPATHS)
+            if ((0, node_fs_1.existsSync)((0, node_path_1.join)(d, sub)))
+                return (0, node_path_1.join)(d, sub);
+        if (depth >= maxDepth)
+            return null;
+        let entries;
+        try {
+            entries = (0, node_fs_1.readdirSync)(d, { withFileTypes: true });
+        }
+        catch {
+            return null;
+        }
+        for (const e of entries) {
+            if (!e.isDirectory() || SKIP.has(e.name))
+                continue;
+            const hit = walk((0, node_path_1.join)(d, e.name), depth + 1);
+            if (hit)
+                return hit;
+        }
+        return null;
+    };
+    return walk(dir, 0);
+}
 /** Run `command` in a mission container with `cwd` as its read-only input. Throws MissionRefused if nothing started. */
 function runSandboxed(o, exec = mission_1.nodeExec) {
     const home = (0, node_path_1.resolve)(o.home);
@@ -52,6 +86,10 @@ function runSandboxed(o, exec = mission_1.nodeExec) {
         if (within(cwd, real) || within(real, cwd)) {
             throw new mission_1.MissionRefused(`the current directory ${cwd} holds or is inside the TrustShell home ${real}, whose keys must never be mounted. Run from a project directory.`);
         }
+    }
+    const nestedKeys = keysUnder(cwd);
+    if (nestedKeys) {
+        throw new mission_1.MissionRefused(`the current directory ${cwd} contains TrustShell signing keys (${nestedKeys}), which must never be mounted into the container. Move that TrustShell home out of the directory, or run from one that holds none.`);
     }
     const policy = (0, passport_1.supervisorPolicy)(home); // measured as the mission starts
     const missionId = (0, node_crypto_1.randomBytes)(8).toString('hex');

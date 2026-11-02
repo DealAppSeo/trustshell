@@ -17,7 +17,7 @@
  *                                                public-keys.json
  */
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, type Dirent } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { trustshellHome } from '../lib/guardrails';
@@ -38,6 +38,35 @@ const MISSION_ID = /^[a-f0-9]{16}$/;
 function within(dir: string, p: string): boolean {
   const r = relative(dir, p);
   return r === '' || (!r.startsWith('..') && !isAbsolute(r));
+}
+
+/**
+ * The first TrustShell signing-key directory (<home>/sandbox/keys-harness|keys-promoter) nested inside `dir`, or null.
+ * The active-home / ~/.trustshell checks in runSandboxed miss a SECOND home left inside the cwd; a read-only mount of
+ * the cwd would then expose that home's keys to the worker (Grok, #668).
+ * ponytail: bounded depth-6 scan skipping node_modules/.git; a key dir nested deeper or inside those slips. Realistic
+ * homes sit at <cwd>/.trustshell/sandbox or <cwd>/sandbox.
+ */
+function keysUnder(dir: string, maxDepth = 6): string | null {
+  const SKIP = new Set(['node_modules', '.git']);
+  const KEY_SUBPATHS = [join('sandbox', 'keys-harness'), join('sandbox', 'keys-promoter')];
+  const walk = (d: string, depth: number): string | null => {
+    for (const sub of KEY_SUBPATHS) if (existsSync(join(d, sub))) return join(d, sub);
+    if (depth >= maxDepth) return null;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      return null;
+    }
+    for (const e of entries) {
+      if (!e.isDirectory() || SKIP.has(e.name)) continue;
+      const hit = walk(join(d, e.name), depth + 1);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return walk(dir, 0);
 }
 
 interface Pending {
@@ -68,6 +97,10 @@ export function runSandboxed(o: { home: string; cwd: string; runtime: Runtime; c
     if (within(cwd, real) || within(real, cwd)) {
       throw new MissionRefused(`the current directory ${cwd} holds or is inside the TrustShell home ${real}, whose keys must never be mounted. Run from a project directory.`);
     }
+  }
+  const nestedKeys = keysUnder(cwd);
+  if (nestedKeys) {
+    throw new MissionRefused(`the current directory ${cwd} contains TrustShell signing keys (${nestedKeys}), which must never be mounted into the container. Move that TrustShell home out of the directory, or run from one that holds none.`);
   }
   const policy = supervisorPolicy(home); // measured as the mission starts
   const missionId = randomBytes(8).toString('hex');
