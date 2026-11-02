@@ -51,8 +51,7 @@ const WORKER_JS = [
  * both mounted into the worker. A worker that copies either into its outbox is refused, never promoted.
  */
 export function missionCanaries(canary: string, token: string): string[] {
-  void token; // red-first: the token is not registered as a canary yet
-  return [canary];
+  return [canary, token];
 }
 
 function flag(args: string[], name: string): string | null {
