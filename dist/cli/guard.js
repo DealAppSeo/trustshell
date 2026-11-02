@@ -165,8 +165,18 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner) {
     // executable starts, not what that executable then does (a script, its arguments).
     const executable = (0, node_path_1.basename)(String(command[0])).replace(/\.(exe|cmd|bat|com)$/i, '').toLowerCase();
     const mismatch = executable !== tool.toLowerCase() ? [`the command starts ${executable}, not ${tool}: run allows an executable only by its own name`] : [];
-    const req = { tool, class: cls, executable, command_sha256: sha256(JSON.stringify(command)), ...(amount !== undefined ? { amount_raw: amount } : {}) };
-    const g = (0, guardrails_1.guardDecide)(dir, req, exports.RUN_SCOPE, { extraReasons: mismatch });
+    // C5: an interpreter starts only with a script the policy pins. The file it would open is hashed here; whether that
+    // hash is pinned is decided under the policy lock. An inline, stdin, module or loader form is refused outright.
+    const c5 = (0, guardrails_1.interpreterCheck)(executable, command.slice(1), env);
+    const req = {
+        tool,
+        class: cls,
+        executable,
+        command_sha256: sha256(JSON.stringify(command)),
+        ...(amount !== undefined ? { amount_raw: amount } : {}),
+        ...(c5.script ? { script: c5.script } : {}),
+    };
+    const g = (0, guardrails_1.guardDecide)(dir, req, exports.RUN_SCOPE, { extraReasons: [...mismatch, ...c5.reasons] });
     if (!g) {
         io.err(`NOT_CHECKED no policy at ${(0, node_path_1.join)(dir, guardrails_1.POLICY_FILE)}: nothing is authorized, so nothing was run. trustshell guard init writes one.`);
         return 2;
@@ -208,6 +218,7 @@ exports.GUARD_USAGE = `trustshell guard init [--force] [--days N]
 trustshell guard show [--json]
 trustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]
 trustshell guard allow <action> · guard deny <action>      (spend | post | tool | tool:<name>)
+trustshell guard allow|deny tool:<interpreter> --script <path>   (pin or unpin one script by sha256: ${guardrails_1.INTERPRETER_NAMES})
 trustshell guard limit per-tx|daily|total <n> · guard expire <days> · guard kill · guard sign
 trustshell guard level [--json] · guard level shadow|enforce|off · guard level after L1|L2|L3 <n>
 trustshell guard level record <record.json> [--json] · guard level revoke      (SHADOW by default)`;
@@ -324,6 +335,7 @@ function showLines(doc, path, ledgerText, defaulted) {
         `policy      ${path}  (sha256 ${(0, guardrails_1.policySha256)(p).slice(0, 16)}…, nonce ${p.nonce}, ${signer ? `signed by ${signer.slice(0, 16)}…` : doc.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned'})`,
         `subject     ${(0, action_evidence_1.cleanCodePoints)(p.subject)}`, // policy.json is text someone else may have written (an imported, signed policy): print it as text
         `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
+        `scripts     ${p.scripts?.length ? p.scripts.map((s) => `${s.tool} ${(0, action_evidence_1.cleanCodePoints)(s.path)} (sha256 ${s.sha256.slice(0, 12)}…)`).join('; ') : 'none pinned'}  (an allowed interpreter runs only these)`,
         'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
         `limits      per_tx ${p.per_tx_raw} · daily ${p.daily_raw} · total ${p.total_raw} (smallest units)${defaulted.length ? `; left out, so 0: ${defaulted.join(', ')}` : ''}; allowed so far: ${spent}`,
         `expires     ${new Date(p.expires_at * 1000).toISOString()}`,
@@ -468,6 +480,8 @@ function runGuard(argv, io, env = process.env) {
             if (verb === 'level' && !['shadow', 'enforce', 'off', 'after'].includes(words[0] ?? ''))
                 return runLevel(words, json, io, dir, loaded.doc.policy);
             const p = JSON.parse(JSON.stringify(loaded.doc.policy));
+            let via = `guard ${verb}${words.length ? ' ' + words.join(' ') : ''}`;
+            let note = null;
             if (verb === 'sign') {
                 if (words.length)
                     return bad('guard sign takes nothing');
@@ -479,14 +493,56 @@ function runGuard(argv, io, env = process.env) {
                 return 0;
             }
             if (verb === 'allow' || verb === 'deny') {
-                if (words.length !== 1)
+                const si = words.indexOf('--script');
+                const scriptArg = si === -1 ? undefined : words[si + 1];
+                const action = si === -1 ? words : words.filter((_, i) => i !== si && i !== si + 1);
+                if (si !== -1 && (scriptArg === undefined || scriptArg.startsWith('-')))
+                    return bad('--script takes the path of one script');
+                if (action.length !== 1)
                     return bad(`guard ${verb} takes one action: spend, post, tool or tool:<name>`);
-                const a = words[0];
+                const a = action[0];
                 if (!(0, guardrails_1.isPolicyAction)(a)) {
                     const hint = /^[A-Za-z0-9_.-]{1,128}$/.test(a) ? ` For the command ${a}, the action is tool:${a}.` : '';
                     return bad(`${a} is not an action, so nothing was written. An action is spend, post, tool or tool:<name>.${hint}`);
                 }
-                p.actions = verb === 'allow' ? (p.actions.includes(a) ? p.actions : [...p.actions, a]) : p.actions.filter((x) => x !== a);
+                // C5: pins belong to the executable's own name, the one `run` derives (lower case).
+                const exe = a.startsWith('tool:') ? a.slice(5).toLowerCase() : '';
+                const pins = p.scripts ?? [];
+                if (scriptArg !== undefined) {
+                    if (!(0, guardrails_1.isInterpreter)(exe))
+                        return bad(`--script pins a script for an interpreter (${guardrails_1.INTERPRETER_NAMES}), and ${a} is not one, so nothing was written`);
+                    const r = (0, guardrails_1.resolveScript)(scriptArg);
+                    // Unpinning a script that is gone still works, by the path it was pinned under.
+                    const target = r.ok ? r.path : verb === 'deny' ? (0, node_path_1.resolve)(scriptArg) : null;
+                    if (target === null) {
+                        io.err(`not written: ${r.ok ? '' : r.why}`);
+                        return 2;
+                    }
+                    const others = pins.filter((s) => !(s.tool === exe && s.path === target));
+                    if (verb === 'deny' && others.length === pins.length)
+                        return bad(`no script is pinned for ${exe} at ${target}, so nothing was written`);
+                    if (verb === 'allow' && r.ok) {
+                        if (!p.actions.includes(a))
+                            p.actions = [...p.actions, a];
+                        p.scripts = [...others, { tool: exe, path: target, sha256: r.sha256 }];
+                        via = `guard allow ${a} --script ${target} sha256 ${r.sha256}`;
+                    }
+                    else {
+                        p.scripts = others;
+                        via = `guard deny ${a} --script ${target}`;
+                    }
+                }
+                else {
+                    p.actions = verb === 'allow' ? (p.actions.includes(a) ? p.actions : [...p.actions, a]) : p.actions.filter((x) => x !== a);
+                    // Denying an interpreter drops its pins too: allowing it again must not quietly revive old ones.
+                    if (verb === 'deny' && (0, guardrails_1.isInterpreter)(exe))
+                        p.scripts = pins.filter((s) => s.tool !== exe);
+                    if (verb === 'allow' && (0, guardrails_1.isInterpreter)(exe) && !pins.some((s) => s.tool === exe)) {
+                        note = `note        ${exe} is an interpreter: run starts it only with a script the policy pins by sha256, and none is pinned yet (trustshell guard allow ${a} --script <path>)`;
+                    }
+                }
+                if (p.scripts && !p.scripts.length)
+                    delete p.scripts;
             }
             else if (verb === 'limit') {
                 const key = { 'per-tx': 'per_tx_raw', daily: 'daily_raw', total: 'total_raw' }[words[0] ?? ''];
@@ -530,16 +586,17 @@ function runGuard(argv, io, env = process.env) {
             }
             const next = { policy: checked.policy, signature: null };
             write(next);
-            recordPolicyChange(dir, `guard ${verb}${words.length ? ' ' + words.join(' ') : ''}`, loaded.sha256, next);
+            recordPolicyChange(dir, via, loaded.sha256, next);
             // Killing the policy is the owner revoking trust, so the level falls to L0 too.
             if (verb === 'kill' && checked.policy.autonomy)
                 (0, autonomy_1.recordAutonomyEvent)(dir, (0, guardrails_1.nodeGuardFs)(), checked.policy.autonomy, { kind: 'revocation', via: 'guard kill' });
             if (loaded.doc.signature)
                 io.err('the owner signature covered the old policy, so it was removed: trustshell guard sign signs this one');
-            io.out(showLines({ policy: checked.policy, signature: null }, path, ledgerText(), checked.defaulted).slice(0, 5).join('\n'));
+            io.out(showLines({ policy: checked.policy, signature: null }, path, ledgerText(), checked.defaulted).slice(0, 6).join('\n'));
             if (verb === 'level')
                 io.out(autonomyLine(checked.policy));
-            const note = verb === 'limit' || (verb === 'allow' && words[0] === 'spend') ? zeroLimitNote(checked.policy) : null;
+            if (verb === 'limit' || (verb === 'allow' && words[0] === 'spend'))
+                note = zeroLimitNote(checked.policy);
             if (note)
                 io.out(note);
             return 0;

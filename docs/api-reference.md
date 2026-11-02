@@ -502,8 +502,16 @@ The enforced path. The decision is recorded BEFORE the command starts; a denied 
 allowed one is started by trustshell, and its exit code is recorded and passed through. The card separates what was
 requested, authorized, executed, independently observed (nothing) and unknown. The command is recorded by its
 sha256, never by its text. `--tool` must be the name of the executable that starts (`run --tool git -- git status`):
-the guard bounds which executable starts, not what it then does, so allowing an interpreter (`node`, `python`, `sh`)
-allows any script it is given. `--class` is the caller's label. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
+the guard bounds which executable starts, not what it then does. An interpreter (`node`, `python`, `py`, `sh`, `bash`,
+`dash`, `zsh`, `ksh`, `powershell`, `pwsh`) starts only as `<name> <script> [args]` (PowerShell:
+`<name> -NoProfile [-NonInteractive] [-NoLogo] [-ExecutionPolicy <p>] -File <script> [args]`) and only when the policy
+pins that script's resolved path and sha256: `trustshell guard allow tool:node --script ./job.js` pins it (and allows
+`tool:node`), `guard deny tool:node --script ./job.js` unpins it, `guard deny tool:node` drops the action and its pins.
+Inline code (`-e`, `-c`, `-Command`), stdin, a prompt, `-m`, `--require`/`--import`/`--loader` and any other option
+before the script are refused, and so is a run while `NODE_OPTIONS`, `BASH_ENV`, `ENV`, `ZDOTDIR`, `PYTHONPATH`,
+`PYTHONHOME`, `PYTHONSTARTUP` or `PYTHONINSPECT` is set. A policy that allowed `tool:node` before pins existed now
+refuses every node run and names the `--script` command; nothing was widened. A pin covers the entry file only, not
+what it imports, and a file swapped between the hash and the open is not caught. `--class` is the caller's label. No policy: nothing is authorized, nothing runs (exit `2`). What a started command does
 (files, network, child processes) is not observed, and commands run without `trustshell run` are not mediated.
 
 In Windows PowerShell, write the `--` quoted: `trustshell run --tool git '--' git status`. PowerShell drops a bare `--`

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
 import { brainContext, type Bundle } from '../src/lib/bundle';
-import { GUARD_DOES_NOT_COVER, GUARD_RECEIPTS_FILE, POLICY_FILE, defaultPolicy, guardDecide, homeShadowWarning, readLedger, renderPolicyDocument, type GuardRecord } from '../src/lib/guardrails';
+import { GUARD_DOES_NOT_COVER, GUARD_RECEIPTS_FILE, POLICY_FILE, defaultPolicy, guardDecide, homeShadowWarning, readLedger, renderPolicyDocument, resolveScript, type GuardRecord } from '../src/lib/guardrails';
 import { runRun } from '../src/cli/guard';
 import { signValue, signingKey } from '../src/lib/install-key';
 
@@ -124,7 +124,7 @@ describe('Lane D findings on #593, fixed', () => {
   const cliPath = join(ROOT, 'dist', 'cli', 'index.js');
   const spawnCli = (args: string[]) =>
     new Promise<number>((resolve) => {
-      const p = spawn(process.execPath, [cliPath, ...args], { env: { ...process.env, NODE_NO_WARNINGS: '1', TRUSTSHELL_HOME: home() }, stdio: 'ignore' });
+      const p = spawn(process.execPath, [cliPath, ...args], { env: { ...process.env, NODE_NO_WARNINGS: '1', NODE_OPTIONS: '', TRUSTSHELL_HOME: home() }, stdio: 'ignore' });
       p.on('exit', (code) => resolve(code ?? -1));
     });
 
@@ -136,8 +136,12 @@ describe('Lane D findings on #593, fixed', () => {
   });
 
   it('R2#2 six simultaneous runs of 100 against a total of 250: exactly two start (the lock serializes read, decide, append)', async () => {
-    policyHere({ actions: ['spend'], per_tx_raw: '100', daily_raw: '1000', total_raw: '250' });
-    const codes = await Promise.all(Array.from({ length: 6 }, () => spawnCli(['run', '--tool', 'node', '--class', 'spend', '--amount', '100', '--', 'node', '-e', '0'])));
+    // node runs only a pinned script (C5), so the command is an empty pinned script, not node -e.
+    writeFileSync(join(root, 'work', 'noop.js'), '');
+    const noop = resolveScript('noop.js');
+    if (!noop.ok) throw new Error(noop.why);
+    policyHere({ actions: ['spend'], per_tx_raw: '100', daily_raw: '1000', total_raw: '250', scripts: [{ tool: 'node', path: noop.path, sha256: noop.sha256 }] });
+    const codes = await Promise.all(Array.from({ length: 6 }, () => spawnCli(['run', '--tool', 'node', '--class', 'spend', '--amount', '100', '--', 'node', 'noop.js'])));
     expect(codes.filter((c) => c === 0)).toHaveLength(2);
     expect(codes.filter((c) => c === 5)).toHaveLength(4);
     const l = readLedger(readFileSync(join(home(), GUARD_RECEIPTS_FILE), 'utf8'));

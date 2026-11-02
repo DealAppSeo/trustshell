@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GUARD_DOES_NOT_COVER = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.SIGNATURE_DOES_NOT_VERIFY = exports.isPolicyAction = exports.LOCAL_TOOLS = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
+exports.GUARD_DOES_NOT_COVER = exports.nodeGuardFs = exports.GUARD_LOCK_FILE = exports.GUARD_CHECKPOINT_FILE = exports.SIGNATURE_DOES_NOT_VERIFY = exports.isPolicyAction = exports.LOCAL_TOOLS = exports.isInterpreter = exports.INTERPRETER_RULE = exports.INTERPRETER_NAMES = exports.TOOL_CLASSES = exports.GUARD_RECORD_SCHEMA = exports.GUARD_RECEIPTS_FILE = exports.SUGGESTED_POLICY_FILE = exports.POLICY_FILE = void 0;
+exports.interpreterScript = interpreterScript;
+exports.resolveScript = resolveScript;
+exports.interpreterCheck = interpreterCheck;
 exports.defaultPolicy = defaultPolicy;
 exports.trustshellHome = trustshellHome;
 exports.parsePolicy = parsePolicy;
@@ -9,6 +12,7 @@ exports.renderPolicyDocument = renderPolicyDocument;
 exports.policySha256 = policySha256;
 exports.policySigner = policySigner;
 exports.policySignedBy = policySignedBy;
+exports.pinReason = pinReason;
 exports.actionFor = actionFor;
 exports.decide = decide;
 exports.recordHash = recordHash;
@@ -33,8 +37,10 @@ exports.homeShadowWarning = homeShadowWarning;
  *   expires_at              unix seconds. At or after it, everything is denied.
  *   nonce                   supersession: revoking is writing a policy with a higher nonce (the kernel has no
  *                           revocation list either). `guard kill` writes one that allows nothing.
- *   autonomy                LOCAL ONLY, optional, the one field the kernel does not have: autonomy levels, off unless
- *                           present, shadow by default (src/lib/autonomy.ts). A level only ever narrows this policy.
+ *   autonomy                LOCAL ONLY, optional: autonomy levels, off unless present, shadow by default
+ *                           (src/lib/autonomy.ts). A level only ever narrows this policy.
+ *   scripts                 LOCAL ONLY, optional: the scripts an allowed interpreter may run, each pinned by its
+ *                           resolved path and sha256 (C5, INTERPRETERS below). Absent = no interpreter runs anything.
  * Not in the subset, because the local guard neither pays nor binds code: `owner` (a wallet), `payees`,
  * `authorized_impl_hashes`. The local hash is sha256 of the RFC 8785 form, not the kernel's EIP-712 digest.
  *
@@ -61,6 +67,103 @@ exports.SUGGESTED_POLICY_FILE = 'policy.suggested.json';
 exports.GUARD_RECEIPTS_FILE = 'guard-receipts.jsonl';
 exports.GUARD_RECORD_SCHEMA = 'trustshell.guard-record/1';
 exports.TOOL_CLASSES = ['read', 'spend', 'post', 'other'];
+const INTERPRETERS = [
+    ['node', /^(node|nodejs)$/],
+    ['python', /^(python[0-9.]*|pythonw|py)$/],
+    ['sh', /^(sh|bash|dash|zsh|ksh|ash)$/],
+    ['powershell', /^(powershell|pwsh)$/],
+];
+exports.INTERPRETER_NAMES = 'node, python, py, sh, bash, dash, zsh, ksh, powershell, pwsh';
+/** Variables that make the interpreter run code before the script, without the script asking. */
+const STARTUP_ENV = {
+    node: ['NODE_OPTIONS'],
+    python: ['PYTHONSTARTUP', 'PYTHONINSPECT', 'PYTHONPATH', 'PYTHONHOME'],
+    sh: ['BASH_ENV', 'ENV', 'ZDOTDIR'],
+    powershell: [],
+};
+/** The rule every interpreter denial states. */
+exports.INTERPRETER_RULE = 'an allowed interpreter runs only a script the policy pins by sha256';
+const interpreterOf = (executable) => INTERPRETERS.find(([, re]) => re.test(executable))?.[0] ?? null;
+/** Is `executable` (as `run` names it) an interpreter Guard pins scripts for? */
+const isInterpreter = (executable) => interpreterOf(executable) !== null;
+exports.isInterpreter = isInterpreter;
+/** PURE. The script file an interpreter is told to run, or why the command runs code that no pin can cover. */
+function interpreterScript(executable, args) {
+    const fam = interpreterOf(executable);
+    const shape = fam === 'powershell' ? `${executable} -NoProfile -File <script> [args]` : `${executable} <script> [args]`;
+    const no = (what, why) => ({ refuse: `${what} is refused (${why}); ${exports.INTERPRETER_RULE}, started as "${shape}"` });
+    // An option is shown by its name; anything else could be the command's own text, which is never recorded.
+    const shown = (a) => {
+        const name = a.split('=')[0] ?? '';
+        return /^[-+/][A-Za-z0-9-]{0,40}$/.test(name) ? name : 'an argument';
+    };
+    if (fam === 'powershell') {
+        let noProfile = false;
+        for (let i = 0; i < args.length; i += 1) {
+            const a = String(args[i]).toLowerCase();
+            if (a === '-noprofile')
+                noProfile = true;
+            else if (a === '-noninteractive' || a === '-nologo')
+                continue;
+            else if (a === '-executionpolicy' && /^[A-Za-z]{1,40}$/.test(args[i + 1] ?? ''))
+                i += 1;
+            else if (a === '-file') {
+                const s = args[i + 1];
+                if (s === undefined || s === '' || s.startsWith('-'))
+                    return no(`${executable} -File ${s === undefined ? 'with nothing after it' : shown(s)}`, 'it names no script file');
+                if (!noProfile)
+                    return no(`${executable} without -NoProfile`, 'the profile scripts would run first, and they are not pinned');
+                return { script: s };
+            }
+            else
+                return no(`${executable} ${shown(String(args[i]))}`, 'only -NoProfile, -NonInteractive, -NoLogo and -ExecutionPolicy <policy> may come before -File');
+        }
+        return no(`${executable} with no -File script`, 'it runs a command, stdin or a prompt');
+    }
+    // ponytail: no option at all may come before the script, harmless ones (-u, --enable-source-maps) included; an
+    // allowlist of those, each reasoned, when someone needs one.
+    const first = args[0];
+    if (first === undefined || first === '')
+        return no(`${executable} with no script`, 'it reads code from the terminal or stdin');
+    if (/^[-+]/.test(first))
+        return no(`${executable} ${shown(first)}`, 'an option before the script can run inline code, read stdin, load a module or loader, or open a prompt');
+    if (fam === 'node' && first === 'inspect')
+        return no('node inspect', 'it starts the debugger');
+    return { script: first };
+}
+/**
+ * The file a script path names, the way node, python, sh and powershell open it: relative to the working directory,
+ * through any symlink. Refused when that is not exactly one regular file. Reads the bytes it hashes.
+ */
+function resolveScript(arg, cwd = process.cwd()) {
+    const fs = require('node:fs');
+    try {
+        const real = fs.realpathSync.native((0, node_path_1.resolve)(cwd, arg));
+        if (!fs.statSync(real).isFile())
+            return { ok: false, why: 'the script is not a regular file' };
+        return { ok: true, path: real, sha256: sha256(fs.readFileSync(real)) };
+    }
+    catch (e) {
+        return { ok: false, why: `the script cannot be resolved to one regular file (${e.code ?? 'unreadable'})` };
+    }
+}
+/**
+ * C5, for `run`: the script an interpreter would open, resolved and hashed, and every reason it must not start. Not an
+ * interpreter: nothing. Whether the script is PINNED is decided under the policy lock, in decide().
+ * TOCTOU: the file is hashed here and opened by the interpreter a few milliseconds later; a swap in between is not
+ * caught. Anything that can make that swap runs as the owner, and could as well edit the policy (not a boundary).
+ */
+function interpreterCheck(executable, args, env, cwd = process.cwd()) {
+    const fam = interpreterOf(executable);
+    if (!fam)
+        return { reasons: [] };
+    const reasons = STARTUP_ENV[fam].filter((v) => env[v]).map((v) => `${v} is set, so ${executable} would run code before the script (unset it); ${exports.INTERPRETER_RULE}`);
+    const s = interpreterScript(executable, args);
+    if ('refuse' in s)
+        return { reasons: [...reasons, s.refuse] };
+    const r = resolveScript(s.script, cwd);
+    return r.ok ? { script: { path: r.path, sha256: r.sha256 }, reasons } : { reasons: [...reasons, `${r.why}; ${exports.INTERPRETER_RULE}`] };
+}
 /** The commands that only read or write local files: what `guard init` allows. `learn` is listed, but its `check run` and `probe run` run a stored shell command and the CLI denies them while a policy is in force. */
 exports.LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'];
 const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
@@ -68,7 +171,36 @@ const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
 const isPolicyAction = (a) => ACTION.test(a);
 exports.isPolicyAction = isPolicyAction;
 const CANONICAL_UINT = /^(?:0|[1-9][0-9]{0,77})$/;
-const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy'];
+const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy', 'scripts'];
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+/** Absolute on either platform: a carried policy is parsed on the host it was carried to. */
+const ABSOLUTE = /^(\/|[A-Za-z]:[\\/]|\\\\)/;
+function parseScripts(v, errors) {
+    if (!Array.isArray(v) || v.length > 64) {
+        errors.push('scripts must be a list of at most 64 { tool, path, sha256 }');
+        return [];
+    }
+    const pins = [];
+    for (const s of v) {
+        const ok = isObject(s) &&
+            Object.keys(s).every((k) => k === 'tool' || k === 'path' || k === 'sha256') &&
+            typeof s.tool === 'string' &&
+            interpreterOf(s.tool) !== null &&
+            typeof s.path === 'string' &&
+            s.path.length <= 4096 &&
+            ABSOLUTE.test(s.path) &&
+            !s.path.includes('\0') &&
+            typeof s.sha256 === 'string' &&
+            SHA256_HEX.test(s.sha256);
+        if (!ok)
+            errors.push(`scripts holds an entry that is not { tool: one of ${exports.INTERPRETER_NAMES}, path: an absolute path, sha256: 64 lower-case hex }`);
+        else if (pins.some((p) => p.tool === s.tool && p.path === s.path))
+            errors.push(`scripts pins ${s.tool} ${String(s.path).slice(0, 80)} twice`);
+        else
+            pins.push({ tool: s.tool, path: s.path, sha256: s.sha256 });
+    }
+    return pins;
+}
 const UINT256_MAX = BigInt('0x' + 'f'.repeat(64));
 /** The policy `guard init` writes: local commands only, every limit 0, expires in `days` days. */
 function defaultPolicy(nowS = Math.floor(Date.now() / 1000), days = 30) {
@@ -140,6 +272,7 @@ function parsePolicy(input) {
     const auto = input.autonomy === undefined ? null : (0, autonomy_1.parseAutonomy)(input.autonomy);
     if (auto && !auto.ok)
         errors.push(...auto.errors);
+    const scripts = input.scripts === undefined ? null : parseScripts(input.scripts, errors);
     if (errors.length)
         return { ok: false, errors };
     return {
@@ -155,6 +288,7 @@ function parsePolicy(input) {
             nonce: nonce,
             // Only when present: a policy without it hashes exactly as it did before autonomy existed.
             ...(auto?.ok ? { autonomy: auto.config } : {}),
+            ...(scripts ? { scripts } : {}),
         },
     };
 }
@@ -210,6 +344,25 @@ function policySignedBy(doc, trusted) {
     const f = policySigner(doc);
     return f !== null && trusted.includes(f);
 }
+/**
+ * PURE. C5: why this request may not start an interpreter, or null. An interpreter starts only with a script whose
+ * resolved path AND sha256 the policy pins for that executable; no script, an unpinned one or a changed one: denied.
+ */
+function pinReason(policy, req) {
+    const exe = req.executable;
+    if (exe === undefined || interpreterOf(exe) === null)
+        return null;
+    const how = `trustshell guard allow tool:${exe} --script <path>`;
+    const s = req.script;
+    if (!s)
+        return `${exe} is an interpreter and no script file was resolved; ${exports.INTERPRETER_RULE} (${how} pins one)`;
+    const pins = (policy.scripts ?? []).filter((p) => p.tool === exe && p.path === s.path);
+    if (pins.some((p) => p.sha256 === s.sha256))
+        return null;
+    return pins.length
+        ? `the script changed since it was pinned for ${exe} (sha256 now ${s.sha256.slice(0, 12)}…); ${exports.INTERPRETER_RULE} (${how} pins it again)`
+        : `the script (sha256 ${s.sha256.slice(0, 12)}…) is not pinned for ${exe}; ${exports.INTERPRETER_RULE} (${how} pins it)`;
+}
 /** The action string the policy must list for this request (the kernel's actionPermitted). */
 function actionFor(req) {
     return req.class === 'spend' ? 'spend' : req.class === 'post' ? 'post' : `tool:${req.tool}`;
@@ -234,6 +387,9 @@ function decide(policy, req, spent, nowS, problems = []) {
         reasons.push(`the policy expired at ${new Date(policy.expires_at * 1000).toISOString()}`);
     if (!permitted(policy.actions, req))
         reasons.push(`the owner policy does not list ${actionFor(req)}`);
+    const pin = pinReason(policy, req);
+    if (pin)
+        reasons.push(pin);
     // The kernel's rule: a spend states its amount. Left out, it skipped every limit (Lane D, 2026-10-21).
     if (req.class === 'spend' && req.amount_raw === undefined)
         reasons.push('a spend must state its amount (--amount): an amount left out is not zero');
@@ -530,6 +686,8 @@ function decideLocked(dir, req, scope, ctx, loaded) {
         requested.command_sha256 = req.command_sha256;
     if (req.executable !== undefined)
         requested.executable = req.executable;
+    if (req.script !== undefined)
+        requested.script_sha256 = req.script.sha256;
     const kind = ctx.kind ?? 'decision';
     const record = appendUnlocked(dir, {
         kind,
@@ -554,7 +712,9 @@ function decideLocked(dir, req, scope, ctx, loaded) {
             // Out of lane: the policy does not list it, the caller named a reason it is always denied (a `run` executable
             // that is not the tool, init --pai, learn check run), or an enforced level refused it. Not: expiry, an amount
             // over a cap, a policy file that does not parse. Those are the owner's state, not the agent's attempt.
-            const outOfLane = decision.decision === 'DENIED' && (!permitted(policy.actions, req) || (ctx.extraReasons?.length ?? 0) > 0 || (auto.mode === 'enforce' && !levelOk));
+            // An interpreter asked to run code the policy does not pin is out of lane too (C5).
+            const outOfLane = decision.decision === 'DENIED' &&
+                (!permitted(policy.actions, req) || pinReason(policy, req) !== null || (ctx.extraReasons?.length ?? 0) > 0 || (auto.mode === 'enforce' && !levelOk));
             if (outOfLane)
                 events.push({ kind: 'incident', guard_record: ref, action: requested.action, reasons });
             (0, autonomy_1.appendAutonomy)(dir, fs, auto, events, record.ts, reading);
@@ -571,7 +731,7 @@ exports.GUARD_DOES_NOT_COVER = [
     'It covers the trustshell CLI, `trustshell run` and every trustshell-mcp tool call (the MCP server reads this policy and records in this ledger on each call). SDK calls (code that imports @hyperdag/trustshell) are not covered: such code must call guardDecide itself.',
     'It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).',
     'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
-    '`run` bounds WHICH executable starts, not what it does: allowing an interpreter (node, python, sh, powershell) allows any script it is given.',
+    '`run` bounds WHICH executable starts, not what it does. An interpreter it recognises (node, python, sh and its kin, powershell) starts only with an entry script the policy pins by path and sha256, hashed as it starts; inline code, stdin, a prompt, module and loader flags are refused. A pin covers that one file: not what it imports or sources, not startup files the interpreter reads by itself (python site hooks, ~/.zshenv), not a file swapped between the hash and the open. Other interpreters (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) run whatever they are given.',
     'TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command.',
     'It decides before an action starts. What a started command does (files, network, child processes) is not observed.',
     'A missing record never proves no action happened: the guard sees only what goes through it.',
