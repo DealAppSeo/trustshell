@@ -235,6 +235,18 @@ export function trustshellHome(env: NodeJS.ProcessEnv = process.env, home: strin
   return o ? o : join(home, '.trustshell');
 }
 
+/**
+ * OPT-IN, default off. TRUSTSHELL_REQUIRE_POLICY set (and not "", "0" or "false") makes an ABSENT policy fail
+ * CLOSED on the three surfaces that otherwise warn-and-allow it (runGuarded, the MCP server, sdkGuard). It does
+ * not change the warn-and-allow DEFAULT: the cooperative guardrail stays, and only the owner turns this on. It
+ * guards against accidental misconfiguration (a lost policy, a mis-pointed TRUSTSHELL_HOME), not a hostile owner:
+ * anyone who can set the env can unset it.
+ */
+export function requirePolicy(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = env.TRUSTSHELL_REQUIRE_POLICY?.trim().toLowerCase();
+  return v !== undefined && v !== '' && v !== '0' && v !== 'false';
+}
+
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 /**
@@ -862,7 +874,7 @@ export function sdkScope(call: string): AssuranceScope {
     not_mediated: [
       'what the call does once started',
       'code in the same process that does not call the SDK: it can fetch, sign or write files itself',
-      'a TRUSTSHELL_HOME holding no policy (the gate is off for it)',
+      'a TRUSTSHELL_HOME holding no policy (the gate is off for it, unless TRUSTSHELL_REQUIRE_POLICY is set)',
     ],
   };
 }
@@ -888,7 +900,15 @@ export function sdkGuard(call: string, req: GuardRequest, env: NodeJS.ProcessEnv
   } catch (e) {
     throw new GuardDeniedError(call, actionFor(req), [`the owner policy could not be checked (${e instanceof Error ? e.message : String(e)})`], null, null);
   }
-  if (g && g.decision.decision === 'DENIED') {
+  if (!g) {
+    // No policy. Default: return (allow), as C9 documents. Opt-in TRUSTSHELL_REQUIRE_POLICY: fail closed, like the
+    // unparseable path above (record and path null: there is no policy to name).
+    if (requirePolicy(env)) {
+      throw new GuardDeniedError(call, actionFor(req), [`no policy at ${join(trustshellHome(env), POLICY_FILE)} and TRUSTSHELL_REQUIRE_POLICY is set`], null, null);
+    }
+    return;
+  }
+  if (g.decision.decision === 'DENIED') {
     throw new GuardDeniedError(call, g.record.requested.action, g.decision.reasons, { seq: g.record.seq, hash: g.record.hash }, g.loaded.path);
   }
 }
@@ -899,7 +919,7 @@ export const GUARD_DOES_NOT_COVER = [
   'It stops a mistaken command, not an agent that can run the CLI itself: `guard allow` changes the policy (every change is recorded, with the hash before and after).',
   'It is not a sandbox. Anything running as you can edit the policy, delete records, or act without trustshell.',
   '`run` bounds WHICH executable starts, not what it does. An interpreter it recognises (node, python, sh and its kin, powershell) starts only with an entry script the policy pins by path and sha256, hashed as it starts; inline code, stdin, a prompt, module and loader flags are refused. A pin covers that one file: not what it imports or sources, not startup files the interpreter reads by itself (python site hooks, ~/.zshenv), not a file swapped between the hash and the open. Other interpreters (ruby, perl, deno, bun, cmd) and programs that start others (env, npx, xargs) run whatever they are given.',
-  'TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command.',
+  'TRUSTSHELL_HOME pointed at a folder with no policy turns the gate off for that command, or for an MCP server started with it. A warning says so; it does not stop the command. Set TRUSTSHELL_REQUIRE_POLICY (opt-in, default off) to make an absent policy fail closed instead.',
   'It decides before an action starts. What a started command does (files, network, child processes) is not observed.',
   'A missing record never proves no action happened: the guard sees only what goes through it.',
   'The record chain is unkeyed: it catches an edited or deleted line, not a ledger rewritten from scratch. Decisions trust a checkpoint of the bytes already verified; guard show re-verifies every line.',
