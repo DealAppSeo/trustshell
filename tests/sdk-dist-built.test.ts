@@ -32,7 +32,7 @@ describe('committed SDK dist matches the source gates', () => {
   });
 
   it('a missing ethers install says what to run', () => {
-    expect(hal).toContain('loadEthers');
+    expect(dist('lib/x402-prepare.js')).toContain('loadEthers'); // the x402 signer lives here since the decide/sign split
     expect(dist('lib/optional-ethers.js')).toContain('npm i ethers@^6');
   });
 });

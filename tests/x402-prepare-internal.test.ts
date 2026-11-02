@@ -11,8 +11,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Wallet } from 'ethers';
 import * as sdk from '../src/lib/index';
-// Moves to '../src/lib/x402-prepare' with the fix: the module the package root does not export.
-import { prepareX402Payment } from '../src/lib/trustshell';
+// The internal module: the package root does not export it.
+import { prepareX402Payment } from '../src/lib/x402-prepare';
 import { GUARD_RECEIPTS_FILE, POLICY_FILE, defaultPolicy, readLedger, renderPolicyDocument, type GuardRecord } from '../src/lib/guardrails';
 
 // Disposable local-sign key only, never a funded wallet, never logged.

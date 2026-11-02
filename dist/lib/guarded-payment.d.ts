@@ -1,6 +1,6 @@
 import { AgentTurnOrigin } from './origin';
 import { SpendPolicy, AuditOpts } from './audit';
-import { BuildX402PaymentParams } from './trustshell';
+import type { BuildX402PaymentParams } from './trustshell';
 /**
  * Params for the fail-closed spend entry point. Everything `buildX402Payment` needs, PLUS the two
  * pre-user gates: a pay-capable `origin` (SLICE 1) and a `policy` (SLICE 2). `agentId` is required

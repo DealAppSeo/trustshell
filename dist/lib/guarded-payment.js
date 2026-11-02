@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.guardedX402Payment = guardedX402Payment;
 const origin_1 = require("./origin");
 const audit_1 = require("./audit");
-const trustshell_1 = require("./trustshell");
+const x402_prepare_1 = require("./x402-prepare");
 /**
  * The fail-closed spend path: assert the origin can pay, write the intent row + require a policy
  * (auditThenAct), decide the payment (`prepareX402Payment`: the cap, the address and key, the Guard's spend
@@ -42,7 +42,7 @@ async function guardedX402Payment(params, opts = {}) {
     return (0, audit_1.auditThenAct)(intent, params.policy, async () => {
         // Decide first: amount, cap, address, key and the Guard's spend decision (counted once, here). Any refusal
         // throws before a receipt exists; the attempt is already on the log, written above.
-        const prepared = await (0, trustshell_1.prepareX402Payment)(params);
+        const prepared = await (0, x402_prepare_1.prepareX402Payment)(params);
         // Receipt BEFORE pay: a throw here (unbuildable/invalid/unpersisted receipt) refuses the sign.
         if (params.writeReceipt)
             await params.writeReceipt();

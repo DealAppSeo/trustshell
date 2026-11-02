@@ -1,6 +1,7 @@
 import { assertOriginCanPay, AgentTurnOrigin } from './origin';
 import { auditThenAct, SpendPolicy, AuditOpts } from './audit';
-import { prepareX402Payment, BuildX402PaymentParams } from './trustshell';
+import type { BuildX402PaymentParams } from './trustshell';
+import { prepareX402Payment } from './x402-prepare';
 
 /**
  * Params for the fail-closed spend entry point. Everything `buildX402Payment` needs, PLUS the two
