@@ -157,7 +157,7 @@ export function checkProfile(o: ObservedProfile, e: ExpectedProfile): ProfileChe
 }
 
 /** The `docker create` arguments. Pure, so the profile is unit-tested without Docker. */
-export function createArgs(name: string, image: string, runtime: Runtime, limits: Limits, paths: MissionPaths, command: string[]): string[] {
+export function createArgs(name: string, image: string, runtime: Runtime, limits: Limits, paths: MissionPaths, command: string[], workdir = '/tmp'): string[] {
   for (const p of [paths.input, paths.outbox, paths.tokenFile]) {
     if (p.includes(',')) throw new MissionRefused(`mount source contains a comma: ${p}`);
   }
@@ -177,7 +177,7 @@ export function createArgs(name: string, image: string, runtime: Runtime, limits
     '--mount', `type=bind,src=${paths.input},dst=${MOUNTS.input},readonly`,
     '--mount', `type=bind,src=${paths.outbox},dst=${MOUNTS.outbox}`,
     '--mount', `type=bind,src=${paths.tokenFile},dst=${MOUNTS.token},readonly`,
-    '--workdir', '/tmp',
+    '--workdir', workdir,
     '--runtime', runtime,
     image,
     ...command,
@@ -233,6 +233,11 @@ export interface MissionOptions {
   runtime: Runtime;
   command: string[];
   inputFiles: Record<string, string>;
+  /**
+   * A host directory bound READ-ONLY as the input instead of a copy of `inputFiles` (`trustshell run --sandbox`
+   * binds the current directory). The command starts in it. It is never written or deleted by the runner.
+   */
+  inputDir?: string;
   limits?: Limits;
 }
 
@@ -286,7 +291,9 @@ export function runMission(o: MissionOptions, exec: Exec = nodeExec): { run: Mis
   }
   const imageEnv: string[] = Array.isArray(img?.Config?.Env) ? img.Config.Env.map(String) : [];
 
-  const { paths, token } = prepareMission(o.baseDir, o.missionId, o.inputFiles);
+  const prepared = prepareMission(o.baseDir, o.missionId, o.inputDir ? {} : o.inputFiles);
+  const { token } = prepared;
+  const paths: MissionPaths = o.inputDir ? { ...prepared.paths, input: realpathSync(o.inputDir) } : prepared.paths;
   const name = `ts-mission-${o.missionId}`;
   const refuse = (why: string, containerId?: string): never => {
     if (containerId) exec('docker', ['rm', '-f', containerId], 60_000);
@@ -294,7 +301,7 @@ export function runMission(o: MissionOptions, exec: Exec = nodeExec): { run: Mis
     throw new MissionRefused(why);
   };
 
-  const created = exec('docker', createArgs(name, PINNED_IMAGE, o.runtime, limits, paths, o.command), 60_000);
+  const created = exec('docker', createArgs(name, PINNED_IMAGE, o.runtime, limits, paths, o.command, o.inputDir ? MOUNTS.input : '/tmp'), 60_000);
   if (created.status !== 0) refuse(`docker create failed: ${created.error ?? created.stderr.trim()}`);
   const id = created.stdout.trim().split('\n').pop() ?? '';
 
