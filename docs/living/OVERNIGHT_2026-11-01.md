@@ -36,6 +36,8 @@ If a fix needs production DDL: write the migration + nonprod test, label it HIGH
 Typed signed receipt event, airlock/memory classes, T12 adversarial sim (Grok: not until
 items 1-4 are on main; Chat gates it on prerequisites too), staging E2E, earned-autonomy
 scoring, MicroVMs, TEEs, full CaMeL, ZK circuits, real staking.
+Update 2026-11-02: the airlock (outbox to quarantine, promotion gate with its own key, signed receipt) is no
+longer deferred; it is the Agent Immune System epic in `BUS.md`. The T12 adversarial sim stays deferred.
 
 ## 3. Merge rule for tonight (Sean, 2026-11-01 01:04 PT)
 Sean authorized merging LOW and MEDIUM PRs tonight so he does not wake to a stale pile.
