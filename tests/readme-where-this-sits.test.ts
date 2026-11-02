@@ -18,7 +18,9 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { TrustShell, REPUTATION_REGISTRY_BASE_SEPOLIA } from '../src/lib/index';
+import { REPUTATION_REGISTRY_BASE_SEPOLIA } from '../src/lib/index';
+// The client behind the root's gated TrustShell (src/lib/sdk-guard.ts): it owns the base URL and is what createServer takes.
+import { TrustShell } from '../src/lib/trustshell';
 import { CLAIM_LABELS, DEFAULT_API_URL, resolveClassifyUrl } from '../src/lib/claim';
 import { createServer } from '../src/mcp/index';
 
