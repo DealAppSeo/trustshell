@@ -1,5 +1,10 @@
 export * from './trustshell';
-export { TrustShell as default } from './trustshell';
+/**
+ * GUARD (C4): the root's TrustShell and the root's acting functions below are the gated ones from ./sdk-guard. Each
+ * asks the owner's Guard policy (TRUSTSHELL_HOME) before it acts and throws GuardDeniedError on a denial; no policy
+ * changes nothing, as at the CLI. These explicit exports shadow the ungated names the `export *` lines carry.
+ */
+export { TrustShell, TrustShell as default, SDK_GUARD_METHODS, kernelDecide, requireKernelAllow, kernelReceipt } from './sdk-guard';
 export { MissingDependencyError } from './optional-ethers';
 
 /**
@@ -39,13 +44,8 @@ export type { GuardedPaymentParams } from './guarded-payment';
  * a config allowlist and returns unknowns FLAGGED — it never silently drops a row, and recommends no
  * policy. Keyless (public RPC). See docs/SIGNER_VERIFICATION.md.
  */
-export {
-  verifySigner,
-  classifySigners,
-  onchainFeedbackClients,
-  HYPERDAG_REPID_SIGNERS,
-  REPUTATION_REGISTRY_BASE_SEPOLIA,
-} from './verify-signer';
+export { classifySigners, HYPERDAG_REPID_SIGNERS, REPUTATION_REGISTRY_BASE_SEPOLIA } from './verify-signer';
+export { verifySigner, onchainFeedbackClients } from './sdk-guard';
 export type { SignerEntry, SignerVerdict, VerifySignerResult } from './verify-signer';
 
 /**
@@ -127,17 +127,9 @@ export type { GroundClaim, GroundPage, GroundOptions, GroundResult, GroundReceip
  * released. The release functions are OPERATOR surfaces: do not hand them to an agent as tools.
  * See src/memory/quarantine.ts for what it does NOT do.
  */
-export {
-  rememberUntrusted,
-  listQuarantined,
-  explainQuarantine,
-  releaseByGround,
-  releaseExitCode,
-  sourceDigest,
-  UNCHECKED_REASON,
-} from '../memory/quarantine';
+export { listQuarantined, explainQuarantine, releaseExitCode, sourceDigest, UNCHECKED_REASON } from '../memory/quarantine';
+export { rememberUntrusted, releaseByGround, releaseByHal } from './sdk-guard';
 export type { QuarantineRecord, QuarantineListItem, ReleaseOutcome, Provenance } from '../memory/quarantine';
-export { releaseByHal } from '../memory/quarantine-hal';
 
 /**
  * GUARD: the owner's local policy (`~/.trustshell/policy.json`, or TRUSTSHELL_HOME), a SUBSET of the engine
@@ -157,6 +149,7 @@ export {
   defaultPolicy,
   trustshellHome,
   GUARD_DOES_NOT_COVER,
+  GuardDeniedError,
 } from './guardrails';
 export type { LocalPolicy, PolicyDocument, GuardRequest, GuardDecision, GuardRecord, AssuranceScope, LedgerReading } from './guardrails';
 

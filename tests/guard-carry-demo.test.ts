@@ -8,7 +8,7 @@
  * sentence is changed together with the behaviour. The same goes for the doc: its expected output is compared
  * with the real one, keys, hashes and the expiry date aside.
  *
- * NOT CHECKED here: SDK calls (code importing the package) are outside the guard too, per `guard show`; the demo
+ * NOT CHECKED here: SDK calls (code importing the package). Their gate (C4) is tests/sdk-guard.test.ts; the demo
  * does not exercise them.
  */
 import { spawnSync } from 'node:child_process';

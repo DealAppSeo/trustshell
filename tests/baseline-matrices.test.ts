@@ -111,15 +111,19 @@ describe('CONTAINMENT_MATRIX agrees with what Guard says it does not cover', () 
   const rows = parseMatrix(md);
   const byId = (id: string) => rows.find((r) => r.id === id);
 
-  it('MCP tool calls are ENFORCED (IS-P0-5) and SDK callers NOT_ENFORCED, as the code says', () => {
+  it('MCP tool calls are ENFORCED (IS-P0-5) and SDK callers PARTIAL (C4), as the code says', () => {
     expect(GUARD_DOES_NOT_COVER[0]).toMatch(/every trustshell-mcp tool call/);
     expect(GUARD_DOES_NOT_COVER.join(' ')).not.toMatch(/MCP server .*does not read this policy/);
     expect(byId('C3')?.status).toBe('ENFORCED');
     expect(byId('C3')?.control).toMatch(/MCP/);
     expect(byId('C3')?.evidence).toContain('tests/mcp-guard.test.ts');
-    expect(GUARD_DOES_NOT_COVER[0]).toMatch(/SDK calls .* are not covered/);
-    expect(byId('C4')?.status).toBe('NOT_ENFORCED');
+    // C4: the SDK's own acting functions are gated (tests/sdk-guard.test.ts); code that skips them is not.
+    expect(GUARD_DOES_NOT_COVER[0]).toMatch(/the SDK's own acting functions/);
+    expect(GUARD_DOES_NOT_COVER[0]).toMatch(/Code that acts without those functions .* is not covered/);
+    expect(byId('C4')?.status).toBe('PARTIAL');
     expect(byId('C4')?.control).toMatch(/SDK/);
+    expect(byId('C4')?.evidence).toContain('tests/sdk-guard.test.ts');
+    expect(byId('C4')?.gap).toMatch(/code that does not use them is not bounded: use a sandbox mission/i);
   });
 
   it('an allowed interpreter runs only pinned scripts (C5), ENFORCED as the code says and the tests prove', () => {
