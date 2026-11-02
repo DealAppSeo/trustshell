@@ -26,9 +26,15 @@ without TrustShell. Statuses use the vocabulary in [`SECURITY_GAP_MATRIX.md`](SE
 | C11 | Carried memories arrive as untrusted text: quarantined on import, trust labels refused, injected instructions held | ENFORCED | `src/lib/bundle.ts`, `tests/bundle.test.ts`, `tests/guard-carry-redteam.test.ts` | Quarantine is pattern-based for injection-looking text. |
 | C12 | Autonomy level can only narrow the policy, never widen it | PARTIAL | `src/lib/autonomy.ts`, `tests/autonomy.test.ts` | SHADOW by default (records, refuses nothing). Records are unsigned (gap matrix S13). |
 | C13 | Free-token loops halt instead of falling back to a paid model | NOT_CHECKED | `repid-engine:src/providers` (repid-engine #1472, open, no callers yet, checked 2026-11-01) | Overnight item 0. A stub with no callers bounds nothing until a loop calls it. |
+| C14 | Sandbox mission profile (`src/sandbox/mission.ts`): no network, read-only root, all capabilities dropped, no new privileges, user 65534, pids/memory/cpu limits, wall-clock timeout, only the image's own environment, image pinned by digest; read back from `docker inspect` before the worker starts, and not started if any field differs | ENFORCED | `tests/sandbox-mission.test.ts`, `.github/workflows/sandbox-mission.yml` | Applied and verified, not attacked (C15). No container runtime means no mission: it refuses, it does not run uncontained. |
+| C15 | A sandbox mission holds against an active hostile worker (escape, egress, exhaustion, privilege escalation) | NOT_CHECKED | `src/sandbox/receipt.ts` | Not tested: adversarial in-container tests await Sean's scope decision. Kernel or hypervisor escapes and side channels are not measured either. |
+| C16 | Nothing a sandbox worker writes is trusted until the promotion gate signs it (its own Ed25519 key, not mounted into the container): canary-carrying files, self-approvals, approvals from the outbox and revoked mission tokens are refused; tool configs and proposed memory are held, never auto-promoted | ENFORCED | `src/sandbox/promote.ts`, `tests/sandbox-airlock.test.ts`, `tests/sandbox-promote-receipt.test.ts` | The canary match is literal, so an encoded or transformed canary is not caught. Approval, config and memory files are recognised by name and JSON keys. |
 
 ## What would close the biggest gaps
 
 C2-C5 together are the reason Guard is not a boundary. Closing them needs OS-level isolation (a container,
 a separate user, a MicroVM) or Guard wired into every path an agent can act through. Both are deferred in
 `docs/living/OVERNIGHT_2026-11-01.md` §2; neither is claimed here.
+
+Sandbox missions (C14-C16) do not change C2-C5 for plain `trustshell run`: they are a separate path for
+work handed to a disposable container.

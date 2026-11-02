@@ -6,6 +6,37 @@ hyperdag-protocol now point here. **A Loop is one ticket worked until a PR or a 
 it.** Take the top `open` ticket in your lane, set it to `CLAIMED by <you>` in a PR (or on
 the PR you open for it), and close it with the proof link. Updated 2026-10-04 by CC2.
 
+## Agent Immune System epic (opened 2026-11-02, conductor session 34cf12c9)
+
+Rule (Sean): untrusted work never hands its running process back to the trusted core. It hands back
+candidate artifacts through an independently enforced promotion gate, and the disposable runtime is
+destroyed and rebuilt from trusted state. This lifts the "airlock/memory classes" deferral in
+`OVERNIGHT_2026-11-01.md` §2. Ticket titles below are this lane's reading of the brief; the conductor
+holds the canonical list and corrects any that are wrong.
+
+| Ticket | Group | Item | State |
+|---|---|---|---|
+| IS-P0-1 | P0 containment | runtime choice and threat model for missions | open |
+| IS-P0-2 | P0 containment | disposable mission runner: create, inspect, start, destroy | partial: `src/sandbox/mission.ts` (sandbox-mission PR) |
+| IS-P0-3 | P0 containment | hardened restriction profile | config-verified only: read back from `docker inspect` before start; not attacked |
+| IS-P0-4 | P0 containment | hostile-worker tests against the profile | waits on Sean's scoping; nothing written |
+| IS-P0-5 | P0 containment | destroy, revoke, rebuild from trusted state | partial: container removal proven, token revoked and refused on replay; rebuild not exercised |
+| IS-P0-6 | P0 airlock | outbox to quarantine, content-addressed | closed by the sandbox-mission PR (`src/sandbox/airlock.ts`) |
+| IS-P0-7 | P0 airlock | deterministic inspection (links, names, size, exec bit, canary, self-written approvals) | closed by the sandbox-mission PR |
+| IS-P0-8 | P0 airlock | promotion writer with its own key; tool configs and memory held | closed by the sandbox-mission PR (`src/sandbox/promote.ts`) |
+| IS-P0-9 | P0 airlock | signed Trust Receipt plus an independent verifier | closed by the sandbox-mission PR (`src/sandbox/receipt.ts`) |
+| IS-P1-10 | P1 TrustMedic passport | (title with the conductor) | open |
+| IS-P1-11 | P1 TrustMedic passport | (title with the conductor) | open |
+| IS-P1-12 | P1 TrustMedic passport | (title with the conductor) | open |
+| IS-P1-13 | P1 TrustMedic passport | (title with the conductor) | open |
+| IS-P1-14 | P1 T12 dogfooding | (title with the conductor) | open |
+| IS-P1-15 | P1 T12 dogfooding | (title with the conductor) | open |
+| IS-P1-16 | P1 T12 dogfooding | (title with the conductor) | open |
+| IS-P1-17 | P1 T12 dogfooding | (title with the conductor) | open |
+| IS-P2-18 | P2 antifragile | (title with the conductor) | open |
+| IS-P2-19 | P2 antifragile | (title with the conductor) | open |
+| IS-P2-20 | P2 antifragile | (title with the conductor) | open |
+
 ## FOR SEAN: check, decide, flip or merge (nothing here blocks the agents; they keep working)
 
 Kept by CC2's heartbeat. Newest at the top. Tick a line, or tell any agent "done".

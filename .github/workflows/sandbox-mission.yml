@@ -1,0 +1,119 @@
+# Sandbox missions (Agent Immune System, IS-P0, defensive half), with real Docker.
+#
+# One BENIGN worker runs in a disposable container. The harness reads the profile back from
+# `docker inspect` before the worker starts, destroys the container, moves the outbox through the
+# airlock, asks the promotion gate (its own key) to promote, revokes the mission token, and signs a
+# receipt. A SEPARATE step verifies that receipt using only the two public keys.
+#
+# What this does NOT test: the restrictions against an active hostile worker. Those tests await a
+# scope decision; the receipt's `not_measured` list says so.
+#
+# No secrets: the signing keys are generated fresh in RUNNER_TEMP and deleted before the run step exits.
+name: sandbox-mission
+
+on:
+  pull_request:
+    paths:
+      - 'src/sandbox/**'
+      - 'src/lib/install-key.ts'
+      - 'src/lib/jcs.ts'
+      - 'tests/sandbox-*.test.ts'
+      - '.github/workflows/sandbox-mission.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/sandbox/**'
+      - 'src/lib/install-key.ts'
+      - 'src/lib/jcs.ts'
+      - 'tests/sandbox-*.test.ts'
+      - '.github/workflows/sandbox-mission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [runc, runsc]
+    env:
+      RUNTIME: ${{ matrix.runtime }}
+      PINNED_DIGEST: sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false # the job never pushes; keep the token off disk
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts # PR code must not run dependency install scripts
+
+      - name: Unit tests (no Docker needed)
+        run: npx jest tests/sandbox-
+
+      # gVisor from its official apt repository (https://gvisor.dev/docs/user_guide/install/),
+      # registered with dockerd by `runsc install`.
+      - name: Install gVisor (runsc) and register it with Docker
+        if: matrix.runtime == 'runsc'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
+          curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
+            | sudo tee /etc/apt/sources.list.d/gvisor.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y runsc
+          runsc --version
+          sudo runsc install
+          sudo systemctl restart docker
+
+      - name: Container runtimes Docker reports
+        run: |
+          docker version --format 'server {{.Server.Version}}'
+          docker info --format '{{json .Runtimes}}'
+
+      - name: Re-verify the pinned image digest
+        run: |
+          set -euo pipefail
+          live=$(docker buildx imagetools inspect node:22-alpine | awk '/^Digest:/ {print $2; exit}')
+          echo "pinned:              $PINNED_DIGEST"
+          echo "node:22-alpine now:  $live"
+          if [ "$live" != "$PINNED_DIGEST" ]; then
+            echo "::notice::node:22-alpine has moved on from the pin; the mission still runs the pinned digest"
+          fi
+          docker pull "node:22-alpine@$PINNED_DIGEST"
+
+      - name: Compile the mission CLI
+        run: npx tsc --outDir "$RUNNER_TEMP/sbx" --rootDir src --module commonjs --target es2020 --esModuleInterop --skipLibCheck --strict --types node src/sandbox/cli.ts
+
+      - name: Run the mission, airlock, promotion gate, destroy + revoke, and sign the receipt
+        run: node "$RUNNER_TEMP/sbx/sandbox/cli.js" run --runtime "$RUNTIME" --out "$RUNNER_TEMP/out" --work "$RUNNER_TEMP"
+
+      # Separate step: only the receipt, the two public keys and the trusted store. The private keys
+      # were deleted when the run step exited.
+      - name: Verify the receipt independently (public keys only)
+        run: |
+          set -euo pipefail
+          test ! -e "$RUNNER_TEMP"/ts-sbx-* || { echo "private key work dir still present"; exit 1; }
+          node "$RUNNER_TEMP/sbx/sandbox/cli.js" verify \
+            --receipt "$RUNNER_TEMP/out/receipt.json" \
+            --keys "$RUNNER_TEMP/out/public-keys.json" \
+            --store "$RUNNER_TEMP/out/trusted-store" \
+            --demo
+
+      - name: Upload the receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sandbox-mission-receipt-${{ matrix.runtime }}
+          path: ${{ runner.temp }}/out
+          if-no-files-found: warn
