@@ -2,6 +2,8 @@
  * `trustshell receipt <id>`: read a kernel receipt back, check its hash here, print six claims.
  * NO live network: the global fetch is replaced for each test.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseArgs, run, EXIT, type CliIO } from '../src/cli';
 import { SIX_CLAIM_KEYS, kernelReceiptHash, type KernelReceiptV1 } from '../src/lib/kernel-client';
 import type { TrustShell } from '../src/lib/trustshell';
@@ -88,5 +90,26 @@ describe('trustshell receipt', () => {
     const c = captureIO();
     expect(await run(parseArgs(['receipt', RID]), NO_CLIENT, c.io)).toBe(EXIT.RUNTIME);
     expect(c.err.join('\n')).toMatch(/REPID_API_KEY/);
+  });
+
+  it('a signed kernel-receipt/2 (the engine golden): AUTHENTIC under the pinned key → exit 0; pinned to another key → exit 1', async () => {
+    const golden = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'kernel-receipt-v2.golden.json'), 'utf8'));
+    const id = golden.receipt_response.receipt.header.receipt_id;
+    const saved = process.env.TRUSTSHELL_KERNEL_TRUSTED_SIGNERS;
+    try {
+      process.env.TRUSTSHELL_KERNEL_TRUSTED_SIGNERS = golden.public_key;
+      answer(200, golden.receipt_response);
+      const c = captureIO();
+      expect(await run(parseArgs(['receipt', id]), NO_CLIENT, c.io)).toBe(EXIT.OK);
+      expect(c.out.join('\n')).toMatch(/signer ✓ AUTHENTIC, signature verified here under pinned key 0x72852912/);
+      process.env.TRUSTSHELL_KERNEL_TRUSTED_SIGNERS = '0x' + 'ab'.repeat(32);
+      answer(200, golden.receipt_response);
+      const c2 = captureIO();
+      expect(await run(parseArgs(['receipt', id]), NO_CLIENT, c2.io)).toBe(EXIT.VETO);
+      expect(c2.err.join('\n')).toMatch(/receipt_not_authentic/);
+    } finally {
+      if (saved === undefined) delete process.env.TRUSTSHELL_KERNEL_TRUSTED_SIGNERS;
+      else process.env.TRUSTSHELL_KERNEL_TRUSTED_SIGNERS = saved;
+    }
   });
 });

@@ -26,12 +26,36 @@
  * A CLIENT THAT OBEYS IS CO-OPERATING. `/decide` is a dry decision: this module cannot stop a
  * caller that ignores a REFUSE. Enforcement is where the engine wraps the tool (`runUnderKernel`);
  * use `requireKernelAllow` so that refusing is a throw, not a boolean someone forgets to read.
+ *
+ * SIGNED RECEIPTS (kernel-receipt/2, repid-engine RT-7). With KERNEL_RECEIPT_SIGNING_KEY set the engine
+ * signs every receipt with Ed25519: header.signer = { alg, public_key, fingerprint }, header.signature
+ * over `KERNEL_RECEIPT_SIGNATURE_DOMAIN + canonical JSON of the receipt without receipt_hash and
+ * signature`, and receipt_hash computed after signing. This client accepts kernel-receipt/1 and /2 and
+ * checks the signature HERE (node:crypto). Who signed only counts against a key pinned on THIS side:
+ * TRUSTSHELL_KERNEL_TRUSTED_SIGNERS (or `trustedSigners`), comma-separated Ed25519 public keys,
+ * 0x + 64 hex. Never the header's own signer, never fetched from the engine (it would vouch for itself).
+ *
+ *   AUTHENTIC      signature verifies, and the key is pinned            → accepted
+ *   NOT_CHECKED    no pin configured (signed or not)                    → accepted, `authenticity` says so
+ *   NOT_AUTHENTIC  bad or missing signature, a key that is not pinned,
+ *                  or an UNSIGNED receipt while a pin is configured     → REFUSED, like a tampered receipt
+ *   a pin that is not all 0x + 64 hex                                   → REFUSED before anything is sent
+ *
+ * With no pin a kernel-receipt/1 behaves exactly as before. A pin means "signed by this key, or no":
+ * an unsigned receipt is then a downgrade, so pin only after the engine is signing.
  */
+import { createHash, createPublicKey, verify } from 'node:crypto';
 import { loadEthers, MissingDependencyError } from './optional-ethers';
 import { TrustShellError } from './trustshell';
 import { ApiUrlError, isHttps, resolveApiBase } from './api-url';
 
 export const KERNEL_RECEIPT_SCHEMA = 'kernel-receipt/1' as const;
+/** The signed receipt: the same body plus header.signer and header.signature. */
+export const KERNEL_RECEIPT_SCHEMA_SIGNED = 'kernel-receipt/2' as const;
+/** The engine's prefix on the signed bytes (repid-engine src/kernel/receipt-signing.ts). */
+export const KERNEL_RECEIPT_SIGNATURE_DOMAIN = 'hyperdag.kernel-receipt.signature.v1\n';
+/** Comma-separated Ed25519 public keys (0x + 64 hex) whose kernel-receipt/2 this client calls AUTHENTIC. */
+export const KERNEL_TRUSTED_SIGNERS_ENV = 'TRUSTSHELL_KERNEL_TRUSTED_SIGNERS';
 
 export type KernelVerdict = 'ALLOW' | 'DENY' | 'NOT_CHECKED';
 export type KernelToolClass = 'read' | 'spend' | 'post' | 'other';
@@ -61,6 +85,8 @@ export interface KernelClientOptions {
   fetch?: typeof fetch;
   /** Default 10 000 ms. A timeout is a REFUSE. */
   timeoutMs?: number;
+  /** Pinned Ed25519 public keys (0x + 64 hex). Defaults to TRUSTSHELL_KERNEL_TRUSTED_SIGNERS. */
+  trustedSigners?: readonly string[];
 }
 
 /** The parts of a kernel-receipt/1 this client reads. The full shape is schemas/kernel-receipt.v1.json. */
@@ -93,8 +119,34 @@ export interface KernelReceiptV1 {
   verification: { status: string; [k: string]: unknown };
 }
 
+/** Who sealed a kernel-receipt/2. Public material only, 0x hex. fingerprint = sha256 of the raw key. */
+export interface KernelReceiptSigner {
+  alg: 'ed25519';
+  public_key: string;
+  fingerprint: string;
+}
+
+/** kernel-receipt/2: a kernel-receipt/1 body, sealed by an Ed25519 key. */
+export type KernelReceiptV2 = Omit<KernelReceiptV1, 'header'> & {
+  header: Omit<KernelReceiptV1['header'], 'schema' | 'version' | 'signer'> & {
+    schema: typeof KERNEL_RECEIPT_SCHEMA_SIGNED;
+    version: 2;
+    signer: KernelReceiptSigner;
+    /** Ed25519, lower-case 0x + 128 hex. */
+    signature: string;
+  };
+};
+
+export type KernelReceipt = KernelReceiptV1 | KernelReceiptV2;
+
+/** WHO made a receipt, apart from whether it is whole. Only NOT_AUTHENTIC is a refusal; see the header. */
+export type KernelReceiptAuthenticity =
+  | { status: 'AUTHENTIC'; fingerprint: string }
+  | { status: 'NOT_AUTHENTIC'; reason: 'invalid' | 'untrusted_signer' | 'unsigned'; detail: string }
+  | { status: 'NOT_CHECKED'; reason: 'no_trusted_signers' | 'unsigned'; detail: string };
+
 export type KernelOutcome =
-  | { allowed: true; verdict: 'ALLOW'; source: 'kernel'; args_hash: string; receipt: KernelReceiptV1; reasons: [] }
+  | { allowed: true; verdict: 'ALLOW'; source: 'kernel'; args_hash: string; receipt: KernelReceipt; reasons: []; authenticity: KernelReceiptAuthenticity }
   | {
       allowed: false;
       /** The kernel's verdict when it gave one; NOT_CHECKED when we never got an answer. */
@@ -102,7 +154,7 @@ export type KernelOutcome =
       /** Who refused: the kernel, or this client because it could not trust what it got. */
       source: 'kernel' | 'client';
       args_hash: string | null;
-      receipt: KernelReceiptV1 | null;
+      receipt: KernelReceipt | null;
       /** Stable codes, e.g. `spend_limit_zero`, `network_error`, `http_503`, `allow_not_bound_to_request`. */
       reasons: Array<{ code: string; detail: string }>;
       http_status: number | null;
@@ -145,10 +197,65 @@ export async function hashKernelArgs(args: unknown): Promise<string> {
 }
 
 /** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. */
-export async function kernelReceiptHash(receipt: KernelReceiptV1): Promise<string> {
+export async function kernelReceiptHash(receipt: KernelReceipt): Promise<string> {
   const { keccak256, toUtf8Bytes } = await loadEthers('Hashing a kernel receipt');
   const { receipt_hash: _omit, ...header } = receipt.header;
   return keccak256(toUtf8Bytes(kernelCanonicalJson({ ...receipt, header })));
+}
+
+// ── authenticity (kernel-receipt/2) ─────────────────────────────────────────────────────────────
+
+const SIG_HEX = /^0x[0-9a-f]{128}$/; // lower-case only: one signed receipt, one encoding (as the engine)
+
+/**
+ * The pinned public keys, lower-cased: `trustedSigners`, else TRUSTSHELL_KERNEL_TRUSTED_SIGNERS. [] when
+ * none. null when any entry is not 0x + 64 hex: the caller refuses rather than trust fewer keys and pass.
+ */
+export function kernelTrustedSigners(trustedSigners?: readonly string[]): string[] | null {
+  const raw = trustedSigners ?? (globalThis.process?.env?.[KERNEL_TRUSTED_SIGNERS_ENV] ?? '').split(',');
+  const keys = raw.map((s) => String(s).trim()).filter((s) => s !== '');
+  return keys.every((k) => HEX32.test(k)) ? keys.map((k) => k.toLowerCase()) : null;
+}
+
+function ed25519Verifies(publicKeyHex: string, message: string, signatureHex: string): boolean {
+  try {
+    const key = createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: Buffer.from(publicKeyHex.slice(2), 'hex').toString('base64url') }, format: 'jwk' });
+    return verify(null, Buffer.from(message, 'utf8'), key, Buffer.from(signatureHex.slice(2), 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Is this receipt whole, and who sealed it? Recomputes receipt_hash, re-derives the engine's signed bytes
+ * (the domain tag, then the canonical receipt without receipt_hash and signature), verifies the Ed25519
+ * signature, and calls the signer AUTHENTIC only when its key is in `trusted` (from kernelTrustedSigners).
+ * The header's own signer is never trusted by itself. Never throws, except for a missing optional ethers.
+ */
+export async function kernelReceiptAuthenticity(receipt: unknown, trusted: readonly string[]): Promise<KernelReceiptAuthenticity> {
+  const invalid = (detail: string): KernelReceiptAuthenticity => ({ status: 'NOT_AUTHENTIC', reason: 'invalid', detail });
+  if (!isObj(receipt) || !isObj(receipt['header'])) return invalid('not a kernel receipt');
+  const h = receipt['header'];
+  if (typeof h['receipt_hash'] !== 'string' || (await kernelReceiptHash(receipt as unknown as KernelReceipt)) !== h['receipt_hash']) return invalid('the receipt does not match its own hash');
+  if (h['schema'] === KERNEL_RECEIPT_SCHEMA) {
+    if (h['signer'] !== null) return invalid('kernel-receipt/1 names a signer');
+    return trusted.length
+      ? { status: 'NOT_AUTHENTIC', reason: 'unsigned', detail: 'a signer is pinned and this receipt is unsigned (kernel-receipt/1)' }
+      : { status: 'NOT_CHECKED', reason: 'unsigned', detail: 'kernel-receipt/1 is unsigned: integrity is the hash only, and anyone can mint one' };
+  }
+  const s = h['signer'];
+  const sig = h['signature'];
+  if (h['schema'] !== KERNEL_RECEIPT_SCHEMA_SIGNED || h['version'] !== 2 || !isObj(s) || s['alg'] !== 'ed25519' || typeof s['public_key'] !== 'string' || !HEX32.test(s['public_key']) || typeof s['fingerprint'] !== 'string' || typeof sig !== 'string' || !SIG_HEX.test(sig)) {
+    return invalid('not a well-formed kernel-receipt/2 (ed25519 signer, lower-case 0x + 128 hex signature)');
+  }
+  const key = s['public_key'].toLowerCase();
+  const fingerprint = `0x${createHash('sha256').update(Buffer.from(key.slice(2), 'hex')).digest('hex')}`;
+  if (s['fingerprint'].toLowerCase() !== fingerprint) return invalid('header.signer.fingerprint is not that key\'s');
+  const { receipt_hash: _h, signature: _s, ...signed } = h;
+  if (!ed25519Verifies(key, KERNEL_RECEIPT_SIGNATURE_DOMAIN + kernelCanonicalJson({ ...receipt, header: signed }), sig)) return invalid('the signature does not verify under header.signer');
+  if (!trusted.length) return { status: 'NOT_CHECKED', reason: 'no_trusted_signers', detail: `signed by ${fingerprint}; no signer is pinned (${KERNEL_TRUSTED_SIGNERS_ENV}), so whose key that is was not checked` };
+  if (!trusted.includes(key)) return { status: 'NOT_AUTHENTIC', reason: 'untrusted_signer', detail: `signed by ${fingerprint}, which is not a pinned signer` };
+  return { status: 'AUTHENTIC', fingerprint };
 }
 
 // ── the call ────────────────────────────────────────────────────────────────────────────────────
@@ -182,8 +289,8 @@ function authOf(opts: KernelClientOptions): Record<string, string> {
  */
 async function bindingFault(receipt: unknown, input: KernelCallInput, argsHash: string): Promise<string | null> {
   if (!isObj(receipt) || !isObj(receipt['header']) || !isObj(receipt['decision']) || !isObj(receipt['request']) || !isObj(receipt['subject'])) return 'no receipt came with the ALLOW';
-  const r = receipt as unknown as KernelReceiptV1;
-  if (r.header.schema !== KERNEL_RECEIPT_SCHEMA) return 'the receipt is not kernel-receipt/1';
+  const r = receipt as unknown as KernelReceipt;
+  if (r.header.schema !== KERNEL_RECEIPT_SCHEMA && r.header.schema !== KERNEL_RECEIPT_SCHEMA_SIGNED) return 'the receipt is not kernel-receipt/1 or kernel-receipt/2';
   if (r.decision.verdict !== 'ALLOW' || r.decision.blocking !== false) return 'the receipt does not say ALLOW';
   if (r.decision.executed !== false) return 'a preview receipt claims the call already ran';
   if (!Array.isArray(r.decision.checks) || r.decision.checks.length === 0 || r.decision.checks.some((c) => c.outcome !== 'PASS')) return 'the ALLOW does not rest on passing checks';
@@ -235,6 +342,9 @@ export async function kernelDecide(input: KernelCallInput, opts: KernelClientOpt
       chain_id: input.chain_id ?? null,
     };
 
+    const trusted = kernelTrustedSigners(opts.trustedSigners);
+    if (trusted === null) return client('trusted_signers_invalid', `every ${KERNEL_TRUSTED_SIGNERS_ENV} entry must be an Ed25519 public key, 0x + 64 hex`, argsHash);
+
     const doFetch = opts.fetch ?? (typeof fetch === 'function' ? fetch : undefined);
     if (!doFetch) return client('no_fetch', 'there is no fetch to ask the kernel with', argsHash);
 
@@ -284,7 +394,7 @@ export async function kernelDecide(input: KernelCallInput, opts: KernelClientOpt
     if (decision['verdict'] !== verdict || j['blocking'] !== (verdict !== 'ALLOW')) {
       return client('inconsistent_response', 'the verdict and the decision disagree', argsHash, 200);
     }
-    const receipt = (isObj(j['receipt_preview']) ? (j['receipt_preview'] as unknown as KernelReceiptV1) : null);
+    const receipt = (isObj(j['receipt_preview']) ? (j['receipt_preview'] as unknown as KernelReceipt) : null);
     const reasons = Array.isArray(j['reasons'])
       ? (j['reasons'] as unknown[]).filter((x): x is { code: string; detail: string } => isObj(x) && typeof x['code'] === 'string' && typeof x['detail'] === 'string')
       : [];
@@ -295,7 +405,11 @@ export async function kernelDecide(input: KernelCallInput, opts: KernelClientOpt
 
     const fault = await bindingFault(receipt, input, argsHash);
     if (fault) return { allowed: false, verdict: 'NOT_CHECKED', source: 'client', args_hash: argsHash, receipt, reasons: [{ code: 'allow_not_bound_to_request', detail: fault }], http_status: 200 };
-    return { allowed: true, verdict: 'ALLOW', source: 'kernel', args_hash: argsHash, receipt: receipt as KernelReceiptV1, reasons: [] };
+    const authenticity = await kernelReceiptAuthenticity(receipt, trusted);
+    if (authenticity.status === 'NOT_AUTHENTIC') {
+      return { allowed: false, verdict: 'NOT_CHECKED', source: 'client', args_hash: argsHash, receipt, reasons: [{ code: 'receipt_not_authentic', detail: `${authenticity.reason}: ${authenticity.detail}` }], http_status: 200 };
+    }
+    return { allowed: true, verdict: 'ALLOW', source: 'kernel', args_hash: argsHash, receipt: receipt as KernelReceipt, reasons: [], authenticity };
   } catch (e) {
     // A missing optional ethers is a refusal that SAYS WHAT TO RUN. It used to read only
     // "(MissingDependencyError)", which refused correctly and left a stranger on a cold install with
@@ -336,7 +450,9 @@ export type KernelReceiptRead =
       ok: true;
       receipt_id: string;
       /** The latest ledger entry for the call. Its hash was recomputed here and matched. */
-      receipt: KernelReceiptV1;
+      receipt: KernelReceipt;
+      /** Who sealed it. Never NOT_AUTHENTIC here: that is `ok: false, reason: receipt_not_authentic`. */
+      authenticity: KernelReceiptAuthenticity;
       /** Present only when the envelope names exactly this receipt (id and hash). Otherwise null, never a guess. */
       six_claims: SixClaimStatement | null;
       /** Why six_claims is null, when it is. */
@@ -355,7 +471,7 @@ const CLAIM_STATUSES = new Set<string>(['VERIFIED', 'NOT_CHECKED', 'FAILED', 'NO
 const isStrArr = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
 /** Null when the envelope is well-formed and names exactly this receipt, else why it is not shown. */
-function sixClaimsFault(env: unknown, receipt: KernelReceiptV1): string | null {
+function sixClaimsFault(env: unknown, receipt: KernelReceipt): string | null {
   if (env === undefined || env === null) return 'the engine sent no six-claim envelope for this receipt';
   if (!isObj(env) || env['_type'] !== 'https://in-toto.io/Statement/v1' || env['predicateType'] !== SIX_CLAIMS_PREDICATE_TYPE) return 'the six-claim envelope is not the expected in-toto statement';
   const subject = Array.isArray(env['subject']) ? env['subject'][0] : undefined;
@@ -374,7 +490,8 @@ function sixClaimsFault(env: unknown, receipt: KernelReceiptV1): string | null {
 
 /**
  * Read a kernel receipt back and check it. NEVER THROWS. `ok: true` only when the engine answered 200
- * with a kernel-receipt/1 for exactly this id whose hash, recomputed here, matches. The six claims ride
+ * with a kernel-receipt/1 or /2 for exactly this id whose hash, recomputed here, matches, and that is not
+ * NOT_AUTHENTIC (see the authenticity rules at the top). The six claims ride
  * along only when they name that receipt; otherwise `six_claims` is null and `six_claims_note` says why.
  * Needs an API key: the route is authenticated, and an agent-bound key reads only its own agent's receipts.
  */
@@ -382,6 +499,8 @@ export async function kernelReceipt(receiptId: string, opts: KernelClientOptions
   const fail = (reason: string, detail: string, status: number | null = null): KernelReceiptRead => ({ ok: false, reason, detail, http_status: status });
   try {
     if (typeof receiptId !== 'string' || !RECEIPT_ID.test(receiptId)) return fail('bad_receipt_id', 'a receipt id is 8-64 letters, digits or dashes');
+    const trusted = kernelTrustedSigners(opts.trustedSigners);
+    if (trusted === null) return fail('trusted_signers_invalid', `every ${KERNEL_TRUSTED_SIGNERS_ENV} entry must be an Ed25519 public key, 0x + 64 hex`);
     const doFetch = opts.fetch ?? (typeof fetch === 'function' ? fetch : undefined);
     if (!doFetch) return fail('no_fetch', 'there is no fetch to read the receipt with');
 
@@ -414,16 +533,18 @@ export async function kernelReceipt(receiptId: string, opts: KernelClientOptions
     }
     const r = isObj(j) ? j['receipt'] : undefined;
     if (!isObj(r) || !isObj(r['header']) || !isObj(r['decision'])) return fail('unreadable_response', 'the answer carries no receipt', 200);
-    const receipt = r as unknown as KernelReceiptV1;
-    if (receipt.header.schema !== KERNEL_RECEIPT_SCHEMA) return fail('unreadable_response', 'the receipt is not kernel-receipt/1', 200);
+    const receipt = r as unknown as KernelReceipt;
+    if (receipt.header.schema !== KERNEL_RECEIPT_SCHEMA && receipt.header.schema !== KERNEL_RECEIPT_SCHEMA_SIGNED) return fail('unreadable_response', 'the receipt is not kernel-receipt/1 or kernel-receipt/2', 200);
     if (receipt.header.receipt_id !== receiptId) return fail('wrong_receipt', 'the engine returned a different receipt than the one asked for', 200);
     if (typeof receipt.header.receipt_hash !== 'string' || !HEX32.test(receipt.header.receipt_hash)) return fail('unreadable_response', 'the receipt has no hash', 200);
     if ((await kernelReceiptHash(receipt)) !== receipt.header.receipt_hash) {
       return fail('receipt_hash_mismatch', 'the receipt does not match its own hash; treat it as tampered', 200);
     }
+    const authenticity = await kernelReceiptAuthenticity(receipt, trusted);
+    if (authenticity.status === 'NOT_AUTHENTIC') return fail('receipt_not_authentic', `${authenticity.reason}: ${authenticity.detail}; treat it as forged`, 200);
     const env = (j as Record<string, unknown>)['six_claims'];
     const note = sixClaimsFault(env, receipt);
-    return { ok: true, receipt_id: receiptId, receipt, six_claims: note ? null : (env as SixClaimStatement), six_claims_note: note };
+    return { ok: true, receipt_id: receiptId, receipt, authenticity, six_claims: note ? null : (env as SixClaimStatement), six_claims_note: note };
   } catch (e) {
     if (e instanceof MissingDependencyError) return fail('ethers_missing', e.message);
     const name = (e as { name?: string })?.name ?? 'Error';
