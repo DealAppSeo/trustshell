@@ -42,6 +42,16 @@
  *                      and no ruler reads it; there is no tool that runs a check, accepts a lesson or
  *                      writes a correction: those are the person's, at the CLI.
  *
+ * GUARD (IS-P0-5, containment row C3). Every tool call is decided against the owner policy BEFORE the tool runs,
+ * by guardDecide, the same decision and the same hash-chained ledger the CLI gate uses (src/cli/guard.ts
+ * runGuarded). The policy is read from the server's own TRUSTSHELL_HOME on every call, never from the call's
+ * arguments, so `guard kill` stops the next call without a restart. Every tool is an action: none is exempt,
+ * because the CLI gates its local reads too (`guard init` lists them). Each maps to the CLI command it mirrors
+ * (MCP_GUARD_TOOLS, the one table), so `tool:recall` in a policy means the same at both. A denied call answers
+ * isError with the rule it broke; a policy that does not parse, is killed or expired, or cannot be read denies
+ * (fail closed); no policy at all lets the call run, exactly as the CLI does (C9). Local guardrails for
+ * cooperative agents, not a sandbox: anything running as the owner can edit the policy.
+ *
  * There is no `redact` tool (SEC F8, 2026-10-16): it let any connected agent delete the operator's
  * keyed rows, and an MCP caller cannot write a keyed row, so it has none of its own to delete.
  * Deleting is the operator's, at the CLI (`trustshell redact <key>`).
@@ -79,6 +89,7 @@ import { myJob } from '../lib/my-job';
 import { kernelReceipt } from '../lib/kernel-client';
 import { groundClaims, splitPages } from '../lib/ground';
 import { ingest } from '../lib/ingest';
+import { guardDecide, homeShadowWarning, trustshellHome, type AssuranceScope } from '../lib/guardrails';
 
 /**
  * Package version — read from package.json at runtime, never retyped here.
@@ -165,6 +176,67 @@ function errorResult(message: string) {
 }
 
 /**
+ * THE tool-to-action map: each MCP tool is decided as `tool:<this>`, the CLI command it mirrors, so one policy
+ * entry means the same at the CLI and over MCP. getLeaderboard and my_job have no CLI command and keep their own
+ * names. A tool registered without an entry is still gated, as `tool:<its own name>` (tests/mcp-guard.test.ts
+ * fails if one is missing).
+ */
+export const MCP_GUARD_TOOLS: Readonly<Record<string, string>> = {
+  verify: 'verify',
+  verify_output: 'verify',
+  evaluate: 'evaluate',
+  getLeaderboard: 'leaderboard',
+  getRepID: 'repid',
+  get_repid: 'repid',
+  repid: 'repid',
+  present_proof: 'proof',
+  verify_proof: 'proof',
+  status: 'status',
+  check_claim: 'check',
+  inspect_run: 'check',
+  my_job: 'my_job',
+  kernel_receipt: 'receipt',
+  ground_quote: 'ground',
+  remember: 'remember',
+  recall: 'recall',
+  quarantine_list: 'quarantine',
+  quarantine_explain: 'quarantine',
+  learn_lessons_for: 'learn',
+  learn_record: 'learn',
+};
+
+/** The scope an MCP decision record states. */
+export function mcpScope(tool: string): AssuranceScope {
+  return {
+    mediated: [`whether the MCP tool call ${tool} was allowed to start, checked in the trustshell-mcp process against the owner policy before it started`],
+    not_mediated: [
+      'what the tool does once started; its network calls are the ones its description names',
+      'a client that starts trustshell-mcp with a TRUSTSHELL_HOME holding no policy (the gate is off for it)',
+      'anything run without trustshell',
+    ],
+  };
+}
+
+/**
+ * Decide one MCP tool call against the policy in the server's TRUSTSHELL_HOME and record it. null: run the tool
+ * (allowed, or no policy, as the CLI). Otherwise the isError result to return instead. Nothing the client sent is
+ * read: the tool name is the server's own. Any failure to decide (an unreadable file, a held lock) refuses.
+ */
+export function mcpGuard(tool: string, env: NodeJS.ProcessEnv = process.env) {
+  const shadow = homeShadowWarning(env);
+  if (shadow) process.stderr.write(`trustshell-mcp: ${shadow}\n`); // stderr: stdout is the JSON-RPC channel
+  try {
+    const g = guardDecide(trustshellHome(env), { tool: MCP_GUARD_TOOLS[tool] ?? tool, class: 'other' }, mcpScope(tool), { origin: 'Mcp' });
+    if (!g || g.decision.decision === 'ALLOWED') return null;
+    return errorResult(
+      `DENIED by the owner policy (${g.loaded.path}), record ${g.record.seq}: ${tool} is ${g.record.requested.action}; ${g.decision.reasons.join('; ')}. Nothing was run. trustshell guard show prints the policy.`,
+    );
+  } catch (e) {
+    return errorResult(`DENIED: the owner policy could not be checked for ${tool} (${e instanceof Error ? e.message : String(e)}), so nothing was run.`);
+  }
+}
+
+/**
  * Construct the TrustShell MCP server and register its tools. The client is injected so this is
  * unit-testable without a live network. Exported (not just booted) so tests can drive it directly.
  */
@@ -186,11 +258,14 @@ export function createServer(client: TrustShell = makeClient()): McpServer {
   // The MCP SDK's registerTool is generic over the Zod input shape; inferring the callback against
   // it under `strict` trips TS2589 ("excessively deep"). Bind to a loose signature — our handlers
   // are still explicitly typed below, so we keep type-safety where it matters (the tool payloads).
-  const registerTool = server.registerTool.bind(server) as (
+  const register = server.registerTool.bind(server) as (
     name: string,
     config: { title?: string; description: string; inputSchema: Record<string, unknown> },
-    cb: (args: any) => unknown,
+    cb: (...a: any[]) => unknown,
   ) => void;
+  // Every tool is registered through here, so none can skip the Guard decision (mcpGuard).
+  const registerTool = (name: string, config: Parameters<typeof register>[1], cb: (...a: any[]) => unknown) =>
+    register(name, config, (...a: any[]) => mcpGuard(name) ?? cb(...a));
 
   const verifyHandler = async ({ text }: { text: string }) => {
     try {

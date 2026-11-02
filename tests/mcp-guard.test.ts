@@ -119,6 +119,23 @@ describe('trustshell-mcp tool calls pass the Guard policy (C3)', () => {
     expect(existsSync(join(home(), GUARD_RECEIPTS_FILE))).toBe(false);
   });
 
+  it('TRUSTSHELL_HOME with no policy while the default home has one: the call runs, and stderr says that policy is NOT in force (C9)', async () => {
+    const user = join(root, 'user');
+    mkdirSync(join(user, '.trustshell'), { recursive: true });
+    writeFileSync(join(user, '.trustshell', POLICY_FILE), renderPolicyDocument({ policy: { ...defaultPolicy(), actions: [] }, signature: null }));
+    // Jest's process.env is a copy the OS never sees, so the home directory is stubbed, not set.
+    const home = jest.spyOn(require('node:os') as typeof import('node:os'), 'homedir').mockReturnValue(user);
+    const spy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const r = await call(server(), 'ground_quote', GROUND_ARGS);
+      expect(r.isError).toBeFalsy();
+      expect(spy.mock.calls.map((c) => String(c[0])).join('')).toMatch(/trustshell-mcp: WARNING: TRUSTSHELL_HOME=.* has no policy, so the owner policy at .* is NOT in force/);
+    } finally {
+      spy.mockRestore();
+      home.mockRestore();
+    }
+  });
+
   it('over the MCP protocol, a client cannot send its own policy, home or allow flag', async () => {
     writePolicy(['tool:recall']);
     // A permissive policy the client points at: never read.

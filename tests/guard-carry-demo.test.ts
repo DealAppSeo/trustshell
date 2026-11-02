@@ -3,7 +3,7 @@
  * run it, through the committed dist/ CLI in child processes.
  *
  * WHY THIS IS A TEST AND NOT ONLY A SCRIPT. The demo prints what the owner policy does and does not authorize,
- * and each line is backed by something it just did (an MCP call that got through, a delete started without
+ * and each line is backed by something it just did (an MCP call the policy refused, a delete started without
  * trustshell, a policy widened with no key). If one stops being true, the demo exits 1 and this fails, so the
  * sentence is changed together with the behaviour. The same goes for the doc: its expected output is compared
  * with the real one, keys, hashes and the expiry date aside.
