@@ -243,6 +243,17 @@ describe('C2: trustshell run --sandbox, and the owner switch run.require_sandbox
       expect(d.calls).toEqual([]);
       expect(started).toEqual([]);
     });
+
+    it("refuses when the current directory nests a second TrustShell home's signing keys, before docker is called", () => {
+      // A non-active TrustShell home left inside the project: a read-only cwd mount would expose its keys.
+      mkdirSync(join(proj, 'old', '.trustshell', 'sandbox', 'keys-harness'), { recursive: true });
+      writeFileSync(join(proj, 'old', '.trustshell', 'sandbox', 'keys-harness', 'ed25519'), 'PRIVATE\n');
+      const d = noDocker();
+      expect(run(['--sandbox', '--tool', 'ls', '--', 'ls'], d.exec)).toBe(3);
+      expect(err.join('\n')).toMatch(/signing keys/i);
+      expect(d.calls).toEqual([]);
+      expect(started).toEqual([]);
+    });
   });
 
   describe('run.require_sandbox: the owner switch', () => {
