@@ -83,6 +83,7 @@ const node_path_1 = require("node:path");
 const cli_1 = require("../learn/cli");
 const bundle_1 = require("./bundle");
 const guard_1 = require("./guard");
+const run_1 = require("../sandbox/run");
 const guardrails_1 = require("../lib/guardrails");
 const api_url_1 = require("../lib/api-url");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -311,7 +312,16 @@ COMMANDS
                              While a policy exists, every other command must be listed as tool:<name>.
                              Windows PowerShell drops a bare --: write it quoted, '--', or call
                              trustshell.cmd (trustshell run --tool git '--' git status).
-  learn <verb>               The learning loop, local: jobs you create, checks you register, your
+  run --sandbox [--runtime runc|runsc] --tool <name> -- <command> [args...]
+                             Guard decides first, as above; an allowed command then starts in a
+                             disposable container, never on this host: no network, the current
+                             directory read-only, one outbox, limits. No container runtime: refused (3).
+                             Its files wait in quarantine; nothing is promoted until the owner runs
+                             trustshell sandbox promote <mission>. guard require-sandbox on makes every
+                             run require --sandbox. Not tested against a hostile command.
+  sandbox promote <mission>  The owner step: promote what the airlock quarantined, revoke the mission
+                             token, sign the receipt. Gated like any command (tool:sandbox).
+  learn <verb>              The learning loop, local: jobs you create, checks you register, your
                              corrections as lessons you accept, injected verbatim (max 5 / 400
                              tokens), unaided probes, spaced review, rulers. trustshell learn for
                              the verbs. No network.
@@ -379,6 +389,9 @@ NETWORK EGRESS (what each command dials, and nothing else)
   profile                          NOTHING. Reads and writes .trustshell/profile.md.
   bundle · guard                   NOTHING. Local files only.
   run                              NOTHING itself. It starts YOUR command, whose own network it does not see.
+  run --sandbox                    the local Docker daemon, which pulls the pinned node:22-alpine digest from
+                                   Docker Hub if it is not already present. The command itself gets no network.
+  sandbox                          NOTHING. Local files only.
   report                           NOTHING. It has no fetch and no URL parameter;
                                    external evidence arrives as a file you supply.
 
@@ -421,6 +434,8 @@ function parseArgs(argv) {
         return { command: 'guard', guardArgv: argv.slice(1), json: false, verify: false };
     if (argv[0] === 'run')
         return { command: 'run', runArgv: argv.slice(1), json: false, verify: false };
+    if (argv[0] === 'sandbox')
+        return { command: 'sandbox', sandboxArgv: argv.slice(1), json: false, verify: false };
     const flags = new Set();
     const positionals = [];
     // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -1000,6 +1015,9 @@ async function run(args, client, io = realIO) {
         case 'run':
             // Starts the caller's command only after the policy allows it.
             return (0, guard_1.runRun)(args.runArgv ?? [], io);
+        case 'sandbox':
+            // Local files only: the owner step that promotes a `run --sandbox` mission's quarantined outbox.
+            return (0, run_1.sandboxCli)(args.sandboxArgv ?? [], io);
         case 'recall': {
             try {
                 io.out(args.key ? (0, recall_1.recallKey)(args.key) : (0, recall_1.recallNotes)(process.env, { includeQuarantined: args.includeQuarantined }));

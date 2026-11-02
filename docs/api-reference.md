@@ -471,7 +471,7 @@ The learning loop v1, local. Nothing leaves the machine. `trustshell learn` alon
 - Example hooks for Claude Code: `examples/learn-hook/user-prompt-submit.mjs` (`UserPromptSubmit`: runs `inject`; env `TRUSTSHELL_LEARN_JOB`, optional `TRUSTSHELL_LEARN_CHECK` (freezes that check on the turn and scopes the lessons shown), `TRUSTSHELL_LEARN_MODEL`, `TRUSTSHELL_LEARN_FAMILY`) and `examples/learn-hook/stop.mjs` (`Stop`: fills in that turn's model, family and tokens from the transcript; it never opens a new episode and never writes an outcome).
 - The first `learn` command on a memory file made before `learn` existed rebuilds its table once, in one transaction. It first copies the file to `<file>.bak-<UTC time>` (0600) next to it and prints that path. If the copy fails, nothing is rebuilt.
 
-### `trustshell guard init | show | check | allow | deny | limit | expire | kill | sign`
+### `trustshell guard init | show | check | allow | deny | limit | expire | kill | sign | require-sandbox`
 
 GUARD. The owner's policy, `~/.trustshell/policy.json` (or `TRUSTSHELL_HOME`), holds `{ policy, signature }`: the
 body shape of the engine kernel's signed owner policy, with a SUBSET of its fields and the same meanings:
@@ -483,6 +483,10 @@ its amount);
 revokes; `guard init` continues from the highest nonce this host has recorded). Not in the subset, because the local guard neither pays nor binds code: `owner`, `payees`,
 `authorized_impl_hashes`. `guard init` writes local commands only, every limit `0`, expiring in 30 days. `guard
 kill` allows nothing. `guard sign` signs the policy with this install's key, the owner signature a bundle carries.
+`guard require-sandbox on` adds the local-only field `run: { require_sandbox: true }`: every `trustshell run` without
+`--sandbox` is then denied (exit `5`). `guard require-sandbox off` removes the field, so the policy hashes exactly as
+one written before the field existed. Each leaves a `policy-change` record. It binds `trustshell run` only, not MCP
+tool calls or SDK functions.
 
 While a policy exists, every other command must be listed as `tool:<command>` before it runs (exit `5`
 when it is not). A policy that does not parse denies everything. `help`, `version`, `guard` and `run` always run.
@@ -530,6 +534,27 @@ In Windows PowerShell, write the `--` quoted: `trustshell run --tool git '--' gi
 before it reaches npm's `trustshell.ps1`, and `run` then refuses the command (exit `2`, nothing runs). `trustshell.cmd`
 keeps a bare `--`. `trustshell run --help`, `guard --help`, `bundle --help` and `learn --help` print that command's
 usage only (exit `0`).
+
+`trustshell run --sandbox [--runtime runc|runsc] --tool <name> -- <command> [args...]`: the policy decides first,
+exactly as above (the same executable and script rules, the same ledger; the record says `sandbox: true`). An allowed
+command then starts in a disposable Docker container, never on this host: the pinned `node:22-alpine` image, no
+network, a read-only root, all capabilities dropped, user 65534, pids, memory, CPU and wall-clock limits, and the
+current directory mounted READ-ONLY as its input and working directory. The profile is read back from `docker inspect`
+before it starts; a mismatch is never started. Its terminal output is hashed, not shown. Files it writes to
+`/mission/outbox` go through the airlock into a quarantine under `TRUSTSHELL_HOME/sandbox/missions/<mission>/`, and
+nothing is promoted until the owner runs `trustshell sandbox promote <mission>`. The container is removed and the
+removal checked. No container runtime, a `--runtime` Docker does not have, or a current directory that holds a TrustShell home is
+refused (exit `3`) and nothing runs. The card prints the mission id and the signed passport's path. Not tested against
+a hostile command; the command can read every file in the current directory and copy any of them to the outbox.
+
+### `trustshell sandbox promote <mission>`
+
+The owner's step after `run --sandbox`, once per mission. The promotion writer (its own key) promotes what the airlock
+quarantined into `TRUSTSHELL_HOME/sandbox/missions/<mission>/trusted-store/<sha256>` (tool configs and proposed memory
+are held, never promoted), revokes the mission token, checks that a replay is refused, and writes `receipt.json`
+(signed by the harness key, carrying the passport) and `public-keys.json` beside it. It prints each promoted file's
+path. Exit `0` when the receipt verifies, `3` when there is no such pending mission or it was already promoted. Like
+any command it must be listed as `tool:sandbox` while a policy exists.
 
 ### `trustshell bundle export <file> | verify <file> | import <file> | context <file>`
 
@@ -689,7 +714,7 @@ CHECKED; `check <runUrl>`, `inspect` and `report` exit `3`. **Not every command 
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
 | `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, in no npm release yet (not in 1.8.0) | none |
 | `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, in no npm release yet (not in 1.8.0) | none |
-| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, in no npm release yet (not in 1.8.0) | none |
+| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. With `--sandbox` it drives the local Docker CLI instead, whose daemon pulls the pinned `node:22-alpine` digest from Docker Hub if it is not present; the command gets no network, and `sandbox promote` reads only local files. In this tree, in no npm release yet (not in 1.8.0) | none |
 
 `init` and `profile` write one file to your working directory, `.trustshell/profile.md`. Other commands
 write there too: `check <runUrl> --out <dir>` writes `record.json`, `card.md` and `card.html` into `<dir>`,
