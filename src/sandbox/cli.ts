@@ -119,6 +119,7 @@ function run(args: string[]): number {
           mission_id: missionId,
           runtime: receipt.runtime,
           profile_all_ok: receipt.profile.all_ok,
+          profile_observed: receipt.profile.observed,
           worker_exit_code: receipt.worker.exit_code,
           promoted: receipt.artifacts.promoted,
           refused: receipt.artifacts.refused,

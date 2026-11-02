@@ -23,6 +23,7 @@ export const NOT_MEASURED_REQUIRED: readonly string[] = [
   'side channels (timing, cache, shared kernel)',
   'egress allowlists (network is none, so no allowlist was exercised)',
   'encoded or transformed canaries (the gate matches the literal canary string only)',
+  'whether the runtime enforces each configured limit (docker inspect shows the configuration Docker accepted, not enforcement under load)',
 ];
 export const NOT_MEASURED_RUNSC = 'anything runsc-specific: runsc did not run on this mission';
 
