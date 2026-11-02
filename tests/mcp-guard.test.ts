@@ -119,6 +119,19 @@ describe('trustshell-mcp tool calls pass the Guard policy (C3)', () => {
     expect(existsSync(join(home(), GUARD_RECEIPTS_FILE))).toBe(false);
   });
 
+  it('C9 opt-in: TRUSTSHELL_REQUIRE_POLICY set + no policy refuses the call; unset, it runs (unchanged)', async () => {
+    // No policy written: the absent-policy path.
+    process.env.TRUSTSHELL_REQUIRE_POLICY = '1';
+    const refused = await call(server(), 'ground_quote', GROUND_ARGS);
+    expect(refused.isError).toBe(true);
+    expect(refused.content[0]!.text).toMatch(/TRUSTSHELL_REQUIRE_POLICY/);
+    expect(existsSync(join(home(), GUARD_RECEIPTS_FILE))).toBe(false);
+
+    delete process.env.TRUSTSHELL_REQUIRE_POLICY;
+    const allowed = await call(server(), 'ground_quote', GROUND_ARGS);
+    expect(allowed.isError).toBeFalsy();
+  });
+
   it('TRUSTSHELL_HOME with no policy while the default home has one: the call runs, and stderr says that policy is NOT in force (C9)', async () => {
     const user = join(root, 'user');
     mkdirSync(join(user, '.trustshell'), { recursive: true });

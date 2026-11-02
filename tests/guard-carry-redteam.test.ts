@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
 import { brainContext, type Bundle } from '../src/lib/bundle';
 import { GUARD_DOES_NOT_COVER, GUARD_RECEIPTS_FILE, POLICY_FILE, defaultPolicy, guardDecide, homeShadowWarning, readLedger, renderPolicyDocument, resolveScript, type GuardRecord } from '../src/lib/guardrails';
-import { runRun } from '../src/cli/guard';
+import { runRun, runGuarded, EXIT_REFUSED } from '../src/cli/guard';
 import { signValue, signingKey } from '../src/lib/install-key';
 
 const ROOT = join(__dirname, '..');
@@ -237,5 +237,26 @@ describe('Lane D findings on #593, fixed', () => {
     await cli('guard', 'init');
     await cli('guard', 'show');
     expect(out.join('\n')).toContain('trustshell-mcp');
+  });
+
+  it('C9 opt-in: TRUSTSHELL_REQUIRE_POLICY set + no policy refuses a guarded command; unset + no policy runs it (unchanged)', async () => {
+    // home() has no policy in this test: guardDecide returns null (absent) on the guarded CLI path.
+    const args = { command: 'inspect' } as Parameters<typeof runGuarded>[0];
+    let ran = 0;
+    const inner = async () => (ran += 1, 0);
+
+    out = [];
+    err = [];
+    const refused = await runGuarded(args, inner, io, { ...process.env, TRUSTSHELL_HOME: home(), TRUSTSHELL_REQUIRE_POLICY: '1' });
+    expect(refused).toBe(EXIT_REFUSED);
+    expect(ran).toBe(0);
+    expect(err.join('\n')).toContain('TRUSTSHELL_REQUIRE_POLICY');
+
+    // Unset (and the off values "" / "0" / "false") leave the warn-and-allow default untouched.
+    for (const off of ['', '0', 'false']) {
+      const allowed = await runGuarded(args, inner, io, { ...process.env, TRUSTSHELL_HOME: home(), TRUSTSHELL_REQUIRE_POLICY: off });
+      expect(allowed).toBe(0);
+    }
+    expect(ran).toBe(3);
   });
 });
