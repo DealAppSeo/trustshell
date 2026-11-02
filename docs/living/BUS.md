@@ -25,8 +25,8 @@ holds the canonical list and corrects any that are wrong.
 | IS-P0-7 | P0 airlock | deterministic inspection (links, names, size, exec bit, canary, self-written approvals) | closed by the sandbox-mission PR |
 | IS-P0-8 | P0 airlock | promotion writer with its own key; tool configs and memory held | closed by the sandbox-mission PR (`src/sandbox/promote.ts`) |
 | IS-P0-9 | P0 airlock | signed Trust Receipt plus an independent verifier | closed by the sandbox-mission PR (`src/sandbox/receipt.ts`) |
-| IS-P1-10 | P1 TrustMedic passport | (title with the conductor) | open |
-| IS-P1-11 | P1 TrustMedic passport | (title with the conductor) | open |
+| IS-P1-10 | P1 TrustMedic passport | passport v0: supervisor-measured fields with sources, JCS digest, harness-signed, in the mission receipt (v2) | in review (TrustMedic passport v0 PR, `src/sandbox/passport.ts`) |
+| IS-P1-11 | P1 TrustMedic passport | compare passports at mission boundaries: field drift classed requalify / review / ignored; CI compares runc and runsc | in review (same PR, `cli compare`) |
 | IS-P1-12 | P1 TrustMedic passport | (title with the conductor) | open |
 | IS-P1-13 | P1 TrustMedic passport | (title with the conductor) | open |
 | IS-P1-14 | P1 T12 dogfooding | (title with the conductor) | open |

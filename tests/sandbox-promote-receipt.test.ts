@@ -10,7 +10,10 @@ import { signingKey } from '../src/lib/install-key';
 import { inspectOutbox, sha256hex, type Candidate } from '../src/sandbox/airlock';
 import { DEFAULT_LIMITS, MOUNTS, PINNED_DIGEST, PINNED_IMAGE, TMPFS_OPTS, type MissionRun } from '../src/sandbox/mission';
 import { Promoter, REVOKED_REASON, verifyDecision, type Approval } from '../src/sandbox/promote';
-import { buildReceipt, demoProblems, NOT_MEASURED_RUNSC, signReceipt, verifyReceipt, type Attempt, type SignedReceipt } from '../src/sandbox/receipt';
+import { buildReceipt, demoProblems, NOT_MEASURED_RUNSC, RECEIPT_SCHEMA, RECEIPT_SCHEMA_V1, signReceipt, verifyReceipt, type Attempt, type SignedReceipt } from '../src/sandbox/receipt';
+import { buildPassport, signPassport } from '../src/sandbox/passport';
+import { main } from '../src/sandbox/cli';
+import { signValue } from '../src/lib/install-key';
 
 const CANARY = 'TS-CANARY-fedcba9876543210';
 const MISSION = 'aabbccddeeff0011';
@@ -162,8 +165,10 @@ describe('the signed receipt and its verifier', () => {
     ];
     promoter.revoke(sha256hex(TOKEN));
     const replay = promoter.decide(req(trusted()));
+    const run = fakeRun(runtime);
     const r = buildReceipt({
-      run: fakeRun(runtime),
+      run,
+      passport: signPassport(buildPassport(run, { state: 'absent', sha256: null }, harness.signer), harness.key),
       signingKeysInMounts: false,
       inspected: candidates,
       attempts,
@@ -193,10 +198,10 @@ describe('the signed receipt and its verifier', () => {
     expect(JSON.stringify(signed)).not.toContain(TOKEN);
   });
 
-  it('a runsc receipt does not carry the runsc caveat', () => {
+  /** Fresh promoter state (and fresh keys) for a second mission. */
+  const fresh = () => {
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir);
-    // fresh promoter state for a second mission
     mkdirSync(outbox);
     writeFileSync(join(outbox, 'result.json'), '{"count":10,"sum":55}');
     writeFileSync(join(outbox, 'notes.txt'), `notes: ${CANARY}`);
@@ -205,6 +210,10 @@ describe('the signed receipt and its verifier', () => {
     candidates = inspectOutbox(outbox, quarantine, { maxFileBytes: 4096, maxFiles: 32, canaries: [CANARY] });
     promoter = new Promoter({ keyDir: join(dir, 'keys-promoter'), stateDir: join(dir, 'state'), quarantineDir: quarantine, storeDir: store, canaries: [CANARY] });
     promoter.registerMission(MISSION, sha256hex(TOKEN));
+  };
+
+  it('a runsc receipt does not carry the runsc caveat', () => {
+    fresh();
     const s = make('runsc');
     expect(s.receipt.not_measured).not.toContain(NOT_MEASURED_RUNSC);
     expect(verifyReceipt(s, pins).ok).toBe(true);
@@ -219,6 +228,8 @@ describe('the signed receipt and its verifier', () => {
     ['an unproven destroy', (s) => (s.receipt.destroy.container_removed = false), /container removal not proven/],
     ['a decision carrying a signature from another decision', (s) => (s.receipt.attempts[1]!.decisions[0]!.signature = s.receipt.attempts[0]!.decisions[1]!.signature), /promoter signature does not verify/],
     ['a replay that was not refused', (s) => (s.receipt.revoke.replay_after_revoke = []), /replay after revocation/],
+    ['an altered passport', (s) => (s.receipt.passport!.passport.policy.value.state = 'ok'), /passport: (digest|harness signature)/],
+    ['a stripped passport', (s) => delete s.receipt.passport, /no passport/],
   ];
   it.each(tampers)('fails on %s', (label, mutate, why) => {
     const s = clone(signed);
@@ -227,6 +238,46 @@ describe('the signed receipt and its verifier', () => {
     const v = verifyReceipt(s, p);
     expect(v.ok).toBe(false);
     expect(v.errors.join('\n')).toMatch(why);
+  });
+
+  it('carries a signed passport (schema v2); a re-signed passport that disagrees with the receipt is refused', () => {
+    expect(signed.receipt.schema).toBe(RECEIPT_SCHEMA);
+    expect(signed.receipt.passport!.passport.runtime.value.observed).toBe('runc');
+    const key = signingKey(join(dir, 'keys-harness')).key;
+    const s = clone(signed);
+    const lie = s.receipt.passport!.passport;
+    lie.tool_belt.value.manifest.network = 'bridge';
+    s.receipt.passport = signPassport(lie, key);
+    const v = verifyReceipt({ receipt: s.receipt, signature: signValue(s.receipt, key) }, pins);
+    expect(v.errors.join(' | ')).toMatch(/passport tool_belt does not match the receipt/);
+  });
+
+  it('a v1 receipt (before passports) still verifies under v1 rules', () => {
+    const key = signingKey(join(dir, 'keys-harness')).key;
+    const r = clone(signed).receipt;
+    delete r.passport;
+    r.schema = RECEIPT_SCHEMA_V1;
+    expect(verifyReceipt({ receipt: r, signature: signValue(r, key) }, pins)).toEqual({ ok: true, errors: [] });
+  });
+
+  it('cli compare: runc against runsc differs only in runtime (and the per-run key); anything else fails', () => {
+    const a = join(tmpdir(), `sbx-cmp-a-${process.pid}.json`);
+    const b = join(tmpdir(), `sbx-cmp-b-${process.pid}.json`);
+    try {
+      writeFileSync(a, JSON.stringify(signed));
+      fresh();
+      writeFileSync(b, JSON.stringify(make('runsc')));
+      const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+      expect(main(['compare', '--a', a, '--b', b, '--allow', 'runtime,attestation'])).toBe(0);
+      expect(main(['compare', '--a', a, '--b', b, '--allow', 'attestation'])).toBe(1);
+      expect(JSON.parse(String(log.mock.calls[log.mock.calls.length - 1]![0])).unexpected).toEqual(['runtime']);
+      writeFileSync(b, JSON.stringify({ ...JSON.parse(JSON.stringify(signed)), signature: 'AAAA' }));
+      expect(main(['compare', '--a', a, '--b', b, '--allow', 'runtime,attestation'])).toBe(1);
+      log.mockRestore();
+    } finally {
+      rmSync(a, { force: true });
+      rmSync(b, { force: true });
+    }
   });
 
   it('a malformed receipt is refused, not thrown', () => {
