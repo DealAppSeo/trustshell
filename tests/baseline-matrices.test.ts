@@ -134,8 +134,16 @@ describe('CONTAINMENT_MATRIX agrees with what Guard says it does not cover', () 
     expect(byId('C5')?.evidence).toContain('tests/guard-interpreter-pins.test.ts');
   });
 
-  it('what a started command does is NOT_ENFORCED while the code says it is not observed', () => {
-    expect(GUARD_DOES_NOT_COVER.some((s) => /What a started command does .* is not observed/.test(s))).toBe(true);
-    expect(byId('C2')?.status).toBe('NOT_ENFORCED');
+  it('what a started command does is PARTIAL: contained under --sandbox or run.require_sandbox, not observed without (C2)', () => {
+    const s = GUARD_DOES_NOT_COVER.find((x) => /what a started command does/i.test(x)) ?? '';
+    expect(s).toMatch(/trustshell run --sandbox/);
+    expect(s).toMatch(/run\.require_sandbox/);
+    expect(s).toMatch(/without --sandbox, what a started command does \(files, network, child processes\) is not observed/i);
+    expect(s).toMatch(/not tested against a hostile command/);
+    expect(byId('C2')?.status).toBe('PARTIAL');
+    expect(byId('C2')?.evidence).toContain('tests/sandbox-run.test.ts');
+    expect(byId('C2')?.gap).toMatch(/without them, not observed/i);
+    // Containment against an active hostile command is still not tested.
+    expect(byId('C15')?.status).toBe('NOT_CHECKED');
   });
 });
