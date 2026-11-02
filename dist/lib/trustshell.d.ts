@@ -831,5 +831,10 @@ export declare function capFromAllowance(params: {
     agentId?: string;
     readAllowance: ReadAllowance;
 }): bigint;
+/**
+ * Decide, then sign: the internal `prepareX402Payment` (src/lib/x402-prepare.ts), then its single-use `sign()`.
+ * Loaded lazily, like ethers, so this file does not import the module that imports it. That module is not
+ * exported by the package root: only this function and `guardedX402Payment` reach it.
+ */
 export declare function buildX402Payment(params: BuildX402PaymentParams): Promise<string>;
 export default TrustShell;

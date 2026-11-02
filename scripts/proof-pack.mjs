@@ -594,12 +594,10 @@ async function step5() {
       const a = await attempt({ policy: { allow: false }, writeReceipt: writer(rdir) });
       return !a.header && /policy_denied/.test(a.error?.message || '') && a.ev.length === 0 ? P('refused before any receipt') : F(`events ${a.ev.join(' -> ')} error ${a.error?.message}`, 'logic');
     }, '[shipped fn]');
-    await check(st, 'amount over the cap -> cap_exceeded, nothing signed', async () => {
+    await check(st, 'amount over the cap -> cap_exceeded, no receipt written, nothing signed', async () => {
       const a = await attempt({ amount: 2000, writeReceipt: writer(rdir) });
-      return !a.header && /cap_exceeded/.test(a.error?.message || '') && !a.ev.includes('sign') ? P(`refused; events ${a.ev.join(' -> ') || 'none'}`, { receipt_written_before_cap_refusal: a.ev.includes('receipt:write') }) : F(`header=${!!a.header} events ${a.ev.join(' -> ')} error ${a.error?.message}`, 'logic');
+      return !a.header && /cap_exceeded/.test(a.error?.message || '') && a.ev.length === 0 ? P('refused before any receipt') : F(`header=${!!a.header} events ${a.ev.join(' -> ')} error ${a.error?.message}`, 'logic');
     }, '[shipped fn]');
-    const capA = await attempt({ amount: 2000, writeReceipt: writer(rdir) });
-    limits.push({ id: 'receipt-written-before-cap-check', observed: capA.ev.includes('receipt:write') && !capA.header, evidence: `an over-cap spend wrote a receipt (events ${capA.ev.join(' -> ')}) and was then refused by buildX402Payment`, meaning: 'the receipt gate runs before the cap check, so a refused spend can leave a receipt behind' });
     const ctrl = await attempt({});
     limits.push({ id: 'receipt-gate-is-opt-in', observed: !!ctrl.header && same(ctrl.ev, ['sign']), evidence: `with no writeReceipt the same call signed (events ${ctrl.ev.join(' -> ')})`, meaning: 'the gate exists only for callers that pass writeReceipt; omitting it pays with no receipt' });
     await check(st, 'CONTROL: with NO writeReceipt the same payment signs (so the refusals above are caused by the gate)', async () => (ctrl.header && same(ctrl.ev, ['sign']) ? P('signed without a receipt: the gate is opt-in') : F(`events ${ctrl.ev.join(' -> ')}`, 'logic')), '[shipped fn]');

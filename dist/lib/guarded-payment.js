@@ -3,16 +3,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.guardedX402Payment = guardedX402Payment;
 const origin_1 = require("./origin");
 const audit_1 = require("./audit");
-const trustshell_1 = require("./trustshell");
+const x402_prepare_1 = require("./x402-prepare");
 /**
  * The fail-closed spend path: assert the origin can pay, write the intent row + require a policy
- * (auditThenAct), THEN sign via `buildX402Payment` (which still enforces the cap). Use this from a
- * turn boundary that knows the origin. `buildX402Payment` stays the lower-level cap-checked signer
- * for advanced callers; this composes the origin + audit gates around it so neither can be skipped.
+ * (auditThenAct), decide the payment (`prepareX402Payment`: the cap, the address and key, the Guard's spend
+ * decision), write the receipt, THEN sign. Use this from a turn boundary that knows the origin.
+ * `buildX402Payment` stays the lower-level cap-checked signer for advanced callers; this composes the
+ * origin + audit gates around it so neither can be skipped.
  *
  * Order matters: origin is checked FIRST (a turn that may not pay never even writes an intent), then
- * auditThenAct records the attempt before the policy gate; then the receipt is written; then the
- * signature. A receipt-write failure refuses the spend — write-receipt-BEFORE-pay is fail-closed.
+ * auditThenAct records the attempt before the policy gate; then EVERY refusal is decided; then the receipt
+ * is written; then the signature. Nothing that can refuse runs after the receipt except the receipt writer
+ * itself, so a receipt exists only for a payment that was allowed. A receipt-write failure refuses the spend
+ * — write-receipt-BEFORE-pay is fail-closed — and the Guard's one count for it stays (it errs high, never low).
  */
 // What to record for the cap in the audit row. Deliberately does NOT re-read the allowance or
 // BigInt-parse the declared cap: the signer (buildX402Payment → resolvePaymentCap) is the single
@@ -37,12 +40,12 @@ async function guardedX402Payment(params, opts = {}) {
         agentId: params.agentId,
     };
     return (0, audit_1.auditThenAct)(intent, params.policy, async () => {
-        // A spend whose amount cannot be signed gets no receipt either: validate it first (the attempt is
-        // already on the log, written above). buildX402Payment validates again; this only orders the refusal.
-        (0, trustshell_1.parsePaymentAmount)(params.amount);
+        // Decide first: amount, cap, address, key and the Guard's spend decision (counted once, here). Any refusal
+        // throws before a receipt exists; the attempt is already on the log, written above.
+        const prepared = await (0, x402_prepare_1.prepareX402Payment)(params);
         // Receipt BEFORE pay: a throw here (unbuildable/invalid/unpersisted receipt) refuses the sign.
         if (params.writeReceipt)
             await params.writeReceipt();
-        return (0, trustshell_1.buildX402Payment)(params);
+        return prepared.sign();
     }, opts);
 }
