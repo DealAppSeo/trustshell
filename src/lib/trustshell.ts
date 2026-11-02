@@ -1833,7 +1833,26 @@ function resolvePaymentCap(params: BuildX402PaymentParams): number | bigint | st
   return declared as number | bigint | string;
 }
 
-export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
+/**
+ * A payment that has passed every check that can refuse it: origin, amount, cap, address, key, the typed data,
+ * and the owner's Guard decision (already recorded and counted). Only the signature is left.
+ */
+export interface PreparedX402Payment {
+  /** Sign once and return the base64 X-PAYMENT header. Calling it twice signs twice for ONE Guard count. */
+  sign(): Promise<string>;
+}
+
+/**
+ * The deciding half of `buildX402Payment`: everything that can REFUSE a payment, in the order it always ran, ending
+ * with the Guard's spend decision (C4/C8). It signs nothing. `guardedX402Payment` calls this, then writes its
+ * pre-pay receipt, then `sign()`, so a payment that is refused never leaves a receipt behind.
+ *
+ * Count rule: the Guard decision is the one and only count, made here, once per payment, after every other check
+ * has passed (a refusal above counts nothing). The ledger is append-only and only an ALLOWED decision counts, so a
+ * payment decided here and then not made (the receipt writer throws, or the signer fails) stays counted: the
+ * ledger can read HIGHER than what was signed, never lower, because no signature exists without its record.
+ */
+export async function prepareX402Payment(params: BuildX402PaymentParams): Promise<PreparedX402Payment> {
   assertOriginCanPay(params.origin);
   // The amount is validated BEFORE the allowance is read and before the cap is resolved or compared.
   parsePaymentAmount(params.amount);
@@ -1842,7 +1861,7 @@ export async function buildX402Payment(params: BuildX402PaymentParams): Promise<
 
   // Lazy import keeps ethers out of the module graph for consumers that never call this, and it is
   // an optional peer from 1.6.0: missing, it throws an error that says what to install.
-  const { Wallet, getAddress } = await loadEthers('Signing an x402 payment');
+  const { Wallet, getAddress, TypedDataEncoder } = await loadEthers('Signing an x402 payment');
 
   const chainId = params.chainId ?? 84532; // Base Sepolia
   // EIP-712 verifyingContract must be a checksummed address; normalize whatever the caller passes.
@@ -1879,23 +1898,35 @@ export async function buildX402Payment(params: BuildX402PaymentParams): Promise<
     ],
   };
   const message = { from, to, value, validAfter, validBefore, nonce };
+  // Encode the typed data now: a nonce that is not 32 bytes, say, would otherwise surface only at signing, after
+  // the Guard counted the spend and the receipt was written. signTypedData hashes this same encoding.
+  TypedDataEncoder.hash(domain, types, message);
 
   // C4/C8: the owner's Guard policy decides the spend, with its per-tx, daily and total limits, after every check
-  // above and immediately before the signature. Allowed, the amount is counted in the Guard ledger; denied, throws.
+  // above. Allowed, the amount is counted in the Guard ledger; denied, throws. This is the last thing that can refuse.
   sdkGuard('buildX402Payment', { tool: 'x402', class: 'spend', amount_raw: value });
 
-  // ethers v6: signTypedData produces the EIP-712 signature over the domain/type/message.
-  const signature = await wallet.signTypedData(domain, types, message);
+  return {
+    async sign() {
+      // ethers v6: signTypedData produces the EIP-712 signature over the domain/type/message.
+      const signature = await wallet.signTypedData(domain, types, message);
 
-  // The facilitator decodes the header as JSON: { from, to, value, validAfter, validBefore, nonce, signature }.
-  const payload = { from, to, value, validAfter, validBefore, nonce, signature };
-  // Buffer in Node; btoa fallback for browser bundles.
-  const json = JSON.stringify(payload);
-  const base64 =
-    typeof Buffer !== 'undefined'
-      ? Buffer.from(json, 'utf8').toString('base64')
-      : btoa(unescape(encodeURIComponent(json)));
-  return base64;
+      // The facilitator decodes the header as JSON: { from, to, value, validAfter, validBefore, nonce, signature }.
+      const payload = { from, to, value, validAfter, validBefore, nonce, signature };
+      // Buffer in Node; btoa fallback for browser bundles.
+      const json = JSON.stringify(payload);
+      const base64 =
+        typeof Buffer !== 'undefined'
+          ? Buffer.from(json, 'utf8').toString('base64')
+          : btoa(unescape(encodeURIComponent(json)));
+      return base64;
+    },
+  };
+}
+
+/** Decide, then sign: `prepareX402Payment(params)` then `sign()`. The signature and behaviour direct callers had. */
+export async function buildX402Payment(params: BuildX402PaymentParams): Promise<string> {
+  return (await prepareX402Payment(params)).sign();
 }
 
 export default TrustShell;

@@ -831,5 +831,25 @@ export declare function capFromAllowance(params: {
     agentId?: string;
     readAllowance: ReadAllowance;
 }): bigint;
+/**
+ * A payment that has passed every check that can refuse it: origin, amount, cap, address, key, the typed data,
+ * and the owner's Guard decision (already recorded and counted). Only the signature is left.
+ */
+export interface PreparedX402Payment {
+    /** Sign once and return the base64 X-PAYMENT header. Calling it twice signs twice for ONE Guard count. */
+    sign(): Promise<string>;
+}
+/**
+ * The deciding half of `buildX402Payment`: everything that can REFUSE a payment, in the order it always ran, ending
+ * with the Guard's spend decision (C4/C8). It signs nothing. `guardedX402Payment` calls this, then writes its
+ * pre-pay receipt, then `sign()`, so a payment that is refused never leaves a receipt behind.
+ *
+ * Count rule: the Guard decision is the one and only count, made here, once per payment, after every other check
+ * has passed (a refusal above counts nothing). The ledger is append-only and only an ALLOWED decision counts, so a
+ * payment decided here and then not made (the receipt writer throws, or the signer fails) stays counted: the
+ * ledger can read HIGHER than what was signed, never lower, because no signature exists without its record.
+ */
+export declare function prepareX402Payment(params: BuildX402PaymentParams): Promise<PreparedX402Payment>;
+/** Decide, then sign: `prepareX402Payment(params)` then `sign()`. The signature and behaviour direct callers had. */
 export declare function buildX402Payment(params: BuildX402PaymentParams): Promise<string>;
 export default TrustShell;

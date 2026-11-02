@@ -14,9 +14,10 @@ export interface GuardedPaymentParams extends BuildX402PaymentParams {
     /** Who is spending — required for the audit intent row. */
     agentId: string;
     /**
-     * Provenance receipt writer, run AFTER the policy gate and BEFORE signing. If it THROWS — the
-     * receipt can't be built, validated (schemas/receipt.schema.json), or persisted — the payment
-     * REFUSES: no receipt, no signature. Build + validate with write-receipt.mjs's buildReceipt /
+     * Provenance receipt writer, run AFTER every check that can refuse the payment (policy, amount, cap, address,
+     * key, the Guard's spend decision) and BEFORE signing, so a refused payment never leaves a receipt. If it
+     * THROWS — the receipt can't be built, validated (schemas/receipt.schema.json), or persisted — the payment
+     * REFUSES: no signature. The Guard already counted the amount and keeps it counted (see prepareX402Payment). Build + validate with write-receipt.mjs's buildReceipt /
      * validateReceipt and persist inside this thunk; throw on any failure. Absent = no receipt gate.
      */
     writeReceipt?: () => void | Promise<void>;
