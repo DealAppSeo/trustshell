@@ -192,7 +192,7 @@ describe('C2: trustshell run --sandbox, and the owner switch run.require_sandbox
       expect(run(['--sandbox', '--tool', 'cat', '--', 'cat', 'notes.txt'], d.exec)).toBe(EXIT_REFUSED);
       expect(d.calls).toEqual([]);
       expect(started).toEqual([]);
-      expect(ledger().at(-1)?.authorized.decision).toBe('DENIED');
+      expect(ledger().slice(-1)[0]?.authorized.decision).toBe('DENIED');
     });
 
     it('C1 still applies: the tool label must be the executable', () => {
@@ -212,7 +212,7 @@ describe('C2: trustshell run --sandbox, and the owner switch run.require_sandbox
     it('an ALLOWED decision is in the ledger, marked sandboxed, before docker is first called', () => {
       let seenAtFirstCall: GuardRecord | undefined;
       const exec: Exec = (_c, _args) => {
-        seenAtFirstCall ??= ledger().at(-1);
+        seenAtFirstCall ??= ledger().slice(-1)[0];
         return fail('', 'ENOENT');
       };
       run(['--sandbox', '--tool', 'ls', '--', 'ls'], exec);
@@ -229,7 +229,7 @@ describe('C2: trustshell run --sandbox, and the owner switch run.require_sandbox
       expect(err.join('\n')).toMatch(/nothing was run/i);
       expect(started).toEqual([]);
       expect(d.calls.every((a) => a[0] === 'version')).toBe(true);
-      const last = ledger().at(-1);
+      const last = ledger().slice(-1)[0];
       expect(last?.kind).toBe('outcome');
       expect(last?.executed).toBe('not run');
       expect(existsSync(join(home, 'sandbox', 'missions'))).toBe(false);
@@ -270,13 +270,13 @@ describe('C2: trustshell run --sandbox, and the owner switch run.require_sandbox
       const before = ledger().length;
       expect(guard('require-sandbox', 'on')).toBe(0);
       expect(policy().run).toEqual({ require_sandbox: true });
-      let rec = ledger().at(-1);
+      let rec = ledger().slice(-1)[0];
       expect(rec?.kind).toBe('policy-change');
       expect(rec?.change?.via).toBe('guard require-sandbox on');
       expect(rec?.change?.before_sha256).not.toBe(rec?.change?.after_sha256);
       expect(guard('require-sandbox', 'off')).toBe(0);
       expect('run' in policy()).toBe(false);
-      rec = ledger().at(-1);
+      rec = ledger().slice(-1)[0];
       expect(rec?.change?.via).toBe('guard require-sandbox off');
       expect(ledger().length).toBe(before + 2);
       expect(guard('require-sandbox', 'maybe')).toBe(2);
@@ -287,7 +287,7 @@ describe('C2: trustshell run --sandbox, and the owner switch run.require_sandbox
       expect(run(['--tool', 'ls', '--', 'ls'], noDocker().exec)).toBe(EXIT_REFUSED);
       expect(err.join('\n')).toMatch(/requires --sandbox/);
       expect(started).toEqual([]);
-      expect(ledger().at(-1)?.authorized.decision).toBe('DENIED');
+      expect(ledger().slice(-1)[0]?.authorized.decision).toBe('DENIED');
 
       const d = noDocker();
       expect(run(['--sandbox', '--tool', 'ls', '--', 'ls'], d.exec)).toBe(3); // past Guard, refused only for no runtime
@@ -305,7 +305,7 @@ describe('C2: trustshell run --sandbox, and the owner switch run.require_sandbox
       expect(guard('require-sandbox', 'off')).toBe(0);
       expect(run(['--tool', 'ls', '--', 'ls'], noDocker().exec)).toBe(0);
       expect(started).toEqual([['ls']]);
-      expect(sandboxOf(ledger().at(-1))).toBeUndefined();
+      expect(sandboxOf(ledger().slice(-1)[0])).toBeUndefined();
     });
 
     it('guard show says whether --sandbox is required', () => {
