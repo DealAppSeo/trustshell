@@ -845,7 +845,9 @@ const CLAIM_LABEL = {
 function formatKernelReceipt(r) {
     if (!r.ok)
         return `receipt NOT read: ${r.detail} (${r.reason})`;
-    const lines = [`kernel receipt ${r.receipt_id}`, `  hash  ✓ recomputed here, matches ${r.receipt.header.receipt_hash}`, ''];
+    const a = r.authenticity;
+    const signer = a.status === 'AUTHENTIC' ? `✓ AUTHENTIC, signature verified here under pinned key ${a.fingerprint}` : `${a.status}: ${a.detail}`;
+    const lines = [`kernel receipt ${r.receipt_id}`, `  hash  ✓ recomputed here, matches ${r.receipt.header.receipt_hash}`, `  signer ${signer}`, ''];
     if (!r.six_claims)
         return [...lines, `  six claims not shown: ${r.six_claims_note}`].join('\n');
     lines.push('  There is no single verdict. Six separate claims, each with its own gaps:');
@@ -1266,7 +1268,7 @@ async function run(args, client, io = realIO) {
                 (r.ok ? io.out : io.err)(formatKernelReceipt(r));
             if (r.ok)
                 return exports.EXIT.OK;
-            return r.reason === 'receipt_hash_mismatch' ? exports.EXIT.VETO : exports.EXIT.RUNTIME;
+            return r.reason === 'receipt_hash_mismatch' || r.reason === 'receipt_not_authentic' ? exports.EXIT.VETO : exports.EXIT.RUNTIME;
         }
         case 'proof': {
             try {
