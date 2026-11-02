@@ -155,12 +155,13 @@ describe('comparePassports', () => {
   });
 
   it.each([
-    ['runtime', run({ runtime: 'runsc' }), { runtime: 'changed/requalify' }, 'requalify'],
-    ['image', run({ imageId: 'sha256:other' }), { model_build: 'changed/requalify' }, 'requalify'],
-    ['a limit', run({ pids: 128 }), { tool_belt: 'changed/requalify' }, 'requalify'],
-    ['the command', run({ command: ['node', '-e', '2'] }), { identity: 'changed/requalify', tool_belt: 'changed/requalify' }, 'requalify'],
-    ['the docker version', run({ docker: '28.0.0' }), { deployment: 'changed/review' }, 'review'],
-  ] as const)('classifies a %s change', (_l, b, want, verdict) => {
+    ['runtime', { runtime: 'runsc' }, { runtime: 'changed/requalify' }, 'requalify'],
+    ['image', { imageId: 'sha256:other' }, { model_build: 'changed/requalify' }, 'requalify'],
+    ['a limit', { pids: 128 }, { tool_belt: 'changed/requalify' }, 'requalify'],
+    ['the command', { command: ['node', '-e', '2'] }, { identity: 'changed/requalify', tool_belt: 'changed/requalify' }, 'requalify'],
+    ['the docker version', { docker: '28.0.0' }, { deployment: 'changed/review' }, 'review'],
+  ] as const)('classifies a %s change', (_l, over, want, verdict) => {
+    const b = run(over as Parameters<typeof run>[0]);
     expect(changed(passportOf(run()), passportOf(b))).toEqual(want);
     expect(comparePassports(passportOf(run()), passportOf(b)).verdict).toBe(verdict);
   });

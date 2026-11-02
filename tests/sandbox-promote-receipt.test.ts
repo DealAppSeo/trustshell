@@ -249,8 +249,7 @@ describe('the signed receipt and its verifier', () => {
     lie.tool_belt.value.manifest.network = 'bridge';
     s.receipt.passport = signPassport(lie, key);
     const v = verifyReceipt({ receipt: s.receipt, signature: signValue(s.receipt, key) }, pins);
-    expect(v.errors.join('
-')).toMatch(/passport tool_belt does not match the receipt/);
+    expect(v.errors.join(' | ')).toMatch(/passport tool_belt does not match the receipt/);
   });
 
   it('a v1 receipt (before passports) still verifies under v1 rules', () => {
@@ -271,7 +270,7 @@ describe('the signed receipt and its verifier', () => {
       const log = jest.spyOn(console, 'log').mockImplementation(() => {});
       expect(main(['compare', '--a', a, '--b', b, '--allow', 'runtime,attestation'])).toBe(0);
       expect(main(['compare', '--a', a, '--b', b, '--allow', 'attestation'])).toBe(1);
-      expect(JSON.parse(String(log.mock.calls.at(-1)![0])).unexpected).toEqual(['runtime']);
+      expect(JSON.parse(String(log.mock.calls[log.mock.calls.length - 1]![0])).unexpected).toEqual(['runtime']);
       writeFileSync(b, JSON.stringify({ ...JSON.parse(JSON.stringify(signed)), signature: 'AAAA' }));
       expect(main(['compare', '--a', a, '--b', b, '--allow', 'runtime,attestation'])).toBe(1);
       log.mockRestore();

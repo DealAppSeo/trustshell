@@ -5,6 +5,11 @@
 # airlock, asks the promotion gate (its own key) to promote, revokes the mission token, and signs a
 # receipt. A SEPARATE step verifies that receipt using only the two public keys.
 #
+# The receipt carries a TrustMedic passport (IS-P1-10/11) the harness measured itself (docker inspect, the
+# pinned image, the Guard policy, the grant) and signed. The `passports` job compares the runc and runsc
+# passports: only `runtime` may differ, plus `attestation` because each leg makes a fresh harness key.
+# A matching passport does not prove the worker's reasoning or memory is safe; the comparison says so.
+#
 # What this does NOT test: the restrictions against an active hostile worker. Those tests await a
 # scope decision; the receipt's `not_measured` list says so.
 #
@@ -17,6 +22,7 @@ on:
       - 'src/sandbox/**'
       - 'src/lib/install-key.ts'
       - 'src/lib/jcs.ts'
+      - 'src/lib/guardrails.ts'
       - 'tests/sandbox-*.test.ts'
       - '.github/workflows/sandbox-mission.yml'
   push:
@@ -25,6 +31,7 @@ on:
       - 'src/sandbox/**'
       - 'src/lib/install-key.ts'
       - 'src/lib/jcs.ts'
+      - 'src/lib/guardrails.ts'
       - 'tests/sandbox-*.test.ts'
       - '.github/workflows/sandbox-mission.yml'
   workflow_dispatch:
@@ -116,3 +123,38 @@ jobs:
           name: sandbox-mission-receipt-${{ matrix.runtime }}
           path: ${{ runner.temp }}/out
           if-no-files-found: warn
+
+  # Both legs ran the same mission. Their passports must match everywhere except the runtime, and the
+  # harness key (generated per run). Anything else is drift and fails the job.
+  passports:
+    needs: mission
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Compile the mission CLI
+        run: npx tsc --outDir "$RUNNER_TEMP/sbx" --rootDir src --module commonjs --target es2020 --esModuleInterop --skipLibCheck --strict --types node src/sandbox/cli.ts
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: sandbox-mission-receipt-*
+          path: ${{ runner.temp }}/receipts
+
+      - name: Compare the runc and runsc passports
+        run: |
+          set -euo pipefail
+          node "$RUNNER_TEMP/sbx/sandbox/cli.js" compare \
+            --a "$RUNNER_TEMP/receipts/sandbox-mission-receipt-runc/receipt.json" \
+            --b "$RUNNER_TEMP/receipts/sandbox-mission-receipt-runsc/receipt.json" \
+            --allow runtime,attestation

@@ -3,12 +3,18 @@
  *
  *   node cli.js run    --runtime runc|runsc --out <dir> [--work <dir>]
  *   node cli.js verify --receipt <receipt.json> --keys <public-keys.json> [--store <dir>] [--demo]
+ *   node cli.js compare --a <receipt.json> --b <receipt.json> [--allow field,field]
  *
  * `run` executes one BENIGN worker in a disposable container, destroys it, moves its outbox through the
  * airlock, asks the promotion gate three times (the worker's own approval, a trusted approval, then a
  * replay after the mission token is revoked), deletes the mission dirs, and writes a receipt signed by
  * the harness key plus the two PUBLIC keys. The private keys are deleted before it exits.
  * `verify` needs only the receipt and the public keys.
+ * `compare` verifies both receipts (unpinned: pin each with `verify` first) and diffs their TrustMedic passports;
+ * it fails on any drift that is neither ignored nor named in --allow.
+ *
+ * The passport is measured by this process (the supervisor) from docker inspect, the pinned image, the Guard
+ * policy in --policy-home (default TRUSTSHELL_HOME or ~/.trustshell) and the grant it made; never from the worker.
  *
  * The worker writes four files. Two are test data for the promotion gate: `notes.txt` copies a canary
  * the harness put in the input, and `approval.json` approves its own output. Neither touches the
@@ -18,9 +24,11 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { trustshellHome } from '../lib/guardrails';
 import { fingerprintOf, signingKey, type Signer } from '../lib/install-key';
 import { DEFAULT_AIRLOCK, inspectOutbox, sha256hex } from './airlock';
 import { deleteMissionDirs, destroyContainer, MissionRefused, RUNTIMES, runMission, type Runtime } from './mission';
+import { buildPassport, comparePassports, signPassport, supervisorPolicy } from './passport';
 import { Promoter, type Approval } from './promote';
 import { buildReceipt, demoProblems, signReceipt, verifyReceipt, type Attempt, type SignedReceipt } from './receipt';
 
@@ -44,6 +52,7 @@ function flag(args: string[], name: string): string | null {
 function run(args: string[]): number {
   const runtime = (flag(args, '--runtime') ?? 'runc') as Runtime;
   if (!RUNTIMES.includes(runtime)) throw new Error(`--runtime must be one of ${RUNTIMES.join(', ')}`);
+  const policy = supervisorPolicy(resolve(flag(args, '--policy-home') ?? trustshellHome())); // measured as the mission starts
   const out = resolve(flag(args, '--out') ?? 'sandbox-out');
   mkdirSync(out, { recursive: true });
   const work = mkdtempSync(join(resolve(flag(args, '--work') ?? tmpdir()), 'ts-sbx-'));
@@ -94,8 +103,10 @@ function run(args: string[]): number {
     const cleanup = deleteMissionDirs(mission.paths);
     const storeAfter = existsSync(storeDir) ? readdirSync(storeDir) : [];
 
+    const passport = signPassport(buildPassport(mission, policy, harness.signer), harness.key);
     const receipt = buildReceipt({
       run: mission,
+      passport,
       signingKeysInMounts,
       inspected,
       attempts,
@@ -127,6 +138,8 @@ function run(args: string[]): number {
           revoked: receipt.revoke.revoked,
           self_verify: v,
           demo_problems: demo,
+          passport_sha256: passport.sha256,
+          passport: passport.passport,
           receipt: join(out, 'receipt.json'),
         },
         null,
@@ -161,12 +174,34 @@ function verify(args: string[]): number {
   return errors.length === 0 ? 0 : 1;
 }
 
-function main(argv: string[]): number {
+function compare(args: string[]): number {
+  const fa = flag(args, '--a');
+  const fb = flag(args, '--b');
+  if (!fa || !fb) throw new Error('compare needs --a and --b (two receipt files)');
+  const allow = (flag(args, '--allow') ?? '').split(',').filter(Boolean);
+  const [a, b] = [fa, fb].map((f) => JSON.parse(readFileSync(f, 'utf8')) as SignedReceipt) as [SignedReceipt, SignedReceipt];
+  const errors = [...verifyReceipt(a).errors.map((e) => `a: ${e}`), ...verifyReceipt(b).errors.map((e) => `b: ${e}`)];
+  if (!a.receipt?.passport || !b.receipt?.passport) errors.push('both receipts must carry a passport (schema v2)');
+  if (errors.length) {
+    console.log(JSON.stringify({ ok: false, errors }, null, 2));
+    return 1;
+  }
+  const c = comparePassports(a.receipt.passport!.passport, b.receipt.passport!.passport);
+  const unexpected = c.drifts.filter((d) => d.status !== 'identical' && d.class !== 'ignored' && !allow.includes(d.field)).map((d) => d.field);
+  const drifts = c.drifts.filter((d) => d.status !== 'identical');
+  console.log(JSON.stringify({ ok: unexpected.length === 0, verdict: c.verdict, allowed: allow, unexpected, drifts, not_proven: c.not_proven }, null, 2));
+  return unexpected.length === 0 ? 0 : 1;
+}
+
+export function main(argv: string[]): number {
   const [cmd, ...rest] = argv;
   try {
     if (cmd === 'run') return run(rest);
     if (cmd === 'verify') return verify(rest);
-    console.error('usage: cli run --runtime runc|runsc --out <dir> | cli verify --receipt <f> --keys <f> [--store <dir>] [--demo]');
+    if (cmd === 'compare') return compare(rest);
+    console.error(
+      'usage: cli run --runtime runc|runsc --out <dir> [--policy-home <dir>] | cli verify --receipt <f> --keys <f> [--store <dir>] [--demo] | cli compare --a <f> --b <f> [--allow f1,f2]',
+    );
     return 2;
   } catch (e) {
     console.error(e instanceof MissionRefused ? `REFUSED: ${e.message}` : `ERROR: ${(e as Error).message}`);
