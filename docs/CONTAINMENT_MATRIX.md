@@ -38,5 +38,5 @@ Closing them needs OS-level isolation (a container, a separate user, a MicroVM) 
 agent can act through. Both are deferred in
 `docs/living/OVERNIGHT_2026-11-01.md` §2; neither is claimed here.
 
-Sandbox missions (C14-C16) do not change C2-C5 for plain `trustshell run`: they are a separate path for
+Sandbox missions (C14-C16) do not change C2, C4 or C5 for plain `trustshell run`: they are a separate path for
 work handed to a disposable container.
