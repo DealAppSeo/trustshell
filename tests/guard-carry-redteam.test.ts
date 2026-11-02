@@ -226,8 +226,9 @@ describe('Lane D findings on #593, fixed', () => {
     expect(out.join('\n')).toContain(DOES_NOT_VERIFY);
   });
 
-  it('#1 #2 the guard states what it does not cover: the MCP server, and an agent that can run the CLI', async () => {
-    expect(GUARD_DOES_NOT_COVER.join(' ')).toMatch(/MCP server .*does not read this policy/);
+  it('#1 #2 the guard states what it covers (the MCP server, since IS-P0-5) and what it does not (SDK callers, an agent that can run the CLI)', async () => {
+    expect(GUARD_DOES_NOT_COVER.join(' ')).toMatch(/every trustshell-mcp tool call/);
+    expect(GUARD_DOES_NOT_COVER.join(' ')).toMatch(/SDK calls .* are not covered/);
     expect(GUARD_DOES_NOT_COVER.join(' ')).toMatch(/not an agent that can run the CLI itself/);
     await cli('guard', 'init');
     await cli('guard', 'show');

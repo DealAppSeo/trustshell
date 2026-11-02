@@ -129,8 +129,8 @@ of the node binary, so the guard can tell them apart by name.
 What this shows, and what it does not. Each line was exercised just now; the demo exits 1 if one
 did not hold.
 HELD  owner-signed: the policy carries a signature by Host A's install key d92c34ecdef8…. Host B enforced it only because its operator named that key (--signer); without it, NOT_CHECKED. That fingerprint must reach Host B by a channel you trust: the bundle naming its own author proves nothing. One changed word in the file: REFUSED. A record names a key, not a person.
-HELD  mediated paths only: the guard decides for `trustshell run` (the deleter, exit 5) and for TrustShell's own commands at the CLI gate (`remember`, exit 5, once the owner denied tool:remember). Nothing else.
-HELD  not mediated: an MCP `remember` call wrote note 3 on Host A while the policy denied tool:remember (stored untrusted, in quarantine), and the deleter, started directly instead of through TrustShell, deleted precious.txt on Host B. The guard sees only what goes through it.
+HELD  mediated paths only: the guard decides for `trustshell run` (the deleter, exit 5), for TrustShell's own commands at the CLI gate (`remember`, exit 5, once the owner denied tool:remember), and for every trustshell-mcp tool call (an MCP `remember`, refused and recorded in the same ledger). Nothing else.
+HELD  not mediated: the deleter, started directly instead of through TrustShell, deleted precious.txt on Host B. The guard sees only what goes through it.
 HELD  signed, not encrypted: the carried note reads as plain text in bundle.json; the note the owner did not select is not in it. Anyone with the file can read it.
 HELD  a declaration is not authorization: the delete labelled `--class read`, and the deleter started as `--tool reader`, were both refused. A model is told the policy is "enforced by the harness, not by you"; what it says about its own permission changes nothing.
 HELD  whoever runs the CLI as the owner can change the policy: on Host B `guard allow tool:deleter` needed no key and no password: the owner signature was dropped and the next delete ran. On Host A the same edit plus `guard sign` re-signed it with the install key, and a third host trusting that key enforced it and ran the delete. The signature says which key signed, not that the owner meant it. Each change was recorded with the policy hash before and after; none was prevented.
@@ -150,12 +150,12 @@ behaviour changes, the demo exits 1 and its test fails until the sentence is cha
   without it, nothing is imported. The fingerprint has to reach Host B some way you trust: the bundle names its
   own author, and that alone proves nothing. Change one word of the file and it is refused. A record names a
   key, never a person.
-- **Mediated paths only.** The guard decides for `trustshell run` and for TrustShell's own commands (the CLI
-  gate). That is all it decides for.
-- **Not mediated.** The MCP server (`trustshell-mcp`) does not read the policy yet: the demo writes a note over
-  MCP while the policy denies `tool:remember`, and it is stored (untrusted, in quarantine). A command started
-  without TrustShell is not seen at all: the demo deletes the file the policy protects by starting `deleter`
-  directly. Code that imports the package is outside the guard too (`guard show` says so); the demo does not
+- **Mediated paths only.** The guard decides for `trustshell run`, for TrustShell's own commands (the CLI
+  gate), and for every MCP tool call (`trustshell-mcp` reads the same policy on each call, IS-P0-5): the demo
+  asks the MCP server to `remember` a note while the policy denies `tool:remember`, and it is refused and
+  recorded in the same ledger. That is all it decides for.
+- **Not mediated.** A command started without TrustShell is not seen at all: the demo deletes the file the
+  policy protects by starting `deleter` directly. Code that imports the package is outside the guard too (`guard show` says so); the demo does not
   exercise that.
 - **Signed, not encrypted.** Anyone with `bundle.json` can read it; the note the owner selected is plain text
   in the file. Only what the owner selects travels: the second note is not in it.

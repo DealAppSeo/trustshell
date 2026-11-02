@@ -197,7 +197,7 @@ Nothing in this repo registers either hook. NOT BUILT.
 `tools/list` returns **21 tools**: `verify_output`, `check_claim`, `inspect_run`, `get_repid`, `present_proof`, `verify_proof`, `status`, `my_job`,
 `kernel_receipt`, `ground_quote`, `remember`, `recall`, the quarantine and learning tools, `getLeaderboard`, and deprecated aliases (`verify`, `evaluate`, `getRepID`, `repid`).
 `inspect_run` is in this tree and not in 1.8.0. OpenClaw documents saved MCP server definitions under `mcp.servers` and says which transports work depends on the
-runtime adapter. **I did not run it inside OpenClaw** (not installed here). NOT CHECKED. Even if it runs there: the Guard demo says the MCP server "does not read the policy yet", so an owner policy would not apply over MCP.
+runtime adapter. **I did not run it inside OpenClaw** (not installed here). NOT CHECKED. Since IS-P0-5 the MCP server checks every tool call against the owner policy in its own `TRUSTSHELL_HOME` (containment matrix C3), so an owner policy applies over MCP too; not run inside OpenClaw.
 
 **19b. How is this different from `openclaw policy`?** `openclaw policy` checks OpenClaw's own settings against a `policy.jsonc` and reports
 drift; its page says it "does not enforce tool calls or rewrite runtime behavior at request time". The runtime gate in OpenClaw is a `before_tool_call` plugin.

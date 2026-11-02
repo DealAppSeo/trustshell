@@ -272,7 +272,7 @@ say(`   the bundle points at Host A's ledger by record ${pointed.seq}'s hash: th
 say();
 
 // The limits ---------------------------------------------------------------------------------------
-// Each is exercised against the CLI, not asserted. If one stops being true (the MCP server starts reading the
+// Each is exercised against the CLI, not asserted. If one stops being true (the MCP server stops reading the
 // policy, say), this demo exits 1 and its test fails until the sentence is changed to match.
 
 // A declaration is not authorization.
@@ -290,10 +290,16 @@ const signedOk = /^REFUSED the signature does not verify/.test(refused.err);
 const raw = fs.readFileSync(bundle, 'utf8');
 const plainOk = raw.includes(NOTE_CARRY) && !raw.includes(NOTE_PRIVATE) && /NOT encrypted/.test(notEncrypted);
 
-// Mediated: the CLI gate and `run`. Not mediated: the MCP server, and any command started without trustshell.
+// Mediated: the CLI gate, `run`, and every trustshell-mcp tool call (IS-P0-5). Not mediated: any command started
+// without trustshell.
 must(A.cli('guard', 'deny', 'tool:remember'), 0);
 const viaCli = must(A.cli('remember', '--trusted', 'a note through the CLI'), 5, 'Host A: remember after guard deny tool:remember');
 const viaMcp = await mcpRemember(A, 'a note over MCP while the policy denies tool:remember');
+const mcpRefused =
+  viaMcp !== null &&
+  viaMcp.isError &&
+  /does not list tool:remember/.test(viaMcp.text) &&
+  A.records().some((r) => r.origin === 'Mcp' && r.requested.action === 'tool:remember' && r.authorized.decision === 'DENIED' && r.executed === 'not run');
 const direct = spawnSync(exe('deleter'), ['delete.js'], { cwd: B.work, env: B.env, windowsHide: true });
 const bypassed = direct.status === 0 && !B.precious();
 B.restore();
@@ -329,15 +335,15 @@ hold(
 );
 hold(
   'mediated paths only',
-  /does not list tool:remember/.test(viaCli.err) && /does not list tool:deleter/.test(denial(dB)),
-  "the guard decides for `trustshell run` (the deleter, exit 5) and for TrustShell's own commands at the CLI gate (`remember`, exit 5, once the owner denied tool:remember). Nothing else.",
+  viaMcp === null ? null : /does not list tool:remember/.test(viaCli.err) && /does not list tool:deleter/.test(denial(dB)) && mcpRefused,
+  viaMcp === null
+    ? `the MCP server could not be asked (${MCP}), so this is not checked`
+    : "the guard decides for `trustshell run` (the deleter, exit 5), for TrustShell's own commands at the CLI gate (`remember`, exit 5, once the owner denied tool:remember), and for every trustshell-mcp tool call (an MCP `remember`, refused and recorded in the same ledger). Nothing else.",
 );
 hold(
   'not mediated',
-  viaMcp === null ? null : viaMcp.ok && bypassed,
-  viaMcp === null
-    ? `the MCP server could not be asked (${MCP}), so this is not checked`
-    : `an MCP \`remember\` call wrote note ${viaMcp.id} on Host A while the policy denied tool:remember (stored untrusted, in quarantine), and the deleter, started directly instead of through TrustShell, deleted precious.txt on Host B. The guard sees only what goes through it.`,
+  bypassed,
+  'the deleter, started directly instead of through TrustShell, deleted precious.txt on Host B. The guard sees only what goes through it.',
 );
 hold('signed, not encrypted', plainOk, 'the carried note reads as plain text in bundle.json; the note the owner did not select is not in it. Anyone with the file can read it.');
 hold(
@@ -364,7 +370,7 @@ say();
 say(`RESULT  steps 1-6 held; ${held.length - notHeld - notChecked} of ${held.length} lines above held${notChecked ? `, ${notChecked} NOT_CHECKED` : ''}`);
 finish(notHeld ? 1 : notChecked ? 2 : 0);
 
-/** One `remember` call to trustshell-mcp over stdio. null: the server could not be asked. */
+/** One `remember` call to trustshell-mcp over stdio: { isError, text }. null: the server could not be asked. */
 async function mcpRemember(h, text) {
   if (!fs.existsSync(MCP)) return null;
   return new Promise((resolve) => {
@@ -394,12 +400,7 @@ async function mcpRemember(h, text) {
           send({ jsonrpc: '2.0', method: 'notifications/initialized' });
           send({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'remember', arguments: { text } } });
         } else if (m.id === 2) {
-          try {
-            const r = JSON.parse(m.result.content[0].text);
-            done({ ok: !m.result.isError && r.remembered === true && r.quarantined === true, id: r.id });
-          } catch {
-            done({ ok: false, id: null });
-          }
+          done({ isError: m.result?.isError === true, text: String(m.result?.content?.[0]?.text ?? '') });
         }
       }
     });
