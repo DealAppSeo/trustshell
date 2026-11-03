@@ -157,3 +157,25 @@ describe('classification and canary matching', () => {
     expect(canaryHit(Buffer.from('anything'), [''])).toBe(-1);
   });
 });
+
+describe('C15: a registered canary in the FILENAME is refused, exactly as in the body', () => {
+  it('a file whose NAME is a registered canary, with a benign body, is refused (not quarantined)', () => {
+    // A 64-hex mission token / input canary is a valid flat outbox name, so the secret can ride
+    // out in the filename. nameProblem lets it through; the airlock must still refuse it.
+    writeFileSync(join(outbox, CANARY), 'benign body, nothing secret here');
+    const c = run()[0]!;
+    expect(c.status).toBe('refused');
+    expect(c.reasons).toEqual(['contains registered canary #0 in the filename']);
+    expect(existsSync(join(quarantine, c.sha256!))).toBe(false);
+  });
+
+  it('a normal file with no canary in name or body is still quarantined (unchanged)', () => {
+    writeFileSync(join(outbox, 'plain.json'), '{"ok":true}');
+    expect(run()[0]).toMatchObject({ status: 'quarantined', reasons: [] });
+  });
+
+  it('a canary in the body is still refused with the body reason (unchanged)', () => {
+    writeFileSync(join(outbox, 'notes.txt'), `leak: ${CANARY}`);
+    expect(run()[0]).toMatchObject({ status: 'refused', reasons: ['contains registered canary #0'] });
+  });
+});
