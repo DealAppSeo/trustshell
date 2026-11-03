@@ -124,9 +124,9 @@ const POLL_INTERVAL_MS = Number(process.env.TRUSTMESH_LIVE_POLL_INTERVAL_MS || 5
 const SUCCESS_TERMINALS = new Set(['fulfilled', 'settled', 'satisfied', 'resolved']);
 
 const sdkUrl = new URL('../dist/lib/index.js', import.meta.url);
-const { TrustShell, buildX402Payment, AGENT_ID_PATTERN } = await import(sdkUrl.href);
+const { TrustShell, guardedX402Payment, AGENT_ID_PATTERN } = await import(sdkUrl.href);
 assert.ok(typeof TrustShell?.init === 'function', 'SDK import failed: TrustShell.init missing (run `npm run sdk:build` first)');
-assert.ok(typeof buildX402Payment === 'function', 'SDK import failed: buildX402Payment missing (run `npm run sdk:build` first)');
+assert.ok(typeof guardedX402Payment === 'function', 'SDK import failed: guardedX402Payment missing (run `npm run sdk:build` first)');
 assert.ok(AGENT_ID_PATTERN.test(BUYER_AGENT_ID), `TRUSTMESH_LIVE_BUYER_AGENT_ID "${BUYER_AGENT_ID}" is not a valid agent id (AGENT_ID_PATTERN)`);
 
 // ethers only to derive + print the payer address (confirms Sean is spending from the wallet he
@@ -155,12 +155,18 @@ async function runOnce(client, serviceId, label) {
   log(`  402 received: pay ${accept.maxAmountRequired} of asset ${accept.asset} to ${accept.payTo} (pending contract ${probe.contractId})`);
 
   // 3) Build + sign the REAL x402 EIP-3009 payment with the funded test wallet. cap = agreed price.
-  const xPaymentHeader = await buildX402Payment({
+  // Spend through the GATED path (origin + policy + audit), exactly as a real agent would — the same
+  // guardedX402Payment the a2a-purchase reference example uses, never the raw signer. Cli + explicit
+  // allow: this is the human-run CLI entry (Sean), not an unstamped agent turn. agentId = the test
+  // buyer so the audit intent row names who is spending. buildX402Payment stays wrapped inside.
+  const xPaymentHeader = await guardedX402Payment({
+    origin: 'Cli',
+    policy: { allow: true },
+    agentId: BUYER_AGENT_ID,
     privateKey: process.env.TRUSTMESH_LIVE_WALLET_KEY.trim(),
     to: accept.payTo,
     amount: accept.maxAmountRequired,
     cap: price,
-    origin: 'Market',
     ...(accept.asset ? { asset: accept.asset } : {}),
   });
   log(`  signed x402 authorization from ${payerAddress} (EIP-3009, local sign)`);
