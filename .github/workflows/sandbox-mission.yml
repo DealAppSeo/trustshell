@@ -106,11 +106,21 @@ jobs:
           case "$live" in *"@$PINNED_DIGEST"*) echo "tag still points at the pin" ;; *) echo "::notice::node:22-alpine no longer matches the pin (or the lookup failed); the mission still runs the pinned digest" ;; esac
           docker pull -q "node:22-alpine@$PINNED_DIGEST"
 
-      - name: Compile the mission CLI
-        run: npx tsc --outDir "$RUNNER_TEMP/sbx" --rootDir src --module commonjs --target es2020 --esModuleInterop --skipLibCheck --strict --types node src/sandbox/cli.ts
+      - name: Compile the mission CLI and the C15 containment probes
+        run: npx tsc --outDir "$RUNNER_TEMP/sbx" --rootDir src --module commonjs --target es2020 --esModuleInterop --skipLibCheck --strict --types node src/sandbox/cli.ts src/sandbox/probes.ts
 
       - name: Run the mission, airlock, promotion gate, destroy + revoke, and sign the receipt
         run: node "$RUNNER_TEMP/sbx/sandbox/cli.js" run --runtime "$RUNTIME" --out "$RUNNER_TEMP/out" --work "$RUNNER_TEMP"
+
+      # C15: run BENIGN containment probes AS the mission worker, in the same disposable sandbox, and
+      # assert each is CONTAINED from what the worker could observe. No `if:` — this runs under BOTH
+      # runtimes (the matrix gives one leg each). It EXITS NON-ZERO if any probe is NOT contained, which
+      # fails this leg (fail-fast is off, so the other runtime still reports). Non-attack: 127.0.0.1 only,
+      # own files, one child process. Token exfil is #669 + the airlock filename fix; not duplicated.
+      # Resource exhaustion (fork bomb / memory) is left to the container's pids/memory limits (already
+      # re-verified by checkProfile) and is NOT run here (isolated-host-only).
+      - name: Live containment probes (C15), under ${{ matrix.runtime }}
+        run: node "$RUNNER_TEMP/sbx/sandbox/probes.js" --runtime "$RUNTIME" --work "$RUNNER_TEMP"
 
       # Separate step: only the receipt, the two public keys and the trusted store. The private keys
       # were deleted when the run step exited.
