@@ -49,7 +49,8 @@
  * because the CLI gates its local reads too (`guard init` lists them). Each maps to the CLI command it mirrors
  * (MCP_GUARD_TOOLS, the one table), so `tool:recall` in a policy means the same at both. A denied call answers
  * isError with the rule it broke; a policy that does not parse, is killed or expired, or cannot be read denies
- * (fail closed); no policy at all lets the call run, exactly as the CLI does (C9). Local guardrails for
+ * (fail closed); no policy at all lets the call run, exactly as the CLI does (C9), unless the opt-in
+ * TRUSTSHELL_REQUIRE_POLICY is set, which makes an absent policy fail closed too. Local guardrails for
  * cooperative agents, not a sandbox: anything running as the owner can edit the policy.
  *
  * There is no `redact` tool (SEC F8, 2026-10-16): it let any connected agent delete the operator's

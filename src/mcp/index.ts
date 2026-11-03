@@ -49,7 +49,8 @@
  * because the CLI gates its local reads too (`guard init` lists them). Each maps to the CLI command it mirrors
  * (MCP_GUARD_TOOLS, the one table), so `tool:recall` in a policy means the same at both. A denied call answers
  * isError with the rule it broke; a policy that does not parse, is killed or expired, or cannot be read denies
- * (fail closed); no policy at all lets the call run, exactly as the CLI does (C9). Local guardrails for
+ * (fail closed); no policy at all lets the call run, exactly as the CLI does (C9), unless the opt-in
+ * TRUSTSHELL_REQUIRE_POLICY is set, which makes an absent policy fail closed too. Local guardrails for
  * cooperative agents, not a sandbox: anything running as the owner can edit the policy.
  *
  * There is no `redact` tool (SEC F8, 2026-10-16): it let any connected agent delete the operator's
@@ -89,7 +90,8 @@ import { myJob } from '../lib/my-job';
 import { kernelReceipt } from '../lib/kernel-client';
 import { groundClaims, splitPages } from '../lib/ground';
 import { ingest } from '../lib/ingest';
-import { guardDecide, homeShadowWarning, trustshellHome, type AssuranceScope } from '../lib/guardrails';
+import { join } from 'node:path';
+import { guardDecide, homeShadowWarning, POLICY_FILE, requirePolicy, trustshellHome, type AssuranceScope } from '../lib/guardrails';
 
 /**
  * Package version — read from package.json at runtime, never retyped here.
@@ -211,7 +213,7 @@ export function mcpScope(tool: string): AssuranceScope {
     mediated: [`whether the MCP tool call ${tool} was allowed to start, checked in the trustshell-mcp process against the owner policy before it started`],
     not_mediated: [
       'what the tool does once started; its network calls are the ones its description names',
-      'a client that starts trustshell-mcp with a TRUSTSHELL_HOME holding no policy (the gate is off for it)',
+      'a client that starts trustshell-mcp with a TRUSTSHELL_HOME holding no policy (the gate is off for it, unless TRUSTSHELL_REQUIRE_POLICY is set)',
       'anything run without trustshell',
     ],
   };
@@ -227,7 +229,15 @@ export function mcpGuard(tool: string, env: NodeJS.ProcessEnv = process.env) {
   if (shadow) process.stderr.write(`trustshell-mcp: ${shadow}\n`); // stderr: stdout is the JSON-RPC channel
   try {
     const g = guardDecide(trustshellHome(env), { tool: MCP_GUARD_TOOLS[tool] ?? tool, class: 'other' }, mcpScope(tool), { origin: 'Mcp' });
-    if (!g || g.decision.decision === 'ALLOWED') return null;
+    if (!g) {
+      // No policy. Default: run the tool (C9 warn-and-allow). Opt-in TRUSTSHELL_REQUIRE_POLICY: fail closed with the
+      // same deny shape (isError) a DENIED decision returns.
+      if (requirePolicy(env)) {
+        return errorResult(`DENIED: no policy at ${join(trustshellHome(env), POLICY_FILE)} and TRUSTSHELL_REQUIRE_POLICY is set, so ${tool} was not run. trustshell guard init writes one.`);
+      }
+      return null;
+    }
+    if (g.decision.decision === 'ALLOWED') return null;
     return errorResult(
       `DENIED by the owner policy (${g.loaded.path}), record ${g.record.seq}: ${tool} is ${g.record.requested.action}; ${g.decision.reasons.join('; ')}. Nothing was run. trustshell guard show prints the policy.`,
     );

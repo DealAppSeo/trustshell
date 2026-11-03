@@ -256,6 +256,18 @@ describe('SDK action functions pass the Guard policy (C4)', () => {
       expect(records()).toEqual([]);
     });
 
+    it('C9 opt-in: TRUSTSHELL_REQUIRE_POLICY set + no policy throws GuardDeniedError and sends nothing; unset, it runs (unchanged)', async () => {
+      expect(existsSync(join(home(), POLICY_FILE))).toBe(false);
+      process.env.TRUSTSHELL_REQUIRE_POLICY = '1';
+      await expect(new sdk.TrustShell().listServices()).rejects.toMatchObject(deniedError);
+      expect(fetchCalls).toEqual([]);
+
+      delete process.env.TRUSTSHELL_REQUIRE_POLICY;
+      const page = await new sdk.TrustShell().listServices();
+      expect(page.services).toEqual([]);
+      expect(fetchCalls).toHaveLength(1);
+    });
+
     it('a TRUSTSHELL_HOME that hides the default policy warns on stderr, once per process, not once per call', async () => {
       const fakeHome = join(root, 'user');
       mkdirSync(join(fakeHome, '.trustshell'), { recursive: true });

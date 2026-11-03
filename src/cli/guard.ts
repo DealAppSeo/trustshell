@@ -42,6 +42,7 @@ import {
   policySigner,
   readLedger,
   renderPolicyDocument,
+  requirePolicy,
   resolveScript,
   trustshellHome,
   type AssuranceScope,
@@ -143,8 +144,17 @@ export async function runGuarded(args: ParsedArgs, inner: () => Promise<number>,
   const shadow = homeShadowWarning(env);
   if (shadow) io.err(shadow);
   const { req, refuse } = plannedAction(args);
-  const g = guardDecide(trustshellHome(env), req, CLI_SCOPE, { extraReasons: refuse ? [refuse] : [] });
-  if (!g) return inner();
+  const dir = trustshellHome(env);
+  const g = guardDecide(dir, req, CLI_SCOPE, { extraReasons: refuse ? [refuse] : [] });
+  if (!g) {
+    // No policy. Default: run `inner` exactly as before (C9 warn-and-allow). Opt-in TRUSTSHELL_REQUIRE_POLICY:
+    // fail closed, the same NOT_CHECKED-and-refuse `trustshell run` already does for an absent policy.
+    if (requirePolicy(env)) {
+      io.err(`NOT_CHECKED no policy at ${join(dir, POLICY_FILE)} and TRUSTSHELL_REQUIRE_POLICY is set: nothing was run. trustshell guard init writes one.`);
+      return EXIT_REFUSED;
+    }
+    return inner();
+  }
   if (g.decision.decision === 'DENIED') {
     io.err(`DENIED by the owner policy (${g.loaded.path}), record ${g.record.seq}:`);
     for (const r of g.decision.reasons) io.err(`  - ${r}`);

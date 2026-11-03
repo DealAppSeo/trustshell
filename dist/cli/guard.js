@@ -85,9 +85,17 @@ async function runGuarded(args, inner, io, env = process.env) {
     if (shadow)
         io.err(shadow);
     const { req, refuse } = plannedAction(args);
-    const g = (0, guardrails_1.guardDecide)((0, guardrails_1.trustshellHome)(env), req, exports.CLI_SCOPE, { extraReasons: refuse ? [refuse] : [] });
-    if (!g)
+    const dir = (0, guardrails_1.trustshellHome)(env);
+    const g = (0, guardrails_1.guardDecide)(dir, req, exports.CLI_SCOPE, { extraReasons: refuse ? [refuse] : [] });
+    if (!g) {
+        // No policy. Default: run `inner` exactly as before (C9 warn-and-allow). Opt-in TRUSTSHELL_REQUIRE_POLICY:
+        // fail closed, the same NOT_CHECKED-and-refuse `trustshell run` already does for an absent policy.
+        if ((0, guardrails_1.requirePolicy)(env)) {
+            io.err(`NOT_CHECKED no policy at ${(0, node_path_1.join)(dir, guardrails_1.POLICY_FILE)} and TRUSTSHELL_REQUIRE_POLICY is set: nothing was run. trustshell guard init writes one.`);
+            return exports.EXIT_REFUSED;
+        }
         return inner();
+    }
     if (g.decision.decision === 'DENIED') {
         io.err(`DENIED by the owner policy (${g.loaded.path}), record ${g.record.seq}:`);
         for (const r of g.decision.reasons)
