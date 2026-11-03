@@ -95,6 +95,7 @@
     "test:sdk-import": "npm run sdk:build && node tests/sdk-import-contract.mjs",
     "docs:honest-types": "node scripts/gen-honest-return-docs.mjs",
     "test:pack-x402": "node tests/pack-x402-guards.mjs",
+    "test:trustmesh-live": "node scripts/trustmesh-live-e2e.mjs",
     "proof-pack": "node scripts/proof-pack.mjs",
     "test:proof-pack-controls": "node tests/e2e/proof-pack-controls.mjs",
     "test:proof-pack-mutants": "node tests/e2e/proof-pack-mutants.mjs",
