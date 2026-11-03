@@ -15,7 +15,7 @@ exports.inspectOutbox = inspectOutbox;
  *
  * Refused: bad names (absolute, `..`, separators, control characters), symlinks, hardlinks, directories
  * (the outbox is flat), fifos/sockets/devices, oversize files, files with an executable bit (REFUSED, not
- * stripped), any file containing a registered canary, and any approval or policy the worker wrote about
+ * stripped), any file whose body or name contains a registered canary, and any approval or policy the worker wrote about
  * itself. Tool configs and proposed memory are quarantined but HELD: the promoter never auto-promotes them.
  */
 const node_crypto_1 = require("node:crypto");
@@ -155,6 +155,11 @@ function inspectOne(outbox, quarantine, name, index, o) {
     const hit = canaryHit(r.buf, o.canaries);
     if (hit >= 0)
         return refuse(`contains registered canary #${hit}`);
+    // A canary can ride out in the NAME too: a 64-hex token is a valid flat outbox name. Refuse it the
+    // same way as the body (C15), reusing the same literal substring match over the name bytes.
+    const nameHit = canaryHit(Buffer.from(name, 'utf8'), o.canaries);
+    if (nameHit >= 0)
+        return refuse(`contains registered canary #${nameHit} in the filename`);
     if (exports.REFUSED_CLASSES.includes(c.class))
         return refuse(`worker-written ${c.class} about itself`);
     const q = (0, node_path_1.join)(quarantine, c.sha256);
