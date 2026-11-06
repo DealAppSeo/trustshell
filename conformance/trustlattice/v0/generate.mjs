@@ -159,6 +159,36 @@ async function build() {
       options: { trustedRoots: [KEY] },
       expect: { schema: 'kernel-receipt/1', sealer_trusted: false, engine_envelope: 'ABSENT', downgraded: [], claims: C({ integrity: 'FAILED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_CHECKED', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
     },
+
+    // ── adversarial additions: each pins a DISTINCT verifier branch the vectors above do not exercise ──
+    {
+      id: 'array-reorder-tamper',
+      description: 'The same receipt with two decision.checks swapped. Canonicalization keeps ARRAY order (unlike object keys — contrast jcs-key-reorder), so the hash changes: integrity FAILS, the envelope no longer binds (PRESENT_UNBOUND), every read claim is fail-closed. Pins that array element order is load-bearing while key order is not.',
+      receipt: (() => { const r = clone(RECEIPT); const c = r.decision.checks; [c[0], c[1]] = [c[1], c[0]]; return r; })(),
+      options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: false, engine_envelope: 'PRESENT_UNBOUND', downgraded: [], claims: C({ integrity: 'FAILED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_CHECKED', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
+    },
+    {
+      id: 'malformed-trusted-root',
+      description: 'A pin that is not 0x+64 hex. The whole pin set is rejected before any signature check (fail-safe: a garbage pin trusts nothing — it does not throw, and never falls back to the header key), so the sealer is unconfirmed exactly as with no roots: integrity holds on the hash, the VERIFIED issuer attestations downgrade to NOT_CHECKED.',
+      receipt: RECEIPT,
+      options: { trustedRoots: ['0xdeadbeef'], engineEnvelope: ENVELOPE },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: false, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
+    },
+    {
+      id: 'expired-as-of-rfc3339',
+      description: 'Freshness anchored by an RFC3339 STRING one second past expiry (the shape the CLI --as-of passes). Parsed to the same instant as the numeric expired-as-of: authorization FAILS. Pins the Date.parse branch of asOfEpoch.',
+      receipt: RECEIPT,
+      options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE, asOf: new Date((EXPIRES_AT + 1) * 1000).toISOString() },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'VERIFIED' }) },
+    },
+    {
+      id: 'as-of-epoch-string',
+      description: 'Freshness anchored by epoch SECONDS passed as a string (a bare numeric CLI flag). The digit-string branch floors it to the same instant: authorization FAILS. A regression that dropped that branch would mis-parse it via Date.parse and leave authorization VERIFIED, so this is its own vector.',
+      receipt: RECEIPT,
+      options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE, asOf: String(EXPIRES_AT + 1) },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'VERIFIED' }) },
+    },
   ];
 
   const out = {

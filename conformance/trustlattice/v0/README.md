@@ -44,4 +44,7 @@ tests do); the **expected verdicts are authored against the spec**, not read bac
 `clean-valid-pinned` · `clean-valid-no-roots` (sealer-unconfirmed downgrade) · `jcs-key-reorder`
 (canonical-hash stability) · `byte-tamper-decision` · `untrusted-signer` · `expired-as-of` /
 `within-as-of` · `envelope-absent` · `envelope-unbound` · `unknown-schema` · `not-a-receipt` ·
-`v1-unsigned-no-roots` / `v1-unsigned-pin-downgrade`.
+`v1-unsigned-no-roots` / `v1-unsigned-pin-downgrade` · `array-reorder-tamper` (array order is
+load-bearing where key order is not) · `malformed-trusted-root` (a garbage pin trusts nothing) ·
+`expired-as-of-rfc3339` / `as-of-epoch-string` (the freshness anchor parses both the CLI's RFC3339
+and epoch-seconds forms).

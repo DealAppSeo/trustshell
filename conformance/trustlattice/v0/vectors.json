@@ -3095,6 +3095,1192 @@
           "containment": "NOT_CHECKED"
         }
       }
+    },
+    {
+      "id": "array-reorder-tamper",
+      "description": "The same receipt with two decision.checks swapped. Canonicalization keeps ARRAY order (unlike object keys — contrast jcs-key-reorder), so the hash changes: integrity FAILS, the envelope no longer binds (PRESENT_UNBOUND), every read claim is fail-closed. Pins that array element order is load-bearing while key order is not.",
+      "receipt": {
+        "header": {
+          "schema": "kernel-receipt/2",
+          "version": 2,
+          "receipt_id": "00000000-0000-4000-8000-000000000001",
+          "prev_receipt_id": null,
+          "prev_hash": null,
+          "created_at": "2027-01-15T08:00:00.000Z",
+          "receipt_hash": "0x3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462",
+          "env": {
+            "network": "base-sepolia",
+            "chain_id": 84532,
+            "is_simulated": true
+          },
+          "signer": {
+            "alg": "ed25519",
+            "public_key": "0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197",
+            "fingerprint": "0x72852912932120fb01e2ad446f26292e1631225c5aef0a8896205aee38fff8c8"
+          },
+          "signature": "0x71d464ff4a342a9df7fb2e9338727c06bdc84b38414bdea932e124096effa808ed7c917a46041aeb60efe0a92057aad11942a8e4b7e3531d9cff997020fb9d08"
+        },
+        "subject": {
+          "agent": {
+            "agent_id": "11111111-1111-4111-8111-111111111111",
+            "agent_name": "kernel-demo-agent"
+          },
+          "owner": {
+            "wallet": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "assurance": "wallet-proven",
+            "status": "resolved"
+          }
+        },
+        "request": {
+          "tool": {
+            "name": "x402.pay",
+            "class": "spend"
+          },
+          "origin": "Cli",
+          "args_hash": "0xd82cf87614b294f236e7d71bdbc831d606503ec1f6446013321450df46425440",
+          "amount_raw": "10000",
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "asset": "USDC",
+          "chain_id": 84532
+        },
+        "decision": {
+          "verdict": "ALLOW",
+          "blocking": false,
+          "executed": false,
+          "reasons": [],
+          "checks": [
+            {
+              "name": "owner_resolved",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "request_wellformed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_present",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "policy_subject",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_signer_is_owner",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "policy_signature",
+              "outcome": "PASS",
+              "source": "wallet-signature"
+            },
+            {
+              "name": "policy_unexpired",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_revocation",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "action_permitted",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "amount_valid",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "payee_allowed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "spend_totals",
+              "outcome": "PASS",
+              "source": "ledger"
+            },
+            {
+              "name": "spend_limit",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            }
+          ],
+          "does_not_attest": [
+            "cumulative_total (no atomic reservation)",
+            "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+            "tool_class (caller-asserted; there is no tool registry in the MVP)",
+            "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+            "laya (shadow mode; not consulted)",
+            "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+            "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+            "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+            "settlement (this is an authorisation, not an observed payment)",
+            "dry_preview (this receipt is not an authorization to execute)"
+          ],
+          "policy": {
+            "policy_hash": "0x78998686e713432000b7d2814379c6575a2cee1fa628a539e6d441698cd5beda",
+            "signer": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "signature": "VERIFIED",
+            "expires_at": 1800003600,
+            "revocation": "VERIFIED"
+          },
+          "limits": {
+            "per_tx_raw": "1000000",
+            "daily_raw": "5000000",
+            "total_raw": "20000000",
+            "effective_per_tx_raw": "1000000",
+            "binding_term": "per_tx"
+          },
+          "laya": {
+            "lane": null,
+            "mode": "shadow",
+            "consulted": false
+          }
+        },
+        "payment": {
+          "status": "AUTHORIZED",
+          "scheme": null,
+          "amount_raw": "10000",
+          "payer": null,
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "authorization_nonce": null,
+          "tx_hash": null,
+          "block": null,
+          "observed_amount_raw": null,
+          "settlement_evidence": "NOT_CHECKED",
+          "is_simulated": true
+        },
+        "verification": {
+          "status": "NOT_APPLICABLE",
+          "method": null,
+          "votes": [],
+          "verdict_label": "PROVISIONAL",
+          "settled_by": null,
+          "grounded": false,
+          "same_domain": false,
+          "is_simulated": true,
+          "counts_toward_band_restore": false
+        }
+      },
+      "options": {
+        "trustedRoots": [
+          "0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197"
+        ],
+        "engineEnvelope": {
+          "_type": "https://in-toto.io/Statement/v1",
+          "subject": [
+            {
+              "name": "kernel-receipt:00000000-0000-4000-8000-000000000001",
+              "digest": {
+                "keccak256": "3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462"
+              }
+            }
+          ],
+          "predicateType": "https://hyperdag.dev/predicates/trust-receipt-six-claims/v1",
+          "predicate": {
+            "claims": {
+              "integrity": {
+                "status": "VERIFIED",
+                "statement": "The record is whole: its hash matches its contents.",
+                "supports": [
+                  "receipt_hash recomputed over the canonical receipt: it matches",
+                  "chain root (no prev_hash)",
+                  "schema kernel-receipt/2"
+                ],
+                "gaps": [
+                  "the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+                  "the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)"
+                ]
+              },
+              "authenticity": {
+                "status": "VERIFIED",
+                "statement": "The action was authorized by the agent’s accountable owner.",
+                "supports": [
+                  "owner status resolved",
+                  "owner wallet 0xa1DEd137…",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "observation": {
+                "status": "NOT_CHECKED",
+                "statement": "A payment was observed settling on chain.",
+                "supports": [
+                  "payment status AUTHORIZED",
+                  "settlement_evidence NOT_CHECKED",
+                  "no tx hash"
+                ],
+                "gaps": [
+                  "authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+                  "simulated: no real value moved"
+                ]
+              },
+              "correctness": {
+                "status": "NOT_APPLICABLE",
+                "statement": "No content verification was part of this call.",
+                "supports": [
+                  "verification NOT_APPLICABLE"
+                ],
+                "gaps": []
+              },
+              "authorization": {
+                "status": "VERIFIED",
+                "statement": "The kernel permitted this action under the policy it was given.",
+                "supports": [
+                  "verdict ALLOW",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "containment": {
+                "status": "VERIFIED",
+                "statement": "The tool ran only under an ALLOW decision.",
+                "supports": [
+                  "executed false",
+                  "verdict ALLOW"
+                ],
+                "gaps": [
+                  "tool_class is caller-asserted; there is no tool registry in the MVP",
+                  "the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+                ]
+              }
+            },
+            "what_this_does_not_establish": [
+              "cumulative_total (no atomic reservation)",
+              "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+              "tool_class (caller-asserted; there is no tool registry in the MVP)",
+              "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+              "laya (shadow mode; not consulted)",
+              "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+              "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+              "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+              "settlement (this is an authorisation, not an observed payment)",
+              "dry_preview (this receipt is not an authorization to execute)",
+              "integrity: the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+              "integrity: the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)",
+              "observation: authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+              "observation: simulated: no real value moved",
+              "containment: tool_class is caller-asserted; there is no tool registry in the MVP",
+              "containment: the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+            ]
+          }
+        }
+      },
+      "expect": {
+        "schema": "kernel-receipt/2",
+        "sealer_trusted": false,
+        "engine_envelope": "PRESENT_UNBOUND",
+        "downgraded": [],
+        "claims": {
+          "integrity": "FAILED",
+          "authenticity": "NOT_CHECKED",
+          "observation": "NOT_CHECKED",
+          "correctness": "NOT_CHECKED",
+          "authorization": "NOT_CHECKED",
+          "containment": "NOT_CHECKED"
+        }
+      }
+    },
+    {
+      "id": "malformed-trusted-root",
+      "description": "A pin that is not 0x+64 hex. The whole pin set is rejected before any signature check (fail-safe: a garbage pin trusts nothing — it does not throw, and never falls back to the header key), so the sealer is unconfirmed exactly as with no roots: integrity holds on the hash, the VERIFIED issuer attestations downgrade to NOT_CHECKED.",
+      "receipt": {
+        "header": {
+          "schema": "kernel-receipt/2",
+          "version": 2,
+          "receipt_id": "00000000-0000-4000-8000-000000000001",
+          "prev_receipt_id": null,
+          "prev_hash": null,
+          "created_at": "2027-01-15T08:00:00.000Z",
+          "receipt_hash": "0x3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462",
+          "env": {
+            "network": "base-sepolia",
+            "chain_id": 84532,
+            "is_simulated": true
+          },
+          "signer": {
+            "alg": "ed25519",
+            "public_key": "0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197",
+            "fingerprint": "0x72852912932120fb01e2ad446f26292e1631225c5aef0a8896205aee38fff8c8"
+          },
+          "signature": "0x71d464ff4a342a9df7fb2e9338727c06bdc84b38414bdea932e124096effa808ed7c917a46041aeb60efe0a92057aad11942a8e4b7e3531d9cff997020fb9d08"
+        },
+        "subject": {
+          "agent": {
+            "agent_id": "11111111-1111-4111-8111-111111111111",
+            "agent_name": "kernel-demo-agent"
+          },
+          "owner": {
+            "wallet": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "assurance": "wallet-proven",
+            "status": "resolved"
+          }
+        },
+        "request": {
+          "tool": {
+            "name": "x402.pay",
+            "class": "spend"
+          },
+          "origin": "Cli",
+          "args_hash": "0xd82cf87614b294f236e7d71bdbc831d606503ec1f6446013321450df46425440",
+          "amount_raw": "10000",
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "asset": "USDC",
+          "chain_id": 84532
+        },
+        "decision": {
+          "verdict": "ALLOW",
+          "blocking": false,
+          "executed": false,
+          "reasons": [],
+          "checks": [
+            {
+              "name": "request_wellformed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "owner_resolved",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "policy_present",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "policy_subject",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_signer_is_owner",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "policy_signature",
+              "outcome": "PASS",
+              "source": "wallet-signature"
+            },
+            {
+              "name": "policy_unexpired",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_revocation",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "action_permitted",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "amount_valid",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "payee_allowed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "spend_totals",
+              "outcome": "PASS",
+              "source": "ledger"
+            },
+            {
+              "name": "spend_limit",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            }
+          ],
+          "does_not_attest": [
+            "cumulative_total (no atomic reservation)",
+            "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+            "tool_class (caller-asserted; there is no tool registry in the MVP)",
+            "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+            "laya (shadow mode; not consulted)",
+            "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+            "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+            "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+            "settlement (this is an authorisation, not an observed payment)",
+            "dry_preview (this receipt is not an authorization to execute)"
+          ],
+          "policy": {
+            "policy_hash": "0x78998686e713432000b7d2814379c6575a2cee1fa628a539e6d441698cd5beda",
+            "signer": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "signature": "VERIFIED",
+            "expires_at": 1800003600,
+            "revocation": "VERIFIED"
+          },
+          "limits": {
+            "per_tx_raw": "1000000",
+            "daily_raw": "5000000",
+            "total_raw": "20000000",
+            "effective_per_tx_raw": "1000000",
+            "binding_term": "per_tx"
+          },
+          "laya": {
+            "lane": null,
+            "mode": "shadow",
+            "consulted": false
+          }
+        },
+        "payment": {
+          "status": "AUTHORIZED",
+          "scheme": null,
+          "amount_raw": "10000",
+          "payer": null,
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "authorization_nonce": null,
+          "tx_hash": null,
+          "block": null,
+          "observed_amount_raw": null,
+          "settlement_evidence": "NOT_CHECKED",
+          "is_simulated": true
+        },
+        "verification": {
+          "status": "NOT_APPLICABLE",
+          "method": null,
+          "votes": [],
+          "verdict_label": "PROVISIONAL",
+          "settled_by": null,
+          "grounded": false,
+          "same_domain": false,
+          "is_simulated": true,
+          "counts_toward_band_restore": false
+        }
+      },
+      "options": {
+        "trustedRoots": [
+          "0xdeadbeef"
+        ],
+        "engineEnvelope": {
+          "_type": "https://in-toto.io/Statement/v1",
+          "subject": [
+            {
+              "name": "kernel-receipt:00000000-0000-4000-8000-000000000001",
+              "digest": {
+                "keccak256": "3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462"
+              }
+            }
+          ],
+          "predicateType": "https://hyperdag.dev/predicates/trust-receipt-six-claims/v1",
+          "predicate": {
+            "claims": {
+              "integrity": {
+                "status": "VERIFIED",
+                "statement": "The record is whole: its hash matches its contents.",
+                "supports": [
+                  "receipt_hash recomputed over the canonical receipt: it matches",
+                  "chain root (no prev_hash)",
+                  "schema kernel-receipt/2"
+                ],
+                "gaps": [
+                  "the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+                  "the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)"
+                ]
+              },
+              "authenticity": {
+                "status": "VERIFIED",
+                "statement": "The action was authorized by the agent’s accountable owner.",
+                "supports": [
+                  "owner status resolved",
+                  "owner wallet 0xa1DEd137…",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "observation": {
+                "status": "NOT_CHECKED",
+                "statement": "A payment was observed settling on chain.",
+                "supports": [
+                  "payment status AUTHORIZED",
+                  "settlement_evidence NOT_CHECKED",
+                  "no tx hash"
+                ],
+                "gaps": [
+                  "authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+                  "simulated: no real value moved"
+                ]
+              },
+              "correctness": {
+                "status": "NOT_APPLICABLE",
+                "statement": "No content verification was part of this call.",
+                "supports": [
+                  "verification NOT_APPLICABLE"
+                ],
+                "gaps": []
+              },
+              "authorization": {
+                "status": "VERIFIED",
+                "statement": "The kernel permitted this action under the policy it was given.",
+                "supports": [
+                  "verdict ALLOW",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "containment": {
+                "status": "VERIFIED",
+                "statement": "The tool ran only under an ALLOW decision.",
+                "supports": [
+                  "executed false",
+                  "verdict ALLOW"
+                ],
+                "gaps": [
+                  "tool_class is caller-asserted; there is no tool registry in the MVP",
+                  "the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+                ]
+              }
+            },
+            "what_this_does_not_establish": [
+              "cumulative_total (no atomic reservation)",
+              "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+              "tool_class (caller-asserted; there is no tool registry in the MVP)",
+              "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+              "laya (shadow mode; not consulted)",
+              "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+              "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+              "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+              "settlement (this is an authorisation, not an observed payment)",
+              "dry_preview (this receipt is not an authorization to execute)",
+              "integrity: the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+              "integrity: the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)",
+              "observation: authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+              "observation: simulated: no real value moved",
+              "containment: tool_class is caller-asserted; there is no tool registry in the MVP",
+              "containment: the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+            ]
+          }
+        }
+      },
+      "expect": {
+        "schema": "kernel-receipt/2",
+        "sealer_trusted": false,
+        "engine_envelope": "BOUND",
+        "downgraded": [
+          "authenticity",
+          "authorization",
+          "containment"
+        ],
+        "claims": {
+          "integrity": "VERIFIED",
+          "authenticity": "NOT_CHECKED",
+          "observation": "NOT_CHECKED",
+          "correctness": "NOT_APPLICABLE",
+          "authorization": "NOT_CHECKED",
+          "containment": "NOT_CHECKED"
+        }
+      }
+    },
+    {
+      "id": "expired-as-of-rfc3339",
+      "description": "Freshness anchored by an RFC3339 STRING one second past expiry (the shape the CLI --as-of passes). Parsed to the same instant as the numeric expired-as-of: authorization FAILS. Pins the Date.parse branch of asOfEpoch.",
+      "receipt": {
+        "header": {
+          "schema": "kernel-receipt/2",
+          "version": 2,
+          "receipt_id": "00000000-0000-4000-8000-000000000001",
+          "prev_receipt_id": null,
+          "prev_hash": null,
+          "created_at": "2027-01-15T08:00:00.000Z",
+          "receipt_hash": "0x3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462",
+          "env": {
+            "network": "base-sepolia",
+            "chain_id": 84532,
+            "is_simulated": true
+          },
+          "signer": {
+            "alg": "ed25519",
+            "public_key": "0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197",
+            "fingerprint": "0x72852912932120fb01e2ad446f26292e1631225c5aef0a8896205aee38fff8c8"
+          },
+          "signature": "0x71d464ff4a342a9df7fb2e9338727c06bdc84b38414bdea932e124096effa808ed7c917a46041aeb60efe0a92057aad11942a8e4b7e3531d9cff997020fb9d08"
+        },
+        "subject": {
+          "agent": {
+            "agent_id": "11111111-1111-4111-8111-111111111111",
+            "agent_name": "kernel-demo-agent"
+          },
+          "owner": {
+            "wallet": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "assurance": "wallet-proven",
+            "status": "resolved"
+          }
+        },
+        "request": {
+          "tool": {
+            "name": "x402.pay",
+            "class": "spend"
+          },
+          "origin": "Cli",
+          "args_hash": "0xd82cf87614b294f236e7d71bdbc831d606503ec1f6446013321450df46425440",
+          "amount_raw": "10000",
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "asset": "USDC",
+          "chain_id": 84532
+        },
+        "decision": {
+          "verdict": "ALLOW",
+          "blocking": false,
+          "executed": false,
+          "reasons": [],
+          "checks": [
+            {
+              "name": "request_wellformed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "owner_resolved",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "policy_present",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "policy_subject",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_signer_is_owner",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "policy_signature",
+              "outcome": "PASS",
+              "source": "wallet-signature"
+            },
+            {
+              "name": "policy_unexpired",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_revocation",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "action_permitted",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "amount_valid",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "payee_allowed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "spend_totals",
+              "outcome": "PASS",
+              "source": "ledger"
+            },
+            {
+              "name": "spend_limit",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            }
+          ],
+          "does_not_attest": [
+            "cumulative_total (no atomic reservation)",
+            "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+            "tool_class (caller-asserted; there is no tool registry in the MVP)",
+            "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+            "laya (shadow mode; not consulted)",
+            "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+            "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+            "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+            "settlement (this is an authorisation, not an observed payment)",
+            "dry_preview (this receipt is not an authorization to execute)"
+          ],
+          "policy": {
+            "policy_hash": "0x78998686e713432000b7d2814379c6575a2cee1fa628a539e6d441698cd5beda",
+            "signer": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "signature": "VERIFIED",
+            "expires_at": 1800003600,
+            "revocation": "VERIFIED"
+          },
+          "limits": {
+            "per_tx_raw": "1000000",
+            "daily_raw": "5000000",
+            "total_raw": "20000000",
+            "effective_per_tx_raw": "1000000",
+            "binding_term": "per_tx"
+          },
+          "laya": {
+            "lane": null,
+            "mode": "shadow",
+            "consulted": false
+          }
+        },
+        "payment": {
+          "status": "AUTHORIZED",
+          "scheme": null,
+          "amount_raw": "10000",
+          "payer": null,
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "authorization_nonce": null,
+          "tx_hash": null,
+          "block": null,
+          "observed_amount_raw": null,
+          "settlement_evidence": "NOT_CHECKED",
+          "is_simulated": true
+        },
+        "verification": {
+          "status": "NOT_APPLICABLE",
+          "method": null,
+          "votes": [],
+          "verdict_label": "PROVISIONAL",
+          "settled_by": null,
+          "grounded": false,
+          "same_domain": false,
+          "is_simulated": true,
+          "counts_toward_band_restore": false
+        }
+      },
+      "options": {
+        "trustedRoots": [
+          "0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197"
+        ],
+        "engineEnvelope": {
+          "_type": "https://in-toto.io/Statement/v1",
+          "subject": [
+            {
+              "name": "kernel-receipt:00000000-0000-4000-8000-000000000001",
+              "digest": {
+                "keccak256": "3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462"
+              }
+            }
+          ],
+          "predicateType": "https://hyperdag.dev/predicates/trust-receipt-six-claims/v1",
+          "predicate": {
+            "claims": {
+              "integrity": {
+                "status": "VERIFIED",
+                "statement": "The record is whole: its hash matches its contents.",
+                "supports": [
+                  "receipt_hash recomputed over the canonical receipt: it matches",
+                  "chain root (no prev_hash)",
+                  "schema kernel-receipt/2"
+                ],
+                "gaps": [
+                  "the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+                  "the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)"
+                ]
+              },
+              "authenticity": {
+                "status": "VERIFIED",
+                "statement": "The action was authorized by the agent’s accountable owner.",
+                "supports": [
+                  "owner status resolved",
+                  "owner wallet 0xa1DEd137…",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "observation": {
+                "status": "NOT_CHECKED",
+                "statement": "A payment was observed settling on chain.",
+                "supports": [
+                  "payment status AUTHORIZED",
+                  "settlement_evidence NOT_CHECKED",
+                  "no tx hash"
+                ],
+                "gaps": [
+                  "authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+                  "simulated: no real value moved"
+                ]
+              },
+              "correctness": {
+                "status": "NOT_APPLICABLE",
+                "statement": "No content verification was part of this call.",
+                "supports": [
+                  "verification NOT_APPLICABLE"
+                ],
+                "gaps": []
+              },
+              "authorization": {
+                "status": "VERIFIED",
+                "statement": "The kernel permitted this action under the policy it was given.",
+                "supports": [
+                  "verdict ALLOW",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "containment": {
+                "status": "VERIFIED",
+                "statement": "The tool ran only under an ALLOW decision.",
+                "supports": [
+                  "executed false",
+                  "verdict ALLOW"
+                ],
+                "gaps": [
+                  "tool_class is caller-asserted; there is no tool registry in the MVP",
+                  "the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+                ]
+              }
+            },
+            "what_this_does_not_establish": [
+              "cumulative_total (no atomic reservation)",
+              "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+              "tool_class (caller-asserted; there is no tool registry in the MVP)",
+              "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+              "laya (shadow mode; not consulted)",
+              "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+              "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+              "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+              "settlement (this is an authorisation, not an observed payment)",
+              "dry_preview (this receipt is not an authorization to execute)",
+              "integrity: the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+              "integrity: the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)",
+              "observation: authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+              "observation: simulated: no real value moved",
+              "containment: tool_class is caller-asserted; there is no tool registry in the MVP",
+              "containment: the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+            ]
+          }
+        },
+        "asOf": "2027-01-15T09:00:01.000Z"
+      },
+      "expect": {
+        "schema": "kernel-receipt/2",
+        "sealer_trusted": true,
+        "engine_envelope": "BOUND",
+        "downgraded": [],
+        "claims": {
+          "integrity": "VERIFIED",
+          "authenticity": "VERIFIED",
+          "observation": "NOT_CHECKED",
+          "correctness": "NOT_APPLICABLE",
+          "authorization": "FAILED",
+          "containment": "VERIFIED"
+        }
+      }
+    },
+    {
+      "id": "as-of-epoch-string",
+      "description": "Freshness anchored by epoch SECONDS passed as a string (a bare numeric CLI flag). The digit-string branch floors it to the same instant: authorization FAILS. A regression that dropped that branch would mis-parse it via Date.parse and leave authorization VERIFIED, so this is its own vector.",
+      "receipt": {
+        "header": {
+          "schema": "kernel-receipt/2",
+          "version": 2,
+          "receipt_id": "00000000-0000-4000-8000-000000000001",
+          "prev_receipt_id": null,
+          "prev_hash": null,
+          "created_at": "2027-01-15T08:00:00.000Z",
+          "receipt_hash": "0x3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462",
+          "env": {
+            "network": "base-sepolia",
+            "chain_id": 84532,
+            "is_simulated": true
+          },
+          "signer": {
+            "alg": "ed25519",
+            "public_key": "0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197",
+            "fingerprint": "0x72852912932120fb01e2ad446f26292e1631225c5aef0a8896205aee38fff8c8"
+          },
+          "signature": "0x71d464ff4a342a9df7fb2e9338727c06bdc84b38414bdea932e124096effa808ed7c917a46041aeb60efe0a92057aad11942a8e4b7e3531d9cff997020fb9d08"
+        },
+        "subject": {
+          "agent": {
+            "agent_id": "11111111-1111-4111-8111-111111111111",
+            "agent_name": "kernel-demo-agent"
+          },
+          "owner": {
+            "wallet": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "assurance": "wallet-proven",
+            "status": "resolved"
+          }
+        },
+        "request": {
+          "tool": {
+            "name": "x402.pay",
+            "class": "spend"
+          },
+          "origin": "Cli",
+          "args_hash": "0xd82cf87614b294f236e7d71bdbc831d606503ec1f6446013321450df46425440",
+          "amount_raw": "10000",
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "asset": "USDC",
+          "chain_id": 84532
+        },
+        "decision": {
+          "verdict": "ALLOW",
+          "blocking": false,
+          "executed": false,
+          "reasons": [],
+          "checks": [
+            {
+              "name": "request_wellformed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "owner_resolved",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "policy_present",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "policy_subject",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_signer_is_owner",
+              "outcome": "PASS",
+              "source": "accountable-root"
+            },
+            {
+              "name": "policy_signature",
+              "outcome": "PASS",
+              "source": "wallet-signature"
+            },
+            {
+              "name": "policy_unexpired",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "policy_revocation",
+              "outcome": "PASS",
+              "source": "policy-store"
+            },
+            {
+              "name": "action_permitted",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "amount_valid",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "payee_allowed",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            },
+            {
+              "name": "spend_totals",
+              "outcome": "PASS",
+              "source": "ledger"
+            },
+            {
+              "name": "spend_limit",
+              "outcome": "PASS",
+              "source": "kernel/decide"
+            }
+          ],
+          "does_not_attest": [
+            "cumulative_total (no atomic reservation)",
+            "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+            "tool_class (caller-asserted; there is no tool registry in the MVP)",
+            "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+            "laya (shadow mode; not consulted)",
+            "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+            "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+            "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+            "settlement (this is an authorisation, not an observed payment)",
+            "dry_preview (this receipt is not an authorization to execute)"
+          ],
+          "policy": {
+            "policy_hash": "0x78998686e713432000b7d2814379c6575a2cee1fa628a539e6d441698cd5beda",
+            "signer": "0xa1DEd137a8afD0EE6c2Cff42D7a292ED77FB1645",
+            "signature": "VERIFIED",
+            "expires_at": 1800003600,
+            "revocation": "VERIFIED"
+          },
+          "limits": {
+            "per_tx_raw": "1000000",
+            "daily_raw": "5000000",
+            "total_raw": "20000000",
+            "effective_per_tx_raw": "1000000",
+            "binding_term": "per_tx"
+          },
+          "laya": {
+            "lane": null,
+            "mode": "shadow",
+            "consulted": false
+          }
+        },
+        "payment": {
+          "status": "AUTHORIZED",
+          "scheme": null,
+          "amount_raw": "10000",
+          "payer": null,
+          "payee": "0x000000000000000000000000000000000000dEaD",
+          "authorization_nonce": null,
+          "tx_hash": null,
+          "block": null,
+          "observed_amount_raw": null,
+          "settlement_evidence": "NOT_CHECKED",
+          "is_simulated": true
+        },
+        "verification": {
+          "status": "NOT_APPLICABLE",
+          "method": null,
+          "votes": [],
+          "verdict_label": "PROVISIONAL",
+          "settled_by": null,
+          "grounded": false,
+          "same_domain": false,
+          "is_simulated": true,
+          "counts_toward_band_restore": false
+        }
+      },
+      "options": {
+        "trustedRoots": [
+          "0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197"
+        ],
+        "engineEnvelope": {
+          "_type": "https://in-toto.io/Statement/v1",
+          "subject": [
+            {
+              "name": "kernel-receipt:00000000-0000-4000-8000-000000000001",
+              "digest": {
+                "keccak256": "3a3d2adb1a6187232bd8aa7d7dcc582485eb917fc82b72d920d42e0df72ec462"
+              }
+            }
+          ],
+          "predicateType": "https://hyperdag.dev/predicates/trust-receipt-six-claims/v1",
+          "predicate": {
+            "claims": {
+              "integrity": {
+                "status": "VERIFIED",
+                "statement": "The record is whole: its hash matches its contents.",
+                "supports": [
+                  "receipt_hash recomputed over the canonical receipt: it matches",
+                  "chain root (no prev_hash)",
+                  "schema kernel-receipt/2"
+                ],
+                "gaps": [
+                  "the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+                  "the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)"
+                ]
+              },
+              "authenticity": {
+                "status": "VERIFIED",
+                "statement": "The action was authorized by the agent’s accountable owner.",
+                "supports": [
+                  "owner status resolved",
+                  "owner wallet 0xa1DEd137…",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "observation": {
+                "status": "NOT_CHECKED",
+                "statement": "A payment was observed settling on chain.",
+                "supports": [
+                  "payment status AUTHORIZED",
+                  "settlement_evidence NOT_CHECKED",
+                  "no tx hash"
+                ],
+                "gaps": [
+                  "authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+                  "simulated: no real value moved"
+                ]
+              },
+              "correctness": {
+                "status": "NOT_APPLICABLE",
+                "statement": "No content verification was part of this call.",
+                "supports": [
+                  "verification NOT_APPLICABLE"
+                ],
+                "gaps": []
+              },
+              "authorization": {
+                "status": "VERIFIED",
+                "statement": "The kernel permitted this action under the policy it was given.",
+                "supports": [
+                  "verdict ALLOW",
+                  "policy signature VERIFIED"
+                ],
+                "gaps": []
+              },
+              "containment": {
+                "status": "VERIFIED",
+                "statement": "The tool ran only under an ALLOW decision.",
+                "supports": [
+                  "executed false",
+                  "verdict ALLOW"
+                ],
+                "gaps": [
+                  "tool_class is caller-asserted; there is no tool registry in the MVP",
+                  "the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+                ]
+              }
+            },
+            "what_this_does_not_establish": [
+              "cumulative_total (no atomic reservation)",
+              "total_cap_scope (the total limit is per policy version, not lifetime: it is keyed to the policy hash, which includes the nonce, so it resets when a policy is superseded)",
+              "tool_class (caller-asserted; there is no tool registry in the MVP)",
+              "explicit_revocation (revocation is supersession by a higher nonce inside this ledger only)",
+              "laya (shadow mode; not consulted)",
+              "signer_trust (the signature proves which key sealed this receipt, not that the key is the engine's: a verifier checks header.signer against its own trusted list)",
+              "asset_and_chain (the owner policy does not constrain which asset or chain a spend uses)",
+              "declared_payment_fields (amount and payee are as the caller declared them; the kernel does not observe what the tool then pays)",
+              "settlement (this is an authorisation, not an observed payment)",
+              "dry_preview (this receipt is not an authorization to execute)",
+              "integrity: the Ed25519 signature is not checked here: verifyReceiptAuthenticity checks it against a trusted signer list",
+              "integrity: the chain is not checked here: prev_hash is reported, not compared with the previous receipt (verifyReceiptChain does that)",
+              "observation: authorized is not observed: nothing was read back from the chain (settlement_evidence NOT_CHECKED)",
+              "observation: simulated: no real value moved",
+              "containment: tool_class is caller-asserted; there is no tool registry in the MVP",
+              "containment: the tool is a closure the kernel does not see into — what it did beyond the gated decision is not observed here"
+            ]
+          }
+        },
+        "asOf": "1800003601"
+      },
+      "expect": {
+        "schema": "kernel-receipt/2",
+        "sealer_trusted": true,
+        "engine_envelope": "BOUND",
+        "downgraded": [],
+        "claims": {
+          "integrity": "VERIFIED",
+          "authenticity": "VERIFIED",
+          "observation": "NOT_CHECKED",
+          "correctness": "NOT_APPLICABLE",
+          "authorization": "FAILED",
+          "containment": "VERIFIED"
+        }
+      }
     }
   ]
 }
