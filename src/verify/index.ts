@@ -13,12 +13,17 @@
  */
 export {
   verifyReceiptOffline,
+  verifyReceiptChain,
   TRUSTLATTICE_VERDICT_SPEC,
 } from '../lib/verify-receipt';
 export type {
   OfflineVerifyOptions,
   OfflineVerifyResult,
   ClaimSource,
+  OfflineVerifyChainOptions,
+  OfflineVerifyChainResult,
+  ChainLink,
+  ChainStatus,
 } from '../lib/verify-receipt';
 
 /** The verdict taxonomy and the pure primitives, so a consumer can reproduce canonical bytes themselves. */

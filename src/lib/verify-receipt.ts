@@ -277,3 +277,116 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
     limitations: [...OFFLINE_LIMITATIONS, ...dne],
   };
 }
+
+// ── chain walk: close the standing prev_hash gap across an ordered sequence of receipts ──
+//
+// The single-receipt verifier leaves prev_hash as an `integrity` gap ("reported, not compared —
+// verifyReceiptChain does that"). This is that step: given receipts oldest→newest, it verifies each
+// one offline AND that each later receipt carries the prior one's receipt_id and recomputed hash.
+// It only ever establishes INTERNAL consistency of the supplied sequence; it does not claim index 0
+// is the true genesis (a sub-chain legitimately starts mid-stream), and it is fail-closed: one
+// untrusted, tampered, or unlinkable receipt fails the whole chain.
+
+export interface OfflineVerifyChainOptions {
+  /** Applied to every receipt (see verifyReceiptOffline). */
+  trustedRoots?: readonly string[];
+  asOf?: string | number;
+  /** Optional six-claim envelopes, parallel to `receipts` (index i belongs to receipt i). */
+  engineEnvelopes?: readonly unknown[];
+}
+
+export type ChainStatus = 'VERIFIED' | 'FAILED' | 'NOT_CHECKED' | 'EMPTY';
+
+export interface ChainLink {
+  index: number;
+  receipt_id: string | null;
+  /** The per-receipt offline verdict (integrity, sealer, the six claims). */
+  verdict: OfflineVerifyResult;
+  link: {
+    /** NOT_APPLICABLE at index 0 (the chain root has no prior receipt here to compare against). */
+    status: SixClaimStatus | 'NOT_APPLICABLE';
+    /** The recomputed hash of index i-1 that this receipt's prev_hash must equal. */
+    expected_prev_hash: string | null;
+    /** What this receipt's header actually carries. */
+    actual_prev_hash: string | null;
+    notes: string[];
+  };
+}
+
+export interface OfflineVerifyChainResult {
+  spec: typeof TRUSTLATTICE_VERDICT_SPEC;
+  length: number;
+  /** VERIFIED only when every receipt's integrity is VERIFIED AND every i≥1 links to i-1. */
+  chain: ChainStatus;
+  links: ChainLink[];
+  /** First index whose integrity or link hard-failed; null when the chain is whole or empty. */
+  broken_at: number | null;
+  limitations: string[];
+}
+
+const CHAIN_LIMITATIONS = [
+  'The chain is verified only INTERNALLY: index 0 is the root of the supplied sequence (its prev pointers are reported, not compared), and each later receipt is checked to carry the prior one’s receipt_id and recomputed hash. This does not assert index 0 is the true genesis.',
+  'A chain is VERIFIED only when every receipt’s own integrity is VERIFIED and every link matches; one untrusted, tampered, or unlinkable receipt fails the whole chain. NOT_CHECKED (e.g. a hash could not be recomputed) is never a pass.',
+];
+
+/**
+ * Verify a sequence of kernel receipts (oldest→newest) offline. NEVER THROWS. Each receipt is run
+ * through {@link verifyReceiptOffline}; consecutive receipts are checked for a matching
+ * (prev_receipt_id, prev_hash) → (receipt_id, recomputed hash) link. Fail-closed roll-up.
+ */
+export async function verifyReceiptChain(receipts: readonly unknown[], opts: OfflineVerifyChainOptions = {}): Promise<OfflineVerifyChainResult> {
+  if (!Array.isArray(receipts) || receipts.length === 0) {
+    return { spec: TRUSTLATTICE_VERDICT_SPEC, length: 0, chain: 'EMPTY', links: [], broken_at: null, limitations: [...CHAIN_LIMITATIONS] };
+  }
+
+  const links: ChainLink[] = [];
+  let anyFailed = false;
+  let anyNotChecked = false;
+  let brokenAt: number | null = null;
+
+  for (let i = 0; i < receipts.length; i++) {
+    const verdict = await verifyReceiptOffline(receipts[i], { trustedRoots: opts.trustedRoots, asOf: opts.asOf, engineEnvelope: opts.engineEnvelopes?.[i] });
+    const header = isObj(receipts[i]) && isObj((receipts[i] as Record<string, unknown>)['header']) ? ((receipts[i] as Record<string, unknown>)['header'] as Record<string, unknown>) : null;
+    const actualPrevHash = header && typeof header['prev_hash'] === 'string' ? (header['prev_hash'] as string) : null;
+    const actualPrevId = header && typeof header['prev_receipt_id'] === 'string' ? (header['prev_receipt_id'] as string) : null;
+    const integrity = verdict.claims.integrity.status;
+
+    const notes: string[] = [];
+    let status: SixClaimStatus | 'NOT_APPLICABLE';
+    let expectedPrevHash: string | null = null;
+
+    if (i === 0) {
+      status = 'NOT_APPLICABLE';
+      notes.push('chain root: prev_hash and prev_receipt_id are reported, not compared (no prior receipt was supplied)');
+    } else {
+      const prior = links[i - 1];
+      expectedPrevHash = prior.verdict.receipt_hash;
+      const priorId = prior.verdict.receipt_id;
+      if (integrity === 'NOT_CHECKED' || prior.verdict.claims.integrity.status === 'NOT_CHECKED') {
+        status = 'NOT_CHECKED';
+        notes.push('a receipt hash could not be recomputed, so the link could not be checked');
+      } else {
+        const hashMatch = expectedPrevHash !== null && actualPrevHash !== null && actualPrevHash.toLowerCase() === expectedPrevHash.toLowerCase();
+        const idMatch = priorId !== null && actualPrevId !== null && actualPrevId === priorId;
+        if (hashMatch && idMatch) {
+          status = 'VERIFIED';
+          notes.push(`links to ${priorId}: prev_hash matches the recomputed hash of index ${i - 1}`);
+        } else {
+          status = 'FAILED';
+          if (!hashMatch) notes.push(`prev_hash ${actualPrevHash ?? 'null'} does not match the recomputed hash ${expectedPrevHash ?? 'null'} of index ${i - 1}`);
+          if (!idMatch) notes.push(`prev_receipt_id ${actualPrevId ?? 'null'} does not match receipt_id ${priorId ?? 'null'} of index ${i - 1}`);
+        }
+      }
+    }
+
+    links.push({ index: i, receipt_id: verdict.receipt_id, verdict, link: { status, expected_prev_hash: expectedPrevHash, actual_prev_hash: actualPrevHash, notes } });
+
+    const hardFail = status === 'FAILED' || integrity === 'FAILED';
+    if (hardFail) { anyFailed = true; if (brokenAt === null) brokenAt = i; }
+    if (status === 'NOT_CHECKED' || integrity === 'NOT_CHECKED') anyNotChecked = true;
+  }
+
+  // Fail-closed precedence: any hard failure → FAILED; else anything uncheckable → NOT_CHECKED; else VERIFIED.
+  const chain: ChainStatus = anyFailed ? 'FAILED' : anyNotChecked ? 'NOT_CHECKED' : 'VERIFIED';
+  return { spec: TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations: [...CHAIN_LIMITATIONS] };
+}
