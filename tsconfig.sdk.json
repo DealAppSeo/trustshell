@@ -12,6 +12,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/lib/**/*", "src/cli/**/*", "src/mcp/**/*"],
+  "include": ["src/lib/**/*", "src/cli/**/*", "src/mcp/**/*", "src/verify/**/*"],
   "exclude": ["node_modules", "dist"]
 }
