@@ -97,7 +97,9 @@ const OFFLINE_LIMITATIONS = [
 function asOfEpoch(asOf: string | number | undefined): number | null {
   if (asOf === undefined || asOf === null) return null;
   if (typeof asOf === 'number') return Number.isFinite(asOf) ? Math.floor(asOf) : null;
-  const t = Date.parse(asOf);
+  const s = asOf.trim();
+  if (/^\d+$/.test(s)) return Math.floor(Number(s)); // epoch seconds passed as a string (e.g. from a CLI flag)
+  const t = Date.parse(s);
   return Number.isNaN(t) ? null : Math.floor(t / 1000);
 }
 

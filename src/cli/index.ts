@@ -65,6 +65,8 @@ import { bindStatusText } from './bind-status';
 import { scrubPrinted } from './scrub-print';
 import { buildTrapsList, formatTrapsList } from './traps';
 import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/kernel-client';
+import { verifyReceiptOffline, type OfflineVerifyResult } from '../lib/verify-receipt';
+import { readFileSync as readTextFile } from 'node:fs';
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { GROUNDING_NETWORKS, groundFeedback, httpRpc } from '../lib/erc8004-grounding';
 import { MissingDependencyError } from '../lib/optional-ethers';
@@ -106,6 +108,7 @@ export type Command =
   | 'badge'
   | 'check'
   | 'receipt'
+  | 'verify-receipt'
   | 'inspect'
   | 'init'
   | 'report'
@@ -143,6 +146,10 @@ export interface ParsedArgs {
   pai?: boolean;
   /** init --pai: print NOT_MINTED and do not spawn the register script. No network. */
   dryRun?: boolean;
+  /** verify-receipt: comma-separated Ed25519 trusted roots (--root), a freshness anchor (--as-of), an envelope file (--envelope). */
+  root?: string;
+  asOf?: string;
+  envelope?: string;
   /** init --pai: forwarded to scripts/init-pai.mjs */
   name?: string;
   /** init --pai: forwarded to scripts/init-pai.mjs (`job|cost|brain`) */
@@ -308,6 +315,12 @@ COMMANDS
                              recompute its hash here, and print its SIX claims separately —
                              never one verdict. Needs REPID_API_KEY. EXIT 0 read and the hash
                              matches, 1 the hash does NOT match (treat as tampered), 3 not read.
+  verify-receipt <file>      Verify a receipt OFFLINE from a file (a receipt, or an engine
+    [--root <key>]           receipt_response with its six-claim envelope). No network, no
+    [--as-of <t>]            engine. Recomputes the hash and, with --root (comma-separated
+    [--envelope <file>]      Ed25519 keys), the signature; reads the other claims from the
+                             envelope, fail-closed to NOT_CHECKED. EXIT keyed to integrity:
+                             0 VERIFIED, 1 FAILED (tampered/forged), 2 NOT_CHECKED.
 
   inspect [<path>]          Verify an append-only tool-call log. Reads a local file and
                              computes hashes; opens NO socket. INTACT (0) / BROKEN (1) /
@@ -548,7 +561,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   // Options that consume the NEXT argument. Indexed rather than for-of because a
   // value-taking flag has to be able to look ahead.
   const values: Record<string, string | undefined> = {};
-  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset', '--claims', '--claims-file', '--out', '--network', '--payment']);
+  const VALUE_OPTS = new Set(['--from', '--session', '--evidence', '--name', '--answers', '--source', '--source-file', '--quote', '--page', '--value', '--kind', '--unit', '--check', '--why', '--preset', '--claims', '--claims-file', '--out', '--network', '--payment', '--root', '--as-of', '--envelope']);
   // Their value is free text that may start with a dash (`--value -250.00`, a quoted list item), so
   // only something shaped like an option is refused there.
   const TEXT_VALUE_OPTS = new Set(['--quote', '--value', '--echo', '--why', '--claims']);
@@ -658,6 +671,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
         return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo'), guided: flags.has('guided') };
       }
       return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
+    }
+    case 'verify-receipt': {
+      const operand = rest[0];
+      if (!operand) return { command: 'help', json, verify, error: 'verify-receipt requires <file> (a receipt, or an engine receipt_response)' };
+      return { command: 'verify-receipt', operand, json, verify, root: values['root'], asOf: values['as-of'], envelope: values['envelope'] };
     }
     case 'status':
       return { command: 'status', json, verify };
@@ -951,6 +969,39 @@ export function formatKernelReceipt(r: KernelReceiptRead): string {
   }
   lines.push('', '  What this receipt does not establish:', ...r.six_claims.predicate.what_this_does_not_establish.map((g) => `    - ${g}`));
   return lines.join('\n');
+}
+
+/** `trustshell verify-receipt`: the OFFLINE six-claim verdict, same layout as `receipt`, no rollup. */
+export function formatOfflineVerify(r: OfflineVerifyResult): string {
+  const sealer = r.sealer.trusted
+    ? `✓ trusted — signature verified here under pinned key ${r.sealer.fingerprint}`
+    : `not trusted — ${r.sealer.note || 'no signer pinned'}`;
+  const env = r.reconciliation.engine_envelope === 'BOUND' ? 'bound'
+    : r.reconciliation.engine_envelope === 'PRESENT_UNBOUND' ? 'present but does NOT bind this receipt (ignored)'
+      : 'absent';
+  const lines = [
+    `TrustLattice offline verdict — ${r.receipt_id ?? 'unknown'} (${r.schema})`,
+    `  sealer   ${sealer}`,
+    `  envelope ${env}`,
+    '',
+    '  There is no single verdict. Six separate claims, each with its own gaps:',
+  ];
+  for (const k of SIX_CLAIM_KEYS) {
+    const c = r.claims[k];
+    lines.push(`  ${CLAIM_LABEL[k].padEnd(14)} ${c.status.padEnd(14)} ${c.statement}`);
+    if (c.gaps.length) lines.push(`  ${''.padEnd(29)} does not establish: ${c.gaps.join(' · ')}`);
+  }
+  if (r.reconciliation.downgraded.length) lines.push('', `  downgraded (sealer/integrity not established): ${r.reconciliation.downgraded.join(', ')}`);
+  lines.push('', '  What this verification does not establish:', ...r.limitations.map((g) => `    - ${g}`));
+  return lines.join('\n');
+}
+
+/** Exit code for verify-receipt, keyed to the one claim this verifier decides itself: integrity. */
+function verifyReceiptExitCode(r: OfflineVerifyResult): number {
+  const s = r.claims.integrity.status;
+  if (s === 'VERIFIED') return EXIT.OK;
+  if (s === 'FAILED') return EXIT.VETO;
+  return EXIT.NOT_CHECKED;
 }
 
 /** Build the SDK client from env (apiKey + apiUrl are both optional). */
@@ -1365,6 +1416,47 @@ export async function run(
       else (r.ok ? io.out : io.err)(formatKernelReceipt(r));
       if (r.ok) return EXIT.OK;
       return r.reason === 'receipt_hash_mismatch' || r.reason === 'receipt_not_authentic' ? EXIT.VETO : EXIT.RUNTIME;
+    }
+
+    case 'verify-receipt': {
+      const file = args.operand as string;
+      let raw: string;
+      try {
+        raw = readTextFile(file, 'utf8');
+      } catch (e) {
+        io.err(`verify-receipt: cannot read ${file}: ${(e as Error).message}`);
+        return EXIT.USAGE;
+      }
+      if (raw.length > MAX_CLAIMS_FILE_BYTES) {
+        io.err(`verify-receipt: ${file} is too large (> ${MAX_CLAIMS_FILE_BYTES} bytes)`);
+        return EXIT.USAGE;
+      }
+      let doc: unknown;
+      try {
+        doc = JSON.parse(raw);
+      } catch {
+        io.err(`verify-receipt: ${file} is not valid JSON`);
+        return EXIT.USAGE;
+      }
+      // Unwrap a golden wrapper / engine receipt_response down to { receipt, six_claims }, else a bare receipt.
+      let obj = doc as Record<string, unknown>;
+      if (obj && typeof obj === 'object' && obj['receipt_response'] && typeof obj['receipt_response'] === 'object') obj = obj['receipt_response'] as Record<string, unknown>;
+      const receipt = obj && typeof obj === 'object' && 'receipt' in obj ? obj['receipt'] : obj;
+      let envelope: unknown = obj && typeof obj === 'object' ? obj['six_claims'] : undefined;
+      if (args.envelope) {
+        try {
+          envelope = JSON.parse(readTextFile(args.envelope, 'utf8'));
+        } catch (e) {
+          io.err(`verify-receipt: cannot read --envelope ${args.envelope}: ${(e as Error).message}`);
+          return EXIT.USAGE;
+        }
+      }
+      const trustedRoots = args.root ? args.root.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const result = await verifyReceiptOffline(receipt, { trustedRoots, asOf: args.asOf, engineEnvelope: envelope });
+      const code = verifyReceiptExitCode(result);
+      if (args.json) io.out(JSON.stringify(result, null, 2));
+      else (code === EXIT.VETO ? io.err : io.out)(formatOfflineVerify(result));
+      return code;
     }
 
     case 'proof': {
