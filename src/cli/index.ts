@@ -75,8 +75,10 @@ import { runLearn } from '../learn/cli';
 import { runBundle } from './bundle';
 import { EXIT_REFUSED, runGuard, runGuarded, runRun } from './guard';
 import { sandboxCli } from '../sandbox/run';
-import { GUARD_RECORD_SCHEMA } from '../lib/guardrails';
+import { GUARD_RECORD_SCHEMA, trustshellHome } from '../lib/guardrails';
 import { ApiUrlError } from '../lib/api-url';
+import { signingKey } from '../lib/install-key';
+import { signOwnerReceipt, installKeyRootHex, type SealableReceipt } from '../lib/owner-receipt';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export const EXIT = {
@@ -109,6 +111,7 @@ export type Command =
   | 'check'
   | 'receipt'
   | 'verify-receipt'
+  | 'sign-receipt'
   | 'inspect'
   | 'init'
   | 'report'
@@ -321,6 +324,15 @@ COMMANDS
     [--envelope <file>]      Ed25519 keys), the signature; reads the other claims from the
                              envelope, fail-closed to NOT_CHECKED. EXIT keyed to integrity:
                              0 VERIFIED, 1 FAILED (tampered/forged), 2 NOT_CHECKED.
+  sign-receipt <file>        Seal a kernel-receipt body with THIS install's OWN key
+                             (<TRUSTSHELL_HOME or ~/.trustshell>/bundle-signing-key.pem), OFFLINE,
+                             no engine. Prints the sealed kernel-receipt/2 to stdout (provenance
+                             'owner-self-signed') and, on stderr, the 0x key a verifier pins:
+                               trustshell sign-receipt body.json > r.json
+                               trustshell verify-receipt r.json --root 0x<thatkey>
+                             An owner self-signature proves AUTHORSHIP + wholeness only — never that
+                             the engine permitted the action, and it earns no production RepID. Use
+                             - for stdin. EXIT 0 sealed, 2 bad body, 3 could not seal.
 
   inspect [<path>]          Verify an append-only tool-call log. Reads a local file and
                              computes hashes; opens NO socket. INTACT (0) / BROKEN (1) /
@@ -676,6 +688,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const operand = rest[0];
       if (!operand) return { command: 'help', json, verify, error: 'verify-receipt requires <file> (a receipt, or an engine receipt_response)' };
       return { command: 'verify-receipt', operand, json, verify, root: values['root'], asOf: values['as-of'], envelope: values['envelope'] };
+    }
+    case 'sign-receipt': {
+      const operand = rest[0];
+      if (!operand) return { command: 'help', json, verify, error: 'sign-receipt requires <file> (a kernel-receipt body to seal) or - for stdin' };
+      return { command: 'sign-receipt', operand, json, verify };
     }
     case 'status':
       return { command: 'status', json, verify };
@@ -1471,6 +1488,48 @@ export async function run(
       if (args.json) io.out(terminalSafeJson(result));
       else (code === EXIT.VETO ? io.err : io.out)(formatOfflineVerify(result));
       return code;
+    }
+
+    case 'sign-receipt': {
+      const file = args.operand as string;
+      let raw: string;
+      try {
+        raw = readTextFile(file === '-' ? 0 : file, 'utf8'); // fd 0 = stdin
+      } catch (e) {
+        io.err(`sign-receipt: cannot read ${file === '-' ? 'stdin' : file}: ${(e as Error).message}`);
+        return EXIT.USAGE;
+      }
+      if (raw.length > MAX_CLAIMS_FILE_BYTES) {
+        io.err(`sign-receipt: input is too large (> ${MAX_CLAIMS_FILE_BYTES} bytes)`);
+        return EXIT.USAGE;
+      }
+      let body: unknown;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        io.err(`sign-receipt: input is not valid JSON`);
+        return EXIT.USAGE;
+      }
+      if (!body || typeof body !== 'object' || typeof (body as { header?: unknown }).header !== 'object' || (body as { header?: unknown }).header === null) {
+        io.err('sign-receipt: the body must be a JSON object with a "header" object');
+        return EXIT.USAGE;
+      }
+      try {
+        const dir = trustshellHome(process.env);
+        const { key, created, path } = signingKey(dir);
+        const receipt = await signOwnerReceipt(body as SealableReceipt, key);
+        // The receipt to stdout stays machine-clean (pipe it, or `> r.json`); the human-facing pin
+        // and the warning that this is a self-attestation go to stderr so they never corrupt the JSON.
+        io.out(JSON.stringify(receipt, null, 2));
+        if (created) io.err(`sign-receipt: created a new install key at ${path}`);
+        io.err(`sign-receipt: sealed as owner-self-signed. A verifier confirms the SEAL with:`);
+        io.err(`  trustshell verify-receipt <file> --root ${installKeyRootHex(key)}`);
+        io.err(`This proves authorship and that the bytes are whole — NOT that the engine permitted the action, and it earns no production RepID.`);
+        return EXIT.OK;
+      } catch (e) {
+        io.err(`sign-receipt: could not seal the receipt: ${e instanceof MissingDependencyError ? e.message : (e as Error).message}`);
+        return EXIT.RUNTIME;
+      }
     }
 
     case 'proof': {
