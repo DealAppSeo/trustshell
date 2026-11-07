@@ -1,0 +1,39 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "kernel-receipt:00000000-0000-4000-8000-0000000ed002",
+      "digest": {
+        "keccak256": "84d74890e55c2df2dda34e48a74800b8dc99cad35cb59bac9766029262d91b16"
+      }
+    }
+  ],
+  "predicateType": "https://hyperdag.dev/predicates/trust-receipt-six-claims/v1",
+  "predicate": {
+    "claims": {
+      "integrity": {
+        "status": "VERIFIED"
+      },
+      "authenticity": {
+        "status": "NOT_CHECKED"
+      },
+      "observation": {
+        "status": "NOT_CHECKED"
+      },
+      "correctness": {
+        "status": "NOT_APPLICABLE"
+      },
+      "authorization": {
+        "status": "FAILED",
+        "statement": "The owner policy REFUSED the spend: over the per_tx cap."
+      },
+      "containment": {
+        "status": "NOT_APPLICABLE",
+        "statement": "Nothing ran; the action was refused."
+      }
+    },
+    "what_this_does_not_establish": [
+      "this is a TEST-signer attestation, not a production issuance"
+    ]
+  }
+}
