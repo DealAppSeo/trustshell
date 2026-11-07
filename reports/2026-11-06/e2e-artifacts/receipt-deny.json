@@ -1,0 +1,104 @@
+{
+  "header": {
+    "schema": "kernel-receipt/2",
+    "version": 2,
+    "receipt_id": "00000000-0000-4000-8000-0000000ed002",
+    "prev_receipt_id": "00000000-0000-4000-8000-0000000ed001",
+    "prev_hash": "0x25469c9d2e2a0ebafa1238ed149dff2da705e20a2f2bca077e940d00de2f23b0",
+    "created_at": "2026-11-06T00:00:00.000Z",
+    "receipt_hash": "0x84d74890e55c2df2dda34e48a74800b8dc99cad35cb59bac9766029262d91b16",
+    "env": {
+      "network": "base-sepolia",
+      "chain_id": 84532,
+      "is_simulated": true
+    },
+    "signer": {
+      "alg": "ed25519",
+      "public_key": "0x5c76044e64feecce123c8f3fe46d971f7d6202623446e2bd2b960ebd929d5ceb",
+      "fingerprint": "0x356da6cc0324d6b0af2c3e38b445be527239f94b80a04393d8d6eec89ec060aa"
+    },
+    "signature": "0xf33c4f423001a41278ff13ce94d45b15a757c6d6804b1bf0654835fe212b8c8cd2f95076de9340e5f3ac23a88c33ea41e9fd963971172b638bbfe2cb231fc809"
+  },
+  "subject": {
+    "agent": {
+      "agent_id": "11111111-1111-4111-8111-111111111111",
+      "agent_name": "kernel-demo-agent"
+    },
+    "owner": {
+      "wallet": "0xA1dED137A8afd0EE6c2cFF42d7A292ed77fB1645",
+      "assurance": null,
+      "status": "resolved"
+    }
+  },
+  "request": {
+    "tool": {
+      "name": "x402.pay",
+      "class": "spend"
+    },
+    "origin": "Cli",
+    "args_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "amount_raw": "2000000",
+    "payee": "0x000000000000000000000000000000000000dEaD",
+    "asset": "USDC",
+    "chain_id": 84532
+  },
+  "decision": {
+    "verdict": "DENY",
+    "blocking": true,
+    "executed": false,
+    "reasons": [
+      "2000000 is over per_tx_raw 1000000"
+    ],
+    "checks": [
+      {
+        "name": "policy_decide",
+        "outcome": "FAIL",
+        "source": "trustshell/guardrails.decide"
+      }
+    ],
+    "does_not_attest": [],
+    "policy": {
+      "policy_hash": "2b61a85a8617644d2baa41db8ea4099b57304ff96f27d7fba023353890b7e5d1",
+      "signer": null,
+      "signature": "NOT_CHECKED",
+      "expires_at": 1802592000,
+      "revocation": "NOT_CHECKED"
+    },
+    "limits": {
+      "per_tx_raw": "1000000",
+      "daily_raw": "5000000",
+      "total_raw": "20000000",
+      "effective_per_tx_raw": "1000000",
+      "binding_term": "per_tx"
+    },
+    "laya": {
+      "lane": null,
+      "mode": "shadow",
+      "consulted": false
+    }
+  },
+  "payment": {
+    "status": "NOT_APPLICABLE",
+    "scheme": null,
+    "amount_raw": null,
+    "payer": null,
+    "payee": null,
+    "authorization_nonce": null,
+    "tx_hash": null,
+    "block": null,
+    "observed_amount_raw": null,
+    "settlement_evidence": "NOT_CHECKED",
+    "is_simulated": true
+  },
+  "verification": {
+    "status": "NOT_APPLICABLE",
+    "method": null,
+    "votes": [],
+    "verdict_label": "PROVISIONAL",
+    "settled_by": null,
+    "grounded": false,
+    "same_domain": false,
+    "is_simulated": true,
+    "counts_toward_band_restore": false
+  }
+}

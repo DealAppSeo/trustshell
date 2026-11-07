@@ -1,0 +1,224 @@
+{
+  "via": "@hyperdag/trustshell/verify (clean npm install)",
+  "trusted_root": "0x5c76044e64feecce123c8f3fe46d971f7d6202623446e2bd2b960ebd929d5ceb",
+  "matrix": [
+    {
+      "id": 1,
+      "note": "ALLOW receipt, test root pinned",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": true,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "VERIFIED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      },
+      "decision_verdict": "ALLOW"
+    },
+    {
+      "id": 2,
+      "note": "ALLOW receipt, NO root (public-issuance posture)",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": false,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "VERIFIED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 3,
+      "note": "DENY receipt, test root pinned",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": true,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "VERIFIED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      },
+      "decision_verdict": "DENY",
+      "reasons": [
+        "2000000 is over per_tx_raw 1000000"
+      ]
+    },
+    {
+      "id": 4,
+      "note": "chain [ALLOW -> DENY], pinned",
+      "chain": "VERIFIED",
+      "broken_at": null
+    },
+    {
+      "id": 5,
+      "note": "ALLOW, WRONG root pinned (untrusted signer)",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": false,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "FAILED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 6,
+      "note": "ALLOW body tampered: verdict flipped",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": false,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "FAILED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 7,
+      "note": "ALLOW body tampered: artifact args_hash swapped",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": false,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "FAILED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 8,
+      "note": "DENY body tampered: refusal reason rewritten",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": false,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "FAILED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 9,
+      "note": "ALLOW downgraded to unsigned /1 under a pin",
+      "schema": "kernel-receipt/1",
+      "sealer_trusted": false,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "FAILED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 10,
+      "note": "ALLOW schema swapped to unknown",
+      "schema": "MALFORMED",
+      "sealer_trusted": false,
+      "engine_envelope": "ABSENT",
+      "claims": {
+        "integrity": "FAILED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 11,
+      "note": "chain with DENY.prev_hash pointing nowhere",
+      "chain": "FAILED",
+      "broken_at": 1
+    },
+    {
+      "id": 12,
+      "note": "chain with DENY.prev_receipt_id mismatched",
+      "chain": "FAILED",
+      "broken_at": 1
+    },
+    {
+      "id": 13,
+      "note": "ALLOW + bound envelope, pinned",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": true,
+      "engine_envelope": "BOUND",
+      "claims": {
+        "integrity": "VERIFIED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_APPLICABLE",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 14,
+      "note": "ALLOW + bound envelope, NO root (sealer unconfirmed => downgrade)",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": false,
+      "engine_envelope": "BOUND",
+      "claims": {
+        "integrity": "VERIFIED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_APPLICABLE",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    },
+    {
+      "id": 15,
+      "note": "DENY + bound envelope, pinned",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": true,
+      "engine_envelope": "BOUND",
+      "claims": {
+        "integrity": "VERIFIED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_APPLICABLE",
+        "authorization": "FAILED",
+        "containment": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "id": 16,
+      "note": "ALLOW + the DENY receipt’s envelope (must NOT bind)",
+      "schema": "kernel-receipt/2",
+      "sealer_trusted": true,
+      "engine_envelope": "PRESENT_UNBOUND",
+      "claims": {
+        "integrity": "VERIFIED",
+        "authenticity": "NOT_CHECKED",
+        "observation": "NOT_CHECKED",
+        "correctness": "NOT_CHECKED",
+        "authorization": "NOT_CHECKED",
+        "containment": "NOT_CHECKED"
+      }
+    }
+  ]
+}
