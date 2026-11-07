@@ -30,7 +30,7 @@ import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
 import { resolvePackageVersion } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
-import { claimsExitCode, inspectRunClaims, MAX_CLAIMS_FILE_BYTES, terminalSafeJson } from '../lib/action-evidence';
+import { claimsExitCode, inspectRunClaims, MAX_CLAIMS_FILE_BYTES, terminalSafeJson, cleanCodePoints } from '../lib/action-evidence';
 import { renderCardHtml, renderCardMarkdown } from '../lib/evidence-card';
 import { classifyClaim, claimExitCode, explainClaim, isUrlOperand, ClaimError, CLAIM_EXIT, SCRUBBED_LINE, pathLine, OFFLINE_REASON } from '../lib/claim';
 import { runInit, formatInitCard, initExitCode, TRUSTSHELL_DIR, PROFILE_FILE, type InitFs } from '../lib/init';
@@ -65,7 +65,7 @@ import { bindStatusText } from './bind-status';
 import { scrubPrinted } from './scrub-print';
 import { buildTrapsList, formatTrapsList } from './traps';
 import { kernelReceipt, SIX_CLAIM_KEYS, type KernelReceiptRead } from '../lib/kernel-client';
-import { verifyReceiptOffline, type OfflineVerifyResult } from '../lib/verify-receipt';
+import { verifyReceiptOffline, asOfEpoch, type OfflineVerifyResult } from '../lib/verify-receipt';
 import { readFileSync as readTextFile } from 'node:fs';
 import { groundClaims, splitPages, type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 import { GROUNDING_NETWORKS, groundFeedback, httpRpc } from '../lib/erc8004-grounding';
@@ -991,16 +991,23 @@ export function formatOfflineVerify(r: OfflineVerifyResult): string {
     lines.push(`  ${CLAIM_LABEL[k].padEnd(14)} ${c.status.padEnd(14)} ${c.statement}`);
     if (c.gaps.length) lines.push(`  ${''.padEnd(29)} does not establish: ${c.gaps.join(' · ')}`);
   }
-  if (r.reconciliation.downgraded.length) lines.push('', `  downgraded (sealer/integrity not established): ${r.reconciliation.downgraded.join(', ')}`);
+  if (r.reconciliation.downgraded.length) lines.push('', `  downgraded to NOT_CHECKED — attested in the envelope but not independently verified here: ${r.reconciliation.downgraded.join(', ')}`);
   lines.push('', '  What this verification does not establish:', ...r.limitations.map((g) => `    - ${g}`));
-  return lines.join('\n');
+  // Receipt/envelope strings (statements, gaps, reason text) are attacker-authored. Strip terminal
+  // escapes before they reach a human's console, keeping newlines so the layout above survives.
+  return cleanCodePoints(lines.join('\n'), true);
 }
 
-/** Exit code for verify-receipt, keyed to the one claim this verifier decides itself: integrity. */
+/**
+ * Exit code for verify-receipt. OK requires BOTH: integrity re-derived VERIFIED here AND the sealer
+ * confirmed against a caller-pinned trusted root. Integrity-VERIFIED-but-unpinned (public posture,
+ * unaccountable signer) is NOT a pass — it exits NOT_CHECKED, never 0, so CI can never read an
+ * unaccountable receipt as success. FAILED integrity is a hard veto.
+ */
 function verifyReceiptExitCode(r: OfflineVerifyResult): number {
   const s = r.claims.integrity.status;
-  if (s === 'VERIFIED') return EXIT.OK;
   if (s === 'FAILED') return EXIT.VETO;
+  if (s === 'VERIFIED' && r.sealer.trusted) return EXIT.OK;
   return EXIT.NOT_CHECKED;
 }
 
@@ -1451,10 +1458,17 @@ export async function run(
           return EXIT.USAGE;
         }
       }
+      // An --as-of that cannot be read is a usage error, refused at the boundary — never silently
+      // treated as "now" or dropped, which would let a stale policy read as fresh.
+      const anchor = args.asOf === undefined ? null : asOfEpoch(args.asOf);
+      if (anchor !== null && 'unreadable' in anchor) {
+        io.err(`verify-receipt: cannot read --as-of ${JSON.stringify(args.asOf)} (${anchor.unreadable}); pass a unix epoch or an RFC3339 timestamp`);
+        return EXIT.USAGE;
+      }
       const trustedRoots = args.root ? args.root.split(',').map((s) => s.trim()).filter(Boolean) : [];
       const result = await verifyReceiptOffline(receipt, { trustedRoots, asOf: args.asOf, engineEnvelope: envelope });
       const code = verifyReceiptExitCode(result);
-      if (args.json) io.out(JSON.stringify(result, null, 2));
+      if (args.json) io.out(terminalSafeJson(result));
       else (code === EXIT.VETO ? io.err : io.out)(formatOfflineVerify(result));
       return code;
     }

@@ -335,6 +335,35 @@ rules to the ALLOW it gets back.
 | `trusted_signers_invalid`: a `TRUSTSHELL_KERNEL_TRUSTED_SIGNERS` entry is not `0x` + 64 hex. Nothing is sent | `3` |
 | not read: no key (401), another agent's key (403), no such receipt (404), network, timeout | `3` |
 
+### `trustshell verify-receipt <file> [--root <keys>] [--as-of <ts>] [--envelope <file>] [--json]`
+
+> **Offline. No network, no engine, no account.** This is the TrustLattice verifier a **stranger**
+> runs to reproduce a receipt's verdict from the receipt alone. It is also exported as
+> `@hyperdag/trustshell/verify` (`verifyReceiptOffline`, `verifyReceiptChain`).
+
+Reads a `kernel-receipt/1` or `/2` from `<file>` — a bare receipt, or an engine `receipt_response`
+(or a golden wrapper) from which it unwraps `{ receipt, six_claims }`. It **recomputes** the
+keccak256 `receipt_hash` over the canonical receipt and, with `--root` (comma-separated Ed25519
+public keys, `0x` + 64 hex), **verifies the Ed25519 signature against those pinned keys** — never the
+header's own signer. Then it prints the **six claims** (Integrity, Authenticity, Observation,
+Correctness, Authorization, Containment), each with its status and what it does not establish. There
+is no single rollup verdict, by design.
+
+**Only `integrity` is re-derived offline.** The other five claims are the issuer's attestation,
+read from the six-claim envelope. **The envelope is not covered by the receipt signature** — the
+signature seals the receipt bytes, and the envelope only names the receipt by id and hash — so from
+a file its VERIFIED attestations are **read, not verified**, and surface as `NOT_CHECKED`
+(`downgraded`). A self-reported `FAILED` is still shown. `--as-of <ts>` (unix epoch or RFC3339)
+fails `authorization` when the policy expired at or before that instant; an `--as-of` that cannot be
+parsed is refused (exit `2`), never treated as "now". `--envelope <file>` supplies the envelope
+separately; `--json` prints the structured `OfflineVerifyResult`.
+
+| Outcome | Exit |
+|---|---|
+| integrity re-derived **VERIFIED** and the sealer confirmed under a pinned `--root` | `0` |
+| integrity **FAILED**: the hash does not match, the signature is from a key you did not pin, or an unsigned receipt under a pin. Treat it as tampered/forged | `1` |
+| integrity VERIFIED but **no `--root` pinned** (sealer unconfirmed), or integrity NOT_CHECKED; also usage errors (missing/unreadable file, non-JSON, too large, unreadable `--as-of`). **Not a pass** | `2` |
+
 ### `trustshell inspect [<path>] [--from <format>]`
 
 Verify an append-only tool-call log and report what it can and cannot establish. Reads a local

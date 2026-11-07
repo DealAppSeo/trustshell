@@ -82,8 +82,8 @@ describe('the package root does not expose the deciding step', () => {
     expect(typeof built.guardedX402Payment).toBe('function');
   });
 
-  it('package.json exposes only ".", "./cli" and "./mcp": no subpath reaches the module that holds it', () => {
+  it('package.json exposes only ".", "./cli", "./mcp" and "./verify": no subpath reaches the module that holds prepareX402Payment', () => {
     const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
-    expect(Object.keys(pkg.exports).sort()).toEqual(['.', './cli', './mcp']);
+    expect(Object.keys(pkg.exports).sort()).toEqual(['.', './cli', './mcp', './verify']);
   });
 });

@@ -43,10 +43,19 @@ export const TRUSTLATTICE_VERDICT_SPEC = 'https://hyperdag.dev/trustlattice/verd
 export interface OfflineVerifyOptions {
   /** Ed25519 public keys (0x + 64 hex) the caller trusts as sealers. Empty/absent = none pinned. */
   trustedRoots?: readonly string[];
-  /** Freshness anchor: RFC3339 string or epoch seconds. When set, a policy expired before it fails authorization. */
+  /** Freshness anchor: RFC3339 string or epoch seconds. When set, a policy expired at/before it fails authorization. */
   asOf?: string | number;
   /** The engine's six-claim in-toto Statement, if the caller has it (it travels in the receipt_response). */
   engineEnvelope?: unknown;
+  /**
+   * Set ONLY when `engineEnvelope` reached the caller over an AUTHENTICATED channel (the API's
+   * receipt_response) — never for a document read from a file or handed over by a third party. The
+   * envelope is NOT covered by the receipt's Ed25519 signature (the signature seals the receipt bytes;
+   * the envelope only names the receipt by id+hash), so its bytes are only as trustworthy as the channel
+   * that delivered them. Default false — an envelope claim marked VERIFIED is then surfaced as
+   * NOT_CHECKED (read, not re-derived). integrity is the only claim this verifier ever establishes.
+   */
+  envelopeAuthenticated?: boolean;
 }
 
 /** How a given claim's status was decided. */
@@ -78,6 +87,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof
 const claim = (status: SixClaimStatus, statement: string, supports: string[] = [], gaps: string[] = []): SixClaim => ({ status, statement, supports, gaps });
 
 const INTEGRITY_STMT = 'The record is whole: its hash matches its contents, and a trusted key sealed it.';
+/** The integrity claim when the bytes are whole but NO trusted key was confirmed: only the hash was recomputed. */
+const INTEGRITY_STMT_UNSEALED = 'The record is whole: its hash matches its contents. No trusted key was confirmed to have sealed it: the signature was not verified against a pinned key.';
 const STMT: Record<SixClaimKey, string> = {
   integrity: INTEGRITY_STMT,
   authenticity: 'The action was authorized by the agent’s accountable owner.',
@@ -89,18 +100,35 @@ const STMT: Record<SixClaimKey, string> = {
 
 const OFFLINE_LIMITATIONS = [
   'Offline verification establishes two things by cryptography: integrity (the bytes are whole) and that a pinned Ed25519 key sealed them. Both are recomputed locally; neither the receipt nor any envelope is trusted for them.',
-  'Every other claim (authenticity, observation, correctness, authorization, containment) is the issuer’s own attestation. This verifier reads it from a supplied six-claim envelope but does not re-derive it; with no envelope, or with the sealer unconfirmed, each is NOT_CHECKED.',
+  'Every other claim (authenticity, observation, correctness, authorization, containment) is the issuer’s own attestation in the six-claim envelope. The envelope is NOT covered by the receipt signature — the signature seals the receipt bytes, and the envelope only names the receipt by id and hash — so its claims are READ, NOT re-derived. They surface as VERIFIED only when the caller declares the envelope arrived over an authenticated channel; otherwise a VERIFIED attestation is shown as NOT_CHECKED, and a FAILED one is shown (self-reported failures are safe to surface). With no envelope each is NOT_CHECKED.',
   'The chain is not walked: prev_hash is reported, not compared with the previous receipt (that needs the prior receipt).',
   'NOT_CHECKED is never a pass. There is no single rollup “valid” verdict — read the six claims.',
 ];
 
-function asOfEpoch(asOf: string | number | undefined): number | null {
+/** A parsed freshness anchor: an instant, an explicit "could not read it", or null when none was supplied. */
+export type Anchor = { epoch: number } | { unreadable: string } | null;
+/** Sanity window: an epoch-seconds anchor outside it is a mis-formatted date (a YYYYMMDD lands in 1970), not an instant. */
+const MIN_ANCHOR_S = 946684800; // 2000-01-01T00:00:00Z
+const MAX_ANCHOR_S = 4102444800; // 2100-01-01T00:00:00Z
+
+/**
+ * Parse a freshness anchor. null = none supplied. {unreadable} = supplied but unparsable — the caller
+ * MUST fail closed (never silently skip the freshness check). {epoch} = a usable instant.
+ */
+export function asOfEpoch(asOf: string | number | undefined | null): Anchor {
   if (asOf === undefined || asOf === null) return null;
-  if (typeof asOf === 'number') return Number.isFinite(asOf) ? Math.floor(asOf) : null;
+  if (typeof asOf === 'number') return Number.isFinite(asOf) ? { epoch: Math.floor(asOf) } : { unreadable: `${asOf} is not a finite number` };
   const s = asOf.trim();
-  if (/^\d+$/.test(s)) return Math.floor(Number(s)); // epoch seconds passed as a string (e.g. from a CLI flag)
+  if (s === '') return { unreadable: 'empty anchor' };
+  if (/^\d+$/.test(s)) {
+    const n = Math.floor(Number(s)); // epoch seconds passed as a string (e.g. from a CLI flag)
+    if (!Number.isFinite(n) || n < MIN_ANCHOR_S || n > MAX_ANCHOR_S) {
+      return { unreadable: `${JSON.stringify(s)} is not plausible epoch seconds (expected ${MIN_ANCHOR_S}..${MAX_ANCHOR_S}); a bare YYYYMMDD date lands in 1970` };
+    }
+    return { epoch: n };
+  }
   const t = Date.parse(s);
-  return Number.isNaN(t) ? null : Math.floor(t / 1000);
+  return Number.isNaN(t) ? { unreadable: `${JSON.stringify(s)} is neither RFC3339 nor epoch seconds` } : { epoch: Math.floor(t / 1000) };
 }
 
 /** The engine's six claims, ONLY when the envelope is well-formed and names exactly this receipt+hash. */
@@ -184,7 +212,11 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
   // The signature, against the CALLER's roots (never the header's own signer).
   const roots = kernelTrustedSigners(opts.trustedRoots);
   if (roots === null) {
-    sealerNote = 'trustedRoots has a non-Ed25519 entry (each must be 0x + 64 hex); nothing was trusted';
+    // A pin set that cannot be parsed is a FAILED REQUIREMENT, not "no pin": the caller asked for a
+    // signature check that could not run. Never fall through to hash-only integrity VERIFIED, which
+    // would let a typo'd pin report an unsigned or foreign-signed receipt as a pass.
+    if (integrityStatus === 'VERIFIED') integrityStatus = 'NOT_CHECKED';
+    sealerNote = 'trustedRoots has a non-Ed25519 entry (each must be 0x + 64 hex); nothing was trusted and the signature was not checked';
     gaps.push(sealerNote);
   } else {
     try {
@@ -210,7 +242,7 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
   }
   if (prevHash && prevHash !== null) gaps.push('prev_hash is reported, not compared with the previous receipt (the chain is not walked offline)');
 
-  const integrity = claim(integrityStatus, INTEGRITY_STMT, supports, gaps);
+  const integrity = claim(integrityStatus, integrityStatus === 'VERIFIED' && sealerTrusted ? INTEGRITY_STMT : INTEGRITY_STMT_UNSEALED, supports, gaps);
 
   // ── the other five: engine attestations, gated on integrity + a trusted sealer ──
   const engine = boundEngineClaims(opts.engineEnvelope, receiptId, recomputed ?? headerHash);
@@ -233,8 +265,14 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
       source[k] = 'fail-closed';
       continue;
     }
-    if (!sealerTrusted && eng.status === 'VERIFIED') {
-      claims[k] = claim('NOT_CHECKED', eng.statement, eng.supports, [...eng.gaps, 'the sealer was not confirmed against a pinned key, so this issuer attestation is read, not verified']);
+    // The envelope is NOT covered by the receipt's signature: binding by (receipt_id, receipt_hash) says
+    // WHICH receipt it describes, not WHO wrote it. The receipt's sealer therefore proves nothing about
+    // this document, so an issuer attestation may only reach VERIFIED when the envelope's own provenance
+    // is vouched for — the sealer is trusted AND the caller declares the envelope arrived authenticated.
+    // Otherwise a VERIFIED attestation is read, not re-derived (NOT_CHECKED); FAILED/NOT_APPLICABLE are
+    // surfaced as-is (a self-reported failure is safe to show).
+    if (eng.status === 'VERIFIED' && !(sealerTrusted && opts.envelopeAuthenticated === true)) {
+      claims[k] = claim('NOT_CHECKED', eng.statement, eng.supports, [...eng.gaps, 'the six-claim envelope is not covered by the receipt signature and was not declared authenticated, so this issuer attestation is read, not verified']);
       source[k] = 'fail-closed';
       downgraded.push(k);
       continue;
@@ -243,13 +281,18 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
     source[k] = 'engine';
   }
 
-  // Freshness: a policy that expired before as_of fails authorization, however the issuer labelled it.
-  const asOf = asOfEpoch(opts.asOf);
+  // Freshness: a policy that expired at/before as_of fails authorization, however the issuer labelled it.
+  // An anchor that cannot be read must NOT silently skip the check — it fails closed to NOT_CHECKED.
+  const anchor = asOfEpoch(opts.asOf);
   const decision = receipt['decision'] as Record<string, unknown>;
   const policy = isObj(decision['policy']) ? (decision['policy'] as Record<string, unknown>) : null;
-  const expiresAt = policy && typeof policy['expires_at'] === 'number' ? (policy['expires_at'] as number) : null;
-  if (asOf !== null && expiresAt !== null && asOf > expiresAt && claims.authorization.status !== 'FAILED') {
-    claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiresAt}, before as_of ${asOf}: the authorization is stale`]);
+  const expiresAt = policy && typeof policy['expires_at'] === 'number' && Number.isFinite(policy['expires_at']) ? (policy['expires_at'] as number) : null;
+  if (anchor !== null && 'unreadable' in anchor && claims.authorization.status !== 'FAILED') {
+    if (source.authorization === 'engine') downgraded.push('authorization');
+    claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `a freshness anchor was supplied but could not be read (${anchor.unreadable}), so freshness was NOT checked: this is not a pass`]);
+    source.authorization = 'fail-closed';
+  } else if (anchor !== null && 'epoch' in anchor && expiresAt !== null && anchor.epoch >= expiresAt && claims.authorization.status !== 'FAILED') {
+    claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiresAt}, at or before as_of ${anchor.epoch}: the authorization is stale`]);
     source.authorization = 'local';
   }
 
@@ -326,7 +369,7 @@ export interface OfflineVerifyChainResult {
 
 const CHAIN_LIMITATIONS = [
   'The chain is verified only INTERNALLY: index 0 is the root of the supplied sequence (its prev pointers are reported, not compared), and each later receipt is checked to carry the prior one’s receipt_id and recomputed hash. This does not assert index 0 is the true genesis.',
-  'A chain is VERIFIED only when every receipt’s own integrity is VERIFIED and every link matches; one untrusted, tampered, or unlinkable receipt fails the whole chain. NOT_CHECKED (e.g. a hash could not be recomputed) is never a pass.',
+  'A chain is VERIFIED only when every receipt’s own integrity is VERIFIED, none of its six claims is FAILED, its sealer was confirmed against a caller-pinned trusted root, and every link matches; one expired, tampered, unlinkable, or unauthenticated receipt fails or defers the whole chain. NOT_CHECKED (a hash that could not be recomputed, or no trusted root pinned) is never a pass.',
 ];
 
 /**
@@ -335,7 +378,12 @@ const CHAIN_LIMITATIONS = [
  * (prev_receipt_id, prev_hash) → (receipt_id, recomputed hash) link. Fail-closed roll-up.
  */
 export async function verifyReceiptChain(receipts: readonly unknown[], opts: OfflineVerifyChainOptions = {}): Promise<OfflineVerifyChainResult> {
-  if (!Array.isArray(receipts) || receipts.length === 0) {
+  if (!Array.isArray(receipts)) {
+    // Not an array at all (null, undefined, a bare receipt object) is a hard failure, NOT an empty
+    // sequence: the two must be distinguishable so garbage never reads like a legitimately empty chain.
+    return { spec: TRUSTLATTICE_VERDICT_SPEC, length: 0, chain: 'FAILED', links: [], broken_at: 0, limitations: [...CHAIN_LIMITATIONS, 'The input was not an array of receipts, so nothing could be verified: a hard failure, never an empty sequence.'] };
+  }
+  if (receipts.length === 0) {
     return { spec: TRUSTLATTICE_VERDICT_SPEC, length: 0, chain: 'EMPTY', links: [], broken_at: null, limitations: [...CHAIN_LIMITATIONS] };
   }
 
@@ -381,12 +429,17 @@ export async function verifyReceiptChain(receipts: readonly unknown[], opts: Off
 
     links.push({ index: i, receipt_id: verdict.receipt_id, verdict, link: { status, expected_prev_hash: expectedPrevHash, actual_prev_hash: actualPrevHash, notes } });
 
-    const hardFail = status === 'FAILED' || integrity === 'FAILED';
+    // A FAILED on ANY of the six claims is a hard failure for the whole chain, not integrity alone: a
+    // receipt whose authorization failed on freshness must never roll up to a chain pass.
+    const claimFailed = SIX_CLAIM_KEYS.some((k) => verdict.claims[k].status === 'FAILED');
+    const hardFail = status === 'FAILED' || integrity === 'FAILED' || claimFailed;
     if (hardFail) { anyFailed = true; if (brokenAt === null) brokenAt = i; }
     if (status === 'NOT_CHECKED' || integrity === 'NOT_CHECKED') anyNotChecked = true;
   }
 
-  // Fail-closed precedence: any hard failure → FAILED; else anything uncheckable → NOT_CHECKED; else VERIFIED.
-  const chain: ChainStatus = anyFailed ? 'FAILED' : anyNotChecked ? 'NOT_CHECKED' : 'VERIFIED';
+  // Fail-closed precedence: any hard failure → FAILED; else anything uncheckable, or any receipt whose
+  // bytes were not sealed by a caller-pinned trusted root → NOT_CHECKED; else VERIFIED.
+  const anyUnauthenticated = links.some((l) => !l.verdict.sealer.trusted);
+  const chain: ChainStatus = anyFailed ? 'FAILED' : anyNotChecked || anyUnauthenticated ? 'NOT_CHECKED' : 'VERIFIED';
   return { spec: TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations: [...CHAIN_LIMITATIONS] };
 }

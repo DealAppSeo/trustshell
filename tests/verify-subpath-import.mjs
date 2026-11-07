@@ -47,7 +47,16 @@ try {
   });
   assert(r.claims.integrity.status === 'VERIFIED', 'offline: integrity VERIFIED on the signed golden');
   assert(r.sealer.trusted === true, 'offline: sealer trusted under the pinned key');
-  assert(r.claims.authorization.status === 'VERIFIED', 'offline: authorization carried from the bound envelope');
+  // The envelope is not covered by the receipt signature, so from a bare import its authorization
+  // attestation is READ, not re-derived: NOT_CHECKED by default (fail-closed).
+  assert(r.claims.authorization.status === 'NOT_CHECKED', 'offline: authorization is read-not-verified without an authenticated envelope (NOT_CHECKED)');
+  // ...and reaches VERIFIED only when the caller vouches for the envelope's channel.
+  const rAuth = await mod.verifyReceiptOffline(golden.receipt_response.receipt, {
+    trustedRoots: [golden.public_key],
+    engineEnvelope: golden.receipt_response.six_claims,
+    envelopeAuthenticated: true,
+  });
+  assert(rAuth.claims.authorization.status === 'VERIFIED', 'offline: authorization VERIFIED only under envelopeAuthenticated: true');
   assert(fetchCalls === 0, `offline: no network call (fetch invoked ${fetchCalls}x)`);
 } finally {
   globalThis.fetch = realFetch;

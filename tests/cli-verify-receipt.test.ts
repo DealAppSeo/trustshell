@@ -33,21 +33,24 @@ describe('trustshell verify-receipt', () => {
     expect(parseArgs(['verify-receipt', 'r.json', '--root', KEY])).toMatchObject({ command: 'verify-receipt', operand: 'r.json', root: KEY });
   });
 
-  it('the signed golden under the pinned key → exit 0, six claims, no rollup line', async () => {
+  it('the signed golden under the pinned key → exit 0, integrity VERIFIED, but envelope claims stay NOT_CHECKED (read, not re-derived), no rollup line', async () => {
     const c = captureIO();
     expect(await run(parseArgs(['verify-receipt', GOLDEN, '--root', KEY]), NO_CLIENT, c.io)).toBe(EXIT.OK);
     const text = c.out.join('\n');
     expect(text).toContain('There is no single verdict');
     for (const label of ['Integrity', 'Authenticity', 'Observation', 'Correctness', 'Authorization', 'Containment']) expect(text).toContain(label);
     expect(text).toMatch(/Integrity\s+VERIFIED/);
-    expect(text).toMatch(/Authorization\s+VERIFIED/);
+    // The envelope is bound but NOT covered by the receipt signature, so even under the pinned root its
+    // authorization attestation is READ, not independently verified — it must surface as NOT_CHECKED.
+    expect(text).toMatch(/Authorization\s+NOT_CHECKED/);
     expect(text).toMatch(/sealer\s+✓ trusted/);
+    expect(text).toMatch(/downgraded to NOT_CHECKED/);
     expect(text).not.toMatch(/\b(overall|valid ✓|trusted ✓ overall)\b/i);
   });
 
-  it('no --root → integrity still VERIFIED on the hash, but the sealer-backed claims downgrade to NOT_CHECKED (exit 0)', async () => {
+  it('no --root → integrity still VERIFIED on the hash, but with no confirmed sealer it is NOT a pass (exit 2, NOT_CHECKED)', async () => {
     const c = captureIO();
-    expect(await run(parseArgs(['verify-receipt', GOLDEN]), NO_CLIENT, c.io)).toBe(EXIT.OK);
+    expect(await run(parseArgs(['verify-receipt', GOLDEN]), NO_CLIENT, c.io)).toBe(EXIT.NOT_CHECKED);
     const text = c.out.join('\n');
     expect(text).toMatch(/Integrity\s+VERIFIED/);
     expect(text).toMatch(/Authorization\s+NOT_CHECKED/);

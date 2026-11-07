@@ -70,9 +70,16 @@ async function build() {
   const vectors = [
     {
       id: 'clean-valid-pinned',
-      description: 'The engine golden, verified under the real sealer key with its six-claim envelope. Reproduces the engine verdict.',
+      description: 'The engine golden, verified under the real sealer key with its bound six-claim envelope. Integrity is re-derived (hash + pinned signature), but the envelope is NOT covered by the receipt signature — it only names the receipt by id+hash — so every issuer attestation it marks VERIFIED is READ, not re-derived, and surfaces as NOT_CHECKED. See clean-valid-pinned-authenticated for the one case that can lift them.',
       receipt: RECEIPT,
       options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
+    },
+    {
+      id: 'clean-valid-pinned-authenticated',
+      description: 'The same golden under the pinned key, but the caller declares the envelope arrived over an AUTHENTICATED channel (envelopeAuthenticated: true — e.g. the API receipt_response, not a file). Only then may the bound issuer attestations be surfaced as the issuer stated them: authenticity/authorization/containment VERIFIED. This is the sole path that lifts an envelope claim to VERIFIED; it still rests on trusting the channel, not on re-derivation.',
+      receipt: RECEIPT,
+      options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE, envelopeAuthenticated: true },
       expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'VERIFIED', containment: 'VERIFIED' }) },
     },
     {
@@ -84,10 +91,10 @@ async function build() {
     },
     {
       id: 'jcs-key-reorder',
-      description: 'The receipt re-serialized with every object key reversed. Canonicalization normalizes order, so the hash and signature still verify: identical verdict to clean-valid-pinned. Pins RFC-8785-style canonical hashing.',
+      description: 'The receipt re-serialized with every object key reversed. Canonicalization normalizes order, so the hash and signature still verify: identical verdict to clean-valid-pinned (envelope attestations READ, so NOT_CHECKED). Pins RFC-8785-style canonical hashing.',
       receipt: reverseKeysDeep(RECEIPT),
       options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE },
-      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'VERIFIED', containment: 'VERIFIED' }) },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
     },
     {
       id: 'byte-tamper-decision',
@@ -105,17 +112,17 @@ async function build() {
     },
     {
       id: 'expired-as-of',
-      description: 'Verified after the policy expired. Integrity and the sealer still hold, but authorization FAILS on freshness however the issuer labelled it.',
+      description: 'Verified after the policy expired. Integrity and the sealer still hold; the envelope attestations are READ (NOT_CHECKED), and authorization is a hard FAIL on freshness — locally re-derived from the policy, not read — however the issuer labelled it. Freshness overrides the read, so authorization is FAILED, not NOT_CHECKED.',
       receipt: RECEIPT,
       options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE, asOf: EXPIRES_AT + 1 },
-      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'VERIFIED' }) },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'NOT_CHECKED' }) },
     },
     {
       id: 'within-as-of',
-      description: 'Verified while the policy is still valid: authorization is unaffected. The control for expired-as-of.',
+      description: 'Verified while the policy is still valid: freshness does not fire, so authorization is left exactly as the unauthenticated envelope is treated — READ, so NOT_CHECKED. The control for expired-as-of.',
       receipt: RECEIPT,
       options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE, asOf: EXPIRES_AT - 1 },
-      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'VERIFIED', containment: 'VERIFIED' }) },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
     },
     {
       id: 'envelope-absent',
@@ -170,24 +177,24 @@ async function build() {
     },
     {
       id: 'malformed-trusted-root',
-      description: 'A pin that is not 0x+64 hex. The whole pin set is rejected before any signature check (fail-safe: a garbage pin trusts nothing — it does not throw, and never falls back to the header key), so the sealer is unconfirmed exactly as with no roots: integrity holds on the hash, the VERIFIED issuer attestations downgrade to NOT_CHECKED.',
+      description: 'A pin that is not 0x+64 hex. The whole pin set is rejected before any signature check (fail-safe: a garbage pin trusts nothing — it does not throw, and never falls back to the header key). The caller ASKED for a signature check that could not run, so integrity is lowered from VERIFIED to NOT_CHECKED (a typo\'d pin must never read as a pass). With integrity not established, the bytes are untrusted, so every other claim is fail-closed NOT_CHECKED.',
       receipt: RECEIPT,
       options: { trustedRoots: ['0xdeadbeef'], engineEnvelope: ENVELOPE },
-      expect: { schema: 'kernel-receipt/2', sealer_trusted: false, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: false, engine_envelope: 'BOUND', downgraded: ['authenticity', 'correctness', 'authorization', 'containment'], claims: C({ integrity: 'NOT_CHECKED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_CHECKED', authorization: 'NOT_CHECKED', containment: 'NOT_CHECKED' }) },
     },
     {
       id: 'expired-as-of-rfc3339',
-      description: 'Freshness anchored by an RFC3339 STRING one second past expiry (the shape the CLI --as-of passes). Parsed to the same instant as the numeric expired-as-of: authorization FAILS. Pins the Date.parse branch of asOfEpoch.',
+      description: 'Freshness anchored by an RFC3339 STRING one second past expiry (the shape the CLI --as-of passes). Parsed to the same instant as the numeric expired-as-of: authorization FAILS (locally re-derived), while the other envelope attestations stay READ (NOT_CHECKED). Pins the Date.parse branch of asOfEpoch.',
       receipt: RECEIPT,
       options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE, asOf: new Date((EXPIRES_AT + 1) * 1000).toISOString() },
-      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'VERIFIED' }) },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'NOT_CHECKED' }) },
     },
     {
       id: 'as-of-epoch-string',
-      description: 'Freshness anchored by epoch SECONDS passed as a string (a bare numeric CLI flag). The digit-string branch floors it to the same instant: authorization FAILS. A regression that dropped that branch would mis-parse it via Date.parse and leave authorization VERIFIED, so this is its own vector.',
+      description: 'Freshness anchored by epoch SECONDS passed as a string (a bare numeric CLI flag). The digit-string branch floors it to the same instant: authorization FAILS (locally re-derived). A regression that dropped that branch would mis-parse it via Date.parse and leave authorization NOT_CHECKED (the unauthenticated-envelope default), so this is its own vector.',
       receipt: RECEIPT,
       options: { trustedRoots: [KEY], engineEnvelope: ENVELOPE, asOf: String(EXPIRES_AT + 1) },
-      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: [], claims: C({ integrity: 'VERIFIED', authenticity: 'VERIFIED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'VERIFIED' }) },
+      expect: { schema: 'kernel-receipt/2', sealer_trusted: true, engine_envelope: 'BOUND', downgraded: ['authenticity', 'authorization', 'containment'], claims: C({ integrity: 'VERIFIED', authenticity: 'NOT_CHECKED', observation: 'NOT_CHECKED', correctness: 'NOT_APPLICABLE', authorization: 'FAILED', containment: 'NOT_CHECKED' }) },
     },
   ];
 

@@ -16,17 +16,24 @@ we do — that is the point of the corpus.
   "id": "clean-valid-pinned",
   "description": "...",
   "receipt":  { /* a kernel-receipt/1 or /2, or a non-receipt for the malformed cases */ },
-  "options":  { "trustedRoots": ["0x..."], "asOf": 1800003599, "engineEnvelope": { /* six-claim in-toto statement */ } },
+  "options":  { "trustedRoots": ["0x..."], "asOf": 1800003599, "engineEnvelope": { /* six-claim in-toto statement */ }, "envelopeAuthenticated": false },
   "expect": {
     "schema": "kernel-receipt/2",
     "sealer_trusted": true,
     "engine_envelope": "BOUND",            // BOUND | PRESENT_UNBOUND | ABSENT
-    "downgraded": [],                       // claims the verifier lowered from the envelope
-    "claims": { "integrity": "VERIFIED", "authenticity": "VERIFIED", "observation": "NOT_CHECKED",
-                "correctness": "NOT_APPLICABLE", "authorization": "VERIFIED", "containment": "VERIFIED" }
+    "downgraded": ["authenticity", "authorization", "containment"],  // envelope claims lowered to NOT_CHECKED
+    "claims": { "integrity": "VERIFIED", "authenticity": "NOT_CHECKED", "observation": "NOT_CHECKED",
+                "correctness": "NOT_APPLICABLE", "authorization": "NOT_CHECKED", "containment": "NOT_CHECKED" }
   }
 }
 ```
+
+**The envelope is not covered by the receipt signature.** The signature seals the receipt bytes; the
+six-claim envelope only names the receipt by id+hash. So by default (`envelopeAuthenticated` absent or
+false) a bound envelope's VERIFIED attestations are READ, not re-derived, and surface as NOT_CHECKED —
+only `integrity` (hash + pinned signature) is ever established offline. They reach VERIFIED only when
+the caller sets `envelopeAuthenticated: true`, declaring the envelope arrived over an authenticated
+channel (see `clean-valid-pinned-authenticated`). A self-reported FAILED is always surfaced.
 
 A verifier conforms when, for every vector, `verify(receipt, options)` yields `expect.schema`,
 `expect.sealer_trusted`, `expect.engine_envelope`, the same set of `downgraded` claims, and the
@@ -41,10 +48,12 @@ tests do); the **expected verdicts are authored against the spec**, not read bac
 
 ## What the vectors cover
 
-`clean-valid-pinned` · `clean-valid-no-roots` (sealer-unconfirmed downgrade) · `jcs-key-reorder`
+`clean-valid-pinned` (bound envelope, but attestations READ → NOT_CHECKED) ·
+`clean-valid-pinned-authenticated` (envelopeAuthenticated: true → the one case that lifts them to
+VERIFIED) · `clean-valid-no-roots` (sealer-unconfirmed downgrade) · `jcs-key-reorder`
 (canonical-hash stability) · `byte-tamper-decision` · `untrusted-signer` · `expired-as-of` /
 `within-as-of` · `envelope-absent` · `envelope-unbound` · `unknown-schema` · `not-a-receipt` ·
 `v1-unsigned-no-roots` / `v1-unsigned-pin-downgrade` · `array-reorder-tamper` (array order is
-load-bearing where key order is not) · `malformed-trusted-root` (a garbage pin trusts nothing) ·
-`expired-as-of-rfc3339` / `as-of-epoch-string` (the freshness anchor parses both the CLI's RFC3339
-and epoch-seconds forms).
+load-bearing where key order is not) · `malformed-trusted-root` (a garbage pin trusts nothing, so
+integrity itself drops to NOT_CHECKED) · `expired-as-of-rfc3339` / `as-of-epoch-string` (the
+freshness anchor parses both the CLI's RFC3339 and epoch-seconds forms). **18 vectors.**

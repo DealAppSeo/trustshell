@@ -30,6 +30,7 @@ import { MAX_CLAIMS_FILE_BYTES } from '../lib/action-evidence';
 import { type ProfileOp } from './profile';
 import { type QuarantineListItem, type QuarantineRecord } from '../memory/quarantine';
 import { type KernelReceiptRead } from '../lib/kernel-client';
+import { type OfflineVerifyResult } from '../lib/verify-receipt';
 import { type GroundPage, type GroundResult, type GroundStatus } from '../lib/ground';
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 export declare const EXIT: {
@@ -52,7 +53,7 @@ export declare const EXIT: {
     /** The owner policy (~/.trustshell/policy.json) denied the action. Nothing ran. */
     readonly REFUSED: 5;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'erc8004' | 'learn' | 'bundle' | 'guard' | 'run' | 'sandbox' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'verify-receipt' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'erc8004' | 'learn' | 'bundle' | 'guard' | 'run' | 'sandbox' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -69,6 +70,10 @@ export interface ParsedArgs {
     pai?: boolean;
     /** init --pai: print NOT_MINTED and do not spawn the register script. No network. */
     dryRun?: boolean;
+    /** verify-receipt: comma-separated Ed25519 trusted roots (--root), a freshness anchor (--as-of), an envelope file (--envelope). */
+    root?: string;
+    asOf?: string;
+    envelope?: string;
     /** init --pai: forwarded to scripts/init-pai.mjs */
     name?: string;
     /** init --pai: forwarded to scripts/init-pai.mjs (`job|cost|brain`) */
@@ -207,6 +212,8 @@ export declare function formatRepid(agentId: string, repid: number, tier: string
 export declare function formatProof(p: ProofPresentation): string;
 /** `trustshell receipt`: the hash check, then the six claims one by one. Deliberately no rollup line. */
 export declare function formatKernelReceipt(r: KernelReceiptRead): string;
+/** `trustshell verify-receipt`: the OFFLINE six-claim verdict, same layout as `receipt`, no rollup. */
+export declare function formatOfflineVerify(r: OfflineVerifyResult): string;
 /** Build the SDK client from env (apiKey + apiUrl are both optional). */
 export declare function makeClient(): TrustShell;
 /** IO surface, injectable so run() is testable without touching the real process. */
