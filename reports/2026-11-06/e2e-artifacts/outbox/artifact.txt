@@ -1,0 +1,3 @@
+TrustShell EOD E2E deterministic artifact
+mission=eod-2026-11-06
+content=fixed-bytes-v1
