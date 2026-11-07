@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Receipts, not promises — trustshell.dev draft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* trustshell.dev's own world, inherited verbatim from the live site. */
+  :root {
+    --background:#0a0a0a; --foreground:#fafafa; --muted:#a1a1aa; --accent:#f6851b;
+    --card:#18181b; --border:#27272a;
+    --state-measured:#2dd4bf; --state-approximate:#99f6e4; --state-not-checked:#8b97a8; --state-failed:#fb7185;
+    --serif:"IBM Plex Serif",Georgia,serif; --sans:"Inter",ui-sans-serif,system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body {
+    margin:0; background:var(--background); color:var(--foreground);
+    font-family:var(--sans); font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  ::selection { background:rgba(246,133,27,.28); color:#fff; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:3px; }
+  a { color:var(--foreground); text-decoration:underline; text-decoration-color:rgba(246,133,27,.55); text-underline-offset:3px; }
+  a:hover { text-decoration-color:var(--accent); }
+  ::-webkit-scrollbar { width:12px; height:12px; }
+  ::-webkit-scrollbar-track { background:#0a0a0a; }
+  ::-webkit-scrollbar-thumb { background:#27272a; border:3px solid #0a0a0a; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#3a3a40; }
+
+  .wrap { max-width:60rem; margin:0 auto; padding:clamp(3.5rem,8vw,7rem) clamp(1rem,5vw,2rem); }
+  section + section { margin-top:clamp(3.5rem,7vw,6rem); }
+
+  /* ---- header -------------------------------------------------------------- */
+  .lede { max-width:40ch; }
+  h2.title {
+    font-family:var(--serif); font-weight:600; letter-spacing:-.02em; line-height:1.04;
+    font-size:clamp(2.4rem,6vw,3.75rem); margin:0 0 1.1rem;
+  }
+  h2.title em { font-style:normal; color:var(--accent); }
+  .sub { color:var(--muted); font-size:clamp(1.02rem,2.2vw,1.18rem); margin:0; max-width:58ch; line-height:1.55; }
+
+  h3.kerning { font-family:var(--serif); font-weight:600; letter-spacing:-.01em; font-size:clamp(1.7rem,3.6vw,2.2rem); margin:0 0 .5rem; }
+  .section-note { color:var(--muted); margin:0 0 1.8rem; max-width:62ch; }
+
+  /* ---- the verdict panel --------------------------------------------------- */
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .panel-cmd {
+    font-family:var(--mono); font-size:.86rem; color:var(--muted);
+    padding:1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; gap:1rem; justify-content:space-between; align-items:center; flex-wrap:wrap;
+  }
+  .panel-cmd .cmd { color:#d4d4d8; }
+  .panel-cmd .cmd b { color:var(--foreground); font-weight:500; }
+  .exit { font-weight:700; color:var(--state-measured); white-space:nowrap; }
+  .panel-head { padding:1.25rem 1.25rem .4rem; font-size:.95rem; color:var(--muted); }
+  .claims { list-style:none; margin:0; padding:.3rem .5rem 1rem; }
+  .claim {
+    display:grid; grid-template-columns:11rem auto 1fr; gap:1rem; align-items:baseline;
+    padding:.75rem; border-radius:9px;
+  }
+  .claim + .claim { border-top:1px solid #1f1f23; }
+  .claim .name { font-weight:500; font-size:.98rem; }
+  .claim .gloss { color:var(--muted); font-size:.9rem; line-height:1.45; }
+  .chip {
+    font-family:var(--mono); font-size:.72rem; font-weight:700; letter-spacing:.04em;
+    padding:.26rem .55rem; border-radius:6px; white-space:nowrap; justify-self:start;
+    font-variant-numeric:tabular-nums;
+  }
+  .chip.verified { color:#063; color:#042f2a; background:var(--state-measured); }
+  .chip.notchecked { color:var(--state-not-checked); background:rgba(139,151,168,.14); }
+  .chip.failed { color:var(--state-failed); background:rgba(251,113,133,.14); }
+  .panel-foot {
+    padding:1rem 1.25rem; border-top:1px solid var(--border); background:#131316;
+    font-size:.9rem; color:var(--muted);
+  }
+  .panel-foot b { color:var(--foreground); font-weight:600; }
+
+  /* ---- the evidence ladder ------------------------------------------------- */
+  .ladder { display:grid; gap:0; margin-top:.5rem; }
+  .rung {
+    position:relative; padding:1.5rem 1.5rem 1.5rem 3.4rem;
+    border:1px solid var(--border); border-radius:14px; background:var(--card);
+  }
+  .rung + .rung { margin-top:.9rem; }
+  .rung::before {
+    content:attr(data-step); position:absolute; left:1.15rem; top:1.5rem;
+    width:1.5rem; height:1.5rem; border-radius:50%; display:grid; place-items:center;
+    font-family:var(--mono); font-size:.8rem; font-weight:700;
+    background:#0a0a0a; border:1px solid var(--border); color:var(--muted);
+  }
+  .rung[data-reach="self"]::before { border-color:var(--state-measured); color:var(--state-measured); }
+  .rung[data-reach="engine"]::before { border-color:var(--accent); color:var(--accent); }
+  .rung h4 { margin:0 0 .2rem; font-size:1.3rem; font-weight:600; letter-spacing:-.01em; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+  .who { font-family:var(--mono); font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:.2rem .5rem; border-radius:5px; }
+  .who.you { color:var(--state-measured); background:rgba(45,212,191,.12); }
+  .who.engine { color:var(--accent); background:rgba(246,133,27,.12); }
+  .rung p { margin:.35rem 0 0; color:#d4d4d8; font-size:.95rem; max-width:60ch; }
+  .rung .ceiling { color:var(--muted); font-size:.88rem; }
+  .rung .ceiling b { color:var(--state-not-checked); font-weight:600; }
+
+  /* ---- honest limits ------------------------------------------------------- */
+  .limits { border-top:1px solid var(--border); padding-top:1.6rem; }
+  .limits h3 { font-family:var(--serif); font-weight:500; font-size:1.7rem; margin:0 0 1rem; color:#e4e4e7; }
+  .limits ul { margin:0; padding:0; list-style:none; display:grid; gap:.9rem; max-width:70ch; }
+  .limits li { padding-left:1.4rem; position:relative; color:var(--muted); line-height:1.55; }
+  .limits li::before { content:""; position:absolute; left:0; top:.62em; width:7px; height:7px; border-radius:50%; background:var(--state-not-checked); }
+  .limits li b { color:var(--foreground); font-weight:600; }
+
+  /* ---- reproduce ----------------------------------------------------------- */
+  .repro { margin-top:1.4rem; }
+  pre.cmd {
+    font-family:var(--mono); font-size:.86rem; line-height:1.7; color:#e4e4e7;
+    background:#131316; border:1px solid var(--border); border-radius:10px;
+    padding:1rem 1.15rem; margin:.5rem 0 0; overflow-x:auto; white-space:pre;
+  }
+  pre.cmd .p { color:var(--accent); -webkit-user-select:none; user-select:none; }
+  pre.cmd .c { color:#9aa1ab; }
+  .repro .cap { color:var(--muted); font-size:.9rem; margin:.1rem 0 0; }
+
+  .foot-meta { margin-top:3rem; font-family:var(--mono); font-size:.76rem; letter-spacing:.03em; color:#9aa1ab; }
+  .foot-meta .dot { color:#52525b; margin:0 .5rem; }
+
+  /* one authored motion moment: verdict rows settle in on first view.
+     visible by default — the keyframe only runs when JS opts in. */
+  .reveal { opacity:1; }
+  .js .reveal { opacity:0; transform:translateY(10px); }
+  .js .reveal.in { opacity:1; transform:none; transition:opacity .55s cubic-bezier(.16,1,.3,1), transform .55s cubic-bezier(.16,1,.3,1); }
+  @media (prefers-reduced-motion:reduce) { .js .reveal { opacity:1; transform:none; transition:none; } }
+
+  @media (max-width:560px) {
+    .claim { grid-template-columns:1fr; gap:.3rem; }
+    .claim .chip { justify-self:start; }
+    .panel-cmd { font-size:.78rem; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <section class="lede">
+    <h2 class="title">Receipts, <em>not promises.</em></h2>
+    <p class="sub">A TrustShell action can seal a signed receipt of what it did. Verifying one offline tells you exactly what it proves, and it is strict about what it refuses to claim.</p>
+  </section>
+
+  <section aria-labelledby="verdict-h">
+    <h3 id="verdict-h" class="kerning">One receipt, six separate claims</h3>
+    <p class="section-note">There is no single “valid” badge. <code style="font-family:var(--mono);font-size:.88em;color:#d4d4d8">verify-receipt</code> recomputes the hash and the signature locally and reports each claim on its own, with its own gaps.</p>
+
+    <div class="panel">
+      <div class="panel-cmd">
+        <span class="cmd">$ trustshell verify-receipt <b>r.json</b> --root 0x8e8c…7222</span>
+        <span class="exit">exit 0</span>
+      </div>
+      <div class="panel-head">Offline verdict — sealer <span style="color:var(--state-measured)">✓ trusted</span> under the pinned key. No network was used.</div>
+      <ul class="claims">
+        <li class="claim reveal"><span class="name">Integrity</span><span class="chip verified">VERIFIED</span><span class="gloss">The bytes are whole: the hash matches the contents, and a pinned Ed25519 key sealed them.</span></li>
+        <li class="claim reveal"><span class="name">Authenticity</span><span class="chip notchecked">NOT_CHECKED</span><span class="gloss">No six-claim envelope was supplied, and this cannot be derived from the receipt alone.</span></li>
+        <li class="claim reveal"><span class="name">Observation</span><span class="chip notchecked">NOT_CHECKED</span><span class="gloss">No outcome (e.g. a payment settling on chain) was observed and attested.</span></li>
+        <li class="claim reveal"><span class="name">Correctness</span><span class="chip notchecked">NOT_CHECKED</span><span class="gloss">The content was not verified against its source.</span></li>
+        <li class="claim reveal"><span class="name">Authorization</span><span class="chip notchecked">NOT_CHECKED</span><span class="gloss">Whether the kernel permitted this action under its policy is not established here.</span></li>
+        <li class="claim reveal"><span class="name">Containment</span><span class="chip notchecked">NOT_CHECKED</span><span class="gloss">That the tool ran only under an ALLOW decision is not established here.</span></li>
+      </ul>
+      <div class="panel-foot"><b>NOT_CHECKED is never a pass.</b> Offline verification proves two things by cryptography: the bytes are whole, and a pinned key sealed them. Every other claim is the issuer’s own attestation, read but not re-derived, so it shows as NOT_CHECKED until an authenticated envelope backs it.</div>
+    </div>
+  </section>
+
+  <section aria-labelledby="ladder-h">
+    <h3 id="ladder-h" class="kerning">Three levels of evidence, never collapsed</h3>
+    <p class="section-note">A signature says who sealed a receipt, not that an action was permitted or that it earned a reputation. The levels do not blur together, and you can only reach the first one by yourself.</p>
+
+    <div class="ladder">
+      <div class="rung reveal" data-step="1" data-reach="self">
+        <h4>Owner-self-signed <span class="who you">you can do this now</span></h4>
+        <p>Sealed with your install’s own key, offline — <code style="font-family:var(--mono);font-size:.85em;color:var(--state-measured)">trustshell demo</code> or <code style="font-family:var(--mono);font-size:.85em;color:#d4d4d8">sign-receipt</code>. Integrity verifies under the key you pin.</p>
+        <p class="ceiling">Proves authorship and wholeness, nothing more. <b>Not independent verification, and it earns no production RepID.</b></p>
+      </div>
+      <div class="rung reveal" data-step="2" data-reach="engine">
+        <h4>Independently-verified <span class="who engine">the engine’s key</span></h4>
+        <p>An engine key sealed the receipt and an authenticated six-claim envelope backs it, so at least one claim beyond Integrity reads VERIFIED.</p>
+        <p class="ceiling">Still not reputation. Verification and reputation are separate gates.</p>
+      </div>
+      <div class="rung reveal" data-step="3" data-reach="engine">
+        <h4>RepID-eligible <span class="who engine">the engine decides</span></h4>
+        <p>Whether a receipt earns portable reputation is the engine’s call, against its own pinned key.</p>
+        <p class="ceiling"><b>Never an offline verdict, and never self-declared.</b> An owner cannot promote their own receipt here.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="limits" aria-labelledby="limits-h">
+    <h3 id="limits-h">What a receipt does not prove</h3>
+    <ul>
+      <li><b>An owner self-signature proves authorship and wholeness</b> — not that the engine permitted the action, and not that it earned reputation.</li>
+      <li><b>NOT_CHECKED is never rounded up to a pass.</b> A claim with no evidence stays not-checked; there is no single rollup “valid”.</li>
+      <li><b>Offline verification is stateless.</b> It does not catch a verbatim replay of one receipt. Replay is prevented by the engine’s receipt-id and nullifier, not by the offline verifier.</li>
+      <li><b>A pinned root is required to accept a seal.</b> With no key pinned, a whole-but-unaccountable receipt is NOT_CHECKED, never exit 0.</li>
+    </ul>
+
+    <div class="repro">
+      <p class="cap">Run the whole loop yourself — no account, no network:</p>
+<pre class="cmd"><span class="p">$ </span>npx @hyperdag/trustshell@latest demo       <span class="c"># seals a sample receipt, verifies it in front of you</span>
+<span class="p">$ </span>trustshell sign-receipt body.json &gt; r.json <span class="c"># or seal your own</span>
+<span class="p">$ </span>trustshell verify-receipt r.json --root 0x…</pre>
+    </div>
+
+    <p class="foot-meta">Developer preview<span class="dot">·</span>Apache-2.0<span class="dot">·</span>free, no account<span class="dot">·</span>offline verification, no engine required</p>
+  </section>
+
+</main>
+<script>
+  // one authored moment: stagger the verdict rows and ladder rungs in on first view.
+  document.documentElement.classList.add('js');
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const items = [...e.target.querySelectorAll('.reveal')];
+      items.forEach((el, i) => setTimeout(() => el.classList.add('in'), i * 70));
+      io.unobserve(e.target);
+    }
+  }, { threshold: 0.2 });
+  for (const s of document.querySelectorAll('section')) io.observe(s);
+</script>
+</body>
+</html>
