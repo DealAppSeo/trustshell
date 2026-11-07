@@ -102,6 +102,7 @@
     "test:sdk-import": "npm run sdk:build && node tests/sdk-import-contract.mjs",
     "test:verify-import": "npm run sdk:build && node tests/verify-subpath-import.mjs",
     "test:trustlattice": "npm run sdk:build && node tests/trustlattice-conformance.mjs",
+    "test:trust-cycle": "npm run sdk:build && node tests/e2e/trust-cycle-walk.mjs",
     "docs:honest-types": "node scripts/gen-honest-return-docs.mjs",
     "test:pack-x402": "node tests/pack-x402-guards.mjs",
     "test:trustmesh-live": "node scripts/trustmesh-live-e2e.mjs",
