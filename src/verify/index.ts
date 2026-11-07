@@ -50,3 +50,19 @@ export type {
   KernelReceiptSigner,
   KernelReceiptAuthenticity,
 } from '../lib/kernel-client';
+
+/**
+ * The owner's side of the same offline surface: seal a receipt with THIS install's own Ed25519 key so
+ * a stranger reproduces its integrity with the verifier above — one wire format, one verifier. An
+ * owner self-signature proves authorship and wholeness only; `evidenceLevel` keeps it from ever reading
+ * as independently-verified or RepID-bearing. node:crypto only, no network (same import boundary).
+ */
+export {
+  signOwnerReceipt,
+  installKeySigner,
+  installKeyRootHex,
+  ownerReceiptProvenance,
+  evidenceLevel,
+  OWNER_SELF_SIGNED,
+} from '../lib/owner-receipt';
+export type { SealableReceipt, EvidenceLevel, EvidenceVerdict } from '../lib/owner-receipt';

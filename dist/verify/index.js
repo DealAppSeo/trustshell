@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.kernelTrustedSigners = exports.kernelReceiptAuthenticity = exports.kernelReceiptHash = exports.kernelCanonicalJson = exports.KERNEL_TRUSTED_SIGNERS_ENV = exports.KERNEL_RECEIPT_SIGNATURE_DOMAIN = exports.KERNEL_RECEIPT_SCHEMA_SIGNED = exports.KERNEL_RECEIPT_SCHEMA = exports.SIX_CLAIMS_PREDICATE_TYPE = exports.SIX_CLAIM_KEYS = exports.TRUSTLATTICE_VERDICT_SPEC = exports.verifyReceiptChain = exports.verifyReceiptOffline = void 0;
+exports.OWNER_SELF_SIGNED = exports.evidenceLevel = exports.ownerReceiptProvenance = exports.installKeyRootHex = exports.installKeySigner = exports.signOwnerReceipt = exports.kernelTrustedSigners = exports.kernelReceiptAuthenticity = exports.kernelReceiptHash = exports.kernelCanonicalJson = exports.KERNEL_TRUSTED_SIGNERS_ENV = exports.KERNEL_RECEIPT_SIGNATURE_DOMAIN = exports.KERNEL_RECEIPT_SCHEMA_SIGNED = exports.KERNEL_RECEIPT_SCHEMA = exports.SIX_CLAIMS_PREDICATE_TYPE = exports.SIX_CLAIM_KEYS = exports.TRUSTLATTICE_VERDICT_SPEC = exports.verifyReceiptChain = exports.verifyReceiptOffline = void 0;
 /**
  * `@hyperdag/trustshell/verify` — the offline receipt-verification surface, on its own subpath.
  *
@@ -30,3 +30,16 @@ Object.defineProperty(exports, "kernelCanonicalJson", { enumerable: true, get: f
 Object.defineProperty(exports, "kernelReceiptHash", { enumerable: true, get: function () { return kernel_client_1.kernelReceiptHash; } });
 Object.defineProperty(exports, "kernelReceiptAuthenticity", { enumerable: true, get: function () { return kernel_client_1.kernelReceiptAuthenticity; } });
 Object.defineProperty(exports, "kernelTrustedSigners", { enumerable: true, get: function () { return kernel_client_1.kernelTrustedSigners; } });
+/**
+ * The owner's side of the same offline surface: seal a receipt with THIS install's own Ed25519 key so
+ * a stranger reproduces its integrity with the verifier above — one wire format, one verifier. An
+ * owner self-signature proves authorship and wholeness only; `evidenceLevel` keeps it from ever reading
+ * as independently-verified or RepID-bearing. node:crypto only, no network (same import boundary).
+ */
+var owner_receipt_1 = require("../lib/owner-receipt");
+Object.defineProperty(exports, "signOwnerReceipt", { enumerable: true, get: function () { return owner_receipt_1.signOwnerReceipt; } });
+Object.defineProperty(exports, "installKeySigner", { enumerable: true, get: function () { return owner_receipt_1.installKeySigner; } });
+Object.defineProperty(exports, "installKeyRootHex", { enumerable: true, get: function () { return owner_receipt_1.installKeyRootHex; } });
+Object.defineProperty(exports, "ownerReceiptProvenance", { enumerable: true, get: function () { return owner_receipt_1.ownerReceiptProvenance; } });
+Object.defineProperty(exports, "evidenceLevel", { enumerable: true, get: function () { return owner_receipt_1.evidenceLevel; } });
+Object.defineProperty(exports, "OWNER_SELF_SIGNED", { enumerable: true, get: function () { return owner_receipt_1.OWNER_SELF_SIGNED; } });
