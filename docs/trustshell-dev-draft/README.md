@@ -7,11 +7,26 @@ goes live from this folder.
 
 ## What it is
 
-`receipts-section.html` — a single, self-contained page that renders the "Receipts, not promises"
-section: the one-receipt / six-claim non-collapsing verdict, the three-rung evidence ladder
-(owner-self-signed → independently-verified → RepID-eligible), and a "What a receipt does not
-prove" block. It is the offline receipt loop (D1/D4/D5) told as a page a skeptic reads before
-they run `npx @hyperdag/trustshell@latest demo`.
+`receipts-section.html` — a single, self-contained page that walks the owner's five-step
+progression — **Enforce → Observe → Verify → Earn → Reuse** — with the real CLI at each step:
+the owner policy that decides before a tool runs and pins it by path+sha256 (`guard` / `run`), the
+hash-chained log checked offline (`inspect`), the one-receipt / six-claim non-collapsing verdict
+(`verify-receipt`), the three-rung evidence ladder (owner-self-signed → issuer-attested →
+RepID-eligible), and the signed carry where authority never travels (`bundle`). It ends with
+"What a receipt does not prove" and a runnable, offline, no-account loop.
+
+## This revision (2026-11-07): IA aligned, commands made real, one label corrected
+
+- **IA now follows the owner's progression** Enforce → Observe → Verify → Earn → Reuse — a step rail
+  up top, one step per section. The six-claim verdict panel lives inside Verify; the ladder inside Earn.
+- **Three fabricated commands removed.** The prior draft told a skeptic to run `trustshell demo`,
+  `npx … demo`, and `trustshell sign-receipt` — none of which exist in the CLI (`demo` is only a
+  `check --demo` flag; sealing lives in the `sandbox` / `run` path, which needs a container or the
+  engine). Every command shown now is one the CLI actually has and runs offline: `guard`, `run`,
+  `inspect`, `verify-receipt`, `bundle` (verified against `src/cli/index.ts` and L-E2E).
+- **Rung 2 is "Issuer-attested", not "independently-verified"** — reconciled with #681's
+  `INDEPENDENTLY_VERIFIED → ISSUER_ATTESTED` rename: the engine's key is not independent of the
+  issuer, so the page says exactly that instead of claiming an independence it does not have.
 
 ## How to view it
 
@@ -40,6 +55,8 @@ Captured from the live site and reused verbatim, so this drops in without a visu
 - The three evidence levels are kept distinct; an owner self-signature earns **no** production RepID.
 - Framed as a developer preview; ends with explicit "what a pass does not prove".
 - No accuracy number is quoted (none has a ruler to carry here).
+- Every command shown exists in the CLI and runs offline — no fabricated `demo` / `sign-receipt`.
+- "Independently-verified" is not claimed where the code only reaches `ISSUER_ATTESTED` (#681).
 
 ## Design-detector result
 

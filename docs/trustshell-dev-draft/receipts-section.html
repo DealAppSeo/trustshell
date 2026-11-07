@@ -26,27 +26,67 @@
   :focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:3px; }
   a { color:var(--foreground); text-decoration:underline; text-decoration-color:rgba(246,133,27,.55); text-underline-offset:3px; }
   a:hover { text-decoration-color:var(--accent); }
+  code { font-family:var(--mono); font-size:.88em; color:#d4d4d8; }
   ::-webkit-scrollbar { width:12px; height:12px; }
   ::-webkit-scrollbar-track { background:#0a0a0a; }
   ::-webkit-scrollbar-thumb { background:#27272a; border:3px solid #0a0a0a; border-radius:8px; }
   ::-webkit-scrollbar-thumb:hover { background:#3a3a40; }
 
   .wrap { max-width:60rem; margin:0 auto; padding:clamp(3.5rem,8vw,7rem) clamp(1rem,5vw,2rem); }
-  section + section { margin-top:clamp(3.5rem,7vw,6rem); }
+  section + section { margin-top:clamp(3.25rem,6vw,5.5rem); }
 
   /* ---- header -------------------------------------------------------------- */
-  .lede { max-width:40ch; }
+  .lede { max-width:46ch; }
   h2.title {
     font-family:var(--serif); font-weight:600; letter-spacing:-.02em; line-height:1.04;
     font-size:clamp(2.4rem,6vw,3.75rem); margin:0 0 1.1rem;
   }
   h2.title em { font-style:normal; color:var(--accent); }
-  .sub { color:var(--muted); font-size:clamp(1.02rem,2.2vw,1.18rem); margin:0; max-width:58ch; line-height:1.55; }
+  .sub { color:var(--muted); font-size:clamp(1.02rem,2.2vw,1.18rem); margin:0; max-width:60ch; line-height:1.55; }
 
+  /* ---- the five-step rail: the spine the page walks ------------------------ */
+  .rail { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:2.2rem; list-style:none; padding:0; }
+  .rail li { display:flex; align-items:center; gap:.5rem; }
+  .rail .step {
+    display:flex; align-items:center; gap:.5rem;
+    font-family:var(--mono); font-size:.76rem; font-weight:500; letter-spacing:.04em;
+    color:#d4d4d8; background:var(--card); border:1px solid var(--border);
+    padding:.42rem .7rem; border-radius:7px; white-space:nowrap;
+  }
+  .rail .step b { color:var(--accent); font-weight:700; }
+  .rail .arrow { color:#52525b; font-family:var(--mono); font-size:.8rem; }
+  .rail li:last-child .arrow { display:none; }
+
+  /* ---- step heading -------------------------------------------------------- */
+  .eyebrow {
+    font-family:var(--mono); font-size:.74rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 .5rem; display:block;
+  }
+  .eyebrow .n { color:var(--muted); margin-right:.55rem; }
   h3.kerning { font-family:var(--serif); font-weight:600; letter-spacing:-.01em; font-size:clamp(1.7rem,3.6vw,2.2rem); margin:0 0 .5rem; }
-  .section-note { color:var(--muted); margin:0 0 1.8rem; max-width:62ch; }
+  .section-note { color:var(--muted); margin:0 0 1.5rem; max-width:64ch; }
+  .section-note b { color:#e4e4e7; font-weight:600; }
 
-  /* ---- the verdict panel --------------------------------------------------- */
+  /* ---- command panel (enforce / observe / reuse) --------------------------- */
+  .cmdpanel { background:#131316; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  pre.cmd {
+    font-family:var(--mono); font-size:.84rem; line-height:1.75; color:#e4e4e7;
+    margin:0; padding:1.1rem 1.25rem; overflow-x:auto; white-space:pre;
+  }
+  pre.cmd .p { color:var(--accent); -webkit-user-select:none; user-select:none; }
+  pre.cmd .c { color:#9aa1ab; }
+  pre.cmd .deny { color:var(--state-failed); font-weight:700; }
+  pre.cmd .ok { color:var(--state-measured); font-weight:700; }
+  .note-strip {
+    display:flex; gap:.7rem; align-items:flex-start; margin-top:1rem; padding:.85rem 1rem;
+    border:1px solid var(--border); border-left:3px solid var(--state-not-checked); border-radius:8px;
+    background:var(--card); color:var(--muted); font-size:.92rem; line-height:1.5; max-width:66ch;
+  }
+  .note-strip.measured { border-left-color:var(--state-measured); }
+  .note-strip b { color:var(--foreground); font-weight:600; }
+  .note-strip code { color:#d4d4d8; }
+
+  /* ---- the verdict panel (verify) ------------------------------------------ */
   .panel { background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
   .panel-cmd {
     font-family:var(--mono); font-size:.86rem; color:var(--muted);
@@ -69,7 +109,7 @@
     padding:.26rem .55rem; border-radius:6px; white-space:nowrap; justify-self:start;
     font-variant-numeric:tabular-nums;
   }
-  .chip.verified { color:#063; color:#042f2a; background:var(--state-measured); }
+  .chip.verified { color:#042f2a; background:var(--state-measured); }
   .chip.notchecked { color:var(--state-not-checked); background:rgba(139,151,168,.14); }
   .chip.failed { color:var(--state-failed); background:rgba(251,113,133,.14); }
   .panel-foot {
@@ -78,7 +118,7 @@
   }
   .panel-foot b { color:var(--foreground); font-weight:600; }
 
-  /* ---- the evidence ladder ------------------------------------------------- */
+  /* ---- the evidence ladder (earn) ------------------------------------------ */
   .ladder { display:grid; gap:0; margin-top:.5rem; }
   .rung {
     position:relative; padding:1.5rem 1.5rem 1.5rem 3.4rem;
@@ -111,19 +151,13 @@
 
   /* ---- reproduce ----------------------------------------------------------- */
   .repro { margin-top:1.4rem; }
-  pre.cmd {
-    font-family:var(--mono); font-size:.86rem; line-height:1.7; color:#e4e4e7;
-    background:#131316; border:1px solid var(--border); border-radius:10px;
-    padding:1rem 1.15rem; margin:.5rem 0 0; overflow-x:auto; white-space:pre;
-  }
-  pre.cmd .p { color:var(--accent); -webkit-user-select:none; user-select:none; }
-  pre.cmd .c { color:#9aa1ab; }
-  .repro .cap { color:var(--muted); font-size:.9rem; margin:.1rem 0 0; }
+  .repro .cap { color:var(--muted); font-size:.9rem; margin:.1rem 0 .4rem; }
+  .repro pre.cmd { background:#131316; border:1px solid var(--border); border-radius:10px; }
 
   .foot-meta { margin-top:3rem; font-family:var(--mono); font-size:.76rem; letter-spacing:.03em; color:#9aa1ab; }
   .foot-meta .dot { color:#52525b; margin:0 .5rem; }
 
-  /* one authored motion moment: verdict rows settle in on first view.
+  /* one authored motion moment: verdict rows and ladder rungs settle in on first view.
      visible by default — the keyframe only runs when JS opts in. */
   .reveal { opacity:1; }
   .js .reveal { opacity:0; transform:translateY(10px); }
@@ -134,6 +168,7 @@
     .claim { grid-template-columns:1fr; gap:.3rem; }
     .claim .chip { justify-self:start; }
     .panel-cmd { font-size:.78rem; }
+    .rail .step { font-size:.72rem; }
   }
 </style>
 </head>
@@ -142,12 +177,47 @@
 
   <section class="lede">
     <h2 class="title">Receipts, <em>not promises.</em></h2>
-    <p class="sub">A TrustShell action can seal a signed receipt of what it did. Verifying one offline tells you exactly what it proves, and it is strict about what it refuses to claim.</p>
+    <p class="sub">A TrustShell action is decided before it runs, recorded while it runs, and sealed into a receipt anyone can check offline — one that is strict about what it refuses to claim. Five steps, no single “valid” badge at the end of any of them.</p>
+    <ol class="rail" aria-label="The five steps">
+      <li><span class="step"><b>1</b> Enforce</span><span class="arrow">→</span></li>
+      <li><span class="step"><b>2</b> Observe</span><span class="arrow">→</span></li>
+      <li><span class="step"><b>3</b> Verify</span><span class="arrow">→</span></li>
+      <li><span class="step"><b>4</b> Earn</span><span class="arrow">→</span></li>
+      <li><span class="step"><b>5</b> Reuse</span><span class="arrow">→</span></li>
+    </ol>
   </section>
 
+  <!-- ENFORCE ------------------------------------------------------------- -->
+  <section aria-labelledby="enforce-h">
+    <span class="eyebrow"><span class="n">Step 1</span>Enforce</span>
+    <h3 id="enforce-h" class="kerning">The owner decides before the tool runs</h3>
+    <p class="section-note">A policy you own lists what may run and pins each tool to one executable by path and sha256. The decision and its record come <b>before</b> the command starts — a command that is not listed, or whose binary was swapped, never starts.</p>
+    <div class="cmdpanel">
+<pre class="cmd"><span class="p">$ </span>trustshell guard init                                 <span class="c"># write the owner policy; every limit 0</span>
+<span class="p">$ </span>trustshell guard allow tool:git --exe "$(command -v git)"   <span class="c"># list it AND pin it by path+sha256</span>
+<span class="p">$ </span>trustshell run --tool git -- "$(command -v git)" --version  <span class="c"># decided+recorded, then runs</span>
+<span class="p">$ </span>trustshell run --tool git -- ./not-the-pinned-git --version <span class="deny"># REFUSED before it starts (exit 5)</span></pre>
+    </div>
+    <div class="note-strip"><span>With a policy in place, anything unlisted is denied, and no policy at all means <b>nothing runs</b> (exit 2) — never a silent allow. This is where the receipt’s <code>authorization</code> and <code>containment</code> claims come from.</span></div>
+  </section>
+
+  <!-- OBSERVE ------------------------------------------------------------- -->
+  <section aria-labelledby="observe-h">
+    <span class="eyebrow"><span class="n">Step 2</span>Observe</span>
+    <h3 id="observe-h" class="kerning">What happened is recorded — and so is what no one watched</h3>
+    <p class="section-note">The run records the plain facts it has: the exit code, the signal, the duration. It does <b>not</b> claim to have watched the work. The card says so in those words, and the record goes into a local, hash-chained log you can check offline.</p>
+    <div class="cmdpanel">
+<pre class="cmd"><span class="p">$ </span>trustshell inspect                     <span class="c"># verify the local tool-call log — opens NO socket</span>
+<span class="ok">INTACT</span>  .trustshell/session.jsonl      <span class="c"># exit 0 · BROKEN (1) / UNCHAINED (3) / NO_LOG (3)</span></pre>
+    </div>
+    <div class="note-strip"><span>The run card reads <code>independently observed — nothing: no outside party watched this command</code>. “Exited 0” is recorded as an exit code, never promoted to “succeeded”, “correct”, or “verified”.</span></div>
+  </section>
+
+  <!-- VERIFY -------------------------------------------------------------- -->
   <section aria-labelledby="verdict-h">
+    <span class="eyebrow"><span class="n">Step 3</span>Verify</span>
     <h3 id="verdict-h" class="kerning">One receipt, six separate claims</h3>
-    <p class="section-note">There is no single “valid” badge. <code style="font-family:var(--mono);font-size:.88em;color:#d4d4d8">verify-receipt</code> recomputes the hash and the signature locally and reports each claim on its own, with its own gaps.</p>
+    <p class="section-note">There is no single “valid” badge. <code>verify-receipt</code> recomputes the hash and the signature locally — no network, no engine — and reports each claim on its own, with its own gaps.</p>
 
     <div class="panel">
       <div class="panel-cmd">
@@ -163,24 +233,26 @@
         <li class="claim reveal"><span class="name">Authorization</span><span class="chip notchecked">NOT_CHECKED</span><span class="gloss">Whether the kernel permitted this action under its policy is not established here.</span></li>
         <li class="claim reveal"><span class="name">Containment</span><span class="chip notchecked">NOT_CHECKED</span><span class="gloss">That the tool ran only under an ALLOW decision is not established here.</span></li>
       </ul>
-      <div class="panel-foot"><b>NOT_CHECKED is never a pass.</b> Offline verification proves two things by cryptography: the bytes are whole, and a pinned key sealed them. Every other claim is the issuer’s own attestation, read but not re-derived, so it shows as NOT_CHECKED until an authenticated envelope backs it.</div>
+      <div class="panel-foot"><b>NOT_CHECKED is never a pass.</b> Offline verification proves two things by cryptography: the bytes are whole, and a pinned key sealed them. Every other claim is read from an authenticated envelope or stays NOT_CHECKED — so exit is keyed to integrity: 0 VERIFIED, 1 FAILED, 2 NOT_CHECKED.</div>
     </div>
   </section>
 
+  <!-- EARN ---------------------------------------------------------------- -->
   <section aria-labelledby="ladder-h">
+    <span class="eyebrow"><span class="n">Step 4</span>Earn</span>
     <h3 id="ladder-h" class="kerning">Three levels of evidence, never collapsed</h3>
-    <p class="section-note">A signature says who sealed a receipt, not that an action was permitted or that it earned a reputation. The levels do not blur together, and you can only reach the first one by yourself.</p>
+    <p class="section-note">A signature says who sealed a receipt — not that an action was permitted, and not that it earned a reputation. The levels do not blur together, and you can only reach the first one by yourself.</p>
 
     <div class="ladder">
       <div class="rung reveal" data-step="1" data-reach="self">
         <h4>Owner-self-signed <span class="who you">you can do this now</span></h4>
-        <p>Sealed with your install’s own key, offline — <code style="font-family:var(--mono);font-size:.85em;color:var(--state-measured)">trustshell demo</code> or <code style="font-family:var(--mono);font-size:.85em;color:#d4d4d8">sign-receipt</code>. Integrity verifies under the key you pin.</p>
+        <p>Sealed with your install’s own key. Integrity verifies under the key you pin, offline.</p>
         <p class="ceiling">Proves authorship and wholeness, nothing more. <b>Not independent verification, and it earns no production RepID.</b></p>
       </div>
       <div class="rung reveal" data-step="2" data-reach="engine">
-        <h4>Independently-verified <span class="who engine">the engine’s key</span></h4>
-        <p>An engine key sealed the receipt and an authenticated six-claim envelope backs it, so at least one claim beyond Integrity reads VERIFIED.</p>
-        <p class="ceiling">Still not reputation. Verification and reputation are separate gates.</p>
+        <h4>Issuer-attested <span class="who engine">the engine’s key</span></h4>
+        <p>An engine key sealed the receipt and an authenticated six-claim envelope backs it, so a claim beyond Integrity reads VERIFIED.</p>
+        <p class="ceiling">The engine’s key is <b>not independent of the issuer</b>, so this is not yet independent verification — and still not reputation. Verification and reputation are separate gates.</p>
       </div>
       <div class="rung reveal" data-step="3" data-reach="engine">
         <h4>RepID-eligible <span class="who engine">the engine decides</span></h4>
@@ -190,6 +262,19 @@
     </div>
   </section>
 
+  <!-- REUSE --------------------------------------------------------------- -->
+  <section aria-labelledby="reuse-h">
+    <span class="eyebrow"><span class="n">Step 5</span>Reuse</span>
+    <h3 id="reuse-h" class="kerning">Carry what was earned — authority stays home</h3>
+    <p class="section-note">A bundle is one Ed25519-signed file: your profile, the policy <b>by hash</b>, the notes you choose, and evidence pointers by sha256. Never credentials, keys, or spending authority. What travels is evidence a stranger can check; what does <b>not</b> travel is the power to act.</p>
+    <div class="cmdpanel">
+<pre class="cmd"><span class="p">$ </span>trustshell bundle export carry.sig --notes released   <span class="c"># sign a carry; the key never goes in it</span>
+<span class="p">$ </span>trustshell bundle import carry.sig                    <span class="c"># verify its signature, then write it here</span></pre>
+    </div>
+    <div class="note-strip"><span>On import, authority does not come with it: notes land <b>untrusted and quarantined</b>, and a policy is enforced only if its owner signature verifies with a key you trust <b>and</b> its nonce is higher than the one in force. The same receipt and the same RepID carry across contexts without carrying the right to act.</span></div>
+  </section>
+
+  <!-- LIMITS + REPRODUCE -------------------------------------------------- -->
   <section class="limits" aria-labelledby="limits-h">
     <h3 id="limits-h">What a receipt does not prove</h3>
     <ul>
@@ -200,10 +285,13 @@
     </ul>
 
     <div class="repro">
-      <p class="cap">Run the whole loop yourself — no account, no network:</p>
-<pre class="cmd"><span class="p">$ </span>npx @hyperdag/trustshell@latest demo       <span class="c"># seals a sample receipt, verifies it in front of you</span>
-<span class="p">$ </span>trustshell sign-receipt body.json &gt; r.json <span class="c"># or seal your own</span>
-<span class="p">$ </span>trustshell verify-receipt r.json --root 0x…</pre>
+      <p class="cap">Run the enforced path and check its log yourself — no account, no network, no container:</p>
+<pre class="cmd"><span class="p">$ </span>npx @hyperdag/trustshell@latest guard init
+<span class="p">$ </span>npx @hyperdag/trustshell@latest guard allow tool:git --exe "$(command -v git)"
+<span class="p">$ </span>npx @hyperdag/trustshell@latest run --tool git -- "$(command -v git)" --version
+<span class="p">$ </span>npx @hyperdag/trustshell@latest inspect                 <span class="c"># INTACT — the local log holds</span></pre>
+      <p class="cap" style="margin-top:1rem">And verify any receipt you are handed, offline:</p>
+<pre class="cmd"><span class="p">$ </span>npx @hyperdag/trustshell@latest verify-receipt r.json --root 0x…</pre>
     </div>
 
     <p class="foot-meta">Developer preview<span class="dot">·</span>Apache-2.0<span class="dot">·</span>free, no account<span class="dot">·</span>offline verification, no engine required</p>
