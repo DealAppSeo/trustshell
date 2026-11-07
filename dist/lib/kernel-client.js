@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SIX_CLAIMS_PREDICATE_TYPE = exports.SIX_CLAIM_KEYS = exports.KernelRefusedError = exports.KERNEL_TRUSTED_SIGNERS_ENV = exports.KERNEL_RECEIPT_SIGNATURE_DOMAIN = exports.KERNEL_RECEIPT_SCHEMA_SIGNED = exports.KERNEL_RECEIPT_SCHEMA = void 0;
 exports.kernelCanonicalJson = kernelCanonicalJson;
@@ -23,7 +56,7 @@ exports.kernelReceipt = kernelReceipt;
  *   - a body that is not JSON, or has an unexpected shape → REFUSE
  *   - verdict DENY or NOT_CHECKED           → REFUSE (and the kernel's reasons come back)
  *   - verdict ALLOW that does not agree with itself, or is not BOUND TO THIS REQUEST → REFUSE
- *   - the arguments could not be hashed (ethers missing) → REFUSE
+ *   - the arguments could not be hashed → REFUSE
  *
  * "Bound to this request" matters: an ALLOW for a different args_hash, tool, agent or amount is
  * somebody else's ALLOW. The answer carries a receipt preview; we check it names exactly what we
@@ -56,9 +89,29 @@ exports.kernelReceipt = kernelReceipt;
  * an unsigned receipt is then a downgrade, so pin only after the engine is signing.
  */
 const node_crypto_1 = require("node:crypto");
-const optional_ethers_1 = require("./optional-ethers");
 const trustshell_1 = require("./trustshell");
 const api_url_1 = require("./api-url");
+/**
+ * keccak256 of a UTF-8 string → `0x` + 64 lower-case hex. The same hash the engine computes (a shared
+ * test vector pins the two). Uses an audited zero-dep keccak (@noble/hashes, a real dependency), NOT the
+ * heavy optional `ethers` peer, so offline receipt verification works on a bare `npm install @hyperdag/trustshell`.
+ *
+ * Imported LAZILY, and this matters: index.ts imports this module at startup, so a TOP-LEVEL require of
+ * @noble would make the whole CLI need @noble merely to start. A CLI compiled to a bare directory with no
+ * reachable node_modules (our self-build test harnesses — learn-hook, check-egress — build to a temp dir
+ * exactly this way) must still start and run its non-hashing commands. So we resolve @noble on first hash,
+ * not at load. A real `npm install` always has it; nothing about the OOTB offline-verify guarantee changes.
+ */
+let _keccak256;
+let _bytesToHex;
+async function keccak256Utf8(s) {
+    if (!_keccak256 || !_bytesToHex) {
+        const [sha3, utils] = await Promise.all([Promise.resolve().then(() => __importStar(require('@noble/hashes/sha3'))), Promise.resolve().then(() => __importStar(require('@noble/hashes/utils')))]);
+        _keccak256 = sha3.keccak_256;
+        _bytesToHex = utils.bytesToHex;
+    }
+    return `0x${_bytesToHex(_keccak256(new TextEncoder().encode(s)))}`;
+}
 exports.KERNEL_RECEIPT_SCHEMA = 'kernel-receipt/1';
 /** The signed receipt: the same body plus header.signer and header.signature. */
 exports.KERNEL_RECEIPT_SCHEMA_SIGNED = 'kernel-receipt/2';
@@ -93,16 +146,14 @@ function kernelCanonicalJson(value) {
             .join(',') +
         '}');
 }
-/** keccak256 of the canonical JSON of the arguments. Needs the optional `ethers` peer. */
+/** keccak256 of the canonical JSON of the arguments. Hashing happens locally and needs no optional peer. */
 async function hashKernelArgs(args) {
-    const { keccak256, toUtf8Bytes } = await (0, optional_ethers_1.loadEthers)('Hashing kernel arguments');
-    return keccak256(toUtf8Bytes(kernelCanonicalJson(args)));
+    return keccak256Utf8(kernelCanonicalJson(args));
 }
-/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. */
+/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. Needs no optional peer. */
 async function kernelReceiptHash(receipt) {
-    const { keccak256, toUtf8Bytes } = await (0, optional_ethers_1.loadEthers)('Hashing a kernel receipt');
     const { receipt_hash: _omit, ...header } = receipt.header;
-    return keccak256(toUtf8Bytes(kernelCanonicalJson({ ...receipt, header })));
+    return keccak256Utf8(kernelCanonicalJson({ ...receipt, header }));
 }
 // ── authenticity (kernel-receipt/2) ─────────────────────────────────────────────────────────────
 const SIG_HEX = /^0x[0-9a-f]{128}$/; // lower-case only: one signed receipt, one encoding (as the engine)
@@ -325,13 +376,8 @@ async function kernelDecide(input, opts = {}) {
         return { allowed: true, verdict: 'ALLOW', source: 'kernel', args_hash: argsHash, receipt: receipt, reasons: [], authenticity };
     }
     catch (e) {
-        // A missing optional ethers is a refusal that SAYS WHAT TO RUN. It used to read only
-        // "(MissingDependencyError)", which refused correctly and left a stranger on a cold install with
-        // no way to know why (MEASURED 2026-10-12, a fresh `npm i` of this package). The message is a
-        // fixed string from optional-ethers.ts, so quoting it leaks nothing.
-        if (e instanceof optional_ethers_1.MissingDependencyError)
-            return client('ethers_missing', e.message);
-        // Anything else we did not anticipate is a refusal too.
+        // Hashing is local and dependency-light, and the kernel is reached with the global fetch, so the
+        // decide path needs no optional peer. Anything we did not anticipate is still a refusal.
         const name = e?.name ?? 'Error';
         return client('client_error', `the kernel client failed (${name}); refusing`);
     }
@@ -443,8 +489,6 @@ async function kernelReceipt(receiptId, opts = {}) {
         return { ok: true, receipt_id: receiptId, receipt, authenticity, six_claims: note ? null : env, six_claims_note: note };
     }
     catch (e) {
-        if (e instanceof optional_ethers_1.MissingDependencyError)
-            return fail('ethers_missing', e.message);
         const name = e?.name ?? 'Error';
         return fail('client_error', `reading the receipt failed (${name})`);
     }

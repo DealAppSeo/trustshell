@@ -7,6 +7,8 @@ Outcomes are VERIFIED / NOT_CHECKED / FAILED. Every block below is pasted from a
 
 A stranger with an empty folder. `ethers` is an **optional** peer: `npm i` does not install it, so a leg that needs it must fail in the open.
 
+> **Superseded in part, 2026-11-06.** §3 below is a real 1.6.0 run and stays as the historical record, but its behaviour no longer holds: keccak256 is now a bundled dependency (`@noble/hashes`), not the `ethers` peer, so **hashing arguments, deciding, and verifying a receipt offline all work with no `ethers`** — the `ethers_missing` refusal in §3 is gone. `ethers` remains optional and is needed only for on-chain reads and payment signing (x402). See `tests/kernel-client-no-ethers.test.ts`.
+
 ## 1. The published package, LIVE (npm registry, then the live engine)
 
 ```

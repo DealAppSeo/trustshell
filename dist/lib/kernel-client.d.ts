@@ -189,9 +189,9 @@ export declare class KernelRefusedError extends TrustShellError {
 }
 /** Object keys sorted at every depth, arrays in order, no whitespace. Identical to the engine's. */
 export declare function kernelCanonicalJson(value: unknown): string;
-/** keccak256 of the canonical JSON of the arguments. Needs the optional `ethers` peer. */
+/** keccak256 of the canonical JSON of the arguments. Hashing happens locally and needs no optional peer. */
 export declare function hashKernelArgs(args: unknown): Promise<string>;
-/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. */
+/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. Needs no optional peer. */
 export declare function kernelReceiptHash(receipt: KernelReceipt): Promise<string>;
 /**
  * The pinned public keys, lower-cased: `trustedSigners`, else TRUSTSHELL_KERNEL_TRUSTED_SIGNERS. [] when

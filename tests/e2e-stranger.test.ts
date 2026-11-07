@@ -392,6 +392,11 @@ describe('stranger e2e on current main', () => {
   });
 
   afterAll(() => {
-    expect([...ran].sort()).toEqual([...commandsOnMain()].sort());
+    // `demo` orchestrates the BUILT CLI in subprocesses (it shells out to `dist/cli/index.js`), so it cannot
+    // run inside this in-process harness. It has its own coverage: `npm run test:demo` runs the guided walk
+    // against the built dist, and `npm run e2e:demo` packs the package and runs it from a fresh install. Every
+    // OTHER command must be exercised above.
+    const required = [...commandsOnMain()].filter((c) => c !== 'demo');
+    expect([...ran].sort()).toEqual(required.sort());
   });
 });

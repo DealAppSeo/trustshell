@@ -62,6 +62,20 @@ export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|oth
  */
 export declare const RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
+/**
+ * PURE. The executable a `run` command names, and every reason that name may not stand for `tool`.
+ * `run` names an executable by its BARE name and lets the OS resolve it on PATH at spawn; a path- or
+ * drive-qualified command[0] is refused, because a binary elsewhere on disk that merely shares a basename
+ * must not satisfy a grant for the tool (Strix CWE-184, #679: `run --tool node -- /tmp/x/node s.js` otherwise
+ * matched `tool:node`, held the script pin, then spawned /tmp/x/node, which ignores the pinned script).
+ * ponytail: an off-PATH binary now needs its tool on PATH; a per-tool executable pin (path + sha256 in the
+ * policy, like `scripts`) is the rung to add when a user needs one. The residual PATH/symlink-substitution
+ * vector is an owner-level attacker (who can edit the policy anyway), out of the guard's model.
+ */
+export declare function executableIdentity(command0: string, tool: string): {
+    executable: string;
+    reasons: string[];
+};
 export declare function runRun(argv: string[], io: IO, env?: NodeJS.ProcessEnv, spawn?: Spawner, sandboxExec?: Exec): number;
 export declare const GUARD_USAGE = "trustshell guard init [--force] [--days N]\ntrustshell guard show [--json]\ntrustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]\ntrustshell guard allow <action> \u00B7 guard deny <action>      (spend | post | tool | tool:<name>)\ntrustshell guard allow|deny tool:<interpreter> --script <path>   (pin or unpin one script by sha256: node, python, py, sh, bash, dash, zsh, ksh, powershell, pwsh)\ntrustshell guard limit per-tx|daily|total <n> \u00B7 guard expire <days> \u00B7 guard kill \u00B7 guard sign\ntrustshell guard require-sandbox on|off      (on: trustshell run refuses without --sandbox)\ntrustshell guard level [--json] \u00B7 guard level shadow|enforce|off \u00B7 guard level after L1|L2|L3 <n>\ntrustshell guard level record <record.json> [--json] \u00B7 guard level revoke      (SHADOW by default)";
 /** The disclaimer every `guard level` reading carries. */
