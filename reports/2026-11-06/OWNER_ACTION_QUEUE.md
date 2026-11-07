@@ -23,7 +23,7 @@ None was done.
    receipt that commits to the envelope hash) so these claims can be verified, not just read — a
    repid-engine change, MAJOR. Plus a real runtime `observation` probe.
 
-3. **DONE — committed reproducible suite shipped** as a separate focused PR: `tests/e2e/trust-cycle-walk.mjs`
+3. **DONE — committed reproducible suite shipped** as a separate focused PR (**#677**): `tests/e2e/trust-cycle-walk.mjs`
    + `npm run test:trust-cycle` (builds the SDK, mints the two signed receipts through the real
    `guardrails.decide`, runs the 16-experiment matrix through `dist/verify`; hermetic/offline). Stacks on
    #676 (it asserts the hardened verifier); retarget to `main` after #676 squash-merges. Inert, LOW —
