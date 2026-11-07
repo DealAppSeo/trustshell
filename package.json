@@ -106,6 +106,7 @@
     "test:pack-x402": "node tests/pack-x402-guards.mjs",
     "test:trustmesh-live": "node scripts/trustmesh-live-e2e.mjs",
     "proof-pack": "node scripts/proof-pack.mjs",
+    "skeptic": "node scripts/skeptic-receipt.mjs",
     "test:proof-pack-controls": "node tests/e2e/proof-pack-controls.mjs",
     "test:proof-pack-mutants": "node tests/e2e/proof-pack-mutants.mjs",
     "search:index": "zg index . --embedding local/potion-retrieval-32m --ignore-file .zvec-grep-ignore"

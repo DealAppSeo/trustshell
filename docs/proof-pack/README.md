@@ -47,3 +47,15 @@ For step 5 on a devnet, set `PROOF_PACK_DEVNET_MODULE` (a `devnet.mjs` exporting
 - The packed tarball is built from the committed `dist/`; the pack does not rebuild it.
 
 Dated runs sit beside this file as `proof-pack-<date>.json` and `.md`. Each lists, under "limits", what the pack observed about itself.
+
+## Skeptic's receipt challenge
+
+A second, narrower artifact for one question: can a skeptic forge an **owner-self-signed** receipt that the shipped verifier accepts? It seals a receipt with a throwaway install key and then runs the attack matrix against the real `trustshell sign-receipt` and `trustshell verify-receipt` — offline, no account.
+
+```bash
+npm run skeptic           # from a clone; Node 22 or newer; a build (dist/); no key, no account, no network
+```
+
+Each attack PASSES only when the verifier **refuses** it: a missing root (never exit 0), a wrong pinned key, a flipped decision field, a swapped signature, a signature lifted onto another body, a policy expired before `--as-of`, and a self-signature dressed up with an authenticated six-claim envelope (still owner-self-signed, `repid_eligible: 'no'`). A positive control must verify first, or every refusal is vacuous.
+
+Recorded limitation: offline verify is stateless, so it does not catch a verbatim replay of one receipt — replay is the engine's `receipt_id`/nullifier, not the offline verifier. Exit codes and the dated `skeptic-receipt-<date>.{json,md}` beside this file follow the same convention as the pack. The same guards are also unit-tested in `tests/owner-receipt.test.ts`.

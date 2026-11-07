@@ -1,0 +1,198 @@
+{
+  "challenge": "skeptic-receipt",
+  "decision": "D5",
+  "rollup": "PASS",
+  "generated_at": "2026-11-07T17:16:09.898Z",
+  "commit": "253ed5a6d69449fa5dc3e591cd5a777c1f74762c",
+  "version": "1.9.0-dev.0",
+  "node": "v22.17.0",
+  "platform": "win32 10.0.26200",
+  "ruler_sha256": "13fcf3d3c79a28d9abf9b62cb6aee7e2fcf2411ffcf663cbc44446c428568a3d",
+  "self_sha256": "923787643243bf3d4f11e0fee7bdfcc39a97065516332f4d1d11f9b2c53a2dd1",
+  "inputs": {
+    "cli": "dist\\cli\\index.js",
+    "body": {
+      "header": {
+        "receipt_id": "skeptic-0001",
+        "prev_receipt_id": null,
+        "prev_hash": null,
+        "created_at": "2026-11-07T00:00:00Z",
+        "env": {
+          "network": "base-sepolia",
+          "chain_id": 84532,
+          "is_simulated": true
+        }
+      },
+      "subject": {
+        "agent": {
+          "agent_id": "agent-1",
+          "agent_name": "demo"
+        },
+        "owner": {
+          "wallet": null,
+          "assurance": null,
+          "status": "none"
+        }
+      },
+      "request": {
+        "tool": {
+          "name": "echo",
+          "class": "read"
+        },
+        "origin": "Cli",
+        "args_hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "amount_raw": null,
+        "payee": null,
+        "asset": null,
+        "chain_id": null
+      },
+      "decision": {
+        "verdict": "ALLOW",
+        "blocking": false,
+        "executed": false,
+        "reasons": [],
+        "checks": [
+          {
+            "name": "local",
+            "outcome": "PASS",
+            "source": "owner"
+          }
+        ],
+        "does_not_attest": [],
+        "policy": {
+          "policy_hash": null,
+          "signer": null,
+          "signature": "NOT_CHECKED",
+          "expires_at": null,
+          "revocation": "NOT_CHECKED"
+        },
+        "limits": {
+          "per_tx_raw": "0",
+          "daily_raw": "0",
+          "total_raw": "0",
+          "effective_per_tx_raw": "0",
+          "binding_term": "none"
+        },
+        "laya": {
+          "lane": null,
+          "mode": "shadow",
+          "consulted": false
+        }
+      },
+      "payment": {
+        "status": "none"
+      },
+      "verification": {
+        "status": "none"
+      }
+    },
+    "attacks": [
+      "0-setup",
+      "positive-control",
+      "missing-root",
+      "wrong-key",
+      "tampered-evidence",
+      "forged-signature",
+      "transplanted-sig",
+      "expired-authz",
+      "no-self-promotion"
+    ]
+  },
+  "steps": [
+    {
+      "id": "0-setup",
+      "label": "seal a base receipt with this install key (throwaway TRUSTSHELL_HOME)",
+      "source": "[cmd] trustshell sign-receipt",
+      "verdict": "PASS",
+      "detail": "provenance owner-self-signed, pin 0x8e8c76026aaa…",
+      "data": {
+        "provenance": "owner-self-signed"
+      }
+    },
+    {
+      "id": "positive-control",
+      "label": "a real seal verifies under its own pinned key",
+      "source": "[cmd] verify-receipt --root <pin>",
+      "verdict": "PASS",
+      "detail": "exit 0, integrity VERIFIED, sealer trusted",
+      "data": {
+        "exit": 0
+      }
+    },
+    {
+      "id": "missing-root",
+      "label": "no --root pinned -> never exit 0 (unaccountable signer is not a pass)",
+      "source": "[cmd] verify-receipt (no --root)",
+      "verdict": "PASS",
+      "detail": "exit 2 (NOT_CHECKED), sealer not trusted, integrity VERIFIED",
+      "data": {
+        "exit": 2
+      }
+    },
+    {
+      "id": "wrong-key",
+      "label": "pinned to a DIFFERENT key -> integrity FAILED",
+      "source": "[cmd] verify-receipt --root <other>",
+      "verdict": "PASS",
+      "detail": "exit 1, integrity FAILED, sealer not trusted",
+      "data": {
+        "exit": 1
+      }
+    },
+    {
+      "id": "tampered-evidence",
+      "label": "flip decision.verdict after sealing -> integrity FAILED",
+      "source": "[cmd] verify-receipt --root <pin>",
+      "verdict": "PASS",
+      "detail": "exit 1, integrity FAILED (hash no longer matches)",
+      "data": {
+        "exit": 1
+      }
+    },
+    {
+      "id": "forged-signature",
+      "label": "swap the signature -> Ed25519 verify FAILED",
+      "source": "[cmd] verify-receipt --root <pin>",
+      "verdict": "PASS",
+      "detail": "exit 1, integrity FAILED",
+      "data": {
+        "exit": 1
+      }
+    },
+    {
+      "id": "transplanted-sig",
+      "label": "lift one receipt's signature onto a different body (same key) -> FAILED",
+      "source": "[cmd] verify-receipt --root <pin>",
+      "verdict": "PASS",
+      "detail": "exit 1, integrity FAILED (a signature covers its own bytes only)",
+      "data": {
+        "exit": 1
+      }
+    },
+    {
+      "id": "expired-authz",
+      "label": "a policy expired before --as-of -> authorization claim FAILED",
+      "source": "[cmd] verify-receipt --root <pin> --as-of <future>",
+      "verdict": "PASS",
+      "detail": "authorization FAILED at as-of 2033 (integrity still VERIFIED, exit 0)",
+      "data": {
+        "exit": 0
+      }
+    },
+    {
+      "id": "no-self-promotion",
+      "label": "self-signature + authenticated envelope is STILL owner-self-signed, no RepID",
+      "source": "[shipped fn] evidenceLevel()",
+      "verdict": "PASS",
+      "detail": "level OWNER_SELF_SIGNED, repid_eligible no"
+    }
+  ],
+  "limitations": [
+    {
+      "id": "offline-verify-is-stateless",
+      "observed": true,
+      "evidence": "the same sealed receipt verified twice, both exit 0/0",
+      "meaning": "offline verify does NOT catch a verbatim replay of one receipt. Replay is prevented by the engine (receipt_id / nullifier uniqueness), not by the offline verifier. A relying party that must not accept a receipt twice checks the id against what it has already seen."
+    }
+  ]
+}
