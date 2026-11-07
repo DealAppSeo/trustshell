@@ -99,9 +99,12 @@ describe('C5: an allowed interpreter runs only scripts the policy pins by sha256
     // The run records hash the script; they never carry its path (the command is recorded by hash, never by its text).
     expect(JSON.stringify(records().filter((r) => r.kind !== 'policy-change'))).not.toContain('ok.js');
 
-    // The same file by its absolute path, or through a full path to the interpreter, is the same pin.
-    expect(runIt(['--tool', 'node', '--', '/usr/local/bin/node', join(work, 'ok.js')])).toBe(0);
-    expect(started).toHaveLength(2);
+    // The interpreter named by a PATH is now refused (Strix CWE-184, #679): a binary elsewhere that only shares the
+    // basename "node" must not satisfy tool:node. The tool is named plainly and resolved on PATH; the script may still
+    // be an absolute path. Was previously ALLOWED ("same file by absolute path = same pin") — that was the bypass surface.
+    expect(runIt(['--tool', 'node', '--', '/usr/local/bin/node', join(work, 'ok.js')])).toBe(EXIT_REFUSED);
+    expect(started).toHaveLength(1); // only the bare-name run above spawned
+    expect(last().authorized.reasons.join(' ')).toMatch(/by path/);
   });
 
   it('an unpinned script is refused before it starts, with a reason that states the rule', () => {

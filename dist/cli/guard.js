@@ -5,6 +5,7 @@ exports.recordPolicyChange = recordPolicyChange;
 exports.plannedAction = plannedAction;
 exports.runGuarded = runGuarded;
 exports.formatRunCard = formatRunCard;
+exports.executableIdentity = executableIdentity;
 exports.runRun = runRun;
 exports.zeroLimitNote = zeroLimitNote;
 exports.runGuard = runGuard;
@@ -19,7 +20,11 @@ const run_1 = require("../sandbox/run");
 const autonomy_1 = require("../lib/autonomy");
 /** Exit code for an action the policy denied. Never 0, and distinct from a VETO (1). */
 exports.EXIT_REFUSED = 5;
-exports.NEVER_GUARDED = new Set(['help', 'version', 'guard', 'run', 'demo']);
+// Only self-governing commands skip the owner-policy gate: help/version print, and guard/run ARE the gate. `demo`
+// is NOT one of them (Strix CWE-693, #679): it spawns an interpreter on a task script of its own, so it is weighed
+// as tool:demo and refused under a deny-all policy or TRUSTSHELL_REQUIRE_POLICY. With no policy it still runs
+// (warn-and-allow), which is the no-account first-run path; its own steps run in a separate throwaway home.
+exports.NEVER_GUARDED = new Set(['help', 'version', 'guard', 'run']);
 /** The scope a CLI-gate record states. */
 exports.CLI_SCOPE = {
     mediated: ['whether this trustshell command was allowed to start, checked against the owner policy before it started'],
@@ -142,6 +147,28 @@ exports.RUN_USAGE = 'trustshell run --tool <name> [--class read|other|post|spend
 exports.RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
 const isHelp = (a) => a === '--help' || a === '-h' || a === 'help';
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
+/**
+ * PURE. The executable a `run` command names, and every reason that name may not stand for `tool`.
+ * `run` names an executable by its BARE name and lets the OS resolve it on PATH at spawn; a path- or
+ * drive-qualified command[0] is refused, because a binary elsewhere on disk that merely shares a basename
+ * must not satisfy a grant for the tool (Strix CWE-184, #679: `run --tool node -- /tmp/x/node s.js` otherwise
+ * matched `tool:node`, held the script pin, then spawned /tmp/x/node, which ignores the pinned script).
+ * ponytail: an off-PATH binary now needs its tool on PATH; a per-tool executable pin (path + sha256 in the
+ * policy, like `scripts`) is the rung to add when a user needs one. The residual PATH/symlink-substitution
+ * vector is an owner-level attacker (who can edit the policy anyway), out of the guard's model.
+ */
+function executableIdentity(command0, tool) {
+    const raw = String(command0);
+    const executable = (0, node_path_1.basename)(raw).replace(/\.(exe|cmd|bat|com)$/i, '').toLowerCase();
+    const reasons = [];
+    if (/[\\/]/.test(raw) || /^[A-Za-z]:/.test(raw)) {
+        reasons.push(`the command names ${tool} by path (${raw.slice(0, 60)}), not by its bare name: run resolves the tool on PATH, so a binary elsewhere cannot stand in for it; put ${tool} on PATH and name it plainly`);
+    }
+    if (executable !== tool.toLowerCase()) {
+        reasons.push(`the command starts ${executable}, not ${tool}: run allows an executable only by its own name`);
+    }
+    return { executable, reasons };
+}
 function runRun(argv, io, env = process.env, spawn = nodeSpawner, sandboxExec = mission_1.nodeExec) {
     const dash = argv.indexOf('--');
     const opts = dash === -1 ? argv : argv.slice(0, dash);
@@ -195,11 +222,11 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner, sandboxExec = 
     const shadow = (0, guardrails_1.homeShadowWarning)(env);
     if (shadow)
         io.err(shadow);
-    // The tool label must BE the executable that would start: with only tool:inspect allowed,
-    // `run --tool inspect -- node anything.js` used to run node (Lane D, 2026-10-21). The guard bounds which
+    // The tool label must BE the executable that would start, named by its bare name (resolved on PATH):
+    // `run --tool inspect -- node anything.js` must not run node (Lane D, 2026-10-21), and `run --tool node -- /x/node`
+    // must not run a binary elsewhere that only shares the basename (Strix CWE-184, #679). The guard bounds which
     // executable starts, not what that executable then does (a script, its arguments).
-    const executable = (0, node_path_1.basename)(String(command[0])).replace(/\.(exe|cmd|bat|com)$/i, '').toLowerCase();
-    const mismatch = executable !== tool.toLowerCase() ? [`the command starts ${executable}, not ${tool}: run allows an executable only by its own name`] : [];
+    const { executable, reasons: mismatch } = executableIdentity(String(command[0]), tool);
     // C5: an interpreter starts only with a script the policy pins. The file it would open is hashed here; whether that
     // hash is pinned is decided under the policy lock. An inline, stdin, module or loader form is refused outright.
     const c5 = (0, guardrails_1.interpreterCheck)(executable, command.slice(1), env);

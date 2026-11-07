@@ -31,6 +31,12 @@ const node_path_1 = require("node:path");
 const CLI = (0, node_path_1.join)(__dirname, 'index.js');
 /** The shipped sample engine receipt (package-root/examples), from dist/cli -> ../../examples. */
 const SAMPLE_RECEIPT = (0, node_path_1.join)(__dirname, '..', '..', 'examples', 'trust-receipt.sample.json');
+/**
+ * The trusted root is pinned HERE, out of band — never read out of the receipt being verified (Strix CWE-807, #679):
+ * a receipt that names its own signer proves nothing, and pinning the key it carries would make every self-signed
+ * forgery read VERIFIED. This is the published sealing key of the shipped sample receipt.
+ */
+const SAMPLE_RECEIPT_ROOT = '0x58bb94348b39e316810d6a050d5ef5a499ae6479ab42e30dbebc4bdb2685d197';
 function trustshell(args, env) {
     const r = (0, node_child_process_1.spawnSync)(process.execPath, [CLI, ...args], { encoding: 'utf8', env });
     return { ok: true, status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
@@ -106,9 +112,15 @@ function runDemo(io, env = process.env) {
         // verification needs no owner policy, so these run as a relying party (a policy-free home). It needs no
         // optional peer either — keccak256 is bundled (@noble/hashes), so a bare `npm install` verifies out of
         // the box. Integrity here MUST read VERIFIED; anything else is a real regression, not a soft degradation.
+        // The pin comes from the code above, not from the artifact: assert the shipped sample's signer IS that key, so a
+        // swapped sample fails loudly here instead of silently re-pinning the check to whatever key the file carries.
         const sample = JSON.parse((0, node_fs_1.readFileSync)(SAMPLE_RECEIPT, 'utf8'));
-        step('Verify a signed receipt OFFLINE under a pinned key', ['verify-receipt', SAMPLE_RECEIPT, '--root', sample.public_key], { exit: 0, has: /Integrity\s+VERIFIED/ }, '', verifyEnv);
-        io.out('    → integrity VERIFIED here by cryptography (hash + pinned signature); authorization reads');
+        if (sample.public_key.toLowerCase() !== SAMPLE_RECEIPT_ROOT.toLowerCase()) {
+            fails.push(`the shipped sample receipt is signed by ${sample.public_key}, not the out-of-band pinned root ${SAMPLE_RECEIPT_ROOT}`);
+        }
+        step('Verify a signed receipt OFFLINE under a pinned key', ['verify-receipt', SAMPLE_RECEIPT, '--root', SAMPLE_RECEIPT_ROOT], { exit: 0, has: /Integrity\s+VERIFIED/ }, '', verifyEnv);
+        io.out('    → integrity VERIFIED here by cryptography (hash + a root pinned in the demo, NOT read from the');
+        io.out('      receipt); authorization reads');
         io.out('      NOT_CHECKED from a file — the six-claim envelope is not covered by the receipt signature,');
         io.out('      so it is READ, not re-derived. NOT_CHECKED is never a pass.');
         const badPath = (0, node_path_1.join)(home, 'tampered-receipt.json');
@@ -117,7 +129,7 @@ function runDemo(io, env = process.env) {
         const bad = JSON.parse((0, node_fs_1.readFileSync)(SAMPLE_RECEIPT, 'utf8'));
         bad.receipt_response.receipt.subject.agent.agent_name = 'tampered-agent';
         (0, node_fs_1.writeFileSync)(badPath, JSON.stringify(bad));
-        step('Verify a tampered copy: integrity FAILED (the hash no longer matches)', ['verify-receipt', badPath, '--root', sample.public_key], { exit: 1, has: /FAILED/ }, '', verifyEnv);
+        step('Verify a tampered copy: integrity FAILED (the hash no longer matches)', ['verify-receipt', badPath, '--root', SAMPLE_RECEIPT_ROOT], { exit: 1, has: /FAILED/ }, '', verifyEnv);
     }
     finally {
         try {
