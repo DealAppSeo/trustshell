@@ -364,6 +364,40 @@ separately; `--json` prints the structured `OfflineVerifyResult`.
 | integrity **FAILED**: the hash does not match, the signature is from a key you did not pin, or an unsigned receipt under a pin. Treat it as tampered/forged | `1` |
 | integrity VERIFIED but **no `--root` pinned** (sealer unconfirmed), or integrity NOT_CHECKED; also usage errors (missing/unreadable file, non-JSON, too large, unreadable `--as-of`). **Not a pass** | `2` |
 
+### `trustshell sign-receipt <file>`
+
+> **Offline. No network, no engine.** The owner's side of `verify-receipt`: seal a receipt with
+> **this install's own key** so a stranger can reproduce its integrity. Also exported as
+> `@hyperdag/trustshell/verify` (`signOwnerReceipt`, `installKeyRootHex`, `evidenceLevel`).
+
+Reads a `kernel-receipt` **body** from `<file>` (a JSON object with a `header`; use `-` for stdin),
+seals it with the Ed25519 install key at `<TRUSTSHELL_HOME or ~/.trustshell>/bundle-signing-key.pem`
+(created `0600` on first use), and prints the sealed **`kernel-receipt/2`** to **stdout**. The seal
+is the engine's exact wire format — Ed25519 over the domain-tagged canonical bytes, a keccak256
+`receipt_hash`, a `0x`-hex signer and signature — so `verify-receipt` checks it **unchanged**. Every
+owner receipt carries `header.provenance = "owner-self-signed"`, covered by both the signature and
+the hash. On **stderr** it prints the `0x` key to pin and the plain caveat below. The whole loop:
+
+```
+trustshell sign-receipt body.json > r.json
+trustshell verify-receipt r.json --root 0x<thatkey>   # integrity VERIFIED, sealer trusted → exit 0
+trustshell verify-receipt r.json                      # no pin → NOT_CHECKED, never exit 0
+```
+
+**Three evidence levels, never collapsed.** An owner self-signature proves **authorship and that the
+bytes are whole — nothing more.** It does **not** carry the engine's six-claim attestation, so a
+verifier leaves Authenticity/Observation/Correctness/Authorization/Containment at `NOT_CHECKED`, and
+`evidenceLevel()` reports `OWNER_SELF_SIGNED` — never `INDEPENDENTLY_VERIFIED`, and never
+RepID-eligible. Whether a receipt earns production RepID is the **engine's** call against its own
+pinned key, never an offline verdict. A missing or foreign trust root is `WHOLE_BUT_UNSEALED` /
+`FAILED`, never a silent pass. The engine-signed path is untouched.
+
+| Outcome | Exit |
+|---|---|
+| sealed; the receipt is on stdout and the pin on stderr | `0` |
+| the body is missing, not JSON, too large, or not an object with a `header` | `2` |
+| the receipt could not be sealed (e.g. keccak unavailable) | `3` |
+
 ### `trustshell inspect [<path>] [--from <format>]`
 
 Verify an append-only tool-call log and report what it can and cannot establish. Reads a local
