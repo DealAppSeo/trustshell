@@ -1,0 +1,40 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "kernel-receipt:00000000-0000-4000-8000-0000000ed001",
+      "digest": {
+        "keccak256": "25469c9d2e2a0ebafa1238ed149dff2da705e20a2f2bca077e940d00de2f23b0"
+      }
+    }
+  ],
+  "predicateType": "https://hyperdag.dev/predicates/trust-receipt-six-claims/v1",
+  "predicate": {
+    "claims": {
+      "integrity": {
+        "status": "VERIFIED"
+      },
+      "authenticity": {
+        "status": "VERIFIED",
+        "statement": "The accountable owner policy authorized this action."
+      },
+      "observation": {
+        "status": "NOT_CHECKED"
+      },
+      "correctness": {
+        "status": "NOT_APPLICABLE"
+      },
+      "authorization": {
+        "status": "VERIFIED",
+        "statement": "The owner policy GRANTED tool:write-artifact within its caps."
+      },
+      "containment": {
+        "status": "VERIFIED",
+        "statement": "The authorized tool wrote only to the allowed outbox path."
+      }
+    },
+    "what_this_does_not_establish": [
+      "this is a TEST-signer attestation, not a production issuance"
+    ]
+  }
+}
