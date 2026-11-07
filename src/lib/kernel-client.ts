@@ -45,17 +45,30 @@
  * an unsigned receipt is then a downgrade, so pin only after the engine is signing.
  */
 import { createHash, createPublicKey, verify } from 'node:crypto';
-import { keccak_256 } from '@noble/hashes/sha3';
-import { bytesToHex } from '@noble/hashes/utils';
 import { TrustShellError } from './trustshell';
 import { ApiUrlError, isHttps, resolveApiBase } from './api-url';
 
 /**
  * keccak256 of a UTF-8 string → `0x` + 64 lower-case hex. The same hash the engine computes (a shared
- * test vector pins the two). Deliberately dependency-light: an audited zero-dep keccak, NOT the heavy
- * optional `ethers` peer, so offline receipt verification works on a bare `npm install @hyperdag/trustshell`.
+ * test vector pins the two). Uses an audited zero-dep keccak (@noble/hashes, a real dependency), NOT the
+ * heavy optional `ethers` peer, so offline receipt verification works on a bare `npm install @hyperdag/trustshell`.
+ *
+ * Imported LAZILY, and this matters: index.ts imports this module at startup, so a TOP-LEVEL require of
+ * @noble would make the whole CLI need @noble merely to start. A CLI compiled to a bare directory with no
+ * reachable node_modules (our self-build test harnesses — learn-hook, check-egress — build to a temp dir
+ * exactly this way) must still start and run its non-hashing commands. So we resolve @noble on first hash,
+ * not at load. A real `npm install` always has it; nothing about the OOTB offline-verify guarantee changes.
  */
-const keccak256Utf8 = (s: string): string => `0x${bytesToHex(keccak_256(new TextEncoder().encode(s)))}`;
+let _keccak256: ((m: Uint8Array) => Uint8Array) | undefined;
+let _bytesToHex: ((b: Uint8Array) => string) | undefined;
+async function keccak256Utf8(s: string): Promise<string> {
+  if (!_keccak256 || !_bytesToHex) {
+    const [sha3, utils] = await Promise.all([import('@noble/hashes/sha3'), import('@noble/hashes/utils')]);
+    _keccak256 = sha3.keccak_256;
+    _bytesToHex = utils.bytesToHex;
+  }
+  return `0x${_bytesToHex(_keccak256(new TextEncoder().encode(s)))}`;
+}
 
 export const KERNEL_RECEIPT_SCHEMA = 'kernel-receipt/1' as const;
 /** The signed receipt: the same body plus header.signer and header.signature. */
