@@ -99,6 +99,7 @@
     "test:acceptance": "node tests/e2e/harness-acceptance.mjs",
     "test:acceptance-baseline": "node tests/e2e/acceptance-baseline.mjs",
     "e2e:mvp": "node tests/e2e/mvp-pack.mjs",
+    "test:enforced-run-walk": "node tests/e2e/enforced-run-walk.mjs",
     "test:sdk-import": "npm run sdk:build && node tests/sdk-import-contract.mjs",
     "test:verify-import": "npm run sdk:build && node tests/verify-subpath-import.mjs",
     "test:trustlattice": "npm run sdk:build && node tests/trustlattice-conformance.mjs",
