@@ -1574,7 +1574,7 @@ export async function run(
         io.out('  trustshell sign-receipt your-body.json > r.json');
         io.out(`  trustshell verify-receipt r.json --root ${pin}`);
         io.err('');
-        io.err('An owner self-signature proves AUTHORSHIP + wholeness only — not that the engine permitted the action, and it earns no production RepID. The independently-verified and RepID-bearing levels are the engine\'s call.');
+        io.err('An owner self-signature proves AUTHORSHIP + wholeness only — not that the engine permitted the action, and it earns no production RepID. Offline, a non-owner key reaches at most ISSUER_ATTESTED (attested under a named key, not a finding of independence); independence and RepID are the engine\'s call.');
         return code;
       } catch (e) {
         io.err(`demo: could not seal the sample receipt: ${e instanceof MissingDependencyError ? e.message : (e as Error).message}`);

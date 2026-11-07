@@ -24,9 +24,11 @@ exports.evidenceLevel = evidenceLevel;
  *
  *   - every owner receipt carries `header.provenance = 'owner-self-signed'`, covered by the signature
  *     AND the hash (flip it and both break), so no reader mistakes it for an engine receipt;
- *   - {@link evidenceLevel} never reports INDEPENDENTLY_VERIFIED for one, and never reports a receipt
- *     as RepID-eligible — self-attestation earns authorship, never production reputation. Whether a
- *     receipt earns RepID is the ENGINE's call against its OWN pinned key, never an offline verdict.
+ *   - {@link evidenceLevel} never reports ISSUER_ATTESTED for one, and never reports a receipt as
+ *     RepID-eligible — self-attestation earns authorship, never production reputation. An owner receipt
+ *     that is whole and sealed stays OWNER_SELF_SIGNED. ISSUER_ATTESTED is the most an offline verdict
+ *     ever reaches for a non-owner key, and it does NOT assert the issuer is independent of the owner
+ *     (the SDK has no controller graph). Independence and RepID are the ENGINE's call against its OWN key.
  *
  * A missing trust root does NOT silently pass: with no pin the verifier reports the bytes whole but
  * UNSEALED (sealer.trusted=false), which {@link evidenceLevel} surfaces as WHOLE_BUT_UNSEALED, never
@@ -107,7 +109,11 @@ function evidenceLevel(verdict, receipt) {
     }
     const anyEngineClaimVerified = kernel_client_1.SIX_CLAIM_KEYS.some((k) => k !== 'integrity' && verdict.claims?.[k]?.status === 'VERIFIED');
     if (anyEngineClaimVerified) {
-        return { level: 'INDEPENDENTLY_VERIFIED', repid_eligible: 'engine-decides', why: 'sealed by a pinned key and at least one engine attestation verified against it' };
+        return {
+            level: 'ISSUER_ATTESTED',
+            repid_eligible: 'engine-decides',
+            why: 'sealed by a pinned issuer key (not an owner self-signature) and at least one engine attestation verified under it; this does NOT establish that the issuer is independent of the owner — independence and RepID are the engine’s call',
+        };
     }
     // Whole + sealed by a pinned key that is not a self-signature, but no engine claim reached VERIFIED
     // (e.g. the envelope was not supplied or not authenticated). It is sealed, but it is not independently

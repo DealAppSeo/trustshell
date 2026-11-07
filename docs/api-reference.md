@@ -387,10 +387,12 @@ trustshell verify-receipt r.json                      # no pin → NOT_CHECKED, 
 **Three evidence levels, never collapsed.** An owner self-signature proves **authorship and that the
 bytes are whole — nothing more.** It does **not** carry the engine's six-claim attestation, so a
 verifier leaves Authenticity/Observation/Correctness/Authorization/Containment at `NOT_CHECKED`, and
-`evidenceLevel()` reports `OWNER_SELF_SIGNED` — never `INDEPENDENTLY_VERIFIED`, and never
-RepID-eligible. Whether a receipt earns production RepID is the **engine's** call against its own
-pinned key, never an offline verdict. A missing or foreign trust root is `WHOLE_BUT_UNSEALED` /
-`FAILED`, never a silent pass. The engine-signed path is untouched.
+`evidenceLevel()` reports `OWNER_SELF_SIGNED` — never `ISSUER_ATTESTED`, and never RepID-eligible.
+For a *non-owner* pinned key, the most an offline verdict ever reaches is `ISSUER_ATTESTED`:
+**attested under a named issuer key, NOT a finding that the issuer is independent of the owner** — the
+SDK has no controller graph. Whether a receipt earns production RepID, and whether an issuer is truly
+independent, is the **engine's** call against its own pinned key, never an offline verdict. A missing or
+foreign trust root is `WHOLE_BUT_UNSEALED` / `FAILED`, never a silent pass. The engine-signed path is untouched.
 
 | Outcome | Exit |
 |---|---|

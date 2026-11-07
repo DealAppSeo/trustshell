@@ -16,9 +16,11 @@
  *
  *   - every owner receipt carries `header.provenance = 'owner-self-signed'`, covered by the signature
  *     AND the hash (flip it and both break), so no reader mistakes it for an engine receipt;
- *   - {@link evidenceLevel} never reports INDEPENDENTLY_VERIFIED for one, and never reports a receipt
- *     as RepID-eligible — self-attestation earns authorship, never production reputation. Whether a
- *     receipt earns RepID is the ENGINE's call against its OWN pinned key, never an offline verdict.
+ *   - {@link evidenceLevel} never reports ISSUER_ATTESTED for one, and never reports a receipt as
+ *     RepID-eligible — self-attestation earns authorship, never production reputation. An owner receipt
+ *     that is whole and sealed stays OWNER_SELF_SIGNED. ISSUER_ATTESTED is the most an offline verdict
+ *     ever reaches for a non-owner key, and it does NOT assert the issuer is independent of the owner
+ *     (the SDK has no controller graph). Independence and RepID are the ENGINE's call against its OWN key.
  *
  * A missing trust root does NOT silently pass: with no pin the verifier reports the bytes whole but
  * UNSEALED (sealer.trusted=false), which {@link evidenceLevel} surfaces as WHOLE_BUT_UNSEALED, never
@@ -62,8 +64,14 @@ export type EvidenceLevel =
  | 'WHOLE_BUT_UNSEALED'
 /** whole AND sealed by the owner's own install key (provenance=owner-self-signed). Authorship only. */
  | 'OWNER_SELF_SIGNED'
-/** whole, sealed by a pinned key that is NOT an owner self-signature, AND at least one engine claim VERIFIED. */
- | 'INDEPENDENTLY_VERIFIED';
+/**
+ * whole, sealed by a pinned issuer key that is NOT an owner self-signature, with ≥1 engine claim
+ * VERIFIED under it. Attestation UNDER A NAMED ISSUER — NOT a finding that the issuer is independent
+ * of the owner's beneficial control. Offline, the SDK only knows the caller chose to pin this key; it
+ * cannot derive the controller graph. Whether the issuer is truly independent (and whether the receipt
+ * earns RepID) is the engine's call against its own key, never an offline verdict.
+ */
+ | 'ISSUER_ATTESTED';
 export interface EvidenceVerdict {
     level: EvidenceLevel;
     /** The SDK never says "yes": self-attestation is 'no'; everything else defers to the engine. */

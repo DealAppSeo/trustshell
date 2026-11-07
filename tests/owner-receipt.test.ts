@@ -171,6 +171,41 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     expect(evidenceLevel(vAuthed, r)).toMatchObject({ level: 'OWNER_SELF_SIGNED', repid_eligible: 'no' });
   });
 
+  it('a pinned NON-owner issuer + a verified engine claim reads as ISSUER_ATTESTED — attestation under a named issuer, NOT a finding of independence', async () => {
+    // The ONLY branch that is not owner-self-signed: an engine-style receipt (no owner stamp), sealed by
+    // an issuer key the verifier chose to pin, with an AUTHENTICATED six-claim envelope. The SDK cannot
+    // know whether that issuer is independent of the owner's beneficial control — so the level must say
+    // "attested under a named issuer", never "independently verified".
+    const issuer = ownerKey(); // a stand-in issuer key; offline, the SDK cannot know who controls it
+    const b = base();
+    const header = { ...b.header, schema: 'kernel-receipt/2', version: 2, signer: installKeySigner(issuer) }; // NO provenance stamp
+    const unsigned = { ...b, header };
+    const signature = `0x${sign(null, Buffer.from(KERNEL_RECEIPT_SIGNATURE_DOMAIN + kernelCanonicalJson(unsigned), 'utf8'), issuer).toString('hex')}`;
+    const signed = { ...b, header: { ...header, signature } };
+    const receipt_hash = await kernelReceiptHash(signed as unknown as Parameters<typeof kernelReceiptHash>[0]);
+    const r = { ...b, header: { ...header, signature, receipt_hash } };
+    const receiptId = String((b.header as Record<string, unknown>).receipt_id);
+
+    const envelope = {
+      _type: 'https://in-toto.io/Statement/v1',
+      predicateType: SIX_CLAIMS_PREDICATE_TYPE,
+      subject: [{ name: `kernel-receipt:${receiptId}`, digest: { keccak256: receipt_hash.replace(/^0x/, '') } }],
+      predicate: { claims: sixClaims('VERIFIED'), what_this_does_not_establish: [] },
+    };
+    const v = await verifyReceiptOffline(r, { trustedRoots: [installKeyRootHex(issuer)], engineEnvelope: envelope, envelopeAuthenticated: true });
+
+    expect(v.claims.integrity.status).toBe('VERIFIED');
+    expect(v.sealer.trusted).toBe(true);
+    expect(ownerReceiptProvenance(r)).toBeNull(); // not an owner self-signature
+    expect(v.claims.observation.status).toBe('VERIFIED'); // an engine attestation verified under the pin
+
+    const ev = evidenceLevel(v, r);
+    expect(ev.level).toBe('ISSUER_ATTESTED');
+    expect(ev.repid_eligible).toBe('engine-decides'); // the SDK never says 'yes'
+    // the honest caveat must be stated: a pinned key is not a controller-independence finding
+    expect(ev.why).toMatch(/not establish|independen/i);
+  });
+
   it('expired authorization: a policy expired at/before as_of fails the authorization claim', async () => {
     const key = ownerKey();
     const b = base();

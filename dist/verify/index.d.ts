@@ -19,8 +19,9 @@ export type { SixClaim, SixClaimKey, SixClaimStatus, SixClaimStatement, KernelRe
 /**
  * The owner's side of the same offline surface: seal a receipt with THIS install's own Ed25519 key so
  * a stranger reproduces its integrity with the verifier above — one wire format, one verifier. An
- * owner self-signature proves authorship and wholeness only; `evidenceLevel` keeps it from ever reading
- * as independently-verified or RepID-bearing. node:crypto only, no network (same import boundary).
+ * owner self-signature proves authorship and wholeness only; `evidenceLevel` keeps it at
+ * OWNER_SELF_SIGNED, never issuer-attested or RepID-bearing (a non-owner pinned key reaches at most
+ * ISSUER_ATTESTED, which is not a finding of independence). node:crypto only, no network (same import boundary).
  */
 export { signOwnerReceipt, installKeySigner, installKeyRootHex, ownerReceiptProvenance, evidenceLevel, OWNER_SELF_SIGNED, } from '../lib/owner-receipt';
 export type { SealableReceipt, EvidenceLevel, EvidenceVerdict } from '../lib/owner-receipt';
