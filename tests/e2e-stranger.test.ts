@@ -238,6 +238,12 @@ describe('stranger e2e on current main', () => {
       const reverify = await go(['verify-receipt', sealedPath, '--root', root]);
       expect(reverify.code).toBe(0);
       expect(reverify.out).toMatch(/Integrity\s+VERIFIED/);
+
+      // demo: the whole loop in one command, offline, under the same throwaway home.
+      const demo = await go(['demo']);
+      expect(demo.code).toBe(0);
+      expect(demo.out).toMatch(/Integrity\s+VERIFIED/);
+      expect(demo.out).toMatch(/verify-receipt r\.json --root 0x[0-9a-f]{64}/);
     } finally {
       if (prevSignHome === undefined) delete process.env.TRUSTSHELL_HOME;
       else process.env.TRUSTSHELL_HOME = prevSignHome;

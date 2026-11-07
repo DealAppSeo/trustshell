@@ -112,6 +112,7 @@ export type Command =
   | 'receipt'
   | 'verify-receipt'
   | 'sign-receipt'
+  | 'demo'
   | 'inspect'
   | 'init'
   | 'report'
@@ -333,6 +334,11 @@ COMMANDS
                              An owner self-signature proves AUTHORSHIP + wholeness only — never that
                              the engine permitted the action, and it earns no production RepID. Use
                              - for stdin. EXIT 0 sealed, 2 bad body, 3 could not seal.
+  demo                       The whole offline loop in one command: seal a sample receipt with THIS
+                             install's key, then verify it HERE under that key and print the six-claim
+                             verdict and the exact verify-receipt --root line to reproduce it. No
+                             network, no account. Receipts, not promises. EXIT 0 the seal verified,
+                             2 it did not, 3 could not seal.
 
   inspect [<path>]          Verify an append-only tool-call log. Reads a local file and
                              computes hashes; opens NO socket. INTACT (0) / BROKEN (1) /
@@ -694,6 +700,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       if (!operand) return { command: 'help', json, verify, error: 'sign-receipt requires <file> (a kernel-receipt body to seal) or - for stdin' };
       return { command: 'sign-receipt', operand, json, verify };
     }
+    case 'demo':
+      return { command: 'demo', json, verify };
     case 'status':
       return { command: 'status', json, verify };
     case 'remember': {
@@ -1528,6 +1536,48 @@ export async function run(
         return EXIT.OK;
       } catch (e) {
         io.err(`sign-receipt: could not seal the receipt: ${e instanceof MissingDependencyError ? e.message : (e as Error).message}`);
+        return EXIT.RUNTIME;
+      }
+    }
+
+    case 'demo': {
+      // The whole offline loop in one command: seal a sample receipt with this install's key, then verify
+      // it HERE under that key. No network, no account, no file written. "Receipts, not promises" in ~2 s.
+      try {
+        const dir = trustshellHome(process.env);
+        const { key, created, path: keyPath } = signingKey(dir);
+        const body: SealableReceipt = {
+          header: { receipt_id: `demo-${Date.now().toString(36)}`, prev_receipt_id: null, prev_hash: null, created_at: new Date().toISOString(), env: { network: 'base-sepolia', chain_id: 84532, is_simulated: true } },
+          subject: { agent: { agent_id: 'demo-agent', agent_name: 'trustshell demo' }, owner: { wallet: null, assurance: null, status: 'none' } },
+          request: { tool: { name: 'read_file', class: 'read' }, origin: 'Cli', args_hash: `0x${'de'.repeat(32)}`, amount_raw: null, payee: null, asset: null, chain_id: null },
+          decision: { verdict: 'ALLOW', blocking: false, executed: true, reasons: ['sample action for the demo'], checks: [{ name: 'local', outcome: 'PASS', source: 'owner' }], does_not_attest: [], policy: { policy_hash: null, signer: null, signature: 'NOT_CHECKED', expires_at: null, revocation: 'NOT_CHECKED' }, limits: {}, laya: { lane: null, mode: 'shadow', consulted: false } },
+          payment: { status: 'none' },
+          verification: { status: 'none' },
+        };
+        const receipt = await signOwnerReceipt(body, key);
+        const pin = installKeyRootHex(key);
+        const result = await verifyReceiptOffline(receipt, { trustedRoots: [pin] });
+        const code = verifyReceiptExitCode(result);
+        if (args.json) {
+          io.out(terminalSafeJson({ receipt, verify: result, root: pin }));
+          return code;
+        }
+        if (created) io.err(`demo: created a new install key at ${keyPath}`);
+        io.out('trustshell demo — the offline receipt loop, start to finish:');
+        io.out('');
+        io.out(`  1. SEALED a sample receipt with this install's own key (provenance: ${(receipt.header as { provenance?: string }).provenance ?? 'owner-self-signed'}).`);
+        io.out('  2. VERIFIED it here, offline, under that key:');
+        io.out('');
+        io.out(formatOfflineVerify(result));
+        io.out('');
+        io.out('Do the same with your own receipt body — still offline, no account:');
+        io.out('  trustshell sign-receipt your-body.json > r.json');
+        io.out(`  trustshell verify-receipt r.json --root ${pin}`);
+        io.err('');
+        io.err('An owner self-signature proves AUTHORSHIP + wholeness only — not that the engine permitted the action, and it earns no production RepID. The independently-verified and RepID-bearing levels are the engine\'s call.');
+        return code;
+      } catch (e) {
+        io.err(`demo: could not seal the sample receipt: ${e instanceof MissingDependencyError ? e.message : (e as Error).message}`);
         return EXIT.RUNTIME;
       }
     }

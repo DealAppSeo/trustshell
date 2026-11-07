@@ -398,6 +398,32 @@ pinned key, never an offline verdict. A missing or foreign trust root is `WHOLE_
 | the body is missing, not JSON, too large, or not an object with a `header` | `2` |
 | the receipt could not be sealed (e.g. keccak unavailable) | `3` |
 
+### `trustshell demo [--json]`
+
+> **Offline. No network, no account.** The whole receipt loop in one command — "receipts, not
+> promises" in about two seconds.
+
+Seals a built-in sample `kernel-receipt/2` with **this install's own key** (created on first use,
+exactly as `sign-receipt` does), then **verifies it right here** under that key and prints the
+six-claim TrustLattice verdict. Nothing is written to disk and nothing leaves the machine. With
+`--json` it emits `{ receipt, verify, root }` — the sealed receipt, the offline verdict, and the
+`0x` key to pin — so a skeptic can reproduce the verify step independently:
+
+```
+trustshell sign-receipt your-body.json > r.json
+trustshell verify-receipt r.json --root 0x<thekey>
+```
+
+The sample receipt is owner-self-signed, so Integrity is `VERIFIED` under the pinned key and the
+other five claims stay `NOT_CHECKED` — a self-signature proves authorship and wholeness only, and
+earns no production RepID (see `sign-receipt`).
+
+| Outcome | Exit |
+|---|---|
+| sealed and verified here — Integrity `VERIFIED`, sealer trusted | `0` |
+| the seal did not verify (should never happen on a good build) | `2` |
+| the sample could not be sealed (e.g. keccak unavailable) | `3` |
+
 ### `trustshell inspect [<path>] [--from <format>]`
 
 Verify an append-only tool-call log and report what it can and cannot establish. Reads a local
