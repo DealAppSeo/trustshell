@@ -4,7 +4,10 @@
  * receipts use. These tests are the contract — they prove the guards bite, not just that the happy
  * path runs: a tampered byte, a foreign key, a missing domain tag, a transplanted signature, a missing
  * trust root, a rotated key, a smuggled self-attestation, and an expired policy each fail CLOSED, and
- * an owner self-signature can never read as independently-verified or RepID-bearing.
+ * an owner self-signature can never read as independently-verified or RepID-bearing. Cross-verifier tests
+ * prove key isolation (a receipt is trusted only under the verifier that pins its own sealing key, in both
+ * directions), and a verbatim-replay test states plainly that offline verification does NOT reject replay —
+ * that is the engine's receipt_id/nullifier, not a claim a stranger's stateless check can make.
  */
 import { generateKeyPairSync, sign, type KeyObject } from 'node:crypto';
 import {
@@ -52,6 +55,29 @@ const sixClaims = (status: SixClaimStatus): Record<SixClaimKey, { status: SixCla
   for (const k of SIX_CLAIM_KEYS) out[k] = { status, statement: `claim ${k}`, supports: [], gaps: [] };
   return out;
 };
+
+/**
+ * An ENGINE-style receipt: sealed over the domain-prefixed canonical bytes by `key`, with NO owner provenance
+ * stamp (so `ownerReceiptProvenance` is null), plus the matching authenticated six-claim envelope. This is the
+ * only shape that can reach ISSUER_ATTESTED — used by the cross-verifier tests to prove key isolation.
+ */
+async function signEngineReceipt(key: KeyObject, receiptId = 'engine-test-0001') {
+  const b = base();
+  (b.header as Record<string, unknown>).receipt_id = receiptId;
+  const header = { ...b.header, schema: 'kernel-receipt/2', version: 2, signer: installKeySigner(key) }; // NO provenance stamp
+  const unsigned = { ...b, header };
+  const signature = `0x${sign(null, Buffer.from(KERNEL_RECEIPT_SIGNATURE_DOMAIN + kernelCanonicalJson(unsigned), 'utf8'), key).toString('hex')}`;
+  const signed = { ...b, header: { ...header, signature } };
+  const receipt_hash = await kernelReceiptHash(signed as unknown as Parameters<typeof kernelReceiptHash>[0]);
+  const r = { ...b, header: { ...header, signature, receipt_hash } };
+  const envelope = {
+    _type: 'https://in-toto.io/Statement/v1',
+    predicateType: SIX_CLAIMS_PREDICATE_TYPE,
+    subject: [{ name: `kernel-receipt:${receiptId}`, digest: { keccak256: receipt_hash.replace(/^0x/, '') } }],
+    predicate: { claims: sixClaims('VERIFIED'), what_this_does_not_establish: [] },
+  };
+  return { r, envelope };
+}
 
 describe('owner-self-signed receipt seam (DECISION 1)', () => {
   it('emits an owner-stamped kernel-receipt/2 a stranger verifies under the owner-pinned key; the 5 engine claims stay NOT_CHECKED', async () => {
@@ -128,7 +154,8 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     expect(v.receipt_hash).toBe(r.header.receipt_hash);
   });
 
-  it('replay / signature transplant: one receipt’s signature cannot be lifted onto a different body', async () => {
+  // NOTE: signature TRANSPLANT and verbatim REPLAY are different attacks; this test is the former only.
+  it('signature transplant: one receipt’s signature cannot be lifted onto a different body (offline integrity FAILS)', async () => {
     const key = ownerKey();
     const r = await signOwnerReceipt(base(), key);
     const other = base();
@@ -138,6 +165,22 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     const forged = { ...transplant, header: { ...transplant.header, receipt_hash } };
     const v = await verifyReceiptOffline(forged, { trustedRoots: [installKeyRootHex(key)] });
     expect(v.claims.integrity.status).toBe('FAILED'); // r's signature does not cover other's bytes
+  });
+
+  it('verbatim replay is NOT something offline verify rejects: the identical receipt verifies again — freshness/one-time use is the engine’s receipt_id/nullifier, not stateless offline verification', async () => {
+    const key = ownerKey();
+    const r = await signOwnerReceipt(base(), key);
+    // A replay is the UNCHANGED receipt, re-submitted. Offline verification is stateless: it proves the bytes are
+    // whole and sealed by a pinned key — never that they are fresh or used once. So both pass, by design. Rejecting
+    // a re-submitted receipt is one-time settlement in the engine (receipt_id / nullifier), which a stranger's
+    // offline check cannot see and must not claim. Overstating this would be exactly the false "replay-proof" claim.
+    const roots = { trustedRoots: [installKeyRootHex(key)] };
+    const v1 = await verifyReceiptOffline(r, roots);
+    const v2 = await verifyReceiptOffline(JSON.parse(JSON.stringify(r)) as typeof r, roots); // same bytes, submitted again
+    expect(v1.claims.integrity.status).toBe('VERIFIED');
+    expect(v2.claims.integrity.status).toBe('VERIFIED'); // identical bytes still verify — this is correct, not a hole
+    expect(v2.sealer.trusted).toBe(true);
+    expect(v2.receipt_hash).toBe(v1.receipt_hash); // nothing in the offline verdict distinguishes a replay
   });
 
   it('key rotation: an old receipt verifies under the old pin, is rejected under the new, and still holds when both are pinned', async () => {
@@ -204,6 +247,45 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     expect(ev.repid_eligible).toBe('engine-decides'); // the SDK never says 'yes'
     // the honest caveat must be stated: a pinned key is not a controller-independence finding
     expect(ev.why).toMatch(/not establish|independen/i);
+  });
+
+  it('cross-verifier: a receipt sealed by one key is trusted ONLY by a verifier pinning that key; the other key fails it closed, and the level never promotes', async () => {
+    const ownerK = ownerKey();
+    const engineK = ownerKey(); // a distinct issuer key
+    const rOwner = await signOwnerReceipt(base(), ownerK);
+    const { r: rEngine, envelope } = await signEngineReceipt(engineK);
+
+    // (positive control) each verifies — and is trusted — ONLY under its own key.
+    expect((await verifyReceiptOffline(rOwner, { trustedRoots: [installKeyRootHex(ownerK)] })).sealer.trusted).toBe(true);
+    const engineOwnKey = await verifyReceiptOffline(rEngine, { trustedRoots: [installKeyRootHex(engineK)], engineEnvelope: envelope, envelopeAuthenticated: true });
+    expect(engineOwnKey.sealer.trusted).toBe(true);
+    expect(evidenceLevel(engineOwnKey, rEngine).level).toBe('ISSUER_ATTESTED');
+
+    // the OWNER receipt under an ENGINE-ONLY verifier: foreign key → integrity FAILS, untrusted, NOT_ESTABLISHED.
+    // It can never read as engine-attested just because a different pinned key is handed in.
+    const ownerUnderEngine = await verifyReceiptOffline(rOwner, { trustedRoots: [installKeyRootHex(engineK)], engineEnvelope: envelope, envelopeAuthenticated: true });
+    expect(ownerUnderEngine.sealer.trusted).toBe(false);
+    expect(ownerUnderEngine.claims.integrity.status).toBe('FAILED');
+    expect(evidenceLevel(ownerUnderEngine, rOwner).level).toBe('NOT_ESTABLISHED');
+
+    // the ENGINE receipt under an OWNER-ONLY verifier: symmetric — foreign key, fails closed, never promotes.
+    const engineUnderOwner = await verifyReceiptOffline(rEngine, { trustedRoots: [installKeyRootHex(ownerK)], engineEnvelope: envelope, envelopeAuthenticated: true });
+    expect(engineUnderOwner.sealer.trusted).toBe(false);
+    expect(engineUnderOwner.claims.integrity.status).toBe('FAILED');
+    expect(evidenceLevel(engineUnderOwner, rEngine).level).toBe('NOT_ESTABLISHED');
+  });
+
+  it('cross-verifier: an engine-style receipt whose sealing key is NOT pinned cannot reach ISSUER_ATTESTED even with an authenticated envelope — an unsealed body stays WHOLE_BUT_UNSEALED', async () => {
+    // No trusted root pinned at all: the bytes recompute (integrity VERIFIED) but no key is confirmed to have
+    // sealed them, so the five engine claims are gated off (verify-receipt.ts: sealerTrusted && envelopeAuthenticated),
+    // and an authenticated envelope cannot lift an unsealed receipt to issuer-attested.
+    const engineK = ownerKey();
+    const { r, envelope } = await signEngineReceipt(engineK, 'engine-test-0002');
+    const v = await verifyReceiptOffline(r, { trustedRoots: [], engineEnvelope: envelope, envelopeAuthenticated: true });
+    expect(v.claims.integrity.status).toBe('VERIFIED');
+    expect(v.sealer.trusted).toBe(false);
+    expect(v.claims.observation.status).toBe('NOT_CHECKED'); // not VERIFIED: no trusted sealer
+    expect(evidenceLevel(v, r).level).toBe('WHOLE_BUT_UNSEALED');
   });
 
   it('expired authorization: a policy expired at/before as_of fails the authorization claim', async () => {
