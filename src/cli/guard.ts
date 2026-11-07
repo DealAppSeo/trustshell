@@ -72,7 +72,7 @@ type IO = { out: (s: string) => void; err: (s: string) => void };
 /** Exit code for an action the policy denied. Never 0, and distinct from a VETO (1). */
 export const EXIT_REFUSED = 5;
 
-export const NEVER_GUARDED = new Set(['help', 'version', 'guard', 'run']);
+export const NEVER_GUARDED = new Set(['help', 'version', 'guard', 'run', 'demo']);
 
 /** The scope a CLI-gate record states. */
 export const CLI_SCOPE: AssuranceScope = {

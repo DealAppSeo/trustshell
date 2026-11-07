@@ -74,6 +74,7 @@ import { join } from 'node:path';
 import { runLearn } from '../learn/cli';
 import { runBundle } from './bundle';
 import { EXIT_REFUSED, runGuard, runGuarded, runRun } from './guard';
+import { runDemo } from './demo';
 import { sandboxCli } from '../sandbox/run';
 import { GUARD_RECORD_SCHEMA } from '../lib/guardrails';
 import { ApiUrlError } from '../lib/api-url';
@@ -127,6 +128,7 @@ export type Command =
   | 'guard'
   | 'run'
   | 'sandbox'
+  | 'demo'
   | 'help'
   | 'version';
 
@@ -270,6 +272,10 @@ USAGE
   trustshell <command> [arguments] [options]
 
 COMMANDS
+  demo                       A five-minute guided first run, OFFLINE: create an owner policy,
+                             allow one task and run it, watch two commands get DENIED before they
+                             start, see the decision ledger catch a tamper, and verify a signed
+                             receipt. No account, no keys, no network; runs in a throwaway home.
   verify "<text>"            Run <text> through the live HAL cross-provider fact-check
                              quorum. Prints PASS / FLAG / VETO + trust score + evidence.
                              EXIT 0 on PASS/FLAG, EXIT 1 on VETO — use it as a CI gate.
@@ -556,6 +562,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (argv[0] === 'guard') return { command: 'guard', guardArgv: argv.slice(1), json: false, verify: false };
   if (argv[0] === 'run') return { command: 'run', runArgv: argv.slice(1), json: false, verify: false };
   if (argv[0] === 'sandbox') return { command: 'sandbox', sandboxArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'demo') return { command: 'demo', json: false, verify: false };
   const flags = new Set<string>();
   const positionals: string[] = [];
   // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -1170,6 +1177,10 @@ export async function run(
     case 'sandbox':
       // Local files only: the owner step that promotes a `run --sandbox` mission's quarantined outbox.
       return sandboxCli(args.sandboxArgv ?? [], io);
+
+    case 'demo':
+      // Offline guided first run in a throwaway TRUSTSHELL_HOME. Spawns the real commands; opens no socket.
+      return runDemo({ out: io.out, err: io.err }, process.env);
 
     case 'recall': {
       try {
