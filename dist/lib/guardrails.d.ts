@@ -20,6 +20,13 @@ export interface LocalPolicy {
     autonomy?: AutonomyConfig;
     /** Local only (not in the kernel): the scripts an allowed interpreter may run (C5). Absent = none. */
     scripts?: ScriptPin[];
+    /**
+     * Local only (not in the kernel): executable identity (#679). A pin binds a tool to ONE file by resolved path and
+     * sha256, so `run --tool X` starts only that file — a substitute with the same basename, a planted PATH entry or a
+     * repointed symlink is refused. Absent for a tool = name-only (the weaker, legacy check: any file by that basename).
+     * Reuses ScriptPin's shape; verified INDEPENDENTLY of `scripts` (an interpreter can pin both its binary and its script).
+     */
+    executables?: ScriptPin[];
     /** Local only (not in the kernel): `trustshell run` must use --sandbox (C2). Absent = it need not. */
     run?: RunRules;
 }
@@ -48,6 +55,23 @@ export declare function interpreterScript(executable: string, args: readonly str
  * through any symlink. Refused when that is not exactly one regular file. Reads the bytes it hashes.
  */
 export declare function resolveScript(arg: string, cwd?: string): {
+    ok: true;
+    path: string;
+    sha256: string;
+} | {
+    ok: false;
+    why: string;
+};
+/** The rule every executable-identity denial states. */
+export declare const EXECUTABLE_RULE = "a pinned tool starts only the executable the policy pins by path and sha256";
+/**
+ * The executable `run` would actually start, resolved to one regular file through PATH and symlinks, and hashed —
+ * the file identity the policy pins (#679). Reuses resolveScript for the realpath+regular-file+sha256 step, so a
+ * binary and a script are resolved the same way. TOCTOU: hashed here, spawned a moment later; a swap in between is
+ * not caught, the same bound as scripts (anything that can swap it runs as the owner). Spawn the resolved path, not
+ * the bare name, so PATH cannot be re-pointed between the check and the spawn.
+ */
+export declare function resolveExecutable(command0: string, env?: NodeJS.ProcessEnv, cwd?: string): {
     ok: true;
     path: string;
     sha256: string;
@@ -139,6 +163,11 @@ export interface GuardRequest {
         path: string;
         sha256: string;
     };
+    /** The file `command[0]` resolves to (#679): resolved path and sha256 of the actual executable. Recorded by hash only. */
+    executable_file?: {
+        path: string;
+        sha256: string;
+    };
     /** `trustshell run` only: whether it was asked to run the command in a sandbox mission (--sandbox). */
     sandbox?: boolean;
 }
@@ -147,6 +176,13 @@ export interface GuardRequest {
  * resolved path AND sha256 the policy pins for that executable; no script, an unpinned one or a changed one: denied.
  */
 export declare function pinReason(policy: LocalPolicy, req: GuardRequest): string | null;
+/**
+ * PURE. #679: why this request may not start its executable, or null. A tool with an executable pin starts ONLY the
+ * file whose resolved path AND sha256 the policy pins: a substitute (different file), a planted PATH entry or a
+ * repointed symlink all resolve to a path/hash the pin does not list, and are denied. A tool with NO pin returns null
+ * here — it stays name-only (the weaker legacy check), which the run card labels as such; pinning is opt-in.
+ */
+export declare function execPinReason(policy: LocalPolicy, req: GuardRequest): string | null;
 /** The action string the policy must list for this request (the kernel's actionPermitted). */
 export declare function actionFor(req: GuardRequest): string;
 export interface GuardDecision {
@@ -179,10 +215,11 @@ export interface GuardRecord {
      * that enforced a carried policy), with the hash before and after. A rule change is never silent.
      */
     kind: 'decision' | 'check' | 'outcome' | 'policy-change';
-    /** What was asked. A script is recorded by its sha256 only, never by its path (the command is never recorded). */
-    requested: Omit<GuardRequest, 'script'> & {
+    /** What was asked. A script/executable is recorded by its sha256 only, never by its path (the command is never recorded). */
+    requested: Omit<GuardRequest, 'script' | 'executable_file'> & {
         action: string;
         script_sha256?: string;
+        executable_sha256?: string;
     };
     authorized: GuardDecision & {
         policy_sha256: string | null;
