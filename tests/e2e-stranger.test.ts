@@ -201,6 +201,14 @@ describe('stranger e2e on current main', () => {
     expect(check.code).toBe(0);
     expect(check.out).toContain('COMPLETE');
 
+    // verify-receipt: the offline TrustLattice verdict. The committed signed golden under its own pinned
+    // key → integrity re-derived VERIFIED, exit 0. No network (the mocked fetch above is never touched).
+    const goldenPath = join(ROOT, 'tests/fixtures/kernel-receipt-v2.golden.json');
+    const goldenKey = JSON.parse(readFileSync(goldenPath, 'utf8')).public_key as string;
+    const verifyReceipt = await go(['verify-receipt', goldenPath, '--root', goldenKey]);
+    expect(verifyReceipt.code).toBe(0);
+    expect(verifyReceipt.out).toMatch(/Integrity\s+VERIFIED/);
+
     const dir = mkdtempSync(join(tmpdir(), 'ts-stranger-'));
     const missing = join(dir, 'missing.jsonl');
     const inspect = await go(['inspect', missing]);
