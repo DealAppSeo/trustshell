@@ -12,7 +12,7 @@
  *   - a body that is not JSON, or has an unexpected shape → REFUSE
  *   - verdict DENY or NOT_CHECKED           → REFUSE (and the kernel's reasons come back)
  *   - verdict ALLOW that does not agree with itself, or is not BOUND TO THIS REQUEST → REFUSE
- *   - the arguments could not be hashed (ethers missing) → REFUSE
+ *   - the arguments could not be hashed → REFUSE
  *
  * "Bound to this request" matters: an ALLOW for a different args_hash, tool, agent or amount is
  * somebody else's ALLOW. The answer carries a receipt preview; we check it names exactly what we
@@ -45,9 +45,17 @@
  * an unsigned receipt is then a downgrade, so pin only after the engine is signing.
  */
 import { createHash, createPublicKey, verify } from 'node:crypto';
-import { loadEthers, MissingDependencyError } from './optional-ethers';
+import { keccak_256 } from '@noble/hashes/sha3';
+import { bytesToHex } from '@noble/hashes/utils';
 import { TrustShellError } from './trustshell';
 import { ApiUrlError, isHttps, resolveApiBase } from './api-url';
+
+/**
+ * keccak256 of a UTF-8 string → `0x` + 64 lower-case hex. The same hash the engine computes (a shared
+ * test vector pins the two). Deliberately dependency-light: an audited zero-dep keccak, NOT the heavy
+ * optional `ethers` peer, so offline receipt verification works on a bare `npm install @hyperdag/trustshell`.
+ */
+const keccak256Utf8 = (s: string): string => `0x${bytesToHex(keccak_256(new TextEncoder().encode(s)))}`;
 
 export const KERNEL_RECEIPT_SCHEMA = 'kernel-receipt/1' as const;
 /** The signed receipt: the same body plus header.signer and header.signature. */
@@ -190,17 +198,15 @@ export function kernelCanonicalJson(value: unknown): string {
   );
 }
 
-/** keccak256 of the canonical JSON of the arguments. Needs the optional `ethers` peer. */
+/** keccak256 of the canonical JSON of the arguments. Hashing happens locally and needs no optional peer. */
 export async function hashKernelArgs(args: unknown): Promise<string> {
-  const { keccak256, toUtf8Bytes } = await loadEthers('Hashing kernel arguments');
-  return keccak256(toUtf8Bytes(kernelCanonicalJson(args)));
+  return keccak256Utf8(kernelCanonicalJson(args));
 }
 
-/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. */
+/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. Needs no optional peer. */
 export async function kernelReceiptHash(receipt: KernelReceipt): Promise<string> {
-  const { keccak256, toUtf8Bytes } = await loadEthers('Hashing a kernel receipt');
   const { receipt_hash: _omit, ...header } = receipt.header;
-  return keccak256(toUtf8Bytes(kernelCanonicalJson({ ...receipt, header })));
+  return keccak256Utf8(kernelCanonicalJson({ ...receipt, header }));
 }
 
 // ── authenticity (kernel-receipt/2) ─────────────────────────────────────────────────────────────
@@ -411,12 +417,8 @@ export async function kernelDecide(input: KernelCallInput, opts: KernelClientOpt
     }
     return { allowed: true, verdict: 'ALLOW', source: 'kernel', args_hash: argsHash, receipt: receipt as KernelReceipt, reasons: [], authenticity };
   } catch (e) {
-    // A missing optional ethers is a refusal that SAYS WHAT TO RUN. It used to read only
-    // "(MissingDependencyError)", which refused correctly and left a stranger on a cold install with
-    // no way to know why (MEASURED 2026-10-12, a fresh `npm i` of this package). The message is a
-    // fixed string from optional-ethers.ts, so quoting it leaks nothing.
-    if (e instanceof MissingDependencyError) return client('ethers_missing', e.message);
-    // Anything else we did not anticipate is a refusal too.
+    // Hashing is local and dependency-light, and the kernel is reached with the global fetch, so the
+    // decide path needs no optional peer. Anything we did not anticipate is still a refusal.
     const name = (e as { name?: string })?.name ?? 'Error';
     return client('client_error', `the kernel client failed (${name}); refusing`);
   }
@@ -546,7 +548,6 @@ export async function kernelReceipt(receiptId: string, opts: KernelClientOptions
     const note = sixClaimsFault(env, receipt);
     return { ok: true, receipt_id: receiptId, receipt, authenticity, six_claims: note ? null : (env as SixClaimStatement), six_claims_note: note };
   } catch (e) {
-    if (e instanceof MissingDependencyError) return fail('ethers_missing', e.message);
     const name = (e as { name?: string })?.name ?? 'Error';
     return fail('client_error', `reading the receipt failed (${name})`);
   }

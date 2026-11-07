@@ -43,12 +43,9 @@ try {
   note(demo.status === 0, 'trustshell demo exits 0 from the installed package', `exit=${demo.status}`);
   note(/ALLOWED/.test(out) && (out.match(/DENIED/g) ?? []).length >= 2, 'ALLOW + two DENY decisions shown');
   note(/chain INTACT/.test(out) && /chain BROKEN/.test(out), 'ledger INTACT then BROKEN (tamper caught)');
-  // A fresh install has no `ethers` peer, so offline hash verification reads NOT_CHECKED (fail-closed) and the
-  // demo must say how to enable it. With `ethers` present it reads VERIFIED. Either is honest; a false VERIFIED
-  // without the peer, or a silent NOT_CHECKED with no remedy, is not.
-  const verifiedOotb = /Integrity\s+VERIFIED/.test(out);
-  const honestNotChecked = /Integrity\s+NOT_CHECKED/.test(out) && /npm install ethers/.test(out);
-  note(verifiedOotb || honestNotChecked, 'offline verify is honest', verifiedOotb ? 'integrity VERIFIED (ethers present)' : 'integrity NOT_CHECKED + ethers remedy shown (fresh install)');
+  // A fresh install bundles keccak256 (@noble/hashes is a real dependency, not the optional `ethers` peer),
+  // so offline hash verification reads VERIFIED out of the box — no `npm install ethers`, no account, no network.
+  note(/Integrity\s+VERIFIED/.test(out), 'offline verify reads integrity VERIFIED out of the box (no ethers)');
   note(/honest seam/i.test(out), 'the honest seam is disclosed');
 } catch (e) {
   note(false, 'e2e:demo crashed', e instanceof Error ? e.message : String(e));

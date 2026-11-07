@@ -25,7 +25,7 @@ Outcomes are VERIFIED / NOT_CHECKED / FAILED, each with the command that produce
 | 6 | Stale committed `dist/` | VERIFIED | `dist/` rebuilt and committed; `tests/sdk-dist-fresh.test.ts` fails if it ever differs from `tsc` output (negative control run: fails on a stale or missing file) |
 | 7 | Coverage where there was none: `depositStake`, the faucet, the passport guard | VERIFIED | `tests/deposit-stake.test.ts`, `tests/faucet.test.ts`, `tests/erc8004-display.test.ts` |
 | + | Practice stake only after the agent is bound | VERIFIED (stubbed engine) | e2e: unbound = button held; unreadable bind record = held ("Not checked is not bound"); bound = one deposit sent with no tx hash and no signature |
-| + | A cold install without `ethers` refuses in the open | VERIFIED | `tests/kernel-client-no-ethers.test.ts`; the sim shows the refusal now says `npm i ethers@^6` (it said only `MissingDependencyError`) |
+| + | A cold install without `ethers` hashes, decides, and verifies receipts offline | VERIFIED | `tests/kernel-client-no-ethers.test.ts`; keccak256 is bundled (`@noble/hashes`), so integrity reads VERIFIED on a bare `npm install`. `ethers` stays optional, for on-chain reads and payment signing only |
 
 ## Facts that were checked, and how
 

@@ -61,7 +61,6 @@ export function runDemo(io: IO, env: NodeJS.ProcessEnv = process.env): number {
   delete verifyEnv.TRUSTSHELL_REQUIRE_POLICY;
 
   const fails: string[] = [];
-  let ethersNote = false; // set when offline hashing is unavailable (the optional `ethers` peer is not installed)
   let n = 0;
   // Run one real command, show a short slice of what it printed, and check the one thing that must hold.
   const step = (title: string, args: string[], want: { exit?: number; has?: RegExp }, note = '', stepEnv: NodeJS.ProcessEnv = sub): StepResult => {
@@ -132,34 +131,24 @@ export function runDemo(io: IO, env: NodeJS.ProcessEnv = process.env): number {
     writeFileSync(ledgerPath, original); // restore; the demo leaves nothing broken behind
 
     // The engine six-claim plane: an independently-verifiable signed receipt (shipped sample). Offline
-    // verification needs no owner policy, so these run as a relying party (a policy-free home). We branch on
-    // what the verifier ACTUALLY reports (ground truth), not a guess about whether the keccak peer is present:
-    // offline hashing needs the optional `ethers` peer, and whether it loads is the verifier's call, not ours.
+    // verification needs no owner policy, so these run as a relying party (a policy-free home). It needs no
+    // optional peer either — keccak256 is bundled (@noble/hashes), so a bare `npm install` verifies out of
+    // the box. Integrity here MUST read VERIFIED; anything else is a real regression, not a soft degradation.
     const sample = JSON.parse(readFileSync(SAMPLE_RECEIPT, 'utf8')) as { public_key: string };
-    const vr = step('Verify a signed receipt OFFLINE under a pinned key',
-      ['verify-receipt', SAMPLE_RECEIPT, '--root', sample.public_key], {}, '', verifyEnv);
-    if (vr.status === 0 && /Integrity\s+VERIFIED/.test(vr.out)) {
-      io.out('    → integrity VERIFIED here by cryptography (hash + pinned signature); authorization reads');
-      io.out('      NOT_CHECKED from a file — the six-claim envelope is not covered by the receipt signature,');
-      io.out('      so it is READ, not re-derived. NOT_CHECKED is never a pass.');
-      const badPath = join(home, 'tampered-receipt.json');
-      // Change a byte INSIDE the receipt the verifier hashes (not the ignored decide_response preview), so the
-      // recomputed hash no longer matches header.receipt_hash.
-      const bad = JSON.parse(readFileSync(SAMPLE_RECEIPT, 'utf8'));
-      bad.receipt_response.receipt.subject.agent.agent_name = 'tampered-agent';
-      writeFileSync(badPath, JSON.stringify(bad));
-      step('Verify a tampered copy: integrity FAILED (the hash no longer matches)',
-        ['verify-receipt', badPath, '--root', sample.public_key], { exit: 1, has: /FAILED/ }, '', verifyEnv);
-    } else if (vr.status === 2 && /ethers/i.test(vr.out)) {
-      // Honest fresh-install reality: the keccak peer did not load, so the hash cannot be recomputed. The
-      // verifier reads NOT_CHECKED (fail-closed), never a false VERIFIED — and the demo says how to enable it.
-      ethersNote = true;
-      io.out('    → integrity NOT_CHECKED: offline hashing needs the optional `ethers` peer, which did not load');
-      io.out('      here. Run `npm install ethers`, then this reads VERIFIED. NOT_CHECKED is fail-closed —');
-      io.out('      never a false pass.');
-    } else {
-      fails.push(`step ${n} (verify-receipt): unexpected result — exit ${vr.status}, neither VERIFIED nor an ethers-missing NOT_CHECKED`);
-    }
+    step('Verify a signed receipt OFFLINE under a pinned key',
+      ['verify-receipt', SAMPLE_RECEIPT, '--root', sample.public_key],
+      { exit: 0, has: /Integrity\s+VERIFIED/ }, '', verifyEnv);
+    io.out('    → integrity VERIFIED here by cryptography (hash + pinned signature); authorization reads');
+    io.out('      NOT_CHECKED from a file — the six-claim envelope is not covered by the receipt signature,');
+    io.out('      so it is READ, not re-derived. NOT_CHECKED is never a pass.');
+    const badPath = join(home, 'tampered-receipt.json');
+    // Change a byte INSIDE the receipt the verifier hashes (not the ignored decide_response preview), so the
+    // recomputed hash no longer matches header.receipt_hash.
+    const bad = JSON.parse(readFileSync(SAMPLE_RECEIPT, 'utf8'));
+    bad.receipt_response.receipt.subject.agent.agent_name = 'tampered-agent';
+    writeFileSync(badPath, JSON.stringify(bad));
+    step('Verify a tampered copy: integrity FAILED (the hash no longer matches)',
+      ['verify-receipt', badPath, '--root', sample.public_key], { exit: 1, has: /FAILED/ }, '', verifyEnv);
   } finally {
     try { rmSync(home, { recursive: true, force: true }); } catch { /* best effort */ }
   }
@@ -171,13 +160,6 @@ export function runDemo(io: IO, env: NodeJS.ProcessEnv = process.env): number {
   io.out('  • FAILED        a check that ran and did not hold (a tampered receipt, a BROKEN ledger)');
   io.out('  • NOT_APPLICABLE  a claim this call never made (e.g. content correctness on a payment)');
   io.out('');
-  if (ethersNote) {
-    io.out('Offline hash verification is OFF on this install:');
-    io.out('  `trustshell verify-receipt` recomputes the receipt hash with keccak256 from the optional `ethers`');
-    io.out('  peer, which `npm install @hyperdag/trustshell` does not pull. Integrity read NOT_CHECKED above —');
-    io.out('  fail-closed, never a false pass. Enable real offline verification with:  npm install ethers');
-    io.out('');
-  }
   io.out('The honest seam (not yet joined):');
   io.out('  Steps 1–7 are the LOCAL enforcement plane: a hash-chained guard-receipts.jsonl, checked by `guard show`.');
   io.out('  Steps 8–9 verify an ENGINE kernel-receipt/2 (the six-claim plane), checked by `trustshell verify-receipt`.');

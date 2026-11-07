@@ -172,6 +172,27 @@ file; `init` writes `.trustshell/profile.md`, which only `report` reads.
 
 Other commands keep their own codes, listed under each one below.
 
+### `trustshell demo`
+
+A guided ~five-minute first run, **offline — no account, no keys, no network**. It works entirely in a
+throwaway policy home it creates and deletes, so it changes nothing on your machine. In order it: writes
+an owner policy (every limit `0`, local commands only); allows one `node` task pinned by its sha256 and a
+`spend` class capped per-transaction; signs the policy; runs the ALLOWED task (which writes an observable
+file); shows two DENIED runs (a tool the policy never allowed, and an allowed tool over its spend cap);
+tampers one byte in the hash-chained decision ledger so `guard show` reads `INTACT` then `BROKEN`; and
+verifies a shipped signed receipt OFFLINE — integrity `VERIFIED` by hash and pinned signature,
+authorization `NOT_CHECKED` because the six-claim envelope is not covered by the receipt signature — plus
+a tampered copy (`FAILED`). Offline verification needs no optional peer. It self-checks every step.
+
+| Outcome | Exit |
+|---|---|
+| every step held | `0` |
+| a step did not hold (the summary lists which) | non-zero |
+
+```console
+$ trustshell demo
+```
+
 <a id="cli-verify"></a>
 
 ### `trustshell verify "<claim>"`

@@ -1,23 +1,44 @@
 /**
- * A cold install has no `ethers` (it is an optional peer). The kernel client must then REFUSE, and the
- * refusal must say what to run, in its own words, instead of naming an error class. Measured on a
- * fresh `npm i` of this package on 2026-10-12: it refused correctly but said only
- * "the kernel client failed (MissingDependencyError); refusing".
+ * A cold install has no `ethers`: it is an OPTIONAL peer, needed only for on-chain reads and payment
+ * signing — never for hashing. keccak256 now comes from @noble/hashes (audited, bundled with the SDK),
+ * so on a bare `npm i @hyperdag/trustshell` the client can hash arguments, recompute a receipt's hash,
+ * and verify a receipt offline. Before 2026-11-06 the hash path loaded ethers, so a cold install could
+ * do none of that and the decide path refused with `ethers_missing`. This pins the new reality: with
+ * ethers absent, hashing and the decide flow work, and nothing reports `ethers_missing`.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const golden = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'kernel-receipt-v2.golden.json'), 'utf8'));
+const HEX32 = /^0x[0-9a-f]{64}$/;
+
 afterEach(() => {
   jest.resetModules();
   jest.dontMock('ethers');
 });
 
-describe('kernelDecide on a machine without ethers', () => {
-  it('refuses, sends nothing, and says to run npm i ethers@^6', async () => {
-    jest.doMock('ethers', () => {
-      const e = new Error("Cannot find module 'ethers'") as Error & { code?: string };
-      e.code = 'MODULE_NOT_FOUND';
-      throw e;
-    });
+/** Make any attempt to load `ethers` fail, exactly as it would on a cold install. */
+const hideEthers = () =>
+  jest.doMock('ethers', () => {
+    const e = new Error("Cannot find module 'ethers'") as Error & { code?: string };
+    e.code = 'MODULE_NOT_FOUND';
+    throw e;
+  });
+
+describe('kernel-client on a machine without ethers', () => {
+  it('recomputes a signed receipt hash bit-for-bit (keccak is bundled, not from ethers)', async () => {
+    hideEthers();
+    const { kernelReceiptHash } = await import('../src/lib/kernel-client');
+    const receipt = golden.receipt_response.receipt;
+    expect(await kernelReceiptHash(receipt)).toBe(receipt.header.receipt_hash);
+  });
+
+  it('hashes args locally and reaches the kernel — no ethers_missing refusal', async () => {
+    hideEthers();
     const { kernelDecide } = await import('../src/lib/kernel-client');
-    const fetchImpl = jest.fn();
+    const fetchImpl = jest.fn(async () => {
+      throw new Error('offline'); // the network is down; the point is the client GOT this far
+    });
     const out = await kernelDecide(
       {
         agent: { agent_id: '00000000-0000-4000-8000-000000000001', agent_name: 'cold' },
@@ -31,28 +52,11 @@ describe('kernelDecide on a machine without ethers', () => {
     );
     expect(out.allowed).toBe(false);
     if (out.allowed) return;
-    expect(out.verdict).toBe('NOT_CHECKED');
-    expect(out.source).toBe('client');
-    expect(out.reasons).toHaveLength(1);
-    expect(out.reasons[0]!.code).toBe('ethers_missing');
-    expect(out.reasons[0]!.detail).toMatch(/npm i ethers@\^6/);
-    expect(out.http_status).toBeNull();
-    // Nothing left the process: it never got as far as asking the kernel.
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('requireKernelAllow throws with the same reason, so the refusal cannot be ignored', async () => {
-    jest.doMock('ethers', () => {
-      const e = new Error("Cannot find module 'ethers'") as Error & { code?: string };
-      e.code = 'MODULE_NOT_FOUND';
-      throw e;
-    });
-    const { requireKernelAllow } = await import('../src/lib/kernel-client');
-    await expect(
-      requireKernelAllow(
-        { agent: { agent_id: 'a', agent_name: 'a' }, tool: { name: 't', class: 'read' }, origin: 'Cli', args: { x: 1 } },
-        { apiUrl: 'https://engine.test', fetch: jest.fn() as never },
-      ),
-    ).rejects.toMatchObject({ code: 'KERNEL_REFUSED', message: expect.stringContaining('ethers_missing') });
+    // It hashed the arguments without ethers (a real 0x+64 hex args_hash) and then actually tried the network.
+    expect(out.args_hash).toMatch(HEX32);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    // The refusal is about the network, NOT a missing peer.
+    expect(out.reasons.map((r) => r.code)).not.toContain('ethers_missing');
+    expect(out.reasons[0]!.code).toBe('network_error');
   });
 });
