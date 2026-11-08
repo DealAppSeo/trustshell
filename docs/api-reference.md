@@ -793,6 +793,7 @@ CHECKED; `check <runUrl>`, `inspect` and `report` exit `3`. **Not every command 
 | `ground` | **none** — reads the `--source` file. Since 1.7.0 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `trust-report` | **none** — reads the Guard records and the `check` records you name, and writes one new folder | none |
 | `profile` | **none** — reads and writes `.trustshell/profile.md`. Since 1.8.0 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |
