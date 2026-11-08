@@ -78,6 +78,7 @@ import { sandboxCli } from '../sandbox/run';
 import { GUARD_RECORD_SCHEMA, trustshellHome } from '../lib/guardrails';
 import { ApiUrlError } from '../lib/api-url';
 import { signingKey } from '../lib/install-key';
+import { decodeText } from '../lib/decode-text';
 import { signOwnerReceipt, installKeyRootHex, type SealableReceipt } from '../lib/owner-receipt';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -1454,7 +1455,7 @@ export async function run(
       const file = args.operand as string;
       let raw: string;
       try {
-        raw = readTextFile(file, 'utf8');
+        raw = decodeText(readTextFile(file));
       } catch (e) {
         io.err(`verify-receipt: cannot read ${file}: ${(e as Error).message}`);
         return EXIT.USAGE;
@@ -1477,7 +1478,7 @@ export async function run(
       let envelope: unknown = obj && typeof obj === 'object' ? obj['six_claims'] : undefined;
       if (args.envelope) {
         try {
-          envelope = JSON.parse(readTextFile(args.envelope, 'utf8'));
+          envelope = JSON.parse(decodeText(readTextFile(args.envelope)));
         } catch (e) {
           io.err(`verify-receipt: cannot read --envelope ${args.envelope}: ${(e as Error).message}`);
           return EXIT.USAGE;
@@ -1502,7 +1503,7 @@ export async function run(
       const file = args.operand as string;
       let raw: string;
       try {
-        raw = readTextFile(file === '-' ? 0 : file, 'utf8'); // fd 0 = stdin
+        raw = decodeText(readTextFile(file === '-' ? 0 : file)); // fd 0 = stdin
       } catch (e) {
         io.err(`sign-receipt: cannot read ${file === '-' ? 'stdin' : file}: ${(e as Error).message}`);
         return EXIT.USAGE;
@@ -1746,7 +1747,7 @@ export async function run(
             return EXIT.USAGE;
           }
           try {
-            evidence = JSON.parse(fs.readFileSync(args.evidence, 'utf8')) as EvidenceDoc;
+            evidence = JSON.parse(decodeText(fs.readFileSync(args.evidence))) as EvidenceDoc;
           } catch {
             io.err(`report: evidence file is not valid JSON: ${args.evidence}`);
             return EXIT.USAGE;
@@ -1796,11 +1797,9 @@ export function readClaimsFile(
   }
   if (!st?.isFile()) throw new Error(`--claims-file: no such file: ${path}`);
   if (st.size > MAX_CLAIMS_FILE_BYTES) throw new Error(`--claims-file is ${st.size} bytes; the limit is ${MAX_CLAIMS_FILE_BYTES}`);
-  const text = String(fs.readFileSync(path, 'utf8'));
-  // One leading byte-order mark is a file-encoding marker, not text: Windows PowerShell 5.1 writes it
-  // for `Out-File` and `Set-Content -Encoding utf8`, and kept it would make line 1 non-ASCII and
-  // block every verdict (XC1 re-check 5). Only that one character is dropped; any other stays.
-  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  // Windows PowerShell 5.1 writes a byte-order mark for `Out-File` and `Set-Content -Encoding utf8`, and UTF-16 for
+  // `>`. A mark kept in the text would make line 1 non-ASCII and block every verdict (XC1 re-check 5).
+  return decodeText(fs.readFileSync(path));
 }
 
 /**

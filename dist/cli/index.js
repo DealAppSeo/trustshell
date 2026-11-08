@@ -90,6 +90,7 @@ const run_1 = require("../sandbox/run");
 const guardrails_1 = require("../lib/guardrails");
 const api_url_1 = require("../lib/api-url");
 const install_key_1 = require("../lib/install-key");
+const decode_text_1 = require("../lib/decode-text");
 const owner_receipt_1 = require("../lib/owner-receipt");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
@@ -1373,7 +1374,7 @@ async function run(args, client, io = realIO) {
             const file = args.operand;
             let raw;
             try {
-                raw = (0, node_fs_1.readFileSync)(file, 'utf8');
+                raw = (0, decode_text_1.decodeText)((0, node_fs_1.readFileSync)(file));
             }
             catch (e) {
                 io.err(`verify-receipt: cannot read ${file}: ${e.message}`);
@@ -1399,7 +1400,7 @@ async function run(args, client, io = realIO) {
             let envelope = obj && typeof obj === 'object' ? obj['six_claims'] : undefined;
             if (args.envelope) {
                 try {
-                    envelope = JSON.parse((0, node_fs_1.readFileSync)(args.envelope, 'utf8'));
+                    envelope = JSON.parse((0, decode_text_1.decodeText)((0, node_fs_1.readFileSync)(args.envelope)));
                 }
                 catch (e) {
                     io.err(`verify-receipt: cannot read --envelope ${args.envelope}: ${e.message}`);
@@ -1426,7 +1427,7 @@ async function run(args, client, io = realIO) {
             const file = args.operand;
             let raw;
             try {
-                raw = (0, node_fs_1.readFileSync)(file === '-' ? 0 : file, 'utf8'); // fd 0 = stdin
+                raw = (0, decode_text_1.decodeText)((0, node_fs_1.readFileSync)(file === '-' ? 0 : file)); // fd 0 = stdin
             }
             catch (e) {
                 io.err(`sign-receipt: cannot read ${file === '-' ? 'stdin' : file}: ${e.message}`);
@@ -1683,7 +1684,7 @@ async function run(args, client, io = realIO) {
                         return exports.EXIT.USAGE;
                     }
                     try {
-                        evidence = JSON.parse(fs.readFileSync(args.evidence, 'utf8'));
+                        evidence = JSON.parse((0, decode_text_1.decodeText)(fs.readFileSync(args.evidence)));
                     }
                     catch {
                         io.err(`report: evidence file is not valid JSON: ${args.evidence}`);
@@ -1731,11 +1732,9 @@ function readClaimsFile(path, fs = require('node:fs')) {
         throw new Error(`--claims-file: no such file: ${path}`);
     if (st.size > action_evidence_1.MAX_CLAIMS_FILE_BYTES)
         throw new Error(`--claims-file is ${st.size} bytes; the limit is ${action_evidence_1.MAX_CLAIMS_FILE_BYTES}`);
-    const text = String(fs.readFileSync(path, 'utf8'));
-    // One leading byte-order mark is a file-encoding marker, not text: Windows PowerShell 5.1 writes it
-    // for `Out-File` and `Set-Content -Encoding utf8`, and kept it would make line 1 non-ASCII and
-    // block every verdict (XC1 re-check 5). Only that one character is dropped; any other stays.
-    return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+    // Windows PowerShell 5.1 writes a byte-order mark for `Out-File` and `Set-Content -Encoding utf8`, and UTF-16 for
+    // `>`. A mark kept in the text would make line 1 non-ASCII and block every verdict (XC1 re-check 5).
+    return (0, decode_text_1.decodeText)(fs.readFileSync(path));
 }
 /**
  * `trustshell check <runUrl> --claims "<text>"` (or `--claims-file <path>`). GitHub only, exactly like the URL form: the
