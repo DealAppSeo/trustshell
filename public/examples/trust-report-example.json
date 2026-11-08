@@ -1,0 +1,125 @@
+{
+  "schema": "dev.trustshell.trust-report/0.1-draft",
+  "title": "Agent said it was finished",
+  "generated_at": "2026-11-08T23:32:31.789Z",
+  "generator": "trustshell 1.9.0-dev.0",
+  "inputs": {
+    "binds": [
+      {
+        "claim": "All tests pass",
+        "decided_by": "test.js",
+        "tool": null,
+        "script_sha256": "ee55955c74d5ee8cbb7941e1265fbb863fa48e0350a5acb4b9777fcd1f2e907d"
+      },
+      {
+        "claim": "Lint is clean",
+        "decided_by": "lint",
+        "tool": "lint",
+        "script_sha256": null
+      }
+    ],
+    "records": [
+      "evidence/inspect-1/record.json"
+    ]
+  },
+  "inspect": [
+    {
+      "path": "evidence/inspect-1/record.json",
+      "run_url": "https://github.com/DealAppSeo/trustshell/actions/runs/42502305639",
+      "repo": "DealAppSeo/trustshell",
+      "run_id": 42502305639,
+      "head_sha": "f569e43ec8072f7530c2da8d25bacf28c30c510f",
+      "conclusion": "failure",
+      "verdict": "FAILED",
+      "fetched_at": "2026-11-08T23:32:16.234Z",
+      "digest": "aeb38b64eacef755727f2ed449116cff4d63d6a07bdd8108c513e6c63837b723",
+      "digest_matches": true,
+      "exit": 1,
+      "claims": [
+        {
+          "status": "CONTRADICTED",
+          "claim": "The check workflow succeeded",
+          "scope": "Whether workflow run 42502305639 (attempt 1, commit f569e43ec807) concluded success with every job read. Not which tests it ran, not any other workflow or check on the commit, and not whether the change works."
+        },
+        {
+          "status": "SUPPORTED",
+          "claim": "run 42502305639",
+          "scope": "Run identity only: whether the run this claim cites is the inspected run. Not what the run shows."
+        }
+      ]
+    }
+  ],
+  "guard": {
+    "policy": {
+      "state": "ok",
+      "sha256": "22996d766f99f6a7bcfa20c65491d14e6b558ee191a332f76ae27d961c0e54c7",
+      "nonce": "2",
+      "signed": false,
+      "actions": [
+        "tool:bundle",
+        "tool:ground",
+        "tool:init",
+        "tool:inspect",
+        "tool:learn",
+        "tool:profile",
+        "tool:quarantine",
+        "tool:recall",
+        "tool:redact",
+        "tool:remember",
+        "tool:report",
+        "tool:traps",
+        "tool:trust-report",
+        "tool:node"
+      ]
+    },
+    "ledger": {
+      "verdict": "INTACT",
+      "count": 5,
+      "breaks": []
+    },
+    "commands": [
+      {
+        "seq": 3,
+        "ts": "2026-11-08T23:32:31.000Z",
+        "action": "tool:node",
+        "script_sha256": "ee55955c74d5ee8cbb7941e1265fbb863fa48e0350a5acb4b9777fcd1f2e907d",
+        "command_sha256": "fb82de7f5d562611e57524e1bd8e6af029e3f4163414556328a23a42ddcbae44",
+        "decision": "ALLOWED",
+        "reasons": [],
+        "result": "exited 1 after 67 ms",
+        "exit_code": 1
+      }
+    ],
+    "mediated": [
+      "the decision to start this command through `trustshell run`, checked against the owner policy before it started",
+      "the exit code of the process `trustshell run` started"
+    ],
+    "not_mediated": [
+      "what the command did after it started: files, network, child processes",
+      "commands run without `trustshell run`",
+      "Anything the agent did without `trustshell run`: edits it made directly, its own network calls, commands in another terminal. This report cannot see them."
+    ]
+  },
+  "bound_claims": [
+    {
+      "claim": "All tests pass",
+      "decided_by": "test.js",
+      "status": "CONTRADICTED",
+      "why": "the last time it ran through trustshell run it exited 1 (record 3)",
+      "record_seq": 3
+    },
+    {
+      "claim": "Lint is clean",
+      "decided_by": "lint",
+      "status": "NOT_CHECKED",
+      "why": "that command was never asked for through TrustShell",
+      "record_seq": null
+    }
+  ],
+  "next_actions": [
+    "Do not accept \"The check workflow succeeded\". GitHub's record disagrees: https://github.com/DealAppSeo/trustshell/actions/runs/42502305639",
+    "Do not accept \"All tests pass\". test.js says otherwise. Fix it or ask the agent why, then run it again through trustshell run.",
+    "1 claim was not checked, which is not a pass. To decide one: say it as one plain sentence that cites the run (\"The check workflow succeeded, run 123.\"), or pair it with a command using --bind."
+  ],
+  "exit": 1
+}
