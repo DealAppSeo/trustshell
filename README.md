@@ -4,6 +4,24 @@ TrustShell reads a **public GitHub Actions run** from GitHub and sets what your 
 
 **Try Inspect:** [the five-minute challenge](https://trustshell.dev/inspect). One true claim and one false one about a pinned run, the evidence that decides each, and an invitation to break it.
 
+## See it catch a false claim
+
+No setup, and no URL of your own. This command works as written in bash, zsh and Windows PowerShell. The run is TrustShell's own CI, pinned, and it passed. The sentence cites that green run as proof for a different commit.
+
+```bash
+npx @hyperdag/trustshell@latest check https://github.com/DealAppSeo/trustshell/actions/runs/39619591025 --claims "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025."
+```
+
+You should see this, abridged, and exit code `1`:
+
+```
+### Claims: 1 supported · 1 contradicted · 1 not checked
+- **CONTRADICTED** `commit 5d1c5e3f57e1`
+  - **Why** The claim cites commit 5d1c5e3f57e1; the inspected run is on 392797a69b6a.
+```
+
+Check the answer without TrustShell: [the run on GitHub](https://github.com/DealAppSeo/trustshell/actions/runs/39619591025) shows commit `392797a`.
+
 ## Check your own CI run
 
 Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `--claims` and `--claims-file` are new in 1.8.0 (see Status below); 1.7.0 and older do not have them. `@latest` makes npx fetch the current release; without it, npx runs any older copy installed globally.
