@@ -118,10 +118,20 @@ function formatRunCard(decision, outcome, doc = null, own = null) {
     const signed = by ? (by === own ? 'owner-signed' : `signed by ${by.slice(0, 16)}…, NOT this install's key`) : doc?.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
     const ex = outcome?.executed;
     const executed = ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
+    const exe = d.requested.executable;
+    const pinnedExe = exe !== undefined && (doc?.policy.executables ?? []).some((p) => p.tool === exe);
+    const identity = exe === undefined
+        ? []
+        : [
+            pinnedExe
+                ? `  executable identity   pinned by path+sha256: only that file starts (a substitute, a planted PATH entry or a repointed symlink is refused)`
+                : `  executable identity   name-only (weaker): any file named ${exe} that resolves first would start; pin it with trustshell guard allow tool:${exe} --exe <path>`,
+        ];
     return [
         `trustshell run  —  ${d.authorized.decision}`,
         `  requested             ${d.requested.action}${d.requested.executable ? ` (starts ${d.requested.executable})` : ''}${d.requested.amount_raw ? ` amount ${d.requested.amount_raw}` : ''}; --class is the caller's label`,
         `  authorized            ${d.authorized.decision}${d.authorized.reasons.length ? `: ${d.authorized.reasons.join('; ')}` : ''} (policy ${String(d.authorized.policy_sha256).slice(0, 12)}…, nonce ${d.authorized.policy_nonce}, ${signed})`,
+        ...identity,
         `  executed              ${executed}`,
         '  independently observed  nothing: no outside party watched this command',
         `  unknown               ${d.assurance_scope.not_mediated.join('; ')}`,
@@ -203,6 +213,13 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner, sandboxExec = 
     // C5: an interpreter starts only with a script the policy pins. The file it would open is hashed here; whether that
     // hash is pinned is decided under the policy lock. An inline, stdin, module or loader form is refused outright.
     const c5 = (0, guardrails_1.interpreterCheck)(executable, command.slice(1), env);
+    // #679: resolve the actual file command[0] would start (through PATH and symlinks) and hash it, so a pinned tool is
+    // matched against the real executable, not just its basename. A tool with no pin stays name-only (decided below).
+    // ponytail: only a PINNED tool is hashed — a cheap policy peek avoids reading a large interpreter binary on every
+    // name-only run. A pin added in the microsecond between this peek and the decision's own load only fails closed.
+    const peek = (0, guardrails_1.loadPolicy)(dir);
+    const isPinned = peek.state === 'ok' && (peek.doc.policy.executables ?? []).some((p) => p.tool === executable);
+    const exe = isPinned ? (0, guardrails_1.resolveExecutable)(String(command[0]), env) : { ok: false, why: 'name-only: the tool is not pinned, so its executable is not hashed' };
     const req = {
         tool,
         class: cls,
@@ -210,6 +227,7 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner, sandboxExec = 
         command_sha256: sha256(JSON.stringify(command)),
         ...(amount !== undefined ? { amount_raw: amount } : {}),
         ...(c5.script ? { script: c5.script } : {}),
+        ...(exe.ok ? { executable_file: { path: exe.path, sha256: exe.sha256 } } : {}),
         sandbox,
     };
     const g = (0, guardrails_1.guardDecide)(dir, req, sandbox ? exports.SANDBOX_RUN_SCOPE : exports.RUN_SCOPE, { extraReasons: [...mismatch, ...c5.reasons] });
@@ -232,7 +250,12 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner, sandboxExec = 
     if (sandbox)
         return runInSandbox(dir, g, own, json, io, command, runtime ?? 'runc', sandboxExec);
     const t0 = Date.now();
-    const r = spawn(command[0], command.slice(1));
+    // #679: when the tool is pinned, the decision above already proved the resolved file matches the pin, so start that
+    // exact resolved path — a PATH entry cannot be re-pointed between the check and the spawn. Name-only (unpinned)
+    // keeps the legacy behaviour: spawn command[0] verbatim.
+    const pol = g.loaded.state === 'ok' ? g.loaded.doc.policy : null;
+    const pinnedExe = exe.ok && (pol?.executables ?? []).some((p) => p.tool === executable);
+    const r = spawn(pinnedExe ? exe.path : command[0], command.slice(1));
     const outcome = (0, guardrails_1.appendRecord)(dir, {
         kind: 'outcome',
         requested: g.record.requested,
@@ -298,6 +321,7 @@ trustshell guard show [--json]
 trustshell guard check --tool <name> [--class read|other|post|spend] [--amount <n>] [--json]
 trustshell guard allow <action> · guard deny <action>      (spend | post | tool | tool:<name>)
 trustshell guard allow|deny tool:<interpreter> --script <path>   (pin or unpin one script by sha256: ${guardrails_1.INTERPRETER_NAMES})
+trustshell guard allow|deny tool:<name> --exe <path>   (pin or unpin the tool's executable by path+sha256: only that file starts)
 trustshell guard limit per-tx|daily|total <n> · guard expire <days> · guard kill · guard sign
 trustshell guard require-sandbox on|off      (on: trustshell run refuses without --sandbox)
 trustshell guard level [--json] · guard level shadow|enforce|off · guard level after L1|L2|L3 <n>
@@ -421,6 +445,7 @@ function showLines(doc, path, ledgerText, defaulted) {
         `subject     ${(0, action_evidence_1.cleanCodePoints)(p.subject)}`, // policy.json is text someone else may have written (an imported, signed policy): print it as text
         `actions     ${p.actions.length ? p.actions.join(', ') : 'NONE: everything is denied'}  (anything unlisted is denied)`,
         `scripts     ${p.scripts?.length ? p.scripts.map((s) => `${s.tool} ${(0, action_evidence_1.cleanCodePoints)(s.path)} (sha256 ${s.sha256.slice(0, 12)}…)`).join('; ') : 'none pinned'}  (an allowed interpreter runs only these)`,
+        `executables ${p.executables?.length ? p.executables.map((s) => `${s.tool} ${(0, action_evidence_1.cleanCodePoints)(s.path)} (sha256 ${s.sha256.slice(0, 12)}…)`).join('; ') : 'none pinned'}  (a pinned tool starts only this file; unpinned tools are name-only)`,
         'always      denied whatever the actions list: init --pai, learn check run, learn probe run (each starts a process the guard cannot see)',
         `limits      per_tx ${p.per_tx_raw} · daily ${p.daily_raw} · total ${p.total_raw} (smallest units)${defaulted.length ? `; left out, so 0: ${defaulted.join(', ')}` : ''}; allowed so far: ${spent}`,
         `expires     ${new Date(p.expires_at * 1000).toISOString()}`,
@@ -582,9 +607,15 @@ function runGuard(argv, io, env = process.env) {
             if (verb === 'allow' || verb === 'deny') {
                 const si = words.indexOf('--script');
                 const scriptArg = si === -1 ? undefined : words[si + 1];
-                const action = si === -1 ? words : words.filter((_, i) => i !== si && i !== si + 1);
+                const ei = words.indexOf('--exe');
+                const exeArg = ei === -1 ? undefined : words[ei + 1];
+                const action = words.filter((_, i) => !(si !== -1 && (i === si || i === si + 1)) && !(ei !== -1 && (i === ei || i === ei + 1)));
                 if (si !== -1 && (scriptArg === undefined || scriptArg.startsWith('-')))
                     return bad('--script takes the path of one script');
+                if (ei !== -1 && (exeArg === undefined || exeArg.startsWith('-')))
+                    return bad('--exe takes the path of one executable');
+                if (si !== -1 && ei !== -1)
+                    return bad('give --script or --exe, not both: a script pin and an executable pin are set one at a time');
                 if (action.length !== 1)
                     return bad(`guard ${verb} takes one action: spend, post, tool or tool:<name>`);
                 const a = action[0];
@@ -595,6 +626,7 @@ function runGuard(argv, io, env = process.env) {
                 // C5: pins belong to the executable's own name, the one `run` derives (lower case).
                 const exe = a.startsWith('tool:') ? a.slice(5).toLowerCase() : '';
                 const pins = p.scripts ?? [];
+                const exePins = p.executables ?? [];
                 if (scriptArg !== undefined) {
                     if (!(0, guardrails_1.isInterpreter)(exe))
                         return bad(`--script pins a script for an interpreter (${guardrails_1.INTERPRETER_NAMES}), and ${a} is not one, so nothing was written`);
@@ -619,17 +651,47 @@ function runGuard(argv, io, env = process.env) {
                         via = `guard deny ${a} --script ${target}`;
                     }
                 }
+                else if (exeArg !== undefined) {
+                    // #679: pin (or unpin) a tool's executable by resolved path + sha256. Applies to any named tool.
+                    if (!a.startsWith('tool:'))
+                        return bad(`--exe pins the executable for a named tool (tool:<name>), and ${a} is not one, so nothing was written`);
+                    const r = (0, guardrails_1.resolveExecutable)(exeArg, env);
+                    // Unpinning an executable that is gone still works, by the path it was pinned under.
+                    const target = r.ok ? r.path : verb === 'deny' ? (0, node_path_1.resolve)(exeArg) : null;
+                    if (target === null) {
+                        io.err(`not written: ${r.ok ? '' : r.why}`);
+                        return 2;
+                    }
+                    const others = exePins.filter((s) => !(s.tool === exe && s.path === target));
+                    if (verb === 'deny' && others.length === exePins.length)
+                        return bad(`no executable is pinned for ${exe} at ${target}, so nothing was written`);
+                    if (verb === 'allow' && r.ok) {
+                        if (!p.actions.includes(a))
+                            p.actions = [...p.actions, a];
+                        p.executables = [...others, { tool: exe, path: target, sha256: r.sha256 }];
+                        via = `guard allow ${a} --exe ${target} sha256 ${r.sha256}`;
+                    }
+                    else {
+                        p.executables = others;
+                        via = `guard deny ${a} --exe ${target}`;
+                    }
+                }
                 else {
                     p.actions = verb === 'allow' ? (p.actions.includes(a) ? p.actions : [...p.actions, a]) : p.actions.filter((x) => x !== a);
                     // Denying an interpreter drops its pins too: allowing it again must not quietly revive old ones.
                     if (verb === 'deny' && (0, guardrails_1.isInterpreter)(exe))
                         p.scripts = pins.filter((s) => s.tool !== exe);
+                    // #679: denying a tool drops its executable pin too, for the same reason.
+                    if (verb === 'deny' && exe)
+                        p.executables = exePins.filter((s) => s.tool !== exe);
                     if (verb === 'allow' && (0, guardrails_1.isInterpreter)(exe) && !pins.some((s) => s.tool === exe)) {
                         note = `note        ${exe} is an interpreter: run starts it only with a script the policy pins by sha256, and none is pinned yet (trustshell guard allow ${a} --script <path>)`;
                     }
                 }
                 if (p.scripts && !p.scripts.length)
                     delete p.scripts;
+                if (p.executables && !p.executables.length)
+                    delete p.executables;
             }
             else if (verb === 'limit') {
                 const key = { 'per-tx': 'per_tx_raw', daily: 'daily_raw', total: 'total_raw' }[words[0] ?? ''];

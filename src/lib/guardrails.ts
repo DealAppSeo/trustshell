@@ -61,6 +61,13 @@ export interface LocalPolicy {
   autonomy?: AutonomyConfig;
   /** Local only (not in the kernel): the scripts an allowed interpreter may run (C5). Absent = none. */
   scripts?: ScriptPin[];
+  /**
+   * Local only (not in the kernel): executable identity (#679). A pin binds a tool to ONE file by resolved path and
+   * sha256, so `run --tool X` starts only that file — a substitute with the same basename, a planted PATH entry or a
+   * repointed symlink is refused. Absent for a tool = name-only (the weaker, legacy check: any file by that basename).
+   * Reuses ScriptPin's shape; verified INDEPENDENTLY of `scripts` (an interpreter can pin both its binary and its script).
+   */
+  executables?: ScriptPin[];
   /** Local only (not in the kernel): `trustshell run` must use --sandbox (C2). Absent = it need not. */
   run?: RunRules;
 }
@@ -155,6 +162,51 @@ export function resolveScript(arg: string, cwd: string = process.cwd()): { ok: t
   }
 }
 
+/** The rule every executable-identity denial states. */
+export const EXECUTABLE_RULE = 'a pinned tool starts only the executable the policy pins by path and sha256';
+
+/**
+ * Where `command[0]` would actually resolve, the way the OS spawner does: a path-ish name against the cwd; a bare name
+ * along PATH (on Windows also the cwd first, with each PATHEXT). The FIRST match wins, as spawn would pick it. Returns
+ * the candidate's path (not yet realpath'd — resolveExecutable does that); null when nothing matches.
+ */
+function whichExecutable(name: string, env: NodeJS.ProcessEnv, cwd: string): string | null {
+  const fs = require('node:fs') as typeof import('node:fs');
+  if (name.includes('/') || name.includes('\\')) return resolve(cwd, name);
+  const isWin = process.platform === 'win32';
+  const dirs = (env.PATH ?? env.Path ?? '').split(isWin ? ';' : ':').filter(Boolean);
+  const search = isWin ? [cwd, ...dirs] : dirs;
+  const exts = isWin ? (env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean) : [''];
+  const hasExt = isWin && /\.[^.\\/]+$/.test(name);
+  for (const d of search) {
+    for (const c of hasExt ? [join(d, name)] : exts.map((e) => join(d, name + e))) {
+      try {
+        if (fs.statSync(c).isFile()) return c;
+      } catch {
+        /* next candidate */
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * The executable `run` would actually start, resolved to one regular file through PATH and symlinks, and hashed —
+ * the file identity the policy pins (#679). Reuses resolveScript for the realpath+regular-file+sha256 step, so a
+ * binary and a script are resolved the same way. TOCTOU: hashed here, spawned a moment later; a swap in between is
+ * not caught, the same bound as scripts (anything that can swap it runs as the owner). Spawn the resolved path, not
+ * the bare name, so PATH cannot be re-pointed between the check and the spawn.
+ */
+export function resolveExecutable(
+  command0: string,
+  env: NodeJS.ProcessEnv = process.env,
+  cwd: string = process.cwd(),
+): { ok: true; path: string; sha256: string } | { ok: false; why: string } {
+  const cand = whichExecutable(command0, env, cwd);
+  if (cand === null) return { ok: false, why: `the executable ${command0.slice(0, 80)} was not found on PATH` };
+  return resolveScript(cand, cwd);
+}
+
 /**
  * C5, for `run`: the script an interpreter would open, resolved and hashed, and every reason it must not start. Not an
  * interpreter: nothing. Whether the script is PINNED is decided under the policy lock, in decide().
@@ -194,7 +246,9 @@ const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
 /** PURE. Is `a` an entry a policy's `actions` may hold (spend, post, tool or tool:<name>)? */
 export const isPolicyAction = (a: string): boolean => ACTION.test(a);
 const CANONICAL_UINT = /^(?:0|[1-9][0-9]{0,77})$/;
-const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy', 'scripts', 'run'];
+const POLICY_KEYS = ['subject', 'actions', 'per_tx_raw', 'daily_raw', 'total_raw', 'expires_at', 'nonce', 'autonomy', 'scripts', 'executables', 'run'];
+/** A pinned tool's own name (as `run` derives the executable: letters, digits, _ . -). Not `spend`/`post`/`tool`. */
+const EXEC_PIN_TOOL = /^[A-Za-z0-9_.-]{1,128}$/;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 /** Absolute on either platform: a carried policy is parsed on the host it was carried to. */
 const ABSOLUTE = /^(\/|[A-Za-z]:[\\/]|\\\\)/;
@@ -219,6 +273,32 @@ function parseScripts(v: unknown, errors: string[]): ScriptPin[] {
       SHA256_HEX.test(s.sha256);
     if (!ok) errors.push(`scripts holds an entry that is not { tool: one of ${INTERPRETER_NAMES}, path: an absolute path, sha256: 64 lower-case hex }`);
     else if (pins.some((p) => p.tool === s.tool && p.path === s.path)) errors.push(`scripts pins ${s.tool} ${String(s.path).slice(0, 80)} twice`);
+    else pins.push({ tool: s.tool as string, path: s.path as string, sha256: s.sha256 as string });
+  }
+  return pins;
+}
+
+/** Like parseScripts, but for executable-identity pins: any tool name (#679), not only interpreters. */
+function parseExecutables(v: unknown, errors: string[]): ScriptPin[] {
+  if (!Array.isArray(v) || v.length > 64) {
+    errors.push('executables must be a list of at most 64 { tool, path, sha256 }');
+    return [];
+  }
+  const pins: ScriptPin[] = [];
+  for (const s of v) {
+    const ok =
+      isObject(s) &&
+      Object.keys(s).every((k) => k === 'tool' || k === 'path' || k === 'sha256') &&
+      typeof s.tool === 'string' &&
+      EXEC_PIN_TOOL.test(s.tool) &&
+      typeof s.path === 'string' &&
+      s.path.length <= 4096 &&
+      ABSOLUTE.test(s.path) &&
+      !s.path.includes('\0') &&
+      typeof s.sha256 === 'string' &&
+      SHA256_HEX.test(s.sha256);
+    if (!ok) errors.push('executables holds an entry that is not { tool: an executable name, path: an absolute path, sha256: 64 lower-case hex }');
+    else if (pins.some((p) => p.tool === s.tool && p.path === s.path)) errors.push(`executables pins ${s.tool} ${String(s.path).slice(0, 80)} twice`);
     else pins.push({ tool: s.tool as string, path: s.path as string, sha256: s.sha256 as string });
   }
   return pins;
@@ -300,6 +380,7 @@ export function parsePolicy(input: unknown): { ok: true; policy: LocalPolicy; de
   const auto = input.autonomy === undefined ? null : parseAutonomy(input.autonomy);
   if (auto && !auto.ok) errors.push(...auto.errors);
   const scripts = input.scripts === undefined ? null : parseScripts(input.scripts, errors);
+  const executables = input.executables === undefined ? null : parseExecutables(input.executables, errors);
   const run = input.run;
   const runOk = run === undefined || (isObject(run) && Object.keys(run).length === 1 && typeof run.require_sandbox === 'boolean');
   if (!runOk) errors.push('run must be { require_sandbox: true or false }');
@@ -318,6 +399,7 @@ export function parsePolicy(input: unknown): { ok: true; policy: LocalPolicy; de
       // Only when present: a policy without it hashes exactly as it did before autonomy existed.
       ...(auto?.ok ? { autonomy: auto.config } : {}),
       ...(scripts ? { scripts } : {}),
+      ...(executables ? { executables } : {}),
       ...(run !== undefined ? { run: { require_sandbox: (run as RunRules).require_sandbox } } : {}),
     },
   };
@@ -387,6 +469,8 @@ export interface GuardRequest {
   executable?: string;
   /** The script an interpreter `executable` would open (C5): resolved path and sha256. Recorded by its hash only. */
   script?: { path: string; sha256: string };
+  /** The file `command[0]` resolves to (#679): resolved path and sha256 of the actual executable. Recorded by hash only. */
+  executable_file?: { path: string; sha256: string };
   /** `trustshell run` only: whether it was asked to run the command in a sandbox mission (--sandbox). */
   sandbox?: boolean;
 }
@@ -406,6 +490,27 @@ export function pinReason(policy: LocalPolicy, req: GuardRequest): string | null
   return pins.length
     ? `the script changed since it was pinned for ${exe} (sha256 now ${s.sha256.slice(0, 12)}…); ${INTERPRETER_RULE} (${how} pins it again)`
     : `the script (sha256 ${s.sha256.slice(0, 12)}…) is not pinned for ${exe}; ${INTERPRETER_RULE} (${how} pins it)`;
+}
+
+/**
+ * PURE. #679: why this request may not start its executable, or null. A tool with an executable pin starts ONLY the
+ * file whose resolved path AND sha256 the policy pins: a substitute (different file), a planted PATH entry or a
+ * repointed symlink all resolve to a path/hash the pin does not list, and are denied. A tool with NO pin returns null
+ * here — it stays name-only (the weaker legacy check), which the run card labels as such; pinning is opt-in.
+ */
+export function execPinReason(policy: LocalPolicy, req: GuardRequest): string | null {
+  const exe = req.executable;
+  if (exe === undefined) return null;
+  const pins = (policy.executables ?? []).filter((p) => p.tool === exe);
+  if (!pins.length) return null;
+  const how = `trustshell guard allow tool:${exe} --exe <path>`;
+  const f = req.executable_file;
+  if (!f) return `${exe} is pinned to an approved executable, but the file that would run could not be resolved; ${EXECUTABLE_RULE} (${how})`;
+  const atPath = pins.filter((p) => p.path === f.path);
+  if (atPath.some((p) => p.sha256 === f.sha256)) return null;
+  return atPath.length
+    ? `the executable for ${exe} changed since it was pinned (sha256 now ${f.sha256.slice(0, 12)}…); ${EXECUTABLE_RULE} (${how} pins it again)`
+    : `the executable that would run (sha256 ${f.sha256.slice(0, 12)}…) is not the one pinned for ${exe}: a different file, PATH entry or symlink target; ${EXECUTABLE_RULE} (${how})`;
 }
 
 /** The action string the policy must list for this request (the kernel's actionPermitted). */
@@ -443,6 +548,8 @@ export function decide(
   if (!permitted(policy.actions, req)) reasons.push(`the owner policy does not list ${actionFor(req)}`);
   const pin = pinReason(policy, req);
   if (pin) reasons.push(pin);
+  const expin = execPinReason(policy, req);
+  if (expin) reasons.push(expin);
   if (policy.run?.require_sandbox && req.sandbox === false) {
     reasons.push('the owner policy requires --sandbox for trustshell run (run.require_sandbox; trustshell guard require-sandbox off clears it)');
   }
@@ -481,8 +588,8 @@ export interface GuardRecord {
    * that enforced a carried policy), with the hash before and after. A rule change is never silent.
    */
   kind: 'decision' | 'check' | 'outcome' | 'policy-change';
-  /** What was asked. A script is recorded by its sha256 only, never by its path (the command is never recorded). */
-  requested: Omit<GuardRequest, 'script'> & { action: string; script_sha256?: string };
+  /** What was asked. A script/executable is recorded by its sha256 only, never by its path (the command is never recorded). */
+  requested: Omit<GuardRequest, 'script' | 'executable_file'> & { action: string; script_sha256?: string; executable_sha256?: string };
   authorized: GuardDecision & { policy_sha256: string | null; policy_nonce: string | null; policy_signed_by: string | null };
   /** outcome only: what the started process reported. Never what it did. */
   executed: { exit_code: number | null; signal: string | null; duration_ms: number } | 'not run' | null;
@@ -827,6 +934,7 @@ function decideLocked(
   if (req.command_sha256 !== undefined) requested.command_sha256 = req.command_sha256;
   if (req.executable !== undefined) requested.executable = req.executable;
   if (req.script !== undefined) requested.script_sha256 = req.script.sha256;
+  if (req.executable_file !== undefined) requested.executable_sha256 = req.executable_file.sha256;
   if (req.sandbox === true) requested.sandbox = true;
   const kind = ctx.kind ?? 'decision';
   const record = appendUnlocked(
