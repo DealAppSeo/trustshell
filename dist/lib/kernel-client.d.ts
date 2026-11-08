@@ -191,7 +191,10 @@ export declare class KernelRefusedError extends TrustShellError {
 export declare function kernelCanonicalJson(value: unknown): string;
 /** keccak256 of the canonical JSON of the arguments. Needs the optional `ethers` peer. */
 export declare function hashKernelArgs(args: unknown): Promise<string>;
-/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. */
+/**
+ * keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. Uses @noble/hashes, a
+ * direct dependency, so sealing and verifying a receipt work on a cold install with no `ethers`.
+ */
 export declare function kernelReceiptHash(receipt: KernelReceipt): Promise<string>;
 /**
  * The pinned public keys, lower-cased: `trustedSigners`, else TRUSTSHELL_KERNEL_TRUSTED_SIGNERS. [] when

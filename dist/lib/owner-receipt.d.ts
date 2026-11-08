@@ -51,8 +51,8 @@ export interface SealableReceipt {
  *   2. signature = Ed25519 over `DOMAIN + canonical(receipt-without-receipt_hash-and-signature)`, 0x+128 hex;
  *   3. receipt_hash = keccak256 over the canonical receipt WITH the signature but WITHOUT receipt_hash.
  * The caller supplies the body; any `schema`/`version`/`signer`/`signature`/`receipt_hash` already on the
- * header are overwritten (you cannot pre-stamp the sealing fields). Needs keccak (ethers peer or the
- * @noble path); never makes a network call.
+ * header are overwritten (you cannot pre-stamp the sealing fields). Keccak comes from @noble/hashes, so
+ * this works without the optional ethers peer. Never makes a network call.
  */
 export declare function signOwnerReceipt(body: SealableReceipt, key: KeyObject): Promise<KernelReceiptV2>;
 /** The provenance stamp on a receipt, or null when it has none (an engine receipt carries none). */

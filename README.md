@@ -2,25 +2,7 @@
 
 TrustShell reads a **public GitHub Actions run** from GitHub and sets what your AI agent *said* beside what the run *reports*. Once installed, the only network call is to `api.github.com`: no account, no API key, no TrustShell server, and nothing of yours is uploaded. `GITHUB_TOKEN` is optional and only raises GitHub's rate limit. Public runs only, for now.
 
-**Try Inspect:** [the five-minute challenge](https://trustshell.dev/inspect). One true claim and one false one about a pinned run, the evidence that decides each, and an invitation to break it.
-
-## See it catch a false claim
-
-No setup, and no URL of your own. This command works as written in bash, zsh and Windows PowerShell. The run is TrustShell's own CI, pinned, and it passed. The sentence cites that green run as proof for a different commit.
-
-```bash
-npx @hyperdag/trustshell@latest check https://github.com/DealAppSeo/trustshell/actions/runs/39619591025 --claims "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025."
-```
-
-You should see this, abridged, and exit code `1`:
-
-```
-### Claims: 1 supported · 1 contradicted · 1 not checked
-- **CONTRADICTED** `commit 5d1c5e3f57e1`
-  - **Why** The claim cites commit 5d1c5e3f57e1; the inspected run is on 392797a69b6a.
-```
-
-Check the answer without TrustShell: [the run on GitHub](https://github.com/DealAppSeo/trustshell/actions/runs/39619591025) shows commit `392797a`.
+**Try Inspect:** [the five-minute challenge](https://trustshell.dev/inspect). One true claim and one false one about a pinned run, the evidence that decides each, and an invitation to break it. No run URL yet? This one line needs none and works as written in bash, zsh and PowerShell. It cites our own green CI run as proof for a different commit, so it prints CONTRADICTED and exits `1`, and [the run on GitHub](https://github.com/DealAppSeo/trustshell/actions/runs/39619591025) shows the real commit, `392797a`: `npx @hyperdag/trustshell@latest check https://github.com/DealAppSeo/trustshell/actions/runs/39619591025 --claims "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025."`
 
 ## Check your own CI run
 
