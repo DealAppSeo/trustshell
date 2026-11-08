@@ -30,7 +30,7 @@
 'use strict';
 
 const { spawnSync } = require('node:child_process');
-const { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, appendFileSync } = require('node:fs');
+const { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, appendFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { dirname, join } = require('node:path');
 const http = require('node:http');
@@ -423,7 +423,10 @@ function main() {
   if (none.length === 0) notChecked('egress table parsed but named no no-network commands — refusing a vacuous pass');
   if (githubOnly.length === 0) notChecked('egress table parsed but named no api.github.com command — refusing a vacuous pass');
 
-  const outDir = mkdtempSync(join(tmpdir(), 'ts-egress-build-'));
+  // Inside node_modules, as a real install is, so the CLI's runtime dependencies resolve.
+  const buildRoot = join(ROOT, 'node_modules', '.cache');
+  mkdirSync(buildRoot, { recursive: true });
+  const outDir = mkdtempSync(join(buildRoot, 'ts-egress-build-'));
   const compiled = compileCli(outDir);
   if (!compiled.ok) {
     try {

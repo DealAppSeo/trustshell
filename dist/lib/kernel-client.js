@@ -56,6 +56,8 @@ exports.kernelReceipt = kernelReceipt;
  * an unsigned receipt is then a downgrade, so pin only after the engine is signing.
  */
 const node_crypto_1 = require("node:crypto");
+const sha3_1 = require("@noble/hashes/sha3");
+const utils_1 = require("@noble/hashes/utils");
 const optional_ethers_1 = require("./optional-ethers");
 const trustshell_1 = require("./trustshell");
 const api_url_1 = require("./api-url");
@@ -98,11 +100,13 @@ async function hashKernelArgs(args) {
     const { keccak256, toUtf8Bytes } = await (0, optional_ethers_1.loadEthers)('Hashing kernel arguments');
     return keccak256(toUtf8Bytes(kernelCanonicalJson(args)));
 }
-/** keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. */
+/**
+ * keccak256 of the canonical JSON of a receipt without `header.receipt_hash`. Uses @noble/hashes, a
+ * direct dependency, so sealing and verifying a receipt work on a cold install with no `ethers`.
+ */
 async function kernelReceiptHash(receipt) {
-    const { keccak256, toUtf8Bytes } = await (0, optional_ethers_1.loadEthers)('Hashing a kernel receipt');
     const { receipt_hash: _omit, ...header } = receipt.header;
-    return keccak256(toUtf8Bytes(kernelCanonicalJson({ ...receipt, header })));
+    return `0x${(0, utils_1.bytesToHex)((0, sha3_1.keccak_256)((0, utils_1.utf8ToBytes)(kernelCanonicalJson({ ...receipt, header }))))}`;
 }
 // ── authenticity (kernel-receipt/2) ─────────────────────────────────────────────────────────────
 const SIG_HEX = /^0x[0-9a-f]{128}$/; // lower-case only: one signed receipt, one encoding (as the engine)
