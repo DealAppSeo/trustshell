@@ -240,7 +240,7 @@ export interface PolicyDocument {
 }
 
 /** The commands that only read or write local files: what `guard init` allows. `learn` is listed, but its `check run` and `probe run` run a stored shell command and the CLI denies them while a policy is in force. */
-export const LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'] as const;
+export const LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps', 'trust-report'] as const;
 
 const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
 /** PURE. Is `a` an entry a policy's `actions` may hold (spend, post, tool or tool:<name>)? */
@@ -592,7 +592,7 @@ export interface GuardRecord {
   requested: Omit<GuardRequest, 'script' | 'executable_file'> & { action: string; script_sha256?: string; executable_sha256?: string };
   authorized: GuardDecision & { policy_sha256: string | null; policy_nonce: string | null; policy_signed_by: string | null };
   /** outcome only: what the started process reported. Never what it did. */
-  executed: { exit_code: number | null; signal: string | null; duration_ms: number } | 'not run' | null;
+  executed: { exit_code: number | null; signal: string | null; duration_ms: number; start_error?: string } | 'not run' | null;
   assurance_scope: AssuranceScope;
   /** policy-change only: what changed it, and the policy hash before (null: there was none) and after. */
   change?: { via: string; before_sha256: string | null; after_sha256: string };

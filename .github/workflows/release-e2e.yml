@@ -1,0 +1,43 @@
+# Installs the packed release into an empty folder and drives it as a new developer would: no account, no key,
+# no secret of ours. It runs on each operating system because the commands have to work the same in each shell.
+name: release-e2e
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Exit 2 means NOT_CHECKED: shared runner addresses are often rate-limited by GitHub's anonymous API. That is
+      # reported as a warning and never as a pass; the step summary lists which steps did not run.
+      - name: Clean-install E2E
+        shell: bash
+        run: |
+          set +e
+          node scripts/release-e2e.mjs --out e2e-out
+          code=$?
+          node scripts/release-e2e-summary.mjs e2e-out >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = "2" ]; then echo "::warning::some steps were NOT_CHECKED; see the summary"; exit 0; fi
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ matrix.os }}
+          path: e2e-out
+          if-no-files-found: ignore

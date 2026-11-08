@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LEVEL_IS_NOT = exports.GUARD_USAGE = exports.RUN_POWERSHELL = exports.RUN_USAGE = exports.CHECK_SCOPE = exports.POLICY_SCOPE = exports.SANDBOX_RUN_SCOPE = exports.RUN_SCOPE = exports.CLI_SCOPE = exports.NEVER_GUARDED = exports.EXIT_REFUSED = void 0;
+exports.LEVEL_IS_NOT = exports.GUARD_USAGE = exports.RUN_POWERSHELL = exports.RUN_WINDOWS_SHIM = exports.RUN_USAGE = exports.CHECK_SCOPE = exports.POLICY_SCOPE = exports.SANDBOX_RUN_SCOPE = exports.RUN_SCOPE = exports.CLI_SCOPE = exports.NEVER_GUARDED = exports.EXIT_REFUSED = void 0;
 exports.recordPolicyChange = recordPolicyChange;
 exports.plannedAction = plannedAction;
 exports.runGuarded = runGuarded;
@@ -117,7 +117,11 @@ function formatRunCard(decision, outcome, doc = null, own = null) {
     const by = d.authorized.policy_signed_by;
     const signed = by ? (by === own ? 'owner-signed' : `signed by ${by.slice(0, 16)}…, NOT this install's key`) : doc?.signature ? guardrails_1.SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
     const ex = outcome?.executed;
-    const executed = ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
+    const executed = ex && ex !== 'not run'
+        ? ex.exit_code === null && ex.signal === null
+            ? `could not start (${ex.start_error ?? 'unknown error'})`
+            : `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms`
+        : 'not run';
     const exe = d.requested.executable;
     const pinnedExe = exe !== undefined && (doc?.policy.executables ?? []).some((p) => p.tool === exe);
     const identity = exe === undefined
@@ -141,7 +145,7 @@ function formatRunCard(decision, outcome, doc = null, own = null) {
 const nodeSpawner = (cmd, args) => {
     const { spawnSync } = require('node:child_process');
     const r = spawnSync(cmd, args, { stdio: 'inherit', windowsHide: true });
-    return { status: r.status, signal: r.signal ?? null };
+    return { status: r.status, signal: r.signal ?? null, error: r.error ? (r.error.code ?? r.error.message) : undefined };
 };
 exports.RUN_USAGE = 'trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--sandbox [--runtime runc|runsc]] [--json] -- <command> [args...]';
 /**
@@ -149,6 +153,8 @@ exports.RUN_USAGE = 'trustshell run --tool <name> [--class read|other|post|spend
  * `run --tool git -- git status` arrived as `run --tool git git status` and failed "unexpected git" with no
  * hint (stranger walk, 2026-10-23, PS 5.1). Quoted, or through the `.cmd` shim, the `--` survives.
  */
+/** Windows starts only real executables without a shell, and `run` never uses a shell: that would let arguments start other commands. */
+exports.RUN_WINDOWS_SHIM = "On Windows a .cmd shim such as npm or npx cannot be started directly. Start the script it wraps instead: pin it, then trustshell run --tool node '--' node <script>.";
 exports.RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
 const isHelp = (a) => a === '--help' || a === '-h' || a === 'help';
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
@@ -260,10 +266,12 @@ function runRun(argv, io, env = process.env, spawn = nodeSpawner, sandboxExec = 
         kind: 'outcome',
         requested: g.record.requested,
         authorized: g.record.authorized,
-        executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0 },
+        executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0, ...(r.error ? { start_error: r.error } : {}) },
         assurance_scope: exports.RUN_SCOPE,
     });
     (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
+    if (r.error === 'ENOENT' && process.platform === 'win32')
+        io.err(exports.RUN_WINDOWS_SHIM);
     return r.status ?? 3;
 }
 /** C2: Guard has ALLOWED the command; it starts only in a mission container, never on this host. */

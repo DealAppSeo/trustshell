@@ -65,6 +65,8 @@ const NONE_RUNS = {
     exit: 0,
   },
   recall: { args: ['recall'], env: {}, stdout: 'do_not_send COUNT 0', exit: 0 },
+  // The empty temp cwd has no report folder, so this reads nothing and says so.
+  'trust-report': { args: ['trust-report', 'verify', 'no-such-report'], env: {}, stdout: '', exit: 2 },
   redact: { args: ['redact', 'egress-check-absent-key'], env: {}, stdout: 'NOT_CHECKED', exit: 0 },
   // traps prints a plain list (its --json is an array, not a verdict object), so it is pinned on
   // stdout here. Run in an empty cwd, every fixture row has no receipt and reads NOT_CHECKED.

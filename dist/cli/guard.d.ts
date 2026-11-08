@@ -52,6 +52,7 @@ export interface Spawner {
     (cmd: string, args: string[]): {
         status: number | null;
         signal: string | null;
+        error?: string;
     };
 }
 export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|other|post|spend] [--amount <n>] [--sandbox [--runtime runc|runsc]] [--json] -- <command> [args...]";
@@ -60,6 +61,8 @@ export declare const RUN_USAGE = "trustshell run --tool <name> [--class read|oth
  * `run --tool git -- git status` arrived as `run --tool git git status` and failed "unexpected git" with no
  * hint (stranger walk, 2026-10-23, PS 5.1). Quoted, or through the `.cmd` shim, the `--` survives.
  */
+/** Windows starts only real executables without a shell, and `run` never uses a shell: that would let arguments start other commands. */
+export declare const RUN_WINDOWS_SHIM = "On Windows a .cmd shim such as npm or npx cannot be started directly. Start the script it wraps instead: pin it, then trustshell run --tool node '--' node <script>.";
 export declare const RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
 /** `trustshell run`. The command's own output goes to the terminal; the card goes to stderr (or --json to stdout). */
 export declare function runRun(argv: string[], io: IO, env?: NodeJS.ProcessEnv, spawn?: Spawner, sandboxExec?: Exec): number;

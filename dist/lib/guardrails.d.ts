@@ -102,7 +102,7 @@ export interface PolicyDocument {
     signature: PolicySignature | null;
 }
 /** The commands that only read or write local files: what `guard init` allows. `learn` is listed, but its `check run` and `probe run` run a stored shell command and the CLI denies them while a policy is in force. */
-export declare const LOCAL_TOOLS: readonly ["bundle", "ground", "init", "inspect", "learn", "profile", "quarantine", "recall", "redact", "remember", "report", "traps"];
+export declare const LOCAL_TOOLS: readonly ["bundle", "ground", "init", "inspect", "learn", "profile", "quarantine", "recall", "redact", "remember", "report", "traps", "trust-report"];
 /** PURE. Is `a` an entry a policy's `actions` may hold (spend, post, tool or tool:<name>)? */
 export declare const isPolicyAction: (a: string) => boolean;
 /** The policy `guard init` writes: local commands only, every limit 0, expires in `days` days. */
@@ -231,6 +231,7 @@ export interface GuardRecord {
         exit_code: number | null;
         signal: string | null;
         duration_ms: number;
+        start_error?: string;
     } | 'not run' | null;
     assurance_scope: AssuranceScope;
     /** policy-change only: what changed it, and the policy hash before (null: there was none) and after. */
