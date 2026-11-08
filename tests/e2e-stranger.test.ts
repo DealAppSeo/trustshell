@@ -2,7 +2,7 @@
  * Stranger path: the four commands shipped in @hyperdag/trustshell@1.4.0,
  * plus every command in this repo's CLI. Engine routes are mocked.
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, run, type CliIO } from '../src/cli';
@@ -208,6 +208,46 @@ describe('stranger e2e on current main', () => {
     const verifyReceipt = await go(['verify-receipt', goldenPath, '--root', goldenKey]);
     expect(verifyReceipt.code).toBe(0);
     expect(verifyReceipt.out).toMatch(/Integrity\s+VERIFIED/);
+
+    // sign-receipt: seal a minimal body with THIS install's OWN key (ephemeral home so the real install
+    // key is untouched), then the same verify-receipt re-derives its integrity under the printed root —
+    // the offline emit→verify loop a skeptic runs, exercised end to end on main. No network.
+    const signDir = mkdtempSync(join(tmpdir(), 'ts-stranger-sign-'));
+    const bodyPath = join(signDir, 'body.json');
+    writeFileSync(
+      bodyPath,
+      JSON.stringify({
+        header: { receipt_id: 'stranger-sign-1', prev_receipt_id: null, prev_hash: null, created_at: '2026-11-07T00:00:00Z', env: { network: 'base-sepolia', chain_id: 84532, is_simulated: true } },
+        subject: { agent: { agent_id: 'agent-1', agent_name: 'demo' }, owner: { wallet: null, assurance: null, status: 'none' } },
+        request: { tool: { name: 'echo', class: 'read' }, origin: 'Cli', args_hash: `0x${'a'.repeat(64)}`, amount_raw: null, payee: null, asset: null, chain_id: null },
+        decision: { verdict: 'ALLOW', blocking: false, executed: false, reasons: [], checks: [{ name: 'local', outcome: 'PASS', source: 'owner' }], does_not_attest: [], policy: { policy_hash: null, signer: null, signature: 'NOT_CHECKED', expires_at: null, revocation: 'NOT_CHECKED' }, limits: {}, laya: { lane: null, mode: 'shadow', consulted: false } },
+        payment: { status: 'none' },
+        verification: { status: 'none' },
+      }),
+    );
+    const prevSignHome = process.env.TRUSTSHELL_HOME;
+    process.env.TRUSTSHELL_HOME = mkdtempSync(join(tmpdir(), 'ts-stranger-home-'));
+    try {
+      const signed = await go(['sign-receipt', bodyPath]);
+      expect(signed.code).toBe(0);
+      const sealed = JSON.parse(signed.out) as { header: { provenance: string } };
+      expect(sealed.header.provenance).toBe('owner-self-signed');
+      const root = signed.err.match(/--root (0x[0-9a-f]{64})/)![1];
+      const sealedPath = join(signDir, 'sealed.json');
+      writeFileSync(sealedPath, JSON.stringify(sealed));
+      const reverify = await go(['verify-receipt', sealedPath, '--root', root]);
+      expect(reverify.code).toBe(0);
+      expect(reverify.out).toMatch(/Integrity\s+VERIFIED/);
+
+      // demo: the whole loop in one command, offline, under the same throwaway home.
+      const demo = await go(['demo']);
+      expect(demo.code).toBe(0);
+      expect(demo.out).toMatch(/Integrity\s+VERIFIED/);
+      expect(demo.out).toMatch(/verify-receipt r\.json --root 0x[0-9a-f]{64}/);
+    } finally {
+      if (prevSignHome === undefined) delete process.env.TRUSTSHELL_HOME;
+      else process.env.TRUSTSHELL_HOME = prevSignHome;
+    }
 
     const dir = mkdtempSync(join(tmpdir(), 'ts-stranger-'));
     const missing = join(dir, 'missing.jsonl');
