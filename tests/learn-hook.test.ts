@@ -7,7 +7,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { insertMemory, openMemoryDb } from '../src/memory/local-store';
@@ -24,7 +24,10 @@ let outDir = '';
 let cli = '';
 
 beforeAll(() => {
-  outDir = mkdtempSync(join(tmpdir(), 'ts-learn-hook-build-'));
+  // Inside node_modules, as a real install is, so the CLI's runtime dependencies resolve.
+  const buildRoot = join(ROOT, 'node_modules', '.cache');
+  mkdirSync(buildRoot, { recursive: true });
+  outDir = mkdtempSync(join(buildRoot, 'ts-learn-hook-build-'));
   const tsc = require.resolve('typescript/bin/tsc', { paths: [ROOT] });
   const r = spawnSync(process.execPath, [tsc, '--project', join(ROOT, 'tsconfig.sdk.json'), '--outDir', outDir], { cwd: ROOT, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`tsc failed (exit ${r.status}): ${(r.stdout || r.stderr).slice(0, 800)}`);
