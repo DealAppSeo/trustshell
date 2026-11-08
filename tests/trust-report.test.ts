@@ -68,6 +68,15 @@ describe('trust-report', () => {
     expect(report.next_actions.join(' ')).toContain('Do not accept "All tests pass"');
   });
 
+  it('a failure cannot be replaced by an easier run: different command lines decide nothing', async () => {
+    run('fake', started(1));
+    expect(runRun(['--tool', 'fake', '--', 'fake', '--select-nothing'], quiet().io, env, started(0))).toBe(0);
+    const { code, report } = await make(['--bind', 'fake=All tests pass']);
+    expect(report.bound_claims[0]?.status).toBe('NOT_CHECKED');
+    expect(report.bound_claims[0]?.why).toContain('2 different command lines');
+    expect(code).toBe(3);
+  });
+
   it('a command that never ran, or could not start, is NOT_CHECKED and exits 3', async () => {
     run('fake', started(null, 'ENOENT'));
     const { code, report } = await make(['--bind', 'fake=It works', '--bind', 'other=It lints']);

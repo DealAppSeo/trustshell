@@ -170,6 +170,10 @@ function decideBound(b: Bind, commands: CommandRow[]): BoundClaim {
   const hits = commands.filter((c) => bindMatches(b, c));
   const last = hits[hits.length - 1];
   if (!last) return { ...base, status: 'NOT_CHECKED', why: 'that command was never asked for through TrustShell', record_seq: null };
+  // A last run with other arguments could select nothing and exit 0, so "the last run" only means one thing
+  // when every run was the same command. An agent must not be able to replace a failure with an easier run.
+  const variants = new Set(hits.filter((c) => c.decision === 'ALLOWED').map((c) => c.command_sha256));
+  if (variants.size > 1) return { ...base, status: 'NOT_CHECKED', why: `it ran with ${variants.size} different command lines, so no one run decides this. Run the exact command you trust, using a fresh TRUSTSHELL_HOME.`, record_seq: last.seq };
   const scope = `record ${last.seq}`;
   if (last.exit_code === 0) return { ...base, status: 'SUPPORTED', why: `the last time it ran through trustshell run it exited 0 (${scope}). That shows this command passed, not that it tests what the claim says.`, record_seq: last.seq };
   if (last.exit_code !== null) return { ...base, status: 'CONTRADICTED', why: `the last time it ran through trustshell run it exited ${last.exit_code} (${scope})`, record_seq: last.seq };
