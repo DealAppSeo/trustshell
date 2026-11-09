@@ -68,7 +68,7 @@ export default function Home() {
         </p>
 
         <div className="mt-10 max-w-3xl">
-          <p className="mb-2 text-sm text-muted">Try it on a real run. This claim names the wrong commit (Node 22+):</p>
+          <p className="mb-2 text-sm text-muted">Try it on a real run. We wrote this example claim with the wrong commit (Node 22+):</p>
           <CopyCommand text={TRY} />
         </div>
 
@@ -105,7 +105,7 @@ export default function Home() {
       <Section id="how" title="Your agent writes what it did. TrustShell checks it against the run.">
         <div className="grid min-w-0 gap-6 lg:grid-cols-[2fr_3fr]">
           <div className="min-w-0">
-            <p className="mb-2 font-mono text-xs text-muted">claims.txt: what the agent said</p>
+            <p className="mb-2 font-mono text-xs text-muted">claims.txt: two example claims we wrote</p>
             <pre className="whitespace-pre-wrap rounded-lg border border-border bg-card px-4 py-3.5 font-mono text-[13px] leading-relaxed text-foreground [overflow-wrap:anywhere]">
               {CLAIMS}
             </pre>

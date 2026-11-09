@@ -64,7 +64,7 @@ const head12 = ledger.sample_check.run_head_sha.slice(0, 12);
 export function Explainer() {
   const steps: { title: string; body: ReactNode; tone?: 'verdict' }[] = [
     {
-      title: 'Agent claim',
+      title: 'Example claim',
       body: <q className="text-white">{contradicted.sentence}</q>,
     },
     {

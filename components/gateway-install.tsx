@@ -75,7 +75,7 @@ export function GatewayInstall() {
         <Copyable text={INSTALL} label="the install command" />
         <p className="text-sm text-slate-400">
           Needs Node 22.13 or newer. New to it? <a href="/inspect" className="underline underline-offset-4 hover:text-white">The five-minute Inspect challenge</a>{' '}
-          walks you through one true and one false claim.
+          walks you through two example claims we wrote, one true and one false.
         </p>
       </article>
 

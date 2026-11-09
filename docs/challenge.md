@@ -1,6 +1,6 @@
 # Try Inspect: the five-minute challenge
 
-Your AI says the job is done. TrustShell checks the evidence. Catch an AI's false claim about a CI run, see exactly which evidence decided it, then try to break the checker.
+Your AI says the job is done. TrustShell checks the evidence. Try it on two example claims we wrote about a real CI run, one true and one false: see exactly which evidence decided each, then try to break the checker.
 
 No account, no API key, no TrustShell server: once installed, the only network call is to `api.github.com`. Everyone checks the same pinned run, so everyone should get the same verdicts. (The record's digest differs from run to run, because the record includes when it was fetched.) If your verdicts differ, that is a finding.
 
@@ -32,7 +32,7 @@ npx @hyperdag/trustshell@latest --version
 
 The pinned run is TrustShell's own CI: the `check` workflow on `main`, run 39619591025, commit `392797a69b6a`. It passed.
 
-An AI agent wrote two sentences about it. One is true. The other cites that real, green run as proof for a different commit, the previous one on `main`.
+We wrote two example sentences about it for this challenge. One is true. The other deliberately cites that real, green run as proof for a different commit, the previous one on `main`.
 
 bash or zsh:
 
