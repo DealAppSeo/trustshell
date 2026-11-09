@@ -9,6 +9,10 @@ pass on this tree, and the first-run suite was added to main for this release. N
 `@noble/hashes` 1.3.2. The package is 165 files (1.8.1: 123). The MCP server lists 21 tools (1.8.1: 20);
 the new one is `inspect_run`.
 
+A successful CI run is not proof that the code is correct: Inspect reports what GitHub recorded about a run,
+and nothing about whether its tests mean anything. A claim line the checker cannot read in full, such as
+Markdown, a question or words it has no template for, makes the whole text NOT_CHECKED, which is never a pass.
+
 Guard, Carry and the sandbox are experimental, and they apply only to what goes through them: `trustshell run`,
 the MCP server and the SDK's gated functions. Anything an agent does another way is neither seen nor limited.
 
