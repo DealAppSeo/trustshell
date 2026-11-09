@@ -101,7 +101,7 @@ describe('/gateway', () => {
       expect(text).toContain('Two checkers agreeing is a second opinion, not proof.');
       expect(text).toContain('it is not a property of this release');
       expect(text).toContain('it is not signed yet');
-      expect(text).toContain('is built and not yet released');
+      expect(text).toContain('is still experimental');
       expect(text).toContain('it is paused for anyone without them');
       expect(text).toContain('Base Sepolia, a test network, not mainnet');
     });

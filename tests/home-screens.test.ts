@@ -41,9 +41,9 @@ describe('home screens below the hero', () => {
     expect(agent.MCP_SERVER).toEqual(pinned);
     expect(agent.MCP_SERVER).toEqual({
       command: 'npx',
-      args: ['-y', '-p', '@hyperdag/trustshell@1.8.0', 'trustshell-mcp'],
+      args: ['-y', '-p', '@hyperdag/trustshell@1.9.1', 'trustshell-mcp'],
     });
-    expect(agent.mcpPaste()).toContain('"@hyperdag/trustshell@1.8.0"');
+    expect(agent.mcpPaste()).toContain('"@hyperdag/trustshell@1.9.1"');
     expect(agent.mcpPaste()).toContain('"trustshell-mcp"');
   });
 
@@ -58,7 +58,7 @@ describe('home screens below the hero', () => {
     const html = renderHome();
     expect(html).toContain('id="how"');
     expect(html).toContain('id="install"');
-    expect(html).toContain('&quot;@hyperdag/trustshell@1.8.0&quot;');
+    expect(html).toContain('&quot;@hyperdag/trustshell@1.9.1&quot;');
     expect(html.indexOf('<h1')).toBeGreaterThan(-1);
     expect(html.indexOf('<h1')).toBeLessThan(html.indexOf('id="install"'));
   });
