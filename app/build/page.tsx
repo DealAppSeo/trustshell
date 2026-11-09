@@ -521,7 +521,7 @@ export default function BuildPage() {
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {[
               ['Inspect', "Check an agent's plain sentences about a GitHub Actions run against the run itself.", 'In the npm developer preview'],
-              ['Guard', 'An owner policy that trustshell run, the CLI and the MCP server enforce. It covers only what goes through them, and anyone who can run the CLI can change it.', 'Experimental: in the npm developer preview since 1.9.0'],
+              ['Guard', "An owner policy enforced only on what goes through trustshell run, the MCP server and the SDK's gated functions. Anyone who can run the CLI can change it.", 'Experimental: in the npm developer preview since 1.9.0'],
               ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Experimental: in the npm developer preview since 1.9.0'],
               ['Earn', 'Verified work raising what an agent is allowed to do.', 'Roadmap'],
               ['ERC-8004 feedback bound to its evidence', 'Feedback tied to its receipt, payment, delivered work and an independent check.', 'Not built yet'],

@@ -36,6 +36,14 @@ describe('site install copy matches the published release', () => {
     expect(readFileSync(join(ROOT, 'lib/first-run.ts'), 'utf8')).toContain(`RELEASE = '${release}'`);
   });
 
+  // The caption a visitor reads. A new release means running the demo again, so the page says so here first.
+  stable('the recorded output on the home page and /build names that version', () => {
+    const recorded = [...hero.matchAll(/[Rr]ecorded with (\d+\.\d+\.\d+)/g)].map((m) => m[1]);
+    expect(recorded.length).toBe(2);
+    expect(new Set(recorded)).toEqual(new Set([release]));
+    expect(readFileSync(join(ROOT, 'app/build/page.tsx'), 'utf8')).toContain(`PKG_VERSION = '${release}'`);
+  });
+
   it('hero is the one-screen win and does not interpolate package.json', () => {
     expect(hero).not.toMatch(/packageJson\.version/);
     expect(agentScreen).not.toMatch(/packageJson\.version/);
