@@ -27,7 +27,10 @@ import { decodeText } from '../lib/decode-text';
 import { verifyReceiptOffline } from '../lib/verify-receipt';
 import { resolvePackageVersion } from '../lib/version';
 
-export const TRUST_REPORT_SCHEMA = 'dev.trustshell.trust-report/0.1-draft' as const;
+export const TRUST_REPORT_SCHEMA = 'dev.trustshell.trust-report/0.2-draft' as const;
+/** TrustShell 1.9.0 called a passed command SUPPORTED. `verify` rebuilds a report under its own schema, so a folder made then stays checkable. */
+const TRUST_REPORT_SCHEMA_0_1 = 'dev.trustshell.trust-report/0.1-draft' as const;
+type ReportSchema = typeof TRUST_REPORT_SCHEMA | typeof TRUST_REPORT_SCHEMA_0_1;
 export const TRUST_REPORT_USAGE = `trustshell trust-report --out <new dir> [--record <record.json>]... [--bind "<tool or script>=<claim>"]... [--title <text>] [--json]
 trustshell trust-report verify <dir> [--root <0x key>] [--json]`;
 const MAX_INPUT_BYTES = 8 * 1024 * 1024;
@@ -74,13 +77,14 @@ export interface CommandRow {
 export interface BoundClaim {
   claim: string;
   decided_by: string;
-  status: 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
+  /** COMMAND_PASSED is the most an exit code can stand for: TrustShell cannot tell whether a command tested anything. */
+  status: 'COMMAND_PASSED' | 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
   why: string;
   record_seq: number | null;
 }
 
 export interface TrustReport {
-  schema: typeof TRUST_REPORT_SCHEMA;
+  schema: ReportSchema;
   title: string;
   generated_at: string;
   generator: string;
@@ -99,6 +103,8 @@ export interface TrustReport {
 }
 
 export interface BuildInput {
+  /** Only `verify` sets this, to rebuild a report under the schema it was made with. */
+  schema?: ReportSchema;
   title: string;
   generatedAt: string;
   generator: string;
@@ -165,7 +171,7 @@ function bindMatches(b: Bind, c: CommandRow): boolean {
 }
 
 /** The last matching command decides a bound claim. Anything but a clean exit code is NOT_CHECKED or worse. */
-function decideBound(b: Bind, commands: CommandRow[]): BoundClaim {
+function decideBound(b: Bind, commands: CommandRow[], passed: BoundClaim['status']): BoundClaim {
   const base = { claim: b.claim, decided_by: b.decided_by };
   const hits = commands.filter((c) => bindMatches(b, c));
   const last = hits[hits.length - 1];
@@ -175,7 +181,7 @@ function decideBound(b: Bind, commands: CommandRow[]): BoundClaim {
   const variants = new Set(hits.filter((c) => c.decision === 'ALLOWED').map((c) => c.command_sha256));
   if (variants.size > 1) return { ...base, status: 'NOT_CHECKED', why: `it ran with ${variants.size} different command lines, so no one run decides this. Run the exact command you trust, using a fresh TRUSTSHELL_HOME.`, record_seq: last.seq };
   const scope = `record ${last.seq}`;
-  if (last.exit_code === 0) return { ...base, status: 'SUPPORTED', why: `the last time it ran through trustshell run it exited 0 (${scope}). That shows this command passed, not that it tests what the claim says.`, record_seq: last.seq };
+  if (last.exit_code === 0) return { ...base, status: passed, why: `the last time it ran through trustshell run it exited 0 (${scope}). That shows this command passed, not that it tests what the claim says.`, record_seq: last.seq };
   if (last.exit_code !== null) return { ...base, status: 'CONTRADICTED', why: `the last time it ran through trustshell run it exited ${last.exit_code} (${scope})`, record_seq: last.seq };
   return { ...base, status: 'NOT_CHECKED', why: `it did not finish with an exit code: ${last.result} (${scope})`, record_seq: last.seq };
 }
@@ -226,6 +232,8 @@ function nextActions(r: Pick<TrustReport, 'inspect' | 'guard' | 'bound_claims'>)
 
 /** PURE. The whole report, from its inputs. `verify` calls this again to prove the report matches its evidence. */
 export function buildTrustReport(input: BuildInput): TrustReport {
+  const schema = input.schema ?? TRUST_REPORT_SCHEMA;
+  const passed = schema === TRUST_REPORT_SCHEMA_0_1 ? 'SUPPORTED' : 'COMMAND_PASSED';
   const inspect = input.records.map((r) => inspectRow(r.path, r.text));
   const records = parseLedgerLines(input.ledgerText);
   const ledger = readLedger(input.ledgerText);
@@ -248,12 +256,12 @@ export function buildTrustReport(input: BuildInput): TrustReport {
     mediated: dedupe((r) => r.assurance_scope?.mediated),
     not_mediated: [...dedupe((r) => r.assurance_scope?.not_mediated), NOT_MEDIATED_ALWAYS],
   };
-  const bound_claims = input.binds.map((b) => decideBound(b, commands));
+  const bound_claims = input.binds.map((b) => decideBound(b, commands, passed));
   const partial = { inspect, guard, bound_claims };
   const finding = inspect.some((i) => i.exit === 1 || !i.digest_matches) || bound_claims.some((b) => b.status === 'CONTRADICTED') || ledger.verdict === 'BROKEN';
-  const open = inspect.some((i) => i.exit !== 0) || bound_claims.some((b) => b.status !== 'SUPPORTED') || (inspect.length === 0 && bound_claims.length === 0);
+  const open = inspect.some((i) => i.exit !== 0) || bound_claims.some((b) => b.status !== passed) || (inspect.length === 0 && bound_claims.length === 0);
   return {
-    schema: TRUST_REPORT_SCHEMA,
+    schema,
     title: clean(input.title, 140),
     generated_at: input.generatedAt,
     generator: input.generator,
@@ -342,7 +350,7 @@ export function renderTrustReportHtml(r: TrustReport): string {
     '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">',
     // No script, no remote anything: a stranger may open this file.
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">`,
-    `<title>${esc(r.title)}</title><style>${CSS}</style></head><body><main>`,
+    `<title>${esc(r.title)}</title><style>${r.schema === TRUST_REPORT_SCHEMA_0_1 ? CSS : `${CSS}.COMMAND_PASSED{color:var(--ok)}`}</style></head><body><main>`,
     `<h1>${esc(r.title)}</h1><p class="n">${esc(INTRO)} Made ${esc(r.generated_at)} by ${esc(r.generator)}.</p>`,
   ];
   for (const b of blocks(r)) {
@@ -478,7 +486,7 @@ async function create(argv: string[], io: IO, env: NodeJS.ProcessEnv, cwd: strin
     else {
       const count = (s: string) => report.inspect.reduce((n, i) => n + i.claims.filter((c) => c.status === s).length, 0) + report.bound_claims.filter((b) => b.status === s).length;
       io.out(`Trust Report written to ${outDir}`);
-      io.out(`  claims     ${count('SUPPORTED')} supported, ${count('CONTRADICTED')} contradicted, ${count('NOT_CHECKED')} not checked`);
+      io.out(`  claims     ${count('SUPPORTED')} supported, ${count('COMMAND_PASSED')} command passed, ${count('CONTRADICTED')} contradicted, ${count('NOT_CHECKED')} not checked`);
       io.out(`  commands   ${report.guard.commands.filter((c) => c.decision === 'ALLOWED').length} allowed, ${report.guard.commands.filter((c) => c.decision !== 'ALLOWED').length} refused, chain ${report.guard.ledger.verdict}`);
       io.out('  read       trust-report.html or trust-report.md; the evidence is in evidence/');
       io.out(`  check it   trustshell trust-report verify ${out} --root ${root}`);
@@ -553,7 +561,9 @@ async function verify(argv: string[], io: IO, cwd: string): Promise<number> {
     });
     const ledger = join(dir, 'evidence', GUARD_RECEIPTS_FILE);
     const policy = join(dir, 'evidence', POLICY_FILE);
+    if (report.schema !== TRUST_REPORT_SCHEMA && report.schema !== TRUST_REPORT_SCHEMA_0_1) throw new Error(`unknown report schema ${clean(String(report.schema), 80)}`);
     const again = buildTrustReport({
+      schema: report.schema,
       title: report.title,
       generatedAt: report.generated_at,
       generator: report.generator,

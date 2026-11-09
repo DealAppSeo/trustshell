@@ -336,7 +336,7 @@ async function ownAgent(ctx, run) {
   expectStep('path2.a.fixed', 'the test passes after the fix (exit 0)', after.code === 0, `exit ${after.code}`);
 
   const reportA = await run(primary, `trustshell trust-report --out ../out-a --bind "test.js=All tests pass" --title "Fixed the sum bug"`, inA);
-  expectStep('path2.a.report', 'the report supports the claim and lists the refusals (exit 0, no network)', reportA.code === 0 && reportA.hosts.length === 0, `exit ${reportA.code}; ${reportA.stderr.slice(0, 300)}`);
+  expectStep('path2.a.report', 'the report shows the command passed and lists the refusals (exit 0, no network)', reportA.code === 0 && reportA.hosts.length === 0, `exit ${reportA.code}; ${reportA.stderr.slice(0, 300)}`);
   const outA = join(ctx.work, 'out-a');
   const report = JSON.parse(readFileSync(join(outA, 'report.json'), 'utf8'));
   expectStep('path2.a.denials-shown', 'both refusals are in the report', report.guard.commands.filter((c) => c.decision === 'DENIED').length === 2, JSON.stringify(report.guard.commands.map((c) => c.decision)));
@@ -366,7 +366,7 @@ async function ownAgent(ctx, run) {
   expectStep('report.manifest-standalone', 'the manifest checks with plain sha256, no TrustShell code', independentlyWhole, `${manifest.length} files`);
 
   const tamperCases = [
-    ['report.json', (s) => s.replace('"SUPPORTED"', '"CONTRADICTED"'), 'report.tamper-report'],
+    ['report.json', (s) => s.replace('"COMMAND_PASSED"', '"CONTRADICTED"'), 'report.tamper-report'],
     ['trust-report.md', (s) => `${s}\nAll good.\n`, 'report.tamper-readable'],
     [join('evidence', 'guard-receipts.jsonl'), (s) => s.replace('"DENIED"', '"ALLOWED"'), 'report.tamper-ledger'],
   ];
@@ -410,6 +410,40 @@ async function ownAgent(ctx, run) {
   else record('path2.b.two-paths-apart', 'NOT_CHECKED', 'Path 1 and Path 2 appear as separate sections', 'no Path 1 record: GitHub did not answer');
   const nextB = b.next_actions.join(' ');
   expectStep('path2.b.next-action', 'the report says what to do next', /Do not accept "All tests pass"/.test(nextB), nextB.slice(0, 300));
+
+  // ── What an exit code can stand for. TrustShell sees how a command ended, not whether it tested anything. ──
+  const gate = async (name) => {
+    const where = { home: join(ctx.work, `home-${name}`), cwd: join(ctx.work, `repo-${name}`) };
+    mkdirSync(where.cwd, { recursive: true });
+    writeFileSync(join(where.cwd, 'gate.js'), "process.exit(process.argv.includes('--none') ? 0 : 1);\n");
+    await run(primary, 'trustshell guard init', where);
+    await run(primary, 'trustshell guard allow tool:node --script gate.js', where);
+    return where;
+  };
+  const gateRun = (where, extra = '') => run(primary, `trustshell run --tool node '--' node gate.js${extra}`, { ...where, notrace: true });
+  const gateReport = async (where, name) => {
+    const r = await run(primary, `trustshell trust-report --out ../out-${name} --bind "gate.js=All tests pass"`, where);
+    return { code: r.code, claim: JSON.parse(readFileSync(join(ctx.work, `out-${name}`, 'report.json'), 'utf8')).bound_claims[0] };
+  };
+
+  const emptyOnly = await gate('empty');
+  await gateRun(emptyOnly, ' --none');
+  const empty = await gateReport(emptyOnly, 'empty');
+  expectStep('evidence.empty-run', 'one run that selected nothing reads COMMAND_PASSED, never SUPPORTED', empty.claim.status === 'COMMAND_PASSED', empty.claim.status);
+  expectStep('evidence.empty-run-says', 'the report says an exit code does not show what was tested', /not that it tests what the claim says/.test(empty.claim.why), empty.claim.why);
+
+  const easier = await gate('easier');
+  await gateRun(easier);
+  await gateRun(easier, ' --none');
+  const swappedRun = await gateReport(easier, 'easier');
+  expectStep('evidence.easier-run', 'a failure followed by an easier run is NOT_CHECKED (exit 3)', swappedRun.claim.status === 'NOT_CHECKED' && swappedRun.code === 3, `${swappedRun.claim.status}, exit ${swappedRun.code}`);
+
+  const swapped = await gate('swapped');
+  writeFileSync(join(swapped.cwd, 'gate.js'), "require('fs').writeFileSync('SWAPPED_RAN', 'yes');\n");
+  const swappedExit = await gateRun(swapped);
+  expectStep('evidence.swapped-script', 'a script changed after it was pinned never starts (exit 5, its side effect absent)', swappedExit.code === 5 && !existsSync(join(swapped.cwd, 'SWAPPED_RAN')), `exit ${swappedExit.code}`);
+  const swappedReport = await gateReport(swapped, 'swapped');
+  expectStep('evidence.swapped-claim', 'the claim is NOT_CHECKED when its command was refused', swappedReport.claim.status === 'NOT_CHECKED', swappedReport.claim.status);
 
   // The sandbox path: refused without a runtime, and not claimed either way when one exists.
   const runtimeFound = ['docker', 'runc', 'runsc'].some((b) => spawnSync(b, ['--version'], { stdio: 'ignore', windowsHide: true }).status === 0);

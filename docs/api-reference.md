@@ -756,9 +756,9 @@ One readable report and its evidence, made from what TrustShell already recorded
 
 It keeps two things apart. **Path 1** is what the agent said about a GitHub Actions run, from the `record.json` files `check --out` writes. **Path 2** is every command that went through `trustshell run`. It cannot see anything else the agent did, and says so.
 
-`--bind` pairs a claim with the command that decides it, by a script file or a tool name. The last run decides. If that command ran with more than one command line, the claim is `NOT_CHECKED`, so a failure cannot be replaced by an easier run.
+`--bind` pairs a claim with the command that decides it, by a script file or a tool name. The last run decides. If that command ran with more than one command line, the claim is `NOT_CHECKED`, so a failure cannot be replaced by an easier run. A command that exited 0 makes the claim `COMMAND_PASSED`, never `SUPPORTED`: TrustShell records how a command ended and cannot tell whether it tested anything.
 
-Exit `0` every claim SUPPORTED, `1` a claim CONTRADICTED or a record broken, `2` usage or nothing to report, `3` anything NOT_CHECKED.
+Exit `0` every claim SUPPORTED or COMMAND_PASSED, `1` a claim CONTRADICTED or a record broken, `2` usage or nothing to report, `3` anything NOT_CHECKED.
 
 `trustshell trust-report verify <dir> [--root <key>]` proves the folder is whole, matches its evidence and was sealed by the key you pin. Exit `0` VERIFIED, `1` FAILED, `2` NOT_CHECKED (no `--root`, so who made it was not checked).
 
@@ -1194,4 +1194,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the published `@hyperdag/trustshell` v1.9.0 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
+> Reflects the published `@hyperdag/trustshell` v1.9.1 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).

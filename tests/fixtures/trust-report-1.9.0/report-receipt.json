@@ -1,0 +1,84 @@
+{
+  "header": {
+    "receipt_id": "trust-report-20b360daeb8971d6",
+    "prev_receipt_id": null,
+    "prev_hash": null,
+    "created_at": "2026-11-09T03:09:05.481Z",
+    "env": {
+      "network": "none",
+      "chain_id": 0,
+      "is_simulated": true
+    },
+    "schema": "kernel-receipt/2",
+    "version": 2,
+    "provenance": "owner-self-signed",
+    "signer": {
+      "alg": "ed25519",
+      "public_key": "0xd773e31c77c3cb165d2047bee1f83012ec54416d3ae98f437e06d60872d30230",
+      "fingerprint": "0x0de19550bcf96a718cdeebbdad258fcc4fee2371b0b9ce63f319a315f4559fae"
+    },
+    "signature": "0xf811774ffb88b39f185b84a2a7fb02c7710035dc28f9748b531730a2728c3cf2217b186b237d754d6eb713f95531796c6220cecb315530190f8a4a59c12e4e0b",
+    "receipt_hash": "0xc9e732950e72a8616486c6fc93d224fc2d7c752e03e328681b60ad14a53d3eff"
+  },
+  "subject": {
+    "agent": {
+      "agent_id": "local",
+      "agent_name": "trustshell trust-report"
+    },
+    "owner": {
+      "wallet": null,
+      "assurance": null,
+      "status": "none"
+    }
+  },
+  "request": {
+    "tool": {
+      "name": "trust-report",
+      "class": "read"
+    },
+    "origin": "Cli",
+    "args_hash": "0x20b360daeb8971d6a69099270a333a790f6008bf65aca060087adfb2dbb87062",
+    "amount_raw": null,
+    "payee": null,
+    "asset": null,
+    "chain_id": null
+  },
+  "decision": {
+    "verdict": "ALLOW",
+    "blocking": false,
+    "executed": true,
+    "reasons": [
+      "sealed the manifest of a trust report"
+    ],
+    "checks": [
+      {
+        "name": "manifest",
+        "outcome": "PASS",
+        "source": "owner"
+      }
+    ],
+    "does_not_attest": [
+      "that the commands in the report test what the claims say",
+      "anything done outside trustshell run"
+    ],
+    "policy": {
+      "policy_hash": null,
+      "signer": null,
+      "signature": "NOT_CHECKED",
+      "expires_at": null,
+      "revocation": "NOT_CHECKED"
+    },
+    "limits": {},
+    "laya": {
+      "lane": null,
+      "mode": "shadow",
+      "consulted": false
+    }
+  },
+  "payment": {
+    "status": "none"
+  },
+  "verification": {
+    "status": "none"
+  }
+}

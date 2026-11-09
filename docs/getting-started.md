@@ -34,7 +34,7 @@ Verify the install:
 
 ```bash
 trustshell --version
-# → 1.9.0   (the installed package version)
+# → 1.9.1   (the installed package version)
 ```
 
 ## 4. 60-second quickstart

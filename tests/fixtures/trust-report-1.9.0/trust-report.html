@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>A report made by TrustShell 1.9.0</title><style>:root{--bg:#fff;--fg:#1b1f24;--muted:#57606a;--line:#d0d7de;--ok:#1a7f37;--bad:#cf222e;--nc:#9a6700}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--ok:#3fb950;--bad:#f85149;--nc:#d29922}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:24px 16px}h1{font-size:22px;margin:0 0 8px}h2{font-size:16px;margin:24px 0 8px}p{margin:0 0 8px;overflow-wrap:anywhere}
+ul{padding-left:20px;margin:0}li{margin:6px 0;overflow-wrap:anywhere}.d{color:var(--muted);font-size:14px;display:block}.n{color:var(--muted)}
+.SUPPORTED,.ALLOWED{color:var(--ok)}.CONTRADICTED,.DENIED{color:var(--bad)}.NOT_CHECKED{color:var(--nc)}footer{margin-top:24px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}</style></head><body><main>
+<h1>A report made by TrustShell 1.9.0</h1><p class="n">There is no overall score. Each line says what was checked and what it does not show. Made 2026-11-09T03:09:05.481Z by trustshell 1.9.0.</p>
+<h2>What to do next</h2>
+<ul>
+<li>Nothing here contradicts the agent. Read the commands above and decide whether they test what you care about.</li>
+</ul>
+<h2>Path 1 · What the agent said about a GitHub Actions run</h2>
+<p class="n">Not used in this report.</p>
+<h2>Claims you paired with a command</h2>
+<p class="n">You chose which command decides each claim. TrustShell only reads how that command ended.</p>
+<ul>
+<li><strong class="SUPPORTED">SUPPORTED</strong> All tests pass<span class="d">decided by test.js: the last time it ran through trustshell run it exited 0 (record 3). That shows this command passed, not that it tests what the claim says.</span></li>
+</ul>
+<h2>Path 2 · Commands that went through trustshell run</h2>
+<p class="n">Only these. Policy ok, not signed, nonce 2. Record chain INTACT, 5 records.</p>
+<ul>
+<li><strong class="ALLOWED">ALLOWED</strong> #3 tool:node: exited 0 after 105 ms</li>
+</ul>
+<h2>What Guard saw</h2>
+<ul>
+<li>the decision to start this command through `trustshell run`, checked against the owner policy before it started</li>
+<li>the exit code of the process `trustshell run` started</li>
+</ul>
+<h2>What this report cannot see</h2>
+<ul>
+<li>what the command did after it started: files, network, child processes</li>
+<li>commands run without `trustshell run`</li>
+<li>Anything the agent did without `trustshell run`: edits it made directly, its own network calls, commands in another terminal. This report cannot see them.</li>
+</ul>
+<footer>Made on this machine. Nothing was uploaded. evidence/policy.json can hold local file paths: read it before sharing this folder.</footer></main></body></html>

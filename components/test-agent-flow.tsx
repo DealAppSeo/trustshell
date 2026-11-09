@@ -27,7 +27,7 @@ const SECONDARY = `${BUTTON} border border-slate-600 text-white hover:border-sla
 /** Every status carries its word as well as its colour. */
 function Status({ value }: { value: string }) {
   const tone =
-    value === 'SUPPORTED' || value === 'ALLOWED'
+    value === 'SUPPORTED' || value === 'COMMAND_PASSED' || value === 'ALLOWED'
       ? 'border-emerald-500/60 text-emerald-300'
       : value === 'CONTRADICTED' || value === 'DENIED'
         ? 'border-red-500/60 text-red-300'
@@ -229,7 +229,7 @@ function PathTwo() {
         </a>
         .
       </p>
-      <Command text="npm i -g @hyperdag/trustshell@1.9.0" />
+      <Command text="npm i -g @hyperdag/trustshell@1.9.1" />
       <p className="text-sm text-[#cbd5e1]">Use a fresh TRUSTSHELL_HOME for each test, then, in your project:</p>
       <ol className="space-y-3">
         {PATH_TWO_COMMANDS.map((c, i) => (

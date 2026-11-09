@@ -1,5 +1,8 @@
 import { type SealableReceipt } from '../lib/owner-receipt';
-export declare const TRUST_REPORT_SCHEMA: "dev.trustshell.trust-report/0.1-draft";
+export declare const TRUST_REPORT_SCHEMA: "dev.trustshell.trust-report/0.2-draft";
+/** TrustShell 1.9.0 called a passed command SUPPORTED. `verify` rebuilds a report under its own schema, so a folder made then stays checkable. */
+declare const TRUST_REPORT_SCHEMA_0_1: "dev.trustshell.trust-report/0.1-draft";
+type ReportSchema = typeof TRUST_REPORT_SCHEMA | typeof TRUST_REPORT_SCHEMA_0_1;
 export declare const TRUST_REPORT_USAGE = "trustshell trust-report --out <new dir> [--record <record.json>]... [--bind \"<tool or script>=<claim>\"]... [--title <text>] [--json]\ntrustshell trust-report verify <dir> [--root <0x key>] [--json]";
 export declare const NOT_MEDIATED_ALWAYS = "Anything the agent did without `trustshell run`: edits it made directly, its own network calls, commands in another terminal. This report cannot see them.";
 export interface Bind {
@@ -40,12 +43,13 @@ export interface CommandRow {
 export interface BoundClaim {
     claim: string;
     decided_by: string;
-    status: 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
+    /** COMMAND_PASSED is the most an exit code can stand for: TrustShell cannot tell whether a command tested anything. */
+    status: 'COMMAND_PASSED' | 'SUPPORTED' | 'CONTRADICTED' | 'NOT_CHECKED';
     why: string;
     record_seq: number | null;
 }
 export interface TrustReport {
-    schema: typeof TRUST_REPORT_SCHEMA;
+    schema: ReportSchema;
     title: string;
     generated_at: string;
     generator: string;
@@ -76,6 +80,8 @@ export interface TrustReport {
     exit: number;
 }
 export interface BuildInput {
+    /** Only `verify` sets this, to rebuild a report under the schema it was made with. */
+    schema?: ReportSchema;
     title: string;
     generatedAt: string;
     generator: string;
