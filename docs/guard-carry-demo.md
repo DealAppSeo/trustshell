@@ -105,7 +105,7 @@ of the node binary, so the guard can tell them apart by name.
      | Trust settings: autonomy ask_first; confidence gate 0.8; human-in-the-loop gate 70
      |
      | Owner policy (enforced by the harness, not by you; anything not listed is denied):
-     | - allowed actions: tool:bundle, tool:ground, tool:init, tool:inspect, tool:learn, tool:profile, tool:quarantine, tool:recall, tool:redact, tool:remember, tool:report, tool:traps, tool:reader
+     | - allowed actions: tool:bundle, tool:ground, tool:init, tool:inspect, tool:learn, tool:profile, tool:quarantine, tool:recall, tool:redact, tool:remember, tool:report, tool:traps, tool:trust-report, tool:reader
      | - limits: per action 0, per day 0, in total 0 (smallest units)
      | - expires: 2026-11-21T18:38:47.000Z
      |

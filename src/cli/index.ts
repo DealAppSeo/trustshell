@@ -79,6 +79,7 @@ import { GUARD_RECORD_SCHEMA, trustshellHome } from '../lib/guardrails';
 import { ApiUrlError } from '../lib/api-url';
 import { signingKey } from '../lib/install-key';
 import { decodeText } from '../lib/decode-text';
+import { runTrustReport } from './trust-report';
 import { signOwnerReceipt, installKeyRootHex, type SealableReceipt } from '../lib/owner-receipt';
 
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
@@ -131,6 +132,7 @@ export type Command =
   | 'bundle'
   | 'guard'
   | 'run'
+  | 'trust-report'
   | 'sandbox'
   | 'help'
   | 'version';
@@ -212,6 +214,7 @@ export interface ParsedArgs {
   guardArgv?: string[];
   /** run: everything after `run`, parsed by src/cli/guard.ts (its options, then `--`, then the command). */
   runArgv?: string[];
+  trustReportArgv?: string[];
   /** sandbox: everything after `sandbox`, parsed by src/sandbox/run.ts (promote <mission>). */
   sandboxArgv?: string[];
   /** profile: the parsed subcommand (show / add / set / remove / interview). */
@@ -491,6 +494,16 @@ COMMANDS
                              The chain (default base).
       [--payment <txHash>]   The payment to check. Default: the feedbackHash, read as a
                              transaction. The feedback file is never fetched.
+  trust-report --out <new dir> [--record <record.json>]... [--bind "<tool or script>=<claim>"]...
+                             One readable report and its evidence: what the agent said, checked against
+                             GitHub (from check --out records), and every command that went through
+                             trustshell run. It cannot see anything the agent did any other way. No
+                             network. EXIT 0 every claim SUPPORTED, 1 a claim CONTRADICTED or a broken
+                             record, 3 anything NOT_CHECKED. --bind pairs a claim with the command that
+                             decides it.
+  trust-report verify <dir> [--root <key>]
+                             Prove the folder is whole and matches its evidence. EXIT 0 VERIFIED, 1 FAILED,
+                             2 NOT_CHECKED (no --root, so who made it was not checked).
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -575,6 +588,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (argv[0] === 'guard') return { command: 'guard', guardArgv: argv.slice(1), json: false, verify: false };
   if (argv[0] === 'run') return { command: 'run', runArgv: argv.slice(1), json: false, verify: false };
   if (argv[0] === 'sandbox') return { command: 'sandbox', sandboxArgv: argv.slice(1), json: false, verify: false };
+  if (argv[0] === 'trust-report') return { command: 'trust-report', trustReportArgv: argv.slice(1), json: false, verify: false };
   const flags = new Set<string>();
   const positionals: string[] = [];
   // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -1192,6 +1206,10 @@ export async function run(
     case 'run':
       // Starts the caller's command only after the policy allows it.
       return runRun(args.runArgv ?? [], io);
+
+    case 'trust-report':
+      // Local files only. Opens no socket.
+      return runTrustReport(args.trustReportArgv ?? [], io);
 
     case 'sandbox':
       // Local files only: the owner step that promotes a `run --sandbox` mission's quarantined outbox.

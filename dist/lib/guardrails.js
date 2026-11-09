@@ -214,7 +214,7 @@ function interpreterCheck(executable, args, env, cwd = process.cwd()) {
     return r.ok ? { script: { path: r.path, sha256: r.sha256 }, reasons } : { reasons: [...reasons, `${r.why}; ${exports.INTERPRETER_RULE}`] };
 }
 /** The commands that only read or write local files: what `guard init` allows. `learn` is listed, but its `check run` and `probe run` run a stored shell command and the CLI denies them while a policy is in force. */
-exports.LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps'];
+exports.LOCAL_TOOLS = ['bundle', 'ground', 'init', 'inspect', 'learn', 'profile', 'quarantine', 'recall', 'redact', 'remember', 'report', 'traps', 'trust-report'];
 const ACTION = /^(spend|post|tool|tool:[A-Za-z0-9_.:-]{1,128})$/;
 /** PURE. Is `a` an entry a policy's `actions` may hold (spend, post, tool or tool:<name>)? */
 const isPolicyAction = (a) => ACTION.test(a);

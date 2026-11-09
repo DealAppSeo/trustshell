@@ -53,7 +53,7 @@ export declare const EXIT: {
     /** The owner policy (~/.trustshell/policy.json) denied the action. Nothing ran. */
     readonly REFUSED: 5;
 };
-export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'verify-receipt' | 'sign-receipt' | 'demo' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'erc8004' | 'learn' | 'bundle' | 'guard' | 'run' | 'sandbox' | 'help' | 'version';
+export type Command = 'verify' | 'evaluate' | 'repid' | 'proof' | 'badge' | 'check' | 'receipt' | 'verify-receipt' | 'sign-receipt' | 'demo' | 'inspect' | 'init' | 'report' | 'profile' | 'status' | 'remember' | 'recall' | 'redact' | 'quarantine' | 'bind-status' | 'traps' | 'ground' | 'erc8004' | 'learn' | 'bundle' | 'guard' | 'run' | 'trust-report' | 'sandbox' | 'help' | 'version';
 /** Result of parsing argv (everything after `node cli.js`). Pure + testable. */
 export interface ParsedArgs {
     command: Command;
@@ -131,6 +131,7 @@ export interface ParsedArgs {
     guardArgv?: string[];
     /** run: everything after `run`, parsed by src/cli/guard.ts (its options, then `--`, then the command). */
     runArgv?: string[];
+    trustReportArgv?: string[];
     /** sandbox: everything after `sandbox`, parsed by src/sandbox/run.ts (promote <mission>). */
     sandboxArgv?: string[];
     /** profile: the parsed subcommand (show / add / set / remove / interview). */

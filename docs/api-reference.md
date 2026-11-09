@@ -750,6 +750,18 @@ These are the facts worked out in erc-8004/erc-8004-contracts#99. The tests repl
 
 Print the after-create table, one Honesty A line, and counted first_pass fields. A NOT_CHECKED body or a missing column is NOT_CHECKED, never 0. post-HAL is printed only when post_hal_verdict is in the JSON. can_bind is true only when GET /readiness exact_true.HUMAN_AGENT_BIND_ENABLED is true. can_stake stays shadow — not live unless SAYS_STAKE_LIVE is the exact string 'true'.
 
+### `trustshell trust-report --out <new dir> [--record <record.json>]... [--bind "<tool or script>=<claim>"]...`
+
+One readable report and its evidence, made from what TrustShell already recorded. Local files only, no network. See `examples/own-agent/README.md`.
+
+It keeps two things apart. **Path 1** is what the agent said about a GitHub Actions run, from the `record.json` files `check --out` writes. **Path 2** is every command that went through `trustshell run`. It cannot see anything else the agent did, and says so.
+
+`--bind` pairs a claim with the command that decides it, by a script file or a tool name. The last run decides. If that command ran with more than one command line, the claim is `NOT_CHECKED`, so a failure cannot be replaced by an easier run.
+
+Exit `0` every claim SUPPORTED, `1` a claim CONTRADICTED or a record broken, `2` usage or nothing to report, `3` anything NOT_CHECKED.
+
+`trustshell trust-report verify <dir> [--root <key>]` proves the folder is whole, matches its evidence and was sealed by the key you pin. Exit `0` VERIFIED, `1` FAILED, `2` NOT_CHECKED (no `--root`, so who made it was not checked).
+
 ### `trustshell report [--session <path>] [--evidence <path>]`
 
 State what your session log and your saved GitHub evidence **together** support, and name where
@@ -793,6 +805,7 @@ CHECKED; `check <runUrl>`, `inspect` and `report` exit `3`. **Not every command 
 | `ground` | **none** — reads the `--source` file. Since 1.7.0 | none |
 | `init` | **none** — writes one local file. `--pai` runs `scripts/init-pai.mjs` (live register) | none |
 | `report` | **none** — it has no fetch and no URL parameter | none |
+| `trust-report` | **none** — reads the Guard records and the `check` records you name, and writes one new folder | none |
 | `profile` | **none** — reads and writes `.trustshell/profile.md`. Since 1.8.0 | none |
 | `remember` | **none** — writes the local memory file | none |
 | `recall` | **none** — reads the local memory file | none |

@@ -91,6 +91,7 @@ const guardrails_1 = require("../lib/guardrails");
 const api_url_1 = require("../lib/api-url");
 const install_key_1 = require("../lib/install-key");
 const decode_text_1 = require("../lib/decode-text");
+const trust_report_1 = require("./trust-report");
 const owner_receipt_1 = require("../lib/owner-receipt");
 /** Exit codes — a small, stable contract so CI scripts can branch on them. */
 exports.EXIT = {
@@ -375,6 +376,16 @@ COMMANDS
                              The chain (default base).
       [--payment <txHash>]   The payment to check. Default: the feedbackHash, read as a
                              transaction. The feedback file is never fetched.
+  trust-report --out <new dir> [--record <record.json>]... [--bind "<tool or script>=<claim>"]...
+                             One readable report and its evidence: what the agent said, checked against
+                             GitHub (from check --out records), and every command that went through
+                             trustshell run. It cannot see anything the agent did any other way. No
+                             network. EXIT 0 every claim SUPPORTED, 1 a claim CONTRADICTED or a broken
+                             record, 3 anything NOT_CHECKED. --bind pairs a claim with the command that
+                             decides it.
+  trust-report verify <dir> [--root <key>]
+                             Prove the folder is whole and matches its evidence. EXIT 0 VERIFIED, 1 FAILED,
+                             2 NOT_CHECKED (no --root, so who made it was not checked).
   report                     State what your log and your saved GitHub evidence TOGETHER
                              support, and where they disagree. NO NETWORK — evidence is a
                              file you produced. CONFIRMED (0) / INCONSISTENT (1) /
@@ -462,6 +473,8 @@ function parseArgs(argv) {
         return { command: 'run', runArgv: argv.slice(1), json: false, verify: false };
     if (argv[0] === 'sandbox')
         return { command: 'sandbox', sandboxArgv: argv.slice(1), json: false, verify: false };
+    if (argv[0] === 'trust-report')
+        return { command: 'trust-report', trustReportArgv: argv.slice(1), json: false, verify: false };
     const flags = new Set();
     const positionals = [];
     // Options that consume the NEXT argument. Indexed rather than for-of because a
@@ -1097,6 +1110,9 @@ async function run(args, client, io = realIO) {
         case 'run':
             // Starts the caller's command only after the policy allows it.
             return (0, guard_1.runRun)(args.runArgv ?? [], io);
+        case 'trust-report':
+            // Local files only. Opens no socket.
+            return (0, trust_report_1.runTrustReport)(args.trustReportArgv ?? [], io);
         case 'sandbox':
             // Local files only: the owner step that promotes a `run --sandbox` mission's quarantined outbox.
             return (0, run_1.sandboxCli)(args.sandboxArgv ?? [], io);

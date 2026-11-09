@@ -179,7 +179,11 @@ export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null
   const signed = by ? (by === own ? 'owner-signed' : `signed by ${by.slice(0, 16)}…, NOT this install's key`) : doc?.signature ? SIGNATURE_DOES_NOT_VERIFY : 'unsigned';
   const ex = outcome?.executed;
   const executed =
-    ex && ex !== 'not run' ? `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms` : 'not run';
+    ex && ex !== 'not run'
+      ? ex.exit_code === null && ex.signal === null
+        ? `could not start (${ex.start_error ?? 'unknown error'})`
+        : `started; exited ${ex.exit_code ?? `on signal ${ex.signal}`} after ${ex.duration_ms} ms`
+      : 'not run';
   const exe = d.requested.executable;
   const pinnedExe = exe !== undefined && (doc?.policy.executables ?? []).some((p) => p.tool === exe);
   const identity =
@@ -203,13 +207,13 @@ export function formatRunCard(decision: GuardRecord, outcome: GuardRecord | null
 }
 
 export interface Spawner {
-  (cmd: string, args: string[]): { status: number | null; signal: string | null };
+  (cmd: string, args: string[]): { status: number | null; signal: string | null; error?: string };
 }
 
 const nodeSpawner: Spawner = (cmd, args) => {
   const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
   const r = spawnSync(cmd, args, { stdio: 'inherit', windowsHide: true });
-  return { status: r.status, signal: r.signal ?? null };
+  return { status: r.status, signal: r.signal ?? null, error: r.error ? ((r.error as NodeJS.ErrnoException).code ?? r.error.message) : undefined };
 };
 
 export const RUN_USAGE =
@@ -220,6 +224,9 @@ export const RUN_USAGE =
  * `run --tool git -- git status` arrived as `run --tool git git status` and failed "unexpected git" with no
  * hint (stranger walk, 2026-10-23, PS 5.1). Quoted, or through the `.cmd` shim, the `--` survives.
  */
+/** Windows starts only real executables without a shell, and `run` never uses a shell: that would let arguments start other commands. */
+export const RUN_WINDOWS_SHIM = "On Windows a .cmd shim such as npm or npx cannot be started directly. Start the script it wraps instead: pin it, then trustshell run --tool node '--' node <script>.";
+
 export const RUN_POWERSHELL = "In Windows PowerShell write the -- quoted, '--' (trustshell run --tool git '--' git status), or call trustshell.cmd: PowerShell drops a bare -- before trustshell sees it.";
 
 const isHelp = (a: string | undefined) => a === '--help' || a === '-h' || a === 'help';
@@ -318,10 +325,11 @@ export function runRun(argv: string[], io: IO, env: NodeJS.ProcessEnv = process.
     kind: 'outcome',
     requested: g.record.requested,
     authorized: g.record.authorized,
-    executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0 },
+    executed: { exit_code: r.status, signal: r.signal, duration_ms: Date.now() - t0, ...(r.error ? { start_error: r.error } : {}) },
     assurance_scope: RUN_SCOPE,
   });
   (json ? io.out : io.err)(json ? JSON.stringify({ decision: g.record, outcome }, null, 2) : formatRunCard(g.record, outcome, g.loaded.state === 'ok' ? g.loaded.doc : null, own));
+  if (r.error === 'ENOENT' && process.platform === 'win32') io.err(RUN_WINDOWS_SHIM);
   return r.status ?? 3;
 }
 
