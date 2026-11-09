@@ -229,7 +229,7 @@ function PathTwo() {
         </a>
         .
       </p>
-      <Command text="npm i -g @hyperdag/trustshell@1.9.0" />
+      <Command text="npm i -g @hyperdag/trustshell@1.9.1" />
       <p className="text-sm text-[#cbd5e1]">Use a fresh TRUSTSHELL_HOME for each test, then, in your project:</p>
       <ol className="space-y-3">
         {PATH_TWO_COMMANDS.map((c, i) => (

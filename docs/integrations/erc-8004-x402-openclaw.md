@@ -178,7 +178,7 @@ Covers GitHub Actions runs only. MEASURED; the published 1.8.0 was not re-run.
 ### What an OpenClaw operator can attach TrustShell to
 
 **17. Is there an OpenClaw integration?** A **skill**: yes. [`skills/trustshell`](../../skills/trustshell/SKILL.md) carries OpenClaw
-metadata, requires the `trustshell` and `trustshell-mcp` bins, pins `@hyperdag/trustshell@1.9.0`, and shells out to
+metadata, requires the `trustshell` and `trustshell-mcp` bins, pins `@hyperdag/trustshell@1.9.1`, and shells out to
 `verify`, `repid`, `proof --verify` and `status`; it also shows the one-line MCP definition. Whether it was run inside OpenClaw, and whether it
 is published on ClawHub, I did not check. A **plugin that uses OpenClaw's tool hooks**: no. The README and
 [`PRODUCT.md`](../../PRODUCT.md) say so. NOT BUILT.
