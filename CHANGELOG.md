@@ -2,9 +2,15 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## Unreleased (on main, in no npm release)
+## 1.9.0 — 2026-11-08
 
-`package.json` on main is `1.9.0-dev.0`: main is ahead of the published 1.8.0, and nothing below is in any npm release.
+Cut from main, not from the 1.8.1 branch. The fixes in 1.8.1 are here too: its four regression suites
+pass on this tree, and the first-run suite was added to main for this release. New runtime dependency:
+`@noble/hashes` 1.3.2. The package is 165 files (1.8.1: 123). The MCP server lists 21 tools (1.8.1: 20);
+the new one is `inspect_run`.
+
+Guard, Carry and the sandbox are experimental, and they apply only to what goes through them: `trustshell run`,
+the MCP server and the SDK's gated functions. Anything an agent does another way is neither seen nor limited.
 
 - **`trustshell trust-report`: one report for testing your own agent.** It joins what the agent said about a GitHub Actions run (`check --out` records) with every command that went through `trustshell run`, and keeps the two apart. It says what to do next and what it cannot see. `trust-report verify` proves the folder is whole, matches its evidence and was sealed by a key you pin. See `examples/own-agent`.
 - **Fix: `trustshell run` no longer prints "started" for a command that could not start.** On Windows it also says why a `.cmd` shim such as npm cannot be started directly.
@@ -20,9 +26,61 @@ All notable changes to the `@hyperdag/trustshell` package.
   - **Answers:** each fact is true, false or not_measured; a read that failed is never false. Exit 0 grounded, 1 not grounded, 2 not measured.
   - **Where it comes from:** a third implementation of the facts in erc-8004/erc-8004-contracts#99. It agrees with the case authors and agent-receipt-verify on all five public vectors (tests/erc8004-grounding.test.ts, recorded tapes replayed offline).
   - **Requirements:** the optional `ethers` peer. `OFFLINE=1` sends nothing.
-- **Fix: `OFFLINE=1` now stops the MCP `verify_output` (and `verify`, `evaluate`) and the SDK `verifyOutput`/`evaluate` too.** They sent the text to HAL under `OFFLINE=1`; only `TRUSTSHELL_LOCAL_ONLY=1` stopped them. Now they answer `NOT_CHECKED` with `seenBy: []` and no request leaves. The CLI `verify` and `check`, `check_claim` and `inspect_run` already did this. (`TrustShell.score` in `src/lib/trustshell.ts`; tests/mcp-offline-sends-nothing.test.ts.)
 - **`inspect_run` over MCP (#610).** Inspect for agents: a run URL and the claims as text in; the same record, digest and card that `trustshell check <runUrl> --claims` produces out, from api.github.com only. 1.8.0's MCP server lists 20 tools, and this is not one of them.
 - **Fix: a valid proof for ANOTHER agent no longer verifies under the agent you asked about.** `presentProof(id, { verify: true })`, `verifyProof(presentation)`, `trustshell badge <id>` and `trustshell proof <id> --verify` ran the WASM verifier on `(proofBytes, statement)` and never compared the statement's `agent_id` to the agent asked about, so the badge rendered green "✓ ZK-verified" under the wrong name with exit 0. Now a statement for a different agent is not verified (`verification.reason: "statement_for_other_agent"`, badge red, exit 3), and an id the engine cannot resolve (`GET /api/v1/repid/<id>?with=id`) is NOT_CHECKED (`"binding_unavailable"`, badge grey, exit 3), never verified. The same rule the browser extension already had. `verifyProof(bytes, statement)` names no agent and is unchanged.
+- **Fix: a receipt, envelope, evidence or claims file saved with `>` in Windows PowerShell 5.1 can be read (#687).** PowerShell writes UTF-16 there, and the CLI read it as UTF-8.
+- **Fix: `trustshell demo` no longer needs the optional `ethers` peer (#684).** On a clean install it exited 3. The receipt hash now comes from `@noble/hashes` 1.3.2, the version `ethers` pins, and a test compares the two byte for byte.
+- **`trustshell run` checks more of what it starts.** An allowed interpreter (`node`, `python`, `bash`, `powershell` and others) runs only a script the policy pins by path and sha256 (#664). `guard allow tool:<name> --exe <path>` pins a tool to one file (#683); without it the check is by name only, and the run card says so. `TRUSTSHELL_REQUIRE_POLICY` makes an absent policy refuse instead of warn (#670).
+- **`trustshell run --sandbox` and the disposable mission runner behind it (#661, #668).** Needs a local container runtime, and refuses without one. The command gets no network and hands back files through an airlock that refuses a registered canary in a file's body or name (#669, #673). A signed per-mission passport can be compared across missions (#666).
+- **The SDK's own action functions consult the Guard policy (#665).** The package root exports a gated `TrustShell` and gated kernel, signer and memory functions. A denied call throws `GuardDeniedError`, and nothing is sent, signed or written.
+- **Offline receipt verification.** `@hyperdag/trustshell/verify` recomputes a kernel receipt's verdict with no network, against keys you pin (#676). An owner can seal a receipt with their own install key: it is labelled `owner-self-signed`, shows authorship and wholeness only, and is never reported as independently verified (#681). The kernel client accepts signed `kernel-receipt/2` (#663).
+- **`check --claims --guided`, EXPERIMENTAL and opt-in (#620).** A claim line that cites nothing is read as about that run, and every check on its commit is read. A run that passed only on a re-run is NOT_CHECKED.
+- **A shadow-only pre-action forecast for `learn`, with an independently graded outcome (#614).** Draft record types. It changes nothing else.
+- **Text from a policy, profile or bundle prints as text in `guard show` and the bundle commands (#636, #638, #639).** A refused bundle no longer replays what the unsigned file said, and a ledger line that is JSON but not a record reads BROKEN instead of crashing every command. First-run polish for `guard`, `run` and `bundle` (#647).
+
+## 1.8.1 — 2026-10-24
+
+1.8.1 is 1.8.1-rc.0 (the section below) with its version set to 1.8.1. No package code changed
+between them: the published files differ only in `package.json`'s version, this section, and the
+README's install pins and npm `latest` row, which now name 1.8.1.
+
+## 1.8.1-rc.0 — 2026-10-24 (release candidate)
+
+A patch for 1.8.0: fixes to code that 1.8.0 already ships, and nothing new. It is cut from
+`4b01ec34` (the 1.8.0 source), not from main, so main's Guard + Carry, `trustshell run`, `bundle`
+and the MCP `inspect_run` are not in it. The MCP server still lists the same 20 tools.
+
+- **Fix: `OFFLINE=1` now stops the MCP `verify_output` (and `verify`, `evaluate`) and the SDK
+  `verifyOutput`/`evaluate` (#623).** In 1.8.0 they sent the text to HAL under `OFFLINE=1`; only
+  `TRUSTSHELL_LOCAL_ONLY=1` stopped them. Now they answer `NOT_CHECKED` with `seenBy: []` and no
+  request leaves. The CLI `verify` and `check` and the MCP `check_claim` already did this in 1.8.0.
+  (`TrustShell.score` in `src/lib/trustshell.ts`; tests/mcp-offline-sends-nothing.test.ts.)
+- **Fix: `profile show` prints `./.trustshell/profile.md` and its problem lines as text (#637).**
+  The file sits in the working folder, so a cloned repository can carry one, and its control and
+  bidi characters reached the terminal raw. Newlines are kept.
+  (tests/antifragile-profile-show-scrub.test.ts.)
+- **Fix: bare Groq, Cerebras, xAI, Perplexity, Fireworks, Supabase, Tavily and Replicate keys are
+  credential shapes (#642).** `remember` refused a labelled `GROQ_API_KEY=...` but stored a bare
+  `gsk_...` key, and `redact`, which runs before `check "<sentence>"` sends anything, left it in.
+  Each shape uses its key's real length, so an identifier like `fw_update_package` stays readable.
+  (`src/memory/redact.ts`; tests/antifragile-credential-shapes.test.ts.)
+- **Three CLI fixes from #647 (F3, F4, F9; the rest of #647 is guard, run and bundle).** `learn
+  inject` with no lesson for the turn says why on stderr, and stdout stays empty. The CLI drops
+  Node's `SQLite is an experimental feature` warning, and only that one. A refused
+  `TRUSTSHELL_API_URL` prints one line saying what to change instead of a stack trace (exit 3 as
+  before). (tests/release-1.8.1-first-run.test.ts.)
+- **The `check` record says only what was looked up (#619).** The run check labelled its commit
+  fact "The commit exists on the remote", but no lookup is made; it now reads "GitHub reports the
+  commit this run ran on". The label is part of the `--claims` evidence record, so a 1.8.1 record
+  of the same run and claims has a different SHA-256 digest from a 1.8.0 one.
+- **README, package description and LICENSE (#619, and the A2A lines).** The README no longer says
+  "ZK-verifiable receipt", "portable reputation" or "portable agentic trust harness", and no
+  longer carries a commercial-use term that the LICENSE does not contain; it credits x402
+  (Coinbase) and Plonky3 (Polygon Labs). The A2A lines no longer promise a "verifiable settlement
+  receipt": `pollUntilSettled` reads the backend's contract record and does not verify it. The npm
+  description leads with Inspect. LICENSE and README name the copyright holder as Sean Goodwin
+  (Sean, 2026-10-23).
+- **Package size.** 123 files, the same as 1.8.0. Runtime dependencies are unchanged.
 
 ## 1.8.0 — 2026-10-22
 

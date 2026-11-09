@@ -5,7 +5,7 @@ arrive, and each host should keep its own record of what it allowed and refused.
 on your machine, and then shows you each place where that promise stops. It takes under a minute on our
 Windows machine (24 to 65 s, measured); the first start of the copied node binary waits for the virus scanner.
 
-Guard + Carry is on `main` and not yet in a published release, so run it from a clone.
+Guard + Carry is in 1.9.0. This demonstration script is in the repository and not in the package, so run it from a clone.
 
 ## Run it
 

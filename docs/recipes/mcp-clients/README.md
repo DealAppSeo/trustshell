@@ -2,7 +2,7 @@
 
 The server is the `trustshell-mcp` command inside `@hyperdag/trustshell`. The older standalone `@hyperdag/trustshell-mcp` package is superseded (it predates `check_claim`); do not use it.
 
-**Verified:** this exact launch, `npx -y -p @hyperdag/trustshell@latest trustshell-mcp`, starts server 1.8.0 and lists 20 tools (2026-10-23, Windows, `npx.cmd`). The same launch on 1.8.0-rc.0 listed 20 tools from two different MCP clients (LangChain adapters and smolagents) on Windows, through both `npx` and `npx.cmd`.
+**Verified on 1.8.0, 2026-10-23, Windows, `npx.cmd`:** this exact launch, `npx -y -p @hyperdag/trustshell@latest trustshell-mcp`, started the server and listed 20 tools; 1.9.0 lists 21. The same launch on 1.8.0-rc.0 listed 20 tools from two different MCP clients (LangChain adapters and smolagents) on Windows, through both `npx` and `npx.cmd`. <!-- doc-version: historical -->
 **Not verified:** the three apps below were not opened for this note. If one does not start the server, send us its log.
 
 ## Claude Code
