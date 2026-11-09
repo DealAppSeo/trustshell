@@ -44,7 +44,7 @@ describe('the commands the page builds', () => {
   });
 
   it('never puts text in a command that a shell would reinterpret', () => {
-    for (const bad of ['a"b', 'a`b', '$(x)', 'a\\b', 'a\nb', '']) expect(isShellSafe(bad)).toBe(false);
+    for (const bad of ['a"b', 'a`b', '$(x)', 'a\\b', 'a\nb', '', 'passed!!', 'a!b', 'a“b', 'a”b', 'a„b']) expect(isShellSafe(bad)).toBe(false);
     expect(isShellSafe('The check workflow succeeded, run 123.')).toBe(true);
     expect(inspectCommand('https://github.com/o/r/actions/runs/1', 'ok')).toBe('npx @hyperdag/trustshell@latest check https://github.com/o/r/actions/runs/1 --claims "ok" --out evidence');
   });

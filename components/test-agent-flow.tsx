@@ -204,7 +204,7 @@ function PathOne() {
           className="min-h-[44px] w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white"
         />
         <p id="claim-help" className={`text-xs ${claimBad ? 'text-red-300' : 'text-[#94a3b8]'}`} role={claimBad ? 'alert' : undefined}>
-          {claimBad ? 'Quotes, $, backticks and backslashes do not survive every shell. Put the text in a file and use --claims-file instead.' : 'One plain sentence that names the run. A vague claim comes back NOT_CHECKED, which is not a pass.'}
+          {claimBad ? 'Double quotes, !, $, backticks and backslashes do not survive every shell. Put the text in a file and use --claims-file instead.' : 'One plain sentence that names the run. A vague claim comes back NOT_CHECKED, which is not a pass.'}
         </p>
       </div>
       {ready ? (

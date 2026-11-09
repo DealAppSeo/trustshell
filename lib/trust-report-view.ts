@@ -71,8 +71,11 @@ const RUN_URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actio
 
 export const isRunUrl = (s: string): boolean => RUN_URL.test(s.trim());
 
-/** Text that means the same inside double quotes in bash, zsh and PowerShell. Anything else belongs in a file. */
-export const isShellSafe = (s: string): boolean => s.length > 0 && !/["`$\\\r\n]/.test(s);
+/**
+ * Text that means the same inside double quotes in bash, zsh and PowerShell. Anything else belongs in a file.
+ * `!` is history expansion in an interactive bash or zsh; PowerShell closes a double-quoted string on a curly double quote.
+ */
+export const isShellSafe = (s: string): boolean => s.length > 0 && !/["“”„!`$\\\r\n]/.test(s);
 
 export function inspectCommand(url: string, claim: string): string {
   return `npx @hyperdag/trustshell@latest check ${url.trim()} --claims "${claim.trim()}" --out evidence`;
