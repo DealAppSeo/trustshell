@@ -77,8 +77,8 @@ export const isRunUrl = (s: string): boolean => RUN_URL.test(s.trim());
  */
 export const isShellSafe = (s: string): boolean => s.length > 0 && !/["“”„!`$\\\r\n]/.test(s);
 
-export function inspectCommand(url: string, claim: string): string {
-  return `npx @hyperdag/trustshell@latest check ${url.trim()} --claims "${claim.trim()}" --out evidence`;
+export function inspectCommand(url: string, claim: string, launcher = 'npx @hyperdag/trustshell@latest'): string {
+  return `${launcher} check ${url.trim()} --claims "${claim.trim()}" --out evidence`;
 }
 
 /** The same commands as examples/own-agent/README.md, which an automated test holds this list to. */
@@ -88,3 +88,12 @@ export const PATH_TWO_COMMANDS = [
   "trustshell run --tool node '--' node test.js",
   'trustshell trust-report --out report --bind "test.js=All tests pass"',
 ] as const;
+
+/** A fresh folder for each test, so the report holds only this task. The same two lines as the example guide. */
+export const PATH_TWO_HOME = {
+  bash: 'export TRUSTSHELL_HOME="$PWD/.trust-run"',
+  powershell: '$env:TRUSTSHELL_HOME = "$PWD\\.trust-run"',
+} as const;
+
+/** One line, the same in bash, zsh and PowerShell, for a visitor with no test script yet. It fails on purpose. */
+export const SAMPLE_TEST_SCRIPT = `node -e "require('fs').writeFileSync('test.js','console.log(1); process.exit(1)')"`;
