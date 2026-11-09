@@ -76,6 +76,9 @@ export default function Home() {
           <a href="#install" className="inline-flex min-h-11 items-center rounded-lg bg-amber-500 px-5 text-sm font-semibold text-black hover:bg-amber-400">
             Install TrustShell
           </a>
+          <a href="/lab/start" className="inline-flex min-h-11 items-center rounded-lg border border-amber-500/60 px-5 text-sm font-semibold text-amber-300 hover:bg-card">
+            Try the guided walkthrough
+          </a>
           <a href="#how" className="inline-flex min-h-11 items-center rounded-lg border border-border px-5 text-sm font-medium text-foreground hover:bg-card">
             See what it prints
           </a>

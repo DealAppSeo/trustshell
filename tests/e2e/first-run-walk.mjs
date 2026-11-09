@@ -1,11 +1,14 @@
 /**
- * The first-run preview, /lab/start, in a real browser, on a desktop and a phone: every path and step, the loading,
- * empty and error states, the keyboard path, tap targets, sideways scrolling, accessibility (axe-core, with a control
- * that proves it can fail), and that nothing leaves the site or is sent.
+ * The public beta at /lab/start, in a real browser, on a desktop and a phone: the route answering 200 on production,
+ * the home page link, every path and step, the loading, empty and error states, the keyboard path, tap targets,
+ * sideways scrolling, accessibility (axe-core, with a control that proves it can fail), and that nothing leaves the
+ * site or is sent.
  *
  *   node tests/e2e/first-run-walk.mjs [screenshot dir]
+ *   WALK_BASE=https://www.trustshell.dev node tests/e2e/first-run-walk.mjs [screenshot dir]
  *
- * Builds the app and serves it, like its siblings. Not in gating CI (needs a browser and a build).
+ * With no WALK_BASE it makes a production build (VERCEL_ENV=production) and serves it. With WALK_BASE it walks that
+ * deployed site instead. Not in gating CI (needs a browser and a build).
  */
 import { readFileSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,7 +17,8 @@ import { chromiumExecutablePath, LAUNCH_ARGS, loadPlaywrightOrExit, spawnNext } 
 
 const { chromium } = await loadPlaywrightOrExit();
 const PORT = 3109;
-const base = `http://127.0.0.1:${PORT}`;
+const live = process.env.WALK_BASE?.replace(/\/+$/, '');
+const base = live ?? `http://127.0.0.1:${PORT}`;
 const PAGE = `${base}/lab/start`;
 const SAVED_RUNS = '**/examples/run-*-record.json';
 const REPORT = '**/examples/trust-report-example.json';
@@ -28,46 +32,54 @@ const check = (name, pass, note = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${note ? ` — ${note}` : ''}`);
 };
 
-try {
-  const probe = await fetch(`${base}/`, { signal: AbortSignal.timeout(2000) });
-  if (probe) {
-    console.error(`NOT_CHECKED: port ${PORT} is already serving; this suite will not test a server it did not start.`);
-    process.exit(2);
-  }
-} catch {
-  /* nothing listening: the state we want */
-}
-
-const env = { ...process.env };
-delete env.VERCEL_ENV;
-const build = spawnNext(['build'], { env, stdio: 'ignore' });
-const code = await new Promise((r) => build.on('exit', r));
-if (code !== 0) {
-  console.error(`FATAL: next build exited ${code}`);
-  process.exit(1);
-}
-const app = spawnNext(['start', '--port', String(PORT)], { env, stdio: 'ignore' });
+let app;
 const stop = () => {
   try {
-    app.kill('SIGKILL');
+    app?.kill('SIGKILL');
   } catch {
     /* gone */
   }
 };
-process.on('exit', stop);
-const deadline = Date.now() + 90_000;
-for (;;) {
+if (!live) {
   try {
-    if ((await fetch(PAGE)).ok) break;
+    const probe = await fetch(`${base}/`, { signal: AbortSignal.timeout(2000) });
+    if (probe) {
+      console.error(`NOT_CHECKED: port ${PORT} is already serving; this suite will not test a server it did not start.`);
+      process.exit(2);
+    }
   } catch {
-    /* not up yet */
+    /* nothing listening: the state we want */
   }
-  if (Date.now() > deadline) {
-    console.error('FATAL: the app did not start');
+
+  // The route's production behaviour is decided at build time, so the whole walk runs against a production build.
+  const env = { ...process.env, VERCEL_ENV: 'production' };
+  const build = spawnNext(['build'], { env, stdio: 'ignore' });
+  const code = await new Promise((r) => build.on('exit', r));
+  if (code !== 0) {
+    console.error(`FATAL: next build exited ${code}`);
     process.exit(1);
   }
-  await new Promise((r) => setTimeout(r, 500));
+  app = spawnNext(['start', '--port', String(PORT)], { env, stdio: 'ignore' });
+  process.on('exit', stop);
+  const deadline = Date.now() + 90_000;
+  for (;;) {
+    try {
+      if ((await fetch(`${base}/`)).ok) break;
+    } catch {
+      /* not up yet */
+    }
+    if (Date.now() > deadline) {
+      console.error('FATAL: the app did not start');
+      process.exit(1);
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
 }
+
+const statusOf = async (path) => (await fetch(`${base}${path}`)).status;
+check('production: /lab/start answers 200', (await statusOf('/lab/start')) === 200);
+check('production: control, the preview-only /lab/test-agent still answers 404', (await statusOf('/lab/test-agent')) === 404);
+for (const path of ['/', '/devs', '/check']) check(`production: ${path} answers 200`, (await statusOf(path)) === 200);
 
 const dir = mkdtempSync(join(tmpdir(), 'ts-first-run-'));
 const file = (name, text) => {
@@ -78,12 +90,12 @@ const file = (name, text) => {
 const goodReport = readFileSync(join(process.cwd(), 'public', 'examples', 'trust-report-example.json'), 'utf8');
 const axeSource = readFileSync(join(process.cwd(), 'node_modules', 'axe-core', 'axe.min.js'), 'utf8');
 
-async function axe(page, label) {
+async function axe(page, label, scope = FLOW) {
   await page.evaluate(axeSource);
   const v = await page.evaluate(async (flow) => {
     const r = await axe.run(flow, { resultTypes: ['violations'] });
     return r.violations.map((x) => `${x.id}(${x.impact}):${x.nodes.length}`);
-  }, FLOW);
+  }, scope);
   check(`axe ${label}`, v.length === 0, v.join(' '));
 }
 
@@ -144,9 +156,28 @@ async function walk(label, viewport) {
     await page.getByRole('button', { name: new RegExp(`^${title}`) }).click();
   };
 
+  // The existing home page, and the one way in from it. A separate tab, so the home page's own requests are not counted below.
+  const home = await context.newPage();
+  await home.goto(`${base}/`);
+  check(`${label}: the existing home page keeps its headline`, await home.getByRole('heading', { level: 1, name: 'Check what your AI agent did, not what it says it did.' }).isVisible());
+  check(`${label}: the existing home page keeps Install`, await home.getByRole('link', { name: 'Install TrustShell' }).isVisible());
+  const entry = home.getByRole('link', { name: 'Try the guided walkthrough' });
+  check(`${label}: the home page links to the walkthrough`, await entry.isVisible());
+  await axe(home, `${label} home page`, 'main');
+  await entry.click();
+  await home.waitForURL('**/lab/start');
+  check(`${label}: the link opens the walkthrough`, await home.getByTestId('first-run-flow').isVisible());
+  await home.close();
+
   await page.goto(PAGE);
   await page.waitForLoadState('networkidle');
-  check(`${label}: says it is a preview`, await page.getByTestId('lab-banner').isVisible());
+  const notice = page.getByTestId('beta-notice');
+  check(`${label}: says it is a public beta`, (await notice.isVisible()) && (await notice.textContent()).startsWith('Public beta.'));
+  check(`${label}: no longer says preview`, !/\bpreview\b/i.test(await page.locator('main').textContent()));
+  check(`${label}: the headline is limited to claims and evidence`, (await page.getByRole('heading', { level: 1 }).textContent()) === "Check your AI's claims against the evidence.");
+  check(`${label}: says it does not see everything`, await page.getByText('It does not see everything your AI did.').isVisible());
+  check(`${label}: stays out of search results`, (await page.locator('meta[name=robots]').getAttribute('content')).includes('noindex'));
+  await axe(page, `${label} whole page`, 'main');
   await shot('0-fork');
 
   // The control: axe must be able to report a violation here, or its silence below means nothing.

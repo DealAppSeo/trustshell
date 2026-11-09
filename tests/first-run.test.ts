@@ -109,22 +109,36 @@ describe('the commands the page shows', () => {
   });
 });
 
-describe('the preview stays a preview', () => {
+// The route answering 200 on a production build is proved in a browser by tests/e2e/first-run-walk.mjs.
+describe('the public beta', () => {
   const page = readFileSync(join(ROOT, 'app', 'lab', 'start', 'page.tsx'), 'utf8');
 
-  it('is a 404 on production and not indexed', () => {
-    expect(page).toContain("process.env.VERCEL_ENV === 'production') notFound()");
+  it('is open on production, labelled a beta, and not indexed', () => {
+    expect(page).not.toContain('notFound');
+    expect(page).not.toContain('VERCEL_ENV');
     expect(page).toContain('robots: { index: false, follow: false }');
-    expect(page).toContain('Preview. This page is not live');
+    expect(page).toContain('Public beta.');
+    expect(page).not.toMatch(/not live/);
   });
 
-  it('is linked from nowhere on the site', () => {
+  it('claims only what is checked', () => {
+    expect(page).not.toContain('what it says it did');
+    expect(page).toContain('It does not see everything your AI did.');
+  });
+
+  it('is linked from the home page and nowhere else, and stays out of the sitemap', () => {
     const walk = (dir: string): string[] =>
       readdirSync(dir).flatMap((n) => {
         const p = join(dir, n);
         return statSync(p).isDirectory() ? walk(p) : /\.(tsx?|mdx?)$/.test(n) ? [p] : [];
       });
     const linking = [...walk(join(ROOT, 'app')), ...walk(join(ROOT, 'components')), ...walk(join(ROOT, 'lib'))].filter((f) => readFileSync(f, 'utf8').includes('/lab/start'));
-    expect(linking).toEqual([]);
+    expect(linking).toEqual([join(ROOT, 'app', 'page.tsx')]);
+    expect(readFileSync(join(ROOT, 'app', 'page.tsx'), 'utf8')).toMatch(/href="\/lab\/start"[^>]*>\s*Try the guided walkthrough/);
+  });
+
+  it('keeps the existing home page', () => {
+    const home = readFileSync(join(ROOT, 'app', 'page.tsx'), 'utf8');
+    for (const kept of ['Check what your AI agent did, not what it says it did.', 'Install TrustShell', '<InstallTabs', 'What it does not prove']) expect(home).toContain(kept);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * What the first-run preview shows, in one place: the commands, the saved runs and what each verdict word means.
+ * What the guided walkthrough shows, in one place: the commands, the saved runs and what each verdict word means.
  *
  * THE COMMANDS ARE RUN, NOT WRITTEN FROM MEMORY. Each string here was executed against the published package in
  * an empty folder with no keys before it went on the page. If one stops working, fix the page.
