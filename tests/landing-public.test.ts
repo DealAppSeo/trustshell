@@ -41,7 +41,7 @@ describe('public landing source', () => {
   it('keeps the one screen and none of the measured leaks', () => {
     expect(page).toContain('Check what your AI agent did, not what it says it did.');
     expect(readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8')).toContain('Free. No signup. No wallet. Don&apos;t paste anything private.');
-    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.8.0');
+    expect(agentScreen).toContain('npm i -g @hyperdag/trustshell@1.9.1');
     expect(source).not.toContain('trustshell status');
     // The two check samples are the only sentences that may name a city, and only as a sample.
     expect(withoutSamples(hero)).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);

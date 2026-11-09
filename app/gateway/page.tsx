@@ -24,7 +24,7 @@ export const metadata: Metadata = {
  * that is true of the shipped package and the live engine, and a "Not yet" line for the rest. The
  * Today lines follow the README after the 2026-10-23 claims audit (#615, #619, #644): the hosted check
  * is two checkers and a second opinion, not proof; reputation that moves with an agent is the aim;
- * Carry is built and not released; x402 buying is key-gated; the Inspect record is digested, not
+ * Carry is experimental (1.9.0); x402 buying is key-gated; the Inspect record is digested, not
  * signed. A piece moves from "Not yet" to "Today" when the code does, not when the copy does.
  *
  * The two on-chain receipts are the engine's own hero receipt (GET /api/v1/receipts/hero), both
@@ -95,7 +95,7 @@ const PIECES: ReadonlyArray<{ id: string; name: string; idea: string; today: Rea
     idea: 'Use any model without vendor lock-in, and keep your privacy and your controls.',
     today:
       'Inspect’s only network call is to api.github.com. The MCP server runs on your machine inside Claude Desktop, Cursor or Claude Code, and the sentence check works on what any model told you. The code is open source, Apache 2.0.',
-    notYet: 'Carry, which takes your profile, rules and notes to another machine, is built and not yet released.',
+    notYet: 'Carry, which takes your profile, rules and notes to another machine, is still experimental.',
   },
 ];
 

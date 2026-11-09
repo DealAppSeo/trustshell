@@ -27,12 +27,12 @@ import { CopyButton } from '@/components/build/copy-button';
 import { ShellSwitch } from '@/components/build/shell-switch';
 import { Explainer, FeedbackGap, RUN_URL, StudyBars, TradesBar, VerdictBreakdown } from '@/components/build/charts';
 
-// The package every command on this page runs: 1.8.0, npm `latest` since 2026-10-23. Every command,
+// The package every command on this page runs: 1.9.1, npm `latest` since 2026-11-09. Every command,
 // caption and copy button follows these two lines. Keep a tag: a bare npx runs any older global
 // install instead (measured 2026-10-22: bare printed 1.4.0 while latest was 1.7.0). When the version
-// changes, re-run the transcripts on the new package first (E:\dev\reports\2026-10-23\release-1.8.0).
+// changes, re-run the transcripts on the new package first (E:\dev\reports\2026-11-09\site-1.9.1).
 const PKG = '@hyperdag/trustshell@latest';
-const PKG_VERSION = '1.8.0';
+const PKG_VERSION = '1.9.1';
 
 export const metadata = {
   title: 'Build with us — TrustShell',
@@ -309,8 +309,8 @@ export default function BuildPage() {
               lines={CHALLENGE_OUT}
               caption={
                 <>
-                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> {PKG_VERSION} from npm, run on 23
-                  October 2026 in an empty folder with no account and no key; … marks lines left out. The first
+                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> {PKG_VERSION} from npm, run on 9
+                  November 2026 in an empty folder with no account and no key; … marks lines left out. The first
                   sentence is supported. In the second, the commit is contradicted, and its &ldquo;succeeded&rdquo; is
                   not checked, because it names a commit this run is not on. Exit 1 means a claim was contradicted.
                 </>
@@ -390,7 +390,7 @@ export default function BuildPage() {
               </p>
             </div>
             <ul className="space-y-3">
-              <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 21 October 2026.</Status>
+              <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 9 November 2026.</Status>
               <Status state="NOT_CHECKED">Paying only for work that checked out: not available through TrustShell yet. This is the part we want to build with you:{' '}
                 <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#10-x402-a-payment-that-waits-for-a-supported-card-a-spec-and-a-harness">starter task 10</Ext>. See {statusLink}.</Status>
             </ul>
@@ -400,7 +400,7 @@ export default function BuildPage() {
             copy={{ text: SPEND_SCRIPT, label: 'Copy spend.mjs', title: 'spend.mjs' }}
             lines={SPEND}
             wrap={false}
-            caption="Output from 1.8.0 on npm, run on 23 October 2026. Signing an allowed payment also needs the ethers package, which the error tells you to install."
+            caption="Output from 1.9.1 on npm, run on 9 November 2026. Signing an allowed payment also needs the ethers package, which the error tells you to install."
           />
         </section>
 
@@ -450,8 +450,8 @@ export default function BuildPage() {
           </h2>
           <p className="max-w-prose text-base sm:text-lg leading-relaxed">
             None of these needs an account, an API key or a model, and each says what was run and what was not. We
-            ran them on 22 October 2026, on Windows 11, with 1.8.0-rc.0, and re-checked the MCP launch on 1.8.0 on 23
-            October (20 tools).
+            ran them on 22 October 2026, on Windows 11, with 1.8.0-rc.0, and re-checked the MCP launch on 1.9.1 on 9
+            November 2026 (21 tools).
           </p>
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {RECIPES.map((r) => (
@@ -467,13 +467,11 @@ export default function BuildPage() {
           </dl>
           <ul className="max-w-prose list-disc space-y-2 pl-5 text-base leading-relaxed">
             <li>
-              Inspect, the check of a claim against a GitHub Actions run, is a command-line command, not an MCP tool.
-              The MCP server&apos;s <Code>check_claim</Code> is a different check: model-based and hosted. Putting
-              Inspect on MCP is{' '}
-              <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#9-inspect-over-mcp-an-inspect_run-tool">starter task 9</Ext>.
+              Inspect, the check of a claim against a GitHub Actions run, is a command-line command and, since 1.9.0, the MCP tool <Code>inspect_run</Code>.
+              The MCP server&apos;s <Code>check_claim</Code> is a different check: model-based and hosted.
             </li>
             <li>
-              An MCP server runs code on your machine. Ours is outside the owner policy (Guard, merged into main but not in a release),
+              An MCP server runs code on your machine. With an owner policy set, Guard decides whether each of our MCP tool calls may start. It does not limit what a tool does once started,
               so do not treat it as a sandbox.
             </li>
           </ul>
@@ -523,8 +521,8 @@ export default function BuildPage() {
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
             {[
               ['Inspect', "Check an agent's plain sentences about a GitHub Actions run against the run itself.", 'In the npm developer preview'],
-              ['Guard', 'An owner policy that trustshell run and the CLI enforce. The MCP server is outside it, and anyone who can run the CLI can change it.', 'Prototype: merged into main, not in a release yet'],
-              ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Prototype: merged into main, not in a release yet'],
+              ['Guard', "An owner policy enforced only on what goes through trustshell run, the MCP server and the SDK's gated functions. Anyone who can run the CLI can change it.", 'Experimental: in the npm developer preview since 1.9.0'],
+              ['Carry', 'Your profile, a policy and the notes you select, moved as one signed file; the notes arrive quarantined.', 'Experimental: in the npm developer preview since 1.9.0'],
               ['Earn', 'Verified work raising what an agent is allowed to do.', 'Roadmap'],
               ['ERC-8004 feedback bound to its evidence', 'Feedback tied to its receipt, payment, delivered work and an independent check.', 'Not built yet'],
               ['Paying only for verified work', 'An x402 payment released only when the delivered work checks out.', 'Not available through TrustShell yet'],
