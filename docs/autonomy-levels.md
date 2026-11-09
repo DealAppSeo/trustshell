@@ -1,6 +1,6 @@
 # Autonomy levels for Guard (SHADOW)
 
-Status: **shadow by default, off until turned on.** On `main`, in no npm release. Source:
+Status: **shadow by default, off until turned on.** In npm since 1.9.0. Source:
 `src/lib/autonomy.ts`, wired into `guardDecide` (`src/lib/guardrails.ts`) and `trustshell guard level`
 (`src/cli/guard.ts`). Tests: `tests/autonomy.test.ts`.
 

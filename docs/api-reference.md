@@ -722,7 +722,7 @@ date must read only one way (`03/04/2026` is `ambiguous_value`). A quote that on
 
 ### `trustshell erc8004 <txHash> [--network base|base-sepolia] [--payment <txHash>]`
 
-> **Unreleased (on main, in no npm release).** Needs the optional `ethers` peer (`npm i ethers@^6`).
+> **Since 1.9.0.** Needs the optional `ethers` peer (`npm i ethers@^6`).
 
 Is one ERC-8004 feedback entry grounded in a payment from the rater? The command reads the public chain only, through `https://mainnet.base.org` (default) or `https://sepolia.base.org`. It never fetches the feedback file. `OFFLINE=1` sends nothing.
 
@@ -816,9 +816,9 @@ CHECKED; `check <runUrl>`, `inspect` and `report` exit `3`. **Not every command 
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
-| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, in no npm release yet (not in 1.8.0) | none |
-| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. In this tree, in no npm release yet (not in 1.8.0) | none |
-| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. With `--sandbox` it drives the local Docker CLI instead, whose daemon pulls the pinned `node:22-alpine` digest from Docker Hub if it is not present; the command gets no network, and `sandbox promote` reads only local files. In this tree, in no npm release yet (not in 1.8.0) | none |
+| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). Since 1.9.0 | none |
+| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. Since 1.9.0 | none |
+| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. With `--sandbox` it drives the local Docker CLI instead, whose daemon pulls the pinned `node:22-alpine` digest from Docker Hub if it is not present; the command gets no network, and `sandbox promote` reads only local files. Since 1.9.0 | none |
 
 `init` and `profile` write one file to your working directory, `.trustshell/profile.md`. Other commands
 write there too: `check <runUrl> --out <dir>` writes `record.json`, `card.md` and `card.html` into `<dir>`,
@@ -1194,4 +1194,4 @@ The SDK **throws** on every non-2xx; the public REST endpoints return JSON error
 
 ---
 
-> Reflects the main branch, not one release. Sections marked "Since 1.7.0" are in every npm release from 1.7.0 on. `profile`, `learn` and `check --claims-file` are in npm `latest` 1.8.0. `bundle`, `guard` and `run` are on main and in no npm release yet. REST examples are from the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).
+> Reflects the published `@hyperdag/trustshell` v1.9.0 surface and the production `repid-engine` deployment. Click-by-click CLI walkthrough: [`WALKTHROUGH.md`](./WALKTHROUGH.md).

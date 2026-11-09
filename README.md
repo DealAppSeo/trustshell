@@ -91,7 +91,7 @@ That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run
 
 | | Today |
 |---|---|
-| npm `latest` | **1.8.0** (`npm view @hyperdag/trustshell version`). |
+| npm `latest` | **1.9.0** (`npm view @hyperdag/trustshell version`). |
 | HAL quorum | **3 answering / 5 configured** (MEASURED 2026-10-06, `GET /api/v1/hal/stats` → `quorum_health`, 24-hour window). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
@@ -127,7 +127,7 @@ The Chrome extension in `extension/` does not import this package. It asks the s
 
 Most "LLM trust" tools are *judges*: they score an output and leave the decision to you. TrustShell is built to **fail closed**. An unavailable check is never a pass. It hands you evidence you can check yourself, rather than our word.
 - **Today:** Inspect checks an agent's claims about a CI run against GitHub's own record. Its record is canonical JSON with a SHA-256 digest; it is not signed yet.
-- **Direction:** a harness that is yours. Your rules, memory and evidence stay with you as you swap the model underneath. Carry, which takes your profile, rules and notes to another machine, is built and not yet released. Reputation that moves with an agent is the aim, and it is not a property of this release.
+- **Direction:** a harness that is yours. Your rules, memory and evidence stay with you as you swap the model underneath. Carry, which takes your profile, rules and notes to another machine, is in this release, experimental. Reputation that moves with an agent is the aim, and it is not a property of this release.
 
 Why we build it, and the research for and against each part: [hyperdag-protocol/docs/WHY.md](https://github.com/DealAppSeo/hyperdag-protocol/blob/main/docs/WHY.md).
 
@@ -148,7 +148,7 @@ TrustShell gives an AI agent (or the dev building one) three things against the 
 
 1. **Verify an output** — run any text through a real cross-provider HAL fact-check quorum and get a `PASS` / `FLAG` / `VETO` / `NOT_CHECKED` verdict with evidence. `NOT_CHECKED` means HAL did not decide, and it is never a pass. **No API key.**
 2. **Look up reputation** — fetch any agent's current RepID score + tier. **No API key.**
-3. **Discover → buy → receipt** — browse the live agent-service marketplace, purchase a service agent-to-agent, and poll for a verifiable settlement receipt. **Needs an API key + a funded Base Sepolia wallet** (it moves real testnet value).
+3. **Discover → buy → receipt** — browse the live agent-service marketplace, purchase a service agent-to-agent, and poll the backend for the contract's settlement status (`pollUntilSettled`: the backend's record, which this package reads and does not verify). **Needs an API key + a funded Base Sepolia wallet** (it moves real testnet value).
 
 ### What runs keyless vs. what needs a key
 
@@ -206,14 +206,14 @@ npm install @hyperdag/trustshell
 
 This is the one live, published install today. It delivers Inspect, the hosted **HAL** check, **ERC-8004** RepID reads and range proofs, and **x402** payments with a spend guard, against the live backend (anything on-chain is on the Base Sepolia test network).
 
-The package does not carry the Next.js/React site. The 1.8.0 tarball is 123 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.8.0 dependencies peerDependencies dist.fileCount`)
+The package does not carry the Next.js/React site. The 1.9.0 tarball is 165 files: `dist/`, the command shims in `bin/`, `scripts/init-pai.mjs`, `scripts/value-events.mjs`, `lib/interview.js`, and the README, changelog and license. Runtime dependencies are `@hyperdag/proof-verifier` (dynamically imported; degrades gracefully if the optional WASM build is absent), `@modelcontextprotocol/sdk` and `zod` (for the `trustshell-mcp` server), and `@noble/hashes` (the receipt hash). `ethers` is an **optional** peer dependency: install it (`npm i ethers@^6`) only if you sign x402 payments or call `verifySigner`. (`npm view @hyperdag/trustshell@1.9.0 dependencies peerDependencies dist.fileCount`)
 
 ### Which package do I install?
 
 | If you're… | Install | What you get |
 |---|---|---|
 | A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — Inspect, HAL verification, ERC-8004 RepID reads and x402 payments, in your TypeScript/JS |
-| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.8.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
+| Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.9.0`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
 | Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone checking of [Plonky3](https://github.com/Plonky3/Plonky3) proofs (Plonky3 is Polygon Labs' proof system). It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
 
 **Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a separate package it depends on: npm installs it alongside, and the published tarball contains none of its files.**
@@ -223,7 +223,7 @@ The package does not carry the Next.js/React site. The 1.8.0 tarball is 123 file
 The MCP server is the `trustshell-mcp` bin inside `@hyperdag/trustshell`. A global install puts it on PATH:
 
 ```bash
-npm i -g @hyperdag/trustshell@1.8.0
+npm i -g @hyperdag/trustshell@1.9.0
 ```
 
 Then add it to your Claude Desktop / Cursor / Claude Code config:
@@ -232,13 +232,13 @@ Then add it to your Claude Desktop / Cursor / Claude Code config:
 { "mcpServers": { "trustshell": { "command": "trustshell-mcp" } } }
 ```
 
-In 1.8.0 its tools are `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY), `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP), the learning-loop tools `learn_lessons_for` and `learn_record` (local, no network; see "Learning loop v1" below), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). `learn_lessons_for` and `learn_record` are new in 1.8.0. `kernel_receipt`, `ground_quote`, `quarantine_list` and `quarantine_explain` came in 1.7.0; 1.6.1 had the rest, and 1.6.0 also lacked `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; 1.7.0 removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. Since 1.7.0, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). This tree also registers `inspect_run`, Inspect for agents: a run URL and the claims as text in, the same record, digest and card `trustshell check <runUrl> --claims "<text>"` produces out, deterministic and from api.github.com only. It is a different check from `check_claim`, which labels one sentence with a hosted, model-based check. 1.8.0 does not include it. It has no purchase tool; buying is the SDK's `executeA2A`. Since 1.7.0, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
+In 1.9.0 its tools are `inspect_run` (Inspect over MCP; new in 1.9.0), `check_claim`, `verify_output`, `get_repid`, `getLeaderboard`, `present_proof`, `verify_proof`, `status`, `my_job` (the agent's role and allowed tools, read from its live grants), `kernel_receipt` (a policy-kernel receipt read back, hash checked locally, with its six claims; needs a REPID_API_KEY), `ground_quote` (`trustshell ground` for agents, with the source as text; local, no network), the quarantine tools `quarantine_list` and `quarantine_explain` (there is no release tool over MCP), the learning-loop tools `learn_lessons_for` and `learn_record` (local, no network; see "Learning loop v1" below), and the local `remember` / `recall` (plus deprecated aliases `verify`, `evaluate`, `repid` and `getRepID`). `learn_lessons_for` and `learn_record` are new in 1.8.0. `kernel_receipt`, `ground_quote`, `quarantine_list` and `quarantine_explain` came in 1.7.0; 1.6.1 had the rest, and 1.6.0 also lacked `my_job`. 1.6.0 and 1.6.1 also had a local redact tool; 1.7.0 removes it, because it let any connected agent delete the operator's keyed rows. Deleting stays at the CLI. Since 1.7.0, a note written through the MCP `remember` tool is untrusted and quarantined (see "Quarantine (immune system v0)" below). This tree also registers `inspect_run`, Inspect for agents: a run URL and the claims as text in, the same record, digest and card `trustshell check <runUrl> --claims "<text>"` produces out, deterministic and from api.github.com only. It is a different check from `check_claim`, which labels one sentence with a hosted, model-based check. 1.8.0 does not include it. It has no purchase tool; buying is the SDK's `executeA2A`. Since 1.7.0, every tool that reads the network answers `{untrusted_data, screening}`: data from outside your machine, never instructions. A string in it that reads as instructions is withheld and its place listed in `screening.withheld`.
 
 The separate npm package `@hyperdag/trustshell-mcp` is older (1.0.0, published 2026-07-08). It has no `check_claim`. Use the bin above.
 
 ### Install straight from GitHub (no npm registry) — LIVE
 
-The SDK also installs directly from the repo. That gives you `main`, which can run ahead of the published 1.8.0 — useful for pinning a commit or as a registry-independent fallback:
+The SDK also installs directly from the repo. That gives you `main`, which can run ahead of the published 1.9.0 — useful for pinning a commit or as a registry-independent fallback:
 
 ```bash
 npm install github:DealAppSeo/trustshell
@@ -246,7 +246,7 @@ npm install github:DealAppSeo/trustshell
 npm install github:DealAppSeo/trustshell#<commit-or-branch>
 ```
 
-The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which can run ahead of the published release. For exactly what npm serves, install `@hyperdag/trustshell@1.8.0`.
+The package ships a committed `dist/`, so there is no build step on your side, and the lean-package guarantee holds (no Next.js/React tree is pulled). That `dist/` is built from `main`, which can run ahead of the published release. For exactly what npm serves, install `@hyperdag/trustshell@1.9.0`.
 
 ---
 
@@ -308,7 +308,7 @@ The private key signs locally and never leaves the process.
 
 ## Discover → buy → receipt (agent-to-agent)
 
-The full A2A loop: find a listed service, buy it, get a verifiable receipt. Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
+The full A2A loop: find a listed service, buy it, and read back the backend's contract record (status and settlement id; this package does not verify them). Discovery is keyless; the **purchase** half **moves real Base Sepolia testnet value**, so that half needs an API key and a funded wallet.
 
 ```ts
 import { TrustShell, guardedX402Payment } from '@hyperdag/trustshell';
@@ -677,9 +677,9 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create`, `/api/v1/hal/honesty-a` and `/readiness`. It sends no input of yours | keyless |
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
-| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). In this tree, in no npm release yet (not in 1.8.0) | none |
-| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. `guard level` (autonomy levels, SHADOW, off until turned on: [docs/autonomy-levels.md](docs/autonomy-levels.md)) also reads the record file you name and appends to `autonomy.jsonl`. In this tree, in no npm release yet (not in 1.8.0) | none |
-| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. In this tree, in no npm release yet (not in 1.8.0) | none |
+| `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). Since 1.9.0 | none |
+| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. `guard level` (autonomy levels, SHADOW, off until turned on: [docs/autonomy-levels.md](docs/autonomy-levels.md)) also reads the record file you name and appends to `autonomy.jsonl`. Since 1.9.0 | none |
+| `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. Since 1.9.0 | none |
 
 No command uploads your input anywhere other than the host named above.
 
@@ -732,10 +732,10 @@ Run `trustshell --help` for the full reference.
 
 ## Agent skill
 
-OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.8.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
+OpenClaw, Claude, and Grok load [`skills/trustshell/SKILL.md`](skills/trustshell/SKILL.md). A global install of `@hyperdag/trustshell@1.9.0` puts `trustshell` and `trustshell-mcp` on PATH. Agents shell out to those bins. They do not call a new API.
 
 ```bash
-npm i -g @hyperdag/trustshell@1.8.0
+npm i -g @hyperdag/trustshell@1.9.0
 
 trustshell verify "<claim>"
 trustshell repid <id>
@@ -757,7 +757,7 @@ ERC-8004 Identity Registry     ← who is the agent?
     RepID Score                ← has it earned trust?  (this package)
          │
          ▼
-   x402 Payments               ← autonomous action + verifiable receipt
+   x402 Payments               ← autonomous action + the backend's settlement record
 ```
 
 RepID is the middle layer — the behavioral credential that makes the agent economy accountable.

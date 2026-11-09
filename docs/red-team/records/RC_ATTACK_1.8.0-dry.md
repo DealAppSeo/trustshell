@@ -1,4 +1,4 @@
-# RC attack — 1.8.0-dry — 2026-10-23T00-10-12-628Z
+# RC attack — 1.8.0-dry — 2026-10-23T00-10-12-628Z <!-- doc-version: historical -->
 
 Candidate: `@hyperdag/trustshell@1.8.0` · tarball sha256 `52669e3c31cc0c27855a03ffa63ea0ac0b12ca72ed63831a7e21160714a527bf` · integrity `sha512-tkaDaVUYgOe7YVDe2YPBrmn8BsS9pIZAdGlcf+VTLRt7q8KbJ47HViiHGPiGcaCUw68K40xzWx2M2o8GMxsdsw==`
 

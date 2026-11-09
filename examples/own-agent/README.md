@@ -11,21 +11,11 @@ Two ways to check an agent. They are different things and prove different things
 
 Every command below is the same in bash, zsh and Windows PowerShell. The quotes around `'--'` matter: PowerShell drops a bare `--`.
 
-`trust-report` is not in a published release yet, so install from a clone:
+Install the release (Node 22.13 or later):
 
 ```bash
-git clone https://github.com/DealAppSeo/trustshell
+npm i -g @hyperdag/trustshell@1.9.0
 ```
-
-```bash
-cd trustshell
-```
-
-```bash
-npm ci --ignore-scripts
-```
-
-Then use `node dist/cli/index.js` wherever `trustshell` appears below.
 
 ## Path 1: check what it said
 

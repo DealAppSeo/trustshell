@@ -222,13 +222,14 @@ function PathOne() {
 function PathTwo() {
   return (
     <div className="space-y-3" data-testid="path-two">
-      <p className="rounded-lg border border-amber-500/40 px-3 py-2 text-sm text-amber-200">
-        trust-report is not in a published release yet. Until it is, follow the steps in{' '}
+      <p className="text-sm text-[#cbd5e1]">
+        Install it. The full steps are in{' '}
         <a className="underline" href="https://github.com/DealAppSeo/trustshell/blob/main/examples/own-agent/README.md">
           examples/own-agent
         </a>
-        , which run it from a clone.
+        .
       </p>
+      <Command text="npm i -g @hyperdag/trustshell@1.9.0" />
       <p className="text-sm text-[#cbd5e1]">Use a fresh TRUSTSHELL_HOME for each test, then, in your project:</p>
       <ol className="space-y-3">
         {PATH_TWO_COMMANDS.map((c, i) => (
