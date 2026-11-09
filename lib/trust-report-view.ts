@@ -3,7 +3,7 @@
  * the page reads a file the visitor picks, in the browser, and nothing here sends it anywhere. Reading a report
  * here does NOT verify it: `trustshell trust-report verify` does that, and the page says so.
  */
-export const TRUST_REPORT_SCHEMA = 'dev.trustshell.trust-report/0.1-draft';
+export const TRUST_REPORT_SCHEMAS = ['dev.trustshell.trust-report/0.1-draft', 'dev.trustshell.trust-report/0.2-draft'];
 export const MAX_REPORT_BYTES = 8 * 1024 * 1024;
 
 export interface ClaimView {
@@ -57,7 +57,7 @@ export function parseTrustReport(text: string): ParsedReport {
     return { ok: false, why: 'That file is not JSON. Choose the report.json from your report folder.' };
   }
   const r = value as Partial<ReportView> | null;
-  if (!r || typeof r !== 'object' || r.schema !== TRUST_REPORT_SCHEMA) {
+  if (!r || typeof r !== 'object' || !TRUST_REPORT_SCHEMAS.includes(String(r.schema))) {
     return { ok: false, why: 'That JSON is not a Trust Report. Choose the report.json that trustshell trust-report wrote.' };
   }
   const guard = r.guard;

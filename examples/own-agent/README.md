@@ -75,7 +75,9 @@ trustshell trust-report --out report --record evidence/record.json --bind "test.
 
 Open `report/trust-report.html`. It has what to do next, each claim and how it was decided, every command with the policy's decision and its exit code, and what the report cannot see. The evidence files are beside it in `report/evidence/`.
 
-Exit codes: `0` every claim supported, `1` a claim contradicted or a record broken, `3` anything not checked.
+A claim paired with a command that exited 0 reads **COMMAND_PASSED**. That is all an exit code can show: a test run that selected nothing also exits 0, so read the command as well as the word.
+
+Exit codes: `0` nothing contradicted and nothing left unchecked, `1` a claim contradicted or a record broken, `3` anything not checked.
 
 Anyone you send the folder to can check it, using the key printed when the report was made:
 

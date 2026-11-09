@@ -2,6 +2,10 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## Unreleased
+
+- **A claim paired with a command now reads `COMMAND_PASSED`, not `SUPPORTED`.** In 1.9.0, one run that selected no tests and exited 0 made "All tests pass" SUPPORTED. A note beside it said this showed only that the command passed, but the word claimed more than an exit code can show. Reports now use schema `dev.trustshell.trust-report/0.2-draft`. A folder made by 1.9.0 still verifies, under the word it was made with. Claims checked against GitHub's record of a run can still be SUPPORTED.
+
 ## 1.9.0 — 2026-11-08
 
 Cut from main, not from the 1.8.1 branch. The fixes in 1.8.1 are here too: its four regression suites

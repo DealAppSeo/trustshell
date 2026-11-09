@@ -1,0 +1,34 @@
+{
+  "policy": {
+    "subject": "local",
+    "actions": [
+      "tool:bundle",
+      "tool:ground",
+      "tool:init",
+      "tool:inspect",
+      "tool:learn",
+      "tool:profile",
+      "tool:quarantine",
+      "tool:recall",
+      "tool:redact",
+      "tool:remember",
+      "tool:report",
+      "tool:traps",
+      "tool:trust-report",
+      "tool:node"
+    ],
+    "per_tx_raw": "0",
+    "daily_raw": "0",
+    "total_raw": "0",
+    "expires_at": 1796785743,
+    "nonce": "2",
+    "scripts": [
+      {
+        "tool": "node",
+        "path": "E:\\dev\\reports\\2026-11-08\\fixture-1.9.0-proj\\test.js",
+        "sha256": "8bd84068849db1cf74863fdff2bc74704c33efb8fafe33347274fc758a63b302"
+      }
+    ]
+  },
+  "signature": null
+}

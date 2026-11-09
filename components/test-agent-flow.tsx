@@ -27,7 +27,7 @@ const SECONDARY = `${BUTTON} border border-slate-600 text-white hover:border-sla
 /** Every status carries its word as well as its colour. */
 function Status({ value }: { value: string }) {
   const tone =
-    value === 'SUPPORTED' || value === 'ALLOWED'
+    value === 'SUPPORTED' || value === 'COMMAND_PASSED' || value === 'ALLOWED'
       ? 'border-emerald-500/60 text-emerald-300'
       : value === 'CONTRADICTED' || value === 'DENIED'
         ? 'border-red-500/60 text-red-300'

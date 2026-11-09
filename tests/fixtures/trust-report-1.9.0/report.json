@@ -1,0 +1,82 @@
+{
+  "schema": "dev.trustshell.trust-report/0.1-draft",
+  "title": "A report made by TrustShell 1.9.0",
+  "generated_at": "2026-11-09T03:09:05.481Z",
+  "generator": "trustshell 1.9.0",
+  "inputs": {
+    "binds": [
+      {
+        "claim": "All tests pass",
+        "decided_by": "test.js",
+        "tool": null,
+        "script_sha256": "8bd84068849db1cf74863fdff2bc74704c33efb8fafe33347274fc758a63b302"
+      }
+    ],
+    "records": []
+  },
+  "inspect": [],
+  "guard": {
+    "policy": {
+      "state": "ok",
+      "sha256": "de1e6a6060143f0dfa0ee1cb0cbabbdfa6946b1235ad9ccc8cb790a80228f5a4",
+      "nonce": "2",
+      "signed": false,
+      "actions": [
+        "tool:bundle",
+        "tool:ground",
+        "tool:init",
+        "tool:inspect",
+        "tool:learn",
+        "tool:profile",
+        "tool:quarantine",
+        "tool:recall",
+        "tool:redact",
+        "tool:remember",
+        "tool:report",
+        "tool:traps",
+        "tool:trust-report",
+        "tool:node"
+      ]
+    },
+    "ledger": {
+      "verdict": "INTACT",
+      "count": 5,
+      "breaks": []
+    },
+    "commands": [
+      {
+        "seq": 3,
+        "ts": "2026-11-09T03:09:04.000Z",
+        "action": "tool:node",
+        "script_sha256": "8bd84068849db1cf74863fdff2bc74704c33efb8fafe33347274fc758a63b302",
+        "command_sha256": "fb82de7f5d562611e57524e1bd8e6af029e3f4163414556328a23a42ddcbae44",
+        "decision": "ALLOWED",
+        "reasons": [],
+        "result": "exited 0 after 105 ms",
+        "exit_code": 0
+      }
+    ],
+    "mediated": [
+      "the decision to start this command through `trustshell run`, checked against the owner policy before it started",
+      "the exit code of the process `trustshell run` started"
+    ],
+    "not_mediated": [
+      "what the command did after it started: files, network, child processes",
+      "commands run without `trustshell run`",
+      "Anything the agent did without `trustshell run`: edits it made directly, its own network calls, commands in another terminal. This report cannot see them."
+    ]
+  },
+  "bound_claims": [
+    {
+      "claim": "All tests pass",
+      "decided_by": "test.js",
+      "status": "SUPPORTED",
+      "why": "the last time it ran through trustshell run it exited 0 (record 3). That shows this command passed, not that it tests what the claim says.",
+      "record_seq": 3
+    }
+  ],
+  "next_actions": [
+    "Nothing here contradicts the agent. Read the commands above and decide whether they test what you care about."
+  ],
+  "exit": 0
+}

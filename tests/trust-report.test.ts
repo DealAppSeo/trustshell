@@ -51,12 +51,42 @@ describe('trust-report', () => {
     return runTrustReport(['verify', out, ...(root ? ['--root', root] : [])], quiet().io, env, dir);
   }
 
-  it('a claim paired with a command that exited 0 is SUPPORTED, and says what that does not show', async () => {
+  it('a claim paired with a command that exited 0 is COMMAND_PASSED, never SUPPORTED, and says what that does not show', async () => {
     expect(run('fake', started(0))).toBe(0);
     const { code, report } = await make(['--bind', 'fake=All tests pass']);
-    expect(report.bound_claims[0]?.status).toBe('SUPPORTED');
+    expect(report.bound_claims[0]?.status).toBe('COMMAND_PASSED');
     expect(report.bound_claims[0]?.why).toContain('not that it tests what the claim says');
     expect(code).toBe(0);
+  });
+
+  it('one run that selected nothing and exited 0 gets no stronger word than COMMAND_PASSED', async () => {
+    expect(runRun(['--tool', 'fake', '--', 'fake', '--select-nothing'], quiet().io, env, started(0))).toBe(0);
+    const { report } = await make(['--bind', 'fake=All tests pass']);
+    expect(report.bound_claims[0]?.status).toBe('COMMAND_PASSED');
+  });
+
+  it('every rendering of a bound claim says COMMAND_PASSED and not SUPPORTED', async () => {
+    run('fake', started(0));
+    const { out } = await make(['--bind', 'fake=All tests pass']);
+    for (const name of ['trust-report.md', 'trust-report.html']) {
+      const text = readFileSync(join(out, name), 'utf8');
+      expect(text).toContain('COMMAND_PASSED');
+      expect(text).not.toMatch(/>SUPPORTED<|\*\*SUPPORTED\*\*/);
+    }
+  });
+
+  it('a real folder made by the published 1.9.0 still verifies', async () => {
+    const fixture = join(__dirname, 'fixtures', 'trust-report-1.9.0');
+    const root = JSON.parse(readFileSync(join(fixture, 'report-receipt.json'), 'utf8')).header.signer.public_key;
+    expect(JSON.parse(readFileSync(join(fixture, 'report.json'), 'utf8')).bound_claims[0].status).toBe('SUPPORTED');
+    expect(await verify(fixture, root)).toBe(0);
+  });
+
+  it('a report made by 1.9.0 stays checkable: its own schema keeps its own word', () => {
+    const old = 'dev.trustshell.trust-report/0.1-draft';
+    const input = { title: 'T', generatedAt: 'now', generator: 'g', binds: [], records: [], ledgerText: '', policyText: null };
+    expect(buildTrustReport({ ...input, schema: old }).schema).toBe(old);
+    expect(buildTrustReport(input).schema).toBe('dev.trustshell.trust-report/0.2-draft');
   });
 
   it('the last run decides: a pass followed by a failure is CONTRADICTED', async () => {
@@ -177,7 +207,7 @@ describe('trust-report', () => {
     });
 
     it.each([
-      ['report.json', (s: string) => s.replace('"SUPPORTED"', '"CONTRADICTED"')],
+      ['report.json', (s: string) => s.replace('"COMMAND_PASSED"', '"CONTRADICTED"')],
       ['trust-report.md', (s: string) => `${s}more\n`],
       ['trust-report.html', (s: string) => `${s}more\n`],
       ['evidence/guard-receipts.jsonl', (s: string) => s.replace('"DENIED"', '"ALLOWED"')],
@@ -219,7 +249,7 @@ describe('trust-report', () => {
     });
 
     it('fails, even with a new seal from another key, when the report no longer matches its evidence', async () => {
-      const text = readFileSync(join(out, 'report.json'), 'utf8').replace('"SUPPORTED"', '"CONTRADICTED"');
+      const text = readFileSync(join(out, 'report.json'), 'utf8').replace('"COMMAND_PASSED"', '"CONTRADICTED"');
       writeFileSync(join(out, 'report.json'), text);
       rewriteManifestLine(out, 'report.json', text);
       const manifest = readFileSync(join(out, 'MANIFEST.sha256'), 'utf8');
