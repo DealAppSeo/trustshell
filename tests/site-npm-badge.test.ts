@@ -38,7 +38,7 @@ describe('site install copy matches published 1.8.0', () => {
     expect(hero).not.toContain('Demo file is not in the repo');
     expect(hero).not.toContain('E:\\TrustDisk');
     expect(hero).not.toMatch(/showDemo|<video/);
-    expect(hero).not.toMatch(/\/start/);
+    expect(hero).not.toMatch(/(?<!\/lab)\/start/); // /lab/start is the one authorized link
     expect(hero).not.toMatch(/Market|Leaderboard|stake now/i);
     expect(hero).not.toMatch(/connect wallet|your wallet|add wallet|Wallet and stake/i);
   });

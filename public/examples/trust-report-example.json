@@ -1,15 +1,15 @@
 {
-  "schema": "dev.trustshell.trust-report/0.1-draft",
+  "schema": "dev.trustshell.trust-report/0.2-draft",
   "title": "Agent said it was finished",
-  "generated_at": "2026-11-08T23:32:31.789Z",
-  "generator": "trustshell 1.9.0-dev.0",
+  "generated_at": "2026-11-09T05:10:14.167Z",
+  "generator": "trustshell 1.9.1",
   "inputs": {
     "binds": [
       {
         "claim": "All tests pass",
         "decided_by": "test.js",
         "tool": null,
-        "script_sha256": "ee55955c74d5ee8cbb7941e1265fbb863fa48e0350a5acb4b9777fcd1f2e907d"
+        "script_sha256": "1198b5309026be775becdbea6cea6a789c8a54563f9e047fc87c817021e4ac2c"
       },
       {
         "claim": "Lint is clean",
@@ -31,8 +31,8 @@
       "head_sha": "f569e43ec8072f7530c2da8d25bacf28c30c510f",
       "conclusion": "failure",
       "verdict": "FAILED",
-      "fetched_at": "2026-11-08T23:32:16.234Z",
-      "digest": "aeb38b64eacef755727f2ed449116cff4d63d6a07bdd8108c513e6c63837b723",
+      "fetched_at": "2026-11-09T05:09:23.591Z",
+      "digest": "aa083d586915c256fb0bba4f20f66e9ac328d15c9650d95199e3da2016a3b7c0",
       "digest_matches": true,
       "exit": 1,
       "claims": [
@@ -52,7 +52,7 @@
   "guard": {
     "policy": {
       "state": "ok",
-      "sha256": "22996d766f99f6a7bcfa20c65491d14e6b558ee191a332f76ae27d961c0e54c7",
+      "sha256": "837923a2991f42278fb51ef0bd4276b8075491d0f6fb1b2c57e70bd84d181f7f",
       "nonce": "2",
       "signed": false,
       "actions": [
@@ -74,20 +74,35 @@
     },
     "ledger": {
       "verdict": "INTACT",
-      "count": 5,
+      "count": 8,
       "breaks": []
     },
     "commands": [
       {
         "seq": 3,
-        "ts": "2026-11-08T23:32:31.000Z",
+        "ts": "2026-11-09T05:10:11.000Z",
         "action": "tool:node",
-        "script_sha256": "ee55955c74d5ee8cbb7941e1265fbb863fa48e0350a5acb4b9777fcd1f2e907d",
+        "script_sha256": "1198b5309026be775becdbea6cea6a789c8a54563f9e047fc87c817021e4ac2c",
         "command_sha256": "fb82de7f5d562611e57524e1bd8e6af029e3f4163414556328a23a42ddcbae44",
         "decision": "ALLOWED",
         "reasons": [],
-        "result": "exited 1 after 67 ms",
+        "result": "exited 1 after 162 ms",
         "exit_code": 1
+      },
+      {
+        "seq": 7,
+        "ts": "2026-11-09T05:10:13.000Z",
+        "action": "tool:python",
+        "script_sha256": null,
+        "command_sha256": "3f92891cb6172c7c34ff0b1c9d214f70d08b8e21fa7fcbbafdf60bfce3e2494a",
+        "decision": "DENIED",
+        "reasons": [
+          "the owner policy does not list tool:python",
+          "python is an interpreter and no script file was resolved; an allowed interpreter runs only a script the policy pins by sha256 (trustshell guard allow tool:python --script <path> pins one)",
+          "the script cannot be resolved to one regular file (ENOENT); an allowed interpreter runs only a script the policy pins by sha256"
+        ],
+        "result": "never started",
+        "exit_code": null
       }
     ],
     "mediated": [
@@ -119,7 +134,8 @@
   "next_actions": [
     "Do not accept \"The check workflow succeeded\". GitHub's record disagrees: https://github.com/DealAppSeo/trustshell/actions/runs/42502305639",
     "Do not accept \"All tests pass\". test.js says otherwise. Fix it or ask the agent why, then run it again through trustshell run.",
-    "1 claim was not checked, which is not a pass. To decide one: say it as one plain sentence that cites the run (\"The check workflow succeeded, run 123.\"), or pair it with a command using --bind."
+    "1 claim was not checked, which is not a pass. To decide one: say it as one plain sentence that cites the run (\"The check workflow succeeded, run 123.\"), or pair it with a command using --bind.",
+    "The policy refused tool:python: the owner policy does not list tool:python. If that was what you wanted, nothing to do. If the agent needed it, run trustshell guard allow tool:python, then repeat the task."
   ],
   "exit": 1
 }

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'r
 import {
   MAX_REPORT_BYTES,
   PATH_TWO_COMMANDS,
+  PATH_TWO_HOME,
+  SAMPLE_TEST_SCRIPT,
   inspectCommand,
   isRunUrl,
   isShellSafe,
@@ -20,22 +22,26 @@ const STEPS = [
 type StepId = (typeof STEPS)[number]['id'];
 
 const EXAMPLE_URL = '/examples/trust-report-example.json';
-const BUTTON = 'min-h-[44px] rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300';
-const PRIMARY = `${BUTTON} bg-amber-500 text-black hover:bg-amber-400 disabled:opacity-60`;
-const SECONDARY = `${BUTTON} border border-slate-600 text-white hover:border-slate-400`;
+export const BUTTON = 'min-h-[44px] rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300';
+export const PRIMARY = `${BUTTON} bg-amber-500 text-black hover:bg-amber-400 disabled:opacity-60`;
+export const SECONDARY = `${BUTTON} border border-slate-600 text-white hover:border-slate-400`;
 
 /** Every status carries its word as well as its colour. */
-function Status({ value }: { value: string }) {
+export function Status({ value }: { value: string }) {
+  // The site's verdict colours (app/globals.css). NOT_CHECKED is neutral: it is an absence, not a warning.
+  // COMMAND_PASSED is dashed: a command exiting 0 is not the same finding as SUPPORTED.
   const tone =
-    value === 'SUPPORTED' || value === 'COMMAND_PASSED' || value === 'ALLOWED'
-      ? 'border-emerald-500/60 text-emerald-300'
-      : value === 'CONTRADICTED' || value === 'DENIED'
-        ? 'border-red-500/60 text-red-300'
-        : 'border-amber-500/60 text-amber-300';
+    value === 'SUPPORTED' || value === 'ALLOWED'
+      ? 'border-[#2dd4bf]/60 text-[#5eead4]'
+      : value === 'COMMAND_PASSED'
+        ? 'border-dashed border-[#2dd4bf]/50 text-[#99f6e4]'
+        : value === 'CONTRADICTED' || value === 'DENIED'
+          ? 'border-[#fb7185]/60 text-[#fda4af]'
+          : 'border-dashed border-[#8b97a8]/70 text-[#a8b3c2]';
   return <span className={`inline-block rounded border px-2 py-0.5 font-mono text-xs ${tone}`}>{value}</span>;
 }
 
-function Command({ text }: { text: string }) {
+export function Command({ text }: { text: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const copy = async () => {
     try {
@@ -72,7 +78,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
   );
 }
 
-function ReportBody({ report }: { report: ReportView }) {
+export function ReportBody({ report }: { report: ReportView }) {
   return (
     <div className="space-y-6" data-testid="report-view">
       <header className="space-y-1">
@@ -162,7 +168,7 @@ function PathChoice({ path, onChange }: { path: 1 | 2; onChange: (p: 1 | 2) => v
   );
 }
 
-function PathOne() {
+export function PathOne({ launcher }: { launcher?: string }) {
   const [url, setUrl] = useState('');
   const [claim, setClaim] = useState('');
   const urlBad = url.trim() !== '' && !isRunUrl(url);
@@ -210,7 +216,7 @@ function PathOne() {
       {ready ? (
         <div className="space-y-2">
           <p className="text-sm text-[#cbd5e1]">Run this. It works the same in bash, zsh and PowerShell. It contacts only api.github.com, and your text stays on your machine.</p>
-          <Command text={inspectCommand(url, claim)} />
+          <Command text={inspectCommand(url, claim, launcher)} />
         </div>
       ) : (
         <p className="text-sm text-[#94a3b8]">Fill in both fields to get the command.</p>
@@ -219,7 +225,7 @@ function PathOne() {
   );
 }
 
-function PathTwo() {
+export function PathTwo() {
   return (
     <div className="space-y-3" data-testid="path-two">
       <p className="text-sm text-[#cbd5e1]">
@@ -230,7 +236,13 @@ function PathTwo() {
         .
       </p>
       <Command text="npm i -g @hyperdag/trustshell@1.9.1" />
-      <p className="text-sm text-[#cbd5e1]">Use a fresh TRUSTSHELL_HOME for each test, then, in your project:</p>
+      <p className="text-sm text-[#cbd5e1]">Use a fresh TRUSTSHELL_HOME for each test. In bash or zsh:</p>
+      <Command text={PATH_TWO_HOME.bash} />
+      <p className="text-sm text-[#cbd5e1]">In PowerShell:</p>
+      <Command text={PATH_TWO_HOME.powershell} />
+      <p className="text-sm text-[#cbd5e1]">The steps below run a script called test.js. Use your own, or make one that fails on purpose:</p>
+      <Command text={SAMPLE_TEST_SCRIPT} />
+      <p className="text-sm text-[#cbd5e1]">Then, in your project:</p>
       <ol className="space-y-3">
         {PATH_TWO_COMMANDS.map((c, i) => (
           <li key={c} className="space-y-1">
@@ -244,31 +256,14 @@ function PathTwo() {
   );
 }
 
-export function TestAgentFlow() {
-  const [step, setStep] = useState<StepId>('try');
-  const [path, setPath] = useState<1 | 2>(1);
+/** Opening a Trust Report: the shipped example, or a file the visitor picks. The file is read here and sent nowhere. */
+export function useReportLoader() {
   const [report, setReport] = useState<ReportView | null>(null);
   const [isExample, setIsExample] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const heading = useRef<HTMLHeadingElement>(null);
-  const first = useRef(true);
 
-  // A step change moves focus to the new heading, so keyboard and screen-reader users land on it.
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    heading.current?.focus();
-  }, [step]);
-
-  const go = (s: StepId) => {
-    setError(null);
-    setStep(s);
-  };
-
-  const loadExample = async () => {
+  const loadExample = async (): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
@@ -278,9 +273,10 @@ export function TestAgentFlow() {
       if (!parsed.ok) throw new Error(parsed.why);
       setReport(parsed.report);
       setIsExample(true);
-      setStep('review');
+      return true;
     } catch {
       setError('The example could not be loaded. Check your connection and try again.');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -309,6 +305,46 @@ export function TestAgentFlow() {
     } finally {
       setLoading(false);
     }
+  };
+
+  return { report, isExample, loading, error, setError, loadExample, pickFile };
+}
+
+export function ReportFileInput({ onPick }: { onPick: (e: ChangeEvent<HTMLInputElement>) => void }) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor="report-file" className="block text-sm font-semibold text-white">
+        Open your report.json
+      </label>
+      <input id="report-file" type="file" accept=".json,application/json" onChange={onPick} className="block min-h-[44px] w-full text-sm text-[#cbd5e1]" />
+      <p className="text-xs text-[#94a3b8]">The file is read in this page and is not sent anywhere.</p>
+    </div>
+  );
+}
+
+export function TestAgentFlow() {
+  const [step, setStep] = useState<StepId>('try');
+  const [path, setPath] = useState<1 | 2>(1);
+  const { report, isExample, loading, error, setError, loadExample, pickFile } = useReportLoader();
+  const heading = useRef<HTMLHeadingElement>(null);
+  const first = useRef(true);
+
+  // A step change moves focus to the new heading, so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    heading.current?.focus();
+  }, [step]);
+
+  const go = (s: StepId) => {
+    setError(null);
+    setStep(s);
+  };
+
+  const showExample = async () => {
+    if (await loadExample()) setStep('review');
   };
 
   const current = STEPS.findIndex((s) => s.id === step);
@@ -349,7 +385,7 @@ export function TestAgentFlow() {
       {step === 'try' ? (
         <div className="space-y-4">
           <p className="text-[#cbd5e1]">See a real report before you install anything. No account, no key. It comes from a test task where the agent said it was finished and the test said otherwise.</p>
-          <button type="button" className={PRIMARY} onClick={loadExample} disabled={loading}>
+          <button type="button" className={PRIMARY} onClick={showExample} disabled={loading}>
             {error ? 'Try again' : 'Show the example report'}
           </button>
         </div>
@@ -367,13 +403,7 @@ export function TestAgentFlow() {
 
       {step === 'review' ? (
         <div className="space-y-5">
-          <div className="space-y-2">
-            <label htmlFor="report-file" className="block text-sm font-semibold text-white">
-              Open your report.json
-            </label>
-            <input id="report-file" type="file" accept=".json,application/json" onChange={pickFile} className="block min-h-[44px] w-full text-sm text-[#cbd5e1]" />
-            <p className="text-xs text-[#94a3b8]">The file is read in this page and is not sent anywhere.</p>
-          </div>
+          <ReportFileInput onPick={pickFile} />
           {report ? (
             <>
               {isExample ? <p className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-[#cbd5e1]">This is the example report, not yours.</p> : null}
@@ -383,7 +413,7 @@ export function TestAgentFlow() {
               </button>
             </>
           ) : (
-            <button type="button" className={SECONDARY} onClick={loadExample} disabled={loading}>
+            <button type="button" className={SECONDARY} onClick={showExample} disabled={loading}>
               Use the example report
             </button>
           )}
