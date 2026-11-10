@@ -91,8 +91,10 @@ jobs:
           node scripts/release-e2e.mjs --tarball "$t" --out e2e-published
           code=$?
           node scripts/release-e2e-summary.mjs e2e-published >> "$GITHUB_STEP_SUMMARY"
-          if [ "$code" = "2" ]; then echo "::error::some steps were NOT_CHECKED, so this run does not prove the published package works; see the summary"; exit 1; fi
-          exit $code
+          if [ "$code" != "0" ] && [ "$code" != "2" ]; then exit 1; fi
+          # Exit 2 means some steps were NOT_CHECKED. The gate fails the job unless each one is NOT_CHECKED
+          # by design on this machine (see the script); a rate-limited check never counts as proven.
+          node scripts/release-e2e-gate.mjs e2e-published
       - uses: actions/upload-artifact@v4
         if: always()
         with:
