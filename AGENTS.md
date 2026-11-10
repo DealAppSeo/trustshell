@@ -11,6 +11,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 It is injected verbatim into every XC/GA dispatch and is the one place a lesson is
 durable across all of them.
 
+**Before you write, run the preflight (LESSONS rule 12)** from a checkout of that repo:
+`npx ts-node --transpile-only scripts/preflight.ts --dir <this checkout> --files <planned paths> --agent <your name>`.
+FAIL means stop: main already changed your files, or another open PR holds them. NOT_CHECKED is not a
+pass. Every PR here also runs it, advisory, through `.github/workflows/preflight.yml`.
+
 **Two tiers, and this file is the internal one.** `LESSONS.md` plus each repo's own
 entry point are a dated operating log that changes without notice — for our agents.
 The published contract for outside developers building on the ecosystem is
