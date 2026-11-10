@@ -1,0 +1,21 @@
+# Preflight, ADVISORY: the shared start-of-work check every coding agent passes (Claude, Codex, T12).
+# The rules and the tool live in DealAppSeo/repid-engine (src/orchestration/preflight.ts and
+# scripts/preflight.ts); this file only calls them, so the contract is defined once.
+#
+# On each PR it reports: whether the branch started before main changed the same files, whether another
+# open PR touches the same files, the claimed trinity_tasks row ("Task: <id>" in the PR body) and its
+# lease, fencing epoch and scope, and owner-only paths. It always succeeds and writes its findings to the
+# job summary. It holds no queue credential, so the task legs read NOT_CHECKED or, with no task named,
+# FAIL. Making it a required check is a ruleset change, which is the owner's decision.
+name: preflight
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  preflight:
+    uses: DealAppSeo/repid-engine/.github/workflows/preflight.yml@main
