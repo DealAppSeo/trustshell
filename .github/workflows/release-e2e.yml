@@ -16,7 +16,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # 35, not 20. Measured 2026-11-10 over the last 15 runs: passing Windows jobs took 17.4 to 19.5 min,
+    # and 6 were cancelled at 20.2 min while every step so far was passing. The limit, not the code, failed them.
+    # 35 still stops a real hang.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
         with:
