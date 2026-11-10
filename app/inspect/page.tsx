@@ -5,7 +5,7 @@ import { renderMarkdown } from "@/lib/markdown";
 export const metadata = {
   title: "Try Inspect — TrustShell",
   description:
-    "Five minutes, no account, no key: check one true and one false claim about a pinned GitHub Actions run, and follow the card to the evidence.",
+    "Five minutes, no account, no key: check two example claims we wrote about a pinned GitHub Actions run, one true and one false, and follow the card to the evidence.",
 };
 
 // Same pattern as /docs/getting-started: the page renders docs/challenge.md, so the repo file
