@@ -41,3 +41,57 @@ jobs:
           name: e2e-${{ matrix.os }}
           path: e2e-out
           if-no-files-found: ignore
+
+  # The same E2E on what developers actually install: the npm registry tarball of the latest release, checked
+  # byte for byte against the registry's integrity hash before it runs. The job above tests this checkout; this
+  # one tests the published package, which is the thing an outside developer gets.
+  published:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # Measured: Windows runs of this E2E took 21-24 minutes and were cut off at 20 (see #702).
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Download the published package and check its bytes
+        id: pkg
+        shell: bash
+        run: |
+          set -euo pipefail
+          v=$(npm view @hyperdag/trustshell version)
+          want=$(npm view "@hyperdag/trustshell@$v" dist.integrity)
+          d="$RUNNER_TEMP/published"; mkdir -p "$d"
+          name=$(npm pack "@hyperdag/trustshell@$v" --pack-destination "$d" --json | node -e 'let s="";process.stdin.on("data",(c)=>(s+=c)).on("end",()=>process.stdout.write(JSON.parse(s)[0].filename))')
+          # The control is built in: a copy with one changed byte must fail the same comparison.
+          node -e '
+            const fs = require("fs"), c = require("crypto"), [f, want] = process.argv.slice(1);
+            const h = (b) => "sha512-" + c.createHash("sha512").update(b).digest("base64");
+            const b = fs.readFileSync(f);
+            if (h(b) !== want) { console.error("::error::the downloaded tarball does not match the registry integrity"); process.exit(1); }
+            const x = Buffer.from(b); x[100] ^= 1;
+            if (h(x) === want) { console.error("::error::the integrity check cannot tell a changed byte apart"); process.exit(1); }
+            console.log("registry integrity matches; a one-byte change is caught");' "$d/$name" "$want"
+          echo "tarball=$d/$name" >> "$GITHUB_OUTPUT"
+          echo "Tested the published package @hyperdag/trustshell@$v ($want)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Clean-install E2E on the published package
+        shell: bash
+        run: |
+          set +e
+          node scripts/release-e2e.mjs --tarball "${{ steps.pkg.outputs.tarball }}" --out e2e-published
+          code=$?
+          node scripts/release-e2e-summary.mjs e2e-published >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = "2" ]; then echo "::warning::some steps were NOT_CHECKED; see the summary"; exit 0; fi
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-published-${{ matrix.os }}
+          path: e2e-published
+          if-no-files-found: ignore
