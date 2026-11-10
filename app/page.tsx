@@ -68,7 +68,7 @@ export default function Home() {
         </p>
 
         <div className="mt-10 max-w-3xl">
-          <p className="mb-2 text-sm text-muted">Try it on a real run. We wrote this example claim with the wrong commit (Node 22+):</p>
+          <p className="mb-2 text-sm text-muted">Try it on a real run. We wrote this example claim with the wrong commit (Node 22.13 or newer):</p>
           <CopyCommand text={TRY} />
         </div>
 
