@@ -80,14 +80,18 @@ jobs:
             console.log("registry integrity matches; a one-byte change is caught");' "$d/$name" "$want"
           echo "tarball=$d/$name" >> "$GITHUB_OUTPUT"
           echo "Tested the published package @hyperdag/trustshell@$v ($want)" >> "$GITHUB_STEP_SUMMARY"
+      # This job is the proof, so it is stricter than the one above: NOT_CHECKED fails it (a green check must
+      # not stand for steps that never ran), and an empty or wrong tarball path cannot fall back to the checkout.
       - name: Clean-install E2E on the published package
         shell: bash
         run: |
+          t="${{ steps.pkg.outputs.tarball }}"
+          if [ ! -f "$t" ] || [ "${t%.tgz}" = "$t" ]; then echo "::error::no published tarball at '$t'"; exit 1; fi
           set +e
-          node scripts/release-e2e.mjs --tarball "${{ steps.pkg.outputs.tarball }}" --out e2e-published
+          node scripts/release-e2e.mjs --tarball "$t" --out e2e-published
           code=$?
           node scripts/release-e2e-summary.mjs e2e-published >> "$GITHUB_STEP_SUMMARY"
-          if [ "$code" = "2" ]; then echo "::warning::some steps were NOT_CHECKED; see the summary"; exit 0; fi
+          if [ "$code" = "2" ]; then echo "::error::some steps were NOT_CHECKED, so this run does not prove the published package works; see the summary"; exit 1; fi
           exit $code
       - uses: actions/upload-artifact@v4
         if: always()
