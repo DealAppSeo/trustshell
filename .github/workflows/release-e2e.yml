@@ -38,7 +38,7 @@ jobs:
           node scripts/release-e2e-summary.mjs e2e-out >> "$GITHUB_STEP_SUMMARY"
           if [ "$code" = "2" ]; then echo "::warning::some steps were NOT_CHECKED; see the summary"; exit 0; fi
           exit $code
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-${{ matrix.os }}
@@ -98,7 +98,7 @@ jobs:
           # Exit 2 means some steps were NOT_CHECKED. The gate fails the job unless each one is NOT_CHECKED
           # by design on this machine (see the script); a rate-limited check never counts as proven.
           node scripts/release-e2e-gate.mjs e2e-published
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-published-${{ matrix.os }}
