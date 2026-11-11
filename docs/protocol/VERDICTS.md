@@ -82,7 +82,19 @@ status, never raises one:
 - **Freshness.** When `asOf` is given and the decision's `policy.expires_at` is at or before it,
   `authorization` is `FAILED`, however the issuer labelled it — this is re-derived locally from the
   policy, so it overrides the read. An `asOf` that cannot be parsed fails closed to `NOT_CHECKED`,
-  never silently skipped.
+  never silently skipped. With **no** `asOf`, freshness is not evaluated and the status is left as
+  read; when the policy has an `expires_at`, `authorization.gaps` says freshness was NOT checked.
+  A present expiry that cannot be read is never treated as "no expiry" or as a usable time. That
+  covers a `policy` that is not an object, an `expires_at` that is not a finite number, and one
+  after 2100 in epoch seconds (where a millisecond stamp lands). With `asOf`, such an expiry fails
+  closed to `NOT_CHECKED`, like an unreadable `asOf`; without `asOf`, the gap says freshness was not
+  checked. An early number (before 2000, or 0) is still an expiry: it is in the past, so it `FAILED`s
+  against any `asOf`.
+  The chain walk rolls receipts up by integrity, links, sealers and `FAILED` claims, so a
+  `NOT_CHECKED` authorization does not move it. Whenever freshness was not checked for a receipt
+  with an expiry (no `asOf`, an unreadable `asOf`, or an unreadable expiry), the chain's
+  `limitations` count those receipts and say why. A `VERIFIED` chain then says nothing about whether
+  those policies were still in force.
 
 `reconciliation.downgraded[]` lists every claim the verifier lowered; `reconciliation.source` says
 whether each claim came from the local recompute, the engine envelope, or a fail-closed default.
@@ -103,8 +115,9 @@ integrity itself, unknown schema, a non-receipt, and the `/1` unsigned-vs-pinned
 - **Chain walk** (`verifyReceiptChain`): shipped. Verifies each receipt offline and checks each
   `(prev_receipt_id, prev_hash)` against the prior one's id and recomputed hash. A chain is
   `VERIFIED` only when every receipt's integrity is `VERIFIED`, every sealer is confirmed under a
-  pinned root, no claim is `FAILED`, and every link matches; any expired, tampered, unlinkable, or
-  unauthenticated receipt fails or defers the whole chain (`NOT_CHECKED` is never a pass). It does
+  pinned root, no claim is `FAILED`, and every link matches; any tampered, unlinkable, or
+  unauthenticated receipt fails or defers the whole chain, and so does an expired one when `asOf`
+  is given (`NOT_CHECKED` is never a pass). It does
   not assert index 0 is the true genesis — only internal consistency of the supplied sequence.
 - **On-chain `observation`**: a read-only anchor check that could raise `observation` from an
   attestation to an independently observed fact. Kept out of the offline core by design.

@@ -32,6 +32,27 @@ const optional_ethers_1 = require("./optional-ethers");
 /** The verdict spec this verifier implements. Bump when the reconciliation rules change. */
 exports.TRUSTLATTICE_VERDICT_SPEC = 'https://hyperdag.dev/trustlattice/verdicts/v0';
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const kindOf = (v) => (Array.isArray(v) ? 'an array' : `a ${typeof v}`);
+const policyExpiry = (receipt) => {
+    const decision = isObj(receipt) ? receipt['decision'] : null;
+    if (!isObj(decision))
+        return { kind: 'absent' }; // not a receipt at all: rejected as MALFORMED elsewhere
+    const policy = decision['policy'];
+    if (policy === null || policy === undefined)
+        return { kind: 'absent' };
+    if (!isObj(policy))
+        return { kind: 'unreadable', why: `decision.policy is ${kindOf(policy)}, not an object` };
+    const e = policy['expires_at'];
+    if (e === null || e === undefined)
+        return { kind: 'absent' };
+    if (typeof e !== 'number')
+        return { kind: 'unreadable', why: `policy.expires_at is ${kindOf(e)}, not a number` };
+    if (!Number.isFinite(e))
+        return { kind: 'unreadable', why: 'policy.expires_at is not a finite number' };
+    if (e > MAX_ANCHOR_S)
+        return { kind: 'unreadable', why: `policy.expires_at ${e} is after ${MAX_ANCHOR_S} (2100), so it is not epoch seconds (a millisecond stamp lands here)` };
+    return { kind: 'at', epoch: e };
+};
 const claim = (status, statement, supports = [], gaps = []) => ({ status, statement, supports, gaps });
 const INTEGRITY_STMT = 'The record is whole: its hash matches its contents, and a trusted key sealed it.';
 /** The integrity claim when the bytes are whole but NO trusted key was confirmed: only the hash was recomputed. */
@@ -237,19 +258,32 @@ async function verifyReceiptOffline(receipt, opts = {}) {
     }
     // Freshness: a policy that expired at/before as_of fails authorization, however the issuer labelled it.
     // An anchor that cannot be read must NOT silently skip the check — it fails closed to NOT_CHECKED.
+    // With no anchor at all, v0 leaves the status as read, but the gap says the check was skipped:
+    // before this, an already-expired policy read VERIFIED with nothing saying freshness went unchecked.
+    // The same holds for the expiry: one present but unreadable fails closed exactly like an unreadable anchor.
     const anchor = asOfEpoch(opts.asOf);
-    const decision = receipt['decision'];
-    const policy = isObj(decision['policy']) ? decision['policy'] : null;
-    const expiresAt = policy && typeof policy['expires_at'] === 'number' && Number.isFinite(policy['expires_at']) ? policy['expires_at'] : null;
+    const expiry = policyExpiry(receipt);
     if (anchor !== null && 'unreadable' in anchor && claims.authorization.status !== 'FAILED') {
         if (source.authorization === 'engine')
             downgraded.push('authorization');
         claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `a freshness anchor was supplied but could not be read (${anchor.unreadable}), so freshness was NOT checked: this is not a pass`]);
         source.authorization = 'fail-closed';
     }
-    else if (anchor !== null && 'epoch' in anchor && expiresAt !== null && anchor.epoch >= expiresAt && claims.authorization.status !== 'FAILED') {
-        claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiresAt}, at or before as_of ${anchor.epoch}: the authorization is stale`]);
+    else if (anchor !== null && 'epoch' in anchor && expiry.kind === 'at' && anchor.epoch >= expiry.epoch && claims.authorization.status !== 'FAILED') {
+        claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiry.epoch}, at or before as_of ${anchor.epoch}: the authorization is stale`]);
         source.authorization = 'local';
+    }
+    else if (anchor !== null && expiry.kind === 'unreadable' && claims.authorization.status !== 'FAILED') {
+        if (source.authorization === 'engine')
+            downgraded.push('authorization');
+        claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `${expiry.why}, so freshness was NOT checked: this is not a pass`]);
+        source.authorization = 'fail-closed';
+    }
+    else if (anchor === null && expiry.kind !== 'absent' && claims.authorization.status !== 'FAILED') {
+        const gap = expiry.kind === 'at'
+            ? `the policy expires at ${expiry.epoch} and no as_of was supplied, so freshness was NOT checked`
+            : `${expiry.why}, and no as_of was supplied, so freshness was NOT checked`;
+        claims.authorization = claim(claims.authorization.status, claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, gap]);
     }
     const dne = engine?.dne ?? [];
     const statement = {
@@ -276,7 +310,7 @@ async function verifyReceiptOffline(receipt, opts = {}) {
 }
 const CHAIN_LIMITATIONS = [
     'The chain is verified only INTERNALLY: index 0 is the root of the supplied sequence (its prev pointers are reported, not compared), and each later receipt is checked to carry the prior one’s receipt_id and recomputed hash. This does not assert index 0 is the true genesis.',
-    'A chain is VERIFIED only when every receipt’s own integrity is VERIFIED, none of its six claims is FAILED, its sealer was confirmed against a caller-pinned trusted root, and every link matches; one expired, tampered, unlinkable, or unauthenticated receipt fails or defers the whole chain. NOT_CHECKED (a hash that could not be recomputed, or no trusted root pinned) is never a pass.',
+    'A chain is VERIFIED only when every receipt’s own integrity is VERIFIED, none of its six claims is FAILED, its sealer was confirmed against a caller-pinned trusted root, and every link matches; one tampered, unlinkable, or unauthenticated receipt fails or defers the whole chain, and so does one expired receipt when as_of is given. NOT_CHECKED (a hash that could not be recomputed, or no trusted root pinned) is never a pass.',
 ];
 /**
  * Verify a sequence of kernel receipts (oldest→newest) offline. NEVER THROWS. Each receipt is run
@@ -350,5 +384,17 @@ async function verifyReceiptChain(receipts, opts = {}) {
     // bytes were not sealed by a caller-pinned trusted root → NOT_CHECKED; else VERIFIED.
     const anyUnauthenticated = links.some((l) => !l.verdict.sealer.trusted);
     const chain = anyFailed ? 'FAILED' : anyNotChecked || anyUnauthenticated ? 'NOT_CHECKED' : 'VERIFIED';
-    return { spec: exports.TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations: [...CHAIN_LIMITATIONS] };
+    // Freshness is only checked against as_of, so without one the roll-up above never saw an expiry. Say so,
+    // or an expired chain reads VERIFIED next to a limitation promising that expiry fails it. Status unchanged.
+    // A per-receipt NOT_CHECKED authorization does not move the chain status, so the reason goes here too.
+    const limitations = [...CHAIN_LIMITATIONS];
+    const anchor = asOfEpoch(opts.asOf);
+    const unchecked = receipts.filter((r) => {
+        const x = policyExpiry(r);
+        return x.kind !== 'absent' && (anchor === null || 'unreadable' in anchor || x.kind === 'unreadable');
+    }).length;
+    const why = anchor === null ? 'no as_of was supplied' : 'unreadable' in anchor ? 'the as_of could not be read' : 'their policy expiry could not be read';
+    if (unchecked > 0)
+        limitations.push(`Freshness was NOT checked for ${unchecked} of ${receipts.length} receipt(s) whose policy carries an expiry (${why}): this chain status says nothing about whether those policies were still in force.`);
+    return { spec: exports.TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations };
 }

@@ -40,7 +40,7 @@ const FP = '0x' + createHash('sha256').update(RAW_PUB).digest('hex');
 
 // Mint a signed kernel-receipt/2 with the engine's exact recipe: sign the canonical receipt whose header
 // omits receipt_hash+signature, then hash (with the signature present). Verifies AUTHENTIC under PUB.
-async function mintSigned(opts: { id: string; prevId?: string | null; prevHash?: string | null; expiresAt?: number | null }): Promise<Record<string, unknown>> {
+async function mintSigned(opts: { id: string; prevId?: string | null; prevHash?: string | null; expiresAt?: number | string | null }): Promise<Record<string, unknown>> {
   const r: Record<string, unknown> = {
     header: { schema: 'kernel-receipt/2', version: 2, receipt_id: opts.id, prev_receipt_id: opts.prevId ?? null, prev_hash: opts.prevHash ?? null, created_at: '2027-01-15T08:00:00.000Z', env: { network: 'base-sepolia', chain_id: 84532, is_simulated: true }, signer: { alg: 'ed25519', public_key: PUB, fingerprint: FP } },
     subject: { agent: { agent_id: 'a', agent_name: 'a' }, owner: { wallet: null, assurance: null, status: 'none' } },
@@ -109,6 +109,38 @@ describe('verifyReceiptChain', () => {
     expect(res.broken_at).toBe(0);
     expect(res.links[0].verdict.claims.authorization.status).toBe('FAILED');
     expect(res.links[0].verdict.claims.integrity.status).toBe('VERIFIED'); // the bytes are fine; freshness is not
+  });
+
+  it('no as_of: a chain of expired policies keeps its status, and its limitations say freshness was NOT checked', async () => {
+    const skipped = (l: string[]) => l.filter((s) => /freshness was NOT checked/i.test(s));
+    const g = await mintSigned({ id: G_ID, expiresAt: 1_000_000_000 }); // expired in 2001
+    const c = await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g), expiresAt: 1_000_000_000 });
+    const res = await verifyReceiptChain([g, c], { trustedRoots: [PUB] });
+    expect(res.chain).toBe('VERIFIED'); // v0: the status is left as read (spec question, not changed here)
+    expect(skipped(res.limitations)).toEqual([expect.stringContaining('for 2 of 2 receipt(s)')]);
+    expect(res.limitations.join(' ')).not.toMatch(/one expired, tampered/); // the old, unconditional promise is gone
+
+    // The caveat appears only when freshness was actually skipped:
+    const checked = await verifyReceiptChain([g, c], { trustedRoots: [PUB], asOf: 999_999_999 }); // before expiry
+    expect(checked.chain).toBe('VERIFIED');
+    expect(skipped(checked.limitations)).toEqual([]);
+    const g0 = await mintSigned({ id: G_ID });
+    const noExpiry = await verifyReceiptChain([g0, await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g0) })], { trustedRoots: [PUB] });
+    expect(skipped(noExpiry.limitations)).toEqual([]);
+    const mixed = await verifyReceiptChain([g0, await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g0), expiresAt: 1_000_000_000 })], { trustedRoots: [PUB] });
+    expect(skipped(mixed.limitations)).toEqual([expect.stringContaining('for 1 of 2 receipt(s)')]);
+
+    // WITH an as_of, an expiry that is not a number, or an as_of that cannot be read, is still not checked:
+    const bad = [g0, await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g0), expiresAt: '2001-01-01T00:00:00Z' })];
+    const unreadableExpiry = await verifyReceiptChain(bad, { trustedRoots: [PUB], asOf: 2_000_000_000 });
+    expect(skipped(unreadableExpiry.limitations)).toEqual([expect.stringContaining('for 1 of 2 receipt(s) whose policy carries an expiry (their policy expiry could not be read)')]);
+    expect(unreadableExpiry.links[1].verdict.claims.authorization.status).toBe('NOT_CHECKED');
+    // An EARLY numeric expiry is expired, not unreadable: the chain FAILS (it read VERIFIED at 87768652).
+    const early = await verifyReceiptChain([await mintSigned({ id: G_ID, expiresAt: 1 })], { trustedRoots: [PUB], asOf: 2_000_000_000 });
+    expect(early.chain).toBe('FAILED');
+    expect(early.links[0].verdict.claims.authorization.status).toBe('FAILED');
+    const unreadableAsOf = await verifyReceiptChain([g, c], { trustedRoots: [PUB], asOf: 'not-a-date' });
+    expect(skipped(unreadableAsOf.limitations)).toEqual([expect.stringContaining('for 2 of 2 receipt(s) whose policy carries an expiry (the as_of could not be read)')]);
   });
 
   it('a wrong prev_hash breaks the link: chain FAILED at the child', async () => {
