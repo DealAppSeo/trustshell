@@ -84,16 +84,26 @@ export interface OfflineVerifyResult {
 
 const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 /**
- * decision.policy.expires_at, shared by the receipt and chain verifiers. A value that is present but not a
- * finite number is UNREADABLE, never absent: reading it as "no expiry" would skip freshness silently.
+ * decision.policy.expires_at, shared by the receipt and chain verifiers. Anything present that is not
+ * plausible epoch seconds is UNREADABLE, never absent and never trusted: a policy that is not an object, an
+ * expiry that is not a finite number, or one outside the as_of window (a millisecond stamp lands there).
+ * Reading any of those as "no expiry", or comparing them as seconds, would skip freshness silently.
+ * `why` holds only types and finite numbers, never receipt text, because it is printed.
  */
-type PolicyExpiry = { kind: 'absent' } | { kind: 'unreadable'; type: string } | { kind: 'at'; epoch: number };
+type PolicyExpiry = { kind: 'absent' } | { kind: 'unreadable'; why: string } | { kind: 'at'; epoch: number };
+const kindOf = (v: unknown): string => (Array.isArray(v) ? 'an array' : `a ${typeof v}`);
 const policyExpiry = (receipt: unknown): PolicyExpiry => {
   const decision = isObj(receipt) ? receipt['decision'] : null;
-  const policy = isObj(decision) ? decision['policy'] : null;
-  const e = isObj(policy) ? policy['expires_at'] : null;
+  if (!isObj(decision)) return { kind: 'absent' }; // not a receipt at all: rejected as MALFORMED elsewhere
+  const policy = decision['policy'];
+  if (policy === null || policy === undefined) return { kind: 'absent' };
+  if (!isObj(policy)) return { kind: 'unreadable', why: `decision.policy is ${kindOf(policy)}, not an object` };
+  const e = policy['expires_at'];
   if (e === null || e === undefined) return { kind: 'absent' };
-  return typeof e === 'number' && Number.isFinite(e) ? { kind: 'at', epoch: e } : { kind: 'unreadable', type: typeof e };
+  if (typeof e !== 'number') return { kind: 'unreadable', why: `policy.expires_at is ${kindOf(e)}, not a number` };
+  if (!Number.isFinite(e)) return { kind: 'unreadable', why: 'policy.expires_at is not a finite number' };
+  if (e < MIN_ANCHOR_S || e > MAX_ANCHOR_S) return { kind: 'unreadable', why: `policy.expires_at ${e} is not plausible epoch seconds (expected ${MIN_ANCHOR_S}..${MAX_ANCHOR_S}; a millisecond stamp lands outside)` };
+  return { kind: 'at', epoch: e };
 };
 
 const claim = (status: SixClaimStatus, statement: string, supports: string[] = [], gaps: string[] = []): SixClaim => ({ status, statement, supports, gaps });
@@ -297,7 +307,7 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
   // An anchor that cannot be read must NOT silently skip the check — it fails closed to NOT_CHECKED.
   // With no anchor at all, v0 leaves the status as read, but the gap says the check was skipped:
   // before this, an already-expired policy read VERIFIED with nothing saying freshness went unchecked.
-  // The same holds for the expiry: one present but not a number fails closed exactly like an unreadable anchor.
+  // The same holds for the expiry: one present but unreadable fails closed exactly like an unreadable anchor.
   const anchor = asOfEpoch(opts.asOf);
   const expiry = policyExpiry(receipt);
   if (anchor !== null && 'unreadable' in anchor && claims.authorization.status !== 'FAILED') {
@@ -309,12 +319,12 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
     source.authorization = 'local';
   } else if (anchor !== null && expiry.kind === 'unreadable' && claims.authorization.status !== 'FAILED') {
     if (source.authorization === 'engine') downgraded.push('authorization');
-    claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy.expires_at is present but not a number (${expiry.type}), so freshness was NOT checked: this is not a pass`]);
+    claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `${expiry.why}, so freshness was NOT checked: this is not a pass`]);
     source.authorization = 'fail-closed';
   } else if (anchor === null && expiry.kind !== 'absent' && claims.authorization.status !== 'FAILED') {
     const gap = expiry.kind === 'at'
       ? `the policy expires at ${expiry.epoch} and no as_of was supplied, so freshness was NOT checked`
-      : `policy.expires_at is present but not a number (${expiry.type}), and no as_of was supplied, so freshness was NOT checked`;
+      : `${expiry.why}, and no as_of was supplied, so freshness was NOT checked`;
     claims.authorization = claim(claims.authorization.status, claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, gap]);
   }
 
@@ -472,7 +482,7 @@ export async function verifyReceiptChain(receipts: readonly unknown[], opts: Off
     const x = policyExpiry(r);
     return x.kind !== 'absent' && (anchor === null || 'unreadable' in anchor || x.kind === 'unreadable');
   }).length;
-  const why = anchor === null ? 'no as_of was supplied' : 'unreadable' in anchor ? 'the as_of could not be read' : 'their expires_at is not a number';
+  const why = anchor === null ? 'no as_of was supplied' : 'unreadable' in anchor ? 'the as_of could not be read' : 'their policy expiry could not be read';
   if (unchecked > 0) limitations.push(`Freshness was NOT checked for ${unchecked} of ${receipts.length} receipt(s) whose policy carries an expiry (${why}): this chain status says nothing about whether those policies were still in force.`);
   return { spec: TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations };
 }

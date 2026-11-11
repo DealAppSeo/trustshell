@@ -133,7 +133,7 @@ describe('verifyReceiptChain', () => {
     // WITH an as_of, an expiry that is not a number, or an as_of that cannot be read, is still not checked:
     const bad = [g0, await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g0), expiresAt: '2001-01-01T00:00:00Z' })];
     const unreadableExpiry = await verifyReceiptChain(bad, { trustedRoots: [PUB], asOf: 2_000_000_000 });
-    expect(skipped(unreadableExpiry.limitations)).toEqual([expect.stringContaining('for 1 of 2 receipt(s) whose policy carries an expiry (their expires_at is not a number)')]);
+    expect(skipped(unreadableExpiry.limitations)).toEqual([expect.stringContaining('for 1 of 2 receipt(s) whose policy carries an expiry (their policy expiry could not be read)')]);
     expect(unreadableExpiry.links[1].verdict.claims.authorization.status).toBe('NOT_CHECKED');
     const unreadableAsOf = await verifyReceiptChain([g, c], { trustedRoots: [PUB], asOf: 'not-a-date' });
     expect(skipped(unreadableAsOf.limitations)).toEqual([expect.stringContaining('for 2 of 2 receipt(s) whose policy carries an expiry (the as_of could not be read)')]);

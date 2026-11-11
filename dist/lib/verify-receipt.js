@@ -32,13 +32,26 @@ const optional_ethers_1 = require("./optional-ethers");
 /** The verdict spec this verifier implements. Bump when the reconciliation rules change. */
 exports.TRUSTLATTICE_VERDICT_SPEC = 'https://hyperdag.dev/trustlattice/verdicts/v0';
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const kindOf = (v) => (Array.isArray(v) ? 'an array' : `a ${typeof v}`);
 const policyExpiry = (receipt) => {
     const decision = isObj(receipt) ? receipt['decision'] : null;
-    const policy = isObj(decision) ? decision['policy'] : null;
-    const e = isObj(policy) ? policy['expires_at'] : null;
+    if (!isObj(decision))
+        return { kind: 'absent' }; // not a receipt at all: rejected as MALFORMED elsewhere
+    const policy = decision['policy'];
+    if (policy === null || policy === undefined)
+        return { kind: 'absent' };
+    if (!isObj(policy))
+        return { kind: 'unreadable', why: `decision.policy is ${kindOf(policy)}, not an object` };
+    const e = policy['expires_at'];
     if (e === null || e === undefined)
         return { kind: 'absent' };
-    return typeof e === 'number' && Number.isFinite(e) ? { kind: 'at', epoch: e } : { kind: 'unreadable', type: typeof e };
+    if (typeof e !== 'number')
+        return { kind: 'unreadable', why: `policy.expires_at is ${kindOf(e)}, not a number` };
+    if (!Number.isFinite(e))
+        return { kind: 'unreadable', why: 'policy.expires_at is not a finite number' };
+    if (e < MIN_ANCHOR_S || e > MAX_ANCHOR_S)
+        return { kind: 'unreadable', why: `policy.expires_at ${e} is not plausible epoch seconds (expected ${MIN_ANCHOR_S}..${MAX_ANCHOR_S}; a millisecond stamp lands outside)` };
+    return { kind: 'at', epoch: e };
 };
 const claim = (status, statement, supports = [], gaps = []) => ({ status, statement, supports, gaps });
 const INTEGRITY_STMT = 'The record is whole: its hash matches its contents, and a trusted key sealed it.';
@@ -247,7 +260,7 @@ async function verifyReceiptOffline(receipt, opts = {}) {
     // An anchor that cannot be read must NOT silently skip the check — it fails closed to NOT_CHECKED.
     // With no anchor at all, v0 leaves the status as read, but the gap says the check was skipped:
     // before this, an already-expired policy read VERIFIED with nothing saying freshness went unchecked.
-    // The same holds for the expiry: one present but not a number fails closed exactly like an unreadable anchor.
+    // The same holds for the expiry: one present but unreadable fails closed exactly like an unreadable anchor.
     const anchor = asOfEpoch(opts.asOf);
     const expiry = policyExpiry(receipt);
     if (anchor !== null && 'unreadable' in anchor && claims.authorization.status !== 'FAILED') {
@@ -263,13 +276,13 @@ async function verifyReceiptOffline(receipt, opts = {}) {
     else if (anchor !== null && expiry.kind === 'unreadable' && claims.authorization.status !== 'FAILED') {
         if (source.authorization === 'engine')
             downgraded.push('authorization');
-        claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy.expires_at is present but not a number (${expiry.type}), so freshness was NOT checked: this is not a pass`]);
+        claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `${expiry.why}, so freshness was NOT checked: this is not a pass`]);
         source.authorization = 'fail-closed';
     }
     else if (anchor === null && expiry.kind !== 'absent' && claims.authorization.status !== 'FAILED') {
         const gap = expiry.kind === 'at'
             ? `the policy expires at ${expiry.epoch} and no as_of was supplied, so freshness was NOT checked`
-            : `policy.expires_at is present but not a number (${expiry.type}), and no as_of was supplied, so freshness was NOT checked`;
+            : `${expiry.why}, and no as_of was supplied, so freshness was NOT checked`;
         claims.authorization = claim(claims.authorization.status, claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, gap]);
     }
     const dne = engine?.dne ?? [];
@@ -380,7 +393,7 @@ async function verifyReceiptChain(receipts, opts = {}) {
         const x = policyExpiry(r);
         return x.kind !== 'absent' && (anchor === null || 'unreadable' in anchor || x.kind === 'unreadable');
     }).length;
-    const why = anchor === null ? 'no as_of was supplied' : 'unreadable' in anchor ? 'the as_of could not be read' : 'their expires_at is not a number';
+    const why = anchor === null ? 'no as_of was supplied' : 'unreadable' in anchor ? 'the as_of could not be read' : 'their policy expiry could not be read';
     if (unchecked > 0)
         limitations.push(`Freshness was NOT checked for ${unchecked} of ${receipts.length} receipt(s) whose policy carries an expiry (${why}): this chain status says nothing about whether those policies were still in force.`);
     return { spec: exports.TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations };

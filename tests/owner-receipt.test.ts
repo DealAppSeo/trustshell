@@ -61,10 +61,11 @@ const sixClaims = (status: SixClaimStatus): Record<SixClaimKey, { status: SixCla
  * stamp (so `ownerReceiptProvenance` is null), plus the matching authenticated six-claim envelope. This is the
  * only shape that can reach ISSUER_ATTESTED — used by the cross-verifier tests to prove key isolation.
  */
-async function signEngineReceipt(key: KeyObject, receiptId = 'engine-test-0001', expiresAt: number | string | null = null) {
+async function signEngineReceipt(key: KeyObject, receiptId = 'engine-test-0001', expiresAt: number | string | null = null, policy?: unknown) {
   const b = base();
   (b.header as Record<string, unknown>).receipt_id = receiptId;
   (b.decision as { policy: Record<string, unknown> }).policy.expires_at = expiresAt;
+  if (policy !== undefined) (b.decision as Record<string, unknown>).policy = policy; // a malformed policy, sealed
   const header = { ...b.header, schema: 'kernel-receipt/2', version: 2, signer: installKeySigner(key) }; // NO provenance stamp
   const unsigned = { ...b, header };
   const signature = `0x${sign(null, Buffer.from(KERNEL_RECEIPT_SIGNATURE_DOMAIN + kernelCanonicalJson(unsigned), 'utf8'), key).toString('hex')}`;
@@ -335,14 +336,40 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     const { r, envelope } = await signEngineReceipt(key, 'engine-test-0006', '2001-01-01T00:00:00Z');
     const withAsOf = await verifyReceiptOffline(r, { trustedRoots: root, engineEnvelope: envelope, envelopeAuthenticated: true, asOf: 2_000_000_000 });
     expect(withAsOf.claims.authorization.status).toBe('NOT_CHECKED'); // fails closed, like an unreadable as_of
-    expect(withAsOf.claims.authorization.gaps).toContain('policy.expires_at is present but not a number (string), so freshness was NOT checked: this is not a pass');
+    expect(withAsOf.claims.authorization.gaps).toContain('policy.expires_at is a string, not a number, so freshness was NOT checked: this is not a pass');
     expect(withAsOf.reconciliation.downgraded).toContain('authorization');
 
     const noAsOf = await verifyReceiptOffline(r, { trustedRoots: root, engineEnvelope: envelope, envelopeAuthenticated: true });
     expect(noAsOf.claims.authorization.status).toBe('VERIFIED'); // no as_of: left as read, like a numeric expiry
     expect(noAsOf.claims.authorization.gaps.filter((g) => FRESHNESS_SKIPPED.test(g))).toEqual([
-      'policy.expires_at is present but not a number (string), and no as_of was supplied, so freshness was NOT checked',
+      'policy.expires_at is a string, not a number, and no as_of was supplied, so freshness was NOT checked',
     ]);
+  });
+
+  // Strix on #704 (round 3): a millisecond stamp compared as seconds never expires, and a policy that is not
+  // an object hid its expiry entirely. Both are unreadable, so with an as_of they fail closed.
+  it('a millisecond expiry and a non-object policy are unreadable, not silently fresh', async () => {
+    const key = ownerKey();
+    const root = [installKeyRootHex(key)];
+    const opts = { trustedRoots: root, envelopeAuthenticated: true, asOf: 2_000_000_000 } as const;
+
+    const ms = await signEngineReceipt(key, 'engine-test-0007', 1_000_000_000_000); // 2001, in milliseconds
+    const vMs = await verifyReceiptOffline(ms.r, { ...opts, engineEnvelope: ms.envelope });
+    expect(vMs.claims.authorization.status).toBe('NOT_CHECKED');
+    expect(vMs.claims.authorization.gaps).toContain('policy.expires_at 1000000000000 is not plausible epoch seconds (expected 946684800..4102444800; a millisecond stamp lands outside), so freshness was NOT checked: this is not a pass');
+
+    const str = await signEngineReceipt(key, 'engine-test-0008', null, JSON.stringify({ expires_at: 1_000_000_000 })); // double-encoded
+    const vStr = await verifyReceiptOffline(str.r, { ...opts, engineEnvelope: str.envelope });
+    expect(vStr.claims.authorization.status).toBe('NOT_CHECKED');
+    expect(vStr.claims.authorization.gaps).toContain('decision.policy is a string, not an object, so freshness was NOT checked: this is not a pass');
+
+    // Control: an in-window seconds expiry still FAILS on the same as_of, and a null policy is still "no expiry".
+    const sec = await signEngineReceipt(key, 'engine-test-0009', 1_000_000_000);
+    expect((await verifyReceiptOffline(sec.r, { ...opts, engineEnvelope: sec.envelope })).claims.authorization.status).toBe('FAILED');
+    const none = await signEngineReceipt(key, 'engine-test-0010', null, null);
+    const vNone = await verifyReceiptOffline(none.r, { ...opts, engineEnvelope: none.envelope });
+    expect(vNone.claims.authorization.status).toBe('VERIFIED');
+    expect(vNone.claims.authorization.gaps.some((g) => /freshness was NOT checked/.test(g))).toBe(false);
   });
 
   it('installKeySigner encodes the key the engine way: 0x + 64 hex public key and sha256 fingerprint', () => {
