@@ -355,7 +355,8 @@ signature seals the receipt bytes, and the envelope only names the receipt by id
 a file its VERIFIED attestations are **read, not verified**, and surface as `NOT_CHECKED`
 (`downgraded`). A self-reported `FAILED` is still shown. `--as-of <ts>` (unix epoch or RFC3339)
 fails `authorization` when the policy expired at or before that instant; an `--as-of` that cannot be
-parsed is refused (exit `2`), never treated as "now". `--envelope <file>` supplies the envelope
+parsed is refused (exit `2`), never treated as "now". Without `--as-of` freshness is not checked, and
+`authorization` says so whenever the policy has an expiry. `--envelope <file>` supplies the envelope
 separately; `--json` prints the structured `OfflineVerifyResult`.
 
 | Outcome | Exit |

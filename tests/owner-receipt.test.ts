@@ -61,9 +61,10 @@ const sixClaims = (status: SixClaimStatus): Record<SixClaimKey, { status: SixCla
  * stamp (so `ownerReceiptProvenance` is null), plus the matching authenticated six-claim envelope. This is the
  * only shape that can reach ISSUER_ATTESTED — used by the cross-verifier tests to prove key isolation.
  */
-async function signEngineReceipt(key: KeyObject, receiptId = 'engine-test-0001') {
+async function signEngineReceipt(key: KeyObject, receiptId = 'engine-test-0001', expiresAt: number | null = null) {
   const b = base();
   (b.header as Record<string, unknown>).receipt_id = receiptId;
+  (b.decision as { policy: Record<string, unknown> }).policy.expires_at = expiresAt;
   const header = { ...b.header, schema: 'kernel-receipt/2', version: 2, signer: installKeySigner(key) }; // NO provenance stamp
   const unsigned = { ...b, header };
   const signature = `0x${sign(null, Buffer.from(KERNEL_RECEIPT_SIGNATURE_DOMAIN + kernelCanonicalJson(unsigned), 'utf8'), key).toString('hex')}`;
@@ -295,6 +296,35 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     const r = await signOwnerReceipt(b, key);
     const v = await verifyReceiptOffline(r, { trustedRoots: [installKeyRootHex(key)], asOf: 2_000_000_000 }); // 2033
     expect(v.claims.authorization.status).toBe('FAILED');
+  });
+
+  // With no as_of, v0 leaves authorization as read (the conformance vector clean-valid-pinned-authenticated
+  // pins VERIFIED). Before this, an already-expired policy then read VERIFIED with an empty gaps list: the
+  // skipped freshness check was invisible. The status is a spec question; saying what was skipped is not.
+  const FRESHNESS_SKIPPED = /no as_of was supplied, so freshness was NOT checked/;
+
+  it('no as_of: an expiring policy says freshness was NOT checked, and its status is left as read', async () => {
+    const key = ownerKey();
+    const { r, envelope } = await signEngineReceipt(key, 'engine-test-0003', 1_000_000_000); // expired in 2001
+    const v = await verifyReceiptOffline(r, { trustedRoots: [installKeyRootHex(key)], engineEnvelope: envelope, envelopeAuthenticated: true });
+    expect(v.claims.authorization.status).toBe('VERIFIED');
+    expect(v.claims.authorization.gaps.filter((g) => FRESHNESS_SKIPPED.test(g))).toEqual([
+      'the policy expires at 1000000000 and no as_of was supplied, so freshness was NOT checked',
+    ]);
+  });
+
+  it('the freshness note appears only when an expiry exists and no as_of was given', async () => {
+    const key = ownerKey();
+    const root = [installKeyRootHex(key)];
+    const expiring = await signEngineReceipt(key, 'engine-test-0004', 1_900_000_000);
+    const inside = await verifyReceiptOffline(expiring.r, { trustedRoots: root, engineEnvelope: expiring.envelope, envelopeAuthenticated: true, asOf: 1_800_000_000 });
+    expect(inside.claims.authorization.status).toBe('VERIFIED');
+    expect(inside.claims.authorization.gaps.some((g) => FRESHNESS_SKIPPED.test(g))).toBe(false);
+
+    const noExpiry = await signEngineReceipt(key, 'engine-test-0005', null);
+    const v = await verifyReceiptOffline(noExpiry.r, { trustedRoots: root, engineEnvelope: noExpiry.envelope, envelopeAuthenticated: true });
+    expect(v.claims.authorization.status).toBe('VERIFIED');
+    expect(v.claims.authorization.gaps.some((g) => FRESHNESS_SKIPPED.test(g))).toBe(false);
   });
 
   it('installKeySigner encodes the key the engine way: 0x + 64 hex public key and sha256 fingerprint', () => {

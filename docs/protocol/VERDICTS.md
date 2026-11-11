@@ -82,7 +82,8 @@ status, never raises one:
 - **Freshness.** When `asOf` is given and the decision's `policy.expires_at` is at or before it,
   `authorization` is `FAILED`, however the issuer labelled it — this is re-derived locally from the
   policy, so it overrides the read. An `asOf` that cannot be parsed fails closed to `NOT_CHECKED`,
-  never silently skipped.
+  never silently skipped. With **no** `asOf`, freshness is not evaluated and the status is left as
+  read; when the policy has an `expires_at`, `authorization.gaps` says freshness was NOT checked.
 
 `reconciliation.downgraded[]` lists every claim the verifier lowered; `reconciliation.source` says
 whether each claim came from the local recompute, the engine envelope, or a fail-closed default.

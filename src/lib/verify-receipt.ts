@@ -283,6 +283,8 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
 
   // Freshness: a policy that expired at/before as_of fails authorization, however the issuer labelled it.
   // An anchor that cannot be read must NOT silently skip the check — it fails closed to NOT_CHECKED.
+  // With no anchor at all, v0 leaves the status as read, but the gap says the check was skipped:
+  // before this, an already-expired policy read VERIFIED with nothing saying freshness went unchecked.
   const anchor = asOfEpoch(opts.asOf);
   const decision = receipt['decision'] as Record<string, unknown>;
   const policy = isObj(decision['policy']) ? (decision['policy'] as Record<string, unknown>) : null;
@@ -294,6 +296,8 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
   } else if (anchor !== null && 'epoch' in anchor && expiresAt !== null && anchor.epoch >= expiresAt && claims.authorization.status !== 'FAILED') {
     claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiresAt}, at or before as_of ${anchor.epoch}: the authorization is stale`]);
     source.authorization = 'local';
+  } else if (anchor === null && expiresAt !== null && claims.authorization.status !== 'FAILED') {
+    claims.authorization = claim(claims.authorization.status, claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `the policy expires at ${expiresAt} and no as_of was supplied, so freshness was NOT checked`]);
   }
 
   const dne = engine?.dne ?? [];
