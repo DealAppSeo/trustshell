@@ -49,8 +49,8 @@ const policyExpiry = (receipt) => {
         return { kind: 'unreadable', why: `policy.expires_at is ${kindOf(e)}, not a number` };
     if (!Number.isFinite(e))
         return { kind: 'unreadable', why: 'policy.expires_at is not a finite number' };
-    if (e < MIN_ANCHOR_S || e > MAX_ANCHOR_S)
-        return { kind: 'unreadable', why: `policy.expires_at ${e} is not plausible epoch seconds (expected ${MIN_ANCHOR_S}..${MAX_ANCHOR_S}; a millisecond stamp lands outside)` };
+    if (e > MAX_ANCHOR_S)
+        return { kind: 'unreadable', why: `policy.expires_at ${e} is after ${MAX_ANCHOR_S} (2100), so it is not epoch seconds (a millisecond stamp lands here)` };
     return { kind: 'at', epoch: e };
 };
 const claim = (status, statement, supports = [], gaps = []) => ({ status, statement, supports, gaps });

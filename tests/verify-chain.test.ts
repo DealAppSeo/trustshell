@@ -135,6 +135,10 @@ describe('verifyReceiptChain', () => {
     const unreadableExpiry = await verifyReceiptChain(bad, { trustedRoots: [PUB], asOf: 2_000_000_000 });
     expect(skipped(unreadableExpiry.limitations)).toEqual([expect.stringContaining('for 1 of 2 receipt(s) whose policy carries an expiry (their policy expiry could not be read)')]);
     expect(unreadableExpiry.links[1].verdict.claims.authorization.status).toBe('NOT_CHECKED');
+    // An EARLY numeric expiry is expired, not unreadable: the chain FAILS (it read VERIFIED at 87768652).
+    const early = await verifyReceiptChain([await mintSigned({ id: G_ID, expiresAt: 1 })], { trustedRoots: [PUB], asOf: 2_000_000_000 });
+    expect(early.chain).toBe('FAILED');
+    expect(early.links[0].verdict.claims.authorization.status).toBe('FAILED');
     const unreadableAsOf = await verifyReceiptChain([g, c], { trustedRoots: [PUB], asOf: 'not-a-date' });
     expect(skipped(unreadableAsOf.limitations)).toEqual([expect.stringContaining('for 2 of 2 receipt(s) whose policy carries an expiry (the as_of could not be read)')]);
   });

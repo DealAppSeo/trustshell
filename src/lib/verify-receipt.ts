@@ -86,8 +86,11 @@ const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof
 /**
  * decision.policy.expires_at, shared by the receipt and chain verifiers. Anything present that is not
  * plausible epoch seconds is UNREADABLE, never absent and never trusted: a policy that is not an object, an
- * expiry that is not a finite number, or one outside the as_of window (a millisecond stamp lands there).
+ * expiry that is not a finite number, or one after the as_of window's end (a millisecond stamp lands there).
  * Reading any of those as "no expiry", or comparing them as seconds, would skip freshness silently.
+ * An EARLY number (before 2000, 0, negative) stays an epoch on purpose: it is simply expired, so it FAILS
+ * against any real as_of. Calling it unreadable made it NOT_CHECKED, which the chain walk ignores, so an
+ * expired chain read VERIFIED (Strix on #704, MEDIUM).
  * `why` holds only types and finite numbers, never receipt text, because it is printed.
  */
 type PolicyExpiry = { kind: 'absent' } | { kind: 'unreadable'; why: string } | { kind: 'at'; epoch: number };
@@ -102,7 +105,7 @@ const policyExpiry = (receipt: unknown): PolicyExpiry => {
   if (e === null || e === undefined) return { kind: 'absent' };
   if (typeof e !== 'number') return { kind: 'unreadable', why: `policy.expires_at is ${kindOf(e)}, not a number` };
   if (!Number.isFinite(e)) return { kind: 'unreadable', why: 'policy.expires_at is not a finite number' };
-  if (e < MIN_ANCHOR_S || e > MAX_ANCHOR_S) return { kind: 'unreadable', why: `policy.expires_at ${e} is not plausible epoch seconds (expected ${MIN_ANCHOR_S}..${MAX_ANCHOR_S}; a millisecond stamp lands outside)` };
+  if (e > MAX_ANCHOR_S) return { kind: 'unreadable', why: `policy.expires_at ${e} is after ${MAX_ANCHOR_S} (2100), so it is not epoch seconds (a millisecond stamp lands here)` };
   return { kind: 'at', epoch: e };
 };
 

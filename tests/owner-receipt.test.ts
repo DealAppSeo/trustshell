@@ -356,7 +356,7 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     const ms = await signEngineReceipt(key, 'engine-test-0007', 1_000_000_000_000); // 2001, in milliseconds
     const vMs = await verifyReceiptOffline(ms.r, { ...opts, engineEnvelope: ms.envelope });
     expect(vMs.claims.authorization.status).toBe('NOT_CHECKED');
-    expect(vMs.claims.authorization.gaps).toContain('policy.expires_at 1000000000000 is not plausible epoch seconds (expected 946684800..4102444800; a millisecond stamp lands outside), so freshness was NOT checked: this is not a pass');
+    expect(vMs.claims.authorization.gaps).toContain('policy.expires_at 1000000000000 is after 4102444800 (2100), so it is not epoch seconds (a millisecond stamp lands here), so freshness was NOT checked: this is not a pass');
 
     const str = await signEngineReceipt(key, 'engine-test-0008', null, JSON.stringify({ expires_at: 1_000_000_000 })); // double-encoded
     const vStr = await verifyReceiptOffline(str.r, { ...opts, engineEnvelope: str.envelope });
@@ -366,6 +366,12 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     // Control: an in-window seconds expiry still FAILS on the same as_of, and a null policy is still "no expiry".
     const sec = await signEngineReceipt(key, 'engine-test-0009', 1_000_000_000);
     expect((await verifyReceiptOffline(sec.r, { ...opts, engineEnvelope: sec.envelope })).claims.authorization.status).toBe('FAILED');
+    // An EARLY expiry (before 2000, or 0) is simply expired: it FAILS, it is not "unreadable" (Strix, MEDIUM).
+    for (const [id, early] of [['engine-test-0011', 1], ['engine-test-0012', 0], ['engine-test-0013', 946_684_799]] as const) {
+      const s = await signEngineReceipt(key, id, early);
+      const v = await verifyReceiptOffline(s.r, { ...opts, engineEnvelope: s.envelope });
+      expect([early, v.claims.authorization.status]).toEqual([early, 'FAILED']);
+    }
     const none = await signEngineReceipt(key, 'engine-test-0010', null, null);
     const vNone = await verifyReceiptOffline(none.r, { ...opts, engineEnvelope: none.envelope });
     expect(vNone.claims.authorization.status).toBe('VERIFIED');

@@ -86,9 +86,10 @@ status, never raises one:
   read; when the policy has an `expires_at`, `authorization.gaps` says freshness was NOT checked.
   A present expiry that cannot be read is never treated as "no expiry" or as a usable time. That
   covers a `policy` that is not an object, an `expires_at` that is not a finite number, and one
-  outside the `asOf` window (2000 to 2100 in epoch seconds; a millisecond stamp falls outside). With
-  `asOf`, such an expiry fails closed to `NOT_CHECKED`, like an unreadable `asOf`; without `asOf`,
-  the gap says freshness was not checked.
+  after 2100 in epoch seconds (where a millisecond stamp lands). With `asOf`, such an expiry fails
+  closed to `NOT_CHECKED`, like an unreadable `asOf`; without `asOf`, the gap says freshness was not
+  checked. An early number (before 2000, or 0) is still an expiry: it is in the past, so it `FAILED`s
+  against any `asOf`.
   The chain walk rolls receipts up by integrity, links, sealers and `FAILED` claims, so a
   `NOT_CHECKED` authorization does not move it. Whenever freshness was not checked for a receipt
   with an expiry (no `asOf`, an unreadable `asOf`, or an unreadable expiry), the chain's
