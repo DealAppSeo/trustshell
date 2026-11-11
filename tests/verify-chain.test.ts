@@ -111,6 +111,26 @@ describe('verifyReceiptChain', () => {
     expect(res.links[0].verdict.claims.integrity.status).toBe('VERIFIED'); // the bytes are fine; freshness is not
   });
 
+  it('no as_of: a chain of expired policies keeps its status, and its limitations say freshness was NOT checked', async () => {
+    const skipped = (l: string[]) => l.filter((s) => /freshness was NOT checked/.test(s));
+    const g = await mintSigned({ id: G_ID, expiresAt: 1_000_000_000 }); // expired in 2001
+    const c = await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g), expiresAt: 1_000_000_000 });
+    const res = await verifyReceiptChain([g, c], { trustedRoots: [PUB] });
+    expect(res.chain).toBe('VERIFIED'); // v0: the status is left as read (spec question, not changed here)
+    expect(skipped(res.limitations)).toEqual([expect.stringContaining('for 2 of 2 receipt(s)')]);
+    expect(res.limitations.join(' ')).not.toMatch(/one expired, tampered/); // the old, unconditional promise is gone
+
+    // The caveat appears only when freshness was actually skipped:
+    const checked = await verifyReceiptChain([g, c], { trustedRoots: [PUB], asOf: 999_999_999 }); // before expiry
+    expect(checked.chain).toBe('VERIFIED');
+    expect(skipped(checked.limitations)).toEqual([]);
+    const g0 = await mintSigned({ id: G_ID });
+    const noExpiry = await verifyReceiptChain([g0, await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g0) })], { trustedRoots: [PUB] });
+    expect(skipped(noExpiry.limitations)).toEqual([]);
+    const mixed = await verifyReceiptChain([g0, await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g0), expiresAt: 1_000_000_000 })], { trustedRoots: [PUB] });
+    expect(skipped(mixed.limitations)).toEqual([expect.stringContaining('for 1 of 2 receipt(s)')]);
+  });
+
   it('a wrong prev_hash breaks the link: chain FAILED at the child', async () => {
     const g = await mintV1({ id: G_ID });
     const c = await mintV1({ id: C_ID, prevId: G_ID, prevHash: '0x' + '11'.repeat(32) }); // points nowhere

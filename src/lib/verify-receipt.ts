@@ -83,6 +83,13 @@ export interface OfflineVerifyResult {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** decision.policy.expires_at as a finite number, else null. Shared by the receipt and chain verifiers. */
+const policyExpiresAt = (receipt: unknown): number | null => {
+  const decision = isObj(receipt) ? receipt['decision'] : null;
+  const policy = isObj(decision) ? decision['policy'] : null;
+  const e = isObj(policy) ? policy['expires_at'] : null;
+  return typeof e === 'number' && Number.isFinite(e) ? e : null;
+};
 
 const claim = (status: SixClaimStatus, statement: string, supports: string[] = [], gaps: string[] = []): SixClaim => ({ status, statement, supports, gaps });
 
@@ -286,9 +293,7 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
   // With no anchor at all, v0 leaves the status as read, but the gap says the check was skipped:
   // before this, an already-expired policy read VERIFIED with nothing saying freshness went unchecked.
   const anchor = asOfEpoch(opts.asOf);
-  const decision = receipt['decision'] as Record<string, unknown>;
-  const policy = isObj(decision['policy']) ? (decision['policy'] as Record<string, unknown>) : null;
-  const expiresAt = policy && typeof policy['expires_at'] === 'number' && Number.isFinite(policy['expires_at']) ? (policy['expires_at'] as number) : null;
+  const expiresAt = policyExpiresAt(receipt);
   if (anchor !== null && 'unreadable' in anchor && claims.authorization.status !== 'FAILED') {
     if (source.authorization === 'engine') downgraded.push('authorization');
     claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `a freshness anchor was supplied but could not be read (${anchor.unreadable}), so freshness was NOT checked: this is not a pass`]);
@@ -373,7 +378,7 @@ export interface OfflineVerifyChainResult {
 
 const CHAIN_LIMITATIONS = [
   'The chain is verified only INTERNALLY: index 0 is the root of the supplied sequence (its prev pointers are reported, not compared), and each later receipt is checked to carry the prior one’s receipt_id and recomputed hash. This does not assert index 0 is the true genesis.',
-  'A chain is VERIFIED only when every receipt’s own integrity is VERIFIED, none of its six claims is FAILED, its sealer was confirmed against a caller-pinned trusted root, and every link matches; one expired, tampered, unlinkable, or unauthenticated receipt fails or defers the whole chain. NOT_CHECKED (a hash that could not be recomputed, or no trusted root pinned) is never a pass.',
+  'A chain is VERIFIED only when every receipt’s own integrity is VERIFIED, none of its six claims is FAILED, its sealer was confirmed against a caller-pinned trusted root, and every link matches; one tampered, unlinkable, or unauthenticated receipt fails or defers the whole chain, and so does one expired receipt when as_of is given. NOT_CHECKED (a hash that could not be recomputed, or no trusted root pinned) is never a pass.',
 ];
 
 /**
@@ -445,5 +450,10 @@ export async function verifyReceiptChain(receipts: readonly unknown[], opts: Off
   // bytes were not sealed by a caller-pinned trusted root → NOT_CHECKED; else VERIFIED.
   const anyUnauthenticated = links.some((l) => !l.verdict.sealer.trusted);
   const chain: ChainStatus = anyFailed ? 'FAILED' : anyNotChecked || anyUnauthenticated ? 'NOT_CHECKED' : 'VERIFIED';
-  return { spec: TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations: [...CHAIN_LIMITATIONS] };
+  // Freshness is only checked against as_of, so without one the roll-up above never saw an expiry. Say so,
+  // or an expired chain reads VERIFIED next to a limitation promising that expiry fails it. Status unchanged.
+  const limitations = [...CHAIN_LIMITATIONS];
+  const unchecked = asOfEpoch(opts.asOf) === null ? receipts.filter((r) => policyExpiresAt(r) !== null).length : 0;
+  if (unchecked > 0) limitations.push(`No as_of was supplied, so freshness was NOT checked for ${unchecked} of ${receipts.length} receipt(s) whose policy carries an expiry: this chain status says nothing about whether those policies were still in force.`);
+  return { spec: TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations };
 }

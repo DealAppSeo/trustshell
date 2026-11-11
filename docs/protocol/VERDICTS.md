@@ -84,6 +84,9 @@ status, never raises one:
   policy, so it overrides the read. An `asOf` that cannot be parsed fails closed to `NOT_CHECKED`,
   never silently skipped. With **no** `asOf`, freshness is not evaluated and the status is left as
   read; when the policy has an `expires_at`, `authorization.gaps` says freshness was NOT checked.
+  The chain walk is the same: with no `asOf` it rolls receipts up by claim status alone, so its
+  `limitations` say how many receipts with an expiry went unchecked, and a `VERIFIED` chain says
+  nothing about whether those policies were still in force.
 
 `reconciliation.downgraded[]` lists every claim the verifier lowered; `reconciliation.source` says
 whether each claim came from the local recompute, the engine envelope, or a fail-closed default.
@@ -104,8 +107,9 @@ integrity itself, unknown schema, a non-receipt, and the `/1` unsigned-vs-pinned
 - **Chain walk** (`verifyReceiptChain`): shipped. Verifies each receipt offline and checks each
   `(prev_receipt_id, prev_hash)` against the prior one's id and recomputed hash. A chain is
   `VERIFIED` only when every receipt's integrity is `VERIFIED`, every sealer is confirmed under a
-  pinned root, no claim is `FAILED`, and every link matches; any expired, tampered, unlinkable, or
-  unauthenticated receipt fails or defers the whole chain (`NOT_CHECKED` is never a pass). It does
+  pinned root, no claim is `FAILED`, and every link matches; any tampered, unlinkable, or
+  unauthenticated receipt fails or defers the whole chain, and so does an expired one when `asOf`
+  is given (`NOT_CHECKED` is never a pass). It does
   not assert index 0 is the true genesis — only internal consistency of the supplied sequence.
 - **On-chain `observation`**: a read-only anchor check that could raise `observation` from an
   attestation to an independently observed fact. Kept out of the offline core by design.
