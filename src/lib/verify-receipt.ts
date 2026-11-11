@@ -83,12 +83,17 @@ export interface OfflineVerifyResult {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
-/** decision.policy.expires_at as a finite number, else null. Shared by the receipt and chain verifiers. */
-const policyExpiresAt = (receipt: unknown): number | null => {
+/**
+ * decision.policy.expires_at, shared by the receipt and chain verifiers. A value that is present but not a
+ * finite number is UNREADABLE, never absent: reading it as "no expiry" would skip freshness silently.
+ */
+type PolicyExpiry = { kind: 'absent' } | { kind: 'unreadable'; type: string } | { kind: 'at'; epoch: number };
+const policyExpiry = (receipt: unknown): PolicyExpiry => {
   const decision = isObj(receipt) ? receipt['decision'] : null;
   const policy = isObj(decision) ? decision['policy'] : null;
   const e = isObj(policy) ? policy['expires_at'] : null;
-  return typeof e === 'number' && Number.isFinite(e) ? e : null;
+  if (e === null || e === undefined) return { kind: 'absent' };
+  return typeof e === 'number' && Number.isFinite(e) ? { kind: 'at', epoch: e } : { kind: 'unreadable', type: typeof e };
 };
 
 const claim = (status: SixClaimStatus, statement: string, supports: string[] = [], gaps: string[] = []): SixClaim => ({ status, statement, supports, gaps });
@@ -292,17 +297,25 @@ export async function verifyReceiptOffline(receipt: unknown, opts: OfflineVerify
   // An anchor that cannot be read must NOT silently skip the check — it fails closed to NOT_CHECKED.
   // With no anchor at all, v0 leaves the status as read, but the gap says the check was skipped:
   // before this, an already-expired policy read VERIFIED with nothing saying freshness went unchecked.
+  // The same holds for the expiry: one present but not a number fails closed exactly like an unreadable anchor.
   const anchor = asOfEpoch(opts.asOf);
-  const expiresAt = policyExpiresAt(receipt);
+  const expiry = policyExpiry(receipt);
   if (anchor !== null && 'unreadable' in anchor && claims.authorization.status !== 'FAILED') {
     if (source.authorization === 'engine') downgraded.push('authorization');
     claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `a freshness anchor was supplied but could not be read (${anchor.unreadable}), so freshness was NOT checked: this is not a pass`]);
     source.authorization = 'fail-closed';
-  } else if (anchor !== null && 'epoch' in anchor && expiresAt !== null && anchor.epoch >= expiresAt && claims.authorization.status !== 'FAILED') {
-    claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiresAt}, at or before as_of ${anchor.epoch}: the authorization is stale`]);
+  } else if (anchor !== null && 'epoch' in anchor && expiry.kind === 'at' && anchor.epoch >= expiry.epoch && claims.authorization.status !== 'FAILED') {
+    claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiry.epoch}, at or before as_of ${anchor.epoch}: the authorization is stale`]);
     source.authorization = 'local';
-  } else if (anchor === null && expiresAt !== null && claims.authorization.status !== 'FAILED') {
-    claims.authorization = claim(claims.authorization.status, claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `the policy expires at ${expiresAt} and no as_of was supplied, so freshness was NOT checked`]);
+  } else if (anchor !== null && expiry.kind === 'unreadable' && claims.authorization.status !== 'FAILED') {
+    if (source.authorization === 'engine') downgraded.push('authorization');
+    claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy.expires_at is present but not a number (${expiry.type}), so freshness was NOT checked: this is not a pass`]);
+    source.authorization = 'fail-closed';
+  } else if (anchor === null && expiry.kind !== 'absent' && claims.authorization.status !== 'FAILED') {
+    const gap = expiry.kind === 'at'
+      ? `the policy expires at ${expiry.epoch} and no as_of was supplied, so freshness was NOT checked`
+      : `policy.expires_at is present but not a number (${expiry.type}), and no as_of was supplied, so freshness was NOT checked`;
+    claims.authorization = claim(claims.authorization.status, claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, gap]);
   }
 
   const dne = engine?.dne ?? [];
@@ -452,8 +465,14 @@ export async function verifyReceiptChain(receipts: readonly unknown[], opts: Off
   const chain: ChainStatus = anyFailed ? 'FAILED' : anyNotChecked || anyUnauthenticated ? 'NOT_CHECKED' : 'VERIFIED';
   // Freshness is only checked against as_of, so without one the roll-up above never saw an expiry. Say so,
   // or an expired chain reads VERIFIED next to a limitation promising that expiry fails it. Status unchanged.
+  // A per-receipt NOT_CHECKED authorization does not move the chain status, so the reason goes here too.
   const limitations = [...CHAIN_LIMITATIONS];
-  const unchecked = asOfEpoch(opts.asOf) === null ? receipts.filter((r) => policyExpiresAt(r) !== null).length : 0;
-  if (unchecked > 0) limitations.push(`No as_of was supplied, so freshness was NOT checked for ${unchecked} of ${receipts.length} receipt(s) whose policy carries an expiry: this chain status says nothing about whether those policies were still in force.`);
+  const anchor = asOfEpoch(opts.asOf);
+  const unchecked = receipts.filter((r) => {
+    const x = policyExpiry(r);
+    return x.kind !== 'absent' && (anchor === null || 'unreadable' in anchor || x.kind === 'unreadable');
+  }).length;
+  const why = anchor === null ? 'no as_of was supplied' : 'unreadable' in anchor ? 'the as_of could not be read' : 'their expires_at is not a number';
+  if (unchecked > 0) limitations.push(`Freshness was NOT checked for ${unchecked} of ${receipts.length} receipt(s) whose policy carries an expiry (${why}): this chain status says nothing about whether those policies were still in force.`);
   return { spec: TRUSTLATTICE_VERDICT_SPEC, length: receipts.length, chain, links, broken_at: brokenAt, limitations };
 }

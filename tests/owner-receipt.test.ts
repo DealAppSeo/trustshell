@@ -61,7 +61,7 @@ const sixClaims = (status: SixClaimStatus): Record<SixClaimKey, { status: SixCla
  * stamp (so `ownerReceiptProvenance` is null), plus the matching authenticated six-claim envelope. This is the
  * only shape that can reach ISSUER_ATTESTED — used by the cross-verifier tests to prove key isolation.
  */
-async function signEngineReceipt(key: KeyObject, receiptId = 'engine-test-0001', expiresAt: number | null = null) {
+async function signEngineReceipt(key: KeyObject, receiptId = 'engine-test-0001', expiresAt: number | string | null = null) {
   const b = base();
   (b.header as Record<string, unknown>).receipt_id = receiptId;
   (b.decision as { policy: Record<string, unknown> }).policy.expires_at = expiresAt;
@@ -325,6 +325,24 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     const v = await verifyReceiptOffline(noExpiry.r, { trustedRoots: root, engineEnvelope: noExpiry.envelope, envelopeAuthenticated: true });
     expect(v.claims.authorization.status).toBe('VERIFIED');
     expect(v.claims.authorization.gaps.some((g) => FRESHNESS_SKIPPED.test(g))).toBe(false);
+  });
+
+  // Strix on #704: an expiry that is present but not a number used to read as "no expiry", so even WITH an
+  // as_of an expired policy passed silently. It is now unreadable, never absent.
+  it('an expires_at that is not a number is never read as absent', async () => {
+    const key = ownerKey();
+    const root = [installKeyRootHex(key)];
+    const { r, envelope } = await signEngineReceipt(key, 'engine-test-0006', '2001-01-01T00:00:00Z');
+    const withAsOf = await verifyReceiptOffline(r, { trustedRoots: root, engineEnvelope: envelope, envelopeAuthenticated: true, asOf: 2_000_000_000 });
+    expect(withAsOf.claims.authorization.status).toBe('NOT_CHECKED'); // fails closed, like an unreadable as_of
+    expect(withAsOf.claims.authorization.gaps).toContain('policy.expires_at is present but not a number (string), so freshness was NOT checked: this is not a pass');
+    expect(withAsOf.reconciliation.downgraded).toContain('authorization');
+
+    const noAsOf = await verifyReceiptOffline(r, { trustedRoots: root, engineEnvelope: envelope, envelopeAuthenticated: true });
+    expect(noAsOf.claims.authorization.status).toBe('VERIFIED'); // no as_of: left as read, like a numeric expiry
+    expect(noAsOf.claims.authorization.gaps.filter((g) => FRESHNESS_SKIPPED.test(g))).toEqual([
+      'policy.expires_at is present but not a number (string), and no as_of was supplied, so freshness was NOT checked',
+    ]);
   });
 
   it('installKeySigner encodes the key the engine way: 0x + 64 hex public key and sha256 fingerprint', () => {

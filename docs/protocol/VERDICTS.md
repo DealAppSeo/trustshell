@@ -84,9 +84,13 @@ status, never raises one:
   policy, so it overrides the read. An `asOf` that cannot be parsed fails closed to `NOT_CHECKED`,
   never silently skipped. With **no** `asOf`, freshness is not evaluated and the status is left as
   read; when the policy has an `expires_at`, `authorization.gaps` says freshness was NOT checked.
-  The chain walk is the same: with no `asOf` it rolls receipts up by claim status alone, so its
-  `limitations` say how many receipts with an expiry went unchecked, and a `VERIFIED` chain says
-  nothing about whether those policies were still in force.
+  An `expires_at` that is present but not a number is unreadable, never "no expiry": with `asOf` it
+  fails closed to `NOT_CHECKED`, like an unreadable `asOf`; without one, the gap says so.
+  The chain walk rolls receipts up by integrity, links, sealers and `FAILED` claims, so a
+  `NOT_CHECKED` authorization does not move it. Whenever freshness was not checked for a receipt
+  with an expiry (no `asOf`, an unreadable `asOf`, or an unreadable expiry), the chain's
+  `limitations` count those receipts and say why. A `VERIFIED` chain then says nothing about whether
+  those policies were still in force.
 
 `reconciliation.downgraded[]` lists every claim the verifier lowered; `reconciliation.source` says
 whether each claim came from the local recompute, the engine envelope, or a fail-closed default.
