@@ -261,6 +261,8 @@ async function verifyReceiptOffline(receipt, opts = {}) {
     // With no anchor at all, v0 leaves the status as read, but the gap says the check was skipped:
     // before this, an already-expired policy read VERIFIED with nothing saying freshness went unchecked.
     // The same holds for the expiry: one present but unreadable fails closed exactly like an unreadable anchor.
+    // Bytes that failed integrity are not read at all: every branch below would quote their expiry as fact,
+    // next to the gap saying the decision fields cannot be trusted. Authorization is already NOT_CHECKED then.
     const anchor = asOfEpoch(opts.asOf);
     const expiry = policyExpiry(receipt);
     if (anchor !== null && 'unreadable' in anchor && claims.authorization.status !== 'FAILED') {
@@ -268,6 +270,9 @@ async function verifyReceiptOffline(receipt, opts = {}) {
             downgraded.push('authorization');
         claims.authorization = claim('NOT_CHECKED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `a freshness anchor was supplied but could not be read (${anchor.unreadable}), so freshness was NOT checked: this is not a pass`]);
         source.authorization = 'fail-closed';
+    }
+    else if (!trustBytes) {
+        claims.authorization = claim(claims.authorization.status, claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, 'freshness was NOT checked: integrity is not VERIFIED, so the policy expiry was not read']);
     }
     else if (anchor !== null && 'epoch' in anchor && expiry.kind === 'at' && anchor.epoch >= expiry.epoch && claims.authorization.status !== 'FAILED') {
         claims.authorization = claim('FAILED', claims.authorization.statement, claims.authorization.supports, [...claims.authorization.gaps, `policy expired at ${expiry.epoch}, at or before as_of ${anchor.epoch}: the authorization is stale`]);
@@ -389,7 +394,10 @@ async function verifyReceiptChain(receipts, opts = {}) {
     // A per-receipt NOT_CHECKED authorization does not move the chain status, so the reason goes here too.
     const limitations = [...CHAIN_LIMITATIONS];
     const anchor = asOfEpoch(opts.asOf);
-    const unchecked = receipts.filter((r) => {
+    // A receipt whose bytes failed integrity is not read: it already fails or defers the chain on its own.
+    const unchecked = receipts.filter((r, i) => {
+        if (links[i]?.verdict.claims.integrity.status !== 'VERIFIED')
+            return false;
         const x = policyExpiry(r);
         return x.kind !== 'absent' && (anchor === null || 'unreadable' in anchor || x.kind === 'unreadable');
     }).length;

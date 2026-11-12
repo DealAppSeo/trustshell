@@ -143,6 +143,18 @@ describe('verifyReceiptChain', () => {
     expect(skipped(unreadableAsOf.limitations)).toEqual([expect.stringContaining('for 2 of 2 receipt(s) whose policy carries an expiry (the as_of could not be read)')]);
   });
 
+  it('a tampered receipt is not counted as "carries an expiry": its policy is not read', async () => {
+    const skipped = (l: string[]) => l.filter((s) => /freshness was NOT checked/i.test(s));
+    const g = await mintSigned({ id: G_ID });
+    const c = await mintSigned({ id: C_ID, prevId: G_ID, prevHash: hashOf(g) });
+    // An expiry written in after signing: the hash is now stale, so these bytes say nothing.
+    ((c.decision as Record<string, unknown>).policy as Record<string, unknown>).expires_at = 1_000_000_000;
+    const res = await verifyReceiptChain([g, c], { trustedRoots: [PUB] });
+    expect(res.chain).toBe('FAILED');
+    expect(res.links[1].verdict.claims.integrity.status).toBe('FAILED');
+    expect(skipped(res.limitations)).toEqual([]);
+  });
+
   it('a wrong prev_hash breaks the link: chain FAILED at the child', async () => {
     const g = await mintV1({ id: G_ID });
     const c = await mintV1({ id: C_ID, prevId: G_ID, prevHash: '0x' + '11'.repeat(32) }); // points nowhere

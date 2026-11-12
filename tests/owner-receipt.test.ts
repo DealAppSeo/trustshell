@@ -378,6 +378,30 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     expect(vNone.claims.authorization.gaps.some((g) => /freshness was NOT checked/.test(g))).toBe(false);
   });
 
+  // A receipt whose bytes are not trusted is not read for freshness. Before this, an expiry edited after
+  // signing was quoted back as fact ("the policy expires at X", "policy expired at X") right beside the gap
+  // saying the receipt's decision fields cannot be trusted.
+  it('an untrusted receipt’s expiry is never stated: freshness is not read from bytes that failed integrity', async () => {
+    const key = ownerKey();
+    const root = [installKeyRootHex(key)];
+    const NOT_READ = 'freshness was NOT checked: integrity is not VERIFIED, so the policy expiry was not read';
+    const { r, envelope } = await signEngineReceipt(key, 'engine-test-0014', 1_900_000_000);
+    const tampered = JSON.parse(JSON.stringify(r)) as { decision: { policy: Record<string, unknown> } };
+    tampered.decision.policy.expires_at = 1_234_567_890; // edited after signing: the hash is now stale
+    for (const asOf of [2_000_000_000, undefined]) {
+      const v = await verifyReceiptOffline(tampered, { trustedRoots: root, engineEnvelope: envelope, envelopeAuthenticated: true, asOf });
+      expect(v.claims.integrity.status).toBe('FAILED');
+      expect([asOf, v.claims.authorization.status]).toEqual([asOf, 'NOT_CHECKED']);
+      expect(v.claims.authorization.gaps).toContain(NOT_READ);
+      expect(v.claims.authorization.gaps.some((g) => g.includes('1234567890'))).toBe(false);
+    }
+    // Control: the same receipt untampered, past its expiry, still FAILS on the anchor.
+    const whole = await verifyReceiptOffline(r, { trustedRoots: root, engineEnvelope: envelope, envelopeAuthenticated: true, asOf: 2_000_000_000 });
+    expect(whole.claims.integrity.status).toBe('VERIFIED');
+    expect(whole.claims.authorization.status).toBe('FAILED');
+    expect(whole.claims.authorization.gaps).not.toContain(NOT_READ);
+  });
+
   it('installKeySigner encodes the key the engine way: 0x + 64 hex public key and sha256 fingerprint', () => {
     const s = installKeySigner(ownerKey());
     expect(s.alg).toBe('ed25519');
