@@ -425,6 +425,16 @@ describe('owner-self-signed receipt seam (DECISION 1)', () => {
     expect((await auth(2_000_000_000)).status).toBe('FAILED');
     expect((await auth(946_684_800)).status).toBe('VERIFIED'); // 2000-01-01, before the 2001 expiry
     expect((await auth(4_102_444_800)).status).toBe('FAILED');
+
+    // The same window for an RFC3339 time: new Date(0).toISOString() read as epoch 0, so the 2001 expiry read fresh.
+    const zero = await auth('1970-01-01T00:00:00Z');
+    expect(zero.status).toBe('NOT_CHECKED');
+    expect(zero.gaps).toContain('a freshness anchor was supplied but could not be read ("1970-01-01T00:00:00Z" is outside 2000..2100, so it is not a plausible freshness anchor), so freshness was NOT checked: this is not a pass');
+    expect((await auth('1999-12-31T23:59:59Z')).status).toBe('NOT_CHECKED');
+    expect((await auth('2100-01-01T00:00:01Z')).status).toBe('NOT_CHECKED');
+    // Controls: in-window RFC3339, both ends included, still decide freshness.
+    expect((await auth('2000-01-01T00:00:00Z')).status).toBe('VERIFIED');
+    expect((await auth('2100-01-01T00:00:00Z')).status).toBe('FAILED');
   });
 
   it('installKeySigner encodes the key the engine way: 0x + 64 hex public key and sha256 fingerprint', () => {

@@ -71,7 +71,7 @@ const OFFLINE_LIMITATIONS = [
     'The chain is not walked: prev_hash is reported, not compared with the previous receipt (that needs the prior receipt).',
     'NOT_CHECKED is never a pass. There is no single rollup “valid” verdict — read the six claims.',
 ];
-/** Sanity window: an epoch-seconds anchor outside it is a mis-formatted date (a YYYYMMDD lands in 1970), not an instant. */
+/** Sanity window for every anchor form (number, digit string, RFC3339): outside it is a mistake (a YYYYMMDD or new Date(0) lands in 1970, Date.now() milliseconds past 2100), not an instant. */
 const MIN_ANCHOR_S = 946684800; // 2000-01-01T00:00:00Z
 const MAX_ANCHOR_S = 4102444800; // 2100-01-01T00:00:00Z
 /**
@@ -103,7 +103,11 @@ function asOfEpoch(asOf) {
         return { epoch: n };
     }
     const t = Date.parse(s);
-    return Number.isNaN(t) ? { unreadable: `${JSON.stringify(s)} is neither RFC3339 nor epoch seconds` } : { epoch: Math.floor(t / 1000) };
+    if (Number.isNaN(t))
+        return { unreadable: `${JSON.stringify(s)} is neither RFC3339 nor epoch seconds` };
+    const a = { epoch: Math.floor(t / 1000) };
+    // The same window for an RFC3339 time: one instant, one meaning, however it is written. new Date(0) lands in 1970.
+    return a.epoch < MIN_ANCHOR_S || a.epoch > MAX_ANCHOR_S ? { unreadable: `${JSON.stringify(s)} is outside 2000..2100, so it is not a plausible freshness anchor` } : a;
 }
 /** The engine's six claims, ONLY when the envelope is well-formed and names exactly this receipt+hash. */
 function boundEngineClaims(env, receiptId, receiptHash) {
