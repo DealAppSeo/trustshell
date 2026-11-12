@@ -71,7 +71,7 @@ const OFFLINE_LIMITATIONS = [
     'The chain is not walked: prev_hash is reported, not compared with the previous receipt (that needs the prior receipt).',
     'NOT_CHECKED is never a pass. There is no single rollup “valid” verdict — read the six claims.',
 ];
-/** Sanity window: an epoch-seconds anchor outside it is a mis-formatted date (a YYYYMMDD lands in 1970), not an instant. */
+/** Sanity window for every anchor form (number, digit string, RFC3339): outside it is a mistake (a YYYYMMDD or new Date(0) lands in 1970, Date.now() milliseconds past 2100), not an instant. */
 const MIN_ANCHOR_S = 946684800; // 2000-01-01T00:00:00Z
 const MAX_ANCHOR_S = 4102444800; // 2100-01-01T00:00:00Z
 /**
@@ -81,8 +81,17 @@ const MAX_ANCHOR_S = 4102444800; // 2100-01-01T00:00:00Z
 function asOfEpoch(asOf) {
     if (asOf === undefined || asOf === null)
         return null;
-    if (typeof asOf === 'number')
-        return Number.isFinite(asOf) ? { epoch: Math.floor(asOf) } : { unreadable: `${asOf} is not a finite number` };
+    if (typeof asOf === 'number') {
+        // The same window as a digit string below: one value has one meaning, whichever way it arrives.
+        if (!Number.isFinite(asOf))
+            return { unreadable: `${asOf} is not a finite number` };
+        const n = Math.floor(asOf);
+        if (n > MAX_ANCHOR_S)
+            return { unreadable: `${asOf} is after ${MAX_ANCHOR_S} (2100), so it is not epoch seconds; Date.now() is milliseconds, divide it by 1000` };
+        if (n < MIN_ANCHOR_S)
+            return { unreadable: `${asOf} is before ${MIN_ANCHOR_S} (2000), so it is not plausible epoch seconds; a bare YYYYMMDD date lands in 1970` };
+        return { epoch: n };
+    }
     const s = asOf.trim();
     if (s === '')
         return { unreadable: 'empty anchor' };
@@ -94,7 +103,11 @@ function asOfEpoch(asOf) {
         return { epoch: n };
     }
     const t = Date.parse(s);
-    return Number.isNaN(t) ? { unreadable: `${JSON.stringify(s)} is neither RFC3339 nor epoch seconds` } : { epoch: Math.floor(t / 1000) };
+    if (Number.isNaN(t))
+        return { unreadable: `${JSON.stringify(s)} is neither RFC3339 nor epoch seconds` };
+    const a = { epoch: Math.floor(t / 1000) };
+    // The same window for an RFC3339 time: one instant, one meaning, however it is written. new Date(0) lands in 1970.
+    return a.epoch < MIN_ANCHOR_S || a.epoch > MAX_ANCHOR_S ? { unreadable: `${JSON.stringify(s)} is outside 2000..2100, so it is not a plausible freshness anchor` } : a;
 }
 /** The engine's six claims, ONLY when the envelope is well-formed and names exactly this receipt+hash. */
 function boundEngineClaims(env, receiptId, receiptHash) {
