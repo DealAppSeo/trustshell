@@ -2,6 +2,16 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.9.2 — 2026-11-12
+
+Fixes to the offline receipt verifier. Against the published 1.9.1 tarball, five files differ: `dist/lib/verify-receipt.js`, `dist/lib/verify-receipt.d.ts` (one doc comment), this changelog, the README (version pins, and one sentence about the demo claims) and `package.json` (version and two dev dependencies). Runtime dependencies are unchanged. The package is still 165 files, and the MCP server still lists 21 tools.
+
+- **Verifying with no `as_of` now says freshness was not checked.** In 1.9.1, a receipt whose policy carries an expiry verified with no word about it, so an expired policy could read `authorization: VERIFIED`. The status is unchanged (whether no `as_of` should lower it is a TrustLattice v1 question), but the authorization claim now carries a gap saying freshness was NOT checked.
+- **A chain names how many receipts went unchecked for freshness, and why** (no `as_of`, an unreadable `as_of`, or an unreadable expiry).
+- **An expiry the verifier cannot read no longer counts as no expiry.** In 1.9.1, an `expires_at` that was not a finite number was ignored, and a millisecond timestamp read as a date thousands of years away. Now a policy that is not an object, an expiry that is not a finite number, or one after 2100 (where millisecond stamps land) makes authorization `NOT_CHECKED` when `as_of` is given, and adds a gap when it is not. An early expiry, such as 0, is still an ordinary expired date and fails.
+- **The expiry of a receipt that fails its integrity check is not read.** Bytes that do not match their hash or seal cannot be trusted, so the verifier no longer reads or quotes an expiry from them. Authorization stays `NOT_CHECKED`, and its gap says the expiry was not read.
+- **An `as_of` outside 2000..2100 is unreadable, however it is written.** A digit string was already held to that window, but a number and an RFC3339 time were not. Through the SDK, `asOf: 20261111` (a date, not epoch seconds) let a policy that expired in 2001 read fresh, and `asOf: Date.now()` (milliseconds) made every receipt with an expiry read `FAILED`. From the SDK or the CLI, `'1970-01-01T00:00:00Z'` (what `new Date(0).toISOString()` prints) also let an expired policy read fresh. All three are now unreadable anchors: authorization is `NOT_CHECKED`, with a message naming the likely mistake.
+
 ## 1.9.1 — 2026-11-08
 
 A fix for 1.9.0. One word in the Trust Report changes, and nothing else in how the package behaves. The package is still 165 files, and the MCP server still lists 21 tools.

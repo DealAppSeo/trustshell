@@ -7,7 +7,7 @@
  * This file holds no logic the page's first load has to pay for. The checker itself is in lib/first-run-check.ts.
  */
 
-export const RELEASE = '1.9.1';
+export const RELEASE = '1.9.2';
 const PACKAGE = `@hyperdag/trustshell@${RELEASE}`;
 export const LAUNCHER = `npx -y ${PACKAGE}`;
 
@@ -38,8 +38,8 @@ export const MCP_CONFIG = mcpConfig('npx', MCP_ARGS);
 /** A client that starts `npx` with no shell gets ENOENT on Windows: npx is npx.cmd there. Measured on 1.9.1. */
 export const MCP_CONFIG_WINDOWS = mcpConfig('cmd', ['/c', 'npx', ...MCP_ARGS]);
 
-/** Real output from 1.9.1, trimmed to the lines that decide. Re-record it rather than edit it. */
-export const EXAMPLE_RECORDED = 'Example: real output from @hyperdag/trustshell 1.9.1, recorded 9 Nov 2026 UTC, trimmed.';
+/** Real output from 1.9.2, trimmed to the lines that decide. Re-record it rather than edit it. */
+export const EXAMPLE_RECORDED = 'Example: real output from @hyperdag/trustshell 1.9.2, recorded 12 Nov 2026 UTC, trimmed.';
 
 export const EXAMPLE_CHECK = `### Claims: 1 supported · 1 contradicted · 0 not checked
 

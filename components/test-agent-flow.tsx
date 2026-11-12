@@ -235,7 +235,7 @@ export function PathTwo() {
         </a>
         .
       </p>
-      <Command text="npm i -g @hyperdag/trustshell@1.9.1" />
+      <Command text="npm i -g @hyperdag/trustshell@1.9.2" />
       <p className="text-sm text-[#cbd5e1]">Use a fresh TRUSTSHELL_HOME for each test. In bash or zsh:</p>
       <Command text={PATH_TWO_HOME.bash} />
       <p className="text-sm text-[#cbd5e1]">In PowerShell:</p>
