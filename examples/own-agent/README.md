@@ -14,7 +14,7 @@ Every command below is the same in bash, zsh and Windows PowerShell. The quotes 
 Install the release (Node 22.13 or later):
 
 ```bash
-npm i -g @hyperdag/trustshell@1.9.1
+npm i -g @hyperdag/trustshell@1.9.2
 ```
 
 ## Path 1: check what it said

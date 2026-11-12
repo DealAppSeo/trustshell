@@ -5,7 +5,7 @@ Claude Desktop 2.19675.0.0 is installed. Its config already had railway and gith
 ## Install
 
 ```
-npm i -g @hyperdag/trustshell@1.9.1
+npm i -g @hyperdag/trustshell@1.9.2
 ```
 
 ## Config

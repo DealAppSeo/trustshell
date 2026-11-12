@@ -2,6 +2,14 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## 1.9.2 — 2026-11-11
+
+A fix to the offline receipt verifier. Against the published 1.9.1 tarball, four files differ: `dist/lib/verify-receipt.js`, this changelog, the README (version pins, and one sentence about the demo claims) and `package.json` (version and two dev dependencies). Runtime dependencies are unchanged. The package is still 165 files, and the MCP server still lists 21 tools.
+
+- **Verifying with no `as_of` now says freshness was not checked.** In 1.9.1, a receipt whose policy carries an expiry verified with no word about it, so an expired policy could read `authorization: VERIFIED`. The status is unchanged (whether no `as_of` should lower it is a TrustLattice v1 question), but the authorization claim now carries a gap saying freshness was NOT checked.
+- **A chain names how many receipts went unchecked for freshness, and why** (no `as_of`, an unreadable `as_of`, or an unreadable expiry).
+- **An expiry the verifier cannot read no longer counts as no expiry.** In 1.9.1, an `expires_at` that was not a finite number was ignored, and a millisecond timestamp read as a date thousands of years away. Now a policy that is not an object, an expiry that is not a finite number, or one after 2100 (where millisecond stamps land) makes authorization `NOT_CHECKED` when `as_of` is given, and adds a gap when it is not. An early expiry, such as 0, is still an ordinary expired date and fails.
+
 ## 1.9.1 — 2026-11-08
 
 A fix for 1.9.0. One word in the Trust Report changes, and nothing else in how the package behaves. The package is still 165 files, and the MCP server still lists 21 tools.

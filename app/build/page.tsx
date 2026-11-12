@@ -27,12 +27,12 @@ import { CopyButton } from '@/components/build/copy-button';
 import { ShellSwitch } from '@/components/build/shell-switch';
 import { Explainer, FeedbackGap, RUN_URL, StudyBars, TradesBar, VerdictBreakdown } from '@/components/build/charts';
 
-// The package every command on this page runs: 1.9.1, npm `latest` since 2026-11-09. Every command,
+// The package every command on this page runs: 1.9.2, re-recorded 2026-11-12 from its release tarball. Every command,
 // caption and copy button follows these two lines. Keep a tag: a bare npx runs any older global
 // install instead (measured 2026-10-22: bare printed 1.4.0 while latest was 1.7.0). When the version
-// changes, re-run the transcripts on the new package first (E:\dev\reports\2026-11-09\site-1.9.1).
+// changes, re-run the transcripts on the new package first (E:\dev\reports\2026-11-11\site-1.9.2).
 const PKG = '@hyperdag/trustshell@latest';
-const PKG_VERSION = '1.9.1';
+const PKG_VERSION = '1.9.2';
 
 export const metadata = {
   title: 'Build with us — TrustShell',
@@ -309,7 +309,7 @@ export default function BuildPage() {
               lines={CHALLENGE_OUT}
               caption={
                 <>
-                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> {PKG_VERSION} from npm, run on 9
+                  An excerpt of the output of <Code>@hyperdag/trustshell</Code> {PKG_VERSION} from npm, run on 12
                   November 2026 in an empty folder with no account and no key; … marks lines left out. The first
                   sentence is supported. In the second, the commit is contradicted, and its &ldquo;succeeded&rdquo; is
                   not checked, because it names a commit this run is not on. Exit 1 means a claim was contradicted.
@@ -390,7 +390,7 @@ export default function BuildPage() {
               </p>
             </div>
             <ul className="space-y-3">
-              <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 9 November 2026.</Status>
+              <Status state="MEASURED">Both refusals, before signing, run from the npm developer preview on 12 November 2026.</Status>
               <Status state="NOT_CHECKED">Paying only for work that checked out: not available through TrustShell yet. This is the part we want to build with you:{' '}
                 <Ext href="https://github.com/DealAppSeo/trustshell/blob/main/docs/good-first-issues.md#10-x402-a-payment-that-waits-for-a-supported-card-a-spec-and-a-harness">starter task 10</Ext>. See {statusLink}.</Status>
             </ul>
@@ -400,7 +400,7 @@ export default function BuildPage() {
             copy={{ text: SPEND_SCRIPT, label: 'Copy spend.mjs', title: 'spend.mjs' }}
             lines={SPEND}
             wrap={false}
-            caption="Output from 1.9.1 on npm, run on 9 November 2026. Signing an allowed payment also needs the ethers package, which the error tells you to install."
+            caption="Output from 1.9.2 on npm, run on 12 November 2026. Signing an allowed payment also needs the ethers package, which the error tells you to install."
           />
         </section>
 
@@ -450,7 +450,7 @@ export default function BuildPage() {
           </h2>
           <p className="max-w-prose text-base sm:text-lg leading-relaxed">
             None of these needs an account, an API key or a model, and each says what was run and what was not. We
-            ran them on 22 October 2026, on Windows 11, with 1.8.0-rc.0, and re-checked the MCP launch on 1.9.1 on 9
+            ran them on 22 October 2026, on Windows 11, with 1.8.0-rc.0, and re-checked the MCP launch on 1.9.2 on 12
             November 2026 (21 tools).
           </p>
           <dl className="max-w-4xl divide-y divide-slate-800 border-y border-slate-800">
