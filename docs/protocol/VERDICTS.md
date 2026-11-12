@@ -90,10 +90,13 @@ status, never raises one:
   closed to `NOT_CHECKED`, like an unreadable `asOf`; without `asOf`, the gap says freshness was not
   checked. An early number (before 2000, or 0) is still an expiry: it is in the past, so it `FAILED`s
   against any `asOf`.
+  A receipt whose `integrity` is not `VERIFIED` is not read for freshness at all: its expiry is
+  never quoted, `authorization` stays `NOT_CHECKED`, and the gap says the policy expiry was not read.
   The chain walk rolls receipts up by integrity, links, sealers and `FAILED` claims, so a
   `NOT_CHECKED` authorization does not move it. Whenever freshness was not checked for a receipt
   with an expiry (no `asOf`, an unreadable `asOf`, or an unreadable expiry), the chain's
-  `limitations` count those receipts and say why. A `VERIFIED` chain then says nothing about whether
+  `limitations` count those receipts and say why. Receipts that failed integrity are not counted:
+  they already fail or defer the chain. A `VERIFIED` chain then says nothing about whether
   those policies were still in force.
 
 `reconciliation.downgraded[]` lists every claim the verifier lowered; `reconciliation.source` says
