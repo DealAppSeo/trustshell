@@ -43,7 +43,7 @@ export const TRUSTLATTICE_VERDICT_SPEC = 'https://hyperdag.dev/trustlattice/verd
 export interface OfflineVerifyOptions {
   /** Ed25519 public keys (0x + 64 hex) the caller trusts as sealers. Empty/absent = none pinned. */
   trustedRoots?: readonly string[];
-  /** Freshness anchor: RFC3339 string or epoch seconds. When set, a policy expired at/before it fails authorization. */
+  /** Freshness anchor: RFC3339 string or epoch SECONDS in 2000..2100 (Date.now() is milliseconds and is refused). When set, a policy expired at/before it fails authorization. */
   asOf?: string | number;
   /** The engine's six-claim in-toto Statement, if the caller has it (it travels in the receipt_response). */
   engineEnvelope?: unknown;
@@ -142,7 +142,14 @@ const MAX_ANCHOR_S = 4102444800; // 2100-01-01T00:00:00Z
  */
 export function asOfEpoch(asOf: string | number | undefined | null): Anchor {
   if (asOf === undefined || asOf === null) return null;
-  if (typeof asOf === 'number') return Number.isFinite(asOf) ? { epoch: Math.floor(asOf) } : { unreadable: `${asOf} is not a finite number` };
+  if (typeof asOf === 'number') {
+    // The same window as a digit string below: one value has one meaning, whichever way it arrives.
+    if (!Number.isFinite(asOf)) return { unreadable: `${asOf} is not a finite number` };
+    const n = Math.floor(asOf);
+    if (n > MAX_ANCHOR_S) return { unreadable: `${asOf} is after ${MAX_ANCHOR_S} (2100), so it is not epoch seconds; Date.now() is milliseconds, divide it by 1000` };
+    if (n < MIN_ANCHOR_S) return { unreadable: `${asOf} is before ${MIN_ANCHOR_S} (2000), so it is not plausible epoch seconds; a bare YYYYMMDD date lands in 1970` };
+    return { epoch: n };
+  }
   const s = asOf.trim();
   if (s === '') return { unreadable: 'empty anchor' };
   if (/^\d+$/.test(s)) {

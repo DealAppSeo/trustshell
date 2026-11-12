@@ -27,7 +27,7 @@ export declare const TRUSTLATTICE_VERDICT_SPEC: "https://hyperdag.dev/trustlatti
 export interface OfflineVerifyOptions {
     /** Ed25519 public keys (0x + 64 hex) the caller trusts as sealers. Empty/absent = none pinned. */
     trustedRoots?: readonly string[];
-    /** Freshness anchor: RFC3339 string or epoch seconds. When set, a policy expired at/before it fails authorization. */
+    /** Freshness anchor: RFC3339 string or epoch SECONDS in 2000..2100 (Date.now() is milliseconds and is refused). When set, a policy expired at/before it fails authorization. */
     asOf?: string | number;
     /** The engine's six-claim in-toto Statement, if the caller has it (it travels in the receipt_response). */
     engineEnvelope?: unknown;

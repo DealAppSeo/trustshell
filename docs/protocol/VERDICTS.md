@@ -82,7 +82,9 @@ status, never raises one:
 - **Freshness.** When `asOf` is given and the decision's `policy.expires_at` is at or before it,
   `authorization` is `FAILED`, however the issuer labelled it — this is re-derived locally from the
   policy, so it overrides the read. An `asOf` that cannot be parsed fails closed to `NOT_CHECKED`,
-  never silently skipped. With **no** `asOf`, freshness is not evaluated and the status is left as
+  never silently skipped. `asOf` is RFC3339 or epoch seconds, and epoch seconds must lie in
+  2000..2100 whether they arrive as a number or as a digit string: a millisecond stamp such as
+  `Date.now()`, or a bare YYYYMMDD date, cannot be parsed. With **no** `asOf`, freshness is not evaluated and the status is left as
   read; when the policy has an `expires_at`, `authorization.gaps` says freshness was NOT checked.
   A present expiry that cannot be read is never treated as "no expiry" or as a usable time. That
   covers a `policy` that is not an object, an `expires_at` that is not a finite number, and one
