@@ -11,4 +11,9 @@ if (!name) {
 }
 const s = JSON.parse(readFileSync(join(dir, name), 'utf8'));
 console.log(`### ${s.platform}: ${s.pass} passed, ${s.fail} failed, ${s.not_checked} not checked (shells: ${s.shells.join(', ')})\n`);
+if (s.github) {
+  console.log(`GitHub, no token: ${s.github.requests} requests, ${s.github.with_auth_header} with an auth header.`);
+  for (const b of s.github.budget) console.log(`- budget before ${b.before}: ${b.note}${b.waited_s ? `; ${b.remaining_after ?? '?'} left after the wait` : ''}`);
+  console.log('');
+}
 for (const r of s.results.filter((x) => x.status !== 'PASS')) console.log(`- **${r.status}** ${r.id}: ${r.what}`);

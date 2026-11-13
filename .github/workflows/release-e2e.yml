@@ -55,7 +55,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     # Measured: Windows runs of this E2E took 21-24 minutes and were cut off at 20 (see #702).
-    timeout-minutes: 35
+    # macOS gets 70: its run takes under a minute, but it may wait up to an hour for GitHub's rate limit (below).
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 70 || 35 }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -87,6 +88,12 @@ jobs:
       # not stand for steps that never ran), and an empty or wrong tarball path cannot fall back to the checkout.
       - name: Clean-install E2E on the published package
         shell: bash
+        # macOS runners share addresses with other people's jobs, so GitHub's anonymous limit (60 requests an hour
+        # per address) was often spent before this job's first request: 5 failed attempts on #704-#708. There the
+        # E2E reads the budget (that read is free) and waits for the reset, which is never more than an hour away.
+        # The steps still run with no token; one GitHub still refuses stays NOT_CHECKED and fails the gate below.
+        env:
+          TS_E2E_GITHUB_WAIT_S: ${{ matrix.os == 'macos-latest' && '3660' || '0' }}
         run: |
           t="${{ steps.pkg.outputs.tarball }}"
           if [ ! -f "$t" ] || [ "${t%.tgz}" = "$t" ]; then echo "::error::no published tarball at '$t'"; exit 1; fi

@@ -10,6 +10,9 @@
  *
  * EXIT 0 every step passed. 1 a step failed. 2 no failure, but something was NOT_CHECKED (a shell that is not
  * installed, GitHub rate-limiting this address). A skipped step is reported as NOT_CHECKED and never as a pass.
+ *
+ * TS_E2E_GITHUB_WAIT_S=<seconds> lets the run wait, in total, that long for GitHub's anonymous rate limit to reset
+ * before the steps that call it (default 0: never). See githubBudget below.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -18,6 +21,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { planWait } from './github-budget.cjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WIN = process.platform === 'win32';
@@ -28,6 +32,33 @@ const GREEN = { url: 'https://github.com/DealAppSeo/trustshell/actions/runs/3961
 const RED = { url: 'https://github.com/DealAppSeo/trustshell/actions/runs/42502305639', id: '42502305639' };
 const GONE = 'https://github.com/DealAppSeo/trustshell/actions/runs/1';
 const GITHUB = 'https://api.github.com';
+
+// GitHub allows 60 requests an hour per address without a token, and macOS runners share addresses with other
+// people's jobs. In 4 of 5 failed macOS runs (#704-#708) the first request was already refused: the address was
+// spent before this script started, so making fewer requests could not have helped. GET /rate_limit is not
+// counted against the limit, so the script reads the budget before spending it and may wait for the reset.
+// Waiting only delays the steps: they still run keyless against the real API, and one GitHub still refuses
+// stays NOT_CHECKED.
+let waitLeftS = Number(process.env.TS_E2E_GITHUB_WAIT_S) || 0;
+const budget = [];
+const rateLimit = () =>
+  fetch(`${GITHUB}/rate_limit`, { headers: { 'User-Agent': 'trustshell-release-e2e' }, signal: AbortSignal.timeout(15_000) })
+    .then((r) => r.json())
+    .then((b) => b?.resources?.core ?? null)
+    .catch(() => null);
+async function githubBudget(before, need) {
+  const core = await rateLimit();
+  const { waitS, note } = planWait(core, need, waitLeftS, Date.now() / 1000);
+  const entry = { before, need, remaining: core?.remaining ?? null, waited_s: waitS, note };
+  if (waitS) {
+    console.log(`github: ${note}`);
+    waitLeftS -= waitS;
+    await new Promise((d) => setTimeout(d, waitS * 1000));
+    entry.remaining_after = (await rateLimit())?.remaining ?? null;
+  }
+  budget.push(entry);
+  console.log(`github budget before ${before}: ${note}${waitS ? `; ${entry.remaining_after} left after the wait` : ''}`);
+}
 
 function parseArgs(argv) {
   const o = { tarball: undefined, out: undefined, only: undefined, keep: false };
@@ -185,6 +216,9 @@ async function release(ctx, run) {
   const shape = await run(primary, 'trustshell verify-receipt shape.json');
   expectStep('receipt.malformed-shape', 'JSON that is not a receipt fails (exit 1)', shape.code === 1 && /MALFORMED/.test(`${shape.stdout}${shape.stderr}`), `exit ${shape.code}; ${shape.stdout.slice(0, 160)}${shape.stderr.slice(0, 160)}`);
 
+  // Measured on 1.9.2: 11 requests from here to the MCP step (two per run checked, one for the missing run),
+  // and 2 for path1.check. Asking for all 13 here means a short budget is waited for once, not twice.
+  await githubBudget('inspect.supported', 13);
   const supported = await run(primary, `trustshell check ${GREEN.url} --claims "The check workflow succeeded, run ${GREEN.id}."`);
   githubStep('inspect.supported', 'a true claim about a real public run is SUPPORTED (exit 0)', supported, 0, /SUPPORTED/.test(supported.stdout));
 
@@ -300,6 +334,7 @@ async function ownAgent(ctx, run) {
   const claimsDir = join(ctx.work, 'path1');
   mkdirSync(claimsDir, { recursive: true });
   writeFileSync(join(claimsDir, 'said.txt'), `The check workflow succeeded, run ${RED.id}.\n`);
+  await githubBudget('path1.check', 2);
   const p1 = await run(primary, `trustshell check ${RED.url} --claims-file path1/said.txt --out path1/evidence`, { home: join(ctx.work, 'p1-home') });
   githubStep('path1.check', "Path 1 finds a false claim in an agent's report of a real run", p1, 1);
   const p1Record = join('path1', 'evidence', 'record.json');
@@ -493,8 +528,11 @@ async function main() {
     record('harness', 'FAIL', 'the test run itself crashed', e?.stack ?? e);
   }
   const count = (s) => results.filter((r) => r.status === s).length;
-  const summary = { started, finished: new Date().toISOString(), node: process.version, platform: process.platform, shells: ctx.shells.map((s) => s.name), tarball_sha256: digest, pass: count('PASS'), fail: count('FAIL'), not_checked: count('NOT_CHECKED'), results };
-  console.log(`\n${summary.pass} passed · ${summary.fail} failed · ${summary.not_checked} not checked`);
+  // Counted from the traces, so the number the budget check asks for can be compared with what was really sent.
+  const toGitHub = readdirSync(work).filter((f) => /^trace-.*\.jsonl$/.test(f)).flatMap((f) => readTrace(join(work, f))).filter((t) => t.origin === GITHUB);
+  const github = { requests: toGitHub.length, with_auth_header: toGitHub.filter((t) => t.auth).length, budget };
+  const summary = { started, finished: new Date().toISOString(), node: process.version, platform: process.platform, shells: ctx.shells.map((s) => s.name), tarball_sha256: digest, pass: count('PASS'), fail: count('FAIL'), not_checked: count('NOT_CHECKED'), github, results };
+  console.log(`\n${summary.pass} passed · ${summary.fail} failed · ${summary.not_checked} not checked · ${github.requests} requests to ${GITHUB}, ${github.with_auth_header} with an auth header`);
   if (opts.out) {
     mkdirSync(opts.out, { recursive: true });
     writeFileSync(join(opts.out, `e2e-${process.platform}.json`), `${JSON.stringify(summary, null, 2)}\n`);
