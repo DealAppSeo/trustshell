@@ -33,9 +33,9 @@ const RED = { url: 'https://github.com/DealAppSeo/trustshell/actions/runs/425023
 const GONE = 'https://github.com/DealAppSeo/trustshell/actions/runs/1';
 const GITHUB = 'https://api.github.com';
 
-// GitHub allows 60 requests an hour per address without a token, and macOS runners share addresses with other
-// people's jobs. In 4 of 5 failed macOS runs (#704-#708) the first request was already refused: the address was
-// spent before this script started, so making fewer requests could not have helped. GET /rate_limit is not
+// GitHub allows 60 requests an hour per address without a token, and CI runners share addresses with other
+// people's jobs. In 5 of 6 rate-limited CI attempts (#704, #707, #708) the first request was already refused:
+// the address was spent before this script started, so making fewer requests could not have helped. GET /rate_limit is not
 // counted against the limit, so the script reads the budget before spending it and may wait for the reset.
 // Waiting only delays the steps: they still run keyless against the real API, and one GitHub still refuses
 // stays NOT_CHECKED.

@@ -1,6 +1,6 @@
 /**
  * release-e2e reads GitHub's anonymous budget before its keyless inspect steps and may wait once for the reset.
- * macOS runners share addresses, so the budget was often spent before the job's first request (#704 #705 #707 #708).
+ * CI runners share addresses, so the budget was sometimes spent before the job's first request (#704 #707 #708).
  * Waiting only delays the steps; it must never turn into a skip or a pass.
  */
 const { planWait } = require('../scripts/github-budget.cjs') as {
