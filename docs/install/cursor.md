@@ -5,7 +5,7 @@ Cursor 3.23.12 is installed. The user `mcp.json` under `.cursor` was absent. The
 ## Install
 
 ```
-npm i -g @hyperdag/trustshell@1.9.3
+npm i -g @hyperdag/trustshell@1.9.2
 ```
 
 ## Config

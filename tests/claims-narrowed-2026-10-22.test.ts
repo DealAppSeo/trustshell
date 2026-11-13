@@ -65,6 +65,7 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
   const FORBIDDEN: RegExp[] = [
     /grades? its own family/i,
     /independent model families/i,
+    /no independent pair/i,
     /did not write the answer/i,
     /two guarantees/i,
     /HAL (vetoes|VETOs|blocks|stops|catches) (a|any|every) false claim/i,

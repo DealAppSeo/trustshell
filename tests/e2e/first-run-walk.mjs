@@ -286,8 +286,8 @@ async function walk(label, viewport) {
   // ── Path 2: an AI builds software for me.
   await page.getByRole('button', { name: 'Check my own run' }).waitFor();
   let text = await flow.textContent();
-  check(`${label}: vibe gives the check command, pinned`, text.includes('npx -y @hyperdag/trustshell@1.9.3 check https://github.com/DealAppSeo/trustshell/actions/runs/42502305639'));
-  check(`${label}: its example is labelled as an example`, text.includes('Example: real output from @hyperdag/trustshell 1.9.3'));
+  check(`${label}: vibe gives the check command, pinned`, text.includes('npx -y @hyperdag/trustshell@1.9.2 check https://github.com/DealAppSeo/trustshell/actions/runs/42502305639'));
+  check(`${label}: its example is labelled as an example`, text.includes('Example: real output from @hyperdag/trustshell 1.9.2'));
   check(`${label}: a successful run is not proof`, text.includes('A successful run is not proof the code is correct'));
   await shot('vibe-1-try');
   await everyCheck('vibe try');
@@ -303,7 +303,7 @@ async function walk(label, viewport) {
   await page.getByLabel('What your agent said').fill('It passed "fine" $(x)');
   check(`${label}: text a shell would reinterpret is refused`, /do not survive every shell/.test(await page.locator('#claim-help').textContent()));
   await page.getByLabel('What your agent said').fill('The check workflow succeeded, run 123.');
-  check(`${label}: a valid form yields a pinned command`, (await page.locator('pre').first().textContent()) === 'npx -y @hyperdag/trustshell@1.9.3 check https://github.com/o/r/actions/runs/123 --claims "The check workflow succeeded, run 123." --out evidence');
+  check(`${label}: a valid form yields a pinned command`, (await page.locator('pre').first().textContent()) === 'npx -y @hyperdag/trustshell@1.9.2 check https://github.com/o/r/actions/runs/123 --claims "The check workflow succeeded, run 123." --out evidence');
   text = await flow.textContent();
   check(`${label}: says NOT_CHECKED is never a pass`, text.includes('NOT_CHECKED is never a pass'));
   check(`${label}: gives the report command`, text.includes('trust-report --out report --record evidence/record.json'));
@@ -363,7 +363,7 @@ async function walk(label, viewport) {
 
   // ── Path 3: developer.
   text = await flow.textContent();
-  check(`${label}: dev gives the offline demo`, text.includes('npx -y @hyperdag/trustshell@1.9.3 demo'));
+  check(`${label}: dev gives the offline demo`, text.includes('npx -y @hyperdag/trustshell@1.9.2 demo'));
   check(`${label}: and says what a signature does not show`, text.includes('It does not show the action was right'));
   await shot('dev-1-try');
   await everyCheck('dev try');
@@ -373,7 +373,7 @@ async function walk(label, viewport) {
   check(`${label}: says what TrustShell sees, at the point it matters`, text.includes('TrustShell sees only what goes through trustshell run, the MCP server and the SDK'));
   check(`${label}: Guard says npm and npx cannot start on Windows`, await page.getByText('npm and npx cannot be started through trustshell run').isVisible());
   check(`${label}: Guard gives both shells' setup`, text.includes('export TRUSTSHELL_HOME=') && text.includes('$env:TRUSTSHELL_HOME ='));
-  check(`${label}: Guard gives the pinned install`, await page.getByText('npm i -g @hyperdag/trustshell@1.9.3').isVisible());
+  check(`${label}: Guard gives the pinned install`, await page.getByText('npm i -g @hyperdag/trustshell@1.9.2').isVisible());
   await shot('dev-2-guard');
   await everyCheck('dev guard');
   await page.getByRole('tab', { name: 'CLI' }).click();
@@ -382,7 +382,7 @@ async function walk(label, viewport) {
   await everyCheck('dev cli');
   await page.getByRole('tab', { name: 'MCP' }).click();
   const mcp = await page.getByTestId('dev-mcp').textContent();
-  check(`${label}: the MCP tab gives a pinned config`, mcp.includes('"trustshell-mcp"') && mcp.includes('@hyperdag/trustshell@1.9.3'));
+  check(`${label}: the MCP tab gives a pinned config`, mcp.includes('"trustshell-mcp"') && mcp.includes('@hyperdag/trustshell@1.9.2'));
   check(`${label}: and says which tools send text away`, mcp.includes('that text leaves your machine'));
   check(`${label}: and that no policy means no gate`, mcp.includes('With no policy there, the call runs'));
   await shot('dev-2-mcp');

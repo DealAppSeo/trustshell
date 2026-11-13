@@ -3,8 +3,8 @@ import { CopyCommand, InstallTabs, McpConfig } from '@/components/home-install';
 
 // The home page has one job (Sean, 2026-10-24): get a developer to run TrustShell and install it.
 // Everything else (the hosted sentence check, the game, the agent path, the vision) has its own page
-// and stays off this one. The demo below is real output from @hyperdag/trustshell 1.9.3, recorded
-// 2026-11-13T22:41:05Z against a pinned public run; re-record it rather than edit it.
+// and stays off this one. The demo below is real output from @hyperdag/trustshell 1.9.2, recorded
+// 2026-11-12T03:38:13Z against a pinned public run; re-record it rather than edit it.
 const DESCRIPTION =
   "Check what your AI agent did, not what it says it did. TrustShell reads GitHub's own record of a CI run and marks each claim your agent made supported, contradicted or not checked. Free, open source, runs on your machine.";
 
@@ -88,7 +88,7 @@ export default function Home() {
         </div>
         </div>
 
-        {/* What the command above prints: real 1.9.3 output, 2026-11-13T22:41:05Z, trimmed to the verdict that matters. */}
+        {/* What the command above prints: real 1.9.2 output, 2026-11-12T03:38:12Z, trimmed to the verdict that matters. */}
         <figure className="min-w-0">
           <div className="rounded-lg border border-border bg-[#0d1117] px-4 py-4 font-mono text-[13px] leading-relaxed text-[#c9d1d9] [overflow-wrap:anywhere]">
             <p className="text-muted">Run DealAppSeo/trustshell · run {RUN_ID}</p>
@@ -97,7 +97,7 @@ export default function Home() {
             <p className="pl-4 text-muted">The claim cites commit 5d1c5e3f57e1; the inspected run is on 392797a69b6a.</p>
             <p className="mt-3 text-muted">exit 1</p>
           </div>
-          <figcaption className="mt-2 text-xs text-muted">What that command prints (trimmed), recorded with 1.9.3 on 13 Nov 2026.</figcaption>
+          <figcaption className="mt-2 text-xs text-muted">What that command prints (trimmed), recorded with 1.9.2 on 12 Nov 2026.</figcaption>
         </figure>
       </section>
 
@@ -130,7 +130,7 @@ export default function Home() {
               <p className="mt-3 text-muted">exit 1</p>
             </div>
             <p className="mt-2 text-xs text-muted">
-              Recorded with 1.9.3 on 13 Nov 2026, 22:41 UTC.{' '}
+              Recorded with 1.9.2 on 12 Nov 2026, 03:38 UTC.{' '}
               <a href={RUN_URL} className="underline underline-offset-2 hover:text-foreground">Open the run</a> and compare.
               Exit codes: 0 every claim supported, 1 one contradicted, 3 something not checked.
             </p>
@@ -181,7 +181,7 @@ export default function Home() {
                   </p>
                   <McpConfig />
                   <p className="text-sm text-muted">
-                    In 1.9.3 the server gives your AI the same run check as the command above (the tool <code className="font-mono text-foreground">inspect_run</code>), a
+                    In 1.9.2 the server gives your AI the same run check as the command above (the tool <code className="font-mono text-foreground">inspect_run</code>), a
                     second-opinion check on one sentence, quote checking and local memory.
                   </p>
                 </div>

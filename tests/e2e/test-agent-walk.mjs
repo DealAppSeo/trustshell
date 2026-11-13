@@ -192,7 +192,7 @@ async function walk(label, viewport) {
 
   await page.getByRole('radio', { name: /Run a task through TrustShell/ }).check();
   check(`${label}: path 2 replaces path 1`, (await page.getByTestId('path-two').isVisible()) && !(await page.getByTestId('path-one').isVisible()));
-  check(`${label}: path 2 gives the install command`, await page.getByText('npm i -g @hyperdag/trustshell@1.9.3').isVisible());
+  check(`${label}: path 2 gives the install command`, await page.getByText('npm i -g @hyperdag/trustshell@1.9.2').isVisible());
   check(`${label}: path 2 says what it does not see`, await page.getByText('without trustshell run is not seen').isVisible());
   await axe(page, `${label} path2`);
   await shot('2-path2');

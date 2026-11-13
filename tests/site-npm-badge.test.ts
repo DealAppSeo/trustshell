@@ -49,14 +49,14 @@ describe('site install copy matches the published release', () => {
     expect(agentScreen).not.toMatch(/packageJson\.version/);
     expect(hero).toContain('Check what your AI agent did, not what it says it did.');
     expect(readFileSync(join(ROOT, 'app/check/CheckForm.tsx'), 'utf8')).toContain('Free. No signup. No wallet. Don&apos;t paste anything private.');
-    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.9.3';");
+    expect(agentScreen).toContain("export const INSTALL = 'npm i -g @hyperdag/trustshell@1.9.2';");
     // Pinned to the same version as the install line: `check "<sentence>"` ships in 1.5.0 and later.
     expect(agentScreen).toContain('export const TERMINAL_COMMAND = `npx @hyperdag/trustshell check "${SPEED_TRAP}"`;');
     expect(`${hero}\n${agentScreen}`).not.toContain('trustshell status');
     // Every version the landing names is the published one.
     const named = `${hero}\n${agentScreen}`.match(/@hyperdag\/trustshell@(\d+\.\d+\.\d+)/g) ?? [];
     expect(named.length).toBeGreaterThan(0);
-    expect(new Set(named)).toEqual(new Set(['@hyperdag/trustshell@1.9.3']));
+    expect(new Set(named)).toEqual(new Set(['@hyperdag/trustshell@1.9.2']));
     expect(hero).not.toMatch(/\b(Paris|Rome|Eiffel)\b/);
     expect(hero).not.toContain('Demo file is not in the repo');
     expect(hero).not.toContain('E:\\TrustDisk');

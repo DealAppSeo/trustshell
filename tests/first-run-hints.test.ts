@@ -1,6 +1,6 @@
 /**
  * Three first-run defects from the 1.9.1 stranger walk (E:\dev\reports\2026-11-09\beta\FIRST_USER_VERIFICATION.md),
- * still open on 1.9.2 when re-tested 2026-11-13, fixed in 1.9.3:
+ * still open on 1.9.2 when re-tested 2026-11-13, fixed on main for the next release:
  *   #2  a hint said `trustshell …`, which an npx-only user does not have on PATH;
  *   #3  `demo` printed two different hex values both called "key", and the first one fails as --root;
  *   (new) `check <url> --claims The check workflow…` with the quotes lost checked only "The".
@@ -23,13 +23,13 @@ function captureIO(): { io: CliIO; out: string[]; err: string[] } {
 
 describe('selfCommand: the command a hint tells the user to type (#2)', () => {
   it('names the npx form, pinned to the running version, when started through npx', () => {
-    expect(selfCommand('1.9.3', { npm_command: 'exec' }, 'linux')).toBe('npx -y @hyperdag/trustshell@1.9.3');
+    expect(selfCommand('9.9.9', { npm_command: 'exec' }, 'linux')).toBe('npx -y @hyperdag/trustshell@9.9.9');
   });
   it('says npx.cmd on Windows, which PowerShell runs even when scripts are disabled', () => {
-    expect(selfCommand('1.9.3', { npm_command: 'exec' }, 'win32')).toBe('npx.cmd -y @hyperdag/trustshell@1.9.3');
+    expect(selfCommand('9.9.9', { npm_command: 'exec' }, 'win32')).toBe('npx.cmd -y @hyperdag/trustshell@9.9.9');
   });
   it('says trustshell for an installed copy, and never pins an unknown version', () => {
-    expect(selfCommand('1.9.3', {}, 'win32')).toBe('trustshell');
+    expect(selfCommand('9.9.9', {}, 'win32')).toBe('trustshell');
     expect(selfCommand('unknown', { npm_command: 'exec' }, 'linux')).toBe('trustshell');
   });
 });

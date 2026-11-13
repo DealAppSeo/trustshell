@@ -2,9 +2,9 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## 1.9.3 — 2026-11-13
+## Unreleased (on main, not yet on npm; npm `latest` is 1.9.2)
 
-First-run fixes and narrowed claims. No exit code, verdict or verifier rule changes, and runtime dependencies are unchanged. The MCP server still lists 21 tools.
+First-run fixes and narrowed claims. Every exit code keeps its meaning, and no verdict or verifier rule changes; two inputs that were silently mis-read (below) are now refused as usage errors, exit 2. Runtime dependencies are unchanged. The MCP server still lists 21 tools.
 
 - **`demo` no longer shows two different values both called "key".** The verified line printed the key's sha256 fingerprint as "pinned key 0x…", and the `--root` line below it printed the key itself, so a first user who pasted the first into `--root` got "tampered". The line now says "sha256 fingerprint" and that `--root` takes the key. `receipt` uses the same wording.
 - **Hints say how to run the command again.** Started through npx, the next-step lines from `demo`, `sign-receipt` and `trust-report` now print `npx -y @hyperdag/trustshell@<version> …` (`npx.cmd` on Windows) instead of a bare `trustshell`, which an npx-only user does not have on PATH. An installed copy still prints `trustshell`.

@@ -13,7 +13,7 @@ describe('L3 honest STATUS', () => {
   const status = readFileSync(join(ROOT, 'docs/STATUS.md'), 'utf8');
 
   // 2026-10-06: npm latest was 1.6.0 (npm view), and GET /api/v1/hal/stats measured quorum_health
-  // 3 answering / 5 configured. Re-measured 2026-11-13 for 1.9.3: 4 answering / 6 configured, and the
+  // 3 answering / 5 configured. Re-measured 2026-11-13: 4 answering / 6 configured, and the
   // docs say that, dated. The site strip (components/status-strip.tsx) is rendered by no page and still
   // pins 2 / 8 below.
   it('names npm 1.6.0, the measured 4 answering / 6 configured, Sepolia, shadow, no MVP launched', () => {
