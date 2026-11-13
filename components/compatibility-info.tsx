@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { TrustBadge } from './trust-state';
 
 /**
- * Independent cross-examination — the live quorum card.
+ * Cross-examination by more than one model family — the live quorum card. (Until 2026-11-13 its
+ * heading claimed a model is never checked by its own family. The F7 narrowing of 2026-10-22
+ * removed that claim from the pages, but its test read only page files, never this component;
+ * tests/claims-narrowed-2026-10-22.test.ts now scans every file a page can render.)
  *
  * WHAT THIS USED TO BE. This file once rendered a wall of marketing: a "MAESTRO Layer 6
  * Compliant" badge, five hardcoded signal percentages (94/87/91/14/2) presented as if they
@@ -15,7 +18,7 @@ import { TrustBadge } from './trust-state';
  *
  * WHAT IT IS NOW. The one honest, load-bearing part of the original: a card that reads the
  * engine's real quorum configuration from `/api/v1/hal/stats` and shows ONLY what that endpoint
- * actually returns — how many independent model families the check requires, and their names.
+ * actually returns — how many different model families the check requires, and their names.
  * If the engine cannot be reached, it says so as NOT_CHECKED; it never invents a count. Re-skinned
  * from the old indigo/slate palette to the house tokens so a verdict can never be mistaken for a
  * call to action.
@@ -66,15 +69,15 @@ export function CompatibilityInfo() {
     >
       <div className="space-y-1">
         <p className="text-[11px] uppercase tracking-widest text-accent font-semibold">
-          Independent cross-examination
+          Cross-examination by more than one model family
         </p>
-        <h3 className="text-lg font-semibold text-foreground">No model grades its own family&apos;s homework</h3>
+        <h3 className="text-lg font-semibold text-foreground">Different families, not a single judge</h3>
       </div>
       <p className="text-sm text-muted leading-relaxed">
-        A claim is cross-checked by a quorum of decorrelated model families. A blind spot shared by
-        one lineage gets caught by another that fails differently — so a confident wrong answer has
-        to survive scrutiny from a model that does not share its training. Suspiciously perfect
-        agreement is a reason for a second look, not a rubber stamp.
+        A claim is cross-checked by models from more than one family, so a blind spot in one lineage
+        can be caught by another that fails differently. Different is not independent: families can
+        share training data and the same mistakes, so agreement is evidence, not proof. Suspiciously
+        perfect agreement is a reason for a second look, not a rubber stamp.
       </p>
 
       <div className="rounded-lg border border-border/60 bg-background/40 p-4 space-y-2">

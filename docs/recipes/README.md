@@ -1,6 +1,6 @@
 # TrustShell recipes: use it from the tools you already have
 
-Each recipe uses only what ships today in `@hyperdag/trustshell` (1.9.2, npm `latest`). None needs an account, an API key or a model. Each says exactly what was run and what was not.
+Each recipe uses only what ships today in `@hyperdag/trustshell` (1.9.3, npm `latest`). None needs an account, an API key or a model. Each says exactly what was run and what was not.
 
 | Recipe | You use | Status (2026-10-22, Windows 11) | Run it |
 |---|---|---|---|

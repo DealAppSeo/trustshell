@@ -45,7 +45,8 @@ function VibeTry({ go }: { go: Go }) {
     <div className="space-y-4">
       <p className="text-slate-300">When an AI pushes code, GitHub Actions can run your checks and keep a record. TrustShell reads that record and sets it beside what the AI said.</p>
       <p className="text-slate-300">
-        This one line checks a false claim about a real run. Paste it into a terminal. It needs Node 22.13 or newer. Once npx has fetched the package, it contacts only api.github.com.{' '}
+        This one line checks a false claim about a real run. Paste it into a terminal. It needs Node 22.13 or newer. Once npx has fetched the package, it contacts only api.github.com.
+        The first run downloads the package and can take a minute or two before anything prints. On Windows, if PowerShell says running scripts is disabled, type npx.cmd in place of npx.{' '}
         <a href="/devs" className={textLink}>
           What is a terminal?
         </a>

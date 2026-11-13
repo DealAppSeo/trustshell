@@ -143,10 +143,11 @@ a NEGATIVE delta is then multiplied by redemption_modifier
 tier = compute_tier( new_repid, agent )   // database trigger; also demotes on counterparty count`}</pre>
         </div>
         <p className="text-sm text-[#64748b]">
-          Checked against the engine source on 2026-10-12. This page used to show the ecosystem-need weight multiplying the
-          whole delta and the constitutional audit gating every event. Neither is what runs, and the list below says what does.
-          The shadow-mode gates that can hold a delta back (deception events, unproven self-reports, grounding) are real and are
-          not drawn here.
+          Checked against the engine source on 2026-10-12 (the last two sentences corrected 2026-11-13). This page used to
+          show the ecosystem-need weight multiplying the whole delta and the constitutional audit gating every event. Neither
+          is what runs, and the list below says what does. Not drawn here: an unproven self-report earns 0 without an evidence
+          reference (enforced by default; the reference itself is not yet verified). The deception and grounding checks run in
+          shadow only, so they change no delta.
         </p>
 
         <ul className="space-y-3 text-[#94a3b8]">

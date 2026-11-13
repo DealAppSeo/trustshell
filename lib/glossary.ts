@@ -216,7 +216,7 @@ export const TERMS: Term[] = [
     group: 'verify',
     status: 'shipped',
     definition:
-      'The hallucination-detection engine. It scores a response for risk across several independent model families and returns PASS, FLAG (proceed with care) or VETO.',
+      'The hallucination-detection engine. It scores a response for risk across models from several different families (different is not independent) and returns PASS, FLAG (proceed with care) or VETO.',
     note: 'Scoring runs on our servers, not in your browser. There is no local inference path.',
     related: ['pythagorean-comma', 'sbfa'],
     deeper: { label: 'Honest AI terms on HyperDAG', href: `${HYPERDAG_GLOSSARY}#honest` },

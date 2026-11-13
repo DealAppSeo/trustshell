@@ -9,7 +9,7 @@ Screenshot placeholders below are names only. The pictures are not in this repo.
 ## 1. Install
 
 ```bash
-npm i -g @hyperdag/trustshell@1.9.2
+npm i -g @hyperdag/trustshell@1.9.3
 ```
 
 Then:
@@ -18,7 +18,7 @@ Then:
 trustshell --version
 ```
 
-You should see `1.9.2`.
+You should see `1.9.3`.
 
 <!-- screenshot placeholder: screenshots/walkthrough-01-version.png — not captured -->
 

@@ -418,7 +418,7 @@ describe('stranger e2e on current main', () => {
     }
   });
 
-  it('landing keeps the 1.9.2 install line and does not put status on npm', () => {
+  it('landing keeps the 1.9.3 install line and does not put status on npm', () => {
     const page = readFileSync(join(ROOT, 'app/page.tsx'), 'utf8');
     // Install-first since 2026-10-24: the commands are on the home page itself.
     const landing = page;

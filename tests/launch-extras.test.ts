@@ -12,15 +12,17 @@ describe('L3 honest STATUS', () => {
   const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
   const status = readFileSync(join(ROOT, 'docs/STATUS.md'), 'utf8');
 
-  // 2026-10-06: npm latest is 1.6.0 (npm view), and GET /api/v1/hal/stats measured
-  // quorum_health 3 answering / 5 configured. The docs now say that, dated. The site strip
-  // (components/status-strip.tsx) was not part of that docs change and still pins 2 / 8 below.
-  it('names npm 1.6.0, the measured 3 answering / 5 configured, Sepolia, shadow, no MVP launched', () => {
+  // 2026-10-06: npm latest was 1.6.0 (npm view), and GET /api/v1/hal/stats measured quorum_health
+  // 3 answering / 5 configured. Re-measured 2026-11-13 for 1.9.3: 4 answering / 6 configured, and the
+  // docs say that, dated. The site strip (components/status-strip.tsx) is rendered by no page and still
+  // pins 2 / 8 below.
+  it('names npm 1.6.0, the measured 4 answering / 6 configured, Sepolia, shadow, no MVP launched', () => {
     const strip = readFileSync(join(ROOT, 'components/status-strip.tsx'), 'utf8');
     for (const text of [readme, status]) {
       expect(text).toMatch(/1\.6\.0/);
-      expect(text).toMatch(/3 answering \/ 5 configured/);
-      expect(text).toMatch(/MEASURED 2026-10-06/);
+      expect(text).toMatch(/4 answering \/ 6 configured/);
+      expect(text).toMatch(/MEASURED 2026-11-13/);
+      expect(text).not.toMatch(/3 answering \/ 5 configured/);
       expect(text).not.toMatch(/2 answering \/ 8 configured/);
       expect(text).toMatch(/Sepolia/i);
       expect(text).toMatch(/shadow/i);

@@ -602,6 +602,13 @@ function parseArgs(argv) {
                 if (claimsText === undefined && claimsFile === undefined) {
                     return { command: 'check', json, verify, error: '--out, --demo and --guided apply only with --claims or --claims-file' };
                 }
+                // A stray word after the run URL is almost always a claim that lost its quotes: the shell
+                // split `--claims The check workflow succeeded…` into words, so --claims got only "The" and
+                // the result was "Unmapped claim `The`". Refuse it, as `ground` refuses a stray word.
+                if (rest.length > 1) {
+                    const got = claimsText !== undefined ? `--claims got ${JSON.stringify(claimsText)} and ${rest.length - 1} more word(s) followed; ` : '';
+                    return { command: 'check', json, verify, error: `unexpected argument: ${rest[1]} (${got}put the whole claim in quotes, --claims "<text>", or use --claims-file <path>)` };
+                }
                 return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo'), guided: flags.has('guided') };
             }
             return { command: cmd, operand: full, json, verify, markdown: flags.has('markdown') };
@@ -914,7 +921,7 @@ function formatKernelReceipt(r) {
     if (!r.ok)
         return `receipt NOT read: ${r.detail} (${r.reason})`;
     const a = r.authenticity;
-    const signer = a.status === 'AUTHENTIC' ? `✓ AUTHENTIC, signature verified here under pinned key ${a.fingerprint}` : `${a.status}: ${a.detail}`;
+    const signer = a.status === 'AUTHENTIC' ? `✓ AUTHENTIC, signature verified here under the pinned key with sha256 fingerprint ${a.fingerprint}` : `${a.status}: ${a.detail}`;
     const lines = [`kernel receipt ${r.receipt_id}`, `  hash  ✓ recomputed here, matches ${r.receipt.header.receipt_hash}`, `  signer ${signer}`, ''];
     if (!r.six_claims)
         return [...lines, `  six claims not shown: ${r.six_claims_note}`].join('\n');
@@ -931,7 +938,10 @@ function formatKernelReceipt(r) {
 /** `trustshell verify-receipt`: the OFFLINE six-claim verdict, same layout as `receipt`, no rollup. */
 function formatOfflineVerify(r) {
     const sealer = r.sealer.trusted
-        ? `✓ trusted — signature verified here under pinned key ${r.sealer.fingerprint}`
+        // This is the key's sha256 FINGERPRINT, not the key. Labelled as one because the demo prints
+        // the key itself on the `--root` line below it, and two unlabelled hex strings both called
+        // "key" sent first users to paste the fingerprint into --root (FIRST_USER_VERIFICATION #3).
+        ? `✓ trusted — signature verified here under the pinned key with sha256 fingerprint ${r.sealer.fingerprint} (--root takes the key, not this fingerprint)`
         : `not trusted — ${r.sealer.note || 'no signer pinned'}`;
     const env = r.reconciliation.engine_envelope === 'BOUND' ? 'bound'
         : r.reconciliation.engine_envelope === 'PRESENT_UNBOUND' ? 'present but does NOT bind this receipt (ignored)'
@@ -1475,7 +1485,7 @@ async function run(args, client, io = realIO) {
                 if (created)
                     io.err(`sign-receipt: created a new install key at ${path}`);
                 io.err(`sign-receipt: sealed as owner-self-signed. A verifier confirms the SEAL with:`);
-                io.err(`  trustshell verify-receipt <file> --root ${(0, owner_receipt_1.installKeyRootHex)(key)}`);
+                io.err(`  ${(0, version_1.selfCommand)(exports.VERSION)} verify-receipt <file> --root ${(0, owner_receipt_1.installKeyRootHex)(key)}`);
                 io.err(`This proves authorship and that the bytes are whole — NOT that the engine permitted the action, and it earns no production RepID.`);
                 return exports.EXIT.OK;
             }
@@ -1516,8 +1526,8 @@ async function run(args, client, io = realIO) {
                 io.out(formatOfflineVerify(result));
                 io.out('');
                 io.out('Do the same with your own receipt body — still offline, no account:');
-                io.out('  trustshell sign-receipt your-body.json > r.json');
-                io.out(`  trustshell verify-receipt r.json --root ${pin}`);
+                io.out(`  ${(0, version_1.selfCommand)(exports.VERSION)} sign-receipt your-body.json > r.json`);
+                io.out(`  ${(0, version_1.selfCommand)(exports.VERSION)} verify-receipt r.json --root ${pin}`);
                 io.err('');
                 io.err('An owner self-signature proves AUTHORSHIP + wholeness only — not that the engine permitted the action, and it earns no production RepID. Offline, a non-owner key reaches at most ISSUER_ATTESTED (attested under a named key, not a finding of independence); independence and RepID are the engine\'s call.');
                 return code;
