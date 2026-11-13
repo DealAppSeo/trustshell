@@ -1,8 +1,9 @@
 # ADVISORY - version-update PRs only; nothing here is a required check.
 # Weekly, with minor and patch bumps grouped into one PR per ecosystem so the queue stays
 # reviewable. Major bumps arrive as their own PRs on purpose: they are the ones that break.
-# The exception is the npm majors below: each was reviewed and its PR closed unmerged on
-# 2026-10-11, so Dependabot is told not to re-raise it. Delete an entry when the repo is
+# The exception is the npm majors below: each was reviewed and its PR closed unmerged
+# (2026-10-11 unless its comment says otherwise), so Dependabot is told not to re-raise it.
+# Delete an entry when the repo is
 # ready to take that major. github-actions has no ignores: its majors were merged.
 version: 2
 updates:
@@ -37,6 +38,14 @@ updates:
           - "version-update:semver-major"
       # zod 3 -> 4 (closed PR #509). zod is a runtime dependency of the published SDK.
       - dependency-name: "zod"
+        update-types:
+          - "version-update:semver-major"
+      # @noble/hashes 1 -> 2 (PR #700, closed 2026-11-12). A runtime dependency of the published
+      # SDK: it computes the receipt keccak. 2.x is ESM-only, and jest 29 cannot load it from this
+      # CommonJS package (both receipt suites fail to start); an SDK user's default jest setup
+      # would hit the same wall. Minor and patch updates within 1.x still arrive. GitHub listed
+      # no security advisory for @noble/hashes on 2026-11-12; re-check before trusting that.
+      - dependency-name: "@noble/hashes"
         update-types:
           - "version-update:semver-major"
   - package-ecosystem: github-actions
