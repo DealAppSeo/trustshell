@@ -544,6 +544,14 @@ function parseArgs(argv) {
                 error: `unknown option: ${a}`,
             };
         }
+        else if (/^--[A-Za-z][A-Za-z0-9-]*=/.test(a)) {
+            // `--claims="text with spaces"`: looksLikeOption only matches a value with no whitespace, so
+            // this one used to fall through as a positional. `check <url>` then checked the run alone and
+            // could exit 0 with the claim never compared (Strix, #711). Refuse it, naming only the option:
+            // the value is the caller's own text and is not echoed back.
+            const name = a.slice(0, a.indexOf('='));
+            return { command: 'help', json: false, verify: false, error: `unknown option: ${name}=… (write the value after a space: ${name} "<value>")` };
+        }
         else
             positionals.push(a);
     }
@@ -607,7 +615,8 @@ function parseArgs(argv) {
                 // the result was "Unmapped claim `The`". Refuse it, as `ground` refuses a stray word.
                 if (rest.length > 1) {
                     const got = claimsText !== undefined ? `--claims got ${JSON.stringify(claimsText)} and ${rest.length - 1} more word(s) followed; ` : '';
-                    return { command: 'check', json, verify, error: `unexpected argument: ${rest[1]} (${got}put the whole claim in quotes, --claims "<text>", or use --claims-file <path>)` };
+                    // JSON.stringify escapes control characters, so a stray word cannot write terminal escapes (Strix, #711).
+                    return { command: 'check', json, verify, error: `unexpected argument: ${JSON.stringify(rest[1])} (${got}put the whole claim in quotes, --claims "<text>", or use --claims-file <path>)` };
                 }
                 return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo'), guided: flags.has('guided') };
             }
