@@ -89,10 +89,10 @@ jobs:
       - name: Clean-install E2E on the published package
         shell: bash
         # Runners share addresses with other people's jobs, so GitHub's anonymous limit (60 requests an hour per
-        # address) was sometimes spent before this job's first request: 5 of 20 macOS attempts and 1 of 20 Windows
-        # attempts on 2026-11-10..12. The E2E reads the budget (that read is free) and waits for the reset, which is
-        # never more than an hour away. The steps still run with no token; one GitHub still refuses stays
-        # NOT_CHECKED and fails the gate below.
+        # address) ran out on 5 of 20 macOS and 1 of 20 Windows attempts on 2026-11-10..12. In 5 of those 6 it was
+        # spent before this job's first request. The E2E reads the budget (that read is free) and waits for the
+        # reset, which is never more than an hour away. The steps still run with no token; one GitHub still refuses
+        # stays NOT_CHECKED and fails the gate below.
         env:
           TS_E2E_GITHUB_WAIT_S: '3660'
         run: |
