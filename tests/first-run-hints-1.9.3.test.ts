@@ -52,9 +52,14 @@ describe('check <url> --claims with the quotes lost', () => {
     expect(p.command).toBe('help');
     expect(p.error).toMatch(/unknown option: --claims=… \(write the value after a space: --claims "<value>"\)/);
     expect(p.error).not.toContain('workflow succeeded');
-    // The same for any option, and a value after `--` is still plain text.
+    // The same for any option this parser takes a value for, and a value after `--` is still plain text.
     expect(parseArgs(['verify', '--why=two words']).error).toMatch(/unknown option: --why=…/);
     expect(parseArgs(['verify', '--', '--why=two words']).error).toBeUndefined();
+  });
+  it('still reads a --x=y z word as free text when x is not an option, as 1.9.2 did (Grok, #711 round 2)', () => {
+    const p = parseArgs(['check', 'The', 'claim', '--color=dark blue', 'is', 'unsupported']);
+    expect(p.error).toBeUndefined();
+    expect(p).toMatchObject({ command: 'check', operand: 'The claim --color=dark blue is unsupported' });
   });
   it('still accepts the quoted form', () => {
     const p = parseArgs(['check', RUN, '--claims', 'The check workflow succeeded, run 39619591025.']);

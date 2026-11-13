@@ -639,11 +639,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
         verify: false,
         error: `unknown option: ${a}`,
       };
-    } else if (/^--[A-Za-z][A-Za-z0-9-]*=/.test(a)) {
+    } else if (/^--[A-Za-z][A-Za-z0-9-]*=/.test(a) && (VALUE_OPTS.has(a.slice(0, a.indexOf('='))) || a.startsWith('--echo='))) {
       // `--claims="text with spaces"`: looksLikeOption only matches a value with no whitespace, so
       // this one used to fall through as a positional. `check <url>` then checked the run alone and
       // could exit 0 with the claim never compared (Strix, #711). Refuse it, naming only the option:
-      // the value is the caller's own text and is not echoed back.
+      // the value is the caller's own text and is not echoed back. Only names this parser takes a
+      // value for: any other `--x=y z` word is still free text, as in 1.9.2 (Grok, #711 round 2).
       const name = a.slice(0, a.indexOf('='));
       return { command: 'help', json: false, verify: false, error: `unknown option: ${name}=… (write the value after a space: ${name} "<value>")` };
     } else positionals.push(a);
