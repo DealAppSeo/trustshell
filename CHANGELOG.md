@@ -4,7 +4,10 @@ All notable changes to the `@hyperdag/trustshell` package.
 
 ## Unreleased (on main, not yet on npm; npm `latest` is 1.9.2)
 
-First-run fixes and narrowed claims. Every exit code keeps its meaning, and no verdict or verifier rule changes; two inputs that were silently mis-read (below) are now refused as usage errors, exit 2. Runtime dependencies are unchanged. The MCP server still lists 21 tools.
+First-run fixes, narrowed claims and a security update. Every exit code keeps its meaning, and no verdict or verifier rule changes; two inputs that were silently mis-read (below) are now refused as usage errors, exit 2. The MCP server still lists 21 tools.
+
+- **Security: `zod` 3.25.76 → 4.6.7 and `@modelcontextprotocol/sdk` → 1.32.2 (pinned)** (#713). This fixes GHSA-mrhx-c7xc-m3w5: a bounded array now rejects an oversize input before walking its elements. `tests/dependency-security.test.mjs` fails on the old zod. A clean install of the packed tarball audits at 0 vulnerabilities (`npm audit --omit=dev`).
+- **`verify-receipt` no longer says a tampered record "is whole".** When the recomputed hash did not match (or there was none to compare), the Integrity row printed "FAILED  The record is whole: its hash matches its contents. No trusted key was confirmed…", asserting the very thing that failed. That wording now appears only when the hash matched and the sealer was not confirmed; otherwise the row states the full claim beside FAILED or NOT_CHECKED. The verdict and exit code were already right and are unchanged.
 
 - **`demo` no longer shows two different values both called "key".** The verified line printed the key's sha256 fingerprint as "pinned key 0x…", and the `--root` line below it printed the key itself, so a first user who pasted the first into `--root` got "tampered". The line now says "sha256 fingerprint" and that `--root` takes the key. `receipt` uses the same wording.
 - **Hints say how to run the command again.** Started through npx, the next-step lines from `demo`, `sign-receipt` and `trust-report` now print `npx -y @hyperdag/trustshell@<version> …` (`npx.cmd` on Windows) instead of a bare `trustshell`, which an npx-only user does not have on PATH. An installed copy still prints `trustshell`.

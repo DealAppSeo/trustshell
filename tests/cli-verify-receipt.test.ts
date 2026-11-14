@@ -62,6 +62,8 @@ describe('trustshell verify-receipt', () => {
     const other = '0x' + 'ab'.repeat(32);
     expect(await run(parseArgs(['verify-receipt', GOLDEN, '--root', other]), NO_CLIENT, c.io)).toBe(EXIT.VETO);
     expect(c.err.join('\n')).toMatch(/Integrity\s+FAILED/);
+    // The bytes are whole here (only the key is wrong), so "its hash matches its contents" is TRUE and must stay.
+    expect(c.err.join('\n')).toMatch(/Integrity\s+FAILED\s+The record is whole: its hash matches its contents\. No trusted key was confirmed/);
   });
 
   it('a tampered receipt → integrity FAILED, exit 1', async () => {
@@ -70,7 +72,12 @@ describe('trustshell verify-receipt', () => {
     const p = tmpJson(tampered);
     const c = captureIO();
     expect(await run(parseArgs(['verify-receipt', p, '--root', KEY]), NO_CLIENT, c.io)).toBe(EXIT.VETO);
-    expect(c.err.join('\n')).toMatch(/Integrity\s+FAILED/);
+    const err = c.err.join('\n');
+    expect(err).toMatch(/Integrity\s+FAILED/);
+    expect(err).toMatch(/does not match header\.receipt_hash/);
+    // 2026-11-14: the row used to read "FAILED  The record is whole: its hash matches its contents. No trusted
+    // key was confirmed…", asserting the very thing that failed. The hash does NOT match here, so that wording must not appear.
+    expect(err).not.toMatch(/its hash matches its contents\. No trusted key was confirmed/);
   });
 
   it('--json emits the structured result', async () => {
