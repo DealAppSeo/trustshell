@@ -93,7 +93,7 @@ export function CompatibilityInfo() {
           <div className="space-y-2">
             <p className="text-sm text-foreground">
               Requires{' '}
-              <span className="font-bold">{state.families}</span> independent model{' '}
+              <span className="font-bold">{state.families}</span> different model{' '}
               {state.families === 1 ? 'family' : 'families'} to agree.
             </p>
             {state.names.length > 0 && (

@@ -65,6 +65,9 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
   const FORBIDDEN: RegExp[] = [
     /grades? its own family/i,
     /independent model families/i,
+    // 2026-11-14 (Chat's cross-check): JSX split the phrase across expressions, `independent model{' '}` then
+    // `{state.families === 1 ? 'family' : 'families'}`, so the pattern above never saw it on the live card.
+    /independent model\b[^<]{0,80}?famil/i,
     /no independent pair/i,
     // 2026-11-14: the free-votes rule (repid-engine src/classify/free-votes.ts) is two TRUE = pass, two FALSE = veto,
     // anything else not checked. A lone FALSE does not catch, and a family that answers wrongly CAN block a verdict.
@@ -89,6 +92,13 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
   it('no shipped surface makes the claim', () => {
     const hits = files.flatMap((rel) => FORBIDDEN.filter((re) => re.test(read(rel))).map((re) => `${rel}: ${re}`));
     expect(hits).toEqual([]);
+  });
+});
+
+describe('the CLI reads local files (2026-11-14, Chat cross-check P3)', () => {
+  it('the API reference does not say the CLI reads no config file', () => {
+    // guard.ts reads ~/.trustshell/policy.json, and a denial exits 5 (src/cli/index.ts help text).
+    expect(read('docs/api-reference.md')).not.toMatch(/The CLI reads no config file/i);
   });
 });
 

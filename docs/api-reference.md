@@ -156,8 +156,10 @@ The bins `package.json` ships:
 
 **Environment:** `REPID_API_KEY` (optional — `verify`/`repid`/`proof` are keyless),
 `TRUSTSHELL_API_URL` (override the backend origin). The full list is in
-[`getting-started.md` §6](./getting-started.md#6-configuration-reference). The CLI reads no config
-file; `init` writes `.trustshell/profile.md`, which only `report` reads.
+[`getting-started.md` §6](./getting-started.md#6-configuration-reference). The CLI also reads local
+files under `TRUSTSHELL_HOME` (default `~/.trustshell`): the owner policy `policy.json`, which `guard`
+writes and which can deny a command (exit 5), its decision records, and this install's signing key.
+`init` writes `.trustshell/profile.md`, which `profile`, `report` and `bundle export` read.
 
 **Exit codes for `verify` / `evaluate`** — the reason this works as a CI gate:
 
