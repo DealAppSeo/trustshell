@@ -170,6 +170,7 @@ async function verifyReceiptOffline(receipt, opts = {}) {
     const supports = [];
     const gaps = [];
     let integrityStatus = 'NOT_CHECKED';
+    let hashMatched = false;
     let sealerTrusted = false;
     let fingerprint = null;
     let sealerNote = '';
@@ -181,6 +182,7 @@ async function verifyReceiptOffline(receipt, opts = {}) {
         }
         else if (recomputed.toLowerCase() === headerHash.toLowerCase()) {
             integrityStatus = 'VERIFIED';
+            hashMatched = true;
             supports.push(`receipt_hash recomputed locally over the canonical receipt and matched (${headerHash})`);
         }
         else {
@@ -231,7 +233,11 @@ async function verifyReceiptOffline(receipt, opts = {}) {
     }
     if (prevHash && prevHash !== null)
         gaps.push('prev_hash is reported, not compared with the previous receipt (the chain is not walked offline)');
-    const integrity = claim(integrityStatus, integrityStatus === 'VERIFIED' && sealerTrusted ? INTEGRITY_STMT : INTEGRITY_STMT_UNSEALED, supports, gaps);
+    // The UNSEALED statement asserts "its hash matches its contents", so it may only appear when the hash DID match.
+    // Before 2026-11-14 it was chosen for every non-(VERIFIED + trusted) case, so a TAMPERED receipt printed
+    // "FAILED  The record is whole: its hash matches its contents…" beside a gap saying the hash does not match.
+    // Otherwise state the full claim; the status (FAILED / NOT_CHECKED) and the gaps say why it does not hold.
+    const integrity = claim(integrityStatus, hashMatched && !sealerTrusted ? INTEGRITY_STMT_UNSEALED : INTEGRITY_STMT, supports, gaps);
     // ── the other five: engine attestations, gated on integrity + a trusted sealer ──
     const engine = boundEngineClaims(opts.engineEnvelope, receiptId, recomputed ?? headerHash);
     const claims = { integrity };
