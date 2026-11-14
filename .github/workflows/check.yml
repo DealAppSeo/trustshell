@@ -11,6 +11,7 @@
 #
 #   npm ci                -> exit 0 (lockfile and package.json agree)
 #   npx tsc --noEmit      -> exit 0
+#   dist/ == sdk:build    -> exit 0 (added 2026-11-14; see the step's own comment)
 #   jest, minus tests/e2e -> 5 suites, 87 tests, exit 0
 #
 # WHY THE E2E SUITE IS EXCLUDED, and why that is not just moving the goalposts.
@@ -68,6 +69,18 @@ jobs:
       # a route, so tsc catches whole files a build structurally never visits.
       - name: Typecheck
         run: npx tsc --noEmit
+
+      # `npm install github:DealAppSeo/trustshell` (README; DealAppSeo/example-agent installs it this way)
+      # ships the COMMITTED dist/: there is no `prepare` script, and publish-sdk.yml rebuilds only for the
+      # npm registry. So a source change merged without a rebuilt dist/ reaches GitHub installs silently.
+      # Measured 2026-11-14: a fresh sdk:build reproduces all 151 committed dist files byte for byte, and
+      # a stale dist/lib/verify-receipt.js makes this step exit 1. The status check also catches a new
+      # source file whose build output was never committed, or a deleted one.
+      - name: dist/ matches what the source builds
+        run: |
+          npm run sdk:build
+          git diff --exit-code --stat -- dist
+          test -z "$(git status --porcelain -- dist)" || { git status --porcelain -- dist; exit 1; }
 
       - name: Unit tests
         run: npx jest --testPathIgnorePatterns '/node_modules/' 'tests/e2e/'
