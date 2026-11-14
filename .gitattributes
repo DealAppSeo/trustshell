@@ -5,3 +5,6 @@ extension/** text=auto eol=lf
 # served bytes equal to the printed hash (tests/build-ledger.test.ts checks it).
 public/samples/** text eol=lf
 tests/fixtures/trust-report-1.9.0/** -text
+# A belt's manifest lists the sha256 of each file's bytes; LF on every checkout keeps those bytes the same on
+# Windows and on CI (tests/toolbelt-inspect-run.test.ts attaches the committed belt).
+toolbelts/** text eol=lf
