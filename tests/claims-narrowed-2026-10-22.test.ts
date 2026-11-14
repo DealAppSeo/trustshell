@@ -66,6 +66,12 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
     /grades? its own family/i,
     /independent model families/i,
     /no independent pair/i,
+    // 2026-11-14: the free-votes rule (repid-engine src/classify/free-votes.ts) is two TRUE = pass, two FALSE = veto,
+    // anything else not checked. A lone FALSE does not catch, and a family that answers wrongly CAN block a verdict.
+    /lone FALSE flags/i,
+    /no independent second/i,
+    /cannot block the others from reaching one/i,
+    /the shape of the guarantee/i,
     /did not write the answer/i,
     /two guarantees/i,
     /HAL (vetoes|VETOs|blocks|stops|catches) (a|any|every) false claim/i,

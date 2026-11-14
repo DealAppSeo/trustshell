@@ -174,9 +174,9 @@ export default function TrustHarnessPage() {
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
           <ClaimTag tag="shipped" /> Today the check on{' '}
           <Link href="/check" className="text-accent hover:underline">/check</Link> asks two model
-          families, from different builders, and both must agree for a pass. A lone FALSE flags the
-          claim, and a lone TRUE with no independent second abstains, so one family that is wrong or
-          offline cannot carry a verdict alone. This is the same principle as{' '}
+          families, from different builders, and both must agree for a pass. Two FALSEs catch a claim;
+          anything else, including a lone TRUE or a lone FALSE, is not checked. So one family that is wrong
+          or offline cannot carry a verdict alone, though a wrong answer can leave a claim not checked. This is the same principle as{' '}
           <Link href="/how-verification" className="text-accent hover:underline">disjoint-family verification</Link>.
         </p>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
