@@ -107,7 +107,7 @@ const OUTCOMES: ReadonlyArray<Outcome> = [
   {
     word: 'Not checked',
     state: 'NOT_CHECKED',
-    means: 'No pair from two different families could answer — a family was down, abstained, or the two did not agree. It is an absence of a verdict, not a quiet yes.',
+    means: 'The two checkers did not both say TRUE or both say FALSE: they disagreed, one was unsure, or no model for a family gave a usable answer (one that is down hands its place to the next model first). It is an absence of a verdict, not a quiet yes.',
     blocks: 'Everything gated behind a check. Not checked fails closed: it never passes by default.',
   },
 ];

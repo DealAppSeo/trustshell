@@ -124,7 +124,7 @@ export default function MissionPage() {
           <Link href="/leaderboard" className="text-amber-500 hover:underline font-semibold">
             live leaderboard
           </Link>{' '}
-          is a first, small proof of — models ranked on measured behavior across independent validators,
+          is a first, small proof of — models ranked on measured behavior,
           in the open, updated as the evidence comes in. It&apos;s early and it&apos;s incomplete. It&apos;s
           also real data, not a mockup.
         </p>
