@@ -8,14 +8,16 @@ exports.ownFingerprint = ownFingerprint;
 exports.signValue = signValue;
 exports.verifyValue = verifyValue;
 /**
- * This install's Ed25519 key: `<TRUSTSHELL_HOME or ~/.trustshell>/bundle-signing-key.pem`, created 0600 on
- * first use, never written into anything it signs. It signs bundles (authorship) and, when the owner asks,
+ * This install's Ed25519 key: `<TRUSTSHELL_HOME or ~/.trustshell>/bundle-signing-key.pem`, created on first
+ * use and limited to this user with its folder (0600/0700 on POSIX, an owner/SYSTEM/Administrators ACL on
+ * Windows; see src/lib/owner-only.ts), never written into anything it signs. It signs bundles (authorship) and, when the owner asks,
  * the local policy (`trustshell guard sign`). A signature proves integrity only as far as the key is
  * trusted; it encrypts nothing. Every check recomputes the fingerprint from the key, never reads it off a file.
  */
 const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
 const jcs_1 = require("./jcs");
+const owner_only_1 = require("./owner-only");
 exports.SIGNING_KEY_FILE = 'bundle-signing-key.pem';
 function fingerprintOf(publicKeyB64url) {
     return (0, node_crypto_1.createHash)('sha256').update(Buffer.from(publicKeyB64url, 'base64url')).digest('hex');
@@ -33,10 +35,19 @@ const nodeKeyFs = () => {
         mkdirp: (p) => {
             fs.mkdirSync(p, { recursive: true, mode: 0o700 });
         },
+        restrict: (p) => (0, owner_only_1.ownerOnly)(p, 'file'),
+        restrictDir: (p) => (0, owner_only_1.ownerOnly)(p, 'dir'),
     };
 };
 exports.nodeKeyFs = nodeKeyFs;
-/** This install's key, created on first use. */
+/**
+ * This install's key, created on first use. The folder holding it (the TrustShell home: the key, the memory,
+ * the owner policy, the guard receipts) and then the key itself are narrowed to this user on load, not only
+ * on create, so a key made by an earlier version, or a folder another tool widened since, is repaired. Once
+ * per process (tryOwnerOnly). When it cannot be done the key still works and a TRUSTSHELL_HOME_PERMISSIONS
+ * or TRUSTSHELL_KEY_PERMISSIONS warning says so: unrestricted is what every earlier version had, and failing
+ * the command would not make it safer.
+ */
 function signingKey(dir, fs = (0, exports.nodeKeyFs)()) {
     const path = (0, node_path_1.join)(dir, exports.SIGNING_KEY_FILE);
     let created = false;
@@ -46,6 +57,11 @@ function signingKey(dir, fs = (0, exports.nodeKeyFs)()) {
         fs.writeNew(path, String(privateKey.export({ format: 'pem', type: 'pkcs8' })));
         created = true;
     }
+    const { restrict, restrictDir } = fs;
+    if (restrictDir)
+        (0, owner_only_1.tryOwnerOnly)(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS', (p) => restrictDir(p));
+    if (restrict)
+        (0, owner_only_1.tryOwnerOnly)(path, 'file', 'TRUSTSHELL_KEY_PERMISSIONS', (p) => restrict(p));
     const key = (0, node_crypto_1.createPrivateKey)(fs.read(path));
     if (key.asymmetricKeyType !== 'ed25519')
         throw new Error(`${path} is not an Ed25519 key`);
