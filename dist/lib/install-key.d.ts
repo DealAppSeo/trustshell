@@ -44,7 +44,7 @@ export declare function signingKey(dir: string, fs?: KeyFs): {
     created: boolean;
     path: string;
 };
-/** The fingerprint of this install's key, or null when it has none yet (nothing is created). */
+/** The fingerprint of this install's key, or null when it has none yet (nothing is created). Reading it narrows it. */
 export declare function ownFingerprint(dir: string, fs?: KeyFs): string | null;
 /** Ed25519 over the RFC 8785 form of `value`, base64. */
 export declare function signValue(value: unknown, key: KeyObject): string;

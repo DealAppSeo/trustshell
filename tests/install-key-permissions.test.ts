@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { signingKey, type KeyFs } from '../src/lib/install-key';
+import { ownFingerprint, signingKey, type KeyFs } from '../src/lib/install-key';
 import { isDefaultHome, ownerOnly, tryOwnerOnly, __resetOwnerOnlyCache } from '../src/lib/owner-only';
 
 beforeEach(() => __resetOwnerOnlyCache());
@@ -60,6 +60,25 @@ describe('signingKey narrows the key, and the folder only when it is TrustShell\
     const fs = memFs(undefined, [home]);
     const k = signingKey(home, fs);
     expect(fs.calls).toEqual([`dir:${home}`, `file:${k.path}`]);
+  });
+
+  it('ownFingerprint (the reader behind `run` and `bundle verify`) narrows the key too, and touches nothing when there is no key', () => {
+    // Strix, #718: the first version narrowed only inside signingKey.
+    const fs = memFs(undefined, ['/projects/app']);
+    expect(ownFingerprint('/projects/app', fs)).toBeNull();
+    expect(fs.calls).toEqual([]); // nothing created, nothing narrowed
+    const k = signingKey('/projects/app', fs);
+    __resetOwnerOnlyCache(); // a later process that only runs `trustshell run`
+    fs.calls.length = 0;
+    expect(ownFingerprint('/projects/app', fs)).toBe(k.signer.fingerprint);
+    expect(fs.calls).toEqual([`file:${k.path}`]);
+    const home = join(homedir(), '.trustshell');
+    const fs2 = memFs(undefined, [home]);
+    const k2 = signingKey(home, fs2);
+    __resetOwnerOnlyCache();
+    fs2.calls.length = 0;
+    ownFingerprint(home, fs2);
+    expect(fs2.calls).toEqual([`dir:${home}`, `file:${k2.path}`]);
   });
 
   it('an existing folder that is not ~/.trustshell (TRUSTSHELL_HOME=a project) is left alone; only the key is narrowed', () => {

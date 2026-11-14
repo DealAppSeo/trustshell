@@ -59,20 +59,31 @@ function signingKey(dir, fs = (0, exports.nodeKeyFs)()) {
         fs.writeNew(path, String(privateKey.export({ format: 'pem', type: 'pkcs8' })));
         created = true;
     }
-    const { restrict, restrictDir } = fs;
-    if (restrictDir && (!dirExisted || (0, owner_only_1.isDefaultHome)(dir)))
-        (0, owner_only_1.tryOwnerOnly)(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS', (p) => restrictDir(p));
-    if (restrict)
-        (0, owner_only_1.tryOwnerOnly)(path, 'file', 'TRUSTSHELL_KEY_PERMISSIONS', (p) => restrict(p));
+    narrowOnRead(dir, path, fs, dirExisted);
     const key = (0, node_crypto_1.createPrivateKey)(fs.read(path));
     if (key.asymmetricKeyType !== 'ed25519')
         throw new Error(`${path} is not an Ed25519 key`);
     return { key, signer: signerOf(key), created, path };
 }
-/** The fingerprint of this install's key, or null when it has none yet (nothing is created). */
+/**
+ * Every read of the key file goes through this, so no reader leaves it unrepaired. Strix, #718: the first
+ * version narrowed only inside signingKey, and ownFingerprint (`trustshell run`, `bundle verify|context|import`)
+ * read the same file untouched.
+ */
+function narrowOnRead(dir, path, fs, dirExisted) {
+    const { restrict, restrictDir } = fs;
+    if (restrictDir && (!dirExisted || (0, owner_only_1.isDefaultHome)(dir)))
+        (0, owner_only_1.tryOwnerOnly)(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS', (p) => restrictDir(p));
+    if (restrict)
+        (0, owner_only_1.tryOwnerOnly)(path, 'file', 'TRUSTSHELL_KEY_PERMISSIONS', (p) => restrict(p));
+}
+/** The fingerprint of this install's key, or null when it has none yet (nothing is created). Reading it narrows it. */
 function ownFingerprint(dir, fs = (0, exports.nodeKeyFs)()) {
     const path = (0, node_path_1.join)(dir, exports.SIGNING_KEY_FILE);
-    return fs.exists(path) ? signerOf((0, node_crypto_1.createPrivateKey)(fs.read(path))).fingerprint : null;
+    if (!fs.exists(path))
+        return null;
+    narrowOnRead(dir, path, fs, true);
+    return signerOf((0, node_crypto_1.createPrivateKey)(fs.read(path))).fingerprint;
 }
 /** Ed25519 over the RFC 8785 form of `value`, base64. */
 function signValue(value, key) {
