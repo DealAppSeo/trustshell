@@ -61,7 +61,9 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
       if (d.isDirectory()) return SKIP.has(d.name) ? [] : walk(child);
       return /\.(tsx?|mjs|md)$/.test(d.name) ? [child] : [];
     });
-  const files = [...walk('app'), ...walk('components'), ...walk('lib'), join('scripts', 'init-pai.mjs'), 'README.md'];
+  // docs/ added 2026-11-14: the published API reference lives there (docs/api-reference.md carried a false
+  // "the CLI reads no config file" that no walk saw). Measured before adding it: 87 docs files, 0 hits.
+  const files = [...walk('app'), ...walk('components'), ...walk('lib'), ...walk('docs'), join('scripts', 'init-pai.mjs'), 'README.md'];
   const FORBIDDEN: RegExp[] = [
     /grades? its own family/i,
     /independent model families/i,
@@ -88,6 +90,7 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
     expect(files.length).toBeGreaterThan(50);
     expect(files).toContain(join('components', 'compatibility-info.tsx'));
     expect(files).toContain(join('scripts', 'init-pai.mjs'));
+    expect(files).toContain(join('docs', 'api-reference.md'));
   });
   it('no shipped surface makes the claim', () => {
     const hits = files.flatMap((rel) => FORBIDDEN.filter((re) => re.test(read(rel))).map((re) => `${rel}: ${re}`));

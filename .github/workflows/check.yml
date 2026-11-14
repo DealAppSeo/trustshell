@@ -11,7 +11,9 @@
 #
 #   npm ci                -> exit 0 (lockfile and package.json agree)
 #   npx tsc --noEmit      -> exit 0
-#   jest, minus tests/e2e -> 5 suites, 87 tests, exit 0
+#   dist/ == sdk:build    -> exit 0 (added 2026-11-14; see the step's own comment)
+#   jest, minus tests/e2e -> exit 0 (5 suites / 87 tests when this file was written; about 368
+#                            test files by 2026-11-14, so read the run, not this line, for the count)
 #
 # WHY THE E2E SUITE IS EXCLUDED, and why that is not just moving the goalposts.
 # `tests/e2e/wrapper-readiness.test.ts` probes a LIVE backend — repid-engine on
@@ -22,14 +24,13 @@
 # suite is valuable and is still runnable on demand via
 # `npm run test:wrapper-readiness`.
 #
-# A SEPARATE DEFECT THIS UNCOVERED, deliberately NOT fixed here:
-# `sdk:test` is `jest --testPathPattern=trustshell`, and that pattern matches the
-# REPOSITORY DIRECTORY in every absolute path — /…/trustshell/tests/… — so it
-# selects all 6 suites rather than the intended tests/trustshell.test.ts. That
-# matters because publish-sdk.yml runs `sdk:test` as a release gate, which means
-# an npm publish depends on a live external backend being up. Publishing is
-# irreversible and a version can never be reused, so that is not something to
-# change as a side effect of adding CI. Left for an explicit decision.
+# A SEPARATE DEFECT THIS UNCOVERED, since FIXED (corrected here 2026-11-14):
+# `sdk:test` was `jest --testPathPattern=trustshell`, which matched the repository
+# directory in every absolute path and so ran the live-backend e2e suites as the
+# release gate in publish-sdk.yml. #59 (2026-08-18) changed it to
+# `jest --testPathIgnorePatterns /node_modules/ tests/e2e/ --passWithNoTests`, so the
+# release gate no longer depends on a live external backend. This paragraph kept
+# describing the old script for three months after the fix.
 
 name: check
 
@@ -68,6 +69,18 @@ jobs:
       # a route, so tsc catches whole files a build structurally never visits.
       - name: Typecheck
         run: npx tsc --noEmit
+
+      # `npm install github:DealAppSeo/trustshell` (README; DealAppSeo/example-agent installs it this way)
+      # ships the COMMITTED dist/: there is no `prepare` script, and publish-sdk.yml rebuilds only for the
+      # npm registry. So a source change merged without a rebuilt dist/ reaches GitHub installs silently.
+      # Measured 2026-11-14: a fresh sdk:build reproduces all 151 committed dist files byte for byte, and
+      # a stale dist/lib/verify-receipt.js makes this step exit 1. The status check also catches a new
+      # source file whose build output was never committed, or a deleted one.
+      - name: dist/ matches what the source builds
+        run: |
+          npm run sdk:build
+          git diff --exit-code --stat -- dist
+          test -z "$(git status --porcelain -- dist)" || { git status --porcelain -- dist; exit 1; }
 
       - name: Unit tests
         run: npx jest --testPathIgnorePatterns '/node_modules/' 'tests/e2e/'
