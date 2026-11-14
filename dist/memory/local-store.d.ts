@@ -73,8 +73,6 @@ type SqliteDb = {
     close(): void;
 };
 export declare function memoryDbPath(env?: NodeJS.ProcessEnv, home?: string): string;
-/** The folder of the default memory file, ~/.trustshell (case-insensitive on Windows). */
-export declare function isDefaultHome(dir: string, home?: string, platform?: NodeJS.Platform): boolean;
 export declare function insertMemory(path: string, kind: MemoryKind, body: string, now?: string, env?: NodeJS.ProcessEnv, taint?: ProvenanceInput): MemoryRow;
 /**
  * insertMemory on a handle the caller already holds, so src/learn can write the memory row and its own

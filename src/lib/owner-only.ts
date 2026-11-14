@@ -19,7 +19,19 @@
  * which is narrowed itself) stays until that file is reset.
  */
 import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
+
+/**
+ * The default TrustShell home, `<home>/.trustshell` (case-insensitive on Windows). A FOLDER is only narrowed
+ * when it is this one or TrustShell has just created it: TRUSTSHELL_HOME or TRUSTSHELL_MEMORY may name a
+ * project folder or a whole home folder, and resetting that tree would strip grants other programs rely on.
+ */
+export function isDefaultHome(dir: string, home: string = homedir(), platform: NodeJS.Platform = process.platform): boolean {
+  const a = resolve(dir);
+  const b = resolve(join(home, '.trustshell'));
+  return platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
 
 export type Run = (file: string, args: string[], opts: { encoding?: 'utf8'; stdio?: 'pipe'; windowsHide: boolean }) => string | Buffer;
 

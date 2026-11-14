@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isDefaultHome = isDefaultHome;
 exports.ownerOnly = ownerOnly;
 exports.tryOwnerOnly = tryOwnerOnly;
 exports.__resetOwnerOnlyCache = __resetOwnerOnlyCache;
@@ -24,7 +25,18 @@ exports.__resetOwnerOnlyCache = __resetOwnerOnlyCache;
  * which is narrowed itself) stays until that file is reset.
  */
 const node_child_process_1 = require("node:child_process");
+const node_os_1 = require("node:os");
 const node_path_1 = require("node:path");
+/**
+ * The default TrustShell home, `<home>/.trustshell` (case-insensitive on Windows). A FOLDER is only narrowed
+ * when it is this one or TrustShell has just created it: TRUSTSHELL_HOME or TRUSTSHELL_MEMORY may name a
+ * project folder or a whole home folder, and resetting that tree would strip grants other programs rely on.
+ */
+function isDefaultHome(dir, home = (0, node_os_1.homedir)(), platform = process.platform) {
+    const a = (0, node_path_1.resolve)(dir);
+    const b = (0, node_path_1.resolve)((0, node_path_1.join)(home, '.trustshell'));
+    return platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
 const SYSTEM = '*S-1-5-18';
 const ADMINISTRATORS = '*S-1-5-32-544';
 function windowsSid(sys32, run) {

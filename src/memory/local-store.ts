@@ -5,8 +5,8 @@
 import { chmodSync, closeSync, constants as fsConstants, copyFileSync, mkdirSync, openSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { tryOwnerOnly } from '../lib/owner-only';
+import { dirname, join } from 'node:path';
+import { isDefaultHome, tryOwnerOnly } from '../lib/owner-only';
 import {
   SEALED_NO_KEY,
   SEALED_WRONG_KEY,
@@ -234,13 +234,6 @@ function ownerOnly(path: string): void {
   else if (isDefaultHome(dir)) tryOwnerOnly(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS');
   closeSync(openSync(path, 'a', 0o600));
   chmodSync(path, 0o600);
-}
-
-/** The folder of the default memory file, ~/.trustshell (case-insensitive on Windows). */
-export function isDefaultHome(dir: string, home: string = homedir(), platform: NodeJS.Platform = process.platform): boolean {
-  const a = resolve(dir);
-  const b = resolve(dirname(memoryDbPath({} as NodeJS.ProcessEnv, home)));
-  return platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
 function openDb(path: string): SqliteDb {

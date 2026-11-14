@@ -1,3 +1,9 @@
+/**
+ * The default TrustShell home, `<home>/.trustshell` (case-insensitive on Windows). A FOLDER is only narrowed
+ * when it is this one or TrustShell has just created it: TRUSTSHELL_HOME or TRUSTSHELL_MEMORY may name a
+ * project folder or a whole home folder, and resetting that tree would strip grants other programs rely on.
+ */
+export declare function isDefaultHome(dir: string, home?: string, platform?: NodeJS.Platform): boolean;
 export type Run = (file: string, args: string[], opts: {
     encoding?: 'utf8';
     stdio?: 'pipe';

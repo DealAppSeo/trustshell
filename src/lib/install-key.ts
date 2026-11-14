@@ -8,7 +8,7 @@
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify, type KeyObject } from 'node:crypto';
 import { join } from 'node:path';
 import { canonicalize } from './jcs';
-import { ownerOnly, tryOwnerOnly } from './owner-only';
+import { isDefaultHome, ownerOnly, tryOwnerOnly } from './owner-only';
 
 export const SIGNING_KEY_FILE = 'bundle-signing-key.pem';
 
@@ -57,16 +57,18 @@ export const nodeKeyFs = (): KeyFs => {
 };
 
 /**
- * This install's key, created on first use. The folder holding it (the TrustShell home: the key, the memory,
- * the owner policy, the guard receipts) and then the key itself are narrowed to this user on load, not only
- * on create, so a key made by an earlier version, or a folder another tool widened since, is repaired. Once
- * per process (tryOwnerOnly). When it cannot be done the key still works and a TRUSTSHELL_HOME_PERMISSIONS
- * or TRUSTSHELL_KEY_PERMISSIONS warning says so: unrestricted is what every earlier version had, and failing
- * the command would not make it safer.
+ * This install's key, created on first use. The key is narrowed to this user on load, not only on create, so
+ * a key made by an earlier version, or loosened since, is repaired. Its folder is narrowed too, but only when
+ * this call created it or it is the default ~/.trustshell (isDefaultHome): TRUSTSHELL_HOME may name a project
+ * or a whole home folder, and resetting that tree would strip grants other programs rely on. Once per process
+ * (tryOwnerOnly). When it cannot be done the key still works and a TRUSTSHELL_HOME_PERMISSIONS or
+ * TRUSTSHELL_KEY_PERMISSIONS warning says so: unrestricted is what every earlier version had, and failing the
+ * command would not make it safer.
  */
 export function signingKey(dir: string, fs: KeyFs = nodeKeyFs()): { key: KeyObject; signer: Signer; created: boolean; path: string } {
   const path = join(dir, SIGNING_KEY_FILE);
   let created = false;
+  const dirExisted = fs.exists(dir);
   if (!fs.exists(path)) {
     const { privateKey } = generateKeyPairSync('ed25519');
     fs.mkdirp(dir);
@@ -74,7 +76,7 @@ export function signingKey(dir: string, fs: KeyFs = nodeKeyFs()): { key: KeyObje
     created = true;
   }
   const { restrict, restrictDir } = fs;
-  if (restrictDir) tryOwnerOnly(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS', (p) => restrictDir(p));
+  if (restrictDir && (!dirExisted || isDefaultHome(dir))) tryOwnerOnly(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS', (p) => restrictDir(p));
   if (restrict) tryOwnerOnly(path, 'file', 'TRUSTSHELL_KEY_PERMISSIONS', (p) => restrict(p));
   const key = createPrivateKey(fs.read(path));
   if (key.asymmetricKeyType !== 'ed25519') throw new Error(`${path} is not an Ed25519 key`);

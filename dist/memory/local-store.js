@@ -4,7 +4,6 @@ exports.LESSON_ACCEPTED = exports.LEGACY_REASON = exports.INJECTION_WITHHELD = e
 exports.heldAsInjection = heldAsInjection;
 exports.admitsLearnKinds = admitsLearnKinds;
 exports.memoryDbPath = memoryDbPath;
-exports.isDefaultHome = isDefaultHome;
 exports.insertMemory = insertMemory;
 exports.insertRow = insertRow;
 exports.listNotes = listNotes;
@@ -183,16 +182,10 @@ function ownerOnly(path) {
     const created = (0, node_fs_1.mkdirSync)(dir, { recursive: true, mode: 0o700 });
     if (created)
         (0, owner_only_1.tryOwnerOnly)(created, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS');
-    else if (isDefaultHome(dir))
+    else if ((0, owner_only_1.isDefaultHome)(dir))
         (0, owner_only_1.tryOwnerOnly)(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS');
     (0, node_fs_1.closeSync)((0, node_fs_1.openSync)(path, 'a', 0o600));
     (0, node_fs_1.chmodSync)(path, 0o600);
-}
-/** The folder of the default memory file, ~/.trustshell (case-insensitive on Windows). */
-function isDefaultHome(dir, home = (0, node_os_1.homedir)(), platform = process.platform) {
-    const a = (0, node_path_1.resolve)(dir);
-    const b = (0, node_path_1.resolve)((0, node_path_1.dirname)(memoryDbPath({}, home)));
-    return platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 function openDb(path) {
     try {

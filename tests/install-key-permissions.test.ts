@@ -8,27 +8,29 @@
  */
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { signingKey, type KeyFs } from '../src/lib/install-key';
-import { ownerOnly, tryOwnerOnly, __resetOwnerOnlyCache } from '../src/lib/owner-only';
-import { isDefaultHome } from '../src/memory/local-store';
+import { isDefaultHome, ownerOnly, tryOwnerOnly, __resetOwnerOnlyCache } from '../src/lib/owner-only';
 
 beforeEach(() => __resetOwnerOnlyCache());
 
-function memFs(fail?: { file?: boolean; dir?: boolean }): KeyFs & { files: Map<string, string>; calls: string[] } {
+function memFs(fail?: { file?: boolean; dir?: boolean }, existingDirs: string[] = []): KeyFs & { files: Map<string, string>; calls: string[] } {
   const files = new Map<string, string>();
+  const dirs = new Set(existingDirs);
   const calls: string[] = [];
   return {
     files,
     calls,
-    exists: (p) => files.has(p),
+    exists: (p) => files.has(p) || dirs.has(p),
     read: (p) => files.get(p) as string,
     writeNew: (p, d) => {
       if (files.has(p)) throw new Error('exists');
       files.set(p, d);
     },
-    mkdirp: () => {},
+    mkdirp: (p) => {
+      dirs.add(p);
+    },
     restrict: (p) => {
       calls.push(`file:${p}`);
       if (fail?.file) throw new Error('icacls is not available');
@@ -40,17 +42,30 @@ function memFs(fail?: { file?: boolean; dir?: boolean }): KeyFs & { files: Map<s
   };
 }
 
-describe('signingKey narrows the folder, then the key', () => {
-  it('on create; once per process; and again in a new process (so an older key or a widened folder is repaired)', () => {
+describe('signingKey narrows the key, and the folder only when it is TrustShell\'s own', () => {
+  it('a folder it creates: folder then key; once per process; the key again in a new process (an older key is repaired)', () => {
     const fs = memFs();
-    const first = signingKey('/home', fs);
+    const first = signingKey('/somewhere/new', fs);
     expect(first.created).toBe(true);
-    expect(fs.calls).toEqual(['dir:/home', `file:${first.path}`]);
-    signingKey('/home', fs); // same process: not repeated
+    expect(fs.calls).toEqual(['dir:/somewhere/new', `file:${first.path}`]);
+    signingKey('/somewhere/new', fs); // same process: not repeated
     expect(fs.calls).toHaveLength(2);
-    __resetOwnerOnlyCache(); // a new process
-    expect(signingKey('/home', fs).created).toBe(false);
-    expect(fs.calls).toEqual(['dir:/home', `file:${first.path}`, 'dir:/home', `file:${first.path}`]);
+    __resetOwnerOnlyCache(); // a new process: the folder now pre-exists and is not ~/.trustshell, so only the key
+    expect(signingKey('/somewhere/new', fs).created).toBe(false);
+    expect(fs.calls).toEqual(['dir:/somewhere/new', `file:${first.path}`, `file:${first.path}`]);
+  });
+
+  it('the default ~/.trustshell is narrowed even when it already exists (another tool may have widened it)', () => {
+    const home = join(homedir(), '.trustshell');
+    const fs = memFs(undefined, [home]);
+    const k = signingKey(home, fs);
+    expect(fs.calls).toEqual([`dir:${home}`, `file:${k.path}`]);
+  });
+
+  it('an existing folder that is not ~/.trustshell (TRUSTSHELL_HOME=a project) is left alone; only the key is narrowed', () => {
+    const fs = memFs(undefined, ['/projects/app']);
+    const k = signingKey('/projects/app', fs);
+    expect(fs.calls).toEqual([`file:${k.path}`]);
   });
 
   it('when it cannot, the key still works and each failure is a named warning, once', () => {
@@ -158,10 +173,25 @@ describe('on the real filesystem', () => {
     }
   });
 
-  windows('Windows: an explicit read grant on the home folder (the measured case) is removed from the folder, the key and files already there', () => {
+  windows('Windows: an existing folder that is not ~/.trustshell keeps its grants; only the key is narrowed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-proj-'));
+    try {
+      execFileSync('icacls', [dir, '/grant', '*S-1-5-32-545:(OI)(CI)(RX)'], { stdio: 'pipe' });
+      const { path } = signingKey(dir);
+      expect(String(execFileSync('icacls', [dir], { encoding: 'utf8' }))).toMatch(/\\Users:\(OI\)\(CI\)\(RX\)/); // untouched
+      expect(String(execFileSync('icacls', [path], { encoding: 'utf8' }))).not.toMatch(/\\Users:/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  windows('Windows: an explicit read grant on ~/.trustshell (the measured case) is removed from the folder, the key and files already there', () => {
     const parent = mkdtempSync(join(tmpdir(), 'ts-home-'));
     const home = join(parent, '.trustshell');
+    // This temp folder plays the user's home. (Setting process.env.USERPROFILE does not reach os.homedir() under jest.)
+    const spy = jest.spyOn(require('node:os') as typeof import('node:os'), 'homedir').mockReturnValue(parent);
     try {
+      expect(isDefaultHome(home)).toBe(true);
       mkdirSync(home);
       // The measured case: an EXPLICIT inheritable read grant for another group on the home folder.
       execFileSync('icacls', [home, '/grant', '*S-1-5-32-545:(OI)(CI)(RX)'], { stdio: 'pipe' });
@@ -177,6 +207,7 @@ describe('on the real filesystem', () => {
       __resetOwnerOnlyCache();
       expect(signingKey(home).created).toBe(false); // still readable by this user
     } finally {
+      spy.mockRestore();
       rmSync(parent, { recursive: true, force: true });
     }
   });
