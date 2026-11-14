@@ -5,16 +5,17 @@ import { TrustBadge } from '@/components/trust-state';
 export const metadata = {
   title: 'Disjoint-family verification — TrustShell',
   description:
-    'Why a claim is checked by uncorrelated model families, why two must agree so no single provider’s bias or outage can fake a pass, and the golden-ratio supermajority on the roadmap. What HAL fact-check looks at, and what "Not checked" means.',
+    'Why a claim is checked by two different model families (different, not independent), why both must agree so no single provider’s bias or outage can fake a pass, and the golden-ratio supermajority on the roadmap. What HAL fact-check looks at, and what "Not checked" means.',
 };
 
 /**
  * /how-verification — "Disjoint-family verification × HAL", the canonical mechanism page.
  *
  * It pulls together one-liners that were scattered across /layers (beat 3), /mission (the
- * "SBFA — decorrelated validators" paragraph), /why/harness and the check form into one home for
- * the question: why do many uncorrelated model families plus a golden-ratio quorum mean no one
- * provider's bias or outage can fake a PASS, and what does "Not checked" actually mean.
+ * SBFA paragraph), /why/harness and the check form into one home for the question: why do two
+ * different model families (different, not independent) that must agree mean no one provider's
+ * bias or outage can fake a PASS, what the golden-ratio quorum on the roadmap adds, and what
+ * "Not checked" actually means.
  *
  * SHAPE ONLY. The scoring formula, the fuzzy-routing parameters, the exact signal thresholds and
  * the numeric reputation constants are deliberately NOT on this page — they are engine internals,
@@ -125,12 +126,13 @@ export default function HowVerificationPage() {
           Why no single model gets to grade its own homework.
         </p>
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-2xl">
-          A check is only worth as much as the independence behind it. Today TrustShell runs a claim
-          past <span className="text-foreground">two uncorrelated model families</span> and both must
+          A check is only worth as much as the agreement behind it. Today TrustShell runs a claim
+          past <span className="text-foreground">two different model families</span> and both must
           agree for a pass — so one provider&apos;s bias, or one provider&apos;s outage, cannot fake
-          one. A <span className="text-foreground">golden-ratio supermajority</span> across more
-          families is the design target, not what runs (see the Roadmap section below). When
-          independence is not there, the honest answer is{' '}
+          one. Different is not independent: the two can still share data and make the same mistake.
+          A <span className="text-foreground">golden-ratio supermajority</span> across more
+          families is the design target, not what runs (see the Roadmap section below). When the two
+          do not agree, or one gives no usable answer, the honest answer is{' '}
           <span className="text-foreground">Not checked</span>, and that is never a quiet yes.
         </p>
       </header>

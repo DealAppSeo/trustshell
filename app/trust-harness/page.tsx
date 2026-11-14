@@ -225,9 +225,9 @@ export default function TrustHarnessPage() {
         </p>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
           That is where safety and cost stop fighting. Because each check only needs a handful of
-          <em> independent</em> families — not one enormous model doing everything — more
-          independence is also <em>cheaper</em> per check. Adding a decorrelated family hardens the
-          quorum and lowers the bill at the same time. The router chooses who answers; it does not
+          <em> different</em> families — not one enormous model doing everything — more diversity is
+          also <em>cheaper</em> per check. Adding another family can harden the quorum and lower the
+          bill at the same time, though different families can still share a mistake. The router chooses who answers; it does not
           grade the answer — grading is the families&apos; job, and the constitutional-audit layer
           that would add a fuzzy score on top is a gated-off stub, carrying no weight today.
         </p>

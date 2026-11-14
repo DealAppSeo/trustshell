@@ -72,6 +72,11 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
     /no independent second/i,
     /cannot block the others from reaching one/i,
     /the shape of the guarantee/i,
+    // Grok, #712 round 1: the same overclaim in other words. free-votes.ts:16 says "errors correlate across families".
+    /uncorrelated model families/i,
+    /decorrelated (validators|family|families)/i,
+    /independence behind it/i,
+    /<em>\s*independent<\/em>\s*families/i,
     /did not write the answer/i,
     /two guarantees/i,
     /HAL (vetoes|VETOs|blocks|stops|catches) (a|any|every) false claim/i,
