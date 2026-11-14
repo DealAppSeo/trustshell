@@ -158,7 +158,7 @@ const posix = process.platform === 'win32' ? it.skip : it;
 const windows = process.platform === 'win32' ? it : it.skip;
 
 describe('on the real filesystem', () => {
-  posix('POSIX: a loosened key (0644) and folder (0755) are back to 0600 / 0700 after the next load', () => {
+  posix('POSIX: a loosened key (0644) is back to 0600 after the next load; a folder that is not ~/.trustshell keeps its mode', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ts-key-'));
     try {
       const { path } = signingKey(dir);
@@ -167,9 +167,25 @@ describe('on the real filesystem', () => {
       __resetOwnerOnlyCache();
       signingKey(dir);
       expect(statSync(path).mode & 0o777).toBe(0o600);
-      expect(statSync(dir).mode & 0o777).toBe(0o700);
+      expect(statSync(dir).mode & 0o777).toBe(0o755); // existing, not ~/.trustshell: left alone
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  posix('POSIX: a loosened ~/.trustshell (0755) is back to 0700 after the next load', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'ts-home-'));
+    const home = join(parent, '.trustshell');
+    const spy = jest.spyOn(require('node:os') as typeof import('node:os'), 'homedir').mockReturnValue(parent);
+    try {
+      mkdirSync(home);
+      chmodSync(home, 0o755);
+      const { path } = signingKey(home);
+      expect(statSync(home).mode & 0o777).toBe(0o700);
+      expect(statSync(path).mode & 0o777).toBe(0o600);
+    } finally {
+      spy.mockRestore();
+      rmSync(parent, { recursive: true, force: true });
     }
   });
 

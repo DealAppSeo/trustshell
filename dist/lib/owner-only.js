@@ -33,14 +33,16 @@ const node_path_1 = require("node:path");
  * project folder or a whole home folder, and resetting that tree would strip grants other programs rely on.
  */
 function isDefaultHome(dir, home = (0, node_os_1.homedir)(), platform = process.platform) {
-    const a = (0, node_path_1.resolve)(dir);
-    const b = (0, node_path_1.resolve)((0, node_path_1.join)(home, '.trustshell'));
+    // The path rules of `platform`, not the host's: CI caught posix resolve() mangling a Windows path.
+    const p = platform === 'win32' ? node_path_1.win32 : node_path_1.posix;
+    const a = p.resolve(dir);
+    const b = p.resolve(p.join(home, '.trustshell'));
     return platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 const SYSTEM = '*S-1-5-18';
 const ADMINISTRATORS = '*S-1-5-32-544';
 function windowsSid(sys32, run) {
-    const line = String(run((0, node_path_1.join)(sys32, 'whoami.exe'), ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8', windowsHide: true }));
+    const line = String(run(node_path_1.win32.join(sys32, 'whoami.exe'), ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8', windowsHide: true }));
     const sid = line.split(',')[1]?.trim().replace(/^"|"$/g, '');
     if (!sid || !/^S-1-[0-9-]+$/.test(sid))
         throw new Error('whoami did not report this user\'s SID');
@@ -52,9 +54,9 @@ function ownerOnly(p, kind, platform = process.platform, run = node_child_proces
         require('node:fs').chmodSync(p, kind === 'dir' ? 0o700 : 0o600);
         return;
     }
-    const sys32 = (0, node_path_1.join)(process.env.SystemRoot || 'C:\\Windows', 'System32');
+    const sys32 = node_path_1.win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
     const sid = windowsSid(sys32, run);
-    const icacls = (0, node_path_1.join)(sys32, 'icacls.exe');
+    const icacls = node_path_1.win32.join(sys32, 'icacls.exe');
     const inherit = kind === 'dir' ? '(OI)(CI)' : '';
     run(icacls, [p, '/reset'], { stdio: 'pipe', windowsHide: true });
     run(icacls, [p, '/inheritance:r', '/grant:r', `*${sid}:${inherit}(F)`, `${SYSTEM}:${inherit}(F)`, `${ADMINISTRATORS}:${inherit}(F)`], { stdio: 'pipe', windowsHide: true });
