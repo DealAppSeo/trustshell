@@ -2,11 +2,11 @@
  * Local memory sqlite. Default file is ~/.trustshell/memory.sqlite.
  * TRUSTSHELL_MEMORY points tests and CI at a temp file.
  */
-import { execFileSync } from 'node:child_process';
 import { chmodSync, closeSync, constants as fsConstants, copyFileSync, mkdirSync, openSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { homedir, userInfo } from 'node:os';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { isDefaultHome, tryOwnerOnly } from '../lib/owner-only';
 import {
   SEALED_NO_KEY,
   SEALED_WRONG_KEY,
@@ -215,32 +215,25 @@ function ensureSchema(db: SqliteDb): void {
 }
 
 /**
- * SEC F6: the memory holds the operator's notes and keyed values, so it is owner-only. A folder this
- * creates is 0700, and the file is created 0600 and put back to 0600 on every open (an existing
- * world-readable file is tightened). An existing folder keeps its mode. On Windows those modes do
- * nothing, so a folder this creates gets an ACL for the current user only. The default
- * ~/.trustshell already inherits the user profile's ACL (the user, SYSTEM, Administrators).
+ * SEC F6: the memory holds the operator's notes and keyed values, so it is owner-only. The file is
+ * created 0600 and put back to 0600 on every open (an existing world-readable file is tightened).
+ *
+ * The folder is narrowed with src/lib/owner-only.ts (0700 on POSIX; owner, SYSTEM and Administrators on
+ * Windows, where `mode` does nothing): a folder this creates, AND the default ~/.trustshell even when it
+ * already exists. This comment used to say ~/.trustshell "already inherits the user profile's ACL"; on a
+ * real machine (2026-11-14) another tool had added an explicit sandbox-group read grant to it, so every
+ * file inside, the memory included, was readable by that group. The helper this replaced also ran only
+ * on a folder it had just created, matched the user by name, could not remove an explicit grant, and
+ * swallowed every error. A folder named by TRUSTSHELL_MEMORY that already existed is the user's own and
+ * is left as it is.
  */
 function ownerOnly(path: string): void {
-  const created = mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  if (created && process.platform === 'win32') windowsOwnerOnly(created);
+  const dir = dirname(path);
+  const created = mkdirSync(dir, { recursive: true, mode: 0o700 });
+  if (created) tryOwnerOnly(created, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS');
+  else if (isDefaultHome(dir)) tryOwnerOnly(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS');
   closeSync(openSync(path, 'a', 0o600));
   chmodSync(path, 0o600);
-}
-
-/**
- * Grant the current user full control first, and only then drop the inherited entries, so a failure
- * part way never leaves the folder with no one able to open it.
- * ponytail: best effort, by user name; if icacls is missing or refuses, the folder keeps the ACL it
- * inherited. Use the user's SID instead if a name ever fails to resolve.
- */
-function windowsOwnerOnly(dir: string): void {
-  try {
-    execFileSync('icacls', [dir, '/grant:r', `${userInfo().username}:(OI)(CI)F`], { stdio: 'ignore', windowsHide: true });
-    execFileSync('icacls', [dir, '/inheritance:r'], { stdio: 'ignore', windowsHide: true });
-  } catch {
-    /* keeps the inherited ACL */
-  }
 }
 
 function openDb(path: string): SqliteDb {

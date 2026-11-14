@@ -1,12 +1,14 @@
 /**
- * This install's Ed25519 key: `<TRUSTSHELL_HOME or ~/.trustshell>/bundle-signing-key.pem`, created 0600 on
- * first use, never written into anything it signs. It signs bundles (authorship) and, when the owner asks,
+ * This install's Ed25519 key: `<TRUSTSHELL_HOME or ~/.trustshell>/bundle-signing-key.pem`, created on first
+ * use and limited to this user with its folder (0600/0700 on POSIX, an owner/SYSTEM/Administrators ACL on
+ * Windows; see src/lib/owner-only.ts), never written into anything it signs. It signs bundles (authorship) and, when the owner asks,
  * the local policy (`trustshell guard sign`). A signature proves integrity only as far as the key is
  * trusted; it encrypts nothing. Every check recomputes the fingerprint from the key, never reads it off a file.
  */
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify, type KeyObject } from 'node:crypto';
 import { join } from 'node:path';
 import { canonicalize } from './jcs';
+import { isDefaultHome, ownerOnly, tryOwnerOnly } from './owner-only';
 
 export const SIGNING_KEY_FILE = 'bundle-signing-key.pem';
 
@@ -34,6 +36,10 @@ export interface KeyFs {
   /** Create the file 0600 and fail if it already exists. */
   writeNew(p: string, data: string): void;
   mkdirp(p: string): void;
+  /** Limit the key file to this user (src/lib/owner-only.ts). Throws when it cannot. Optional for test doubles. */
+  restrict?(p: string): void;
+  /** Limit the key's folder, the TrustShell home, to this user. Throws when it cannot. Optional for test doubles. */
+  restrictDir?(p: string): void;
 }
 
 export const nodeKeyFs = (): KeyFs => {
@@ -45,28 +51,53 @@ export const nodeKeyFs = (): KeyFs => {
     mkdirp: (p) => {
       fs.mkdirSync(p, { recursive: true, mode: 0o700 });
     },
+    restrict: (p) => ownerOnly(p, 'file'),
+    restrictDir: (p) => ownerOnly(p, 'dir'),
   };
 };
 
-/** This install's key, created on first use. */
+/**
+ * This install's key, created on first use. The key is narrowed to this user on load, not only on create, so
+ * a key made by an earlier version, or loosened since, is repaired. Its folder is narrowed too, but only when
+ * this call created it or it is the default ~/.trustshell (isDefaultHome): TRUSTSHELL_HOME may name a project
+ * or a whole home folder, and resetting that tree would strip grants other programs rely on. Once per process
+ * (tryOwnerOnly). When it cannot be done the key still works and a TRUSTSHELL_HOME_PERMISSIONS or
+ * TRUSTSHELL_KEY_PERMISSIONS warning says so: unrestricted is what every earlier version had, and failing the
+ * command would not make it safer.
+ */
 export function signingKey(dir: string, fs: KeyFs = nodeKeyFs()): { key: KeyObject; signer: Signer; created: boolean; path: string } {
   const path = join(dir, SIGNING_KEY_FILE);
   let created = false;
+  const dirExisted = fs.exists(dir);
   if (!fs.exists(path)) {
     const { privateKey } = generateKeyPairSync('ed25519');
     fs.mkdirp(dir);
     fs.writeNew(path, String(privateKey.export({ format: 'pem', type: 'pkcs8' })));
     created = true;
   }
+  narrowOnRead(dir, path, fs, dirExisted);
   const key = createPrivateKey(fs.read(path));
   if (key.asymmetricKeyType !== 'ed25519') throw new Error(`${path} is not an Ed25519 key`);
   return { key, signer: signerOf(key), created, path };
 }
 
-/** The fingerprint of this install's key, or null when it has none yet (nothing is created). */
+/**
+ * Every read of the key file goes through this, so no reader leaves it unrepaired. Strix, #718: the first
+ * version narrowed only inside signingKey, and ownFingerprint (`trustshell run`, `bundle verify|context|import`)
+ * read the same file untouched.
+ */
+function narrowOnRead(dir: string, path: string, fs: KeyFs, dirExisted: boolean): void {
+  const { restrict, restrictDir } = fs;
+  if (restrictDir && (!dirExisted || isDefaultHome(dir))) tryOwnerOnly(dir, 'dir', 'TRUSTSHELL_HOME_PERMISSIONS', (p) => restrictDir(p));
+  if (restrict) tryOwnerOnly(path, 'file', 'TRUSTSHELL_KEY_PERMISSIONS', (p) => restrict(p));
+}
+
+/** The fingerprint of this install's key, or null when it has none yet (nothing is created). Reading it narrows it. */
 export function ownFingerprint(dir: string, fs: KeyFs = nodeKeyFs()): string | null {
   const path = join(dir, SIGNING_KEY_FILE);
-  return fs.exists(path) ? signerOf(createPrivateKey(fs.read(path))).fingerprint : null;
+  if (!fs.exists(path)) return null;
+  narrowOnRead(dir, path, fs, true);
+  return signerOf(createPrivateKey(fs.read(path))).fingerprint;
 }
 
 /** Ed25519 over the RFC 8785 form of `value`, base64. */
