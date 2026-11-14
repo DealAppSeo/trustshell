@@ -15,6 +15,8 @@ import { isDefaultHome, ownerOnly, tryOwnerOnly, __resetOwnerOnlyCache } from '.
 
 beforeEach(() => __resetOwnerOnlyCache());
 
+const NOT_A_LINK = () => false; // the fake paths below do not exist on disk
+
 function memFs(fail?: { file?: boolean; dir?: boolean }, existingDirs: string[] = []): KeyFs & { files: Map<string, string>; calls: string[] } {
   const files = new Map<string, string>();
   const dirs = new Set(existingDirs);
@@ -116,7 +118,7 @@ describe('ownerOnly on Windows: reset, then owner + SYSTEM + Administrators by S
 
   it('a file: full System32 paths (a bare whoami from Git Bash is Git\'s Unix one) and no inheritance flags', () => {
     const { calls, run } = fake();
-    ownerOnly('C:\\k.pem', 'file', 'win32', run);
+    ownerOnly('C:\\k.pem', 'file', 'win32', run, NOT_A_LINK);
     expect(calls.map(([f]) => f)).toEqual([
       expect.stringMatching(/[\\/]System32[\\/]whoami\.exe$/i),
       expect.stringMatching(/[\\/]System32[\\/]icacls\.exe$/i),
@@ -131,7 +133,7 @@ describe('ownerOnly on Windows: reset, then owner + SYSTEM + Administrators by S
 
   it('a folder: the same grants with (OI)(CI), so new files inherit them', () => {
     const { calls, run } = fake();
-    ownerOnly('C:\\home', 'dir', 'win32', run);
+    ownerOnly('C:\\home', 'dir', 'win32', run, NOT_A_LINK);
     expect(calls[2]![1]).toEqual(['C:\\home', '/inheritance:r', '/grant:r', `*${SID}:(OI)(CI)(F)`, '*S-1-5-18:(OI)(CI)(F)', '*S-1-5-32-544:(OI)(CI)(F)']);
   });
 
@@ -141,8 +143,33 @@ describe('ownerOnly on Windows: reset, then owner + SYSTEM + Administrators by S
       calls.push(file);
       return 'not csv';
     };
-    expect(() => ownerOnly('C:\\k.pem', 'file', 'win32', run)).toThrow(/did not report this user's SID/);
+    expect(() => ownerOnly('C:\\k.pem', 'file', 'win32', run, NOT_A_LINK)).toThrow(/did not report this user's SID/);
     expect(calls).toEqual([expect.stringMatching(/whoami\.exe$/i)]); // icacls never ran
+  });
+
+  it('refuses a symbolic link or junction before running anything (icacls would follow it to its target)', () => {
+    const { calls, run } = fake();
+    expect(() => ownerOnly('C:\\home', 'dir', 'win32', run, () => true)).toThrow(/symbolic link or junction/);
+    expect(() => ownerOnly('/home/u/.trustshell', 'dir', 'linux', run, () => true)).toThrow(/symbolic link or junction/);
+    expect(calls).toEqual([]);
+  });
+});
+
+describe('ownerOnly on macOS', () => {
+  it('also removes extended ACL entries (`chmod -N`), which chmod alone leaves in place', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ts-mac-'));
+    const file = join(dir, 'k.pem');
+    writeFileSync(file, 'x');
+    try {
+      const calls: Array<[string, string[]]> = [];
+      ownerOnly(file, 'file', 'darwin', (f, a) => (calls.push([f, a]), ''), NOT_A_LINK);
+      expect(calls).toEqual([['/bin/chmod', ['-N', file]]]);
+      const linux: string[] = [];
+      ownerOnly(file, 'file', 'linux', (f) => (linux.push(f), ''), NOT_A_LINK);
+      expect(linux).toEqual([]); // no ACL call on Linux: chmod's group bits already mask POSIX ACL entries
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -243,6 +270,30 @@ describe('on the real filesystem', () => {
       expect(signingKey(home).created).toBe(false); // still readable by this user
     } finally {
       spy.mockRestore();
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  windows('Windows: ~/.trustshell as a junction to another folder is refused with a warning; the target keeps its grants', () => {
+    // Grok, #718: icacls follows a junction, so narrowing the link would reset the TARGET folder.
+    const parent = mkdtempSync(join(tmpdir(), 'ts-junc-'));
+    const target = join(parent, 'shared');
+    const home = join(parent, '.trustshell');
+    const spy = jest.spyOn(require('node:os') as typeof import('node:os'), 'homedir').mockReturnValue(parent);
+    const warn = jest.spyOn(process, 'emitWarning').mockImplementation(() => {});
+    try {
+      mkdirSync(target);
+      execFileSync('icacls', [target, '/grant', '*S-1-5-32-545:(OI)(CI)(RX)'], { stdio: 'pipe' });
+      execFileSync('cmd', ['/c', 'mklink', '/J', home, target], { stdio: 'pipe' });
+      signingKey(home);
+      expect(String(execFileSync('icacls', [target], { encoding: 'utf8' }))).toMatch(/\\Users:\(OI\)\(CI\)\(RX\)/); // untouched
+      const codes = warn.mock.calls.map((c) => (c[1] as { code: string }).code);
+      expect(codes).toContain('TRUSTSHELL_HOME_PERMISSIONS');
+      expect(String(warn.mock.calls.find((c) => (c[1] as { code: string }).code === 'TRUSTSHELL_HOME_PERMISSIONS')![0])).toMatch(/symbolic link or junction/);
+    } finally {
+      warn.mockRestore();
+      spy.mockRestore();
+      try { execFileSync('cmd', ['/c', 'rmdir', home], { stdio: 'pipe' }); } catch { /* not created */ }
       rmSync(parent, { recursive: true, force: true });
     }
   });

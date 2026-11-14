@@ -48,10 +48,21 @@ function windowsSid(sys32, run) {
         throw new Error('whoami did not report this user\'s SID');
     return sid;
 }
-/** Narrow `p` to this user. Throws when it cannot; the callers decide whether that is fatal. */
-function ownerOnly(p, kind, platform = process.platform, run = node_child_process_1.execFileSync) {
+const isLinkOnDisk = (p) => require('node:fs').lstatSync(p).isSymbolicLink();
+/**
+ * Narrow `p` to this user. Throws when it cannot; the callers decide whether that is fatal.
+ *
+ * Refuses a symbolic link or Windows junction (Node's lstat reports both, measured): icacls and chmod follow
+ * the link, so ~/.trustshell pointing at another folder would reset THAT folder's permissions (Grok, #718).
+ * macOS: chmod leaves extended ACL entries in place, so `chmod -N` removes them too (Grok, #718).
+ */
+function ownerOnly(p, kind, platform = process.platform, run = node_child_process_1.execFileSync, isLink = isLinkOnDisk) {
+    if (isLink(p))
+        throw new Error('it is a symbolic link or junction, so the change would land on its target instead; not narrowed');
     if (platform !== 'win32') {
         require('node:fs').chmodSync(p, kind === 'dir' ? 0o700 : 0o600);
+        if (platform === 'darwin')
+            run('/bin/chmod', ['-N', p], { stdio: 'pipe', windowsHide: true });
         return;
     }
     const sys32 = node_path_1.win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
