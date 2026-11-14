@@ -36,7 +36,10 @@ describe('/how-verification', () => {
 
   it('the lede matches the body: two families today, the golden-ratio supermajority is the design target', () => {
     expect(src).toContain('Today TrustShell runs a claim past');
-    expect(src).toContain('two uncorrelated model families');
+    // Was 'two uncorrelated model families' until 2026-11-14 (Grok, trustshell #712): the engine says
+    // errors correlate across families (repid-engine src/classify/free-votes.ts:16), so the lede says different.
+    expect(src).toContain('two different model families');
+    expect(src).not.toMatch(/uncorrelated/i);
     expect(src).toContain('both must agree for a pass');
     expect(src).toContain('is the design target, not what runs');
     // The old lede said the supermajority DECIDES, over a body that says it is Roadmap.

@@ -66,6 +66,17 @@ describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery 
     /grades? its own family/i,
     /independent model families/i,
     /no independent pair/i,
+    // 2026-11-14: the free-votes rule (repid-engine src/classify/free-votes.ts) is two TRUE = pass, two FALSE = veto,
+    // anything else not checked. A lone FALSE does not catch, and a family that answers wrongly CAN block a verdict.
+    /lone FALSE flags/i,
+    /no independent second/i,
+    /cannot block the others from reaching one/i,
+    /the shape of the guarantee/i,
+    // Grok, #712 round 1: the same overclaim in other words. free-votes.ts:16 says "errors correlate across families".
+    /uncorrelated model families/i,
+    /decorrelated (validators|family|families)/i,
+    /independence behind it/i,
+    /<em>\s*independent<\/em>\s*families/i,
     /did not write the answer/i,
     /two guarantees/i,
     /HAL (vetoes|VETOs|blocks|stops|catches) (a|any|every) false claim/i,

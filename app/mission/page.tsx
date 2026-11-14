@@ -124,7 +124,7 @@ export default function MissionPage() {
           <Link href="/leaderboard" className="text-amber-500 hover:underline font-semibold">
             live leaderboard
           </Link>{' '}
-          is a first, small proof of — models ranked on measured behavior across independent validators,
+          is a first, small proof of — models ranked on measured behavior,
           in the open, updated as the evidence comes in. It&apos;s early and it&apos;s incomplete. It&apos;s
           also real data, not a mockup.
         </p>
@@ -152,7 +152,7 @@ export default function MissionPage() {
             travels with the agent, on-chain, so standing built in one place means something in the next.
           </li>
           <li>
-            <strong className="text-white">SBFA — decorrelated validators.</strong> Same-family models
+            <strong className="text-white">SBFA — validators from different families.</strong> Same-family models
             share the same blind spots, so the check uses two checkers from different model families. Today
             nothing stops one of them sharing the family of the model that wrote the answer, and both may run
             on the same host; closing that gap is part of the design. Red-teaming is how it hardens.{' '}

@@ -5,16 +5,17 @@ import { TrustBadge } from '@/components/trust-state';
 export const metadata = {
   title: 'Disjoint-family verification — TrustShell',
   description:
-    'Why a claim is checked by uncorrelated model families, why two must agree so no single provider’s bias or outage can fake a pass, and the golden-ratio supermajority on the roadmap. What HAL fact-check looks at, and what "Not checked" means.',
+    'Why a claim is checked by two different model families (different, not independent), why both must agree so no single provider’s bias or outage can fake a pass, and the golden-ratio supermajority on the roadmap. What HAL fact-check looks at, and what "Not checked" means.',
 };
 
 /**
  * /how-verification — "Disjoint-family verification × HAL", the canonical mechanism page.
  *
  * It pulls together one-liners that were scattered across /layers (beat 3), /mission (the
- * "SBFA — decorrelated validators" paragraph), /why/harness and the check form into one home for
- * the question: why do many uncorrelated model families plus a golden-ratio quorum mean no one
- * provider's bias or outage can fake a PASS, and what does "Not checked" actually mean.
+ * SBFA paragraph), /why/harness and the check form into one home for the question: why do two
+ * different model families (different, not independent) that must agree mean no one provider's
+ * bias or outage can fake a PASS, what the golden-ratio quorum on the roadmap adds, and what
+ * "Not checked" actually means.
  *
  * SHAPE ONLY. The scoring formula, the fuzzy-routing parameters, the exact signal thresholds and
  * the numeric reputation constants are deliberately NOT on this page — they are engine internals,
@@ -100,13 +101,13 @@ const OUTCOMES: ReadonlyArray<Outcome> = [
   {
     word: 'Caught',
     state: 'FAILED',
-    means: 'A family found the claim false. A lone FALSE flags; it never quietly passes.',
+    means: 'Both checkers, from two different families, said the claim is false. One FALSE alone does not catch it: that leaves the claim not checked, and never a quiet pass.',
     blocks: 'The claim is marked caught, with the reason attached, so a reader sees what failed and why.',
   },
   {
     word: 'Not checked',
     state: 'NOT_CHECKED',
-    means: 'No pair from two different families could answer — a family was down, abstained, or the two did not agree. It is an absence of a verdict, not a quiet yes.',
+    means: 'The two checkers did not both say TRUE or both say FALSE: they disagreed, one was unsure, or no model for a family gave a usable answer (one that is down hands its place to the next model first). It is an absence of a verdict, not a quiet yes.',
     blocks: 'Everything gated behind a check. Not checked fails closed: it never passes by default.',
   },
 ];
@@ -125,12 +126,13 @@ export default function HowVerificationPage() {
           Why no single model gets to grade its own homework.
         </p>
         <p className="text-base md:text-lg text-muted leading-relaxed max-w-2xl">
-          A check is only worth as much as the independence behind it. Today TrustShell runs a claim
-          past <span className="text-foreground">two uncorrelated model families</span> and both must
+          A check is only worth as much as the agreement behind it. Today TrustShell runs a claim
+          past <span className="text-foreground">two different model families</span> and both must
           agree for a pass — so one provider&apos;s bias, or one provider&apos;s outage, cannot fake
-          one. A <span className="text-foreground">golden-ratio supermajority</span> across more
-          families is the design target, not what runs (see the Roadmap section below). When
-          independence is not there, the honest answer is{' '}
+          one. Different is not independent: the two can still share data and make the same mistake.
+          A <span className="text-foreground">golden-ratio supermajority</span> across more
+          families is the design target, not what runs (see the Roadmap section below). When the two
+          do not agree, or one gives no usable answer, the honest answer is{' '}
           <span className="text-foreground">Not checked</span>, and that is never a quiet yes.
         </p>
       </header>
@@ -157,9 +159,10 @@ export default function HowVerificationPage() {
         <h2 className="text-2xl font-bold text-foreground">The fix: families that fail differently</h2>
         <p className="text-sm text-muted leading-relaxed max-w-2xl">
           So the check is spread across <span className="text-foreground">different model families</span> —
-          different builders, different training, different failure modes. Two of them must agree before
-          a claim is allowed to count. A lone FALSE flags the claim; a lone TRUE, with no independent
-          second, abstains. There is no path where one family alone produces a clean pass.
+          different builders and training pipelines, so their mistakes are less likely to match. They
+          can still share data and share mistakes: different is not independent. Two of them must agree
+          before a claim counts. A lone TRUE or a lone FALSE, with no second family agreeing, leaves the
+          claim not checked. There is no path where one family alone produces a pass or a catch.
         </p>
         <CompatibilityInfo />
         <p className="text-xs text-muted/70 leading-relaxed max-w-2xl">
@@ -197,10 +200,12 @@ export default function HowVerificationPage() {
         </p>
         <div className="rounded-xl border border-border bg-card px-5 py-4">
           <p className="text-sm leading-relaxed">
-            <span className="text-foreground font-semibold">The shape of the guarantee.</span>{' '}
+            <span className="text-foreground font-semibold">The shape of the rule.</span>{' '}
             <span className="text-muted">
-              No one provider is load-bearing. A family that is biased, captured, or simply offline
-              cannot carry a verdict on its own, and cannot block the others from reaching one. That is
+              No one provider can decide a claim. A family that is biased, captured or offline cannot pass
+              or catch a claim on its own: a pass needs two families saying TRUE, a catch needs two saying
+              FALSE. An offline voter hands its place to the next model in the pool. One that answers
+              wrongly can stop a verdict, leaving the claim not checked, but it cannot create one. That is
               the property a single model — however good — can never have about itself.
             </span>
           </p>
