@@ -12,7 +12,8 @@
 #   npm ci                -> exit 0 (lockfile and package.json agree)
 #   npx tsc --noEmit      -> exit 0
 #   dist/ == sdk:build    -> exit 0 (added 2026-11-14; see the step's own comment)
-#   jest, minus tests/e2e -> 5 suites, 87 tests, exit 0
+#   jest, minus tests/e2e -> exit 0 (5 suites / 87 tests when this file was written; about 368
+#                            test files by 2026-11-14, so read the run, not this line, for the count)
 #
 # WHY THE E2E SUITE IS EXCLUDED, and why that is not just moving the goalposts.
 # `tests/e2e/wrapper-readiness.test.ts` probes a LIVE backend — repid-engine on
@@ -23,14 +24,13 @@
 # suite is valuable and is still runnable on demand via
 # `npm run test:wrapper-readiness`.
 #
-# A SEPARATE DEFECT THIS UNCOVERED, deliberately NOT fixed here:
-# `sdk:test` is `jest --testPathPattern=trustshell`, and that pattern matches the
-# REPOSITORY DIRECTORY in every absolute path — /…/trustshell/tests/… — so it
-# selects all 6 suites rather than the intended tests/trustshell.test.ts. That
-# matters because publish-sdk.yml runs `sdk:test` as a release gate, which means
-# an npm publish depends on a live external backend being up. Publishing is
-# irreversible and a version can never be reused, so that is not something to
-# change as a side effect of adding CI. Left for an explicit decision.
+# A SEPARATE DEFECT THIS UNCOVERED, since FIXED (corrected here 2026-11-14):
+# `sdk:test` was `jest --testPathPattern=trustshell`, which matched the repository
+# directory in every absolute path and so ran the live-backend e2e suites as the
+# release gate in publish-sdk.yml. #59 (2026-08-18) changed it to
+# `jest --testPathIgnorePatterns /node_modules/ tests/e2e/ --passWithNoTests`, so the
+# release gate no longer depends on a live external backend. This paragraph kept
+# describing the old script for three months after the fix.
 
 name: check
 
