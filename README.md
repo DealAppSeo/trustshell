@@ -1,8 +1,8 @@
 # Your AI says the job is done. TrustShell checks the evidence.
 
-TrustShell reads a **public GitHub Actions run** from GitHub and sets what your AI agent *said* beside what the run *reports*. Once installed, the only network call is to `api.github.com`: no account, no API key, no TrustShell server, and nothing of yours is uploaded. `GITHUB_TOKEN` is optional and only raises GitHub's rate limit. Public runs only, for now.
+TrustShell reads a **public GitHub Actions run** from GitHub and sets what your AI agent *said* beside what the run *reports*. Once installed, `check <run-url>` makes one kind of network call, to `api.github.com`: no account, no API key, no TrustShell server, and nothing of yours is uploaded. `GITHUB_TOKEN` is optional and only raises GitHub's rate limit. Public runs only, for now. (Other commands, such as checking one sentence or `--check hal`, call the hosted checkers, and say so where they are described below.)
 
-**Try Inspect:** [the five-minute challenge](https://trustshell.dev/inspect). Two example claims we wrote about a pinned run (one true, one false), the evidence that decides each, and an invitation to break it. No run URL yet? This one line needs none and works as written in bash, zsh and PowerShell. It cites our own green CI run as proof for a different commit, so it prints CONTRADICTED and exits `1`, and [the run on GitHub](https://github.com/DealAppSeo/trustshell/actions/runs/39619591025) shows the real commit, `392797a`: `npx @hyperdag/trustshell@latest check https://github.com/DealAppSeo/trustshell/actions/runs/39619591025 --claims "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025."`
+**Start here:** [trustshell.dev/lab/start](https://trustshell.dev/lab/start), a guided first run: try a saved example, test your own work, keep the report. **Or try Inspect:** [the five-minute challenge](https://trustshell.dev/inspect). Two example claims we wrote about a pinned run (one true, one false), the evidence that decides each, and an invitation to break it. No run URL yet? This one line needs none and works as written in bash, zsh and PowerShell (in PowerShell, type `npx.cmd` in place of `npx` if it says running scripts is disabled). It cites our own green CI run as proof for a different commit, so it prints CONTRADICTED and exits `1`, and [the run on GitHub](https://github.com/DealAppSeo/trustshell/actions/runs/39619591025) shows the real commit, `392797a`: `npx @hyperdag/trustshell@latest check https://github.com/DealAppSeo/trustshell/actions/runs/39619591025 --claims "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025."`
 
 ## Check your own CI run
 
@@ -22,6 +22,8 @@ $run = "https://github.com/OWNER/REPO/actions/runs/1234567890"
 npx @hyperdag/trustshell@latest check $run --claims-file claims.txt
 ```
 
+If PowerShell says running scripts is disabled (`npx.ps1 cannot be loaded`), type `npx.cmd` in place of `npx`: it runs the same command and changes no setting. The first run downloads the package with its dependencies (about 26 MB) and can take a minute or two before anything prints; later runs start in seconds.
+
 `claims.txt` is what your agent said. The line above writes one claim for you so the first run works; **replace it with your agent's own words** to test them. You get a card that marks each claim **SUPPORTED**, **CONTRADICTED** or **NOT_CHECKED**, and ends with what it does not prove. An excerpt, recorded 2026-10-23 on 1.8.0 from npm against a finished public run (`vitejs/vite`, run 39524643058), exit 0:
 
 ```
@@ -38,7 +40,7 @@ Four things to know before you try your own words:
 - **Write plain sentences, one per paragraph** (a blank line between them). One line the checker cannot read in full, such as Markdown, a question, or words it has no template for, blocks every verdict: the whole text comes back NOT_CHECKED, exit 3. That is deliberate; a PR description in Markdown is not read at all.
 - **Cite the run id** (`run 123456789`) in any sentence about the outcome. A commit alone does not tie a sentence to one of its many runs, so that sentence is not compared.
 - **SUPPORTED is narrow.** A green run supports "this workflow run succeeded", and nothing wider. "All tests pass" and "CI is green" are never SUPPORTED by one run.
-- **Exit codes:** `0` every claim SUPPORTED on a finished, passing run; `1` a claim CONTRADICTED, or the run failed; `3` something was NOT_CHECKED. NOT_CHECKED never exits `0`.
+- **Exit codes:** `0` every claim SUPPORTED on a finished, passing run; `1` a claim CONTRADICTED, or the run failed; `3` something was NOT_CHECKED. NOT_CHECKED never exits `0`. `trust-report` uses the same three. Two commands differ, and a CI gate should stop on anything but `0`: `trust-report verify` exits `0` VERIFIED, `1` FAILED, `2` NOT_CHECKED (no `--root`, so who made it was not checked); `check "<sentence>"` and `verify` exit `2` when nothing decided.
 
 If the card says **SUPPORTED** and it should not have, that is the worst bug this tool can have: [open an issue](https://github.com/DealAppSeo/trustshell/issues/new?template=wrong-verdict.yml) with the run URL and your claim file. The rules are in [docs/action-evidence.md](docs/action-evidence.md); to help, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -92,7 +94,7 @@ That run exited 1 (1.6.0, 2026-10-07). The last line names who decided; your run
 | | Today |
 |---|---|
 | npm `latest` | **1.9.2** (`npm view @hyperdag/trustshell version`). |
-| HAL quorum | **3 answering / 5 configured** (MEASURED 2026-10-06, `GET /api/v1/hal/stats` → `quorum_health`, 24-hour window). Not a constant 6. |
+| HAL quorum | **4 answering / 6 configured** (MEASURED 2026-11-13, `GET /api/v1/hal/stats` → `quorum_health`, 24-hour window; it moves, so read that endpoint for today's figure). Not a constant 6. |
 | Chain | **Base Sepolia**, not mainnet. |
 | Grounding | **shadow** — does not mutate live RepID. |
 
@@ -183,7 +185,7 @@ Three states: **live** | **live-degraded** | **paused/blocked**.
 | This package | live | v1 hosted thin client. Trust computation runs on the HyperDAG engine, not on your machine. On-device proofs are v2, not shipped. `npm view @hyperdag/trustshell version` says which version npm serves. |
 | `getRepID()` / `presentProof()` | live | Keyless. Score moves; gate on tier or your own threshold. |
 | `register()` | live | Keyless. Creates an agent and a RepID. It does not mint ERC-8004. |
-| `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. MEASURED 2026-10-06: 3 answering / 5 configured (24-hour window). HAL is weaker on paraphrases than on record-grounded facts. |
+| `verifyOutput()` / `evaluate()` / `trustshell verify` | live-degraded | Keyless. Quorum is measured (`providersUsed`), not a configured 6. MEASURED 2026-11-13: 4 answering / 6 configured (24-hour window; `GET /api/v1/hal/stats` has today's figure). HAL is weaker on paraphrases than on record-grounded facts. |
 | ERC-8004 identity mint | paused/blocked | Key-gated, separate call. A keyless `register()` leaves `NOT_MINTED`. |
 | On-chain reputation writes | live-degraded | Recorded, each with a transaction hash. On 2026-10-05 the public counter reported 114 rows with a real transaction hash on the reputation registry. That is not a receipt check of every row. |
 | x402 `executeA2A()` | paused/blocked | Blocked by credentials, not paused. The call ships, and the engine's contract route answers 401 without a key (MEASURED 2026-10-07). Needs an API key and a funded testnet wallet. Fulfillment is asynchronous, so a contract can sit in `escrowed`. Protocol exists on Base Sepolia (chain id 84532). Not mainnet. |
@@ -678,7 +680,7 @@ to the HyperDAG backend's classify endpoint and nothing else):
 | `bind-status` | HyperDAG backend (`TRUSTSHELL_API_URL`): `GET /api/v1/after-create` only. It sends no input of yours | keyless |
 | `traps` | **none** — reads the fixture bundled in the package and `.trustshell/traps.json` | none |
 | `bundle` | **none** — reads `.trustshell/profile.md`, `~/.trustshell/policy.json` and the local memory file; writes one bundle file (export), or the profile, the policy and quarantined notes (import). Since 1.9.0 | none |
-| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. `guard level` (autonomy levels, SHADOW, off until turned on: [docs/autonomy-levels.md](docs/autonomy-levels.md)) also reads the record file you name and appends to `autonomy.jsonl`. Since 1.9.0 | none |
+| `guard` | **none** — reads and writes `~/.trustshell/policy.json` and appends to `guard-receipts.jsonl` beside it. `guard level` (autonomy levels, SHADOW, off until turned on: [docs/autonomy-levels.md](docs/autonomy-levels.md)) also reads the record file you name and appends to `autonomy.jsonl`. Since 1.9.0. **With no policy file**, `trustshell run` runs nothing (exit `2`, NOT_CHECKED), while every other command, the MCP server and `sdkGuard` run as if Guard were not installed; set `TRUSTSHELL_REQUIRE_POLICY=1` to make those refuse too | none |
 | `run` | **none** itself — it starts the command you give it only if the policy allows it, and that command's own network is neither seen nor limited. Since 1.9.0 | none |
 
 No command uploads your input anywhere other than the host named above.

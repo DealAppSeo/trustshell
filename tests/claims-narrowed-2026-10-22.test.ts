@@ -3,7 +3,7 @@
  * pages strangers reach, pinned so they cannot come back. Each assertion names the code that makes the old
  * sentence untrue.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(__dirname, '..');
@@ -45,6 +45,39 @@ describe('model families: different, not independent (F7)', () => {
   });
   it('mission makes no unmeasured production-integrity claim', () => {
     expect(read('app/mission/page.tsx')).not.toMatch(/integrity holds under adversarial pressure/i);
+  });
+});
+
+describe('F7 and HAL-guarantee claims, on every surface that ships (a discovery rule, not a list)', () => {
+  // The F7 block above reads four page files by name. The same claim survived on /how-verification
+  // inside components/compatibility-info.tsx, which that page renders, and was live until 2026-11-13;
+  // its wording also slipped past the narrow pattern. And `init --pai` wrote a "guarantees" heading
+  // into every user's wiki from scripts/init-pai.mjs, which ships in the npm package. So: walk every
+  // source a page or the package can show, and match the claim's shape, not one sentence.
+  const SKIP = new Set(['node_modules', '.next', 'dist', 'tests', '__tests__']);
+  const walk = (rel: string): string[] =>
+    readdirSync(join(ROOT, rel), { withFileTypes: true }).flatMap((d) => {
+      const child = join(rel, d.name);
+      if (d.isDirectory()) return SKIP.has(d.name) ? [] : walk(child);
+      return /\.(tsx?|mjs|md)$/.test(d.name) ? [child] : [];
+    });
+  const files = [...walk('app'), ...walk('components'), ...walk('lib'), join('scripts', 'init-pai.mjs'), 'README.md'];
+  const FORBIDDEN: RegExp[] = [
+    /grades? its own family/i,
+    /independent model families/i,
+    /no independent pair/i,
+    /did not write the answer/i,
+    /two guarantees/i,
+    /HAL (vetoes|VETOs|blocks|stops|catches) (a|any|every) false claim/i,
+  ];
+  it('scans the files the old list missed', () => {
+    expect(files.length).toBeGreaterThan(50);
+    expect(files).toContain(join('components', 'compatibility-info.tsx'));
+    expect(files).toContain(join('scripts', 'init-pai.mjs'));
+  });
+  it('no shipped surface makes the claim', () => {
+    const hits = files.flatMap((rel) => FORBIDDEN.filter((re) => re.test(read(rel))).map((re) => `${rel}: ${re}`));
+    expect(hits).toEqual([]);
   });
 });
 

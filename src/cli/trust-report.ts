@@ -25,7 +25,7 @@ import { installKeyRootHex, signOwnerReceipt, type SealableReceipt } from '../li
 import { signingKey } from '../lib/install-key';
 import { decodeText } from '../lib/decode-text';
 import { verifyReceiptOffline } from '../lib/verify-receipt';
-import { resolvePackageVersion } from '../lib/version';
+import { resolvePackageVersion, selfCommand } from '../lib/version';
 
 export const TRUST_REPORT_SCHEMA = 'dev.trustshell.trust-report/0.2-draft' as const;
 /** TrustShell 1.9.0 called a passed command SUPPORTED. `verify` rebuilds a report under its own schema, so a folder made then stays checkable. */
@@ -489,7 +489,7 @@ async function create(argv: string[], io: IO, env: NodeJS.ProcessEnv, cwd: strin
       io.out(`  claims     ${count('SUPPORTED')} supported, ${count('COMMAND_PASSED')} command passed, ${count('CONTRADICTED')} contradicted, ${count('NOT_CHECKED')} not checked`);
       io.out(`  commands   ${report.guard.commands.filter((c) => c.decision === 'ALLOWED').length} allowed, ${report.guard.commands.filter((c) => c.decision !== 'ALLOWED').length} refused, chain ${report.guard.ledger.verdict}`);
       io.out('  read       trust-report.html or trust-report.md; the evidence is in evidence/');
-      io.out(`  check it   trustshell trust-report verify ${out} --root ${root}`);
+      io.out(`  check it   ${selfCommand(resolvePackageVersion(__dirname))} trust-report verify ${out} --root ${root}`);
       io.out('  not seen   anything the agent did without trustshell run');
     }
     return report.exit;

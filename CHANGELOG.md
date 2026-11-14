@@ -2,6 +2,16 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## Unreleased (on main, not yet on npm; npm `latest` is 1.9.2)
+
+First-run fixes and narrowed claims. Every exit code keeps its meaning, and no verdict or verifier rule changes; two inputs that were silently mis-read (below) are now refused as usage errors, exit 2. Runtime dependencies are unchanged. The MCP server still lists 21 tools.
+
+- **`demo` no longer shows two different values both called "key".** The verified line printed the key's sha256 fingerprint as "pinned key 0x…", and the `--root` line below it printed the key itself, so a first user who pasted the first into `--root` got "tampered". The line now says "sha256 fingerprint" and that `--root` takes the key. `receipt` uses the same wording.
+- **Hints say how to run the command again.** Started through npx, the next-step lines from `demo`, `sign-receipt` and `trust-report` now print `npx -y @hyperdag/trustshell@<version> …` (`npx.cmd` on Windows) instead of a bare `trustshell`, which an npx-only user does not have on PATH. An installed copy still prints `trustshell`.
+- **A claim that lost its quotes is refused, not checked as its first word.** `check <run-url> --claims The check workflow succeeded…` used to check only "The" and report "Unmapped claim". It now exits 2 and says to quote the claim or use `--claims-file`. The same goes for `--claims="text with spaces"`: an option written with `=` and a value containing spaces used to be taken as plain text, so `check <run-url>` checked the run alone and could exit 0 with the claim never compared. An option the CLI takes a value for, written as `--option=…` with spaces in the value, is now refused with a hint to put the value after a space (found by Strix on #711; the same was true of 1.9.2). Any other `--x=y z` word is still read as text.
+- **`init --pai` no longer writes "Two guarantees".** The wiki it writes said HAL vetoes a false claim before you act on it. HAL is measured, not a guarantee; the heading is now "Two checks, and their limits", and says it can miss a false claim and that NOT_CHECKED is not a pass.
+- **Docs:** the README scopes "the only network call is to api.github.com" to `check <run-url>`, documents the exit codes of `trust-report verify` (2 without `--root`) beside those of `check`, adds the Windows `npx.cmd` note and the first-run download time, and replaces the 2026-10-06 HAL quorum figure with one measured today (4 answering / 6 configured, 24-hour window).
+
 ## 1.9.2 — 2026-11-12
 
 Fixes to the offline receipt verifier. Against the published 1.9.1 tarball, five files differ: `dist/lib/verify-receipt.js`, `dist/lib/verify-receipt.d.ts` (one doc comment), this changelog, the README (version pins, and one sentence about the demo claims) and `package.json` (version and two dev dependencies). Runtime dependencies are unchanged. The package is still 165 files, and the MCP server still lists 21 tools.

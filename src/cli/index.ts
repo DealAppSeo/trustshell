@@ -28,7 +28,7 @@ import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdi
 import { runEnvelopedAction } from '../lib/action-envelope';
 import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
-import { resolvePackageVersion } from '../lib/version';
+import { resolvePackageVersion, selfCommand } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
 import { claimsExitCode, inspectRunClaims, MAX_CLAIMS_FILE_BYTES, terminalSafeJson, cleanCodePoints } from '../lib/action-evidence';
 import { renderCardHtml, renderCardMarkdown } from '../lib/evidence-card';
@@ -639,6 +639,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         verify: false,
         error: `unknown option: ${a}`,
       };
+    } else if (/^--[A-Za-z][A-Za-z0-9-]*=/.test(a) && (VALUE_OPTS.has(a.slice(0, a.indexOf('='))) || a.startsWith('--echo='))) {
+      // `--claims="text with spaces"`: looksLikeOption only matches a value with no whitespace, so
+      // this one used to fall through as a positional. `check <url>` then checked the run alone and
+      // could exit 0 with the claim never compared (Strix, #711). Refuse it, naming only the option:
+      // the value is the caller's own text and is not echoed back. Only names this parser takes a
+      // value for: any other `--x=y z` word is still free text, as in 1.9.2 (Grok, #711 round 2).
+      const name = a.slice(0, a.indexOf('='));
+      return { command: 'help', json: false, verify: false, error: `unknown option: ${name}=… (write the value after a space: ${name} "<value>")` };
     } else positionals.push(a);
   }
 
@@ -700,6 +708,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
         if (claimsText === undefined && claimsFile === undefined) {
           return { command: 'check', json, verify, error: '--out, --demo and --guided apply only with --claims or --claims-file' };
+        }
+        // A stray word after the run URL is almost always a claim that lost its quotes: the shell
+        // split `--claims The check workflow succeeded…` into words, so --claims got only "The" and
+        // the result was "Unmapped claim `The`". Refuse it, as `ground` refuses a stray word.
+        if (rest.length > 1) {
+          const got = claimsText !== undefined ? `--claims got ${JSON.stringify(claimsText)} and ${rest.length - 1} more word(s) followed; ` : '';
+          // JSON.stringify escapes control characters, so a stray word cannot write terminal escapes (Strix, #711).
+          return { command: 'check', json, verify, error: `unexpected argument: ${JSON.stringify(rest[1])} (${got}put the whole claim in quotes, --claims "<text>", or use --claims-file <path>)` };
         }
         return { command: 'check', operand: full, json, verify, claims: claimsText, claimsFile, out: values['out'], demo: flags.has('demo'), guided: flags.has('guided') };
       }
@@ -998,7 +1014,7 @@ const CLAIM_LABEL: Record<(typeof SIX_CLAIM_KEYS)[number], string> = {
 export function formatKernelReceipt(r: KernelReceiptRead): string {
   if (!r.ok) return `receipt NOT read: ${r.detail} (${r.reason})`;
   const a = r.authenticity;
-  const signer = a.status === 'AUTHENTIC' ? `✓ AUTHENTIC, signature verified here under pinned key ${a.fingerprint}` : `${a.status}: ${a.detail}`;
+  const signer = a.status === 'AUTHENTIC' ? `✓ AUTHENTIC, signature verified here under the pinned key with sha256 fingerprint ${a.fingerprint}` : `${a.status}: ${a.detail}`;
   const lines = [`kernel receipt ${r.receipt_id}`, `  hash  ✓ recomputed here, matches ${r.receipt.header.receipt_hash}`, `  signer ${signer}`, ''];
   if (!r.six_claims) return [...lines, `  six claims not shown: ${r.six_claims_note}`].join('\n');
   lines.push('  There is no single verdict. Six separate claims, each with its own gaps:');
@@ -1014,7 +1030,10 @@ export function formatKernelReceipt(r: KernelReceiptRead): string {
 /** `trustshell verify-receipt`: the OFFLINE six-claim verdict, same layout as `receipt`, no rollup. */
 export function formatOfflineVerify(r: OfflineVerifyResult): string {
   const sealer = r.sealer.trusted
-    ? `✓ trusted — signature verified here under pinned key ${r.sealer.fingerprint}`
+    // This is the key's sha256 FINGERPRINT, not the key. Labelled as one because the demo prints
+    // the key itself on the `--root` line below it, and two unlabelled hex strings both called
+    // "key" sent first users to paste the fingerprint into --root (FIRST_USER_VERIFICATION #3).
+    ? `✓ trusted — signature verified here under the pinned key with sha256 fingerprint ${r.sealer.fingerprint} (--root takes the key, not this fingerprint)`
     : `not trusted — ${r.sealer.note || 'no signer pinned'}`;
   const env = r.reconciliation.engine_envelope === 'BOUND' ? 'bound'
     : r.reconciliation.engine_envelope === 'PRESENT_UNBOUND' ? 'present but does NOT bind this receipt (ignored)'
@@ -1550,7 +1569,7 @@ export async function run(
         io.out(JSON.stringify(receipt, null, 2));
         if (created) io.err(`sign-receipt: created a new install key at ${path}`);
         io.err(`sign-receipt: sealed as owner-self-signed. A verifier confirms the SEAL with:`);
-        io.err(`  trustshell verify-receipt <file> --root ${installKeyRootHex(key)}`);
+        io.err(`  ${selfCommand(VERSION)} verify-receipt <file> --root ${installKeyRootHex(key)}`);
         io.err(`This proves authorship and that the bytes are whole — NOT that the engine permitted the action, and it earns no production RepID.`);
         return EXIT.OK;
       } catch (e) {
@@ -1590,8 +1609,8 @@ export async function run(
         io.out(formatOfflineVerify(result));
         io.out('');
         io.out('Do the same with your own receipt body — still offline, no account:');
-        io.out('  trustshell sign-receipt your-body.json > r.json');
-        io.out(`  trustshell verify-receipt r.json --root ${pin}`);
+        io.out(`  ${selfCommand(VERSION)} sign-receipt your-body.json > r.json`);
+        io.out(`  ${selfCommand(VERSION)} verify-receipt r.json --root ${pin}`);
         io.err('');
         io.err('An owner self-signature proves AUTHORSHIP + wholeness only — not that the engine permitted the action, and it earns no production RepID. Offline, a non-owner key reaches at most ISSUER_ATTESTED (attested under a named key, not a finding of independence); independence and RepID are the engine\'s call.');
         return code;

@@ -424,7 +424,7 @@ async function create(argv, io, env, cwd) {
             io.out(`  claims     ${count('SUPPORTED')} supported, ${count('COMMAND_PASSED')} command passed, ${count('CONTRADICTED')} contradicted, ${count('NOT_CHECKED')} not checked`);
             io.out(`  commands   ${report.guard.commands.filter((c) => c.decision === 'ALLOWED').length} allowed, ${report.guard.commands.filter((c) => c.decision !== 'ALLOWED').length} refused, chain ${report.guard.ledger.verdict}`);
             io.out('  read       trust-report.html or trust-report.md; the evidence is in evidence/');
-            io.out(`  check it   trustshell trust-report verify ${out} --root ${root}`);
+            io.out(`  check it   ${(0, version_1.selfCommand)((0, version_1.resolvePackageVersion)(__dirname))} trust-report verify ${out} --root ${root}`);
             io.out('  not seen   anything the agent did without trustshell run');
         }
         return report.exit;

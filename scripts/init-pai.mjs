@@ -144,7 +144,9 @@ if (!existsSync(wikiPath)) {
       `## Cost sense\n${cost || '(not set)'}\n\n` +
       `## Brain\n${brain || '(not set)'}\n\n` +
       `## Suggested tools\n${toolLines}\n\n` +
-      `## Two guarantees\n- HAL VETOs a false claim before you act on it.\n- A spend with no cap or no policy is refused — it never signs by default.\n\n` +
+      // Until 2026-11-13 this heading promised HAL would always stop a false claim. HAL is measured,
+      // not a guarantee: it can miss a false claim, and NOT_CHECKED is not a pass.
+      `## Two checks, and their limits\n- HAL cross-checks a factual claim with more than one model family before you act on it. It is measured, not perfect: it can miss a false claim, and NOT_CHECKED is not a pass.\n- A spend with no cap or no policy is refused — it never signs by default.\n\n` +
       `## Grow the fleet\nCreate a specialist (PAI #2+) in its own store — see the pointer at the end of this run. Keep #1 as your chief of staff.\n`,
   );
   console.log('wrote', join(DIR, 'credentials.json') + ',', join(DIR, 'profile.json') + ',', 'and', wikiPath);

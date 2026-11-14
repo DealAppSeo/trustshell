@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolvePackageVersion = resolvePackageVersion;
+exports.selfCommand = selfCommand;
 /**
  * The version this package reports — read from the package it was installed
  * as, never retyped anywhere else.
@@ -40,4 +41,16 @@ function resolvePackageVersion(fromDir) {
     catch {
         return 'unknown';
     }
+}
+/**
+ * The command to print in a "run this next" hint. A first user who ran us through npx has no
+ * `trustshell` on PATH, so a bare `trustshell …` hint failed with "not recognized"
+ * (FIRST_USER_VERIFICATION #2). npm sets npm_command=exec for `npx` and `npm exec`; then the hint
+ * names the package at the version that is running. On Windows it says `npx.cmd`, which works in
+ * every shell there, while `npx` is blocked under PowerShell's default execution policy.
+ */
+function selfCommand(version, env = process.env, platform = process.platform) {
+    if (env['npm_command'] !== 'exec' || version === 'unknown')
+        return 'trustshell';
+    return `${platform === 'win32' ? 'npx.cmd' : 'npx'} -y @hyperdag/trustshell@${version}`;
 }

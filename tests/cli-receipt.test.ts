@@ -101,7 +101,7 @@ describe('trustshell receipt', () => {
       answer(200, golden.receipt_response);
       const c = captureIO();
       expect(await run(parseArgs(['receipt', id]), NO_CLIENT, c.io)).toBe(EXIT.OK);
-      expect(c.out.join('\n')).toMatch(/signer ✓ AUTHENTIC, signature verified here under pinned key 0x72852912/);
+      expect(c.out.join('\n')).toMatch(/signer ✓ AUTHENTIC, signature verified here under the pinned key with sha256 fingerprint 0x72852912/);
       process.env.TRUSTSHELL_KERNEL_TRUSTED_SIGNERS = '0x' + 'ab'.repeat(32);
       answer(200, golden.receipt_response);
       const c2 = captureIO();
