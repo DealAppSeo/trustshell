@@ -1,4 +1,4 @@
-import { REPID_ENGINE_URL } from './repid-engine';
+import { REPID_ENGINE_URL, engineFetch } from './repid-engine';
 
 /**
  * Human ↔ agent ownership binding.
@@ -138,7 +138,7 @@ async function authHeaders(
 ): Promise<{ headers: Record<string, string> } | { error: string }> {
   let template: string;
   try {
-    const probe = await fetch(`${REPID_ENGINE_URL}${path}`, {
+    const probe = await engineFetch(`${REPID_ENGINE_URL}${path}`, {
       method,
       headers: { 'Content-Type': 'application/json' },
       // A body-less POST is enough to draw the 401; the engine checks headers first.
@@ -200,7 +200,7 @@ export async function fetchBindMessage(input: {
 }): Promise<{ message: string; scope: string } | null> {
   try {
     const q = new URLSearchParams({ wallet: input.wallet, agent_id: input.agentId });
-    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/human/bind/message?${q}`);
+    const res = await engineFetch(`${REPID_ENGINE_URL}/api/v1/human/bind/message?${q}`);
     if (!res.ok) return null;
     const data = await res.json();
     return typeof data?.message === 'string'
@@ -245,7 +245,7 @@ export async function bindAgent(input: {
 
   input.onStep?.('submitting');
   try {
-    const res = await fetch(`${REPID_ENGINE_URL}${path}`, {
+    const res = await engineFetch(`${REPID_ENGINE_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth.headers, 'x-agent-key': input.agentKey.trim() },
       body: JSON.stringify({ agent_id: input.agentId, signature, scope: stmt.scope }),
@@ -284,7 +284,7 @@ export async function listMyAgents(input: {
   if ('error' in auth) return { ok: false, reason: auth.error };
 
   try {
-    const res = await fetch(`${REPID_ENGINE_URL}${path}`, { headers: auth.headers });
+    const res = await engineFetch(`${REPID_ENGINE_URL}${path}`, { headers: auth.headers });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       return {
@@ -315,7 +315,7 @@ export async function revokeBinding(input: {
   if ('error' in auth) return { ok: false, reason: auth.error };
 
   try {
-    const res = await fetch(`${REPID_ENGINE_URL}${path}`, {
+    const res = await engineFetch(`${REPID_ENGINE_URL}${path}`, {
       method: 'DELETE',
       headers: auth.headers,
     });
@@ -341,7 +341,7 @@ export async function revokeBinding(input: {
  */
 export async function fetchAgentOwner(agentId: string): Promise<AgentOwner | null> {
   try {
-    const res = await fetch(`${REPID_ENGINE_URL}/api/v1/agents/${agentId}/owner`);
+    const res = await engineFetch(`${REPID_ENGINE_URL}/api/v1/agents/${agentId}/owner`);
     if (!res.ok) return null;
     return (await res.json()) as AgentOwner;
   } catch {
@@ -381,7 +381,7 @@ export async function connectAccount(input: {
   if ('error' in auth) return { ok: false, reason: auth.error };
 
   try {
-    const res = await fetch(`${REPID_ENGINE_URL}${path}`, {
+    const res = await engineFetch(`${REPID_ENGINE_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth.headers },
       body: JSON.stringify({}),
