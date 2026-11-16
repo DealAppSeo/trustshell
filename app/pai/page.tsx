@@ -189,7 +189,9 @@ export default function PaiPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: 'My PAI',
+          // Agent names are unique on the backend, so every PAI cannot be called "My PAI".
+          // The label shown here stays "My PAI"; only the registered name gets a suffix.
+          name: `my-pai-${crypto.randomUUID().slice(0, 8)}`,
           description: 'Personal agent created through the PAI conversation.',
           constitution_text: composeConstitution(nextAnswers),
           // Provenance on the first commit: this PAI is created from the hosted Site.
