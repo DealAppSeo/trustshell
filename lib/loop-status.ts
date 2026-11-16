@@ -64,7 +64,7 @@ export const LOOP_STEPS: readonly LoopStep[] = [
     id: 'check',
     title: 'Check yours',
     status: 'live',
-    does: 'Paste one sentence an AI told you. You get Checks out, Caught or Not checked. To check a GitHub Actions run instead, use the walkthrough below.',
+    does: 'Paste one sentence an AI told you. You get Checks out, Caught or Not checked. A GitHub Actions run can be checked from a terminal too.',
     href: '/check',
     linkLabel: 'Check a sentence',
     evidence: 'A scheduled browser test ran this check against the live site on 16 Nov 2026 and passed.',
