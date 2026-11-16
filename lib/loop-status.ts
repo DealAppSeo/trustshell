@@ -86,7 +86,7 @@ export const LOOP_STEPS: readonly LoopStep[] = [
     does: 'Connect a wallet and set a cap on what your agent may spend in test USDC. Anything over the cap is refused before it is signed.',
     href: '/spend',
     linkLabel: 'Set a cap',
-    evidence: 'Base Sepolia only. Today it needs a browser wallet that holds test funds.',
+    evidence: 'Base Sepolia only. Today it needs a browser wallet that holds test funds. An owner’s budget shared by two agents also ran on Base Sepolia on 16 Nov 2026; its receipt is on TrustMarket.',
     later: [
       { status: 'off', text: 'Gasless deposit: you sign once and pay no gas.' },
       { status: 'off', text: 'A verified human, not only a builder, holding a budget for their agents.' },
