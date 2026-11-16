@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { FirstRunFlow } from '@/components/first-run-flow';
+import { LoopStrip } from '@/components/loop-strip';
 
 /**
  * PUBLIC BETA. A guided walkthrough for three kinds of visitor, linked from the home page and kept out of search
@@ -21,6 +22,7 @@ export default function LabStartPage() {
         <p className="text-lg leading-relaxed text-slate-300">
           TrustShell checks the kinds of claims it can read, such as whether a GitHub Actions run passed. It does not see everything your AI did. Try it on a saved example, test it on your own work, then read the report. No account and no key.
         </p>
+        <LoopStrip />
         <FirstRunFlow />
       </div>
     </main>
