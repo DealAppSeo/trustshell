@@ -287,7 +287,7 @@ async function walk(label, viewport) {
   await page.getByRole('button', { name: 'Check my own run' }).waitFor();
   let text = await flow.textContent();
   check(`${label}: vibe gives the check command, pinned`, text.includes('npx -y @hyperdag/trustshell@1.9.3 check https://github.com/DealAppSeo/trustshell/actions/runs/42502305639'));
-  check(`${label}: its example is labelled as an example`, text.includes('Example: real output from @hyperdag/trustshell 1.9.2'));
+  check(`${label}: its example is labelled as an example`, text.includes('Example: real output from @hyperdag/trustshell 1.9.3'));
   check(`${label}: a successful run is not proof`, text.includes('A successful run is not proof the code is correct'));
   await shot('vibe-1-try');
   await everyCheck('vibe try');
