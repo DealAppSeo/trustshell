@@ -181,7 +181,7 @@ export default function Home() {
                   </p>
                   <McpConfig />
                   <p className="text-sm text-muted">
-                    In 1.9.2 the server gives your AI the same run check as the command above (the tool <code className="font-mono text-foreground">inspect_run</code>), a
+                    In 1.9.3 the server gives your AI the same run check as the command above (the tool <code className="font-mono text-foreground">inspect_run</code>), a
                     second-opinion check on one sentence, quote checking and local memory.
                   </p>
                 </div>

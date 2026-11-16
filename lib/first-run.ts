@@ -7,7 +7,7 @@
  * This file holds no logic the page's first load has to pay for. The checker itself is in lib/first-run-check.ts.
  */
 
-export const RELEASE = '1.9.2';
+export const RELEASE = '1.9.3';
 const PACKAGE = `@hyperdag/trustshell@${RELEASE}`;
 export const LAUNCHER = `npx -y ${PACKAGE}`;
 
