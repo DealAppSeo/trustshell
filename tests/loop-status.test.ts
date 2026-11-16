@@ -44,7 +44,7 @@ describe('the loop source', () => {
   });
 
   it('links every step to a page that exists, so no chip is a dead button', () => {
-    for (const s of LOOP_STEPS) {
+    for (const s of LOOP_STEPS.filter((x) => !x.href.startsWith('#'))) {
       const path = s.href.split('#')[0].replace(/^\//, '');
       expect(existsSync(join(ROOT, 'app', path, 'page.tsx'))).toBe(true);
     }
@@ -75,6 +75,10 @@ describe('/lab/start shows the loop', () => {
       expect(li).toContain(`data-status="${s.status}"`);
       expect(li).toContain(`href="${s.href}"`);
     }
+  });
+
+  it('points every in-page link at something on the page', () => {
+    for (const s of LOOP_STEPS.filter((x) => x.href.startsWith('#'))) expect(html).toContain(`id="${s.href.slice(1)}"`);
   });
 
   it('labels every part that does not work yet, with no link of its own', () => {
