@@ -4,7 +4,7 @@ import { CopyCommand, InstallTabs, McpConfig } from '@/components/home-install';
 // The home page has one job (Sean, 2026-10-24): get a developer to run TrustShell and install it.
 // Everything else (the hosted sentence check, the game, the agent path, the vision) has its own page
 // and stays off this one. The demo below is real output from @hyperdag/trustshell 1.9.3, recorded
-// 2026-11-16T05:44:51Z against a pinned public run; re-record it rather than edit it.
+// 2026-11-16T06:18:36Z against a pinned public run; re-record it rather than edit it.
 const DESCRIPTION =
   "Check what your AI agent did, not what it says it did. TrustShell reads GitHub's own record of a CI run and marks each claim your agent made supported, contradicted or not checked. Free, open source, runs on your machine.";
 
@@ -88,7 +88,7 @@ export default function Home() {
         </div>
         </div>
 
-        {/* What the command above prints: real 1.9.3 output, 2026-11-16T05:44:50Z, trimmed to the verdict that matters. */}
+        {/* What the command above prints: real 1.9.3 output, 2026-11-16T06:18:35Z, trimmed to the verdict that matters. */}
         <figure className="min-w-0">
           <div className="rounded-lg border border-border bg-[#0d1117] px-4 py-4 font-mono text-[13px] leading-relaxed text-[#c9d1d9] [overflow-wrap:anywhere]">
             <p className="text-muted">Run DealAppSeo/trustshell · run {RUN_ID}</p>
@@ -130,7 +130,7 @@ export default function Home() {
               <p className="mt-3 text-muted">exit 1</p>
             </div>
             <p className="mt-2 text-xs text-muted">
-              Recorded with 1.9.3 on 16 Nov 2026, 05:44 UTC.{' '}
+              Recorded with 1.9.3 on 16 Nov 2026, 06:18 UTC.{' '}
               <a href={RUN_URL} className="underline underline-offset-2 hover:text-foreground">Open the run</a> and compare.
               Exit codes: 0 every claim supported, 1 one contradicted, 3 something not checked.
             </p>
