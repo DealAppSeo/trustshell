@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { JourneySteps } from '@/components/journey-steps';
+import { WhatWorks } from '@/components/what-works';
 
 export const metadata = {
   title: 'The trust harness — TrustShell',
@@ -274,6 +275,9 @@ export default function TrustHarnessPage() {
           </Link>
         </div>
       </section>
+
+      {/* What works today: the same source as the loop strip's chips (lib/loop-status.ts). */}
+      <WhatWorks />
 
       {/* 6 — try it */}
       <section className="space-y-4 rounded-xl border border-border bg-card p-6">
