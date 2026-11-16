@@ -7,7 +7,7 @@ import { join } from 'node:path';
 const page = readFileSync(join(__dirname, '../app/builders/page.tsx'), 'utf8').replace(/\r/g, '');
 
 const COMMANDS = [
-  'npm i -g @hyperdag/trustshell@1.9.2',
+  'npm i -g @hyperdag/trustshell@1.9.3',
   'trustshell verify "paste your own claim"',
   'trustshell repid trinity-shofet',
 ];

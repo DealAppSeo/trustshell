@@ -2,11 +2,12 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
-## Unreleased (on main, not yet on npm; npm `latest` is 1.9.2)
+## 1.9.3 — 2026-11-16
 
-First-run fixes, narrowed claims and a security update. Every exit code keeps its meaning, and no verdict or verifier rule changes; two inputs that were silently mis-read (below) are now refused as usage errors, exit 2. The MCP server still lists 21 tools.
+First-run fixes, narrowed claims and a security update. Every exit code keeps its meaning, and no verdict or verifier rule changes; two inputs that were silently mis-read (below) are now refused as usage errors, exit 2. The MCP server still lists 21 tools. Package changes since 1.9.2: #711, #713, #715, #716 and #718.
 
 - **Security: `zod` 3.25.76 → 4.6.7 and `@modelcontextprotocol/sdk` → 1.32.2 (pinned)** (#713). This fixes GHSA-mrhx-c7xc-m3w5: a bounded array now rejects an oversize input before walking its elements. `tests/dependency-security.test.mjs` fails on the old zod. A clean install of the packed tarball audits at 0 vulnerabilities (`npm audit --omit=dev`).
+- **`@noble/hashes` 1.3.2 → 1.8.0** (#715, a Dependabot group bump). It is a runtime dependency (hashing), so it is listed here even though no code changed with it.
 - **`verify-receipt` no longer says a tampered record "is whole".** When the recomputed hash did not match (or there was none to compare), the Integrity row printed "FAILED  The record is whole: its hash matches its contents. No trusted key was confirmed…", asserting the very thing that failed. That wording now appears only when the hash matched and the sealer was not confirmed; otherwise the row states the full claim beside FAILED or NOT_CHECKED. The verdict and exit code were already right and are unchanged.
 - **Security, Windows: the TrustShell home folder and the install signing key are now limited to you.** Windows ignores the `0600`/`0700` modes TrustShell wrote with, so the files inherited whatever the folder granted. On a real machine, another tool had granted a sandbox group read on `~/.trustshell`, which exposed the private key, the memory and the owner policy. The folder and the key are now set to you, SYSTEM and Administrators only (the ACL Windows OpenSSH accepts for a private key), by SID. This happens when the key is used and when the default memory is opened, so an existing install is repaired the next time it runs. On macOS and Linux the same calls restore `0600`/`0700` if they were loosened. If it cannot be done, the command still runs and prints a `TRUSTSHELL_HOME_PERMISSIONS` or `TRUSTSHELL_KEY_PERMISSIONS` warning. **If another program on your machine relied on reading `~/.trustshell`, it can no longer read it; give it its own `TRUSTSHELL_HOME`.**
 
