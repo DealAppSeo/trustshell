@@ -11,6 +11,7 @@
  * Setting the cap to 0 stops the agent at once, whatever else is running.
  */
 import { Interface, getAddress, isAddress, parseUnits } from 'ethers';
+import { engineFetch } from './repid-engine';
 
 export const BASE_SEPOLIA_CHAIN_ID = 84532;
 export const BASE_SEPOLIA_HEX = '0x14a34';
@@ -79,10 +80,16 @@ export async function ensureBaseSepolia(eth: Eip1193): Promise<void> {
 export async function setCap(eth: Eip1193, from: string, agentWallet: string, amount: bigint): Promise<{ hash: string; mined: boolean; ok: boolean | null }> {
   await ensureBaseSepolia(eth);
   const hash = String(await eth.request({ method: 'eth_sendTransaction', params: [approveTx(from, agentWallet, amount)] }));
-  for (let i = 0; i < 45; i++) {
-    const r = (await eth.request({ method: 'eth_getTransactionReceipt', params: [hash] })) as { status?: string } | null;
-    if (r) return { hash, mined: true, ok: r.status === '0x1' };
-    await new Promise((res) => setTimeout(res, 2000));
+  // From here the transaction is SENT. A receipt read that fails must not throw: the page would tell the
+  // person "nothing changed" about a transaction that is on its way. It reports "not confirmed yet".
+  try {
+    for (let i = 0; i < 45; i++) {
+      const r = (await eth.request({ method: 'eth_getTransactionReceipt', params: [hash] })) as { status?: string } | null;
+      if (r) return { hash, mined: true, ok: r.status === '0x1' };
+      await new Promise((res) => setTimeout(res, 2000));
+    }
+  } catch {
+    /* receipt unreadable: fall through to not confirmed */
   }
   return { hash, mined: false, ok: null };
 }
@@ -104,6 +111,27 @@ export type SpendReply = {
   cap_after_usdc?: string | null;
 };
 
+/**
+ * Engine answers whose text ends in a raw server or chain error, or names a server setting. A visitor
+ * reads our sentence instead (DESIGN_PRINCIPLES rule 9: no raw errors). Each reads after "Not paid: ",
+ * "This would not go through: " or "Not checked: ", so it starts in lower case. Codes not listed here
+ * carry the engine's own plain sentence, which is shown as it is.
+ */
+const RAW_TAIL: Record<string, string> = {
+  owner_not_checked: 'the engine could not read who owns this agent, so nothing was sent. Try again in a minute.',
+  owner_budget_not_checked: "the engine could not read the owner's budget, so nothing was sent. Try again in a minute.",
+  limit_not_recorded: 'the engine could not record the limit, so nothing was changed. Try again in a minute.',
+  chain_error: 'the test network did not complete the transfer. Check the result on Basescan before you try again.',
+  would_revert: "the test network would refuse this transfer, so nothing was sent. The cap or the owner's test USDC is usually too low.",
+  spending_off: 'agent spending is switched off on the engine right now. A dry run still works. Nothing was sent.',
+  spend_source_invalid: 'the engine is not set up to spend right now, so it refused. Nothing was sent.',
+};
+
+/** What the page prints for an engine reply that did not succeed. Never a bare code, never a raw error. */
+export function spendMessage(r: Pick<SpendReply, 'code' | 'error'>): string {
+  return (r.code && RAW_TAIL[r.code]) || r.error || 'the engine did not say why. Nothing was sent.';
+}
+
 /** Ask the engine, as the agent. `dryRun` signs nothing. Network failure is reported, never a pass. */
 export async function askSpend(
   engine: string,
@@ -111,7 +139,7 @@ export async function askSpend(
   body: { owner: string; to: string; amountUsdc: string; dryRun: boolean },
 ): Promise<SpendReply> {
   try {
-    const res = await fetch(`${engine}/api/v1/agents/${encodeURIComponent(agent.id)}/spend`, {
+    const res = await engineFetch(`${engine}/api/v1/agents/${encodeURIComponent(agent.id)}/spend`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': agent.apiKey },
       body: JSON.stringify({ owner_address: body.owner, to_address: body.to, amount_usdc: body.amountUsdc, dry_run: body.dryRun }),

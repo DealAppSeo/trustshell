@@ -15,6 +15,7 @@ import {
 import { founderMode, FOUNDER_EVENT_LABEL, type FounderEventKind } from '@/lib/founder-mode';
 import { FounderPanel } from '@/components/founder-panel';
 import { TrustBadge } from '@/components/trust-state';
+import { engineFetch } from '@/lib/repid-engine';
 import { JourneySteps } from '@/components/journey-steps';
 
 /**
@@ -185,7 +186,7 @@ export default function PaiPage() {
     ]);
 
     try {
-      const res = await fetch(`${ENGINE}/api/v1/agents/register`, {
+      const res = await engineFetch(`${ENGINE}/api/v1/agents/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,7 +201,7 @@ export default function PaiPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.agent_id) {
-        throw new Error(data.error || `register failed (${res.status})`);
+        throw new Error('register failed'); // the catch below says it plainly; this text is never shown
       }
 
       const created: Agent = {
@@ -226,13 +227,11 @@ export default function PaiPage() {
           { kernelRead: relevantKernelRead('passport') },
         ),
       ]);
-    } catch (e) {
+    } catch {
       setPhase('interview');
-      setError(
-        e instanceof Error
-          ? `Couldn't register: ${e.message}`
-          : "Couldn't reach the backend to register.",
-      );
+      // Not the raw error (DESIGN_PRINCIPLES rule 9). Whether the engine kept a half-made agent is not
+      // known here, so the sentence says only what is certain: nothing was saved in this browser.
+      setError('Your PAI was not saved: the engine did not confirm it was registered. Check your connection, then send your last answer again.');
     }
   };
 
@@ -245,7 +244,7 @@ export default function PaiPage() {
 
     try {
       // Tier-0 only, and NO `user_paid_keys` — the PAI never receives your provider keys.
-      const res = await fetch(`${ENGINE}/api/v1/llm/complete`, {
+      const res = await engineFetch(`${ENGINE}/api/v1/llm/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...tokenHeader() },
         // Its rules go with every message, as on /run (lib/agent-rules.ts). Until 2026-10-07 this
@@ -262,7 +261,7 @@ export default function PaiPage() {
         setError(
           data.error === 'daily_cap'
             ? data.message || "That's today's free runs used — it resets tomorrow."
-            : data.error || `Request failed (${res.status})`,
+            : 'Your PAI could not answer that just now: the engine did not run it. Try again in a minute.',
         );
         setBusy(false);
         return;
@@ -278,7 +277,7 @@ export default function PaiPage() {
           'this agent has no stored API key, so the run could not be scored (start a new PAI to fix)';
       } else {
         try {
-          const scoreRes = await fetch(`${ENGINE}/api/v1/agents/${agent.id}/score-event`, {
+          const scoreRes = await engineFetch(`${ENGINE}/api/v1/agents/${agent.id}/score-event`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -301,7 +300,7 @@ export default function PaiPage() {
           } else if (scoreRes.status === 403 && scoreData.error === 'Constitutional block') {
             halDecision = 'vetoed';
           } else {
-            scoreError = scoreData.error || `scoring failed (${scoreRes.status})`;
+            scoreError = 'the scoring service refused it, so this run was NOT scored';
           }
         } catch {
           scoreError = 'scoring was unreachable — this run was NOT scored';

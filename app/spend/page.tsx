@@ -9,12 +9,14 @@ import {
   BASESCAN_TX,
   parseUsdcInput,
   setCap,
+  spendMessage,
   zeroCapRefusal,
   type Eip1193,
   type SpendReply,
 } from '@/lib/agent-spend-client';
 import { PracticeBadge } from '@/components/practice-badge';
 import { JourneySteps } from '@/components/journey-steps';
+import { isDeclined } from '@/lib/human-bind';
 
 const ENGINE = process.env.NEXT_PUBLIC_REPID_ENGINE_URL;
 const PROBE = '0.000001';
@@ -72,7 +74,9 @@ export default function SpendPage() {
       setCapTx({ hash: r.hash, note: !r.mined ? 'Sent. Not confirmed yet; check it on Basescan.' : r.ok ? 'Confirmed.' : 'The chain rejected it.' });
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Your wallet did not send it. Nothing changed.');
+      // Every throw here happens before the approval is sent (setCap reports an unreadable receipt as "not
+      // confirmed yet"), so "nothing changed" is true. The wallet's own message is not shown: it is raw.
+      setError(isDeclined(err) ? 'You declined in your wallet. Nothing changed.' : 'Your wallet did not send it. Nothing changed. Check it is on Base Sepolia with a little test ETH for gas, then try again.');
     }
     setBusy('');
   };
@@ -153,7 +157,7 @@ export default function SpendPage() {
             This agent belongs to <span className="font-mono text-white">{status.bound_owner}</span>. It spends only from that wallet. Switch your wallet to it to set a cap.
           </p>
         ) : !agentWallet ? (
-          <p className="text-sm text-[#94a3b8]">Not checked: {status.error ?? 'the engine did not name this agent’s wallet.'}</p>
+          <p className="text-sm text-[#94a3b8]">Not checked: {spendMessage({ code: status.code, error: status.error ?? 'the engine did not name this agent’s wallet.' })}</p>
         ) : (
           <>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -217,7 +221,7 @@ export default function SpendPage() {
           ) : reply.dry_run && reply.would_send ? (
             <p className="text-sm text-green-400" role="status">This would go through. Nothing was sent.</p>
           ) : (
-            <p className="text-sm text-[#ff6b6b]" role="alert">{reply.dry_run ? 'This would not go through: ' : 'Not paid: '}{reply.error}</p>
+            <p className="text-sm text-[#ff6b6b]" role="alert">{reply.dry_run ? 'This would not go through: ' : 'Not paid: '}{spendMessage(reply)}</p>
           )
         )}
         {error && <p role="alert" className="text-sm text-[#ff6b6b]">{error}</p>}

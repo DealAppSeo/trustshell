@@ -268,7 +268,8 @@ export default function StakePage() {
       });
       if (!r.ok) {
         const code = typeof r.error === 'string' ? r.error : '';
-        setError(STAKE_AUTH_ERRORS[code] ?? (r.message as string) ?? r.error ?? 'Stake failed.');
+        // The engine's own sentence when it sent one; never its bare code (DESIGN_PRINCIPLES rule 9).
+        setError(STAKE_AUTH_ERRORS[code] ?? (typeof r.message === 'string' && r.message ? r.message : 'The practice stake was not recorded, and the engine did not say why. Nothing moved. Try again in a minute.'));
         if (code === 'invalid_session' || code === 'no_credential') setShowGate(true);
       } else {
         setSuccess(

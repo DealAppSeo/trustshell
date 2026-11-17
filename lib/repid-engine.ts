@@ -5,6 +5,18 @@
 
 export const REPID_ENGINE_URL = process.env.NEXT_PUBLIC_REPID_ENGINE_URL || '';
 
+/**
+ * How long a journey page waits for the engine. A request that never answers must end in the page's
+ * own "could not reach the engine" state, never in a spinner that stays up (DESIGN_PRINCIPLES rule 9).
+ * The free-tier model behind /pai can take a while, hence 30 s rather than the 6 s of a claim check.
+ */
+export const ENGINE_TIMEOUT_MS = 30_000;
+
+/** fetch, abandoned after `ms`. The caller's catch then runs, as it does for any unreachable engine. */
+export function engineFetch(url: string, init: RequestInit = {}, ms = ENGINE_TIMEOUT_MS): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(ms) });
+}
+
 // USDC is 6-decimal. Backend stake math stores raw micro-USDC integers.
 export const USDC_DECIMALS = 6;
 
