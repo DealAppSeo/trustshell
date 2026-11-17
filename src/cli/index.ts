@@ -28,6 +28,7 @@ import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdi
 import { runEnvelopedAction } from '../lib/action-envelope';
 import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
+import { proofClassOf } from '../lib/proof-class';
 import { resolvePackageVersion, selfCommand } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
 import { claimsExitCode, inspectRunClaims, MAX_CLAIMS_FILE_BYTES, terminalSafeJson, cleanCodePoints } from '../lib/action-evidence';
@@ -283,10 +284,12 @@ COMMANDS
                              EXIT 0 on PASS/FLAG, EXIT 1 on VETO — use it as a CI gate.
   evaluate "<text>"          Alias of verify. Same HAL quorum, same exits.
   repid <agentIdOrSlug>      Print an agent's live RepID score + tier (keyless).
-  proof <agentIdOrSlug>      Fetch an agent's ZK RepID range proof (POSTCARD tier).
+  proof <agentIdOrSlug>      Fetch an agent's RepID range proof (POSTCARD tier). Its class line
+                             says what it shows: a validity proof; the score is public;
+                             agent binding is weak (about 1 in 256 foreign agent ids verify).
       [--verify]             …and verify it client-side with the bundled WASM verifier.
   badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,
-                             self-contained SVG badge ("RepID ≥ threshold ✓ ZK-verified").
+                             self-contained SVG badge ("RepID ≥ threshold ✓ verified").
                              Green ONLY on a true local verification. The BADGE never
                              prints the score — the proof's statement still carries it
                              as a public input. EXIT 3 if not in the verified state.
@@ -982,6 +985,8 @@ export function formatProof(p: ProofPresentation): string {
     `${p.agentId}`,
     `  tier      ${p.tier}`,
     `  scheme    ${p.scheme ?? '(none)'}`,
+    // What "verified" below does and does not cover. Never absent: a presentation built without it gets one here.
+    `  class     ${(p.proofClass ?? proofClassOf(p)).summary}`,
     `  createdAt ${p.createdAt ?? '(none)'}`,
     `  proof     ${p.proofBytes ? `${p.proofBytes.length} base64 chars` : '(empty)'}`,
   ];

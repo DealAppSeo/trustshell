@@ -18,6 +18,7 @@ import {
 } from './honest-contract';
 import { identityFromPassport, isVerifiedOnChain, notCheckedIdentity, passportCarriesOnChainRead, type AgentIdentity } from './identity';
 import type { Grounding } from './honest-contract';
+import { proofClassOf, type ProofClass } from './proof-class';
 
 /** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
 export function hashProofBytes(proofBytes: string): string {
@@ -344,6 +345,11 @@ export interface ProofPresentation {
   reasons: Record<string, string>;
   /** EAS uid or sha256(proofBytes). Set whenever proof bytes exist. */
   proofHash?: string | null;
+  /**
+   * What this proof shows, even when `verification.verified` is true. Set by presentProof. Today:
+   * a validity proof; the score is public; agent binding is weak. See proof-class.ts.
+   */
+  proofClass?: ProofClass;
   /** populated by presentProof({ verify: true }) — client-side WASM verification result. */
   verification?: {
     verified: boolean;
@@ -1238,8 +1244,9 @@ export class TrustShell {
    * with the WASM verifier from @hyperdag/proof-verifier — "trust math, not the server."
    *
    * Client-side verification uses @hyperdag/proof-verifier (a regular dependency, installed beside
-   * this package); the
-   * proof statement is the agent-bound tuple {agent_id, threshold, repid_score}.
+   * this package). The statement is {agent_id, threshold, repid_score, tier}. This comment used to call
+   * it "the agent-bound tuple"; it is not: about 1 in 256 foreign agent ids verify, and `tier` is not
+   * checked at all. `proofClass` on the result says what a verified proof does and does not show.
    */
   async presentProof(
     agentId: string,
@@ -1273,6 +1280,7 @@ export class TrustShell {
       note: proofH.note,
       reasons: proofH.reasons,
       proofHash: uid || (proofBytes ? hashProofBytes(proofBytes) : null),
+      proofClass: proofClassOf({ scheme: data.scheme ?? null, proofBytes, tier }),
     };
 
     if (opts.verify && presentation.proofBytes && presentation.statement) {

@@ -121,7 +121,8 @@ describe('renderProofBadgeMarkdown', () => {
   it('embeds the SVG as a self-contained data URI + honest caption', () => {
     const md = renderProofBadgeMarkdown(presentation({ verification: { verified: true, error: null, verifierVersion: 'wasm-v1' } }));
     expect(md).toContain('data:image/svg+xml;base64,');
-    expect(md).toMatch(/Attests agent, threshold and score; the score is a bound public input/);
+    expect(md).toContain('validity proof; the score is public; agent binding is weak (about 1 in 256 foreign agent ids verify)');
+    expect(md).not.toMatch(/Attests agent/);
     // The caption must NOT claim the proof withholds the score — it does not.
     expect(md).not.toMatch(/attests the threshold, not the score/);
   });

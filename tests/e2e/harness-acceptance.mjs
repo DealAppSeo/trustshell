@@ -573,7 +573,7 @@ try {
   requireEngine();
   const svg = run('npx', ['trustshell', 'badge', AGENT], { timeout: 120000 });
   if (!svg.includes('<svg')) record('badge', 'FAILED', 'no SVG emitted');
-  else if (!/ZK-verified/i.test(svg)) record('badge', 'FAILED', 'SVG emitted but not in the verified state');
+  else if (!svg.includes('✓ verified')) record('badge', 'FAILED', 'SVG emitted but not in the verified state');
   else record('badge', 'MEASURED', 'self-contained SVG in the verified state');
 } catch (e) {
   recordEngineLeg('badge', e);

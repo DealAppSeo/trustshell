@@ -2,6 +2,11 @@
 
 All notable changes to the `@hyperdag/trustshell` package.
 
+## Unreleased
+
+- **`trustshell proof` says what a verified proof shows.** A new `class` line, the `proofClass` field in `--json` and in the SDK's `presentProof` result, and the MCP `present_proof` result all read: validity proof; the score is public; agent binding is weak (about 1 in 256 foreign agent ids verify); the tier label and the time are not proven. Measured with the bundled verifier 0.2.0; `tests/proof-class.test.ts` re-measures it with the real verifier, so the text fails the build if the verifier changes. The envelope tier says the score is left out but not hidden. A scheme TrustShell does not know is reported as `unknown`, never as a stronger class.
+- **The badge says `✓ verified`, not `✓ ZK-verified`.** Today's proof hides nothing, so "ZK" overstated it. Its caption, which read "Attests agent, threshold and score", is now the proof class: the agent is not strongly bound. Exit codes and the green/red/grey rules are unchanged.
+
 ## 1.9.3 — 2026-11-16
 
 First-run fixes, narrowed claims and a security update. Every exit code keeps its meaning, and no verdict or verifier rule changes; two inputs that were silently mis-read (below) are now refused as usage errors, exit 2. The MCP server still lists 21 tools. Package changes since 1.9.2: #711, #713, #715, #716 and #718.

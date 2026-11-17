@@ -55,6 +55,7 @@ const api_url_1 = require("./api-url");
 const local_only_1 = require("./local-only");
 const honest_contract_1 = require("./honest-contract");
 const identity_1 = require("./identity");
+const proof_class_1 = require("./proof-class");
 /** SHA-256 of proof bytes. Same function CLI --verify and MCP present_proof must share. */
 function hashProofBytes(proofBytes) {
     return (0, node_crypto_1.createHash)('sha256').update(proofBytes, 'utf8').digest('hex');
@@ -677,8 +678,9 @@ class TrustShell {
      * with the WASM verifier from @hyperdag/proof-verifier — "trust math, not the server."
      *
      * Client-side verification uses @hyperdag/proof-verifier (a regular dependency, installed beside
-     * this package); the
-     * proof statement is the agent-bound tuple {agent_id, threshold, repid_score}.
+     * this package). The statement is {agent_id, threshold, repid_score, tier}. This comment used to call
+     * it "the agent-bound tuple"; it is not: about 1 in 256 foreign agent ids verify, and `tier` is not
+     * checked at all. `proofClass` on the result says what a verified proof does and does not show.
      */
     async presentProof(agentId, opts = {}) {
         const tier = opts.tier ?? 'postcard';
@@ -706,6 +708,7 @@ class TrustShell {
             note: proofH.note,
             reasons: proofH.reasons,
             proofHash: uid || (proofBytes ? hashProofBytes(proofBytes) : null),
+            proofClass: (0, proof_class_1.proofClassOf)({ scheme: data.scheme ?? null, proofBytes, tier }),
         };
         if (opts.verify && presentation.proofBytes && presentation.statement) {
             presentation.verification = await this.verifyProof(presentation);

@@ -27,6 +27,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.proofBadgeStatus = proofBadgeStatus;
 exports.renderProofBadge = renderProofBadge;
 exports.renderProofBadgeMarkdown = renderProofBadgeMarkdown;
+const proof_class_1 = require("./proof-class");
+/** The badge's caption: what a verified proof shows, from the one place that says it. */
+const caption = (p) => `${(p.proofClass ?? (0, proof_class_1.proofClassOf)(p)).summary}.`;
 const COLORS = {
     verified: '#3fb950', // green — locally verified true
     failed: '#d1242f', // red — verification ran and returned false / errored
@@ -65,7 +68,8 @@ function proofBadgeStatus(presentation) {
         return {
             state: 'verified',
             label,
-            value: '✓ ZK-verified',
+            // Was '✓ ZK-verified'. Today's proof hides nothing, so "ZK" overstated it; see proof-class.ts.
+            value: '✓ verified',
             color: COLORS.verified,
             detail: `verified locally by ${verification.verifierVersion}` +
                 (scheme ? ` (${scheme})` : ''),
@@ -123,15 +127,16 @@ function renderProofBadge(presentation, opts = {}) {
     // INPUT to the plonky3 circuit (public values [16]=threshold, [17]=repid_score), and the AIR's
     // boundary constraint is `reconstructed == repid - threshold - 1`. So the exact score travels
     // in the statement beside every proof, and every consumer that echoes the statement republishes
-    // it. The circuit binds THREE things — agent_id, threshold and repid_score — so the caption now
-    // names all three rather than describing only what leaks. What remains true, and is pinned by
-    // this file's tests, is that the BADGE itself never renders the score.
+    // it. This then said the circuit binds THREE things, agent_id among them, and the caption read
+    // "Attests agent, threshold and score". MEASURED 2026-11-17: agent_id is NOT bound. About 1 in 256
+    // foreign agent ids verify (an 8-bit proof-of-work is the only check), and `tier` is not checked.
+    // The caption is now the proof class (proof-class.ts), so it says what the proof shows and changes
+    // when the class does. What remains true, and is pinned by tests, is that the BADGE never renders
+    // the score.
     //
-    // Do not shorten this back. Making the score genuinely private needs the score to become a
-    // witness bound by a commitment, i.e. a new circuit and a new verifier major (board tasks 82/86),
-    // not a wording change. When that ships, the original sentence becomes true and can return.
-    const title = escapeXml(`${status.label} — ${status.value}. ${status.detail}. ` +
-        `Attests agent, threshold and score; the score is a bound public input.`);
+    // Making the score genuinely private needs the score to become a witness bound by a commitment,
+    // i.e. a new circuit and a new verifier major, not a wording change.
+    const title = escapeXml(`${status.label} — ${status.value}. ${status.detail}. ${caption(presentation)}`);
     const leftText = escapeXml(status.label);
     const rightText = escapeXml(status.value);
     const leftMid = leftW / 2;
@@ -171,6 +176,5 @@ function renderProofBadgeMarkdown(presentation, opts = {}) {
     const img = `![${alt}](data:image/svg+xml;base64,${b64})`;
     const linked = opts.href ? `[${img}](${opts.href})` : img;
     // Same honest caption as the SVG title — see renderProofBadge.
-    return `${linked}\n\n> ${status.label} — ${status.value}. ${status.detail}. ` +
-        `Attests agent, threshold and score; the score is a bound public input.`;
+    return `${linked}\n\n> ${status.label} — ${status.value}. ${status.detail}. ${caption(presentation)}`;
 }

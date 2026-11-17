@@ -216,7 +216,7 @@ The package does not carry the Next.js/React site. The 1.9.3 tarball is 167 file
 |---|---|---|
 | A developer building an agent/app **in code** | `npm install @hyperdag/trustshell` | The SDK — Inspect, HAL verification, ERC-8004 RepID reads and x402 payments, in your TypeScript/JS |
 | Using an **AI tool** (Claude Desktop, Cursor, Claude Code), **no code** | `npm i -g @hyperdag/trustshell@1.9.3`, then point the tool at the `trustshell-mcp` bin (below) | The checks as AI-callable tools |
-| Only verifying **ZK proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone checking of [Plonky3](https://github.com/Plonky3/Plonky3) proofs (Plonky3 is Polygon Labs' proof system). It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
+| Only verifying **RepID proofs** client-side | `npm install @hyperdag/proof-verifier` | Standalone checking of [Plonky3](https://github.com/Plonky3/Plonky3) proofs (Plonky3 is Polygon Labs' proof system). It is a dependency of `@hyperdag/trustshell`, so installing that installs this too — rarely installed directly |
 
 **Most people want `@hyperdag/trustshell`. The SDK, the CLI and the MCP server are all in that one package. `proof-verifier` is a separate package it depends on: npm installs it alongside, and the published tarball contains none of its files.**
 
@@ -390,14 +390,14 @@ trustshell verify "The capital of France is Paris."
 # (The last four lines report the engine's honesty and receipt records, not the verdict.)
 
 trustshell repid trinity-shofet          # the score moves; gate on tier
-trustshell proof trinity-shofet --verify # fetch + client-side-verify a ZK RepID proof
+trustshell proof trinity-shofet --verify # fetch + client-side-verify a RepID validity proof
 # badge is a subcommand of trustshell, not its own program:
 trustshell badge trinity-shofet
 trustshell badge trinity-shofet --markdown
 ```
 
-**`badge` is a portable, self-contained proof.** It fetches an agent's ZK RepID range proof,
-**verifies it client-side**, and emits an embeddable SVG — `RepID ≥ threshold ✓ ZK-verified`.
+**`badge` is a portable, self-contained proof.** It fetches an agent's RepID range proof,
+**verifies it client-side**, and emits an embeddable SVG — `RepID ≥ threshold ✓ verified`.
 Two honesty guarantees, both test-enforced: it shows the green *verified* state **only** when
 local verification actually returned true (an absent, failed, or unavailable verifier renders
 grey/red with the reason, and the command exits non-zero — never a false green), and it **never
@@ -405,6 +405,8 @@ renders the score** on the badge itself — only the threshold. Note the honest 
 score is a **public input to the range-check circuit**, so it travels in the proof statement
 beside every proof. The badge does not display it; the proof does not hide it. Making it
 genuinely private is a new circuit and a new verifier major, not a wording change.
+The agent id is not strongly bound either: about 1 in 256 foreign agent ids verify. `trustshell proof`,
+its `--json` (`proofClass`), the MCP `present_proof` tool and the badge caption all say so.
 The SVG has no external references, so it renders offline and cannot phone home. A live example
 (a real proof for `trinity-shofet`, verified with the WASM verifier) is checked in at
 [`examples/proof-badge-trinity-shofet.svg`](examples/proof-badge-trinity-shofet.svg).

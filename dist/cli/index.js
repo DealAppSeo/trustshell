@@ -55,6 +55,7 @@ const trustshell_1 = require("../lib/trustshell");
 const action_envelope_1 = require("../lib/action-envelope");
 const identity_1 = require("../lib/identity");
 const badge_1 = require("../lib/badge");
+const proof_class_1 = require("../lib/proof-class");
 const version_1 = require("../lib/version");
 const check_1 = require("../lib/check");
 const action_evidence_1 = require("../lib/action-evidence");
@@ -165,10 +166,12 @@ COMMANDS
                              EXIT 0 on PASS/FLAG, EXIT 1 on VETO — use it as a CI gate.
   evaluate "<text>"          Alias of verify. Same HAL quorum, same exits.
   repid <agentIdOrSlug>      Print an agent's live RepID score + tier (keyless).
-  proof <agentIdOrSlug>      Fetch an agent's ZK RepID range proof (POSTCARD tier).
+  proof <agentIdOrSlug>      Fetch an agent's RepID range proof (POSTCARD tier). Its class line
+                             says what it shows: a validity proof; the score is public;
+                             agent binding is weak (about 1 in 256 foreign agent ids verify).
       [--verify]             …and verify it client-side with the bundled WASM verifier.
   badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,
-                             self-contained SVG badge ("RepID ≥ threshold ✓ ZK-verified").
+                             self-contained SVG badge ("RepID ≥ threshold ✓ verified").
                              Green ONLY on a true local verification. The BADGE never
                              prints the score — the proof's statement still carries it
                              as a public input. EXIT 3 if not in the verified state.
@@ -904,6 +907,8 @@ function formatProof(p) {
         `${p.agentId}`,
         `  tier      ${p.tier}`,
         `  scheme    ${p.scheme ?? '(none)'}`,
+        // What "verified" below does and does not cover. Never absent: a presentation built without it gets one here.
+        `  class     ${(p.proofClass ?? (0, proof_class_1.proofClassOf)(p)).summary}`,
         `  createdAt ${p.createdAt ?? '(none)'}`,
         `  proof     ${p.proofBytes ? `${p.proofBytes.length} base64 chars` : '(empty)'}`,
     ];
