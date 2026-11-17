@@ -1,0 +1,33 @@
+{
+  "what": "An owner's budget shared by two agents, run live on Base Sepolia (test network), stake mode.",
+  "source": "The owner-budget end-to-end run receipt of 2026-11-16 (operator report). Each transaction below was re-read from the chain on 2026-11-16: status 1, chain 84532, USDC transfers as listed. A second reviewer replayed the chain record independently and found the same.",
+  "run": { "from": "2026-11-16T04:10:56Z", "to": "2026-11-16T04:11:26Z" },
+  "chain": { "name": "Base Sepolia", "id": 84532, "explorer": "https://sepolia.basescan.org/tx/" },
+  "token": "USDC (test)",
+  "budget": "1.0",
+  "agents": 2,
+  "moved": [
+    { "step": "The owner put 1.0 into the shared budget", "amount": "1.0", "direction": "owner to budget", "tx": "0x57d84a32c1d67c8f3f7b3dfdb72bed790a218c7dafcdfee1b9b27fc563e656dd" },
+    { "step": "Agent 1 spent 0.6", "amount": "0.6", "direction": "budget to payee", "tx": "0x143d1882413396f29399660236a0633fec0aca7cc761a1c4a234d3590640d0f5" },
+    { "step": "Agent 1 spent 0.3, in a race with agent 2", "amount": "0.3", "direction": "budget to payee", "tx": "0xc1b9cae59b17b96e4bb9b66a6d3e3c7979d41d7f84fc58888bbbbd6b19fbd448" },
+    { "step": "The owner took back the 0.1 left", "amount": "0.1", "direction": "budget to owner", "tx": "0x81d294acb9e1ca8d5fb68992abf437823bb42758bca20eb59ee6467fb5051fd3" }
+  ],
+  "refused": [
+    { "what": "An agent that was never bound to the owner tried a real spend", "answer": "not_bound", "times": 1 },
+    { "what": "The owner's signed spend limit was sent a second time", "answer": "replayed", "times": 1 },
+    { "what": "A spend from an empty budget", "answer": "over_owner_budget", "times": 1 },
+    { "what": "The same deposit was claimed twice", "answer": "duplicate tx_hash", "times": 1 },
+    { "what": "Agent 2 asked for 0.6, inside its own 1.0 limit, with only 0.4 left in the shared budget (once as a dry run, once for real)", "answer": "over_owner_budget", "times": 2 },
+    { "what": "Both agents asked for 0.3 at the same instant with 0.4 left: one was paid, the other refused", "answer": "over_owner_budget", "times": 1 },
+    { "what": "Agent 1 tried to spend after the owner set its limit to 0", "answer": "over_agent_limit", "times": 1 },
+    { "what": "Agent 2 tried to spend after the owner unbound it", "answer": "not_bound", "times": 1 },
+    { "what": "The owner asked to withdraw a second time", "answer": "stake_backs_agent_spend", "times": 1 }
+  ],
+  "net": { "owner_paid": "0.9", "payee_received": "0.9" },
+  "not_shown": [
+    "Not the newcomer path: the owner ran it from a script, not from this site.",
+    "No reputation moved: this run wrote no RepID or ERC-8004 feedback.",
+    "Test network only: test USDC, no real money.",
+    "The engine signed the agents' spends from the budget, as stake mode is designed to. The agents never held the funds."
+  ]
+}

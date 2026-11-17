@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { readServiceCatalog } from '@/lib/repid-engine';
 import { PracticeBadge } from '@/components/practice-badge';
+import { OwnerBudgetReceipt } from '@/components/owner-budget-receipt';
 
 // NO PURCHASE BUTTON. The purchase component POSTs /api/v1/agent/:agentId/trade, a route repid-engine
 // does not have (lib/repid-engine.ts purchaseService). Mount it again only once that route exists.
@@ -238,6 +239,9 @@ export default async function TrustMarketPage() {
           </p>
         </div>
       </section>
+
+      {/* ONE RECORDED RUN: a file with its source and date, not the feed above. */}
+      <OwnerBudgetReceipt />
 
       {/* HOW IT WORKS */}
       <section className="space-y-4">
