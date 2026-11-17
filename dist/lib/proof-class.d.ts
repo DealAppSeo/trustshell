@@ -10,8 +10,10 @@
  *   - exactly one score in 0..10000 verified, so the score is bound. Stripping it from the statement (the
  *     envelope tier) does not hide it: trying every score took 37 s.
  *   - setting the statement's `tier` to another value still verified, and the statement carries no time.
- * `tests/proof-class.test.ts` re-measures each of these with the real verifier, so this text goes red
- * when the verifier changes instead of going stale.
+ * `tests/proof-class.test.ts` re-measures, with the real verifier on fixtures/proof-agent.json: the foreign-id
+ * rate (1024 deterministic ids), that only the true score verifies within 50 of it, and that a changed tier
+ * and an added time key still verify. So this text goes red when the verifier changes. The 2048 random ids and
+ * the full 0..10000 score search above are NOT repeated there (too slow for every run).
  *
  * SEAM for the private eligibility proof (Lane Z). When that scheme ships, it gets its own entry in
  * `CLASSES`, carrying only what its own measurements support. A scheme this file does not know is
