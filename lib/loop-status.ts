@@ -56,8 +56,8 @@ export const LOOP_STEPS: readonly LoopStep[] = [
     title: 'Watch a catch',
     status: 'live',
     does: 'An agent says its CI run passed on a commit the run never used. TrustShell reads GitHub’s own record of the run and marks that claim contradicted.',
-    href: '/#how',
-    linkLabel: 'See the recorded run',
+    href: '#watch',
+    linkLabel: 'See the catch',
     evidence: 'Real output of the published 1.9.3 package, recorded on 16 Nov 2026.',
   },
   {
