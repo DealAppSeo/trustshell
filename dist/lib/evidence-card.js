@@ -17,6 +17,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEMO_BANNER = void 0;
+exports.mdText = mdText;
 exports.mdCode = mdCode;
 exports.renderCardMarkdown = renderCardMarkdown;
 exports.renderCardHtml = renderCardHtml;

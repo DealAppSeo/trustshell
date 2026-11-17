@@ -25,6 +25,8 @@
 
 import type { ProofPresentation } from './trustshell';
 import { proofClassOf } from './proof-class';
+import { cleanCodePoints } from './action-evidence';
+import { mdCode, mdText } from './evidence-card';
 
 /** The badge's caption: what a verified proof shows, from the one place that says it. */
 const caption = (p: ProofPresentation): string => `${(p.proofClass ?? proofClassOf(p)).summary}.`;
@@ -215,9 +217,12 @@ export function renderProofBadgeMarkdown(
   const status = proofBadgeStatus(presentation);
   const svg = renderProofBadge(presentation); // caption carries the link separately
   const b64 = Buffer.from(svg, 'utf8').toString('base64');
-  const alt = `${status.label} ${status.value}`;
+  // The threshold and the scheme come from the engine, and this snippet is pasted into a README (Strix, #728).
+  // Same rule as evidence-card.ts: control code points stripped, brackets escaped in the alt text, and the
+  // caption inside one code span, where no link, image or autolinked URL is live.
+  const alt = mdText(cleanCodePoints(`${status.label} ${status.value}`));
   const img = `![${alt}](data:image/svg+xml;base64,${b64})`;
   const linked = opts.href ? `[${img}](${opts.href})` : img;
   // Same honest caption as the SVG title — see renderProofBadge.
-  return `${linked}\n\n> ${status.label} — ${status.value}. ${status.detail}. ${caption(presentation)}`;
+  return `${linked}\n\n> ${mdCode(cleanCodePoints(`${status.label} — ${status.value}. ${status.detail}. ${caption(presentation)}`))}`;
 }

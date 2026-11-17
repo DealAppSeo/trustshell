@@ -218,7 +218,7 @@ function buildModel(r: ActionEvidenceRecord, opts: { demo?: boolean }): CardMode
 // ── Markdown ────────────────────────────────────────────────────────────────────────────────────
 
 /** Escape the characters that would turn generated prose into markup. Generated prose has few. */
-function mdText(s: string): string {
+export function mdText(s: string): string {
   return s.replace(/[\\`*_[\]<>|~]/g, (c, i: number) => {
     // An underscore between two letters or digits (`head_sha`) is never emphasis in CommonMark,
     // so escaping it only makes the raw card harder to read.

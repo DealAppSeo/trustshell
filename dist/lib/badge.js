@@ -28,6 +28,8 @@ exports.proofBadgeStatus = proofBadgeStatus;
 exports.renderProofBadge = renderProofBadge;
 exports.renderProofBadgeMarkdown = renderProofBadgeMarkdown;
 const proof_class_1 = require("./proof-class");
+const action_evidence_1 = require("./action-evidence");
+const evidence_card_1 = require("./evidence-card");
 /** The badge's caption: what a verified proof shows, from the one place that says it. */
 const caption = (p) => `${(p.proofClass ?? (0, proof_class_1.proofClassOf)(p)).summary}.`;
 const COLORS = {
@@ -172,9 +174,12 @@ function renderProofBadgeMarkdown(presentation, opts = {}) {
     const status = proofBadgeStatus(presentation);
     const svg = renderProofBadge(presentation); // caption carries the link separately
     const b64 = Buffer.from(svg, 'utf8').toString('base64');
-    const alt = `${status.label} ${status.value}`;
+    // The threshold and the scheme come from the engine, and this snippet is pasted into a README (Strix, #728).
+    // Same rule as evidence-card.ts: control code points stripped, brackets escaped in the alt text, and the
+    // caption inside one code span, where no link, image or autolinked URL is live.
+    const alt = (0, evidence_card_1.mdText)((0, action_evidence_1.cleanCodePoints)(`${status.label} ${status.value}`));
     const img = `![${alt}](data:image/svg+xml;base64,${b64})`;
     const linked = opts.href ? `[${img}](${opts.href})` : img;
     // Same honest caption as the SVG title — see renderProofBadge.
-    return `${linked}\n\n> ${status.label} — ${status.value}. ${status.detail}. ${caption(presentation)}`;
+    return `${linked}\n\n> ${(0, evidence_card_1.mdCode)((0, action_evidence_1.cleanCodePoints)(`${status.label} — ${status.value}. ${status.detail}. ${caption(presentation)}`))}`;
 }
