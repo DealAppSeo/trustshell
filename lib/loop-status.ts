@@ -64,7 +64,7 @@ export const LOOP_STEPS: readonly LoopStep[] = [
     id: 'check',
     title: 'Check yours',
     status: 'live',
-    does: 'Paste one sentence an AI told you. You get Checks out, Caught or Not checked. To check a GitHub Actions run instead, use the walkthrough below.',
+    does: 'Paste one sentence an AI told you. You get Checks out, Caught or Not checked. A GitHub Actions run can be checked from a terminal too.',
     href: '/check',
     linkLabel: 'Check a sentence',
     evidence: 'A scheduled browser test ran this check against the live site on 16 Nov 2026 and passed.',
@@ -102,3 +102,52 @@ export const LOOP_STEPS: readonly LoopStep[] = [
     evidence: 'Revoke ownership is on /bind, and a cap of 0 is set on /spend. Base Sepolia only.',
   },
 ];
+
+/**
+ * Parts of the loop outside the five steps above, with the same rule: a status that cannot be confirmed
+ * is `not-checked`. Each one appears on the "What works today" section, never as a step of the strip.
+ */
+export type LoopPart = { title: string; status: LoopStatus; text: string; evidence: string };
+
+export const OTHER_PARTS: readonly LoopPart[] = [
+  {
+    title: 'Reputation feedback written on chain',
+    status: 'testnet',
+    text: 'Our engine writes reputation feedback to the ERC-8004 reputation registry on Base Sepolia.',
+    evidence: 'One write with a transaction hash on each day from 10 to 16 Nov 2026; the one on 16 Nov 2026 was read back from the chain.',
+  },
+  {
+    title: 'Reputation that moves only when an independent check passes',
+    status: 'not-checked',
+    text: 'Built to run in shadow, measured but changing no score. Whether it is switched on today was not confirmed.',
+    evidence: 'The code runs in shadow only; its production setting could not be read on 16 Nov 2026.',
+  },
+];
+
+/** Questions we have not answered, said as open rather than left out. */
+export const OPEN_QUESTIONS: readonly { title: string; text: string }[] = [
+  {
+    title: 'Private delegation through several agents',
+    text: 'Proving that a chain of grants ends at an accountable person, and that every link only narrowed, without revealing the links. Not built.',
+  },
+  {
+    title: 'Unlinkable across chains',
+    text: 'Using one identity on more than one chain without the uses being linked. Not attempted.',
+  },
+  {
+    title: 'What a proof costs',
+    text: 'How long a reputation proof takes to make, and what verifying one on chain costs. Not measured yet.',
+  },
+];
+
+export type WorksItem = { title: string; status: LoopStatus; text: string; href?: string; linkLabel?: string };
+
+/** "What works today", grouped from the same source as the strip, so the two cannot disagree. */
+export function whatWorks(): { verified: WorksItem[]; inProgress: WorksItem[] } {
+  const works = (s: LoopStatus) => s === 'live' || s === 'testnet';
+  // An in-page anchor (#watch) belongs to the walkthrough page; anywhere else it would point at nothing.
+  const steps: WorksItem[] = LOOP_STEPS.map((s) => ({ title: s.title, status: s.status, text: s.does, ...(s.href.startsWith('#') ? {} : { href: s.href, linkLabel: s.linkLabel }) }));
+  const later: WorksItem[] = LOOP_STEPS.flatMap((s) => (s.later ?? []).map((l) => ({ title: s.title, status: l.status, text: l.text })));
+  const all = [...steps, ...later, ...OTHER_PARTS.map((p) => ({ title: p.title, status: p.status, text: p.text }))];
+  return { verified: all.filter((i) => works(i.status)), inProgress: all.filter((i) => !works(i.status)) };
+}
