@@ -1,0 +1,129 @@
+{
+  "_readme": [
+    "Path rules for scripts/ci/risk-class.cjs in trustshell (owner policy r31, decision D-193). ADVISORY in CI: the workflow only prints a class. The merge gate outside this repo reads these rules from the BASE branch.",
+    "Per file the FIRST rule that matches, top to bottom, decides; the PR class is the HIGHEST class among its files. Order is load-bearing: self-protection first, then release and deploy authority, then the public verifier contract, then the tests carve-out, then guard/key/payment code, then the site, then docs.",
+    "Matchers: globs (** crosses directories, * does not, case-insensitive, anchored at the repo root); substrings (lowercased path contains it); tokens (a whole word of the path after splitting on non-alphanumerics and camelCase).",
+    "Anything no rule matches gets defaultClass (never LOW): unknown means one level up from what it looks like.",
+    "The script and workflow are copies of repid-engine's; only this rules file is specific to trustshell. All three are MAJOR to change (rule 1)."
+  ],
+  "defaultClass": "MEDIUM",
+  "defaultReason": "no rule matched: unknown paths go one level up from LOW, never LOW",
+  "packageJson": {
+    "path": "package.json",
+    "majorFields": ["version", "private", "publishConfig", "bin", "files", "exports", "main", "scripts.prepublishOnly"],
+    "majorReason": "package.json release fields changed (version/private/publishConfig/bin/files/exports/main/prepublishOnly): this is what npm publishes",
+    "unknownReason": "package.json changed and the release fields could not be compared: unsure goes up",
+    "otherClass": "MEDIUM",
+    "otherReason": "package.json changed, release fields untouched (dependency or script change)"
+  },
+  "rules": [
+    {
+      "class": "MAJOR",
+      "reason": "self-protection: the classifier's own rules, script or workflow; a PR must not lower its own class",
+      "globs": ["scripts/ci/risk-class*", ".github/workflows/risk-class.yml"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "release and CI authority: code owners, npm publish, release and extension packaging workflows",
+      "globs": [
+        ".github/CODEOWNERS",
+        ".github/workflows/publish*.yml",
+        ".github/workflows/release*.yml",
+        ".github/workflows/extension-zip.yml"
+      ]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "agent permission model: Claude settings and hooks, MCP server config",
+      "globs": [".claude/settings*.json", ".claude/hooks/**", ".mcp.json"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "deploy and environment config, package registry config",
+      "globs": [".env", ".env.*", "vercel.json", ".npmrc", "Dockerfile*"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "license text: legal and irreversible once public",
+      "globs": ["LICENSE*"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "public verifier contract: receipt schemas and conformance vectors that outside verifiers build against",
+      "globs": ["schemas/**", "conformance/**"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "browser extension manifest: permissions granted in a user's browser",
+      "globs": ["extension/manifest.json"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "built output that ships in the npm package: reviewed with the release, never on its own",
+      "globs": ["dist/**"]
+    },
+    {
+      "class": "LOW",
+      "reason": "tests and fixtures only",
+      "globs": ["tests/**", "fixtures/**", "**/__tests__/**", "**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.test.mjs", "**/*.spec.ts"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "guard, sandbox and policy code: what stops an agent's action",
+      "globs": ["src/sandbox/**", "src/cli/guard.ts", "src/lib/guardrails.ts", "src/lib/sdk-guard.ts"]
+    },
+    {
+      "class": "MEDIUM",
+      "reason": "answer-key is an eval answer key, not a credential: ordinary content",
+      "globs": ["**/answer-key/**", "docs/ANSWER_KEY_INVENTORY.md"]
+    },
+    {
+      "class": "MEDIUM",
+      "reason": "public-claim surface: narrowing a claim is LOW, a new claim is MAJOR, a path cannot tell, so one level up from docs",
+      "globs": ["README.md", "PRODUCT.md", "SECURITY.md", "STATUS.md", "CHANGELOG.md", "store/**"]
+    },
+    {
+      "class": "MEDIUM",
+      "reason": "agent instructions and skills: they steer agents, so one level up from docs",
+      "globs": ["CLAUDE.md", "AGENTS.md", ".claude/**", "skills/**"]
+    },
+    {
+      "class": "LOW",
+      "reason": "docs, reports, measurements and screenshots",
+      "globs": ["docs/**", "reports/**", "results/**", "screenshots/**", "design/**", "**/*.md"]
+    },
+    {
+      "class": "MEDIUM",
+      "reason": "CI config: workflows can read secrets and switch gates off, so one level up from tooling",
+      "globs": [".github/**"]
+    },
+    {
+      "class": "MAJOR",
+      "reason": "path names money, keys/secrets, signing, custody, auth, grants, attestation, on-chain or settlement",
+      "substrings": [
+        "x402", "erc8004", "erc-8004", "attest", "settle", "credential", "secret", "wallet", "payout",
+        "escrow", "onchain", "on-chain", "stake", "payment", "pricing", "privatekey", "private-key",
+        "api-key", "apikey", "signature", "authoriz", "authent", "authority", "spend", "custody", "trustkeys"
+      ],
+      "tokens": [
+        "key", "keys", "auth", "authz", "sign", "signed", "signer", "signing", "jwt", "password",
+        "grant", "grants", "revoke", "pay", "mint", "budget"
+      ]
+    },
+    {
+      "class": "LOW",
+      "reason": "tooling config that ships nothing: ignore files, lint and jest config",
+      "globs": [".gitignore", ".gitattributes", ".zvec-grep-ignore", "jest.config.js", "eslint.config.mjs", "postcss.config.mjs"]
+    },
+    {
+      "class": "MEDIUM",
+      "reason": "the public site: pages, components and static files strangers see",
+      "globs": ["app/**", "components/**", "public/**", "next.config.ts"]
+    },
+    {
+      "class": "MEDIUM",
+      "reason": "live behaviour: CLI, SDK, library, scripts, extension code, examples, lockfile and build config",
+      "globs": ["src/**", "lib/**", "bin/**", "scripts/**", "extension/**", "examples/**", "demo/**", "receipts/**", "package-lock.json", "tsconfig*.json"]
+    }
+  ]
+}
