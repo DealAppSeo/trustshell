@@ -162,7 +162,7 @@ function caseFile(c) {
   const data = {
     name: c.name, story: c.story, policy: c.policy, presented: c.presented, cheats: (c.cheats ?? []).map(({ expect, ...x }) => x),
     scheme: { name: c.presented.scheme, verifier: s.verifier },
-    proof_class: proofClassOf({ scheme: c.presented.scheme, proofBytes: c.presented.proof_bytes, tier: 'postcard' }).summary,
+    proof_class: proofClassOf({ scheme: c.presented.scheme, proofBytes: c.presented.proof_bytes, statement: c.presented.statement, tier: 'postcard' }).summary, // tier: for builds before #728's cc82d23
     proves: s.proves(c.presented.statement), learned: s.learns(c.presented.statement),
     stays_private: 'nothing: today\'s proof is a validity proof, and the score is in the statement',
     not_proven: s.notProven,
