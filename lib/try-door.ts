@@ -64,6 +64,16 @@ function evidenceLine(record: ActionEvidenceRecord, verdict: Verdict): string {
   return claim.reason;
 }
 
+/**
+ * The reason shown to an anonymous caller. CheckError messages are written for a reader, with one exception:
+ * "GitHub <status>: <message>" carries GitHub's own response text, and its rate-limit message names this
+ * server's egress IP. Keep the status, drop what upstream supplied. Anything else is not shown at all.
+ */
+export function publicWhy(e: unknown, fallback: string): string {
+  if (!(e instanceof CheckError)) return fallback;
+  return e.message.replace(/^(GitHub \d{3}):[\s\S]*$/, '$1');
+}
+
 export async function tryRun(urlIn: unknown, claimIn: unknown, deps: Deps = {}): Promise<TryResult> {
   const now = deps.now ?? (() => new Date());
   const url = typeof urlIn === 'string' ? urlIn.trim() : '';
@@ -80,8 +90,7 @@ export async function tryRun(urlIn: unknown, claimIn: unknown, deps: Deps = {}):
     const verdict = verdictOf(record.claims);
     return { verdict, evidence: evidenceLine(record, verdict), timestamp: record.observation.fetchedAt, record, digest };
   } catch (e) {
-    // CheckError messages are written for a reader; anything else is not shown, because it may carry internals.
-    const why = e instanceof CheckError ? e.message : 'the check service could not complete the request';
+    const why = publicWhy(e, 'the check service could not complete the request');
     return notChecked(`Could not read the run: ${why}.`, now);
   }
 }
@@ -129,7 +138,7 @@ export async function verifyReceipt(recordIn: unknown, digestIn: unknown, deps: 
     lines.push('This shows the answer is repeatable. It does not show GitHub is right.');
     return { outcome: 'MATCH', lines, timestamp: stamp() };
   } catch (e) {
-    const why = e instanceof CheckError ? e.message : 'the re-check could not complete';
+    const why = publicWhy(e, 'the re-check could not complete');
     lines.push(`Could not re-check: ${why}. This is not a pass.`);
     return { outcome: 'NOT_CHECKED', lines, timestamp: stamp() };
   }
