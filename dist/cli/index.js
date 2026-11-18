@@ -1557,8 +1557,9 @@ async function run(args, client, io = realIO) {
         case 'proof': {
             try {
                 const p = await client.presentProof(args.operand, { verify: args.verify });
+                // Engine text: terminalSafeJson escapes the C1 and bidi characters JSON.stringify leaves raw (Strix, #728).
                 if (args.json)
-                    io.out(JSON.stringify(p, null, 2));
+                    io.out((0, action_evidence_1.terminalSafeJson)(p));
                 else
                     io.out(formatProof(p));
                 // When --verify was requested, a proof that did not verify is a hard failure —
@@ -1582,7 +1583,7 @@ async function run(args, client, io = realIO) {
                 const p = await client.presentProof(args.operand, { verify: true });
                 const status = (0, badge_1.proofBadgeStatus)(p);
                 if (args.json) {
-                    io.out(JSON.stringify(status, null, 2));
+                    io.out((0, action_evidence_1.terminalSafeJson)(status));
                 }
                 else if (args.markdown) {
                     io.out((0, badge_1.renderProofBadgeMarkdown)(p));

@@ -26,11 +26,11 @@ const fixture = JSON.parse(readFileSync(join(__dirname, '..', 'fixtures/proof-ag
 const AGENT = fixture.statement.agent_id;
 const PHRASE = 'validity proof; the score is public; agent binding is weak (about 1 in 256 foreign agent ids verify)';
 
-function installEngine(): void {
+function installEngine(scheme: string = fixture.scheme): void {
   global.fetch = (async (input: RequestInfo | URL) => {
     if (String(input).endsWith('/proof')) {
       return new Response(
-        JSON.stringify({ proof_bytes: fixture.proof_bytes, scheme: fixture.scheme, statement: fixture.statement, created_at: fixture.created_at }),
+        JSON.stringify({ proof_bytes: fixture.proof_bytes, scheme, statement: fixture.statement, created_at: fixture.created_at }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
     }
@@ -122,6 +122,20 @@ describe('every surface that presents a proof carries the class', () => {
     const res = await server._registeredTools.present_proof.handler({ agentId: AGENT });
     expect(JSON.parse(res.content[0].text).untrusted_data.proofClass.summary.startsWith(PHRASE)).toBe(true);
   });
+
+  // Strix on #728 (45f5712): the SVG and both --json branches printed the engine's scheme raw. JSON.stringify
+  // escapes only C0, so C1 controls (U+009B is CSI) and bidi overrides (U+202E) reached the terminal.
+  it('proof --json, badge --json and the badge SVG put no raw control or bidi character on the terminal', async () => {
+    const RAW = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f‪-‮⁦-⁩]/;
+    installEngine('plonky3\u001b[2K\u009b2K‮eerf');
+    for (const argv of [['proof', AGENT, '--json'], ['badge', AGENT, '--json'], ['badge', AGENT]]) {
+      const c = cli();
+      expect(await run(parseArgs(argv), new TrustShell({ apiUrl: ENGINE }), c.io)).toBe(0);
+      const out = c.out.join('\n');
+      expect(out).toContain('plonky3'); // the scheme is still shown
+      expect(out).not.toMatch(RAW);
+    }
+  }, 60000);
 
   it('the verified badge says verified, not ZK-verified, and carries the class in its caption', async () => {
     installEngine();

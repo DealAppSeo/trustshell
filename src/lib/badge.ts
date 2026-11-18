@@ -119,8 +119,10 @@ export function proofBadgeStatus(presentation: ProofPresentation): ProofBadgeSta
   };
 }
 
+// Every value the SVG embeds passes here, and `trustshell badge` prints the SVG to a terminal: control and bidi
+// code points are stripped first, so engine text cannot redraw or reverse what the operator reads (Strix, #728).
 function escapeXml(s: string): string {
-  return s
+  return cleanCodePoints(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

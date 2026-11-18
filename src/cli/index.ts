@@ -1630,7 +1630,8 @@ export async function run(
     case 'proof': {
       try {
         const p = await client.presentProof(args.operand as string, { verify: args.verify });
-        if (args.json) io.out(JSON.stringify(p, null, 2));
+        // Engine text: terminalSafeJson escapes the C1 and bidi characters JSON.stringify leaves raw (Strix, #728).
+        if (args.json) io.out(terminalSafeJson(p));
         else io.out(formatProof(p));
         // When --verify was requested, a proof that did not verify is a hard failure —
         // never let a non-verified proof read as success (HONESTY, mirrors the MCP).
@@ -1653,7 +1654,7 @@ export async function run(
         const p = await client.presentProof(args.operand as string, { verify: true });
         const status = proofBadgeStatus(p);
         if (args.json) {
-          io.out(JSON.stringify(status, null, 2));
+          io.out(terminalSafeJson(status));
         } else if (args.markdown) {
           io.out(renderProofBadgeMarkdown(p));
         } else {
