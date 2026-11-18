@@ -309,7 +309,10 @@ export interface ProofPresentation {
         reason?: 'statement_for_other_agent' | 'binding_unavailable';
     };
 }
-/** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
+/**
+ * One tier above postcard: same proof bytes, exact score stripped from plaintext. Stripped, not hidden: the
+ * proof still binds the score, so trying each score against the verifier finds it (see proof-class.ts).
+ */
 export declare function envelope(p: ProofPresentation): ProofPresentation;
 /**
  * Params for `register()` — public agent onboarding.

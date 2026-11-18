@@ -32,4 +32,4 @@ export interface ProofClass {
     /** One plain sentence, printed by `trustshell proof` and the badge. */
     summary: string;
 }
-export declare function proofClassOf(p: Pick<ProofPresentation, 'scheme' | 'proofBytes' | 'tier'>): ProofClass;
+export declare function proofClassOf(p: Pick<ProofPresentation, 'scheme' | 'proofBytes' | 'statement'>): ProofClass;

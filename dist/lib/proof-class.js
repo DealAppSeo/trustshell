@@ -4,15 +4,16 @@ exports.proofClassOf = proofClassOf;
 const WEAK_BINDING = 'agent binding is weak (about 1 in 256 foreign agent ids verify)';
 const NOT_PROVEN = 'the tier label and the time are not proven';
 /** Keyed by `scheme`. Add an entry only with the measurement behind it. */
+// The wording follows the statement in hand, not the tier name: only the envelope tier strips the score.
 const CLASSES = {
-    plonky3_range_check: (tier) => ({
+    plonky3_range_check: (statement) => ({
         kind: 'validity',
         scoreHidden: false,
         agentBinding: 'weak',
         notProven: ['tier', 'time'],
         summary: [
             'validity proof',
-            tier === 'postcard'
+            statement?.repid_score !== undefined
                 ? 'the score is public'
                 : 'the score is left out of the statement but is not hidden (trying each score against the verifier finds it)',
             WEAK_BINDING,
@@ -27,7 +28,7 @@ function proofClassOf(p) {
     // `scheme` comes from the server: own keys only, so "constructor" cannot reach Object's prototype.
     const known = p.scheme && Object.prototype.hasOwnProperty.call(CLASSES, p.scheme) ? CLASSES[p.scheme] : undefined;
     if (known)
-        return known(p.tier);
+        return known(p.statement);
     return {
         kind: 'unknown',
         scoreHidden: false,

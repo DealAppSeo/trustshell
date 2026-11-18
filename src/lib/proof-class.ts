@@ -38,15 +38,16 @@ const WEAK_BINDING = 'agent binding is weak (about 1 in 256 foreign agent ids ve
 const NOT_PROVEN = 'the tier label and the time are not proven';
 
 /** Keyed by `scheme`. Add an entry only with the measurement behind it. */
-const CLASSES: Record<string, (tier: ProofPresentation['tier']) => ProofClass> = {
-  plonky3_range_check: (tier) => ({
+// The wording follows the statement in hand, not the tier name: only the envelope tier strips the score.
+const CLASSES: Record<string, (statement: ProofPresentation['statement']) => ProofClass> = {
+  plonky3_range_check: (statement) => ({
     kind: 'validity',
     scoreHidden: false,
     agentBinding: 'weak',
     notProven: ['tier', 'time'],
     summary: [
       'validity proof',
-      tier === 'postcard'
+      statement?.repid_score !== undefined
         ? 'the score is public'
         : 'the score is left out of the statement but is not hidden (trying each score against the verifier finds it)',
       WEAK_BINDING,
@@ -55,13 +56,13 @@ const CLASSES: Record<string, (tier: ProofPresentation['tier']) => ProofClass> =
   }),
 };
 
-export function proofClassOf(p: Pick<ProofPresentation, 'scheme' | 'proofBytes' | 'tier'>): ProofClass {
+export function proofClassOf(p: Pick<ProofPresentation, 'scheme' | 'proofBytes' | 'statement'>): ProofClass {
   if (!p.proofBytes) {
     return { kind: 'none', scoreHidden: false, agentBinding: 'none', notProven: [], summary: 'no proof: the response carried no proof bytes' };
   }
   // `scheme` comes from the server: own keys only, so "constructor" cannot reach Object's prototype.
   const known = p.scheme && Object.prototype.hasOwnProperty.call(CLASSES, p.scheme) ? CLASSES[p.scheme] : undefined;
-  if (known) return known(p.tier);
+  if (known) return known(p.statement);
   return {
     kind: 'unknown',
     scoreHidden: false,

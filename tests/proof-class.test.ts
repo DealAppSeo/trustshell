@@ -44,25 +44,28 @@ function cli(): { io: CliIO; out: string[] } {
 }
 
 describe('proofClassOf says what each proof shows', () => {
-  it('postcard: the required phrase, the score public, weak binding, tier and time not proven', () => {
-    const c = proofClassOf({ scheme: 'plonky3_range_check', proofBytes: 'AQ==', tier: 'postcard' });
+  const { repid_score, ...noScore } = fixture.statement;
+
+  it('a statement with the score: the required phrase, the score public, weak binding, tier and time not proven', () => {
+    const c = proofClassOf({ scheme: 'plonky3_range_check', proofBytes: 'AQ==', statement: fixture.statement });
     expect(c.summary.startsWith(PHRASE)).toBe(true);
     expect(c).toMatchObject({ kind: 'validity', scoreHidden: false, agentBinding: 'weak', notProven: ['tier', 'time'] });
   });
 
-  it('envelope: leaving the score out of the statement is not hiding it', () => {
-    const c = proofClassOf({ scheme: 'plonky3_range_check', proofBytes: 'AQ==', tier: 'envelope' });
+  it('a statement without the score: leaving it out is not hiding it', () => {
+    expect(repid_score).toBeGreaterThan(0);
+    const c = proofClassOf({ scheme: 'plonky3_range_check', proofBytes: 'AQ==', statement: noScore });
     expect(c.scoreHidden).toBe(false);
     expect(c.summary).toContain('is not hidden');
   });
 
   it('no proof bytes is no proof, whatever the scheme says', () => {
-    expect(proofClassOf({ scheme: 'plonky3_range_check', proofBytes: '', tier: 'postcard' }).kind).toBe('none');
+    expect(proofClassOf({ scheme: 'plonky3_range_check', proofBytes: '', statement: fixture.statement }).kind).toBe('none');
   });
 
   it('an unknown or prototype-named scheme gets no class, never a stronger one', () => {
     for (const scheme of ['plonky3_private_eligibility', 'constructor', '__proto__', null]) {
-      const c = proofClassOf({ scheme, proofBytes: 'AQ==', tier: 'postcard' });
+      const c = proofClassOf({ scheme, proofBytes: 'AQ==', statement: fixture.statement });
       expect(c).toMatchObject({ kind: 'unknown', scoreHidden: false, agentBinding: 'unknown' });
     }
   });
@@ -74,11 +77,17 @@ describe('every surface that presents a proof carries the class', () => {
     global.fetch = prevFetch;
   });
 
-  it('presentProof sets proofClass (postcard and envelope)', async () => {
+  // The wording follows the RETURNED statement, not the tier name (Codex on #728): only envelope strips the score.
+  it('presentProof sets proofClass from the statement it returns', async () => {
     installEngine();
     const client = new TrustShell({ apiUrl: ENGINE });
     expect((await client.presentProof(AGENT)).proofClass?.summary.startsWith(PHRASE)).toBe(true);
-    expect((await client.presentProof(AGENT, { tier: 'envelope' })).proofClass?.summary).toContain('is not hidden');
+    const env = await client.presentProof(AGENT, { tier: 'envelope' });
+    expect(env.statement).not.toHaveProperty('repid_score');
+    expect(env.proofClass?.summary).toContain('is not hidden');
+    const letter = await client.presentProof(AGENT, { tier: 'letter', allowExperimentalTiers: true });
+    expect(letter.statement?.repid_score).toBe(fixture.statement.repid_score);
+    expect(letter.proofClass?.summary.startsWith(PHRASE)).toBe(true);
   });
 
   it('trustshell proof prints a class line, and --json carries the field', async () => {

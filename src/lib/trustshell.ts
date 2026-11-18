@@ -365,13 +365,16 @@ export interface ProofPresentation {
   };
 }
 
-/** One tier above postcard: same proof bytes, exact score stripped from plaintext. */
+/**
+ * One tier above postcard: same proof bytes, exact score stripped from plaintext. Stripped, not hidden: the
+ * proof still binds the score, so trying each score against the verifier finds it (see proof-class.ts).
+ */
 export function envelope(p: ProofPresentation): ProofPresentation {
   const s = p.statement;
   const statement = s
     ? { agent_id: s.agent_id, threshold: s.threshold, tier: s.tier }
     : null;
-  return { ...p, tier: 'envelope', statement };
+  return { ...p, tier: 'envelope', statement, proofClass: proofClassOf({ ...p, statement }) };
 }
 
 /**
@@ -1280,7 +1283,7 @@ export class TrustShell {
       note: proofH.note,
       reasons: proofH.reasons,
       proofHash: uid || (proofBytes ? hashProofBytes(proofBytes) : null),
-      proofClass: proofClassOf({ scheme: data.scheme ?? null, proofBytes, tier }),
+      proofClass: proofClassOf({ scheme: data.scheme ?? null, proofBytes, statement: data.statement ?? null }),
     };
 
     if (opts.verify && presentation.proofBytes && presentation.statement) {
