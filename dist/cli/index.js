@@ -921,7 +921,9 @@ function formatProof(p) {
             ? `  verified  ✓ (client-side, ${v.verifierVersion})`
             : `  verified  ✗ NOT verified — ${v.error ?? 'unknown'} (${v.verifierVersion})`);
     }
-    return lines.join('\n');
+    // Every field above but the agent id is engine text. Cleaned per line, so no control sequence can erase the
+    // class line and no newline inside a field can add a fake "verified" line (Strix, #728).
+    return lines.map((l) => (0, action_evidence_1.cleanCodePoints)(l)).join('\n');
 }
 const CLAIM_LABEL = {
     integrity: 'Integrity',

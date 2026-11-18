@@ -1003,7 +1003,9 @@ export function formatProof(p: ProofPresentation): string {
         : `  verified  ✗ NOT verified — ${v.error ?? 'unknown'} (${v.verifierVersion})`,
     );
   }
-  return lines.join('\n');
+  // Every field above but the agent id is engine text. Cleaned per line, so no control sequence can erase the
+  // class line and no newline inside a field can add a fake "verified" line (Strix, #728).
+  return lines.map((l) => cleanCodePoints(l)).join('\n');
 }
 
 const CLAIM_LABEL: Record<(typeof SIX_CLAIM_KEYS)[number], string> = {

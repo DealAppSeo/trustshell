@@ -10,7 +10,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseArgs, run, type CliIO } from '../src/cli';
+import { formatProof, parseArgs, run, type CliIO } from '../src/cli';
 import { createServer } from '../src/mcp/index';
 import { proofBadgeStatus, renderProofBadge, renderProofBadgeMarkdown } from '../src/lib/badge';
 import { proofClassOf } from '../src/lib/proof-class';
@@ -61,6 +61,21 @@ describe('proofClassOf says what each proof shows', () => {
 
   it('no proof bytes is no proof, whatever the scheme says', () => {
     expect(proofClassOf({ scheme: 'plonky3_range_check', proofBytes: '', statement: fixture.statement }).kind).toBe('none');
+  });
+
+  // Strix on #728: the scheme comes from the engine, and an escape sequence could erase the line that says
+  // what the proof does not show.
+  it('engine text cannot put a terminal control sequence on the operator\'s screen', () => {
+    const ESC = '\u001b[2K\u001b[1A';
+    const scheme = `${ESC}plonky3_private_eligibility`;
+    expect(proofClassOf({ scheme, proofBytes: 'AQ==', statement: fixture.statement }).summary).not.toContain('\u001b');
+    const out = formatProof({
+      agentId: AGENT, tier: 'postcard', proofBytes: 'AQ==', scheme, createdAt: `${ESC}2026\n  verified  ✓ (fake)`,
+      statement: { ...fixture.statement, tier: `${ESC}VETERAN` }, signer: null, note: 'not a registry aggregate', reasons: {},
+    });
+    expect(out).not.toContain('\u001b');
+    expect(out.split('\n')[0]).toBe(AGENT);
+    expect(out.split('\n').some((l) => l.startsWith('  verified'))).toBe(false); // nothing was verified
   });
 
   it('an unknown or prototype-named scheme gets no class, never a stronger one', () => {

@@ -20,6 +20,7 @@
  * reported as `unknown` and is never given a stronger class.
  */
 import type { ProofPresentation } from './trustshell';
+import { cleanCodePoints } from './action-evidence';
 
 export interface ProofClass {
   /** `validity`: the public numbers satisfy the statement, nothing hidden. `none`: no proof bytes. */
@@ -68,6 +69,7 @@ export function proofClassOf(p: Pick<ProofPresentation, 'scheme' | 'proofBytes' 
     scoreHidden: false,
     agentBinding: 'unknown',
     notProven: [],
-    summary: `unknown proof scheme ${p.scheme ?? '(none)'}: TrustShell makes no claim about what it shows`,
+    // The scheme is engine text and this summary is printed to terminals: control code points stripped (Strix, #728).
+    summary: `unknown proof scheme ${cleanCodePoints(p.scheme ?? '(none)')}: TrustShell makes no claim about what it shows`,
   };
 }
