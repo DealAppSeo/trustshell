@@ -21,6 +21,7 @@
  * CommonJS on purpose, like scripts/check-named-env-vars.cjs: tests require() it.
  * Exit codes: 0 classified, 2 bad usage or bad rules file.
  */
+/* eslint-disable @typescript-eslint/no-require-imports -- plain CommonJS on purpose: CI runs it with no build step */
 'use strict';
 
 const { readFileSync } = require('node:fs');

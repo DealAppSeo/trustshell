@@ -4,6 +4,8 @@
  * The weight has to come from the paths and must not be arguable down. Each row pins one path to
  * its class against the real rules file, so a rules edit that moves a path changes a row here too.
  */
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 type Cls = 'LOW' | 'MEDIUM' | 'MAJOR';
@@ -73,8 +75,6 @@ describe('risk class rules for trustshell', () => {
   });
 
   it('refuses a rules file whose default is LOW', () => {
-    const { mkdtempSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
-    const { tmpdir } = require('node:os') as typeof import('node:os');
     const f = join(mkdtempSync(join(tmpdir(), 'rc-')), 'r.json');
     writeFileSync(f, JSON.stringify({ defaultClass: 'LOW', packageJson: { path: 'package.json', majorFields: [], otherClass: 'MEDIUM' }, rules: [{ class: 'LOW', reason: 'x', globs: ['**'] }] }));
     expect(() => rc.loadRules(f)).toThrow(/never LOW/);
