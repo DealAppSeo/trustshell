@@ -573,7 +573,9 @@ try {
   requireEngine();
   const svg = run('npx', ['trustshell', 'badge', AGENT], { timeout: 120000 });
   if (!svg.includes('<svg')) record('badge', 'FAILED', 'no SVG emitted');
-  else if (!/ZK-verified/i.test(svg)) record('badge', 'FAILED', 'SVG emitted but not in the verified state');
+  // This installs the PUBLISHED package: 1.9.3 and earlier label the verified state "✓ ZK-verified", later
+  // builds "✓ verified" (#728). Either is the verified state; "✗ not verified" matches neither.
+  else if (!/✓ (ZK-)?verified/.test(svg)) record('badge', 'FAILED', 'SVG emitted but not in the verified state');
   else record('badge', 'MEASURED', 'self-contained SVG in the verified state');
 } catch (e) {
   recordEngineLeg('badge', e);

@@ -103,7 +103,7 @@ await shell.getRepID('trinity-shofet');
 
 ### `presentProof(agentId, opts?) → Promise<ProofPresentation>`
 
-Fetch an agent's ZK RepID range proof. `opts: { verify?, tier?, allowExperimentalTiers? }`.
+Fetch an agent's RepID range proof. The result's `proofClass` says what it shows (today: a validity proof; the score is public; agent binding is weak). `opts: { verify?, tier?, allowExperimentalTiers? }`.
 
 Only the `postcard` tier has a live production endpoint. Other tiers exist in the prover but are
 not exposed as an API; requesting one without `allowExperimentalTiers` **flags rather than
@@ -222,7 +222,7 @@ Recorded 2026-10-14 with 1.6.1. That is not the current score: the score moves, 
 
 ### `trustshell proof <agentIdOrSlug> [--verify]`
 
-Fetch the agent's ZK RepID range proof (postcard tier). With `--verify`, additionally verify it
+Fetch the agent's RepID range proof (postcard tier). With `--verify`, additionally verify it
 client-side with the bundled WASM verifier. Options: `--json`.
 
 ```console
@@ -230,19 +230,22 @@ $ trustshell proof trinity-shofet --verify
 trinity-shofet
   tier      postcard
   scheme    plonky3_range_check
-  createdAt 2026-10-10T12:01:55.555406+00:00
+  class     validity proof; the score is public; agent binding is weak (about 1 in 256 foreign agent ids verify); the tier label and the time are not proven
+  createdAt 2026-11-12T12:02:57.778952+00:00
   proof     14232 base64 chars
-  statement repid_score=2227 threshold=999 tier=ESTABLISHED
+  statement repid_score=2371 threshold=999 tier=ESTABLISHED
   verified  ✓ (client-side, 0.2.0)
 ```
 
-Recorded 2026-10-14 with 1.6.1. The score in the statement is the one the proof was made at
-(`createdAt`), not the current score.
+Recorded 2026-11-17 from the source tree, after 1.9.3 (the `class` line is not in 1.9.3). The score in the
+statement is the one the proof was made at (`createdAt`), not the current score. `verified ✓` means the
+proof matches the numbers in the statement; the `class` line says what that does not cover. `--json` carries
+the same as `proofClass`.
 
 ### `trustshell badge <agentIdOrSlug> [--markdown]`
 
 Fetch the agent's proof, verify it **client-side**, and emit a portable, self-contained SVG badge
-reading `RepID ≥ <threshold> ✓ ZK-verified`. Options: `--markdown` (a copy-pasteable data-URI
+reading `RepID ≥ <threshold> ✓ verified`. Options: `--markdown` (a copy-pasteable data-URI
 snippet instead of raw SVG), `--json`.
 
 The badge goes green **only** on a true local verification of a proof about the agent you named — a proof for

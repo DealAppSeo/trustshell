@@ -121,9 +121,30 @@ describe('renderProofBadgeMarkdown', () => {
   it('embeds the SVG as a self-contained data URI + honest caption', () => {
     const md = renderProofBadgeMarkdown(presentation({ verification: { verified: true, error: null, verifierVersion: 'wasm-v1' } }));
     expect(md).toContain('data:image/svg+xml;base64,');
-    expect(md).toMatch(/Attests agent, threshold and score; the score is a bound public input/);
+    expect(md).toContain('validity proof; the score is public; agent binding is weak (about 1 in 256 foreign agent ids verify)');
+    expect(md).not.toMatch(/Attests agent/);
     // The caption must NOT claim the proof withholds the score — it does not.
     expect(md).not.toMatch(/attests the threshold, not the score/);
+  });
+
+  // Strix on #728: threshold and scheme come from the engine, and the snippet is pasted into a README.
+  it('engine-supplied text cannot add a link, an image or a line to the snippet', () => {
+    const p = presentation({
+      scheme: 'plonky3\n\n[click](https://evil.example/b) ![x](https://evil.example/c.png)',
+      statement: { agent_id: 'trinity-shofet', threshold: '1](https://evil.example/a)' as unknown as number, repid_score: 2177, tier: 'ESTABLISHED' },
+      verification: { verified: true, error: null, verifierVersion: 'wasm-v1' },
+    });
+    const lines = renderProofBadgeMarkdown(p).split('\n');
+    expect(lines).toHaveLength(3); // image, blank line, one caption line: no injected line or block
+    // The image: its alt text holds no unescaped bracket, so it cannot close early and start a link.
+    const img = lines[0]!.match(/^!\[(.*)\]\(data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+\)$/);
+    expect(img).not.toBeNull();
+    expect(img![1]).not.toMatch(/(?<!\\)[[\]]/);
+    // The caption: ONE code span, so no link, image or autolinked URL inside it is live.
+    const cap = lines[2]!.match(/^> (`+)(.*)\1$/);
+    expect(cap).not.toBeNull();
+    expect(cap![2]).not.toContain(cap![1]);
+    expect(cap![2]).toContain('evil.example'); // still shown, as inert text
   });
 });
 

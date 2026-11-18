@@ -340,7 +340,8 @@ function createServer(client = makeClient()) {
     registerTool('present_proof', {
         title: 'Present RepID proof',
         description: "Fetch an agent's RepID range proof (postcard). Pass verify=true for client-side WASM check. " +
-            'Keyless. This tool is on the 1.4.0 tree; published @hyperdag/trustshell-mcp@1.0.0 does not have it.',
+            'The result field proofClass says what a verified proof shows: today a validity proof; the score is public; ' +
+            'agent binding is weak (about 1 in 256 foreign agent ids verify). Keyless. This tool is on the 1.4.0 tree; published @hyperdag/trustshell-mcp@1.0.0 does not have it.',
         inputSchema: {
             agentId: zod_1.z.string().min(1).describe('Agent id (e.g. trinity-shofet).'),
             verify: zod_1.z.boolean().optional().describe('If true, verify the proof locally with the WASM verifier.'),

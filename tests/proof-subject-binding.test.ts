@@ -3,7 +3,7 @@
  *
  * The WASM verifier answers "does this proof match this statement". It does not know who the caller
  * meant. Before this was bound, `presentProof('B', { verify: true })` against a proof whose statement
- * names agent A verified, and `trustshell badge B` rendered "RepID >= N ✓ ZK-verified" in green under
+ * names agent A verified, and `trustshell badge B` rendered "RepID >= N ✓ ZK-verified" (now "✓ verified") in green under
  * B's name with exit 0. The browser extension had the right check (extension/agent.js,
  * `statement_for_other_agent`); this pins the SDK, the badge and the CLI to the same behavior.
  *
@@ -164,7 +164,7 @@ describe('badge never renders green for a proof about a different agent', () => 
     expect(red.state).toBe('failed');
     expect(red.color).toBe('#d1242f');
     expect(red.detail).toContain('statement_for_other_agent');
-    expect(renderProofBadge(other)).not.toContain('ZK-verified');
+    expect(renderProofBadge(other)).not.toContain('✓ verified');
 
     const unresolved = await client().presentProof('trinity-slug', { verify: true });
     const grey = proofBadgeStatus(unresolved);
@@ -178,7 +178,7 @@ describe('badge never renders green for a proof about a different agent', () => 
     const { io, out, err } = cli();
     const code = await run(parseArgs(['badge', OTHER]), client(), io);
     expect(code).toBe(EXIT.RUNTIME);
-    expect(out.join('')).not.toContain('ZK-verified');
+    expect(out.join('')).not.toContain('✓ verified');
     expect(out.join('')).not.toContain('#3fb950');
     expect(err.join('\n')).toContain('statement_for_other_agent');
   }, 30000);
@@ -189,7 +189,7 @@ describe('badge never renders green for a proof about a different agent', () => 
     const { io, out } = cli();
     const code = await run(parseArgs(['badge', 'trinity-slug']), client(), io);
     expect(code).not.toBe(EXIT.OK);
-    expect(out.join('')).not.toContain('ZK-verified');
+    expect(out.join('')).not.toContain('✓ verified');
   }, 30000);
 
   it('CLI proof --verify for another agent exits non-zero too', async () => {
@@ -207,6 +207,6 @@ describe('badge never renders green for a proof about a different agent', () => 
     const { io, out } = cli();
     const code = await run(parseArgs(['badge', PROVEN]), client(), io);
     expect(code).toBe(EXIT.OK);
-    expect(out.join('')).toContain('ZK-verified');
+    expect(out.join('')).toContain('✓ verified');
   }, 30000);
 });

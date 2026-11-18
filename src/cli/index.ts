@@ -28,6 +28,7 @@ import { TrustShell, type VerifyOutputResult, type ProofPresentation, type Verdi
 import { runEnvelopedAction } from '../lib/action-envelope';
 import { formatIdentity, type AgentIdentity } from '../lib/identity';
 import { renderProofBadge, renderProofBadgeMarkdown, proofBadgeStatus } from '../lib/badge';
+import { proofClassOf } from '../lib/proof-class';
 import { resolvePackageVersion, selfCommand } from '../lib/version';
 import { runCheck, formatCheckCard, checkExitCode, CheckError } from '../lib/check';
 import { claimsExitCode, inspectRunClaims, MAX_CLAIMS_FILE_BYTES, terminalSafeJson, cleanCodePoints } from '../lib/action-evidence';
@@ -283,10 +284,12 @@ COMMANDS
                              EXIT 0 on PASS/FLAG, EXIT 1 on VETO — use it as a CI gate.
   evaluate "<text>"          Alias of verify. Same HAL quorum, same exits.
   repid <agentIdOrSlug>      Print an agent's live RepID score + tier (keyless).
-  proof <agentIdOrSlug>      Fetch an agent's ZK RepID range proof (POSTCARD tier).
+  proof <agentIdOrSlug>      Fetch an agent's RepID range proof (POSTCARD tier). Its class line
+                             says what it shows: a validity proof; the score is public;
+                             agent binding is weak (about 1 in 256 foreign agent ids verify).
       [--verify]             …and verify it client-side with the bundled WASM verifier.
   badge <agentIdOrSlug>      Fetch + client-side-verify the proof, then emit a portable,
-                             self-contained SVG badge ("RepID ≥ threshold ✓ ZK-verified").
+                             self-contained SVG badge ("RepID ≥ threshold ✓ verified").
                              Green ONLY on a true local verification. The BADGE never
                              prints the score — the proof's statement still carries it
                              as a public input. EXIT 3 if not in the verified state.
@@ -982,6 +985,8 @@ export function formatProof(p: ProofPresentation): string {
     `${p.agentId}`,
     `  tier      ${p.tier}`,
     `  scheme    ${p.scheme ?? '(none)'}`,
+    // What "verified" below does and does not cover. Never absent: a presentation built without it gets one here.
+    `  class     ${(p.proofClass ?? proofClassOf(p)).summary}`,
     `  createdAt ${p.createdAt ?? '(none)'}`,
     `  proof     ${p.proofBytes ? `${p.proofBytes.length} base64 chars` : '(empty)'}`,
   ];
@@ -998,7 +1003,9 @@ export function formatProof(p: ProofPresentation): string {
         : `  verified  ✗ NOT verified — ${v.error ?? 'unknown'} (${v.verifierVersion})`,
     );
   }
-  return lines.join('\n');
+  // Every field above but the agent id is engine text. Cleaned per line, so no control sequence can erase the
+  // class line and no newline inside a field can add a fake "verified" line (Strix, #728).
+  return lines.map((l) => cleanCodePoints(l)).join('\n');
 }
 
 const CLAIM_LABEL: Record<(typeof SIX_CLAIM_KEYS)[number], string> = {
@@ -1623,7 +1630,8 @@ export async function run(
     case 'proof': {
       try {
         const p = await client.presentProof(args.operand as string, { verify: args.verify });
-        if (args.json) io.out(JSON.stringify(p, null, 2));
+        // Engine text: terminalSafeJson escapes the C1 and bidi characters JSON.stringify leaves raw (Strix, #728).
+        if (args.json) io.out(terminalSafeJson(p));
         else io.out(formatProof(p));
         // When --verify was requested, a proof that did not verify is a hard failure —
         // never let a non-verified proof read as success (HONESTY, mirrors the MCP).
@@ -1646,7 +1654,7 @@ export async function run(
         const p = await client.presentProof(args.operand as string, { verify: true });
         const status = proofBadgeStatus(p);
         if (args.json) {
-          io.out(JSON.stringify(status, null, 2));
+          io.out(terminalSafeJson(status));
         } else if (args.markdown) {
           io.out(renderProofBadgeMarkdown(p));
         } else {

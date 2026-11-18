@@ -46,7 +46,7 @@ workflow now captures the code explicitly, and the defaults keep that fail-close
 ## Then: earn a verifiable badge
 
 Once your agent has a RepID, add a portable, client-verified badge to your README — it shows
-`RepID ≥ threshold ✓ ZK-verified` and **never renders the score on the badge**. The score is a
+`RepID ≥ threshold ✓ verified` and **never renders the score on the badge**. The score is a
 public input to the circuit, so it is present in the proof statement — the badge omits it, the
 proof does not hide it:
 
@@ -58,7 +58,7 @@ npx -y @hyperdag/trustshell badge <your-agent-id> --markdown >> README.md
 > predates it — upgrade, or `npm i github:DealAppSeo/trustshell` (tracks latest). The **CI gate above
 > uses only `verify`, which is in every release**, so it works today regardless.
 
-The badge renders green **only** when local ZK verification actually returned true — an absent or
+The badge renders green **only** when local verification actually returned true — an absent or
 failed verifier renders grey/red and exits non-zero, never a false green.
 
 ## What's real here, plainly
