@@ -1,0 +1,24 @@
+{
+  "schema": "trustshell.toolbelt/0-proof",
+  "name": "inspect-run",
+  "version": "1.0.0",
+  "requires": { "package": "@hyperdag/trustshell", "version": "1.9.1", "bins": ["trustshell", "trustshell-mcp"] },
+  "files": {
+    "SKILL.md": "e8ea4d21159148e774cfd2a52a01090b2e0981227ecd85c5f80fa0c9d5ace69c"
+  },
+  "permissions": ["tool:check"],
+  "network": ["api.github.com"],
+  "memory": [
+    { "ref": "inspect-run/known-answer", "sha256": "41910662a738531401c042c2f90dead0107e1cf4878596c1a04e7556c0e2b920" }
+  ],
+  "grant": { "require_policy": true },
+  "known_answer": {
+    "run_url": "https://github.com/DealAppSeo/trustshell/actions/runs/42502305639",
+    "claims": "The check workflow succeeded, run 42502305639.",
+    "expect": {
+      "exit_code": 1,
+      "observation": { "run_id": 42502305639, "head_sha": "f569e43ec8072f7530c2da8d25bacf28c30c510f", "conclusion": "failure" },
+      "claims": { "gha.run_succeeded": "CONTRADICTED", "gha.run_id": "SUPPORTED" }
+    }
+  }
+}
