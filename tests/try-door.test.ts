@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { tryRun, verifyReceipt, verdictOf, type TryResult, type VerifyResult } from '../lib/try-door';
+import { publicWhy, tryRun, verifyReceipt, verdictOf, type TryResult, type VerifyResult } from '../lib/try-door';
+import { CheckError } from '../src/lib/check';
 import { TRY_SAMPLES } from '../lib/try-samples';
 
 // TSX is loaded by require so ts-jest does not type-check JSX (`tsc --noEmit` does that).
@@ -98,6 +99,18 @@ describe('the three verdicts, from the real mapping', () => {
 });
 
 describe('every failure is NOT_CHECKED with a reason, never a pass', () => {
+  it('GitHub\x27s own error text never reaches the caller: its rate-limit message names the server IP', async () => {
+    const leak = 'API rate limit exceeded for 203.0.113.7. (But here is the good news...)';
+    const inspect = (async () => { throw new CheckError(`GitHub 403: ${leak}`); }) as never;
+    const r = await tryRun(GREEN.run_url, 'the run passed', { now: NOW, inspect });
+    expect(r.verdict).toBe('NOT_CHECKED');
+    expect(r.evidence).toBe('Could not read the run: GitHub 403.');
+    expect(JSON.stringify(r)).not.toContain('203.0.113.7');
+    // A message this codebase wrote still reaches the reader, and a non-CheckError is never shown.
+    expect(publicWhy(new CheckError('need https://github.com/owner/repo/actions/runs/123'), 'x')).toMatch(/^need https/);
+    expect(publicWhy(new Error('ECONNRESET 10.0.0.5'), 'fallback')).toBe('fallback');
+  });
+
   it('an unsupported URL is NOT_CHECKED and sends nothing', async () => {
     const calls = replay(GREEN);
     for (const bad of ['', 'https://example.com/a/b/actions/runs/1', 'https://github.com/o/r/pull/3', 'https://evil-github.com/o/r/actions/runs/1', null, 42]) {
