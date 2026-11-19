@@ -10,6 +10,8 @@ Setup for all of them is in [CONTRIBUTING.md](../CONTRIBUTING.md). The reference
 
 **Labels:** `good first issue`, `enhancement` · **Size:** small · **Touches:** `src/lib/check.ts`, one test
 
+**Done on main (`tests/check-github-errors.test.ts`); do not file this one.** Kept here until the list is renumbered.
+
 Anonymous GitHub allows 60 requests an hour per IP, and `check` makes two per run. When the limit is hit, `check` fails with the raw API error, `check failed: GitHub 403: …`, and a first-time tester cannot tell it is a limit they can lift.
 
 **Do:** when GitHub answers 403 or 429 and the header `x-ratelimit-remaining` is `0`, throw a `CheckError` that says it is rate limited, when it resets (the `x-ratelimit-reset` header), and that setting `GITHUB_TOKEN` raises the limit (it is used for that and nothing else). `gh()` in `src/lib/check.ts` currently returns only `{ ok, status, body }`, so it has to return the headers too.
