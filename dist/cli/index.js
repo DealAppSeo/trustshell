@@ -1036,8 +1036,10 @@ function formatQuarantineRecord(r) {
 }
 async function run(args, client, io = realIO) {
     if (args.error) {
-        io.err(`error: ${args.error}\n`);
-        io.err(HELP);
+        // The error, then where the help is: not the help itself. HELP is ~290 lines, and printed after the
+        // error it pushed the one line the reader needed off the top of the terminal.
+        io.err(`error: ${args.error}`);
+        io.err(`Run \`${(0, version_1.selfCommand)(exports.VERSION)} help\` for the commands and their options.`);
         return exports.EXIT.USAGE;
     }
     switch (args.command) {
