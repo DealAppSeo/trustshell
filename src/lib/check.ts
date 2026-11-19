@@ -104,6 +104,8 @@ interface GhResponse {
   ok: boolean;
   status: number;
   body: any;
+  /** Set only when GitHub says the request limit is spent (`x-ratelimit-remaining: 0`). `reset` is epoch seconds, or null if unreadable. */
+  rateLimited?: { reset: number | null };
 }
 
 /**
@@ -129,7 +131,11 @@ async function gh(path: string, token: string): Promise<GhResponse & { usedToken
     } catch {
       body = { raw: text };
     }
-    return { ok: res.ok, status: res.status, body };
+    // Recorded and stubbed responses in the tests carry no headers object; a missing header is "not rate limited".
+    const header = (k: string): string | null => (res as any).headers?.get?.(k) ?? null;
+    const reset = Number(header('x-ratelimit-reset'));
+    const rateLimited = header('x-ratelimit-remaining') === '0' ? { reset: Number.isFinite(reset) && reset > 0 ? reset : null } : undefined;
+    return { ok: res.ok, status: res.status, body, rateLimited };
   };
 
   if (token) {
@@ -191,6 +197,27 @@ export class CheckError extends Error {
   }
 }
 
+/**
+ * Why GitHub would not hand over the run, for a reader who has never used the API. Always starts
+ * `GitHub <status>:` (lib/try-door.ts and the MCP `inspect_run` reason key on that prefix).
+ *   - 404 is what GitHub answers for a wrong id AND for a private repository; say both, since the
+ *     first run most people try is their own.
+ *   - 403/429 with the limit spent is not a permission problem and lifts by itself.
+ * Anything else keeps GitHub's own message.
+ */
+function refusal(run: GhResponse & { usedToken: boolean }, p: ParsedRun): string {
+  if ((run.status === 403 || run.status === 429) && run.rateLimited) {
+    const who = run.usedToken ? 'this token' : 'this network address (60 requests an hour without a token)';
+    const reset = run.rateLimited.reset === null ? '' : ` It resets at ${new Date(run.rateLimited.reset * 1000).toISOString()}.`;
+    const fix = run.usedToken ? '' : ' Set GITHUB_TOKEN to raise the limit.';
+    return `GitHub ${run.status}: rate limited. GitHub's request limit for ${who} is used up.${reset}${fix}`;
+  }
+  if (run.status === 404) {
+    return `GitHub 404: no run ${p.runId} is visible in ${p.owner}/${p.repo}. Check the run id and the repository name. A private repository also answers 404, and this command reads public runs only.`;
+  }
+  return `GitHub ${run.status}: ${run.body?.message || 'failed'}`;
+}
+
 export async function runCheck(url: string, env: Record<string, string | undefined> = process.env): Promise<CheckResult> {
   const parsed = parseRun(url);
   if (!parsed) {
@@ -201,7 +228,7 @@ export async function runCheck(url: string, env: Record<string, string | undefin
 
   const run = await gh(base, token);
   if (!run.ok) {
-    throw new CheckError(`GitHub ${run.status}: ${run.body?.message || 'failed'}`);
+    throw new CheckError(refusal(run, parsed));
   }
   // per_page=100 is the API maximum. Without it GitHub returns the first 30 and
   // says nothing about it, so "every job in the run passed" would have been a
