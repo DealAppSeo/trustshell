@@ -32,6 +32,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Nothing after this step talks to GitHub, so the token is not left in .git/config (tests/ci-no-secrets-in-pr.test.ts, case 5).
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
