@@ -1,0 +1,47 @@
+# One decision per pull request revision: READY, HOLD or NOT_CHECKED.
+#
+# Born from #696: it said do-not-merge in its title and body, every check was green, and it merged.
+# This job reads the author's own words (and the draft state and labels) and goes red on a hold.
+#
+# - It reads only the event file. No token is used, and no PR code runs.
+# - The rule is the BASE commit's copy of scripts/ci/release-hold.cjs, so a PR cannot edit its own
+#   judge. Only when the base has no copy yet (the PR that adds it) does it run the PR's copy, and
+#   it says so.
+# - `edited`, `labeled` and the draft events are listed so a hold added after a green run turns the
+#   same commit red again.
+# - NOT_CHECKED exits 3. It is never remapped to 0.
+#
+# Limit: this is advisory until the branch ruleset requires `release-hold`. A PR can also edit this
+# workflow file itself; only a required-workflow ruleset closes that.
+name: release-hold
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, ready_for_review, converted_to_draft, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  release-hold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the base commit (the rule, not the PR)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+      - name: Bootstrap only - the base has no rule yet, so read the PR's copy
+        id: boot
+        if: hashFiles('scripts/ci/release-hold.cjs') == ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+      - name: Decide
+        env:
+          BOOTSTRAP: ${{ steps.boot.outcome }}
+        run: |
+          if [ "$BOOTSTRAP" = "success" ]; then echo "BOOTSTRAP: the base commit has no release-hold rule; this run used the PR's own copy." | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          node scripts/ci/release-hold.cjs
