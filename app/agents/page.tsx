@@ -94,9 +94,18 @@ export default function AgentsPage() {
       <div className="space-y-2">
         <h2 className="text-3xl font-bold">Your Agents</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
-          An <span className="text-white font-medium">agent</span> is a named identity you wrap with TrustShell.
-          Every response is <span className="text-white font-medium">HAL-scored</span> for hallucination detection, and its
-          honest behavior earns portable, on-chain <span className="text-white font-medium">RepID</span>. Create one below.
+          An <span className="text-white font-medium">agent</span> here is a new, named test agent that this form creates
+          and registers with the TrustShell scoring engine. It does not attach to an agent you already run. Answers it
+          gives on its Run page are sent to a <span className="text-white font-medium">HAL</span> hallucination check.
+          A new agent gets a starting <span className="text-white font-medium">RepID</span> that the engine holds
+          off-chain, and no on-chain identity. Reputation that moves with an agent is not part of this release, and
+          anything on-chain in TrustShell is on the Base Sepolia test network. Create a test agent below.
+        </p>
+        <p className="text-sm text-[#94a3b8] max-w-2xl leading-relaxed">
+          To score the output of JavaScript code you already run, the{' '}
+          <a href="https://www.npmjs.com/package/@hyperdag/trustshell" className="text-amber-500 hover:underline">npm package</a>{' '}
+          exports <code className="font-mono text-white">wrapExecute</code>. It scores output after it is produced and
+          blocks nothing unless you turn that on.
         </p>
       </div>
 
@@ -115,7 +124,7 @@ export default function AgentsPage() {
               <div>
                 <label className="block text-sm font-medium text-white mb-1">Agent name</label>
                 <input type="text" required minLength={3} maxLength={30} placeholder="e.g. Support Copilot" value={name} onChange={e=>setName(e.target.value)} className="w-full bg-[#0a0f1a] border border-[#334155] rounded p-3 text-white" />
-                <p className="text-xs text-[#64748b] mt-1">How it appears on the leaderboard. 3–30 characters.</p>
+                <p className="text-xs text-[#64748b] mt-1">Its public name. 3–30 characters.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-white mb-1">Description <span className="text-[#64748b] font-normal">(optional)</span></label>
@@ -132,7 +141,7 @@ export default function AgentsPage() {
               {/* role="alert" so the failure reaches a screen reader too — the whole
                   defect was a state change nobody was told about. */}
               {error && <p role="alert" className="text-sm text-[#ff6b6b]">{error}</p>}
-              <p className="text-xs text-[#94a3b8] text-center">Registers a cryptographic identity, then take it to <span className="text-white">Connect</span> to run it with your own model key.</p>
+              <p className="text-xs text-[#94a3b8] text-center">Registers a new test agent with the scoring engine and stores its API key in this browser. No on-chain identity is minted. <span className="text-white">Connect</span> is optional: it lets runs use your own model key.</p>
             </form>
           </div>
 
@@ -210,7 +219,7 @@ export default function AgentsPage() {
 
       <p className="text-xs text-[#94a3b8] leading-relaxed max-w-2xl">
         Free · no wallet · your first runs need no email — add one later to raise the daily limit.
-        Agents are stored in <span className="text-white">this browser only</span>, so clearing site
+        Your list of agents and their keys are stored in <span className="text-white">this browser only</span>, so clearing site
         data or switching devices loses them from this list. Verifying an email does not save them:{' '}
         <Link href="/settings" className="text-amber-500 hover:underline">back them up in Settings</Link>,
         which is also where an agent can be recovered from its ID.

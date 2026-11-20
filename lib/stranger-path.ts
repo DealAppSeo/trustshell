@@ -48,7 +48,7 @@ export const STRANGER_STEPS: readonly StrangerStep[] = [
     title: 'Name your agent',
     doThis: 'Type a name, 3 to 30 characters, and press Create Agent. The description and the rules are optional.',
     youSee:
-      'Your agent appears in the list with its ID and a starting score. It is saved in this browser only. No email, no wallet, no money.',
+      'Your agent appears in the list with its ID and a starting score. The agent is registered with the scoring engine; the list and its key are saved in this browser only. No email, no wallet, no money.',
   },
   {
     id: 'belt',
