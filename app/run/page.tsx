@@ -22,7 +22,7 @@ export default function RunIndexPage() {
         <h2 className="text-3xl font-bold text-white">Run an agent</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
           Send a prompt to one of the test agents you created here. The answer comes from a model the TrustShell
-          engine calls, not from an agent you run elsewhere, and is then sent to a{' '}
+          engine calls (with your own model key if you connected one), not from an agent you run elsewhere, and is then sent to a{' '}
           <span className="text-white font-medium">HAL</span> hallucination check. A conversational answer is not a
           verified deliverable, so do not expect it to raise <span className="text-white font-medium">RepID</span>.
           A new agent&apos;s RepID is held off-chain and it has no on-chain identity. Pick an agent below, or{' '}

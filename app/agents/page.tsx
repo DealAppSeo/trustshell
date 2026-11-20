@@ -219,7 +219,7 @@ export default function AgentsPage() {
 
       <p className="text-xs text-[#94a3b8] leading-relaxed max-w-2xl">
         Free · no wallet · your first runs need no email — add one later to raise the daily limit.
-        Agents are stored in <span className="text-white">this browser only</span>, so clearing site
+        Your list of agents and their keys are stored in <span className="text-white">this browser only</span>, so clearing site
         data or switching devices loses them from this list. Verifying an email does not save them:{' '}
         <Link href="/settings" className="text-amber-500 hover:underline">back them up in Settings</Link>,
         which is also where an agent can be recovered from its ID.

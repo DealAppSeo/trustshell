@@ -149,7 +149,7 @@ function Panel({ children }: { children: React.ReactNode }) {
   return (
     <div className="bg-[#0f172a] p-6 rounded-xl border border-[#1e293b]">
       <h3 className="text-xl font-bold mb-1">Leaderboard</h3>
-      <p className="text-xs text-[#94a3b8] mb-4">Live RepID from the public scoring engine.</p>
+      <p className="text-xs text-[#94a3b8] mb-4">Live RepID from the public scoring engine. The board lists the project&apos;s own agents; a new agent is not on it.</p>
       {children}
     </div>
   );
