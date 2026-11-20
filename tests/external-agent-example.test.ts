@@ -19,7 +19,7 @@ jest.setTimeout(300000);
 const DIR = join(__dirname, '..', 'examples', 'external-agent');
 
 /** The JSON objects run.mjs prints, in order (each starts at a line that is exactly "{"). */
-function printed(stdout: string): any[] {
+function printed(stdout: string): Record<string, unknown>[] {
   return stdout
     .split(/^(?=\{$)/m)
     .filter((part) => part.startsWith('{'))
