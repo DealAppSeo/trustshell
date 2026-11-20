@@ -123,7 +123,7 @@ export default function ThreeCasesPage() {
         <section className="border-t border-border py-10" aria-labelledby="run-it">
           <h2 id="run-it" className="font-display text-2xl font-semibold text-foreground">Run it yourself</h2>
           <p className="mt-3 text-sm leading-relaxed text-muted">
-            The same three cases, from a clone of <code className="font-mono text-foreground">{SOURCE.repository}</code> (Node 20.9 or newer):
+            The same three cases, from a clone of <code className="font-mono text-foreground">{SOURCE.repository}</code> (the engine asks for Node.js 20.9 or newer, which is its own minimum, not TrustShell&apos;s):
           </p>
           <pre className={`mt-3 ${PRE}`}>{`${INSTALL}\n${RUN_DEMO}`}</pre>
           <p className="mt-3 text-sm leading-relaxed text-muted">
