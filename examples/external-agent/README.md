@@ -24,8 +24,9 @@ random choice switched off the same input always gives the same reply.
   network. In this example the checker is a stub on your own machine (`stub-hal.mjs`) that says
   PASS to everything, so a PASS here shows the wiring works and says nothing about whether the
   reply is true.
-- **It keeps no record unless you ask.** The only record is the object it returns and the same
-  object passed to your `onRecord` callback. This example appends it to `records.jsonl` in this folder.
+- **It keeps no record unless you ask.** It returns a result object, and passes a record of the
+  call to your `onRecord` callback. This example appends that record to `records.jsonl` in this
+  folder. The record is the printed object without `output` and `blocked`, plus `halLatencyMs`.
 - **Nothing here writes reputation, and nothing here is on a chain.** No agent is registered, no
   score changes anywhere, no transaction is sent.
 
@@ -33,7 +34,8 @@ random choice switched off the same input always gives the same reply.
 
 You need Node 22.13 or later (`node --version`) and git. Every command is run from the
 `examples/external-agent` folder of a clone of this repository. The commands are the same in bash
-and in Windows PowerShell 5.1; run them one at a time.
+and in Windows PowerShell 5.1; run them one at a time. If you open a new terminal, `cd` back into
+that folder first.
 
 ```bash
 git clone https://github.com/DealAppSeo/trustshell.git
@@ -50,8 +52,8 @@ npm ci --ignore-scripts
 `npm ci` installs the two pinned packages and what they depend on (about 100 packages) into this
 folder. It prints `npm warn EBADENGINE` for `eliza-as-promised`, which declares a very old Node
 version; that warning is expected and harmless. It ends with `added 99 packages` (the count may
-differ slightly) and exit code 0. In PowerShell, if `npm` is refused with a message about running
-scripts being disabled, type `npm.cmd` in place of `npm`.
+differ slightly) and exit code 0. It can take a few minutes. In PowerShell, if `npm` or `npx` is
+refused with a message about running scripts being disabled, type `npm.cmd` or `npx.cmd` instead.
 
 To see the exit code of the command you just ran: `echo $?` in bash, `echo $LASTEXITCODE` in PowerShell.
 
@@ -62,7 +64,8 @@ node run.mjs supported
 ```
 
 ELIZA answers `I need some help`. The wrapper sends the reply to the local stub, the stub says
-PASS, and the reply is released. Expected output (the port number changes every run):
+PASS, and the reply is released. Expected output (the port number changes every run; the
+`WARNING` line is written to stderr, the rest to stdout):
 
 ```text
 WARNING: TrustShell is using the backend http://127.0.0.1:50802, not the default https://repid-engine-production.up.railway.app. Everything TrustShell sends goes to that host.
@@ -96,7 +99,9 @@ node run.mjs unavailable
 
 No stub is started. The client is created with `localOnly: true`, so the SDK sends nothing and
 answers NOT_CHECKED. The agent is wrapped twice: once with the defaults, once fail-closed
-(`blockAtOrAbove: 'VETO', onUnavailable: 'withhold'`). Expected output, shortened:
+(`blockAtOrAbove: 'VETO', onUnavailable: 'withhold'`). Expected output, shortened: each `...`
+stands for `halScore: null`, `trustScore: null`, a long `decisionReason`, an empty `evidence` list
+and an `error` line saying nothing was sent. The fail-closed record has no `output` line at all.
 
 ```text
 {
@@ -127,7 +132,8 @@ an unchecked output is still handed over.
 
 Any other argument prints a usage line and exits 2. An unexpected result in either case exits 1.
 
-After both cases, `records.jsonl` in this folder holds three lines, one per wrapped call.
+After running each case once, `records.jsonl` in this folder holds three lines, one per wrapped
+call. Every further run appends more lines; delete the file to start again. Git ignores it.
 
 ## What this example cannot show
 
@@ -136,7 +142,8 @@ compares the text with something, and offline there is none: the stub agrees wit
 
 A different feature of the same package does compare a claim with outside evidence: `trustshell
 check` reads one public GitHub Actions run from `api.github.com` (no key; your claim text is not
-sent) and compares your sentences with GitHub's record of that run. It has nothing to do with
+sent) and compares your sentences with GitHub's record of that run. Each claims file here holds
+one sentence, which the tool splits into three claims: the outcome, the commit and the run. It has nothing to do with
 ELIZA or with `wrapExecute`. It is here so you can see a real SUPPORTED and a real CONTRADICTED.
 These two commands need internet access to `api.github.com`:
 
@@ -153,9 +160,14 @@ npx --no-install trustshell check https://github.com/DealAppSeo/trustshell/actio
 The claim names the wrong commit for that run. Prints `### Claims: 1 supported · 1 contradicted ·
 1 not checked`. Exit code **1**.
 
+Both results were observed on 2026-11-20. They depend on GitHub still serving that run; if it
+cannot be read, expect a different result, not one of these two.
+
 ## Using the real checker
 
-Replace the client with `new TrustShell()` and remove the `fetch` guard at the top of `run.mjs`.
+This example does not do this, and its expected output above no longer applies if you do. In
+`run.mjs`, replace `new TrustShell({ apiUrl: stub.url })` with `new TrustShell()` and delete the
+block that starts `const realFetch`. No key is needed.
 Then every wrapped call sends the agent's output to the hosted HyperDAG backend, which passes it
 to third-party model providers. That is a network call to a service, it is not free to operate,
 and it is still a verdict about text, recorded after the agent ran. It does not register the agent
@@ -170,4 +182,5 @@ or change any reputation score.
 | `claims-supported.txt`, `claims-contradicted.txt` | Input for the two `trustshell check` commands. |
 | `package.json`, `package-lock.json` | Exact versions of the two published packages. |
 
-The repository's test for this example is `tests/external-agent-example.test.ts`.
+The repository's test for this example is `tests/external-agent-example.test.ts`. To run it, from
+the repository root: `npm ci --ignore-scripts`, then `npx jest tests/external-agent-example.test.ts`.
