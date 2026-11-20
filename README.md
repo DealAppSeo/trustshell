@@ -4,6 +4,31 @@ TrustShell reads a **public GitHub Actions run** from GitHub and sets what your 
 
 **Start here:** [trustshell.dev/lab/start](https://trustshell.dev/lab/start), a guided first run: try a saved example, test your own work, keep the report. **Or try Inspect:** [the five-minute challenge](https://trustshell.dev/inspect). Two example claims we wrote about a pinned run (one true, one false), the evidence that decides each, and an invitation to break it. No run URL yet? This one line needs none and works as written in bash, zsh and PowerShell (in PowerShell, type `npx.cmd` in place of `npx` if it says running scripts is disabled). It cites our own green CI run as proof for a different commit, so it prints CONTRADICTED and exits `1`, and [the run on GitHub](https://github.com/DealAppSeo/trustshell/actions/runs/39619591025) shows the real commit, `392797a`: `npx @hyperdag/trustshell@latest check https://github.com/DealAppSeo/trustshell/actions/runs/39619591025 --claims "The check workflow succeeded on commit 5d1c5e3f57e1, run 39619591025."`
 
+## Start here: the project index
+
+**Bring your AI. See what it checked. Keep the evidence behind the work.**
+
+[![Explainer video thumbnail. One answer, two results: the panel said clean, the answer-key check said wrong.](https://raw.githubusercontent.com/DealAppSeo/trustshell/main/docs/assets/explainer-thumbnail.png)](https://github.com/DealAppSeo/trustshell/blob/main/docs/START_HERE.md)
+
+Video link: not published yet. The project index, [docs/START_HERE.md](https://github.com/DealAppSeo/trustshell/blob/main/docs/START_HERE.md), lists what to try in order of effort, which repository to open for what, and what this does not do yet.
+
+How HAL (the Hallucination Assessment Layer) checks an answer. The panel opinion is recorded beside the outcome and does not decide it:
+
+```mermaid
+flowchart TD
+  T["Task and criteria"] --> A["Agent answer"]
+  A --> P["Panel opinion on the reply<br/>(models that saw only the reply)"]
+  A --> I["Independent check<br/>(against the answer key or other evidence)"]
+  I --> O{"Outcome"}
+  O --> C["CHECKED: CORRECT"]
+  O --> W["CHECKED: WRONG"]
+  O --> N["NOT CHECKED<br/>(no evidence available)"]
+  P -. "shown beside the outcome, does not decide it" .-> R["Record"]
+  C --> R
+  W --> R
+  N --> R
+```
+
 ## Check your own CI run
 
 Open any public repository's **Actions** tab, open a run, and paste its URL below. Tested on Node 22. `--claims` and `--claims-file` are new in 1.8.0 (see Status below); 1.7.0 and older do not have them. `@latest` makes npx fetch the current release; without it, npx runs any older copy installed globally.
