@@ -21,9 +21,11 @@ export default function RunIndexPage() {
       <div className="space-y-2">
         <h2 className="text-3xl font-bold text-white">Run an agent</h2>
         <p className="text-[#94a3b8] max-w-2xl leading-relaxed">
-          Send a prompt to one of your agents. Every response is{' '}
-          <span className="text-white font-medium">HAL-scored</span> for hallucination in real time, and honest
-          answers earn portable <span className="text-white font-medium">RepID</span>. Pick an agent below, or{' '}
+          Send a prompt to one of the test agents you created here. The answer comes from a model the TrustShell
+          engine calls, not from an agent you run elsewhere, and is then sent to a{' '}
+          <span className="text-white font-medium">HAL</span> hallucination check. A conversational answer is not a
+          verified deliverable, so do not expect it to raise <span className="text-white font-medium">RepID</span>.
+          A new agent&apos;s RepID is held off-chain and it has no on-chain identity. Pick an agent below, or{' '}
           <Link href="/agents" className="text-amber-500 hover:underline">
             create one
           </Link>
@@ -54,7 +56,7 @@ export default function RunIndexPage() {
               <h4 className="font-bold text-lg text-white">{a.name}</h4>
               <p className="text-sm text-[#94a3b8]">{a.description || 'No description'}</p>
               <p className="text-xs text-[#475569] mt-3 font-mono">{a.id}</p>
-              <p className="text-xs text-[#475569] mt-1">Prompts: {a.totalPrompts}</p>
+              <p className="text-xs text-[#475569] mt-1">Runs in this browser: {a.totalPrompts}</p>
             </Link>
           ))}
         </div>

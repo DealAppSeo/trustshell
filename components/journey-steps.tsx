@@ -25,9 +25,9 @@ const STAGES: ReadonlyArray<{ id: JourneyStage; href: string; label: string; det
   { id: 'create', href: '/agents', label: 'Create', detail: 'Make or choose an agent' },
   { id: 'claim', href: '/bind', label: 'Claim', detail: "Sign that it's yours" },
   { id: 'fund', href: '/faucet', label: 'Fund', detail: 'Get testnet ETH + USDC' },
-  { id: 'stake', href: '/stake', label: 'Stake', detail: 'Back it with a deposit' },
-  { id: 'trade', href: '/spend', label: 'Trade', detail: 'Let it buy and sell' },
-  { id: 'earn', href: '/leaderboard', label: 'Earn', detail: 'Watch RepID move' },
+  { id: 'stake', href: '/stake', label: 'Stake', detail: 'Stake on the test network' },
+  { id: 'trade', href: '/spend', label: 'Trade', detail: 'Cap its test USDC spend' },
+  { id: 'earn', href: '/leaderboard', label: 'Earn', detail: 'See the public board' },
 ];
 
 export function JourneySteps({ current }: { current?: JourneyStage }) {
