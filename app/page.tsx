@@ -73,6 +73,7 @@ export default function Home() {
         </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-3">
+          <a href="/three-cases" className="inline-flex min-h-11 w-full items-center rounded-lg border border-amber-500 px-5 text-sm font-semibold text-foreground hover:bg-card sm:w-auto">Try the three cases</a>
           <a href="#install" className="inline-flex min-h-11 items-center rounded-lg bg-amber-500 px-5 text-sm font-semibold text-black hover:bg-amber-400">
             Install TrustShell
           </a>

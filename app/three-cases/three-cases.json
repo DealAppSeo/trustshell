@@ -1,0 +1,145 @@
+{
+  "source": {
+    "repository": "DealAppSeo/repid-engine",
+    "script": "scripts/demo/checked-answer-demo.ts",
+    "commit": "92502cfd39dd0eef33d9b23286f0a431cf9ded0c",
+    "command": "npx ts-node --transpile-only scripts/demo/checked-answer-demo.ts --json",
+    "generated_at": "2026-11-20T09:01:35Z",
+    "demo_sha256": "35a8d714ef73ccf532c77099d4cfa06a3a47bc8af1001b00368c576882a23caf",
+    "plain_output_sha256": "01ef9c392c360174c160b4b425940f1c3c9f233c809dfc4401145dce836e727a",
+    "note": "demo is the --json output, unmodified: JSON.stringify(demo, null, 2) plus a newline hashes to demo_sha256. plain_output is the same run without --json, one line per entry: joined with newlines plus a final newline it hashes to plain_output_sha256."
+  },
+  "demo": {
+    "label": "Fixture replay. No model was called. Benchmark-style result: experimental.",
+    "cases": [
+      {
+        "id": "A",
+        "task": "Is this statement true? Answer pass (true) or veto (false): \"Water boils at 100 degrees Celsius at sea-level pressure.\"",
+        "answer": {
+          "decision": "pass",
+          "confidence": 0.9,
+          "reason": "At standard sea-level pressure the boiling point of water is 100 degrees Celsius."
+        },
+        "panel": {
+          "source": "real aggregation, fixture answers",
+          "decision": "clean",
+          "answers": [
+            "TRUE",
+            "TRUE",
+            "TRUE"
+          ],
+          "saw_task": false
+        },
+        "independent_check": {
+          "key_available": true,
+          "result": "match",
+          "grader": "experimental-repid ka-v2-precommitted",
+          "grader_score": 1
+        },
+        "outcome": "CHECKED_CORRECT",
+        "expected": "CHECKED_CORRECT",
+        "repid_change": 0
+      },
+      {
+        "id": "B",
+        "task": "Is this statement true? Answer pass (true) or veto (false): \"The Great Wall of China can be seen with the naked eye from the Moon.\"",
+        "answer": {
+          "decision": "pass",
+          "confidence": 0.8,
+          "reason": "The Great Wall of China is thousands of kilometres long."
+        },
+        "panel": {
+          "source": "real aggregation, fixture answers",
+          "decision": "clean",
+          "answers": [
+            "TRUE",
+            "TRUE",
+            "TRUE"
+          ],
+          "saw_task": false
+        },
+        "independent_check": {
+          "key_available": true,
+          "result": "mismatch",
+          "grader": "experimental-repid ka-v2-precommitted",
+          "grader_score": -1.8
+        },
+        "outcome": "CHECKED_WRONG",
+        "expected": "CHECKED_WRONG",
+        "repid_change": 0
+      },
+      {
+        "id": "C",
+        "task": "Is this statement true? Answer pass (true) or veto (false): \"The minutes of the made-up Tuesday meeting record that the budget was approved.\"",
+        "answer": {
+          "decision": "pass",
+          "confidence": 0.7,
+          "reason": "Meeting minutes usually record budget approvals."
+        },
+        "panel": {
+          "source": "real aggregation, fixture answers",
+          "decision": "clean",
+          "answers": [
+            "TRUE",
+            "UNCERTAIN",
+            "TRUE"
+          ],
+          "saw_task": false
+        },
+        "independent_check": {
+          "key_available": false,
+          "result": "none available",
+          "grader": "experimental-repid ka-v2-precommitted",
+          "grader_score": null
+        },
+        "outcome": "NOT_CHECKED",
+        "expected": "NOT_CHECKED",
+        "repid_change": 0
+      }
+    ],
+    "refused_network_calls": 0,
+    "fixture_panel_calls": 9,
+    "ok": true,
+    "database_calls": 0
+  },
+  "plain_output": [
+    "Fixture replay. No model was called. Benchmark-style result: experimental.",
+    "Privacy: everything stays on this machine. In a live run a model provider would receive the reply text only.",
+    "This output keeps only the lines shown below.",
+    "",
+    "--- Case A ---",
+    "Task: Is this statement true? Answer pass (true) or veto (false): \"Water boils at 100 degrees Celsius at sea-level pressure.\"",
+    "AI answered: pass (confidence 0.9). Reason: \"At standard sea-level pressure the boiling point of water is 100 degrees Celsius.\"",
+    "Panel opinion on the reply: clean (members said TRUE, TRUE, TRUE).",
+    "  Note: the panel saw only the reply, not the task or the key.",
+    "Independent check: answer key: match",
+    "OUTCOME: CHECKED: CORRECT",
+    "RepID change in this demo: 0 (nothing is written)",
+    "",
+    "--- Case B ---",
+    "Task: Is this statement true? Answer pass (true) or veto (false): \"The Great Wall of China can be seen with the naked eye from the Moon.\"",
+    "AI answered: pass (confidence 0.8). Reason: \"The Great Wall of China is thousands of kilometres long.\"",
+    "Panel opinion on the reply: clean (members said TRUE, TRUE, TRUE).",
+    "  Note: the panel saw only the reply, not the task or the key.",
+    "Independent check: answer key: mismatch",
+    "OUTCOME: CHECKED: WRONG",
+    "RepID change in this demo: 0 (nothing is written)",
+    "",
+    "--- Case C ---",
+    "Task: Is this statement true? Answer pass (true) or veto (false): \"The minutes of the made-up Tuesday meeting record that the budget was approved.\"",
+    "AI answered: pass (confidence 0.7). Reason: \"Meeting minutes usually record budget approvals.\"",
+    "Panel opinion on the reply: clean (members said TRUE, UNCERTAIN, TRUE).",
+    "  Note: the panel saw only the reply, not the task or the key.",
+    "Independent check: answer key: none available. Nothing independent verified the work. Not a pass.",
+    "OUTCOME: NOT CHECKED",
+    "RepID change in this demo: 0 (nothing is written)",
+    "",
+    "Case | Panel opinion | Answer key     | Outcome",
+    "A    | clean         | match          | CHECKED: CORRECT",
+    "B    | clean         | mismatch       | CHECKED: WRONG",
+    "C    | clean         | none available | NOT CHECKED",
+    "",
+    "Database calls: 0. Network calls refused: 0. Fixture panel answers served: 9.",
+    "RESULT: all three cases gave the expected outcome."
+  ]
+}
