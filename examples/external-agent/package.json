@@ -1,0 +1,13 @@
+{
+  "name": "trustshell-external-agent-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "wrapExecute around an agent this project did not write (eliza-as-promised), fully local.",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.13.0" },
+  "dependencies": {
+    "@hyperdag/trustshell": "1.9.3",
+    "eliza-as-promised": "0.0.2"
+  }
+}
