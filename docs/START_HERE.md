@@ -10,9 +10,11 @@ This page was written and checked on 2026-11-20. Every command on it was run tha
 
 ## Explainer video
 
-![Explainer video thumbnail. One answer, two results: the panel said clean, the answer-key check said wrong.](assets/explainer-thumbnail.png)
+![Explainer video thumbnail. One answer, two results. Panel opinion on the reply: clean. Independent check: answer key: mismatch.](assets/explainer-thumbnail.png)
 
-Video link: not published yet (placeholder: `EXPLAINER_VIDEO_URL`). The link will replace this line. The image above is the first frame of the video.
+Video link: not published yet (placeholder: `EXPLAINER_VIDEO_URL`). The link will replace this line. The image above is a frame from the video's opening.
+
+No install: [trustshell.dev/three-cases](https://trustshell.dev/three-cases) shows the same three cases on one page.
 
 ## Try it, in order of effort
 
@@ -52,7 +54,7 @@ npm ci --legacy-peer-deps
 npx ts-node --transpile-only scripts/demo/checked-answer-demo.ts
 ```
 
-The install took fresh readers 24 to 40 minutes. The demo replays three made-up cases with no model call and prints, for each, the panel opinion, the independent check, and the outcome. The first diagram below is this demo. If you would rather not install, the full output is in [docs/CHECKED_ANSWER_DEMO.md](https://github.com/DealAppSeo/repid-engine/blob/main/docs/CHECKED_ANSWER_DEMO.md).
+The install took fresh readers 24 to 40 minutes. The demo replays three made-up cases with no model call and prints, for each, the panel opinion, the independent check, and the outcome. The first diagram below is this demo. If you would rather not install, [trustshell.dev/three-cases](https://trustshell.dev/three-cases) shows the three cases, and the full output is in [docs/CHECKED_ANSWER_DEMO.md](https://github.com/DealAppSeo/repid-engine/blob/main/docs/CHECKED_ANSWER_DEMO.md).
 
 **(e) Wrap an agent we did not write.** [`examples/external-agent`](https://github.com/DealAppSeo/trustshell/tree/main/examples/external-agent) in this repository puts the published package around someone else's agent and runs on your machine only. Its README has the commands, and shows the option that turns blocking on (`blockAtOrAbove`); without it, nothing is blocked.
 
