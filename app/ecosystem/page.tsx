@@ -43,6 +43,15 @@ async function load(): Promise<{ repos: Repo[]; live: boolean }> {
   }
 }
 
+// A repo's homepage field is free text: "hyperdag.org" with no scheme would render as a relative link on this site.
+// Add https:// when no scheme is given, and drop anything that is not http(s).
+function homepageUrl(h: string | null): string | null {
+  const t = h?.trim();
+  if (!t) return null;
+  const u = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`;
+  return /^https?:\/\//i.test(u) ? u : null;
+}
+
 export default async function EcosystemPage() {
   const { repos, live } = await load();
   return (
@@ -57,10 +66,10 @@ export default async function EcosystemPage() {
                 {r.owner.login}/{r.name}
               </a>
               {r.description ? <p className="mt-1 text-slate-300">{r.description}</p> : null}
-              {r.homepage ? (
+              {homepageUrl(r.homepage) ? (
                 <p className="mt-1 text-sm">
-                  <a href={r.homepage} className="text-slate-400 underline underline-offset-4">
-                    {r.homepage.replace(/^https?:\/\//, '')}
+                  <a href={homepageUrl(r.homepage)!} className="text-slate-400 underline underline-offset-4">
+                    {homepageUrl(r.homepage)!.replace(/^https:\/\//, '')}
                   </a>
                 </p>
               ) : null}
