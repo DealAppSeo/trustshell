@@ -22,16 +22,23 @@ const FALLBACK: Repo[] = [
 async function load(): Promise<{ repos: Repo[]; live: boolean }> {
   try {
     const q = ['topic:trust-ecosystem', ...OWNERS.map((o) => `user:${o}`)].join('+');
+    // GitHub rejects requests with no User-Agent. A token is optional (public-repo read only); it lifts the anonymous rate limit.
+    const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'User-Agent': 'trustshell-ecosystem' };
+    if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
     const res = await fetch(`https://api.github.com/search/repositories?q=${q}&sort=updated&per_page=50`, {
-      headers: { Accept: 'application/vnd.github+json' },
+      headers,
       next: { revalidate: 3600 },
     });
-    if (!res.ok) throw new Error(String(res.status));
+    if (!res.ok) throw new Error(`GitHub answered ${res.status}, rate limit remaining ${res.headers.get('x-ratelimit-remaining')}`);
     const body = (await res.json()) as { items?: Repo[] };
     const items = body.items ?? [];
-    if (items.length === 0) return { repos: FALLBACK, live: false };
+    if (items.length === 0) {
+      console.warn('ecosystem: GitHub search returned no repos, showing saved list');
+      return { repos: FALLBACK, live: false };
+    }
     return { repos: items, live: true };
-  } catch {
+  } catch (e) {
+    console.warn('ecosystem: live list failed, showing saved list:', e instanceof Error ? e.message : e);
     return { repos: FALLBACK, live: false };
   }
 }
