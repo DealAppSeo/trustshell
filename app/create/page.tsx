@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CONSTITUTION_QUESTIONS } from '@/lib/pai';
-import { parseHalVerdict, parseRegister, rejectEmptyName } from '@/lib/create-pai-parse';
+import { parseHalEvidence, parseRegister, parseRepidScore, rejectEmptyName, type HalEvidence } from '@/lib/create-pai-parse';
 import { OWNED_GLASS } from '@/components/after-agent';
 
 /**
@@ -30,11 +30,13 @@ interface Created {
   apiKey: string | null;
   parisVerdict: Verdict;
   romeVerdict: Verdict;
+  parisEv: HalEvidence | null;
+  romeEv: HalEvidence | null;
   repid: number | null;
   tier: string | null;
 }
 
-async function halVerdict(text: string): Promise<Verdict> {
+async function halVerdict(text: string): Promise<HalEvidence | null> {
   try {
     const res = await fetch(`${ENGINE}/api/v1/hal/evaluate`, {
       method: 'POST',
@@ -43,7 +45,7 @@ async function halVerdict(text: string): Promise<Verdict> {
     });
     const data = await res.json().catch(() => ({}));
     // Live HAL returns { decision: "vetoed"|"clean" }, not verdict/hal_decision.
-    return parseHalVerdict(data);
+    return parseHalEvidence(data);
   } catch {
     return null;
   }
@@ -82,19 +84,20 @@ export default function CreatePaiPage() {
       if (!parsed.ok) throw new Error(parsed.message);
       const { agentId, apiKey } = parsed;
 
-      const [parisVerdict, romeVerdict] = await Promise.all([halVerdict(PARIS), halVerdict(ROME)]);
+      const [parisEv, romeEv] = await Promise.all([halVerdict(PARIS), halVerdict(ROME)]);
+      const parisVerdict = parisEv?.verdict ?? null;
+      const romeVerdict = romeEv?.verdict ?? null;
 
       let repid: number | null = null;
       let tier: string | null = null;
       try {
         const r = await fetch(`${ENGINE}/api/v1/repid/${encodeURIComponent(agentId)}`);
         const rd = await r.json().catch(() => ({}));
-        const score = rd.repid_score ?? rd.repid ?? rd.current_repid;
-        if (typeof score === 'number') repid = score;
+        repid = parseRepidScore(rd);
         if (typeof rd.tier === 'string') tier = rd.tier;
       } catch { /* RepID read failed — shown as "not read yet", never faked */ }
 
-      setCreated({ agentId, apiKey, parisVerdict, romeVerdict, repid, tier });
+      setCreated({ agentId, apiKey, parisVerdict, romeVerdict, parisEv, romeEv, repid, tier });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not reach the backend to create your PAI.');
     } finally {
@@ -166,6 +169,35 @@ export default function CreatePaiPage() {
               <li><span className="text-[#a1a1a1]">“{PARIS}”</span> → {created.parisVerdict ?? 'not checked'}</li>
               <li><span className="text-[#a1a1a1]">“{ROME}”</span> → {created.romeVerdict ?? 'not checked'}</li>
             </ul>
+            <p className="mt-4 text-xs text-[#a1a1a1]">
+              Not a canned answer: each claim was sent live to independent AI models from different families,
+              and the verdict follows their votes. Here is what each one said.
+            </p>
+            {[[PARIS, created.parisEv], [ROME, created.romeEv]].map(([claim, ev]) => (
+              <div key={String(claim)} className="mt-3 rounded-md border border-[#222] p-3 text-xs">
+                <p className="text-[#a1a1a1]">“{String(claim)}”</p>
+                {(ev as HalEvidence | null) && (ev as HalEvidence).votes.length > 0 ? (
+                  <>
+                    <ul className="mt-2 space-y-1 font-mono">
+                      {(ev as HalEvidence).votes.map((v) => (
+                        <li key={v.provider}>{v.provider} · {v.model} → <b>{v.verdict}</b>{v.note ? ` — ${v.note}` : ''}{v.latencyMs !== null ? ` (${v.latencyMs} ms)` : ''}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-[#a1a1a1]">
+                      {(ev as HalEvidence).votes.length} models counted
+                      {(ev as HalEvidence).families.length ? ` · families: ${(ev as HalEvidence).families.join(', ')}` : ''}
+                      {(ev as HalEvidence).quorum ? ` · quorum: ${(ev as HalEvidence).quorum}` : ''}
+                      {(ev as HalEvidence).latencyMs !== null ? ` · ${(ev as HalEvidence).latencyMs} ms total` : ''}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-[#ff9f43]">No model votes came back for this claim — NOT CHECKED. Nothing was verified.</p>
+                )}
+              </div>
+            ))}
+            <p className="mt-3 text-xs text-[#a1a1a1]">
+              Limits: models can be wrong together, and this checks whether a claim is plausible, not a signed record.
+            </p>
           </section>
 
           {/* RepID. */}
@@ -173,7 +205,7 @@ export default function CreatePaiPage() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-[#a1a1a1]">RepID</h2>
             <p className="mt-2 text-lg">
               {created.repid !== null
-                ? <><span className="font-bold">{created.repid}</span> {created.tier && <span className="text-[#a1a1a1]">· {created.tier}</span>} <span className="text-[#a1a1a1]">(the score moves; it is not frozen)</span></>
+                ? <><span className="font-bold">{created.repid}</span> {created.tier && <span className="text-[#a1a1a1]">· {created.tier}</span>} <span className="text-[#a1a1a1]">(the score moves; new PAIs start at 200 and earn their way up)</span></>
                 : <span className="text-[#a1a1a1]">Not read yet — your standing is live and will populate as your PAI acts.</span>}
             </p>
           </section>
@@ -184,6 +216,7 @@ export default function CreatePaiPage() {
             <ul className="mt-3 space-y-2 text-sm">
               <li>• Your PAI is registered — you have an <span className="font-mono">agentId</span> and a one-time <span className="font-mono">apiKey</span> (above). No key of yours was taken.</li>
               <li>• The harness ran live: it <span className="text-[#4ade80]">passed</span> a true claim and {created.romeVerdict === 'VETO' ? <><span className="text-[#4ade80]">vetoed</span> a false one before you could act on it</> : <>checked a false one</>}.</li>
+              <li>• Not yet: your PAI is <b>not on-chain</b> (no token minted) and has <b>no access</b> to your email, calendar or money. Nothing acts for you until you set rules.</li>
               <li>• Your RepID standing is live. You can attach a proof that your score is above a threshold; the proof&apos;s public inputs include the score.</li>
             </ul>
           </section>
