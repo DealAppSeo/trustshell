@@ -56,3 +56,36 @@ describe('create PAI parsers (live HAL decision field)', () => {
     expect(first.agentId).not.toBe(second.agentId);
   });
 });
+
+import { parseHalEvidence, parseRepidScore } from '../lib/create-pai-parse';
+
+describe('create PAI evidence (synthetic shape of the live HAL response)', () => {
+  const resp = {
+    decision: 'vetoed',
+    latency_ms: 400,
+    signals: { quorum: 'full', families: ['openai', 'qwen'] },
+    provider_responses: [
+      { provider: 'a', model: 'm1', verdict: 'FALSE', note: 'It is in Paris.', latency_ms: 200 },
+      { provider: 'b', model: 'm2', verdict: 'FALSE', note: 'Paris.', latency_ms: 300 },
+      { provider: 'c', model: 'm3', verdict: 'UNCERTAIN', note: 'NOT_CHECKED: late after 2-family agreement', counted: false, late: true },
+    ],
+  };
+  it('keeps only votes that counted; late NOT_CHECKED providers are not agreement', () => {
+    const ev = parseHalEvidence(resp);
+    expect(ev.verdict).toBe('VETO');
+    expect(ev.votes.map((v) => v.provider)).toEqual(['a', 'b']);
+    expect(ev.families).toEqual(['openai', 'qwen']);
+    expect(ev.quorum).toBe('full');
+  });
+  it('no provider rows → verdict null and zero votes (shown as NOT CHECKED, not invented)', () => {
+    const ev = parseHalEvidence({});
+    expect(ev.verdict).toBeNull();
+    expect(ev.votes).toEqual([]);
+  });
+  it('RepID is read from `score`, the field the live route returns', () => {
+    expect(parseRepidScore({ score: 200, tier: 'PROBATIONARY' })).toBe(200);
+    expect(parseRepidScore({ repid_score: 350 })).toBe(350);
+    expect(parseRepidScore({})).toBeNull();
+    expect(parseRepidScore(null)).toBeNull();
+  });
+});
