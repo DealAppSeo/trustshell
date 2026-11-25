@@ -91,8 +91,16 @@ export default async function InspectPage() {
           This is a developer preview and a series of experiments. Use it now only if it is useful to you
           now. As we apply what we learn, what we hope grows out of it is a shared source of basic truth
           that anyone can check, and a safe, ethical, democratized and benevolent AGI, governed by the
-          people it is for: everyone who uses it. That is a hope we are working toward, not a claim about
-          today.
+          people it is for. By that we mean everyone, including people who will never install anything:
+          people with no smartphone, no account and no say in how this is built. Our goal, and the goal we
+          want our agents to serve, is to help people help people. So we encourage charitable and
+          philanthropic work, by people and by their agents, so that the last, the lost and the least
+          receive some benefit too. That is a hope we are working toward, not a claim about today. It is
+          set out in{" "}
+          <a href="/mission" className="text-accent underline underline-offset-2 hover:no-underline">
+            our mission
+          </a>
+          .
         </p>
         <p className="text-sm text-muted mt-2">
           Not a developer? The same habit, without a terminal, is at{" "}
