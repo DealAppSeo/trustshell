@@ -50,7 +50,7 @@ export default async function InspectPage() {
         <h2 className="text-lg font-semibold text-foreground">Help work this out</h2>
         <p className="text-sm text-muted mt-2">
           We are working, in the open, on how an AI agent should earn trust: by evidence someone else can
-          check. We have not got it all right, and we would rather hear where this is wrong than be told it
+          check. We have not got it all right yet, and we would rather hear where this is wrong than be told it
           is right. If you build with agents, use them or doubt them, join the conversation in{" "}
           <a
             href="https://github.com/DealAppSeo/trust-commons"
